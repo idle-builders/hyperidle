@@ -14,7 +14,7 @@ response for the production environment.
 - Monitor uptime, error rates, and latency. Alert the team when
   thresholds breach.
 - Handle incidents. Diagnose, mitigate, restore, then write a post-mortem
-  as a document in the `{{community}}` practice.
+  document for the team.
 - Maintain infrastructure-as-code. Every environment change is reviewed
   and committed — no manual snowflakes.
 

@@ -28,7 +28,13 @@ function makeBundle(
 ) {
 	return {
 		kind: "task" as const,
-		task: { id: "t-probe", title: "Test", description: null, state: "in_progress" },
+		task: {
+			id: "t-ba9b",
+			title: "Test",
+			description: null,
+			state: "in_progress",
+			doneCondition: null,
+		},
 		ancestors: [],
 		agent: { id: agentId, name: "Tester", role: "builder" },
 		team: { id: "team-probe", name: "Test Team" },

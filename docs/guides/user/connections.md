@@ -2,7 +2,7 @@
 
 Your agents can use external services — GitHub, Stripe, Figma, databases, or any tool that exposes an MCP server. **Settings → Connections** is where you see and manage what's connected.
 
-How connections work under the hood (held vs inherited, spawn-time provisioning) is covered in [Connection model](../../architecture/connection-model.md).
+How connections work under the hood (held vs inherited, spawn-time provisioning) is covered in [Connection model](../../architecture/connections.md).
 
 ---
 
@@ -29,13 +29,9 @@ Each row shows:
 3. Enter the service name (e.g. `Stripe`) and paste your token.
 4. Click **Add**.
 
-The token is encrypted immediately. A new token connection starts with a **Needs attention** chip — it hasn't been validated yet. There is currently no Validate action in the UI to clear it; the chip is informational and will stay until a validate UI is surfaced in a future release.
+The token is encrypted immediately. A new token connection starts with a **Needs attention** chip — it hasn't been validated yet. The chip is informational; it stays amber until the connection is used successfully.
 
-**Where to get your token:**
-
-- GitHub: Settings → Developer settings → Personal access tokens → Tokens (classic)
-- Stripe: Dashboard → Developers → Restricted keys
-- Any service: look for "API key" or "Personal access token" in the service's developer or security settings
+**Where to get your token:** look for "API key" or "Personal access token" in the service's developer or security settings.
 
 ---
 

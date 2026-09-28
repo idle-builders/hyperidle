@@ -121,7 +121,7 @@ hyperidle/
 - `docs/guides/developer/` — get from zero to running tests in under 10 minutes
 - `docs/guides/user/` — using HyperIdle as an end user
 - `docs/deployment/` — VPS / cloud deployment
-- `docs/architecture/` — three-layer system overview
+- `docs/architecture/` — four-layer system overview
 - `.pipeline/<track>.md` — per-track work-package registries; `.pipeline/work/<id>/` — per-item plans and artifacts
 - `CLAUDE.md` — rules for AI agents working in this repo
 - `ETHOS.md` — builder philosophy

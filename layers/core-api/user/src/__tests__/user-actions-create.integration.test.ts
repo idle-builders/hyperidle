@@ -151,7 +151,6 @@ function buildDeps(): UserActionsDeps {
 		},
 		folders: buildFoldersFake(),
 		connections: buildConnectionsFake(),
-		readServerConfig: async () => ({ harnessDisabled: [] }),
 		searchDocuments: runnerFor(documentActions, "search_documents"),
 		editDocument: runnerFor(documentActions, "edit_document"),
 	};

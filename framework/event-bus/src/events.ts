@@ -126,18 +126,6 @@ export interface SessionEndedEvent {
 }
 
 /**
- * Emitted by `buildHandoff` post-commit. Handoff deliberately does NOT emit
- * `session_ended` — a handoff is not a session-end outcome.
- */
-export interface SessionHandoffCompletedEvent {
-	type: "session_handoff_completed";
-	streamId: string;
-	sessionId: string;
-	requestedBy: string;
-	timestamp: number;
-}
-
-/**
  * Emitted by `runSession` (site A) when a task-session turn exhausts its
  * event stream without having invoked any member of the accepted-return set
  * (RETURN_ACTION_NAMES). The turn is flagged — never silently completed.
@@ -315,7 +303,7 @@ export type DomainEvent =
 	| AgentRunLifecycleChangedEvent
 	| SessionStartedEvent
 	| SessionEndedEvent
-	| SessionHandoffCompletedEvent
+	// Return-gate escape surface
 	| SessionNotReturnedEvent
 	| SandboxWritebackChangesDetectedEvent
 	| PropagationAppliedEvent
@@ -345,7 +333,6 @@ export const EVENT_TYPES = [
 	"agent_run_lifecycle_changed",
 	"session_started",
 	"session_ended",
-	"session_handoff_completed",
 	"session_not_returned",
 	"sandbox_writeback_changes_detected",
 	"propagation_applied",

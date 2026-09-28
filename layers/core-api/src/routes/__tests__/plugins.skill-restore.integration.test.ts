@@ -2,24 +2,46 @@
  * Skill restore re-imports body from plugin source on disk. Editing a
  * skill's body in the DB and then calling `edit_plugin`'s restore change puts
  * the original SKILL.md content back, through `POST /api/actions/edit_plugin`.
- *
- * @lore: restore writes through edit_document — updatedBy is always ctx.actor, from the x-hyperidle-actor-id header, never a body field.
  */
+// @lore: restore writes through edit_document — updatedBy is always ctx.actor, never a body field
 
 import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, users } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import { skillItemId } from "@hyperidle/settings";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
+import type { ActionContext } from "../../actions/action.js";
+import { buildCoreActions } from "../../actions/compose.js";
+
+async function editDocumentAs(
+	actorId: string,
+	body: Record<string, unknown>,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
+): Promise<{ ok: boolean }> {
+	const actions = buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	});
+	const editDocument = actions.find((a) => a.declaration.name === "edit_document");
+	if (!editDocument) throw new Error("edit_document action not found");
+	const ctx: ActionContext = { actor: actorId, db, eventBus, now: new Date().toISOString() };
+	const result = await editDocument.run(ctx, body);
+	return { ok: result.ok };
+}
 
 /** The install route writes documents through `edit_document`, which needs a
  * real actor for the `changes` row it appends — the auth middleware's
  * API-key fallback resolves to this id when no human is seeded. `user-alice`
  * is seeded alongside it: `changes.actor` is FK-constrained to `users.id`
- * (`framework/db/src/schema.ts`'s `changes` table), so the actor-override
- * header used below needs a real row too. */
+ * (`framework/db/src/schema.ts`'s `changes` table), so the in-process call
+ * as alice below needs a real row too. */
 async function seedFounder(db: HyperIdleDb): Promise<void> {
 	await db.insert(users).values([
 		{
@@ -68,7 +90,12 @@ function copyPlugin(): string {
 describe("skill restore", () => {
 	// pluginsApp is a per-test app instance with a temp pluginsBaseDir already
 	// configured in the composition root — no pluginsBaseDir in the request body.
-	test("restore re-imports skill body from plugin source", async ({ db, pluginsApp }) => {
+	test("restore re-imports skill body from plugin source", async ({
+		db,
+		pluginsApp,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		await seedFounder(db);
 		// 1. Install. The app's pluginsBaseDir is set at construction time by the
 		//    fixture, so install_path is stored automatically.
@@ -102,18 +129,15 @@ describe("skill restore", () => {
 		const diskBody = readFileSync(join(PLUGIN_ROOT, "skills", SKILL_DIR, "SKILL.md"), "utf-8");
 		expect(originalBody).toBe(diskBody);
 
-		// 3. Simulate a user edit via `edit_document`, acting as "user-alice"
-		// through the actor-override header.
-		const patchRes = await pluginsApp.request("/api/actions/edit_document", {
-			method: "POST",
-			headers: { "Content-Type": "application/json", "x-hyperidle-actor-id": "user-alice" },
-			body: JSON.stringify({
-				id: skillId,
-				body: "USER EDITED CONTENT",
-				version: skillItem.version,
-			}),
-		});
-		expect(patchRes.status).toBe(200);
+		// 3. Simulate a user edit via `edit_document`, acting as "user-alice" in-process.
+		const patchRes = await editDocumentAs(
+			"user-alice",
+			{ id: skillId, body: "USER EDITED CONTENT", version: skillItem.version },
+			db,
+			eventBus,
+			agentOrchestration,
+		);
+		expect(patchRes.ok).toBe(true);
 
 		// Verify the edit landed.
 		const editedRes = await pluginsApp.request("/api/actions/open_document", {

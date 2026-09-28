@@ -1,11 +1,10 @@
 /**
  * The auth middleware: the X-API-Key is the one credential. A valid key makes
- * the caller the person on the users table (the first human row), or the
- * agent the composition root names in the actor-override header. There are no
- * login sessions, no invite codes and no bearer tokens.
+ * the caller the person on the users table (the first human row). The
+ * x-hyperidle-actor-id header is ignored — any override attempt resolves to
+ * the key holder. There are no login sessions, no invite codes and no bearer tokens.
  */
 
-import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { Hono } from "hono";
@@ -65,12 +64,16 @@ describe("auth middleware — the API key is the one credential", () => {
 		expect(["u-auth-first", "u-auth-second"]).toContain(body.userId);
 	});
 
-	test("the actor-override header names the caller", async ({ db }) => {
+	test("x-hyperidle-actor-id is ignored — the caller is the key holder, not the named override", async ({
+		db,
+	}) => {
 		await seedHuman(db, "u-auth-human");
 		const res = await makeProbeApp(db).request("/probe", {
-			headers: { "X-API-Key": TEST_API_KEY, [CORE_API_ACTOR_OVERRIDE_HEADER]: "agent-1" },
+			headers: { "X-API-Key": TEST_API_KEY, "x-hyperidle-actor-id": "agent-1" },
 		});
-		expect(await res.json()).toEqual({ userId: "agent-1" });
+		expect(res.status).toBe(200);
+		// Must resolve to the key holder (the human row), never to the header value.
+		expect(await res.json()).toEqual({ userId: "u-auth-human" });
 	});
 
 	test("before the welcome screen made a person, the caller is the placeholder id", async ({

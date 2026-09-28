@@ -60,6 +60,7 @@ const BUNDLE: BakedContextBundle = {
 		title: "Do the thing",
 		description: "Bundle-sourced description",
 		state: "in_progress",
+		doneCondition: null,
 	},
 	ancestors: [],
 	agent: { id: "agent-i12-c1", name: "Ada", role: "builder" },

@@ -1,13 +1,8 @@
 /**
- * AX1 — demo world activity: ~45 sessions (terminal history + two live).
- * @lore BA9d: ritual subscriptions (retro, knowledge decay, knowledge promotion) removed
- * from the demo world — the plugin owns them. A demo install without the plugin
- * shows no ritual subscriptions; installing the plugin produces exactly one of each.
- * @lore BC5 T7b: the notification-popover fixture rows and the daily-digest
- * subscription's run-history row are deleted with `notification_queue` and
- * `routine_runs` — no fabricated inbox row replaces them (no code path
- * writes an inbox row except a real subscription's own wake), so the demo
- * inbox starts empty.
+ * AX1 — demo world activity: ~35 sessions (terminal history + two live).
+ * @lore Built-in subscriptions (retro, knowledge decay, knowledge promotion) are owned by the plugin,
+ * not seeded here — a demo install without the plugin shows none; installing it produces exactly one of each.
+ * @lore The demo inbox seeds unread rows for the founder — changes created by PM_ID while the founder was away.
  */
 
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
@@ -98,11 +93,6 @@ async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 					notes: crashed
 						? "Session crashed mid-run during the ranking change; recovered context from the task notes in the next session."
 						: SESSION_NOTES[noteIndex++ % SESSION_NOTES.length],
-					effectivenessScore: crashed
-						? "0.2"
-						: (0.7 + ((i + ref.finishedDaysAgo) % 5) * 0.05).toFixed(2),
-					effectivenessRecordedAt: endedAt,
-					effectivenessRecordedBy: PM_ID,
 				})
 				.onConflictDoNothing();
 		}
@@ -141,9 +131,6 @@ async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 			state: "done",
 			outcome: "completed",
 			notes: "Prepared the morning summary.",
-			effectivenessScore: "0.85",
-			effectivenessRecordedAt: clock.hoursAgo(1),
-			effectivenessRecordedBy: "demo-founder",
 		})
 		.onConflictDoNothing();
 
@@ -165,9 +152,6 @@ async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 					i === 0
 						? "Monthly reflection with the founder; focus list updated."
 						: "Morning check-in: summarized waiting reviews and overnight activity.",
-				effectivenessScore: "0.85",
-				effectivenessRecordedAt: startedAt,
-				effectivenessRecordedBy: "demo-founder",
 			})
 			.onConflictDoNothing();
 	}

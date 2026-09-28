@@ -1,6 +1,5 @@
 /**
- * Block primitive types. Concept: docs/blocks/.
- * docs/blocks/canonical-shapes.md is the canonical signature.
+ * Block primitive types. Concept: docs/interface/blocks.md.
  */
 
 export const BLOCK_KINDS = [

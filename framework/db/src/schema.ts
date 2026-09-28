@@ -1,4 +1,4 @@
-import type { PluginContributionKind, PluginState } from "@hyperidle/domain-model";
+import type { PluginState, StoredPluginContributionKind } from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
 import {
 	type AnyPgColumn,
@@ -170,12 +170,7 @@ export const sessions = pgTable(
 		sandboxSnapshot: text("sandbox_snapshot"),
 		outcome: text("outcome"),
 		notes: text("notes"),
-		// Session effectiveness score stored as text (float 0-1) — schema uses text for all non-integer values; use parseFloat() on read, .toString() on write, always guard with Number.isNaN()
-		effectivenessScore: text("effectiveness_score"),
-		/** ISO 8601 timestamp when the effectiveness score was last recorded. */
-		effectivenessRecordedAt: text("effectiveness_recorded_at"),
-		/** User ID (or agent ID) of the actor who last recorded the effectiveness score. */
-		effectivenessRecordedBy: text("effectiveness_recorded_by"),
+		// Harness-assigned id for this session; null means the session cannot be resumed.
 		harnessSessionId: text("harness_session_id"),
 	},
 	(table) => [
@@ -675,15 +670,6 @@ export type NewFilesystemInjection = typeof filesystemInjections.$inferInsert;
 
 // --- Server config ---
 
-/** Singleton-row typed config table. The config column holds a Zod-validated JSON blob. id is always "default". */
-export const serverConfig = pgTable("server_config", {
-	/** Singleton row. Always "default". */
-	id: text("id").primaryKey().default("default"),
-	/** JSON blob validated by Zod on read/write. */
-	config: text("config").notNull().default("{}"),
-	updatedAt: text("updated_at").notNull(),
-});
-
 // --- Plugins: one row per install, and what each install contributed ---
 
 export const plugins = pgTable(
@@ -735,7 +721,7 @@ export const pluginContributions = pgTable(
 			.notNull()
 			.references(() => plugins.id, { onDelete: "cascade", onUpdate: "cascade" }),
 		/** Which table `entityId` points into. */
-		kind: text("kind").$type<PluginContributionKind>().notNull(),
+		kind: text("kind").$type<StoredPluginContributionKind>().notNull(),
 		/** The contributed row's primary key, in the table `kind` names. */
 		entityId: text("entity_id").notNull(),
 		/** Set when a person edited this contribution; a reinstall leaves their version alone. */
@@ -754,6 +740,7 @@ export const pluginContributions = pgTable(
 		index("plugin_contributions_plugin_idx").on(table.pluginId),
 		// "Which plugin owns this row" — the provenance badge's read.
 		index("plugin_contributions_entity_idx").on(table.kind, table.entityId),
+		// Matches stored kinds only; mcp_server is synthesised from mcp.json, never persisted.
 		check(
 			"plugin_contributions_kind_ck",
 			sql`${table.kind} IN ('agent', 'subscription', 'document')`,

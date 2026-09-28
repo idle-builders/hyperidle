@@ -245,13 +245,9 @@ describe("AssistantOverlay layout fixes", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Notice rendering: missing_key / missing_harness / provider_error guidance,
+// Notice rendering: missing_harness / provider_error guidance,
 // plus crash-recovery (stale thinking state)
 // ---------------------------------------------------------------------------
-//
-// `notice` stays on the READ shape only —
-// `AssistantOverlay.tsx`'s renderer is unchanged, so this coverage is kept
-// and re-pointed rather than deleted.
 
 const NOW_ISO = new Date().toISOString();
 // A timestamp older than the turn timeout
@@ -291,37 +287,6 @@ function renderNoticeOverlay() {
 describe("AssistantOverlay notice rendering", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
-	});
-
-	it("renders missing_key guidance card naming Settings → Credentials", () => {
-		mockReadyOverlay();
-		vi.mocked(useThread).mockReturnValue(
-			makeData([
-				{
-					id: "msg-mk-1",
-					threadId: BASE_THREAD.id,
-					senderId: MY_AGENT_ID,
-					type: "plain",
-					payload: {
-						text: "I can't think yet — no API key is configured. Add your Anthropic key in Settings → Credentials.",
-						notice: { kind: "missing_key" },
-					},
-					clientKey: "ck-mk-1",
-					blockId: null,
-					deletedAt: null,
-					redactedAt: null,
-					resolvedAt: null,
-					createdAt: NOW_ISO,
-				},
-			]),
-		);
-
-		renderNoticeOverlay();
-
-		// Must render guidance card for missing_key
-		expect(screen.getByText(/no api key/i)).toBeInTheDocument();
-		// The message itself names where to go — no live navigation affordance exists.
-		expect(screen.getByText(/credentials/i)).toBeInTheDocument();
 	});
 
 	it("renders missing_harness guidance card naming Agent settings", () => {

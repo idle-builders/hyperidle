@@ -1,4 +1,3 @@
-export { CORE_API_ACTOR_OVERRIDE_HEADER } from "./actor-override-header.js";
 export type {
 	AgentOrchestrationAddFolderResult,
 	AgentOrchestrationConnectionCreateInput,

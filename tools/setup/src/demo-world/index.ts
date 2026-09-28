@@ -2,13 +2,14 @@
  * AX1 — demo world orchestrator.
  *
  * Seeds the lived-in Acme world in FK-safe order: cast first (everything
- * references users), then documents (bets carry provenance FKs into it),
+ * references users), then documents (tasks carry provenance FKs into it),
  * then work, conversations, and activity.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { seedActivity } from "./activity.js";
 import { seedCast } from "./cast.js";
+import { seedChanges } from "./changes-seed.js";
 import { seedConversations } from "./conversations.js";
 import { seedDocuments } from "./documents.js";
 import type { DemoClock } from "./time.js";
@@ -20,4 +21,6 @@ export async function seedDemoWorldContent(db: HyperIdleDb, clock: DemoClock): P
 	await seedWork(db, clock);
 	await seedConversations(db, clock);
 	await seedActivity(db, clock);
+	// Changes rows depend on all seeded objects existing first.
+	await seedChanges(db, clock);
 }

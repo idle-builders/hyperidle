@@ -969,7 +969,6 @@ export function makeSessionRow(id: string, overrides: Partial<SessionRow> = {}):
 		endedAt: null,
 		state: "active",
 		outcome: null,
-		effectivenessScore: null,
 		routineId: null,
 		notes: null,
 		modelTier: "workhorse",

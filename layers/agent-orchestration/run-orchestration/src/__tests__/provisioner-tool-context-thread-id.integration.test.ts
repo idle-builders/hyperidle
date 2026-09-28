@@ -98,7 +98,6 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 				role: "builder",
 				teamId: null,
 			},
-			harnessDisabled: [],
 			callingThreadId: "thread-provisioner-ctx-1",
 		} as ProvisionSessionParams;
 
@@ -139,7 +138,6 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 				role: "builder",
 				teamId: null,
 			},
-			harnessDisabled: [],
 		} as ProvisionSessionParams;
 
 		const deps = buildDeps(db as HyperIdleDb, sandboxPath);

@@ -4,7 +4,6 @@ import { createLogger } from "@hyperidle/diagnostics";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool } from "@hyperidle/harness-protocol";
-import { readServerConfig } from "@hyperidle/settings";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import {
 	createUpgradeTokenStore,
@@ -172,6 +171,9 @@ interface AppOptions {
 
 const APP_DISPOSERS = new WeakMap<Hono, Array<() => void>>();
 const APP_ACTION_TOOLS = new WeakMap<Hono, ReadonlyArray<RegisteredTool<HyperIdleDb>>>();
+/** Raw action list — exposed so `boot.ts` can build `CoreApiBoot.callActionAs` without re-constructing the actions. Same take-once idiom as `APP_ACTION_TOOLS`. */
+const APP_ACTIONS = new WeakMap<Hono, readonly Action[]>();
+// @lore: APP_DOCUMENT_RUNNERS — boot.ts needs raw edit_document/search_documents runners, not MCP-wrapped; separate WeakMap keeps different consumer shapes apart
 const APP_DOCUMENT_RUNNERS = new WeakMap<
 	Hono,
 	{
@@ -258,8 +260,8 @@ function buildCoreActionsBindings(
  * that function's own cognitive-complexity budget is already spent.
  * `searchTasksRun`/`searchThreadsRun`/`searchDocumentsRun` are reach's own
  * doors (already extracted in `createCoreApiApp`, never `open_*`);
- * `assembleSessionDocuments`/`readServerConfig` are this Layer's own
- * (never a nested Service's) imports, exactly like
+ * `assembleSessionDocuments` is this Layer's own
+ * (never a nested Service's) import, exactly like
  * `task-run-resolver-bindings.ts`'s equivalent wiring.
  */
 function registerSubscriptionServices(
@@ -283,7 +285,6 @@ function registerSubscriptionServices(
 		searchThreads: runners.searchThreadsRun,
 		searchDocuments: runners.searchDocumentsRun,
 		assembleSessionDocuments,
-		readServerConfig: (readDb) => readServerConfig(readDb),
 		...(wsPush ? { wsPush } : {}),
 	});
 	// The schedule half — started and stopped alongside the fire
@@ -293,7 +294,6 @@ function registerSubscriptionServices(
 		agentWorkIntentRecorder,
 		searchDocuments: runners.searchDocumentsRun,
 		assembleSessionDocuments,
-		readServerConfig: (readDb) => readServerConfig(readDb),
 	});
 	return [unsubSubscriptionFire, subscriptionClock.stop];
 }
@@ -348,6 +348,7 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		);
 		api.route("/actions", createActionsRouter(actions, { db: options.db, eventBus }));
 		APP_ACTION_TOOLS.set(api, actionsAsTools(actions));
+		APP_ACTIONS.set(api, actions);
 		const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
 		if (!editTaskAction) {
 			throw new Error("buildCoreActions did not produce an edit_task action");
@@ -497,7 +498,19 @@ export function takeAppActionTools(
 	return tools;
 }
 
-// Detach and return the raw edit_document/search_documents runners. Undefined when db was not supplied.
+/** Detach and return the raw action list. `undefined` when `db` was never supplied. Read exactly once, by `bootCoreApi`, the same idiom as `takeAppActionTools`. */
+export function takeAppActions(hono: Hono): readonly Action[] | undefined {
+	const actions = APP_ACTIONS.get(hono);
+	APP_ACTIONS.delete(hono);
+	return actions;
+}
+
+/**
+ * §8.4 — detach and return the composed `edit_document`/`search_documents`
+ * runners. `undefined` when `db` was never supplied (no actions were built).
+ * Read exactly once, by `bootCoreApi`, the same idiom `takeAppActionTools`
+ * already gives.
+ */
 export function takeAppDocumentRunners(hono: Hono): ReturnType<typeof APP_DOCUMENT_RUNNERS.get> {
 	const runners = APP_DOCUMENT_RUNNERS.get(hono);
 	APP_DOCUMENT_RUNNERS.delete(hono);

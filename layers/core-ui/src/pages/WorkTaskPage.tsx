@@ -2,6 +2,7 @@
 
 import {
 	type EditTaskInput,
+	TASK_OUTCOME_VERDICT_LABEL,
 	TASK_STATE_LABEL,
 	type Task,
 	type TaskNode,
@@ -11,7 +12,7 @@ import {
 } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
-import { ArtifactSection } from "../components/ArtifactSection.js";
+import { ChildDocumentsSection } from "../components/ChildDocumentsSection.js";
 import type { OpenHandler, PartAuthor } from "../components/parts";
 import { SessionView } from "../components/SessionView.js";
 import { TaskDependencyField } from "../components/TaskDependencyField.js";
@@ -129,10 +130,12 @@ function SubtaskTree({
 	nodes,
 	depth = 0,
 	onReorder,
+	resolveAgentName,
 }: {
 	nodes: readonly TaskNode[];
 	depth?: number;
 	onReorder?: (taskId: string, newPosition: number) => void;
+	resolveAgentName?: (id: string) => string;
 }): JSX.Element {
 	if (nodes.length === 0) {
 		return <p className="type-metadata text-[var(--text-tertiary)] py-[6px]">No subtasks yet.</p>;
@@ -151,6 +154,7 @@ function SubtaskTree({
 						index={idx}
 						totalSiblings={nodes.length}
 						onReorder={onReorder}
+						resolveAgentName={resolveAgentName}
 					/>
 				</li>
 			))}
@@ -164,12 +168,14 @@ function SubtaskRow({
 	index,
 	totalSiblings,
 	onReorder,
+	resolveAgentName,
 }: {
 	node: TaskNode;
 	depth: number;
 	index: number;
 	totalSiblings: number;
 	onReorder?: (taskId: string, newPosition: number) => void;
+	resolveAgentName?: (id: string) => string;
 }): JSX.Element {
 	const { children } = node;
 	const task = node;
@@ -222,11 +228,18 @@ function SubtaskRow({
 				)}
 			</div>
 			{task.ownerAgentId && (
-				<span className="type-metadata text-[var(--text-tertiary)]">{task.ownerAgentId}</span>
+				<span className="type-metadata text-[var(--text-tertiary)]">
+					{resolveAgentName ? resolveAgentName(task.ownerAgentId) : task.ownerAgentId}
+				</span>
 			)}
 			{children.length > 0 && (
 				<div className="mt-[6px]">
-					<SubtaskTree nodes={children} depth={depth + 1} onReorder={onReorder} />
+					<SubtaskTree
+						nodes={children}
+						depth={depth + 1}
+						onReorder={onReorder}
+						resolveAgentName={resolveAgentName}
+					/>
 				</div>
 			)}
 		</div>
@@ -238,14 +251,13 @@ function SessionRow({
 	title,
 	agent,
 	status,
-	effectivenessScore,
 	onOpen,
 }: {
 	id: string;
 	title: string;
 	agent: string;
 	status: string;
-	effectivenessScore?: number | null;
+	/** Opens the session in the page's split pane — the same `onOpenSession` door Conversations uses. */
 	onOpen: (sessionId: string) => void;
 }): JSX.Element {
 	const isActive = status === "active";
@@ -263,15 +275,6 @@ function SessionRow({
 				<div className="type-copy text-[var(--text-primary)] truncate">{title}</div>
 				<div className="type-metadata text-[var(--text-tertiary)] truncate mt-[3px]">{agent}</div>
 			</div>
-			{effectivenessScore !== null && effectivenessScore !== undefined && (
-				<span
-					data-testid="session-effectiveness-score"
-					className="type-data tabular-nums text-[var(--text-secondary)] shrink-0 flex items-center gap-[3px]"
-				>
-					<span className="type-metadata text-[var(--text-tertiary)]">Effectiveness</span>
-					{effectivenessScore.toFixed(2)}
-				</span>
-			)}
 			<div className="flex items-center gap-[6px] shrink-0">
 				{isActive && <LiveDot />}
 				<span className="type-metadata text-[var(--text-secondary)]">
@@ -636,6 +639,11 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 	const taskId = overrideTaskId ?? routeTaskId;
 	const { data, loading, error, refresh } = useOpenTask(taskId);
 	const { data: sessionsData } = useTaskSessions(taskId);
+	const { agents } = useAgents();
+	const resolveAgentName = useMemo(() => {
+		const map = new Map(agents.map((a) => [a.id, a.name]));
+		return (id: string): string => map.get(id) ?? id;
+	}, [agents]);
 
 	const { user } = useCurrentUser();
 	const [openSessionId, setOpenSessionId] = useState<string | null>(null);
@@ -764,7 +772,7 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 								<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-[var(--border-subtle)]">
 									<span className="type-label uppercase text-[var(--text-tertiary)]">Owner</span>
 									<span className="type-small text-[var(--text-primary)]">
-										{task.ownerAgentId ?? "Unassigned"}
+										{task.ownerAgentId ? resolveAgentName(task.ownerAgentId) : "Unassigned"}
 									</span>
 								</div>
 								<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-[var(--border-subtle)]">
@@ -794,6 +802,35 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 								</div>
 							</div>
 
+							{/* Outcome verdict — shown when the task has been evaluated */}
+							{task.outcomeVerdict && (
+								<div
+									data-testid="task-outcome-block"
+									className="border-width-thin border-[var(--border-subtle)] bg-[var(--surface-page)] rounded-[var(--r-default)] px-[18px] py-[12px] flex flex-col gap-[6px]"
+								>
+									<div className="flex items-center gap-[9px]">
+										<span className="type-label uppercase text-[var(--text-tertiary)]">
+											Outcome
+										</span>
+										<span
+											data-testid="task-outcome-verdict"
+											className="type-small text-[var(--text-primary)]"
+										>
+											{TASK_OUTCOME_VERDICT_LABEL[task.outcomeVerdict]}
+										</span>
+									</div>
+									{task.outcomeSummary && (
+										<p
+											data-testid="task-outcome-summary"
+											className="type-copy text-[var(--text-secondary)]"
+										>
+											{task.outcomeSummary}
+										</p>
+									)}
+								</div>
+							)}
+
+							{/* Edit panel */}
 							<EditPanel task={task} onSaved={refresh} />
 
 							<section data-testid="task-subtasks-section">
@@ -811,7 +848,11 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 									</Button>
 								</div>
 								<div className="mt-[12px]">
-									<SubtaskTree nodes={children} onReorder={onReorder} />
+									<SubtaskTree
+										nodes={children}
+										onReorder={onReorder}
+										resolveAgentName={resolveAgentName}
+									/>
 								</div>
 							</section>
 
@@ -828,7 +869,6 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 												title={s.title}
 												agent={s.agent}
 												status={s.status}
-												effectivenessScore={s.effectivenessScore}
 												onOpen={(sessionId) => openSessionTarget({ route: "session", sessionId })}
 											/>
 										))}
@@ -836,11 +876,12 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 								)}
 							</section>
 
-							<ArtifactSection
+							{/* Documents parented to this task */}
+							<ChildDocumentsSection
 								parentKind="task"
 								parentId={taskId ?? ""}
-								heading="Artifacts"
-								emptyDescription="Artifacts will appear here once agents produce output for this task."
+								heading="Documents"
+								emptyDescription="Documents will appear here once agents produce output for this task."
 							/>
 
 							<section aria-label="Discussion">

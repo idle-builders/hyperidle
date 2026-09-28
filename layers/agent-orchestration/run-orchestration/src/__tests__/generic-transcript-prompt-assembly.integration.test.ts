@@ -205,7 +205,6 @@ describe("generic transcript delivery", () => {
 				role: "builder",
 				teamId: null,
 			},
-			harnessDisabled: [],
 		} as ProvisionSessionParams;
 	}
 
@@ -438,6 +437,7 @@ describe("generic transcript delivery", () => {
 					title: "Write the proof file",
 					description: "Create a file called proof.txt containing exactly OK.",
 					state: "in_progress",
+					doneCondition: null,
 				},
 				ancestors: [],
 				agent: { id: "agent-instruction-1", name: "Builder", role: "builder" },
@@ -488,6 +488,7 @@ describe("generic transcript delivery", () => {
 					title: "A task with a long description",
 					description: longDescription,
 					state: "in_progress",
+					doneCondition: null,
 				},
 				ancestors: [],
 				agent: { id: "agent-instruction-2", name: "Builder", role: "builder" },

@@ -106,19 +106,14 @@ The one rule that is stated above rather than pointed at is which **world** a fi
 
 **Authoritative** — `docs/` (ground truth, split by topic):
 
-- `architecture/` — system overview, components, interfaces, deployment, data flows
-- `process-layer/` — the five primitives (Teams, Bets, Tasks, Sessions, Routines)
-- `human-interface-layer/` — three views, form factors, user journeys, trust
-- `information-architecture/` — app shell, view layouts, page structure
-- `knowledge-architecture/` — five storage layers, canonical store, fabric, sync
-- `agent-layer/` — agent principles, identity, categories, lifecycle, harness
-- `blocks/` — content primitives: definition, composition, lifecycle, rendering
-- `ui-design/` — design credo, tokens, DaisyUI usage, custom components
-- `requirements/` — functional, system, non-functional requirements
-- `deployment/` — laptop, self-hosting, releases, shared backend
-- `guides/developer/` — onboarding, project structure, commands, conventions
-- `guides/user/` — end-user guide: interface, views, agents, daily rhythms
-- `archive/` — superseded docs
+- `product/` — what HyperIdle is, how work flows, how knowledge compounds
+- `guides/user/` — end-user guide: interface, views, agents, team, settings, connections
+- `guides/developer/` — contributor guide: getting started, commands, testing, linting
+- `deployment/` — laptop, self-hosting, shared backend, releases
+- `architecture/` — layers, actions, events, security, connections, plugins
+- `agent-layer/` — agent model, harnesses, return gate
+- `objects/` — task, thread, document, user, session, folders
+- `interface/` — navigation, messages, reviews, blocks, UI design
 
 Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipeline:architecture` identify which docs are relevant for a workpackage — downstream skills read the plan, not docs directly.
 

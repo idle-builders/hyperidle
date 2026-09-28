@@ -3,7 +3,7 @@
  */
 
 /** A REGISTERED, team-scoped file source — NOT owned by one agent.
- *  Mirrors docs/process-layer/canonical-shapes.md §Filesystem. */
+ *  See docs/objects/folders.md. */
 export interface Filesystem {
 	id: string;
 	teamId: string;

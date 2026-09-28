@@ -12,6 +12,7 @@ import {
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "@hyperidle/agent-orchestration";
 import {
+	applyFactoryCoreState,
 	buildAgentOrchestrationPort,
 	composeApiApplication,
 	createInProcessAgentOrchestrationTransport,
@@ -65,6 +66,10 @@ export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
 	readonly actionTools: CoreApiBoot["actionTools"];
+	/** Call any registered action in-process as a specific actor — for multi-actor integration test scenarios. */
+	readonly callActionAs: NonNullable<CoreApiBoot["callActionAs"]>;
+	/** Mint a WebSocket upgrade token for a specific actor — for integration tests that connect as non-default users. */
+	readonly mintWsTokenFor: NonNullable<CoreApiBoot["mintWsTokenFor"]>;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -144,6 +149,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		// copying — so installing would delete the sources it was built from.
 		pluginsBaseDir = path.join(path.dirname(dbUrl), "installed-plugins");
 	}
+
+	// @lore: factory bootstrap — applyFactoryCoreState inserts system:propagation actor; idempotent; must run before any write
+	await applyFactoryCoreState(db);
+
 	const eventBus = new EventBus();
 
 	const hasSecret = Boolean(process.env.HYPERIDLE_CREDENTIAL_KEY ?? process.env.HYPERIDLE_API_KEY);
@@ -344,9 +353,15 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		return disposePromise;
 	};
 
+	if (!coreApi.callActionAs)
+		throw new Error("callActionAs not available — server was built without db");
+	if (!coreApi.mintWsTokenFor)
+		throw new Error("mintWsTokenFor not available — server was built without WS support");
 	return {
 		httpServer,
 		dispose,
 		actionTools,
+		callActionAs: coreApi.callActionAs,
+		mintWsTokenFor: coreApi.mintWsTokenFor,
 	};
 }

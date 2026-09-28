@@ -209,7 +209,6 @@ describe("admitSession — baked agent-runnability config", () => {
 				teamId: "team-1",
 				persona: "You are Atlas. You never ship broken builds.",
 			},
-			harnessDisabled: [],
 			contextBundle: {
 				kind: "subscription",
 				subscription: { id: "subscription-1", event: "task.changed", schedule: null },
@@ -253,7 +252,6 @@ describe("admitSession — baked agent-runnability config", () => {
 			productId: "team-1",
 			sandboxBasePath: sandboxPath,
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: "team-1" },
-			harnessDisabled: [],
 			contextBundle: {
 				kind: "subscription",
 				subscription: { id: "subscription-1", event: "task.changed", schedule: null },

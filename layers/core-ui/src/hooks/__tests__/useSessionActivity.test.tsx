@@ -35,7 +35,6 @@ function mkSession(state: "active" | "done" = "active") {
 		endedAt: state === "active" ? null : "2026-09-22T00:05:00.000Z",
 		state,
 		outcome: state === "active" ? null : "completed",
-		effectivenessScore: null,
 		routineId: null,
 		notes: null,
 		modelTier: "workhorse",

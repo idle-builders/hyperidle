@@ -1,21 +1,25 @@
 // Single source of truth for plugin provenance.
 
 import { pluginContributions, type WriteExecutor } from "@hyperidle/db";
-import type { PluginContributionKind } from "@hyperidle/domain-model";
+import type { StoredPluginContributionKind } from "@hyperidle/domain-model";
 import { and, eq, inArray } from "drizzle-orm";
 
 /** One thing a plugin contributed. */
 export interface PluginContribution {
 	readonly id: string;
 	readonly pluginId: string;
-	readonly kind: PluginContributionKind;
+	readonly kind: StoredPluginContributionKind;
 	readonly entityId: string;
 	/** Set when a person edited it — a reinstall leaves their version alone. */
 	readonly detachedAt: string | null;
 }
 
 /** Deterministic, so recording the same contribution twice is one row. */
-function contributionId(pluginId: string, kind: PluginContributionKind, entityId: string): string {
+function contributionId(
+	pluginId: string,
+	kind: StoredPluginContributionKind,
+	entityId: string,
+): string {
 	return `pc_${kind[0]}_${pluginId}_${entityId}`;
 }
 
@@ -29,7 +33,7 @@ export async function recordContribution(
 	exec: WriteExecutor,
 	input: {
 		readonly pluginId: string;
-		readonly kind: PluginContributionKind;
+		readonly kind: StoredPluginContributionKind;
 		readonly entityId: string;
 		readonly ts: string;
 	},
@@ -69,7 +73,7 @@ export async function listContributions(
 export async function contributedEntityIds(
 	db: WriteExecutor,
 	pluginId: string,
-	kind: PluginContributionKind,
+	kind: StoredPluginContributionKind,
 ): Promise<readonly string[]> {
 	const rows = await db
 		.select({ entityId: pluginContributions.entityId })
@@ -82,7 +86,7 @@ export async function contributedEntityIds(
 export async function markDetached(
 	exec: WriteExecutor,
 	input: {
-		readonly kind: PluginContributionKind;
+		readonly kind: StoredPluginContributionKind;
 		readonly entityId: string;
 		readonly ts: string;
 	},
@@ -101,7 +105,7 @@ export async function markDetached(
 /** Hand a detached contribution back to its plugin. */
 export async function clearDetached(
 	exec: WriteExecutor,
-	input: { readonly kind: PluginContributionKind; readonly entityId: string },
+	input: { readonly kind: StoredPluginContributionKind; readonly entityId: string },
 ): Promise<void> {
 	await exec
 		.update(pluginContributions)
@@ -125,7 +129,7 @@ export async function forgetContributionsExcept(
 	exec: WriteExecutor,
 	input: {
 		readonly pluginId: string;
-		readonly kind: PluginContributionKind;
+		readonly kind: StoredPluginContributionKind;
 		readonly keepEntityIds: readonly string[];
 	},
 ): Promise<readonly string[]> {

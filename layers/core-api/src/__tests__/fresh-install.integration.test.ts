@@ -26,10 +26,7 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	type AgentOrchestrationPort,
-	CORE_API_ACTOR_OVERRIDE_HEADER,
-} from "@hyperidle/api-contract";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	agentWorkIntents,
 	changes,
@@ -87,19 +84,11 @@ interface ActionEnvelope<T> {
 	readonly problems?: unknown;
 }
 
-/** Call an action through the app; without an actor the auth layer resolves the person, as the desktop app does. */
-async function call<T>(
-	app: Hono,
-	name: string,
-	body: Record<string, unknown>,
-	actor?: string,
-): Promise<T> {
+/** Call an action through the app; the auth layer resolves the person, as the desktop app does. */
+async function call<T>(app: Hono, name: string, body: Record<string, unknown>): Promise<T> {
 	const res = await app.request(`/api/actions/${name}`, {
 		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			...(actor ? { [CORE_API_ACTOR_OVERRIDE_HEADER]: actor } : {}),
-		},
+		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(body),
 	});
 	const envelope = (await res.json()) as ActionEnvelope<T>;
@@ -329,7 +318,7 @@ describe("a fresh install, end to end", () => {
 			.where(or(eq(users.id, "sentinel-once-install"), eq(users.id, "third-party-once-install")));
 
 		// The subscriptions are live: a change the assistant did not start does wake it.
-		await call(app, "edit_task", { teamId: teamA, title: "Plan the week" }, adaId);
+		await call(app, "edit_task", { teamId: teamA, title: "Plan the week" });
 		await vi.waitFor(async () => {
 			const afterTask = await db.select().from(agentWorkIntents);
 			expect(afterTask.some((i) => i.kind === "subscription_run")).toBe(true);

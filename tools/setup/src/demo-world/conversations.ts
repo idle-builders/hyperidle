@@ -7,18 +7,18 @@
 import { type HyperIdleDb, messages, threads } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import {
-	ART_PRICING_PAGE,
-	ART_SEARCH_RANKING,
-	ART_TRIAL_FLOW,
-	ART_TRIAL_METRICS,
 	ASSISTANT_ID,
 	BUILDER_ID,
 	DESIGNER_ID,
+	DOC_CHURN_SIGNALS,
+	DOC_MOBILE_POSTMORTEM,
+	DOC_PRICING_PAGE,
+	DOC_SEARCH_RANKING,
+	DOC_TRIAL_FLOW,
+	DOC_TRIAL_METRICS,
+	DOC_TRIAL_RETRO,
 	FOUNDER_ID,
 	GROWTH_ID,
-	KI_CHURN_SIGNALS,
-	KI_MOBILE_POSTMORTEM,
-	KI_TRIAL_RETRO,
 	MAYA_ID,
 	MSG_PRICING_QUESTIONNAIRE,
 	MSG_PRICING_REVIEW,
@@ -27,26 +27,23 @@ import {
 	PM_ID,
 	PROPAGATION_ID,
 	QA_ID,
-	ROOT_TASK_PRICING,
-	ROOT_TASK_SEARCH,
-	ROOT_TASK_TRIAL,
 	TASK_PRICING_PAGE,
 	TASK_SEARCH_RANKING,
 	TASK_TRIAL_FLOW,
 	TEAM_ID,
-	THREAD_ART_TRIAL_METRICS,
 	THREAD_ASSISTANT,
-	THREAD_BET_MOBILE_KILL,
-	THREAD_BET_PRICING,
-	THREAD_BET_TRIAL_RETRO,
 	THREAD_DM_FOUNDER_BUILDER,
 	THREAD_DM_MAYA_GROWTH,
 	THREAD_DM_PM_FOUNDER,
-	THREAD_KI_CHURN,
+	THREAD_DOC_CHURN,
+	THREAD_DOC_TRIAL_METRICS,
 	THREAD_PRICING_BLOCKED,
 	THREAD_PRICING_REVIEW,
 	THREAD_SEARCH_REVIEW,
+	THREAD_TASK_MOBILE_KILL,
 	THREAD_TASK_ONBOARD,
+	THREAD_TASK_PRICING,
+	THREAD_TASK_TRIAL_RETRO,
 	THREAD_TEAM_FEED,
 	THREAD_TRIAL_REVIEW,
 } from "./ids.js";
@@ -147,12 +144,9 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			participants: [MAYA_ID, GROWTH_ID],
 			createdAt: clock.daysAgo(3),
 		},
-		// @lore BB1: formerly hostKind: "bet" — root tasks replace bets as the
-		// top-level host. These threads discuss the root task that was the former
-		// bet; BC3 moved them from hostKind "task" to "team" (no thread is
-		// task-hosted any more), so hostId is the team, not the root task.
+		// @lore Threads are team-hosted (hostKind: "team") — no thread is task-hosted.
 		{
-			id: THREAD_BET_PRICING,
+			id: THREAD_TASK_PRICING,
 			hostKind: "team",
 			hostId: TEAM_ID,
 			initiatorId: PM_ID,
@@ -160,7 +154,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			createdAt: clock.daysAgo(21),
 		},
 		{
-			id: THREAD_BET_TRIAL_RETRO,
+			id: THREAD_TASK_TRIAL_RETRO,
 			hostKind: "team",
 			hostId: TEAM_ID,
 			initiatorId: PM_ID,
@@ -168,7 +162,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			createdAt: clock.daysAgo(14),
 		},
 		{
-			id: THREAD_BET_MOBILE_KILL,
+			id: THREAD_TASK_MOBILE_KILL,
 			hostKind: "team",
 			hostId: TEAM_ID,
 			initiatorId: PM_ID,
@@ -184,17 +178,17 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			createdAt: clock.daysAgo(14),
 		},
 		{
-			id: THREAD_KI_CHURN,
+			id: THREAD_DOC_CHURN,
 			hostKind: "document",
-			hostId: KI_CHURN_SIGNALS,
+			hostId: DOC_CHURN_SIGNALS,
 			initiatorId: MAYA_ID,
 			participants: [MAYA_ID, PM_ID, QA_ID],
 			createdAt: clock.daysAgo(7),
 		},
 		{
-			id: THREAD_ART_TRIAL_METRICS,
+			id: THREAD_DOC_TRIAL_METRICS,
 			hostKind: "document",
-			hostId: ART_TRIAL_METRICS,
+			hostId: DOC_TRIAL_METRICS,
 			initiatorId: QA_ID,
 			participants: [QA_ID, FOUNDER_ID],
 			createdAt: clock.daysAgo(15),
@@ -236,7 +230,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: ASSISTANT_ID,
 			type: "plain",
 			payload: plain(
-				"Monthly reflection time. Three things stood out this month: the trial bet is tracking ahead of its hypothesis, search relevance keeps surfacing in support calls, and you approved reviews within an hour on average — the team is never waiting on you.",
+				"Monthly reflection time. Three things stood out this month: the trial task is tracking ahead of its hypothesis, search relevance keeps surfacing in support calls, and you approved reviews within an hour on average — the team is never waiting on you.",
 			),
 			createdAt: clock.daysAgo(40),
 		},
@@ -254,7 +248,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: ASSISTANT_ID,
 			type: "plain",
 			payload: plain(
-				"Broad but shallow — eleven accounts mentioned it, none churned over it. The pattern worth keeping: results are right, ordering is wrong. That is a ranking bet, not an indexing bet.",
+				"Broad but shallow — eleven accounts mentioned it, none churned over it. The pattern worth keeping: results are right, ordering is wrong. That is a ranking task, not an indexing task.",
 			),
 			createdAt: clock.daysAgo(39),
 		},
@@ -263,7 +257,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			threadId: THREAD_ASSISTANT,
 			senderId: FOUNDER_ID,
 			type: "plain",
-			payload: plain("Good framing. Ask the PM to shape it when the trial bet lands."),
+			payload: plain("Good framing. Ask the PM to shape it when the trial task lands."),
 			createdAt: clock.daysAgo(39),
 		},
 		{
@@ -282,7 +276,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: FOUNDER_ID,
 			type: "plain",
 			payload: plain(
-				"Noted. Not yet — let's see what the onboarding bet does to support volume first.",
+				"Noted. Not yet — let's see what the onboarding task does to support volume first.",
 			),
 			createdAt: clock.daysAgo(33),
 		},
@@ -292,7 +286,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: ASSISTANT_ID,
 			type: "plain",
 			payload: plain(
-				"The trial-extension bet completed — validated, 27% of expiring trials took the extension. Retro review item is waiting in Work when you have fifteen minutes.",
+				"The trial-extension task completed — validated, 27% of expiring trials took the extension. Retro review is waiting in Work when you have fifteen minutes.",
 			),
 			createdAt: clock.daysAgo(14),
 		},
@@ -330,7 +324,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: ASSISTANT_ID,
 			type: "plain",
 			payload: plain(
-				"That distinction is worth writing down — I drafted a focus update: 'Activation first; pricing only where acquisition spend is leaking.' Approve and it becomes the factory focus item.",
+				"That distinction is worth writing down — I drafted a focus update: 'Activation first; pricing only where acquisition spend is leaking.' Approve and it becomes the factory focus document.",
 			),
 			createdAt: clock.daysAgo(12),
 		},
@@ -405,7 +399,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: DESIGNER_ID,
 			type: "plain",
 			payload: plain(
-				"Hero options A and B are in the artifacts. I recommend B — it leads with the trial, not the logo.",
+				"Hero options A and B are in the documents. I recommend B — it leads with the trial, not the logo.",
 			),
 			createdAt: clock.daysAgo(2),
 		},
@@ -422,55 +416,14 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 					"Hero option B leads with the trial — matches the activation focus.",
 					"Copy is final except the FAQ, which Growth delivers tomorrow.",
 				],
-				producedItemId: ART_PRICING_PAGE,
-				id: MSG_PRICING_REVIEW,
-				rootTaskId: ROOT_TASK_PRICING,
-				rootTaskTitle: "Pricing page overhaul",
+				producedItemId: DOC_PRICING_PAGE,
 				taskId: TASK_PRICING_PAGE,
-				taskTitle: "Build the new pricing page",
-				prompt:
-					"Implement the two-tier page from the approved structure: comparison, FAQ, hero rework. Empty states and mobile widths included.",
-				authorName: "Designer",
-				reviewerName: "You",
-				blocking: true,
-				producedAgo: "5h",
-				tokens: "9.2k",
-				tools: ["vite", "figma"],
-				outcome:
-					"Rebuilt the pricing page around two tiers with a visible comparison; the FAQ is data-driven so support can edit it without a deploy. Hero B leads with the trial, not the logo. Copy is final except the FAQ section.",
-				resultKpis: [
-					{
-						label: "Support pricing questions",
-						value: "4 / week",
-						delta: "was 11 / week",
-						good: true,
-					},
-					{ label: "Page length", value: "-38%", good: true },
-					{ label: "Mobile comparison", value: "stacks clean", good: true },
-				],
-				intent: [
-					{ text: "Two tiers with a visible comparison", met: true },
-					{ text: "FAQ answers the four real support questions", met: true },
-					{ text: "Copy final on every section", met: false },
-					{ text: "Live for two weeks of conversion measurement", met: false },
-				],
-				needs: [
-					{
-						id: "n-1",
-						kind: "unverified-claim",
-						label: "Hero B over A is judgment, not data",
-						detail:
-							"B leads with the trial, matching the activation focus — but it has not been A/B tested. Your call.",
-						artifactId: "demo-rv-pricing-visual",
-					},
-				],
-				conversation: [],
 				artifacts: [
 					{
 						id: "demo-rv-pricing-summary",
 						tool: "vite",
 						app: "Pulse",
-						sourceHref: "/work/bet/demo-bet-pricing",
+						sourceHref: "/work/task/demo-task-pricing",
 						title: "Outcome summary",
 						kind: "outcome_summary",
 						payload: {
@@ -494,7 +447,8 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 								{
 									category: "verdict",
 									severity: "warning",
-									detail: "The page cannot ship without your verdict — the bet's last open thread.",
+									detail:
+										"The page cannot ship without your verdict — the task's last open thread.",
 									jumpLabel: "Review the page",
 								},
 							],
@@ -565,7 +519,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"Once the verdict lands, this bet is one blocked task from done — the annual discount decision.",
+				"Once the verdict lands, this task is one blocked task from done — the annual discount decision.",
 			),
 			createdAt: clock.hoursAgo(4),
 		},
@@ -588,7 +542,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			payload: {
 				title: "Annual billing discount",
 				question:
-					"What discount should annual plans carry? Margin says low, conversion data from the trial bet says users respond to visible savings.",
+					"What discount should annual plans carry? Margin says low, conversion data from the trial task says users respond to visible savings.",
 				options: [
 					"10% — protect margin, modest nudge",
 					"15% — market standard, balanced",
@@ -630,44 +584,14 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 					"All date math in UTC; the old timezone drift at the entitlement edge is gone.",
 					"Covered by the extension tests, including the decline path.",
 				],
-				producedItemId: ART_TRIAL_FLOW,
-				id: MSG_TRIAL_REVIEW,
-				rootTaskId: ROOT_TASK_TRIAL,
-				rootTaskTitle: "Trial extension flow",
+				producedItemId: DOC_TRIAL_FLOW,
 				taskId: TASK_TRIAL_FLOW,
-				taskTitle: "Self-serve extension flow",
-				prompt:
-					"One-click, one-time, seven days. Date math on the entitlement edge — mind the timezone boundary.",
-				authorName: "Builder",
-				reviewerName: "You",
-				blocking: false,
-				producedAgo: "4w",
-				tokens: "6.1k",
-				tools: ["github"],
-				outcome:
-					"Extension flow built and covered by tests. The entitlement edge now runs in UTC end-to-end; the timezone drift that could grant six or eight days is gone.",
-				resultKpis: [
-					{ label: "Tests", value: "18 / 18", delta: "+6 new", good: true },
-					{ label: "Extension grant", value: "exactly 7d", good: true },
-					{ label: "Second attempt", value: "declines gracefully", good: true },
-				],
-				intent: [
-					{ text: "One-click, one-time, seven days", met: true },
-					{ text: "Date math timezone-safe", met: true },
-					{ text: "Decline path covered by tests", met: true },
-				],
-				needs: [],
-				conversation: [],
-				verdict: {
-					decision: "approve",
-					note: "Clean. Ship it to staging and start the measurement task.",
-				},
 				artifacts: [
 					{
 						id: "demo-rv-trial-summary",
 						tool: "github",
 						app: "GitHub",
-						sourceHref: "/work/bet/demo-bet-trial-extension",
+						sourceHref: "/work/task/demo-task-trial",
 						title: "Outcome summary",
 						kind: "outcome_summary",
 						payload: {
@@ -766,12 +690,12 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 					// are proven. Hosted on the trial review: extending a trial IS a
 					// record field change (the entitlement's expiry), and granting it
 					// triggers a real confirmation email — the most direct fit of the
-					// three bets.
+					// three tasks.
 					{
 						id: "demo-rv-trial-fieldchange",
 						tool: "github",
 						app: "Pulse",
-						sourceHref: "/work/bet/demo-bet-trial-extension",
+						sourceHref: "/work/task/demo-task-trial",
 						title: "Trial entitlement — acct-4821",
 						kind: "field_change_set",
 						payload: {
@@ -797,7 +721,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 						id: "demo-rv-trial-email",
 						tool: "github",
 						app: "Pulse",
-						sourceHref: "/work/bet/demo-bet-trial-extension",
+						sourceHref: "/work/task/demo-task-trial",
 						title: "Extension confirmation email",
 						kind: "rendered_in_context",
 						payload: {
@@ -849,51 +773,14 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 					"Eval loop shows 54% → 68% top-3 on the first forty queries.",
 					"Weights are constants in rank.ts for now.",
 				],
-				producedItemId: ART_SEARCH_RANKING,
-				id: MSG_SEARCH_REVIEW,
-				rootTaskId: ROOT_TASK_SEARCH,
-				rootTaskTitle: "Search relevance tuning",
+				producedItemId: DOC_SEARCH_RANKING,
 				taskId: TASK_SEARCH_RANKING,
-				taskTitle: "Re-rank on recency and title match",
-				prompt: "Weight recency and exact-title-match above body-match; keep it tunable.",
-				authorName: "Builder",
-				reviewerName: "You",
-				blocking: false,
-				producedAgo: "3w",
-				tokens: "7.8k",
-				tools: ["github"],
-				outcome:
-					"Re-ranking live behind a flag. Top-3 hit rate moved 54% → 68% on the eval set; recency carried more of the lift than expected.",
-				resultKpis: [
-					{ label: "Top-3 hit rate", value: "68%", delta: "was 54%", good: true },
-					{ label: "Queries in eval", value: "40", delta: "of 50", good: true },
-					{ label: "P95 latency", value: "+4ms", good: true },
-				],
-				intent: [
-					{ text: "Recency and title-match outrank body-match", met: true },
-					{ text: "Weights tunable without a deploy", met: false },
-					{ text: "Eval loop runnable before every change", met: true },
-				],
-				needs: [
-					{
-						id: "n-1",
-						kind: "unverified-claim",
-						label: "Weights will need weekly tuning",
-						detail: "They are constants in code; a weight tweak should not be a deploy.",
-						artifactId: "demo-rv-search-diff",
-					},
-				],
-				conversation: [],
-				verdict: {
-					decision: "request-changes",
-					note: "The direction is right, but the weights belong in config, not code — we will tune them weekly.",
-				},
 				artifacts: [
 					{
 						id: "demo-rv-search-summary",
 						tool: "github",
 						app: "GitHub",
-						sourceHref: "/work/bet/demo-bet-search-relevance",
+						sourceHref: "/work/task/demo-task-search",
 						title: "Outcome summary",
 						kind: "outcome_summary",
 						payload: {
@@ -1061,7 +948,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"I noticed three of our recent bets all touch the same onboarding drop-off — trial expiry, activation, and now the email sequence. We keep paying the acquisition cost twice.",
+				"I noticed three of our recent tasks all touch the same onboarding drop-off — trial expiry, activation, and now the email sequence. We keep paying the acquisition cost twice.",
 			),
 			createdAt: clock.daysAgo(6),
 		},
@@ -1089,7 +976,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: FOUNDER_ID,
 			type: "plain",
 			payload: plain(
-				"Draft it. If the signals are real, it activates after the pricing bet ships.",
+				"Draft it. If the signals are real, it activates after the pricing task ships.",
 			),
 			createdAt: clock.daysAgo(5),
 		},
@@ -1099,11 +986,11 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"Drafted — and I promoted it straight from the churn-signals document, so the provenance is visible on the bet.",
+				"Drafted — and I promoted it straight from the churn-signals document, so the provenance is visible on the task.",
 				[
 					{
 						kind: "document",
-						id: KI_CHURN_SIGNALS,
+						id: DOC_CHURN_SIGNALS,
 					},
 				],
 			),
@@ -1116,7 +1003,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: FOUNDER_ID,
 			type: "plain",
 			payload: plain(
-				"How is the metering service holding up? The pricing bet is about to lean on it.",
+				"How is the metering service holding up? The pricing task is about to lean on it.",
 			),
 			createdAt: clock.daysAgo(12),
 		},
@@ -1144,7 +1031,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: BUILDER_ID,
 			type: "plain",
 			payload: plain(
-				"Now it is — wrote it up as a practice item so the next person wiring a consumer sees it first.",
+				"Now it is — wrote it up as a document so the next person wiring a consumer sees it first.",
 			),
 			createdAt: clock.daysAgo(11),
 		},
@@ -1179,20 +1066,20 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			),
 			createdAt: clock.daysAgo(2),
 		},
-		// ── Bet discussion: pricing ────────────────────────────────────────
+		// ── Task discussion: pricing ────────────────────────────────────────
 		{
 			id: "demo-msg-bp-01",
-			threadId: THREAD_BET_PRICING,
+			threadId: THREAD_TASK_PRICING,
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"Kicking off the pricing overhaul. Shape: research first, then the two-tier structure, then the page build. Hypothesis and done-condition are on the bet — push back now, not at review.",
+				"Kicking off the pricing overhaul. Shape: research first, then the two-tier structure, then the page build. Hypothesis and done-condition are on the task — push back now, not at review.",
 			),
 			createdAt: clock.daysAgo(21),
 		},
 		{
 			id: "demo-msg-bp-02",
-			threadId: THREAD_BET_PRICING,
+			threadId: THREAD_TASK_PRICING,
 			senderId: FOUNDER_ID,
 			type: "plain",
 			payload: plain(
@@ -1202,7 +1089,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-bp-03",
-			threadId: THREAD_BET_PRICING,
+			threadId: THREAD_TASK_PRICING,
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain("Taken — four questions max, sourced from real support tickets."),
@@ -1210,7 +1097,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-bp-04",
-			threadId: THREAD_BET_PRICING,
+			threadId: THREAD_TASK_PRICING,
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
@@ -1220,27 +1107,27 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-bp-05",
-			threadId: THREAD_BET_PRICING,
+			threadId: THREAD_TASK_PRICING,
 			senderId: DESIGNER_ID,
 			type: "plain",
 			payload: plain(
-				"Page approach: comparison table above the fold, FAQ collapsed, one CTA. Mocks coming as artifacts.",
+				"Page approach: comparison table above the fold, FAQ collapsed, one CTA. Mocks coming as documents.",
 			),
 			createdAt: clock.daysAgo(13),
 		},
 		{
 			id: "demo-msg-bp-06",
-			threadId: THREAD_BET_PRICING,
+			threadId: THREAD_TASK_PRICING,
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"Mid-bet check: four of seven tasks done. The page is in review, copy lands tomorrow, and annual billing is waiting on the discount decision.",
+				"Mid-task check: four of seven tasks done. The page is in review, copy lands tomorrow, and annual billing is waiting on the discount decision.",
 			),
 			createdAt: clock.hoursAgo(28),
 		},
 		{
 			id: "demo-msg-bp-07",
-			threadId: THREAD_BET_PRICING,
+			threadId: THREAD_TASK_PRICING,
 			senderId: FOUNDER_ID,
 			type: "plain",
 			payload: plain("Review is next on my list. The discount answer goes today too."),
@@ -1249,17 +1136,17 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		// ── Retro: trial extension ─────────────────────────────────────────
 		{
 			id: "demo-msg-retro-01",
-			threadId: THREAD_BET_TRIAL_RETRO,
+			threadId: THREAD_TASK_TRIAL_RETRO,
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"Post-bet retro for Trial extension. Hypothesis said 20% of expiring trials; reality delivered 27% taking the extension and 31% of those converting. Validated.",
+				"Post-task retro for Trial extension. Hypothesis said 20% of expiring trials; reality delivered 27% taking the extension and 31% of those converting. Validated.",
 			),
 			createdAt: clock.daysAgo(14),
 		},
 		{
 			id: "demo-msg-retro-02",
-			threadId: THREAD_BET_TRIAL_RETRO,
+			threadId: THREAD_TASK_TRIAL_RETRO,
 			senderId: FOUNDER_ID,
 			type: "plain",
 			payload: plain(
@@ -1269,7 +1156,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-retro-03",
-			threadId: THREAD_BET_TRIAL_RETRO,
+			threadId: THREAD_TASK_TRIAL_RETRO,
 			senderId: MAYA_ID,
 			type: "plain",
 			payload: plain(
@@ -1279,19 +1166,19 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-retro-04",
-			threadId: THREAD_BET_TRIAL_RETRO,
+			threadId: THREAD_TASK_TRIAL_RETRO,
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
 				"Retro captured as a document — the one-time limit decision and the dropped reason dropdown are both in it.",
-				[{ kind: "document", id: KI_TRIAL_RETRO }],
+				[{ kind: "document", id: DOC_TRIAL_RETRO }],
 			),
 			createdAt: clock.daysAgo(13),
 		},
 		// ── Kill decision: mobile spike ────────────────────────────────────
 		{
 			id: "demo-msg-kill-01",
-			threadId: THREAD_BET_MOBILE_KILL,
+			threadId: THREAD_TASK_MOBILE_KILL,
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
@@ -1301,7 +1188,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-kill-02",
-			threadId: THREAD_BET_MOBILE_KILL,
+			threadId: THREAD_TASK_MOBILE_KILL,
 			senderId: FOUNDER_ID,
 			type: "plain",
 			payload: plain(
@@ -1311,12 +1198,12 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-kill-03",
-			threadId: THREAD_BET_MOBILE_KILL,
+			threadId: THREAD_TASK_MOBILE_KILL,
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
 				"Done — postmortem captured with the usage numbers and the competitor teardown.",
-				[{ kind: "document", id: KI_MOBILE_POSTMORTEM }],
+				[{ kind: "document", id: DOC_MOBILE_POSTMORTEM }],
 			),
 			createdAt: clock.daysAgo(8),
 		},
@@ -1327,7 +1214,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: PROPAGATION_ID,
 			type: "plain",
 			payload: plain(
-				"Bet completed: Trial extension flow — hypothesis VALIDATED. 27% of expiring trials took the extension; 31% of those converted. Retro review item posted for the team.",
+				"Task completed: Trial extension flow — hypothesis VALIDATED. 27% of expiring trials took the extension; 31% of those converted. Retro review posted for the team.",
 			),
 			createdAt: clock.daysAgo(14),
 		},
@@ -1347,7 +1234,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: PROPAGATION_ID,
 			type: "plain",
 			payload: plain(
-				"Bet killed: Native mobile spike — hypothesis refuted. Mobile is 6% of sessions; the responsive app covers it. Postmortem captured.",
+				"Task killed: Native mobile spike — hypothesis refuted. Mobile is 6% of sessions; the responsive app covers it. Postmortem captured.",
 			),
 			createdAt: clock.daysAgo(8),
 		},
@@ -1357,7 +1244,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"Weekly summary: pricing overhaul is mid-flight (page in review, one blocked task), onboarding emails are writing, churn dashboard drafted and waiting. No bet is at risk.",
+				"Weekly summary: pricing overhaul is mid-flight (page in review, one blocked task), onboarding emails are writing, churn dashboard drafted and waiting. No task is at risk.",
 			),
 			createdAt: clock.daysAgo(7),
 		},
@@ -1374,7 +1261,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		// ── Knowledge discussion: churn signals ────────────────────────────
 		{
 			id: "demo-msg-kc-01",
-			threadId: THREAD_KI_CHURN,
+			threadId: THREAD_DOC_CHURN,
 			senderId: MAYA_ID,
 			type: "plain",
 			payload: plain(
@@ -1384,7 +1271,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-kc-02",
-			threadId: THREAD_KI_CHURN,
+			threadId: THREAD_DOC_CHURN,
 			senderId: QA_ID,
 			type: "plain",
 			payload: plain(
@@ -1394,18 +1281,18 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-kc-03",
-			threadId: THREAD_KI_CHURN,
+			threadId: THREAD_DOC_CHURN,
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"That is a bet, not a discussion. Drafting it from this item so the provenance stays attached.",
+				"That is a task, not a discussion. Drafting it from this document so the provenance stays attached.",
 			),
 			createdAt: clock.daysAgo(6),
 		},
-		// ── Artifact discussion: trial metrics ─────────────────────────────
+		// ── Document discussion: trial metrics ──────────────────────────────
 		{
 			id: "demo-msg-am-01",
-			threadId: THREAD_ART_TRIAL_METRICS,
+			threadId: THREAD_DOC_TRIAL_METRICS,
 			senderId: QA_ID,
 			type: "plain",
 			payload: plain(
@@ -1415,7 +1302,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-am-02",
-			threadId: THREAD_ART_TRIAL_METRICS,
+			threadId: THREAD_DOC_TRIAL_METRICS,
 			senderId: FOUNDER_ID,
 			type: "plain",
 			payload: plain("27% is better than I hoped. And the support-line drop is the quiet win."),
@@ -1423,11 +1310,11 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-am-03",
-			threadId: THREAD_ART_TRIAL_METRICS,
+			threadId: THREAD_DOC_TRIAL_METRICS,
 			senderId: QA_ID,
 			type: "plain",
 			payload: plain(
-				"Agreed — support-granted extensions are basically gone. Keeping this dashboard running through the pricing bet too.",
+				"Agreed — support-granted extensions are basically gone. Keeping this dashboard running through the pricing task too.",
 			),
 			createdAt: clock.daysAgo(14),
 		},
@@ -1455,7 +1342,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		// ── Lived-in depth: the everyday chatter of a six-week-old team ────
 		{
 			id: "demo-msg-bp-08",
-			threadId: THREAD_BET_PRICING,
+			threadId: THREAD_TASK_PRICING,
 			senderId: BUILDER_ID,
 			type: "plain",
 			payload: plain(
@@ -1465,7 +1352,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-bp-09",
-			threadId: THREAD_BET_PRICING,
+			threadId: THREAD_TASK_PRICING,
 			senderId: DESIGNER_ID,
 			type: "plain",
 			payload: plain(
@@ -1475,11 +1362,11 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-bp-10",
-			threadId: THREAD_BET_PRICING,
+			threadId: THREAD_TASK_PRICING,
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"Reminder: the done-condition needs two weeks of conversion data AFTER ship, so the earlier the verdict, the earlier we call the bet.",
+				"Reminder: the done-condition needs two weeks of conversion data AFTER ship, so the earlier the verdict, the earlier we call the task.",
 			),
 			createdAt: clock.daysAgo(1),
 		},
@@ -1489,7 +1376,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"One more thing — the onboarding bet and the churn draft share the activation metric. I will keep them coordinated so we measure once, not twice.",
+				"One more thing — the onboarding task and the churn draft share the activation metric. I will keep them coordinated so we measure once, not twice.",
 			),
 			createdAt: clock.daysAgo(4),
 		},
@@ -1498,7 +1385,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			threadId: THREAD_DM_PM_FOUNDER,
 			senderId: FOUNDER_ID,
 			type: "plain",
-			payload: plain("Good instinct. Shared metric, separate bets."),
+			payload: plain("Good instinct. Shared metric, separate tasks."),
 			createdAt: clock.daysAgo(3),
 		},
 		{
@@ -1507,7 +1394,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"Kicking off the onboarding email sequence bet — audit first, then the sequence. Hypothesis is on the bet.",
+				"Kicking off the onboarding email sequence task — audit first, then the sequence. Hypothesis is on the task.",
 			),
 			createdAt: clock.daysAgo(10),
 		},
@@ -1537,7 +1424,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: ASSISTANT_ID,
 			type: "plain",
 			payload: plain(
-				"Weekly note: document triage has four items waiting. The annual-discount one is the only item that needs you specifically.",
+				"Weekly note: document triage has four documents waiting. The annual-discount one is the only document that needs you specifically.",
 			),
 			createdAt: clock.daysAgo(2),
 		},
@@ -1553,20 +1440,20 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-retro-05",
-			threadId: THREAD_BET_TRIAL_RETRO,
+			threadId: THREAD_TASK_TRIAL_RETRO,
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"One process note for the next bet: the funnel was instrumented before the flow shipped. That is why this retro could be written on day one — keeping it.",
+				"One process note for the next task: the funnel was instrumented before the flow shipped. That is why this retro could be written on day one — keeping it.",
 			),
 			createdAt: clock.daysAgo(13),
 		},
 		{
 			id: "demo-msg-retro-06",
-			threadId: THREAD_BET_TRIAL_RETRO,
+			threadId: THREAD_TASK_TRIAL_RETRO,
 			senderId: FOUNDER_ID,
 			type: "plain",
-			payload: plain("Agreed — metric-before-build goes into the practice items."),
+			payload: plain("Agreed — metric-before-build goes into the documents."),
 			createdAt: clock.daysAgo(12),
 		},
 		{
@@ -1591,7 +1478,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-kc-04",
-			threadId: THREAD_KI_CHURN,
+			threadId: THREAD_DOC_CHURN,
 			senderId: MAYA_ID,
 			type: "plain",
 			payload: plain(
@@ -1601,7 +1488,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-kc-05",
-			threadId: THREAD_KI_CHURN,
+			threadId: THREAD_DOC_CHURN,
 			senderId: QA_ID,
 			type: "plain",
 			payload: plain("Noted — I will weight the score so a drop in invites outranks the others."),
@@ -1643,7 +1530,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: DESIGNER_ID,
 			type: "plain",
 			payload: plain(
-				"One open question for the verdict: hero A leads with the product, hero B leads with the trial. I put B in the review artifact.",
+				"One open question for the verdict: hero A leads with the product, hero B leads with the trial. I put B in the review.",
 			),
 			createdAt: clock.hoursAgo(5),
 		},
@@ -1689,7 +1576,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-am-04",
-			threadId: THREAD_ART_TRIAL_METRICS,
+			threadId: THREAD_DOC_TRIAL_METRICS,
 			senderId: QA_ID,
 			type: "plain",
 			payload: plain(
@@ -1710,7 +1597,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			threadId: THREAD_SEARCH_REVIEW,
 			senderId: FOUNDER_ID,
 			type: "plain",
-			payload: plain("Then that is the bet's real deliverable. Good work."),
+			payload: plain("Then that is the task's real deliverable. Good work."),
 			createdAt: clock.daysAgo(22),
 		},
 		{
@@ -1723,11 +1610,11 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: "demo-msg-kill-04",
-			threadId: THREAD_BET_MOBILE_KILL,
+			threadId: THREAD_TASK_MOBILE_KILL,
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"Also killed the two remaining mobile tasks so the bet closes clean. The research artifact stays linked from the postmortem.",
+				"Also killed the two remaining mobile tasks so the task closes clean. The research document stays linked from the postmortem.",
 			),
 			createdAt: clock.daysAgo(8),
 		},

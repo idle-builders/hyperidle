@@ -379,7 +379,6 @@ describe("stopSessionRun — a live runtime entry (the abort path)", () => {
 			productId: "task-free",
 			sandboxBasePath: sandboxPath,
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
-			harnessDisabled: [],
 		} as ProvisionSessionParams;
 		const deps = {
 			db: db as HyperIdleDb,
@@ -519,7 +518,6 @@ describe("provisioner — an adapter's own return action is not a user stop", ()
 			productId: "task-free",
 			sandboxBasePath: sandboxPath,
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
-			harnessDisabled: [],
 		} as ProvisionSessionParams;
 		const deps = {
 			db: db as HyperIdleDb,

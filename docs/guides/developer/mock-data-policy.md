@@ -72,7 +72,7 @@ The inventory script flags hardcoded identity strings used as stand-ins for the 
 
 The offenders the inventory carries deliberately. An offender in a file not listed here is a real failure.
 
-**Server auth fallback** — `u-founder` in `layers/core-api/src/middleware/auth.ts` and `layers/core-api/policy/src/lifecycle-propagation.ts`. The middleware substitutes the hardcoded user id when the database holds no `kind: "human"` row. The welcome screen's `edit_user` inserts that row — and runs as the placeholder itself, since nobody exists yet — so after the welcome screen every request resolves a real person. It goes when `userId` turns nullable and answers 401 instead of substituting a fake identity.
+**Server auth fallback** — `u-founder` in `layers/core-api/src/middleware/auth.ts`. The middleware substitutes the hardcoded user id when the database holds no `kind: "human"` row. The welcome screen's `edit_user` inserts that row — and runs as the placeholder itself, since nobody exists yet — so after the welcome screen every request resolves a real person. It goes when `userId` turns nullable and answers 401 instead of substituting a fake identity.
 
 ## When you legitimately need a mock
 
@@ -93,5 +93,4 @@ Run the check before pushing; it also runs in `npm run verify`.
 
 - Machine copy of the closed sets: `tools/eslint-plugin-design/src/mock-data-policy.ts`
 - Offender tracking: [Tracked-out survivors](#tracked-out-survivors), `tools/repo-gates/mock-inventory/inventory.json`
-- Fixtures import boundary precedent: `eslint.config.ts` block tagged "L16 AC-3"
 - Testing guide: [testing.md](testing.md)

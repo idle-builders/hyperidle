@@ -65,9 +65,9 @@
 			"ignoreBinaries": ["codex", "opencode", "ps"]
 		},
 		"layers/core-ui": {
-			"entry": ["__scripts__/*.ts!", "vite.ah1.config.ts!", "vite.ah6.config.ts!"],
+			"entry": ["__scripts__/*.ts!", "vite.ah6.config.ts!"],
 			"playwright": {
-				"config": ["playwright.config.ts", "playwright.ah1.config.ts", "playwright.ah6.config.ts"]
+				"config": ["playwright.config.ts", "playwright.ah6.config.ts"]
 			}
 		},
 		"applications/website": {

@@ -38,15 +38,12 @@ export interface WorkTeamProps {
 	overrideData?: TeamPageData | null;
 	overrideLoading?: boolean;
 	overrideError?: Error | null;
-	// @lore: skipArtifacts — ArtifactSection's useFetch fires before parent hooks' useEffect; with overrideData this causes fetch-order races; skipping prevents them
-	skipArtifacts?: boolean;
 }
 
 export function WorkTeam({
 	overrideData,
 	overrideLoading,
 	overrideError,
-	skipArtifacts = false,
 }: WorkTeamProps = {}): JSX.Element {
 	const { teamId } = useParams<{ teamId: string }>();
 
@@ -144,7 +141,6 @@ export function WorkTeam({
 	return (
 		<WorkTeamLoaded
 			data={data}
-			skipArtifacts={skipArtifacts}
 			refetchTeam={overrideData !== undefined ? undefined : fetched.refetch}
 		/>
 	);
@@ -152,11 +148,10 @@ export function WorkTeam({
 
 function WorkTeamLoaded({
 	data,
-	skipArtifacts = false,
 	refetchTeam,
 }: {
 	data: TeamPageData;
-	skipArtifacts?: boolean;
+	/** Callback to re-fetch team data after a mutation (e.g. an agent added). */
 	refetchTeam?: () => void;
 }): JSX.Element {
 	const navigate = useNavigate();
@@ -408,8 +403,6 @@ function WorkTeamLoaded({
 					})}
 				</ItemList>
 			</section>
-
-			{!skipArtifacts && null}
 		</div>
 	); // end teamBodyContent
 	const teamHeader = (presentation: "page" | "pane"): JSX.Element => (

@@ -32,12 +32,11 @@ export const DOCS_NAV: readonly DocNavSection[] = [
 			{ id: "guides/user", title: "Overview" },
 			{ id: "guides/user/getting-started", title: "Getting started" },
 			{ id: "guides/user/the-interface", title: "The interface" },
-			{ id: "guides/user/three-core-views", title: "Three core views" },
+			{ id: "guides/user/views", title: "Views" },
 			{ id: "guides/user/agents", title: "Agents" },
 			{ id: "guides/user/running-your-team", title: "Running your team" },
 			{ id: "guides/user/settings", title: "Settings" },
 			{ id: "guides/user/connections", title: "Connecting services" },
-			{ id: "guides/user/deployment", title: "Deployment" },
 		],
 	},
 	{
@@ -49,9 +48,7 @@ export const DOCS_NAV: readonly DocNavSection[] = [
 			{ id: "guides/developer/commands", title: "Commands" },
 			{ id: "guides/developer/testing", title: "Testing" },
 			{ id: "guides/developer/mock-data-policy", title: "Mock data policy" },
-			{ id: "guides/developer/design-system", title: "Design system" },
 			{ id: "guides/developer/linting-and-formatting", title: "Linting & formatting" },
-			{ id: "guides/developer/work-packages", title: "Work packages" },
 		],
 	},
 	{
@@ -61,9 +58,7 @@ export const DOCS_NAV: readonly DocNavSection[] = [
 			{ id: "product", title: "Overview" },
 			{ id: "product/what-is-hyperidle", title: "What is HyperIdle?" },
 			{ id: "product/how-work-flows", title: "How work flows" },
-			{ id: "product/human-ai-collaboration", title: "Human + AI collaboration" },
 			{ id: "product/how-knowledge-compounds", title: "How knowledge compounds" },
-			{ id: "product/product-decisions", title: "Product decisions" },
 		],
 	},
 ];

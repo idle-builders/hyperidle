@@ -37,8 +37,8 @@ describe("githubDocUrl", () => {
 	});
 
 	test("renders a tree URL for a directory path", () => {
-		expect(githubDocUrl(github, "docs/knowledge-architecture/")).toBe(
-			"https://github.com/ambrovia/hyperidle/tree/main/docs/knowledge-architecture",
+		expect(githubDocUrl(github, "docs/objects/")).toBe(
+			"https://github.com/ambrovia/hyperidle/tree/main/docs/objects",
 		);
 	});
 });
@@ -70,14 +70,14 @@ describe("mapDocHref", () => {
 
 	test("maps cross-directory links that stay inside the rendered set", () => {
 		expect(
-			mapDocHref("../../deployment/laptop.md", "docs/guides/user/deployment.md", options),
+			mapDocHref("../../deployment/laptop.md", "docs/guides/user/getting-started.md", options),
 		).toBe("/docs/deployment/laptop/");
 	});
 
 	test("maps a cross-directory index.md onto its directory URL", () => {
-		expect(mapDocHref("../../deployment/index.md", "docs/guides/user/deployment.md", options)).toBe(
-			"/docs/deployment/",
-		);
+		expect(
+			mapDocHref("../../deployment/index.md", "docs/guides/user/getting-started.md", options),
+		).toBe("/docs/deployment/");
 	});
 
 	test("maps the developer guide's getting-started from the deployment docs", () => {
@@ -111,9 +111,9 @@ describe("mapDocHref", () => {
 	});
 
 	test("rewrites directory links outside the rendered set to GitHub tree URLs", () => {
-		expect(
-			mapDocHref("../knowledge-architecture/", "docs/product/how-knowledge-compounds.md", options),
-		).toBe("https://github.com/ambrovia/hyperidle/tree/main/docs/knowledge-architecture");
+		expect(mapDocHref("../objects/", "docs/product/how-knowledge-compounds.md", options)).toBe(
+			"https://github.com/ambrovia/hyperidle/tree/main/docs/objects",
+		);
 	});
 
 	test("leaves absolute hrefs untouched", () => {

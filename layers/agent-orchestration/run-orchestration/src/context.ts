@@ -38,6 +38,7 @@ interface SessionContextData {
 		title: string;
 		description: string | null;
 		state: string;
+		doneCondition: string | null;
 	};
 	/** Root-first chain of ancestor tasks. ancestors[0] is the root task (the former "bet"). */
 	ancestors: readonly {
@@ -274,9 +275,10 @@ function buildToolsSection(tools: readonly ToolSummary[]): string {
 
 function buildTaskSection(context: SessionContextData): string {
 	const description = context.task.description ?? "No description provided.";
-	// Root ancestor (ancestors[0]) carries the top-level done condition.
+	// Task's own doneCondition takes precedence; fall back to root ancestor's.
 	const rootAncestor = context.ancestors[0];
-	const doneCondition = rootAncestor?.doneCondition ?? "Not specified.";
+	const doneCondition =
+		context.task.doneCondition ?? rootAncestor?.doneCondition ?? "Not specified.";
 
 	const parts = [
 		"## Task",
@@ -552,12 +554,12 @@ const CONTEXT_ASSEMBLY_ROOTS = [
 	),
 ];
 
-function createDirectoryStructure(sandboxPath: string): void {
+function createDirectoryStructure(sandboxPath: string, previousSessionNotes?: string | null): void {
 	for (const dir of CONTEXT_ASSEMBLY_DIRS) {
 		fs.mkdirSync(path.join(sandboxPath, dir), { recursive: true });
 	}
 
-	fs.writeFileSync(path.join(sandboxPath, "work/task-notes.md"), "");
+	fs.writeFileSync(path.join(sandboxPath, "work/task-notes.md"), previousSessionNotes ?? "");
 }
 
 function writeItem(sandboxPath: string, item: BakedContextDocument, zone: string): string {
@@ -781,6 +783,7 @@ function writeContextBundle(
 	sessionId: string,
 	bundle: Extract<BakedContextBundle, { kind: "task" | "subscription" }>,
 	agentId: string,
+	previousSessionNotes?: string | null,
 ): ContextAssemblyResult {
 	const start = performance.now();
 
@@ -788,7 +791,7 @@ function writeContextBundle(
 	cleanDirectory(path.join(sandboxPath, "knowledge"));
 	cleanDirectory(path.join(sandboxPath, "work"));
 	cleanDirectory(path.join(sandboxPath, ".fabric"));
-	createDirectoryStructure(sandboxPath);
+	createDirectoryStructure(sandboxPath, previousSessionNotes);
 
 	const manifestItems = writeBundleKnowledge(sandboxPath, bundle.documents, agentId);
 
@@ -840,6 +843,12 @@ interface AssembleAgentContextInput {
 	 * every task-free session uses — never a DB read).
 	 */
 	readonly contextBundle?: BakedContextBundle;
+	/**
+	 * Notes written by the agent in the previous session on this task.
+	 * Seeded into `work/task-notes.md` so the agent can pick up where it
+	 * left off. Absent (or null/empty) when there is no prior session.
+	 */
+	readonly previousSessionNotes?: string | null;
 }
 
 interface AgentContextAssemblyOutcome {
@@ -906,6 +915,7 @@ function assembleAgentContext(input: AssembleAgentContextInput): AgentContextAss
 		input.sessionId,
 		input.contextBundle,
 		input.agentId,
+		input.previousSessionNotes,
 	);
 	return {
 		itemCount: result.itemCount,

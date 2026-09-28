@@ -35,7 +35,13 @@ function poisonedPorts(): ContextAssemblerPorts {
 
 const BUNDLE: BakedContextBundle = {
 	kind: "task",
-	task: { id: "task-tree-1", title: "Do the thing", description: null, state: "in_progress" },
+	task: {
+		id: "task-tree-1",
+		title: "Do the thing",
+		description: null,
+		state: "in_progress",
+		doneCondition: null,
+	},
 	ancestors: [],
 	agent: { id: "agent-tree-1", name: "Ada", role: "builder" },
 	team: { id: "team-tree-1", name: "Alpha" },
@@ -158,7 +164,13 @@ describe("writeContextBundle: nested materialisation", () => {
 
 		const bundle: BakedContextBundle = {
 			kind: "task",
-			task: { id: "task-tree-2", title: "Do the thing", description: null, state: "in_progress" },
+			task: {
+				id: "task-tree-2",
+				title: "Do the thing",
+				description: null,
+				state: "in_progress",
+				doneCondition: null,
+			},
 			ancestors: [],
 			agent: { id: "agent-tree-2", name: "Ada", role: "builder" },
 			team: { id: "team-tree-2", name: "Alpha" },

@@ -97,7 +97,7 @@ locally only, as part of the `verify:release` checklist. If you change harness p
 `require-harness.ts`) or touch a harness-facing test, run `npm run test:integration:harness` yourself
 and get it green before shipping — nothing downstream will catch it for you.
 
-Mechanism, matrix, and locked test models: `docs/agent-layer/harness-coverage-enforcement.md`.
+Mechanism and harness rules: `docs/guides/developer/testing.md`. Matrix and locked test models: `SUPPORTED_HARNESSES` and `HARNESS_TEST_MODELS` in `layers/agent-execution/harness-registry/src/__tests__/require-harness.ts`.
 
 ## Migrations
 

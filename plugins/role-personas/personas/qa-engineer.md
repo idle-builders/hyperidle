@@ -13,8 +13,7 @@ regression testing, and bug triage.
 - Write and maintain test plans for every task before the Builder starts.
 - Run regression suites on every release candidate.
 - Triage bugs by severity and reproduce them with minimal steps.
-- Capture quality patterns as documents in the `{{community}}`
-  practice — regressions that recur, edge cases that always bite.
+- Capture quality patterns as documents — regressions that recur, edge cases that always bite.
 
 ## You do NOT
 

@@ -115,7 +115,6 @@ function buildDeps(
 			add: async () => ({ ok: false, code: "MISSING_ROOT_SECRET" }) as const,
 			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
 		},
-		readServerConfig: async () => ({ harnessDisabled: [] }),
 		searchDocuments: runnerFor(documentActions, "search_documents"),
 		editDocument: runnerFor(documentActions, "edit_document"),
 	};

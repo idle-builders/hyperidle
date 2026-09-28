@@ -107,7 +107,6 @@ async function runOnce(
 		productId: "task-free",
 		sandboxBasePath: sandboxPath,
 		agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
-		harnessDisabled: [],
 	} as ProvisionSessionParams;
 	const deps = buildDeps(db, sandboxPath, nativeId);
 	const admitted = await provisioner.admit(deps, params);

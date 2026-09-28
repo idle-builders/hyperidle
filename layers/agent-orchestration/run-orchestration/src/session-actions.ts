@@ -61,7 +61,6 @@ function toSessionRow(row: Session): SessionRow {
 		endedAt: row.endedAt,
 		state: row.state,
 		outcome: row.outcome,
-		effectivenessScore: row.effectivenessScore,
 		notes: row.notes,
 		modelTier: row.modelTier as SessionRow["modelTier"],
 		sourceKind: row.sourceKind as SessionRow["sourceKind"],

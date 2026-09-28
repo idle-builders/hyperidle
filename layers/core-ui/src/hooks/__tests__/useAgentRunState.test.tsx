@@ -29,7 +29,6 @@ interface SessionRowStub {
 	endedAt: string | null;
 	state: string | null;
 	outcome: string | null;
-	effectivenessScore: string | null;
 }
 
 function row(overrides: Partial<SessionRowStub> & { id: string; agentId: string }): SessionRowStub {
@@ -39,7 +38,6 @@ function row(overrides: Partial<SessionRowStub> & { id: string; agentId: string 
 		endedAt: iso(30_000),
 		state: "done",
 		outcome: "completed",
-		effectivenessScore: null,
 		...overrides,
 	};
 }

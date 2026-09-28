@@ -186,8 +186,6 @@ describe("endSessionByCas — the terminal transition lives with the table", () 
 			taskId: TASK_ID,
 			state: "crashed",
 			notes: "ran out of budget",
-			effectivenessScore: 0.25,
-			actor: "user-1",
 			now,
 		});
 
@@ -195,9 +193,6 @@ describe("endSessionByCas — the terminal transition lives with the table", () 
 		expect(returned?.state).toBe("crashed");
 		expect(returned?.outcome).toBe("crashed");
 		expect(returned?.notes).toBe("ran out of budget");
-		expect(returned?.effectivenessScore).toBe("0.25");
-		expect(returned?.effectivenessRecordedAt).toBe(now);
-		expect(returned?.effectivenessRecordedBy).toBe("user-1");
 	});
 
 	test("persists the caller's outcome override while the event carries the derived one", async ({

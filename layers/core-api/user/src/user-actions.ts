@@ -175,8 +175,7 @@ export interface UserActionsDeps {
 		>;
 		remove(userId: string, id: string): Promise<UserActionsRemoveResult>;
 	};
-	/** Install-wide: this machine's harnesses, unstamped — `open_user` stamps
-	 * `discovery.disabled` itself from `readServerConfig`. Absent when no adapter pool
+	/** Install-wide: this machine's harnesses. Absent when no adapter pool
 	 * is wired (a composition without agent execution). */
 	readonly harnesses?: {
 		describe(): readonly HarnessDescriptor[];
@@ -199,9 +198,6 @@ export interface UserActionsDeps {
 		}>;
 		readonly windowDays: number;
 	}>;
-	readonly readServerConfig: (
-		db: HyperIdleDb,
-	) => Promise<{ readonly harnessDisabled: readonly string[] }>;
 	readonly searchDocuments: SearchDocumentsRunFn;
 	readonly editDocument: EditDocumentRunFn;
 }
@@ -222,16 +218,6 @@ const RUNNABLE_STATUSES: ReadonlySet<string> = new Set(["active", "idle"]);
 
 function isRunnableAgent(kind: string, status: string): boolean {
 	return kind === "ai" && RUNNABLE_STATUSES.has(status);
-}
-
-function stampDisabled(
-	descriptors: readonly HarnessDescriptor[],
-	harnessDisabled: readonly string[],
-): HarnessDescriptor[] {
-	if (harnessDisabled.length === 0) return [...descriptors];
-	return descriptors.map((d) =>
-		harnessDisabled.includes(d.type) ? { ...d, discovery: { ...d.discovery, disabled: true } } : d,
-	);
 }
 
 function effectiveTeamId(user: User, ownerById: ReadonlyMap<string, User>): string | null {
@@ -355,8 +341,7 @@ async function buildUserView(
 	userRow: User | null,
 	isSelf: boolean,
 ): Promise<UserView> {
-	const harnessDisabled = (await deps.readServerConfig(ctx.db)).harnessDisabled;
-	const runsOn = deps.harnesses ? stampDisabled(deps.harnesses.describe(), harnessDisabled) : [];
+	const runsOn = deps.harnesses ? [...deps.harnesses.describe()] : [];
 
 	if (!userRow) {
 		return {

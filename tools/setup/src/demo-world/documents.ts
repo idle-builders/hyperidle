@@ -1,25 +1,25 @@
 /**
  * AX1 — demo world documents: a six-week corpus across scopes, kinds and
- * lifecycles — curated patterns, a triage queue, stale and archived items,
+ * lifecycles — curated patterns, a triage queue, stale and archived documents,
  * plausible read/session-use counters, and the provenance loop
- * (completed bet → retro item → promoted draft bet).
+ * (completed task → retro document → promoted draft task).
  */
 
 import { documents, type HyperIdleDb } from "@hyperidle/db";
 import {
-	ART_PRICING_PAGE,
-	ART_SEARCH_RANKING,
-	ART_TRIAL_FLOW,
-	ART_TRIAL_METRICS,
 	BUILDER_ID,
 	DESIGNER_ID,
+	DOC_CHURN_SIGNALS,
+	DOC_MOBILE_POSTMORTEM,
+	DOC_PRICING_PAGE,
+	DOC_PRICING_TIERS,
+	DOC_SEARCH_RANKING,
+	DOC_TRIAL_FLOW,
+	DOC_TRIAL_METRICS,
+	DOC_TRIAL_RETRO,
 	FACILITATOR_ID,
 	FOUNDER_ID,
 	GROWTH_ID,
-	KI_CHURN_SIGNALS,
-	KI_MOBILE_POSTMORTEM,
-	KI_PRICING_TIERS,
-	KI_TRIAL_RETRO,
 	MAYA_ID,
 	PM_ID,
 	QA_ID,
@@ -42,9 +42,9 @@ import type { DemoClock } from "./time.js";
  * the same names are gone), so the demo inserts its roots before anything
  * is filed under them.
  */
-const PRODUCT_ROOT_ID = "demo-ki-root-product";
-const PRACTICES_ROOT_ID = "demo-ki-root-practices";
-const GENERAL_ROOT_ID = "demo-ki-root-general";
+const PRODUCT_ROOT_ID = "demo-doc-root-product";
+const PRACTICES_ROOT_ID = "demo-doc-root-practices";
+const GENERAL_ROOT_ID = "demo-doc-root-general";
 
 /** The demo's grouping roots: top-level factory folders, filed under nothing. */
 const ROOTS: ReadonlyArray<{ readonly id: string; readonly title: string; readonly body: string }> =
@@ -75,16 +75,16 @@ interface DocumentSpec {
 
 /**
  * @lore BC4 §6.7: four documents whose usage predates the seed by more than
- * 90 days, active and ordinary-slotted, so the librarian's decay routine
+ * 90 days, active and ordinary-slotted, so the librarian's decay subscription
  * (`unusedSince` + `sort:"least_used"`) has something to find in the desktop
  * walk. Picked from the "practice" corpus rather than anything `ids.ts`
  * exports — nothing else keys off these ids by identity.
  */
 const LONG_UNUSED_IDS: ReadonlySet<string> = new Set([
-	"demo-ki-rounding",
-	"demo-ki-small-prs",
-	"demo-ki-email-deliverability",
-	"demo-ki-uptime-runbook",
+	"demo-doc-rounding",
+	"demo-doc-small-prs",
+	"demo-doc-email-deliverability",
+	"demo-doc-uptime-runbook",
 ]);
 
 /** Deterministic [0, 2^31) hash of an id — same corpus on every seed run. */
@@ -104,12 +104,12 @@ interface UsageValues {
 }
 
 /**
- * @lore BC4 §6.7: plausible `read_count`/`last_read_at`/`session_use_count`/
- * `last_used_at` for the demo corpus. Archived items were never re-opened
- * (all-zero, all-null — the schema default). `LONG_UNUSED_IDS` gets pushed
- * past the 90-day decay threshold; everything else reads as "used recently,
- * with varied counts" — an id-keyed hash, not a fixed table, so the spread
- * stays believable across ~35 items without hand-tuning each one.
+ * @lore Plausible `read_count`/`last_read_at`/`session_use_count`/`last_used_at` for
+ * the demo corpus. Archived documents were never re-opened (all-zero, all-null — the
+ * schema default). `LONG_UNUSED_IDS` gets pushed past the 90-day decay threshold;
+ * everything else reads as "used recently, with varied counts" — an id-keyed hash,
+ * not a fixed table, so the spread stays believable across ~35 documents without
+ * hand-tuning each one.
  */
 function usageFor(spec: DocumentSpec, clock: DemoClock): UsageValues {
 	if (LONG_UNUSED_IDS.has(spec.id)) {
@@ -127,25 +127,29 @@ function usageFor(spec: DocumentSpec, clock: DemoClock): UsageValues {
 		return { readCount: 0, lastReadAt: null, sessionUseCount: 0, lastUsedAt: null };
 	}
 	const h = usageHash(spec.id);
+	// Cap offsets to the document's own age: a document can't have been read before it was created.
+	const ageDays = Math.floor(
+		(new Date(clock.now).getTime() - new Date(spec.createdAt).getTime()) / 86_400_000,
+	);
+	const maxOffset = Math.max(1, ageDays);
 	const sessionUseCount = h % 8;
 	return {
 		readCount: 1 + (h % 20),
-		lastReadAt: clock.daysAgo(h % 21),
+		lastReadAt: clock.daysAgo(h % Math.min(21, maxOffset + 1)),
 		sessionUseCount,
-		lastUsedAt: sessionUseCount > 0 ? clock.daysAgo((h >> 3) % 25) : null,
+		lastUsedAt: sessionUseCount > 0 ? clock.daysAgo((h >> 3) % Math.min(25, maxOffset + 1)) : null,
 	};
 }
 
 /** One document folder under Practices per practice, keyed by the old practice scopeId. */
 const PRACTICE_FOLDER_ID: Readonly<Record<string, string>> = {
-	builder: "demo-ki-practice-builder",
-	product_manager: "demo-ki-practice-product-manager",
-	designer: "demo-ki-practice-designer",
-	growth: "demo-ki-practice-growth",
-	qa_engineer: "demo-ki-practice-qa-engineer",
-	facilitator: "demo-ki-practice-facilitator",
-	support: "demo-ki-practice-support",
-	ops: "demo-ki-practice-ops",
+	builder: "demo-doc-practice-builder",
+	product_manager: "demo-doc-practice-product-manager",
+	designer: "demo-doc-practice-designer",
+	growth: "demo-doc-practice-growth",
+	qa_engineer: "demo-doc-practice-qa-engineer",
+	facilitator: "demo-doc-practice-facilitator",
+	ops: "demo-doc-practice-ops",
 };
 
 /** Looks up a practice's folder id, or throws — every practiceId used below is a known key. */
@@ -199,7 +203,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 	const specs: readonly DocumentSpec[] = [
 		// ── Product scope (L2): what Pulse is and the decisions that shape it ──
 		{
-			id: "demo-ki-pulse-brief",
+			id: "demo-doc-pulse-brief",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
 			parentKind: "document",
@@ -213,7 +217,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			version: 3,
 		},
 		{
-			id: "demo-ki-render-boundary",
+			id: "demo-doc-render-boundary",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
 			parentKind: "document",
@@ -226,7 +230,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(38),
 		},
 		{
-			id: "demo-ki-brand-voice",
+			id: "demo-doc-brand-voice",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
 			parentKind: "document",
@@ -239,7 +243,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(9),
 		},
 		{
-			id: KI_PRICING_TIERS,
+			id: DOC_PRICING_TIERS,
 			scopeKind: "team",
 			scopeId: TEAM_ID,
 			parentKind: "document",
@@ -253,20 +257,20 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			version: 3,
 		},
 		{
-			id: "demo-ki-annual-discount",
+			id: "demo-doc-annual-discount",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
 			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Annual discount policy — needs founder sign-off",
-			body: "Annual billing needs a discount percentage. Margin analysis says 10%, trial-bet conversion data says users respond to visible savings (15-20%).\n\n**Open question posted to the founder** — this item updates with the decision.",
+			body: "Annual billing needs a discount percentage. Margin analysis says 10%, trial-task conversion data says users respond to visible savings (15-20%).\n\n**Open question posted to the founder** — this document updates with the decision.",
 			status: "archived",
 			updatedBy: BUILDER_ID,
 			createdAt: clock.daysAgo(2),
 			updatedAt: clock.hoursAgo(26),
 		},
 		{
-			id: "demo-ki-rounding",
+			id: "demo-doc-rounding",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
 			parentKind: "document",
@@ -280,7 +284,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		},
 		// ── Practice scope (L3): patterns the team lives by ─────────────────
 		{
-			id: "demo-ki-review-before-deploy",
+			id: "demo-doc-review-before-deploy",
 			scopeKind: "factory",
 			scopeId: "builder",
 			parentKind: "document",
@@ -293,7 +297,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(34),
 		},
 		{
-			id: "demo-ki-small-prs",
+			id: "demo-doc-small-prs",
 			scopeKind: "factory",
 			scopeId: "builder",
 			parentKind: "document",
@@ -306,20 +310,20 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(31),
 		},
 		{
-			id: "demo-ki-metric-before-build",
+			id: "demo-doc-metric-before-build",
 			scopeKind: "factory",
 			scopeId: "product_manager",
 			parentKind: "document",
 			parentId: practiceFolderId("product_manager"),
 			title: "Instrument the metric before building the feature",
-			body: "The trial bet worked because the funnel was measured BEFORE the flow shipped — the done-condition was provable on day one. Search almost failed this; the eval loop got built mid-bet and cost a week.",
+			body: "The trial task worked because the funnel was measured BEFORE the flow shipped — the done-condition was provable on day one. Search almost failed this; the eval loop got built mid-task and cost a week.",
 			status: "active",
 			updatedBy: PM_ID,
 			createdAt: clock.daysAgo(22),
 			updatedAt: clock.daysAgo(13),
 		},
 		{
-			id: "demo-ki-empty-state-first",
+			id: "demo-doc-empty-state-first",
 			scopeKind: "factory",
 			scopeId: "designer",
 			parentKind: "document",
@@ -332,7 +336,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(27),
 		},
 		{
-			id: "demo-ki-feature-flag-rollout",
+			id: "demo-doc-feature-flag-rollout",
 			scopeKind: "factory",
 			scopeId: "builder",
 			parentKind: "document",
@@ -345,7 +349,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(5),
 		},
 		{
-			id: "demo-ki-email-deliverability",
+			id: "demo-doc-email-deliverability",
 			scopeKind: "factory",
 			scopeId: "growth",
 			parentKind: "document",
@@ -358,7 +362,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(24),
 		},
 		{
-			id: "demo-ki-subject-line-ab",
+			id: "demo-doc-subject-line-ab",
 			scopeKind: "factory",
 			scopeId: "growth",
 			parentKind: "document",
@@ -371,7 +375,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.hoursAgo(2),
 		},
 		{
-			id: KI_CHURN_SIGNALS,
+			id: DOC_CHURN_SIGNALS,
 			scopeKind: "factory",
 			scopeId: "product_manager",
 			parentKind: "document",
@@ -384,20 +388,20 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(6),
 		},
 		{
-			id: "demo-ki-search-eval-loop",
+			id: "demo-doc-search-eval-loop",
 			scopeKind: "factory",
 			scopeId: "qa_engineer",
 			parentKind: "document",
 			parentId: practiceFolderId("qa_engineer"),
 			title: "The 50-query search eval loop",
-			body: "Real queries, expected results, top-3 hit rate — runnable before every search change. Baseline 54%, post-re-rank 71%. The loop outlived the bet that built it; every future ranking change gets measured here first.",
+			body: "Real queries, expected results, top-3 hit rate — runnable before every search change. Baseline 54%, post-re-rank 71%. The loop outlived the task that built it; every future ranking change gets measured here first.",
 			status: "active",
 			updatedBy: QA_ID,
 			createdAt: clock.daysAgo(21),
 			updatedAt: clock.daysAgo(20),
 		},
 		{
-			id: "demo-ki-staging-data",
+			id: "demo-doc-staging-data",
 			scopeKind: "factory",
 			scopeId: "qa_engineer",
 			parentKind: "document",
@@ -410,7 +414,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(26),
 		},
 		{
-			id: KI_MOBILE_POSTMORTEM,
+			id: DOC_MOBILE_POSTMORTEM,
 			scopeKind: "factory",
 			scopeId: ROOT_TASK_MOBILE,
 			parentKind: "task",
@@ -423,20 +427,20 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(8),
 		},
 		{
-			id: "demo-ki-discount-panic",
+			id: "demo-doc-discount-panic",
 			scopeKind: "factory",
 			scopeId: "growth",
 			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Anti-pattern: discounting in response to a single loud request",
-			body: "A loud enterprise prospect asked for 40% off; we almost said yes before the pricing bet ran. The research showed our real problem was clarity, not price. Provisional until the annual-discount decision lands.",
+			body: "A loud enterprise prospect asked for 40% off; we almost said yes before the pricing task ran. The research showed our real problem was clarity, not price. Provisional until the annual-discount decision lands.",
 			status: "proposed",
 			updatedBy: GROWTH_ID,
 			createdAt: clock.daysAgo(6),
 			updatedAt: clock.daysAgo(6),
 		},
 		{
-			id: "demo-ki-onboarding-dropoff",
+			id: "demo-doc-onboarding-dropoff",
 			scopeKind: "factory",
 			scopeId: "growth",
 			parentKind: "document",
@@ -449,7 +453,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(6),
 		},
 		{
-			id: "demo-ki-session-notes",
+			id: "demo-doc-session-notes",
 			scopeKind: "factory",
 			scopeId: "builder",
 			parentKind: "document",
@@ -462,33 +466,20 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(22),
 		},
 		{
-			id: "demo-ki-retro-format",
+			id: "demo-doc-retro-format",
 			scopeKind: "factory",
 			scopeId: "product_manager",
 			parentKind: "document",
 			parentId: practiceFolderId("product_manager"),
 			title: "Retro format: hypothesis vs reality, one keeper, one drop",
-			body: "Every bet retro answers three questions: what did the hypothesis say, what did reality deliver, and what is the one thing we keep plus the one thing we drop. Two paragraphs max — longer retros never get read.",
+			body: "Every task retro answers three questions: what did the hypothesis say, what did reality deliver, and what is the one thing we keep plus the one thing we drop. Two paragraphs max — longer retros never get read.",
 			status: "active",
 			updatedBy: PM_ID,
 			createdAt: clock.daysAgo(13),
 			updatedAt: clock.daysAgo(13),
 		},
 		{
-			id: "demo-ki-support-triage",
-			scopeKind: "factory",
-			scopeId: "support",
-			parentKind: "document",
-			parentId: practiceFolderId("support"),
-			title: "Support tickets that repeat three times become knowledge",
-			body: "Rule of three: when the same question arrives three times, it becomes a document and (if it is a product problem) a candidate bet. Pricing confusion hit the rule — the pricing bet exists because of it.",
-			status: "proposed",
-			updatedBy: MAYA_ID,
-			createdAt: clock.daysAgo(20),
-			updatedAt: clock.daysAgo(4),
-		},
-		{
-			id: "demo-ki-copy-review-checklist",
+			id: "demo-doc-copy-review-checklist",
 			scopeKind: "factory",
 			scopeId: "growth",
 			parentKind: "document",
@@ -501,7 +492,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(18),
 		},
 		{
-			id: "demo-ki-search-weights",
+			id: "demo-doc-search-weights",
 			scopeKind: "factory",
 			scopeId: "builder",
 			parentKind: "document",
@@ -513,9 +504,9 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			createdAt: clock.daysAgo(23),
 			updatedAt: clock.daysAgo(23),
 		},
-		// ── Bet scope: retros attached to their bets ────────────────────────
+		// ── Task scope: retros attached to their tasks ────────────────────────
 		{
-			id: KI_TRIAL_RETRO,
+			id: DOC_TRIAL_RETRO,
 			scopeKind: "factory",
 			scopeId: ROOT_TASK_TRIAL,
 			parentKind: "task",
@@ -528,13 +519,13 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(13),
 		},
 		{
-			id: "demo-ki-retro-search",
+			id: "demo-doc-retro-search",
 			scopeKind: "factory",
 			scopeId: ROOT_TASK_SEARCH,
 			parentKind: "task",
 			parentId: ROOT_TASK_SEARCH,
 			title: "Retro: search relevance — partial, and the eval loop wins",
-			body: "Top-3 hit rate moved 54% → 71%: real, short of the 80% target. Recency mattered more than expected; personalization was killed mid-bet.\n\n**Keeper:** the eval loop — it outlives the bet and measures every future change.\n**Drop:** chasing the last 9 points without new signal; that is diminishing returns.",
+			body: "Top-3 hit rate moved 54% → 71%: real, short of the 80% target. Recency mattered more than expected; personalization was killed mid-task.\n\n**Keeper:** the eval loop — it outlives the task and measures every future change.\n**Drop:** chasing the last 9 points without new signal; that is diminishing returns.",
 			status: "active",
 			updatedBy: PM_ID,
 			createdAt: clock.daysAgo(19),
@@ -542,7 +533,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		},
 		// ── Task scope: writeback from the work itself ─────────────────────
 		{
-			id: "demo-ki-trial-date-math",
+			id: "demo-doc-trial-date-math",
 			scopeKind: "factory",
 			scopeId: TASK_TRIAL_FLOW,
 			parentKind: "task",
@@ -554,28 +545,28 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			createdAt: clock.daysAgo(28),
 			updatedAt: clock.daysAgo(28),
 		},
-		// ── User scope: private items ──────────────────────────────────────
+		// ── User scope: private documents ─────────────────────────────────
 		{
-			id: "demo-ki-founder-focus",
+			id: "demo-doc-founder-focus",
 			scopeKind: "user",
 			scopeId: FOUNDER_ID,
 			parentKind: "document",
 			parentId: GENERAL_ROOT_ID,
 			title: "This quarter's focus",
-			body: "Activation first; pricing only where acquisition spend is leaking.\n\nThe pricing bet is the exception that proves the rule — it plugs a leak, it does not chase expansion.",
+			body: "Activation first; pricing only where acquisition spend is leaking.\n\nThe pricing task is the exception that proves the rule — it plugs a leak, it does not chase expansion.",
 			status: "active",
 			updatedBy: FOUNDER_ID,
 			createdAt: clock.daysAgo(12),
 			updatedAt: clock.daysAgo(11),
 		},
 		{
-			id: "demo-ki-founder-notes",
+			id: "demo-doc-founder-notes",
 			scopeKind: "user",
 			scopeId: FOUNDER_ID,
 			parentKind: "document",
 			parentId: GENERAL_ROOT_ID,
 			title: "Hiring notes — when does ops get an agent?",
-			body: "Maya reviews every ops item by hand. If support volume keeps falling (onboarding bet) there is room; if it does not, the roster needs an ops agent by next quarter. Decide at the portfolio retro.",
+			body: "Maya reviews every ops document by hand. If support volume keeps falling (onboarding task) there is room; if it does not, the roster needs an ops agent by next quarter. Decide at the portfolio retro.",
 			status: "proposed",
 			updatedBy: FOUNDER_ID,
 			createdAt: clock.daysAgo(7),
@@ -583,7 +574,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		},
 		// ── Stale and archived: a corpus that ages ─────────────────────────
 		{
-			id: "demo-ki-old-pricing",
+			id: "demo-doc-old-pricing",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
 			parentKind: "document",
@@ -596,39 +587,39 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(13),
 		},
 		{
-			id: "demo-ki-old-onboarding",
+			id: "demo-doc-old-onboarding",
 			scopeKind: "factory",
 			scopeId: "growth",
 			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Fixed-day onboarding emails (superseded)",
-			body: "The original plan sent emails on fixed days after signup. The funnel audit killed it — behavior triggers reach users where they actually are. Superseded by the onboarding-emails bet.",
+			body: "The original plan sent emails on fixed days after signup. The funnel audit killed it — behavior triggers reach users where they actually are. Superseded by the onboarding-emails task.",
 			status: "stale",
 			updatedBy: GROWTH_ID,
 			createdAt: clock.daysAgo(40),
 			updatedAt: clock.daysAgo(6),
 		},
 		{
-			id: "demo-ki-legacy-slack",
+			id: "demo-doc-legacy-slack",
 			scopeKind: "factory",
 			scopeId: "builder",
 			parentKind: "document",
 			parentId: practiceFolderId("builder"),
 			title: "Archived: the Slack-webhook experiment",
-			body: "Early experiment piping bet events to Slack. Retired when threads became the conversation surface — notifications now live in-app.",
+			body: "Early experiment piping task events to Slack. Retired when threads became the conversation surface — notifications now live in-app.",
 			status: "archived",
 			updatedBy: BUILDER_ID,
 			createdAt: clock.daysAgo(43),
 			updatedAt: clock.daysAgo(25),
 		},
 		{
-			id: "demo-ki-legacy-roadmap",
+			id: "demo-doc-legacy-roadmap",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
 			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Archived: launch-quarter roadmap",
-			body: "The launch-quarter roadmap, archived when bets replaced roadmaps. Interesting mostly as archaeology.",
+			body: "The launch-quarter roadmap, archived when tasks replaced roadmaps. Interesting mostly as archaeology.",
 			status: "archived",
 			updatedBy: FOUNDER_ID,
 			createdAt: clock.daysAgo(44),
@@ -636,7 +627,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		},
 		// ── More practice: breadth across roles ────────────────────────────
 		{
-			id: "demo-ki-regression-suite",
+			id: "demo-doc-regression-suite",
 			scopeKind: "factory",
 			scopeId: "qa_engineer",
 			parentKind: "document",
@@ -649,20 +640,20 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(25),
 		},
 		{
-			id: "demo-ki-design-tokens",
+			id: "demo-doc-design-tokens",
 			scopeKind: "factory",
 			scopeId: "designer",
 			parentKind: "document",
 			parentId: practiceFolderId("designer"),
 			title: "New screens compose from tokens, never raw values",
-			body: "Every screen the pricing bet shipped composed from design tokens; the one dialog that used raw hex values got caught in review. Tokens are the contract between design and build.",
+			body: "Every screen the pricing task shipped composed from design tokens; the one dialog that used raw hex values got caught in review. Tokens are the contract between design and build.",
 			status: "active",
 			updatedBy: DESIGNER_ID,
 			createdAt: clock.daysAgo(17),
 			updatedAt: clock.daysAgo(17),
 		},
 		{
-			id: "demo-ki-weekly-planning",
+			id: "demo-doc-weekly-planning",
 			scopeKind: "factory",
 			scopeId: "product_manager",
 			parentKind: "document",
@@ -675,20 +666,20 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(20),
 		},
 		{
-			id: "demo-ki-knowledge-hygiene",
+			id: "demo-doc-knowledge-hygiene",
 			scopeKind: "factory",
 			scopeId: "facilitator",
 			parentKind: "document",
 			parentId: practiceFolderId("facilitator"),
 			title: "Knowledge hygiene: triage weekly, archive without guilt",
-			body: "The triage queue should stay under five items; archived is a respectable destination. A knowledge base that only grows is a landfill — the decay sweep exists for a reason.",
+			body: "The triage queue should stay under five documents; archived is a respectable destination. A knowledge base that only grows is a landfill — the decay sweep exists for a reason.",
 			status: "active",
 			updatedBy: FACILITATOR_ID,
 			createdAt: clock.daysAgo(16),
 			updatedAt: clock.daysAgo(15),
 		},
 		{
-			id: "demo-ki-competitor-watch",
+			id: "demo-doc-competitor-watch",
 			scopeKind: "factory",
 			scopeId: "growth",
 			parentKind: "document",
@@ -701,7 +692,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedAt: clock.daysAgo(8),
 		},
 		{
-			id: "demo-ki-uptime-runbook",
+			id: "demo-doc-uptime-runbook",
 			scopeKind: "factory",
 			scopeId: "ops",
 			parentKind: "document",
@@ -713,11 +704,10 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			createdAt: clock.daysAgo(145),
 			updatedAt: clock.daysAgo(15),
 		},
-		// ── Produced documents (formerly artifacts) ───────────────────
-		// @lore artifacts-become-knowledge: produced content (pages, code, dashboards)
-		// is a document parented to the task that produced it. The body carries
-		// the actual content; kind is derived at render from the blocks. An item whose
-		// body is a single fenced html block renders live in the sandbox frame.
+		// ── Produced documents ─────────────────────────────────────────
+		// @lore Produced content (pages, code, dashboards) is a document parented to the
+		// task that generated it. Kind is derived at render from the blocks. A document
+		// whose body is a single fenced html block renders live in the sandbox frame.
 		//
 		// @lore nested-knowledge-items: scope is `team`/`TEAM_ID`, not the
 		// `task`-scope-kind + free-text `topic` these rows carried when #547
@@ -727,7 +717,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		// scope is never enforced against a task parent, so which of the three
 		// surviving kinds these carry doesn't change tree behavior.
 		{
-			id: ART_PRICING_PAGE,
+			id: DOC_PRICING_PAGE,
 			scopeKind: "team",
 			scopeId: TEAM_ID,
 			title: "Pricing page — two-tier rebuild",
@@ -740,7 +730,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			parentId: TASK_PRICING_PAGE,
 		},
 		{
-			id: ART_TRIAL_FLOW,
+			id: DOC_TRIAL_FLOW,
 			scopeKind: "team",
 			scopeId: TEAM_ID,
 			title: "Trial extension flow — implementation",
@@ -753,7 +743,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			parentId: TASK_TRIAL_FLOW,
 		},
 		{
-			id: ART_TRIAL_METRICS,
+			id: DOC_TRIAL_METRICS,
 			scopeKind: "team",
 			scopeId: TEAM_ID,
 			title: "Trial extension metrics dashboard",
@@ -766,7 +756,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			parentId: TASK_TRIAL_MEASURE,
 		},
 		{
-			id: ART_SEARCH_RANKING,
+			id: DOC_SEARCH_RANKING,
 			scopeKind: "team",
 			scopeId: TEAM_ID,
 			title: "Search re-ranking — implementation",

@@ -21,7 +21,6 @@
 		"@hyperidle/event-bus": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/document": "*",
-		"@hyperidle/settings": "*",
 		"@hyperidle/user": "*",
 		"@hyperidle/task": "*",
 		"drizzle-orm": "^0.45.2",

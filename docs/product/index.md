@@ -1,9 +1,7 @@
 # Product Documentation
 
-Narrative funnel: what HyperIdle is, how it works, why it is designed this way. Read in order for the fastest path from zero to understanding.
+What HyperIdle is, how it works, and how knowledge compounds.
 
-- [What is HyperIdle?](./what-is-hyperidle.md) — positioning, defining properties, supported harnesses, and who it is for.
-- [How Work Flows](./how-work-flows.md) — the four primitives (Teams, Tasks, Sessions, Subscriptions) and how sequences emerge without central planners or DAGs.
-- [Human + AI Collaboration](./human-ai-collaboration.md) — agents execute, humans validate: role split, verdicts, review canvases, and trust gating.
-- [How Knowledge Compounds](./how-knowledge-compounds.md) — one canonical store, two projections, and the compounding pitch; mechanism depth in [knowledge-architecture/](../knowledge-architecture/).
-- [Product Decisions](./product-decisions.md) — durable founder decisions: standing scope-outs that must not be re-opened, decided-but-unexecuted work, and the dead-buttons/wiring-gap principles.
+- [What is HyperIdle?](./what-is-hyperidle.md) — what it is, who it is for, and the harnesses it uses.
+- [How Work Flows](./how-work-flows.md) — tasks, sessions, reviews, and subscriptions.
+- [How Knowledge Compounds](./how-knowledge-compounds.md) — one document store, scope, and curation.

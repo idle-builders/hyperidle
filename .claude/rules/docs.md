@@ -5,12 +5,9 @@ paths:
 
 # Documentation
 
-`docs/` is the authoritative account of the product — not a changelog, not a design journal. It is
-split by topic (`architecture/`, `process-layer/`, `agent-layer/`, `ui-design/`,
-`knowledge-architecture/`, `human-interface-layer/`, `information-architecture/`, `blocks/`,
-`requirements/`, `deployment/`, `guides/`), each folder carrying an `index.md` with
-its section links. Superseded pages move to `docs/archive/` rather than lingering with a warning on
-top.
+`docs/` is the authoritative account of the product — not a changelog, not a design journal. It is split by topic (`product/`, `guides/user/`, `guides/developer/`, `deployment/`,
+`architecture/`, `agent-layer/`, `objects/`, `interface/`), each folder carrying an `index.md`
+with its section links.
 
 ## Writing
 

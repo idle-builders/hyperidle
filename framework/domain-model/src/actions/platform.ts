@@ -29,7 +29,7 @@ export type PluginScope = z.infer<typeof PluginScopeSchema>;
 
 export const PluginContributionViewSchema = z.object({
 	/** A contributed row, or `mcp_server` — a server read from the install's `mcp.json`. */
-	kind: z.enum([...PLUGIN_CONTRIBUTION_KINDS, "mcp_server"]),
+	kind: z.enum(PLUGIN_CONTRIBUTION_KINDS),
 	/** The contributed row's id, or `<plugin name>/<server name>` for an MCP server. */
 	entityId: z.string(),
 	/** What a person calls it: an agent's name, a subscription's name, a document's title, a server's name. */

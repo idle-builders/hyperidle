@@ -20,7 +20,7 @@
  * Guard: this file is NOT in EXPLICIT_HARNESS_INTEGRATION (service-integration only).
  */
 
-import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	agentRunConfig,
 	agentWorkIntents,
@@ -29,10 +29,36 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { makeAgentIdentityTestPort } from "../__testing__/document-read-test-ports.js";
 import { test } from "../__testing__/test-fixtures.js";
+import type { ActionContext } from "../actions/action.js";
+import { buildCoreActions } from "../actions/compose.js";
+
+function buildActions(agentOrchestration: AgentOrchestrationPort) {
+	return buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	});
+}
+
+async function sendMessageAs(
+	actorId: string,
+	body: Record<string, unknown>,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
+): Promise<{ ok: boolean }> {
+	const actions = buildActions(agentOrchestration);
+	const sendMessage = actions.find((a) => a.declaration.name === "send_message");
+	if (!sendMessage) throw new Error("send_message action not found");
+	const ctx: ActionContext = { actor: actorId, db, eventBus, now: new Date().toISOString() };
+	const result = await sendMessage.run(ctx, body);
+	return { ok: result.ok };
+}
 
 const agentIdentity = makeAgentIdentityTestPort();
 
@@ -230,7 +256,8 @@ describe("the assistant-turn trigger (service-integration)", () => {
 
 	test("Term 2: the assistant's own message records NO thread_turn intent (no self-retrigger)", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		const founderId = "gate-term2-founder";
 		const assistantId = `ast-${founderId}`;
@@ -244,29 +271,19 @@ describe("the assistant-turn trigger (service-integration)", () => {
 			withWelcomeMessage: false,
 		});
 
-		// The assistant's own messages are attributed via the seam's actor-
-		// override header (`CORE_API_ACTOR_OVERRIDE_HEADER`) — the SAME
-		// mechanism `reply`'s `insertMessage` call uses internally
-		// (`seamPortForActor(ctx.agentId)`). `X-Identity` does not control
-		// senderId at all — only this header, consulted after
-		// X-API-Key auth already succeeded, can attribute a write to a
-		// non-human actor. The door is `POST /api/actions/send_message`.
-		const res = await app.request("/api/actions/send_message", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"X-API-Key": GATE_API_KEY,
-				[CORE_API_ACTOR_OVERRIDE_HEADER]: assistantId,
-			},
-			body: JSON.stringify({
+		// The assistant sends in-process, attributed to its own actor id.
+		const result = await sendMessageAs(
+			assistantId,
+			{
 				threadId,
 				text: "Following up on my own message.",
 				clientKey: crypto.randomUUID(),
-			}),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { ok: boolean };
-		expect(body.ok).toBe(true);
+			},
+			db,
+			eventBus,
+			agentOrchestration,
+		);
+		expect(result.ok).toBe(true);
 
 		const allMessages = await db.select().from(messages).where(eq(messages.threadId, threadId));
 		const assistantOwnMessage = allMessages.find(

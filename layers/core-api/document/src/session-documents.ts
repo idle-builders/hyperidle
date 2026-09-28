@@ -45,6 +45,19 @@ function loadScoringWeights(_db: HyperIdleDb): Promise<ScoringWeights> {
 // Token budget.
 // ---------------------------------------------------------------------------
 
+/**
+ * Derive searchable keyword tokens from a task description.
+ * Splits on non-alphanumeric characters, lowercases, and drops tokens
+ * shorter than 3 characters (articles, prepositions, etc.).
+ */
+function tokenizeDescription(desc: string): string[] {
+	if (!desc || desc.trim().length === 0) return [];
+	return desc
+		.toLowerCase()
+		.split(/[^a-z0-9]+/)
+		.filter((t) => t.length >= 3);
+}
+
 /** Approximate token count via whitespace split. */
 function countTokens(text: string): number {
 	if (!text || text.trim().length === 0) {
@@ -317,7 +330,7 @@ export async function assembleSessionDocuments(
 
 	const rankedItems = await rank(db, allItems, {
 		taskDescription: input.taskDescription,
-		taskTags: [],
+		taskTags: tokenizeDescription(input.taskDescription),
 	});
 
 	// Ordinary items get ancestor chain resolved here at bake time; capability items are placed by slot.
@@ -345,4 +358,4 @@ export async function assembleSessionDocuments(
 	return result;
 }
 
-export { countTokens, enforceBudget };
+export { countTokens, enforceBudget, tokenizeDescription };

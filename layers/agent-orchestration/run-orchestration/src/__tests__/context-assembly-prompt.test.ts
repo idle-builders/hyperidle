@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { BakedContextBundle } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createContextAssembler } from "../context.js";
 
@@ -17,7 +18,13 @@ const assembler = createContextAssembler({
 
 function sessionContext() {
 	return {
-		task: { id: "t1", title: "Ship the thing", description: "Do the work", state: "in_progress" },
+		task: {
+			id: "t1",
+			title: "Ship the thing",
+			description: "Do the work",
+			state: "in_progress",
+			doneCondition: null,
+		},
 		ancestors: [
 			{ id: "b1", title: "Root goal", description: "Ship it fast", doneCondition: "It ships" },
 		],
@@ -88,6 +95,37 @@ describe("buildTemplateVariables", () => {
 		expect(vars.product).toBe("Alpha");
 		expect(typeof vars.community).toBe("string");
 		expect(vars.community?.length).toBeGreaterThan(0);
+	});
+});
+
+describe("buildTaskSection: doneCondition source priority", () => {
+	it("uses task own doneCondition when present, ignoring ancestor", async () => {
+		const ctx = {
+			...sessionContext(),
+			task: {
+				...sessionContext().task,
+				doneCondition: "Task-own condition",
+			},
+		};
+		const result = await assembler.assemblePrompt({
+			systemPromptText: "",
+			context: ctx,
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+		expect(result.assembledPrompt).toContain("Task-own condition");
+		// Ancestor's doneCondition must NOT override the task's own.
+		expect(result.assembledPrompt).not.toContain("It ships");
+	});
+
+	it("falls back to root ancestor doneCondition when task has none", async () => {
+		const result = await assembler.assemblePrompt({
+			systemPromptText: "",
+			context: sessionContext(),
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+		expect(result.assembledPrompt).toContain("It ships");
 	});
 });
 
@@ -245,5 +283,69 @@ describe("writeSandboxAgentsMd", () => {
 			const written = fs.readFileSync(path.join(sandboxPath, filename), "utf8");
 			expect(written).toBe("# Session Instructions");
 		}
+	});
+});
+
+describe("assembleAgentContext: previous session notes", () => {
+	let sandboxPath: string;
+
+	const minimalBundle: BakedContextBundle = {
+		kind: "task",
+		task: {
+			id: "t1",
+			title: "Ship it",
+			description: null,
+			state: "in_progress",
+			doneCondition: null,
+		},
+		ancestors: [],
+		agent: { id: "a1", name: "Ada", role: "builder" },
+		team: { id: "team1", name: "Alpha" },
+		documents: [],
+	};
+
+	beforeEach(() => {
+		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "context-notes-test-"));
+	});
+
+	afterEach(() => {
+		fs.rmSync(sandboxPath, { recursive: true, force: true });
+	});
+
+	it("writes previousSessionNotes into task-notes.md", async () => {
+		await assembler.assembleAgentContext({
+			sandboxPath,
+			sessionId: "s1",
+			taskId: "t1",
+			agentId: "a1",
+			teamId: "team1",
+			taskFree: false,
+			sourceKind: "task",
+			sourceId: "src1",
+			sourceCorrelation: null,
+			contextBundle: minimalBundle,
+			previousSessionNotes: "Notes from last time",
+		});
+
+		const written = fs.readFileSync(path.join(sandboxPath, "work/task-notes.md"), "utf8");
+		expect(written).toBe("Notes from last time");
+	});
+
+	it("writes empty task-notes.md when previousSessionNotes is absent", async () => {
+		await assembler.assembleAgentContext({
+			sandboxPath,
+			sessionId: "s1",
+			taskId: "t1",
+			agentId: "a1",
+			teamId: "team1",
+			taskFree: false,
+			sourceKind: "task",
+			sourceId: "src1",
+			sourceCorrelation: null,
+			contextBundle: minimalBundle,
+		});
+
+		const written = fs.readFileSync(path.join(sandboxPath, "work/task-notes.md"), "utf8");
+		expect(written).toBe("");
 	});
 });

@@ -42,7 +42,7 @@ export const inlineRefSchema = z.discriminatedUnion("kind", [
 ]);
 
 export const assistantNoticeSchema = z.object({
-	kind: z.enum(["missing_key", "missing_harness", "provider_error"]),
+	kind: z.enum(["missing_harness", "provider_error"]),
 	code: z.string().optional(),
 });
 

@@ -47,10 +47,7 @@ export interface BakedWorkIntentRequest {
 	 */
 	readonly agentConfig?: BakedAgentRunnableConfig;
 	/**
-	 * Disabled harness types (`server_config.harnessDisabled`), baked at emit time.
-	 * Absent means "nothing disabled" — not a live-read fallback; `ports.settings` has no place in `run-orchestration`.
 	 */
-	readonly harnessDisabled?: readonly string[];
 	/**
 	 * Calling thread id, baked at emit time by resolvers that have a real thread host.
 	 * `subscription_run` bakes none; its `reply` falls back to a direct thread with the sole human user.
@@ -201,6 +198,7 @@ export type BakedContextBundle =
 				readonly title: string;
 				readonly description: string | null;
 				readonly state: string;
+				readonly doneCondition: string | null;
 			};
 			/** Containing work, root first, down to the immediate parent. Empty for a root task. */
 			readonly ancestors: readonly {

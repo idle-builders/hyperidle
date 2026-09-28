@@ -6,7 +6,7 @@
  * (SettingsHarnesses / SettingsModels / SettingsAgents). "List / register / inspect
  * a thing in Settings" is already solved; Filesystems reuses that chrome.
  *
- * Corrected model (docs/process-layer/canonical-shapes.md § Filesystem):
+ * Corrected model (docs/objects/folders.md):
  *   - A filesystem is REGISTERED ONCE, team-scoped, with a first-class `source`
  *     (local / github / gdrive / obsidian …) — parallel to a connector.
  *   - It is NOT owned by a single agent. This registry is a FLAT list of the
@@ -43,7 +43,7 @@ import { Button, KeyValue, type Status, StatusChip, Tag } from "../ds";
 
 // ---------------------------------------------------------------------------
 // Fixture shape — the registered Filesystem as the UI sees it (mirrors the
-// canonical shape in docs/process-layer/canonical-shapes.md § Filesystem).
+// canonical shape in docs/objects/folders.md).
 // No credential is ever in this shape — only the resource selection, the source
 // type, and the FACT of reachability.
 // ---------------------------------------------------------------------------

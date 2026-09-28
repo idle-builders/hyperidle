@@ -5,12 +5,14 @@
  * `agent_work_intents` row.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-
-const ACTOR_OVERRIDE_HEADER = "x-hyperidle-actor-id";
+import type { ActionContext } from "../actions/action.js";
+import { buildCoreActions } from "../actions/compose.js";
 
 interface ActionEnvelope<T> {
 	readonly ok: boolean;
@@ -21,14 +23,35 @@ async function call<T>(
 	app: { request: (path: string, init: RequestInit) => Response | Promise<Response> },
 	name: string,
 	body: Record<string, unknown>,
-	headers: Record<string, string> = {},
 ): Promise<{ readonly status: number; readonly body: ActionEnvelope<T> }> {
 	const res = await app.request(`/api/actions/${name}`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json", ...headers },
+		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(body),
 	});
 	return { status: res.status, body: (await res.json()) as ActionEnvelope<T> };
+}
+
+async function callAs<T>(
+	name: string,
+	body: Record<string, unknown>,
+	actorId: string,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
+): Promise<{ readonly status: number; readonly body: ActionEnvelope<T> }> {
+	const actions = buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	});
+	const action = actions.find((a) => a.declaration.name === name);
+	if (!action) throw new Error(`action not found: ${name}`);
+	const ctx: ActionContext = { actor: actorId, db, eventBus, now: new Date().toISOString() };
+	const result = await action.run(ctx, body);
+	return result.ok
+		? { status: 200, body: { ok: true, data: result.data as T } }
+		: { status: 422, body: { ok: false } };
 }
 
 /**
@@ -74,6 +97,8 @@ describe("the wake rule bakes the thread's conversational transcript at emit tim
 	test("the baked intent's transcript includes prior thread history AND the just-posted triggering message, in order", async ({
 		db,
 		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		const threadId = "thread-transcript-bake-1";
 		const senderId = "user-transcript-bake-1";
@@ -91,11 +116,13 @@ describe("the wake rule bakes the thread's conversational transcript at emit tim
 		// The agent's own prior reply — posted as the agent identity so its
 		// wake (the OTHER member, the human, is not an agent) fires no intent
 		// for it, and the trigger below stays the only new wake.
-		const priorAgentReply = await call(
-			app,
+		const priorAgentReply = await callAs(
 			"send_message",
 			{ threadId, text: "it is sunny today" },
-			{ [ACTOR_OVERRIDE_HEADER]: agentId },
+			agentId,
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(priorAgentReply.status).toBe(200);
 

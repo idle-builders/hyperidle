@@ -1,11 +1,10 @@
 /**
  * AX1 — demo world work: seven root tasks across every lifecycle, twenty-nine
  * child tasks (including two grandchild tasks under TASK_PRICING_PAGE for
- * 3-level nesting), and the artifacts they produced.
+ * 3-level nesting), and the documents they produced.
  *
- * @lore BB1: bets table dropped. Each former "bet" is now a root task
- * (parentTaskId: null). Child tasks carry parentTaskId pointing at the root
- * task or (for grandchildren) at another child task. This gives the tree its
+ * Root tasks have parentTaskId: null. Child tasks carry parentTaskId pointing at
+ * the root task or (for grandchildren) at another child task, giving the tree its
  * maximum depth: root → child → grandchild.
  *
  * The story: Acme builds "Pulse", a customer-feedback analytics app. They
@@ -15,16 +14,14 @@
  */
 
 import { type HyperIdleDb, tasks, threads } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
 import {
 	BUILDER_ID,
 	DESIGNER_ID,
+	DOC_CHURN_SIGNALS,
 	GROWTH_ID,
-	KI_CHURN_SIGNALS,
 	PM_ID,
 	QA_ID,
 	ROOT_TASK_CHURN,
-	ROOT_TASK_DIGEST,
 	ROOT_TASK_DOWNGRADE,
 	ROOT_TASK_MOBILE,
 	ROOT_TASK_ONBOARDING,
@@ -65,9 +62,8 @@ import {
 import type { DemoClock } from "./time.js";
 
 /**
- * @lore BB1: RootTaskSpec replaces BetSpec. Root tasks (parentTaskId: null) are
- * the top-level work containers. State maps from former bet status:
- *   draft → proposed, active → in_progress, completed → done, killed → killed.
+ * @lore Root tasks (parentTaskId: null) are the top-level work containers.
+ * Valid states: proposed, in_progress, done, killed.
  */
 interface RootTaskSpec {
 	readonly id: string;
@@ -77,14 +73,14 @@ interface RootTaskSpec {
 	readonly state: "proposed" | "in_progress" | "done" | "killed";
 	readonly createdAt: string;
 	readonly completedAt?: string;
-	readonly outcomeVerdict?: "validated" | "refuted" | "partial" | "inconclusive";
+	readonly outcomeVerdict?: "met" | "met_with_rework" | "partially_met" | "not_met";
 	readonly outcomeSummary?: string;
 	readonly sourceDocumentId?: string;
 }
 
 interface TaskSpec {
 	readonly id: string;
-	/** @lore BB1: formerly betId — now parentTaskId (root task or any ancestor). */
+	/** parentTaskId: root task (parentTaskId: null) or any ancestor. */
 	readonly parentTaskId: string;
 	readonly ownerId: string;
 	readonly title: string;
@@ -95,11 +91,11 @@ interface TaskSpec {
 	readonly updatedAt: string;
 	readonly dependencies?: readonly string[];
 	readonly outcomeVerdict?: "met" | "met_with_rework" | "partially_met" | "not_met";
+	readonly needsReview?: boolean;
 }
 
 export async function seedWork(db: HyperIdleDb, clock: DemoClock): Promise<void> {
-	// ── Root tasks (formerly bets) ────────────────────────────────────────────
-	// @lore BB1: each former "bet" is now a root task (parentTaskId: null).
+	// ── Root tasks ───────────────────────────────────────────────────────────
 	const rootTaskSpecs: readonly RootTaskSpec[] = [
 		{
 			id: ROOT_TASK_PRICING,
@@ -150,7 +146,7 @@ lists the ten most at-risk accounts weekly.`,
 			doneCondition: "Dashboard live; at-risk list reviewed for three consecutive weeks.",
 			state: "proposed",
 			createdAt: clock.daysAgo(6),
-			sourceDocumentId: KI_CHURN_SIGNALS,
+			sourceDocumentId: DOC_CHURN_SIGNALS,
 		},
 		{
 			id: ROOT_TASK_DOWNGRADE,
@@ -178,7 +174,7 @@ with a reason) should convert evaluations that simply needed a week more.`,
 			state: "done",
 			createdAt: clock.daysAgo(40),
 			completedAt: clock.daysAgo(14),
-			outcomeVerdict: "validated",
+			outcomeVerdict: "met",
 			outcomeSummary:
 				"27% of expiring trials took the extension and 31% of those converted — the hypothesis held with room to spare. Support-granted extensions dropped to near zero. Kept: the one-time limit; dropped: the reason dropdown (nobody used it).",
 		},
@@ -194,7 +190,7 @@ we stop guessing.`,
 			state: "done",
 			createdAt: clock.daysAgo(35),
 			completedAt: clock.daysAgo(20),
-			outcomeVerdict: "partial",
+			outcomeVerdict: "partially_met",
 			outcomeSummary:
 				"Top-3 hit rate moved 54% → 71% — real, short of the 80% target. Recency mattered more than expected; personalization was killed mid-task as out of reach. The eval loop itself is the keeper: every future search change gets measured.",
 		},
@@ -210,7 +206,7 @@ Research first, prototype only if the numbers say yes.`,
 			state: "killed",
 			createdAt: clock.daysAgo(30),
 			completedAt: clock.daysAgo(8),
-			outcomeVerdict: "refuted",
+			outcomeVerdict: "not_met",
 			outcomeSummary:
 				"Mobile is 6% of sessions and mostly read-only — the responsive web app already covers it. A native shell would cost a quarter of the team's capacity for reach we do not have. Killed honestly; the teardown stays as knowledge.",
 		},
@@ -291,6 +287,7 @@ Research first, prototype only if the numbers say yes.`,
 			state: "review",
 			createdAt: clock.daysAgo(13),
 			updatedAt: clock.hoursAgo(5),
+			needsReview: true,
 		},
 		// Grandchildren of TASK_PRICING_PAGE — 3-level nesting proof:
 		//   ROOT_TASK_PRICING → TASK_PRICING_PAGE → TASK_PRICING_PAGE_{DESKTOP,MOBILE}
@@ -362,7 +359,7 @@ Research first, prototype only if the numbers say yes.`,
 			ownerId: QA_ID,
 			title: "Set up conversion funnel measurement",
 			description:
-				"Baseline the trial-to-paid funnel now, so the bet's done-condition is measurable when the page ships.",
+				"Baseline the trial-to-paid funnel now, so the task's done-condition is measurable when the page ships.",
 			doneCondition: "Funnel dashboard live with two weeks of baseline.",
 			state: "accepted",
 			createdAt: clock.daysAgo(7),
@@ -529,7 +526,7 @@ Research first, prototype only if the numbers say yes.`,
 			ownerId: BUILDER_ID,
 			title: "Personalize ranking by team usage",
 			description:
-				"Boost documents the searcher's team touches. Killed mid-bet: out of reach for the appetite.",
+				"Boost documents the searcher's team touches. Killed mid-task: out of reach for the appetite.",
 			doneCondition: "Personalized ranking live.",
 			state: "killed",
 			createdAt: clock.daysAgo(30),
@@ -555,7 +552,7 @@ Research first, prototype only if the numbers say yes.`,
 			ownerId: DESIGNER_ID,
 			title: "Prototype the mobile shell",
 			description:
-				"Killed with the bet — the research said no before a prototype was worth building.",
+				"Killed with the task — the research said no before a prototype was worth building.",
 			doneCondition: "Clickable prototype of the two core screens.",
 			state: "killed",
 			createdAt: clock.daysAgo(26),
@@ -566,13 +563,13 @@ Research first, prototype only if the numbers say yes.`,
 			parentTaskId: ROOT_TASK_MOBILE,
 			ownerId: BUILDER_ID,
 			title: "Spike the native shell",
-			description: "Killed with the bet.",
+			description: "Killed with the task.",
 			doneCondition: "Shell boots and renders one dashboard.",
 			state: "killed",
 			createdAt: clock.daysAgo(26),
 			updatedAt: clock.daysAgo(9),
 		},
-		// ── Drafts: proposed tasks waiting on bet activation ───────────────
+		// ── Drafts: proposed tasks ────────────────────────────────────────
 		{
 			id: TASK_DOWNGRADE_POLICY,
 			parentTaskId: ROOT_TASK_DOWNGRADE,
@@ -652,17 +649,8 @@ Research first, prototype only if the numbers say yes.`,
 				outcomeVerdict: task.outcomeVerdict ?? null,
 				outcomeRecordedAt: task.outcomeVerdict ? task.updatedAt : null,
 				outcomeRecordedBy: task.outcomeVerdict ? PM_ID : null,
+				needsReview: task.needsReview ?? false,
 			})
 			.onConflictDoNothing();
 	}
-
-	// Backdate the factory-skeleton daily-digest root task so it sits inside
-	// the world's history instead of "just now". The task row was seeded by
-	// demo-fixture.ts; only the timestamp is corrected here.
-	// @lore BB1: formerly `update(bets).where(eq(bets.id, BET_DIGEST))` — the
-	// daily-digest is now a root task in the tasks table.
-	await db
-		.update(tasks)
-		.set({ createdAt: clock.daysAgo(19), updatedAt: clock.daysAgo(19) })
-		.where(eq(tasks.id, ROOT_TASK_DIGEST));
 }

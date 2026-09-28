@@ -111,7 +111,7 @@ export type InlineRef = EntityRef | MentionRef | CanvasArtifactRef;
  *
  */
 export interface AssistantNotice {
-	readonly kind: "missing_key" | "missing_harness" | "provider_error";
+	readonly kind: "missing_harness" | "provider_error";
 	/** Non-sensitive provider code (e.g. "rate_limited"). Allowlisted — never raw error.message. */
 	readonly code?: string;
 }

@@ -78,9 +78,6 @@ export interface ThreadActionsDeps {
 		input: SearchDocumentsInput,
 	) => Promise<ActionResult<DocumentRow[]>>;
 	readonly org: { getTeam(exec: WriteExecutor, q: { id: string }): Promise<Team | undefined> };
-	readonly settings: {
-		readServerConfig(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
-	};
 	readonly agents: {
 		requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 		/** Via `searchDocuments` — needs the full ctx, not just `db`. */
@@ -1159,7 +1156,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					// not the full ctx `getAgentIdentity` needs — close over `ctx`
 					// rather than widening that module's interface.
 					getAgentIdentity: (_db, id) => deps.agents.getAgentIdentity(ctx, id),
-					readServerConfig: deps.settings.readServerConfig,
 				});
 				await deps.agentWorkIntentRecorder({
 					kind: "thread_turn",

@@ -76,9 +76,8 @@ export interface HarnessDiscoveryStatus {
 	readonly version?: string;
 	readonly reason?: string;
 	/**
-	 * Additive field — stamped by the route handler (not the pool, which is DB-free).
-	 * true when the type is in server_config.harnessDisabled. No harness is exempt.
-	 * Undefined/absent == not disabled (same as false). Breaking: no — additive field.
+	 * Optional override — when true, this harness is treated as unavailable
+	 * regardless of its discovery state. Undefined/absent == not disabled.
 	 */
 	readonly disabled?: boolean;
 }

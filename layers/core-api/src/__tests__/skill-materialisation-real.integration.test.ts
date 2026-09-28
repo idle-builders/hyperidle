@@ -171,6 +171,7 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 			title: "Probe Task",
 			description: "Probe task for skill materialisation test",
 			state: "active",
+			doneCondition: "PROBE_TOKEN in harness output",
 		},
 		ancestors: [
 			{

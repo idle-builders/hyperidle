@@ -151,18 +151,6 @@ function parseBakedAgentConfig(request: AgentSessionRequest): BakedAgentRunnable
 	return (payload as { agentConfig?: BakedAgentRunnableConfig }).agentConfig;
 }
 
-/**
- * The server's baked
- * disabled-harness-types list, carried on `request.payloadJson` alongside
- * `agentConfig`. Feeds `admitSession`'s Phase 3 adapter-selection filter.
- */
-function parseBakedHarnessDisabled(request: AgentSessionRequest): readonly string[] | undefined {
-	if (!request.payloadJson) return undefined;
-	const payload = JSON.parse(request.payloadJson) as unknown;
-	if (!payload || typeof payload !== "object" || !("harnessDisabled" in payload)) return undefined;
-	return (payload as { harnessDisabled?: readonly string[] }).harnessDisabled;
-}
-
 function parseBakedCallingThreadId(request: AgentSessionRequest): string | undefined {
 	if (!request.payloadJson) return undefined;
 	const payload = JSON.parse(request.payloadJson) as unknown;
@@ -445,7 +433,6 @@ async function consumeAgentSessionRequest(
 	const sourceCorrelation = parseCorrelation(claimedRequest);
 	const contextBundle = parseBakedContextBundle(claimedRequest);
 	const agentConfig = parseBakedAgentConfig(claimedRequest);
-	const harnessDisabled = parseBakedHarnessDisabled(claimedRequest);
 	const callingThreadId = parseBakedCallingThreadId(claimedRequest);
 	const rawTranscript = parseBakedTranscript(claimedRequest);
 	const transcript = rawTranscript
@@ -461,7 +448,6 @@ async function consumeAgentSessionRequest(
 		...(options.sessionWorkflow ? { sessionWorkflow: options.sessionWorkflow } : {}),
 		...(contextBundle ? { contextBundle } : {}),
 		...(agentConfig ? { agentConfig } : {}),
-		...(harnessDisabled ? { harnessDisabled } : {}),
 		...(callingThreadId ? { callingThreadId } : {}),
 		...(transcript ? { transcript } : {}),
 		...(resume ? { resume } : {}),

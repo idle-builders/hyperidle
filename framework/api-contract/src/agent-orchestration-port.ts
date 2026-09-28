@@ -14,9 +14,6 @@ export interface AgentOrchestrationSessionWireRow {
 	readonly sandboxSnapshot: string | null;
 	readonly outcome: string | null;
 	readonly notes: string | null;
-	readonly effectivenessScore: string | null;
-	readonly effectivenessRecordedAt: string | null;
-	readonly effectivenessRecordedBy: string | null;
 }
 
 export interface AgentOrchestrationSessionsPort {

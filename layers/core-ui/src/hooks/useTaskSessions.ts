@@ -11,8 +11,6 @@ export interface TaskSession {
 	tokens: number | null;
 	status: string;
 	harnessUrl: string | null;
-	/** Session effectiveness score. Float 0-1, or null when not evaluated. */
-	effectivenessScore?: number | null;
 }
 
 export interface TaskSessionsData {
@@ -37,10 +35,6 @@ function toTaskSessions(rows: ReadonlyArray<SessionRow>): TaskSession[] {
 		// @lore: live dot keys off state === "active"; use state not outcome so cascade-stopped session renders "stopped" via fallback, never blank
 		status: row.state ?? "",
 		harnessUrl: null,
-		effectivenessScore:
-			row.effectivenessScore != null && !Number.isNaN(Number.parseFloat(row.effectivenessScore))
-				? Number.parseFloat(row.effectivenessScore)
-				: null,
 	}));
 }
 

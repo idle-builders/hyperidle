@@ -272,66 +272,6 @@ describe("AdapterPool select — harnessType filter", () => {
 	});
 });
 
-describe("AdapterPool select — disabledTypes gate", () => {
-	const OPENCODE_META: AdapterMeta = {
-		name: "OpenCode",
-		kind: "local",
-		type: "opencode",
-		modelProviders: ["anthropic"],
-		maxConcurrent: 8,
-	};
-	const CLAUDE_CODE_META: AdapterMeta = {
-		name: "Claude Code",
-		kind: "local",
-		type: "claude-code",
-		modelProviders: ["anthropic"],
-		maxConcurrent: 4,
-	};
-	const CODEX_META: AdapterMeta = {
-		name: "Codex",
-		kind: "local",
-		type: "codex",
-		modelProviders: ["openai"],
-		maxConcurrent: 4,
-	};
-
-	it("an empty disabledTypes list disables nothing", () => {
-		const pool = new AdapterPool();
-		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
-		expect(pool.select({ disabledTypes: [], harnessType: "claude-code" })?.meta.type).toBe(
-			"claude-code",
-		);
-	});
-
-	it("never returns a disabled type, even when it's the only match", () => {
-		const pool = new AdapterPool();
-		pool.register("local-opencode", makeAdapter(), OPENCODE_META);
-		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
-		expect(pool.select({ harnessType: "claude-code", disabledTypes: ["claude-code"] })).toBeNull();
-	});
-
-	it("falls back to a non-disabled adapter when no harnessType is requested", () => {
-		const pool = new AdapterPool();
-		pool.register("local-opencode", makeAdapter(), OPENCODE_META);
-		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
-		expect(pool.select({ disabledTypes: ["claude-code"] })?.meta.type).toBe("opencode");
-	});
-
-	it("disabling multiple types skips all of them", () => {
-		const pool = new AdapterPool();
-		pool.register("local-opencode", makeAdapter(), OPENCODE_META);
-		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
-		pool.register("local-codex", makeAdapter(), CODEX_META);
-		expect(pool.select({ disabledTypes: ["claude-code", "codex"] })?.meta.type).toBe("opencode");
-	});
-
-	it("a disabled harness is skipped even when it is the only one registered", () => {
-		const pool = new AdapterPool();
-		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
-		expect(pool.select({ disabledTypes: ["claude-code"] })).toBeNull();
-	});
-});
-
 describe("AdapterPool pause/resume", () => {
 	const META: AdapterMeta = {
 		name: "worker-1",
@@ -402,12 +342,6 @@ describe("AdapterPool.describeSelectFailure", () => {
 		const reason = pool.describeSelectFailure({ harnessType: "codex" });
 		expect(reason).toContain("codex");
 		expect(reason).toContain("claude");
-	});
-
-	it("says so when every eligible adapter is disabled", () => {
-		const pool = new AdapterPool();
-		pool.register("a", makeAdapter(), meta({ type: "claude" }));
-		expect(pool.describeSelectFailure({ disabledTypes: ["claude"] })).toMatch(/disabled/i);
 	});
 
 	it("says so when every adapter is paused", () => {

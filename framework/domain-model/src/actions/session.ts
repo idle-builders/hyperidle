@@ -21,8 +21,6 @@ export const SessionRowSchema = z.object({
 	endedAt: z.string().nullable(),
 	state: z.string().nullable(),
 	outcome: z.string().nullable(),
-	/** Decimal string as stored, or null. */
-	effectivenessScore: z.string().nullable(),
 	notes: z.string().nullable(),
 	/** `sessions.model_tier` is `NOT NULL`, and every writer sets it from the closed `ModelTier` type. */
 	modelTier: z.enum(MODEL_TIERS),

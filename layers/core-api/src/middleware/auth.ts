@@ -1,4 +1,3 @@
-import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
@@ -45,11 +44,9 @@ function rejectUnauthorized(c: Context, message: string, logMessage: string): Re
 }
 
 async function resolveApiKeyActorUserId(
-	c: Context<HyperIdleEnv>,
+	_c: Context<HyperIdleEnv>,
 	db: HyperIdleDb,
 ): Promise<string> {
-	const actorOverride = c.req.header(CORE_API_ACTOR_OVERRIDE_HEADER);
-	if (actorOverride) return actorOverride;
 	const humanUser = await findUser(db, { kind: "human" });
 	return humanUser?.id ?? "u-founder";
 }

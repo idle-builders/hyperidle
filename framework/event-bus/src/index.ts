@@ -16,7 +16,6 @@ export type {
 	SandboxWritebackChange,
 	SandboxWritebackChangesDetectedEvent,
 	SessionEndedEvent,
-	SessionHandoffCompletedEvent,
 	SessionNotReturnedEvent,
 	SessionStartedEvent,
 	ToolCallRecordedEvent,

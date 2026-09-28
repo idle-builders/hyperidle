@@ -21,7 +21,6 @@ export interface TaskRunResolverDeps {
 			readonly agentId: string;
 		},
 	): Promise<readonly SessionDocumentLike[]>;
-	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
 /** The baked `task_run` request shape, matching `resolveIntentInputInternal`'s current return. */
@@ -39,8 +38,7 @@ export interface BakedTaskRunRequest {
 	readonly contextBundle?: BakedContextBundle;
 	/** Runnable-config snapshot baked from the same validated agent row — always present. */
 	readonly agentConfig: BakedAgentRunnableConfig;
-	readonly harnessDisabled?: readonly string[];
-	/** `NOT NULL` column — always present, one read, never a resolve-or-create. */
+	// @lore: callingThreadId — NOT NULL column; one read, never resolve-or-create; always present
 	readonly callingThreadId: string;
 }
 
@@ -62,7 +60,13 @@ export async function bakeTaskContextBundle(
 	});
 	return {
 		kind: "task",
-		task: { id: task.id, title: task.title, description: task.description, state: task.state },
+		task: {
+			id: task.id,
+			title: task.title,
+			description: task.description,
+			state: task.state,
+			doneCondition: task.doneCondition,
+		},
 		// Root-first, so the agent reads the goal chain top-down.
 		ancestors: ancestors.map((a) => ({
 			id: a.id,
@@ -117,7 +121,7 @@ export async function resolveTaskRunRequest(
 	// destructured into locals so TS keeps them narrowed non-optional inside
 	// the block below, no non-null assertion needed.
 	let contextBundle: BakedContextBundle | undefined;
-	const { getTeamById, assembleSessionDocuments, readServerConfig } = deps;
+	const { getTeamById, assembleSessionDocuments } = deps;
 	if (getTeamById && assembleSessionDocuments) {
 		// `listAncestorIds` returns nearest-first; the bundle wants root-first.
 		const ancestorIds = await work.listAncestorIds(db, task.id);
@@ -137,10 +141,6 @@ export async function resolveTaskRunRequest(
 			assembleSessionDocuments,
 		);
 	}
-	const harnessDisabled = readServerConfig
-		? (await readServerConfig(db)).harnessDisabled
-		: undefined;
-
 	return {
 		defaultAgentId: attempt.agentId,
 		sourceKind: "task",
@@ -151,7 +151,6 @@ export async function resolveTaskRunRequest(
 		sourceCorrelation: { taskId: task.id, teamId: task.teamId },
 		agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
 		callingThreadId: task.threadId,
-		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(contextBundle ? { contextBundle } : {}),
 	};
 }

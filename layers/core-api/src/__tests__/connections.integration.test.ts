@@ -16,10 +16,13 @@
  * `SettingsConnections.tsx` doesn't call for one.
  */
 
-import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, users } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+import type { ActionContext } from "../actions/action.js";
+import { buildCoreActions } from "../actions/compose.js";
 
 const TEST_API_KEY = "test-key-connections";
 const CREDENTIAL_KEY = "test-credential-encryption-key";
@@ -31,9 +34,16 @@ function authHeadersA(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-/** User B as the caller: the actor-override header names the route actor. */
-function authHeadersB(): Record<string, string> {
-	return authHeadersA({ [CORE_API_ACTOR_OVERRIDE_HEADER]: USER_B_ID });
+function buildUserActions(agentOrchestration: AgentOrchestrationPort) {
+	return buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	});
+}
+
+function userCtx(actorId: string, db: HyperIdleDb, eventBus: EventBus): ActionContext {
+	return { actor: actorId, db, eventBus, now: new Date().toISOString() };
 }
 
 interface ConnectionView {
@@ -101,6 +111,48 @@ async function openConnections(
 	const connections = body.data?.connections;
 	if (!connections) throw new Error("open_user returned no connections field for the self view");
 	return connections;
+}
+
+async function openConnectionsAs(
+	actorId: string,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
+): Promise<ConnectionsField> {
+	const actions = buildUserActions(agentOrchestration);
+	const openUser = actions.find((a) => a.declaration.name === "open_user");
+	if (!openUser) throw new Error("open_user action not found");
+	const ctx = userCtx(actorId, db, eventBus);
+	const result = await openUser.run(ctx, {});
+	if (!result.ok) throw new Error("open_user failed");
+	const connections = (result.data as { connections?: ConnectionsField }).connections;
+	if (!connections) throw new Error("open_user returned no connections field for the self view");
+	return connections;
+}
+
+async function removeConnectionAs(
+	actorId: string,
+	selfId: string,
+	id: string,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
+): Promise<{ envelope: EditUserEnvelope }> {
+	const actions = buildUserActions(agentOrchestration);
+	const editUser = actions.find((a) => a.declaration.name === "edit_user");
+	if (!editUser) throw new Error("edit_user action not found");
+	const ctx = userCtx(actorId, db, eventBus);
+	const result = await editUser.run(ctx, { id: selfId, connections: { remove: [id] } });
+	return result.ok
+		? { envelope: { ok: true, data: result.data as { connections: ConnectionsField | null } } }
+		: {
+				envelope: {
+					ok: false,
+					problems: (
+						result as { ok: false; problems: ReadonlyArray<{ code: string; message: string }> }
+					).problems,
+				},
+			};
 }
 
 describe("connections behind open_user/edit_user", () => {
@@ -332,7 +384,12 @@ describe("connections behind open_user/edit_user", () => {
 	// not a per-row guard a route could regress.
 
 	describe("per-user isolation (two callers)", () => {
-		test("user B's own read never carries user A's connection", async ({ app, db }) => {
+		test("user B's own read never carries user A's connection", async ({
+			app,
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
 			await seedUserA(db);
 			await seedUserB(db);
 
@@ -344,13 +401,15 @@ describe("connections behind open_user/edit_user", () => {
 			const aConnectionId = created.envelope.data?.connections?.connections[0]?.id as string;
 			expect(typeof aConnectionId).toBe("string");
 
-			const bConnections = await openConnections(app, authHeadersB());
+			const bConnections = await openConnectionsAs(USER_B_ID, db, eventBus, agentOrchestration);
 			expect(bConnections.connections.find((c) => c.id === aConnectionId)).toBeUndefined();
 		});
 
 		test("user B's own remove of user A's real id finds nothing, and A's connection survives", async ({
 			app,
 			db,
+			eventBus,
+			agentOrchestration,
 		}) => {
 			await seedUserA(db);
 			await seedUserB(db);
@@ -362,7 +421,14 @@ describe("connections behind open_user/edit_user", () => {
 			});
 			const aConnectionId = created.envelope.data?.connections?.connections[0]?.id as string;
 
-			const { envelope } = await removeConnection(app, authHeadersB(), USER_B_ID, aConnectionId);
+			const { envelope } = await removeConnectionAs(
+				USER_B_ID,
+				USER_B_ID,
+				aConnectionId,
+				db,
+				eventBus,
+				agentOrchestration,
+			);
 			expect(envelope.ok).toBe(false);
 			expect(envelope.problems?.[0]?.code).toBe("unknown_connection");
 

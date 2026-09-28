@@ -36,6 +36,7 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 			name: "Maya Chen",
 			role: "operations",
 			status: "active",
+			teamId: TEAM_ID,
 			createdAt: clock.daysAgo(31),
 		})
 		.onConflictDoNothing();

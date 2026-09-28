@@ -29,10 +29,6 @@ export interface SubscriptionWakeDeps {
 			readonly agentId: string;
 		},
 	) => Promise<readonly SessionDocumentLike[]>;
-	/** `@hyperidle/settings`'s `readServerConfig`, injected, for the `harnessDisabled` bake. */
-	readonly readServerConfig?: (
-		db: HyperIdleDb,
-	) => Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
 /** The agent's identity document body — `search_documents({parent:{kind:"agent",id},slot:"agent_file"})[0]?.body`. */
@@ -133,10 +129,6 @@ export async function resolveSubscriptionWakeRequest(
 		};
 	}
 
-	const harnessDisabled = deps.readServerConfig
-		? (await deps.readServerConfig(ctx.db)).harnessDisabled
-		: undefined;
-
 	return {
 		defaultAgentId: agent.id,
 		sourceKind: "subscription",
@@ -152,6 +144,5 @@ export async function resolveSubscriptionWakeRequest(
 		},
 		...(contextBundle ? { contextBundle } : {}),
 		agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
-		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 	};
 }

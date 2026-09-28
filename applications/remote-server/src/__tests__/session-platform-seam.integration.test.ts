@@ -37,8 +37,6 @@ import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, vi } from "vitest";
 import { createServer, type ServerHandle } from "../create-server.js";
 
-const ACTOR_OVERRIDE_HEADER = "x-hyperidle-actor-id";
-
 interface Booted {
 	readonly server: ServerHandle;
 	readonly port: number;
@@ -70,14 +68,12 @@ async function callAction(
 	handle: Booted,
 	name: string,
 	body: Record<string, unknown>,
-	actorOverride: string,
 ): Promise<HttpResult> {
 	const res = await fetch(`http://127.0.0.1:${handle.port}/api/actions/${name}`, {
 		method: "POST",
 		headers: {
 			"X-API-Key": handle.apiKey,
 			"Content-Type": "application/json",
-			[ACTOR_OVERRIDE_HEADER]: actorOverride,
 		},
 		body: JSON.stringify(body),
 	});
@@ -105,22 +101,8 @@ function agentToolCtx(db: HyperIdleDb, agentId: string, sessionId: string) {
 	};
 }
 
-async function mintWsToken(handle: Booted, actorOverride: string): Promise<string> {
-	const res = await fetch(`http://127.0.0.1:${handle.port}/api/auth/ws-token`, {
-		method: "POST",
-		headers: {
-			"X-API-Key": handle.apiKey,
-			"Content-Type": "application/json",
-			[ACTOR_OVERRIDE_HEADER]: actorOverride,
-		},
-		body: JSON.stringify({}),
-	});
-	const json = (await res.json()) as Record<string, unknown>;
-	const token = json.token;
-	if (typeof token !== "string") {
-		throw new Error(`ws-token mint failed: ${JSON.stringify(json)}`);
-	}
-	return token;
+function mintWsToken(handle: Booted, actorId: string): string {
+	return handle.server.mintWsTokenFor(actorId);
 }
 
 function connect(handle: Booted, token: string): WebSocket {
@@ -351,7 +333,7 @@ describe("session-platform seam — the five entries answer the same to a person
 					startedAt: "2026-01-02T00:00:00.000Z",
 				});
 
-				const httpRes = await callAction(handle, "search_sessions", {}, "seam-founder-search");
+				const httpRes = await callAction(handle, "search_sessions", {});
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
 
@@ -386,12 +368,7 @@ describe("session-platform seam — the five entries answer the same to a person
 					startedAt: "2026-01-01T00:00:00.000Z",
 				});
 
-				const httpRes = await callAction(
-					handle,
-					"watch_session",
-					{ id: "seam-sess-watch" },
-					"seam-founder-watch",
-				);
+				const httpRes = await callAction(handle, "watch_session", { id: "seam-sess-watch" });
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
 
@@ -442,12 +419,7 @@ describe("session-platform seam — the five entries answer the same to a person
 					startedAt: STARTED_AT,
 				});
 
-				const httpRes = await callAction(
-					handle,
-					"stop_session",
-					{ id: "seam-sess-stop-http" },
-					"seam-founder-stop",
-				);
+				const httpRes = await callAction(handle, "stop_session", { id: "seam-sess-stop-http" });
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
 
@@ -503,22 +475,14 @@ describe("session-platform seam — the five entries answer the same to a person
 				await seedHuman(db, "seam-founder-search-plugins");
 				await seedAgent(db, "seam-agent-search-plugins", "seam-founder-search-plugins");
 				const dir = makePlugin("seam-search-plugin");
-				const install = await callAction(
-					handle,
-					"edit_plugin",
-					{ source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } } },
-					"seam-founder-search-plugins",
-				);
+				const install = await callAction(handle, "edit_plugin", {
+					source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+				});
 				if (install.status !== 200 || install.json.ok !== true) {
 					throw new Error(`install failed: ${JSON.stringify(install.json)}`);
 				}
 
-				const httpRes = await callAction(
-					handle,
-					"search_plugins",
-					{},
-					"seam-founder-search-plugins",
-				);
+				const httpRes = await callAction(handle, "search_plugins", {});
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
 
@@ -549,12 +513,9 @@ describe("session-platform seam — the five entries answer the same to a person
 				await seedHuman(db, "seam-founder-disable");
 				await seedAgent(db, "seam-agent-disable", "seam-founder-disable");
 				const dir = makePlugin("seam-disable-plugin");
-				const install = await callAction(
-					handle,
-					"edit_plugin",
-					{ source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } } },
-					"seam-founder-disable",
-				);
+				const install = await callAction(handle, "edit_plugin", {
+					source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+				});
 				if (install.status !== 200 || install.json.ok !== true) {
 					throw new Error(`install failed: ${JSON.stringify(install.json)}`);
 				}
@@ -562,12 +523,10 @@ describe("session-platform seam — the five entries answer the same to a person
 				// The SAME plugin, disabled first through the HTTP door, then again
 				// (already disabled — idempotent) through the TOOL door. The only
 				// fields that can legitimately differ are the write-time timestamps.
-				const httpRes = await callAction(
-					handle,
-					"edit_plugin",
-					{ id: "seam-disable-plugin", state: "disabled" },
-					"seam-founder-disable",
-				);
+				const httpRes = await callAction(handle, "edit_plugin", {
+					id: "seam-disable-plugin",
+					state: "disabled",
+				});
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
 
@@ -599,12 +558,7 @@ describe("session-platform seam — the five entries answer the same to a person
 				await seedHuman(db, "seam-founder-refused");
 				await seedAgent(db, "seam-agent-refused", "seam-founder-refused");
 
-				const httpRes = await callAction(
-					handle,
-					"edit_plugin",
-					{ id: "seam-plugin-refused" },
-					"seam-founder-refused",
-				);
+				const httpRes = await callAction(handle, "edit_plugin", { id: "seam-plugin-refused" });
 				expect(httpRes.status).toBe(422);
 				const problems = httpRes.json.problems as Array<{ code: string; message: string }>;
 				expect(problems).toHaveLength(1);
@@ -640,7 +594,7 @@ describe("session-platform seam — the five entries answer the same to a person
 					startedAt: "2026-01-01T00:00:00.000Z",
 				});
 
-				const token = await mintWsToken(handle, "seam-founder-nudge");
+				const token = mintWsToken(handle, "seam-founder-nudge");
 				const ws = connect(handle, token);
 				try {
 					await waitForOpen(ws);
@@ -655,12 +609,7 @@ describe("session-platform seam — the five entries answer the same to a person
 						(m) => m.type === "update" && m.topic === "session:seam-sess-nudge",
 					);
 
-					const stopRes = await callAction(
-						handle,
-						"stop_session",
-						{ id: "seam-sess-nudge" },
-						"seam-founder-nudge",
-					);
+					const stopRes = await callAction(handle, "stop_session", { id: "seam-sess-nudge" });
 					expect(stopRes.status).toBe(200);
 
 					const frame = await nudge;

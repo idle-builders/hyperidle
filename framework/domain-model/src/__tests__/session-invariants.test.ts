@@ -123,7 +123,6 @@ describe("SessionRowSchema", () => {
 		endedAt: null,
 		state: "active",
 		outcome: null,
-		effectivenessScore: null,
 		routineId: null,
 		notes: null,
 		modelTier: "workhorse",

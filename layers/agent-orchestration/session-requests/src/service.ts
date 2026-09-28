@@ -597,20 +597,16 @@ async function createFromBakedRequestInternal(
 		promptMode: PROMPT_MODE_BY_SOURCE[baked.sourceKind],
 		idempotencyKey: intent.idempotencyKey,
 		sourceCorrelation: baked.sourceCorrelation,
-		// baked transcript/contextBundle/agentConfig/harnessDisabled ride payloadJson onto the created AgentSessionRequest; model override is NOT baked (dispatch reads it live from agent_run_config)
+		// baked transcript/contextBundle/agentConfig/callingThreadId ride payloadJson onto the created AgentSessionRequest; model override is NOT baked (dispatch reads it live from agent_run_config)
 		...(baked.transcript !== undefined ||
 		baked.contextBundle !== undefined ||
 		baked.agentConfig !== undefined ||
-		baked.harnessDisabled !== undefined ||
 		baked.callingThreadId !== undefined
 			? {
 					payloadJson: JSON.stringify({
 						...(baked.transcript !== undefined ? { transcript: baked.transcript } : {}),
 						...(baked.contextBundle !== undefined ? { contextBundle: baked.contextBundle } : {}),
 						...(baked.agentConfig !== undefined ? { agentConfig: baked.agentConfig } : {}),
-						...(baked.harnessDisabled !== undefined
-							? { harnessDisabled: baked.harnessDisabled }
-							: {}),
 						// The session's calling thread id.
 						...(baked.callingThreadId !== undefined
 							? { callingThreadId: baked.callingThreadId }
@@ -887,7 +883,7 @@ export type WorkIntentInput =
 			readonly idempotencyKey: string;
 			readonly resume: BakedSessionResumeRequest;
 	  };
-/** Extended baked work-intent payload for session-requests' drain. Adds `harnessDisabled` and `callingThreadId` — fields not in domain-model's BakedWorkIntentRequest. Structural superset. */
+/** Extended baked work-intent payload for session-requests' drain. Adds `callingThreadId` — a field not in domain-model's BakedWorkIntentRequest. Structural superset. */
 export type BakedWorkIntentRequest = {
 	readonly defaultAgentId: string;
 	readonly sourceKind: AgentSessionSourceKind;
@@ -916,7 +912,11 @@ export type BakedWorkIntentRequest = {
 		readonly role: string;
 		readonly teamId: string | null;
 	};
-	readonly harnessDisabled?: readonly string[];
+	/**
+	 * The session's calling thread id. Absent
+	 * for `subscription_run` — see `BakedWorkIntentRequest` in
+	 * `@hyperidle/work-intent-port` for the full `@lore`.
+	 */
 	readonly callingThreadId?: string;
 };
 export type FindQuery =

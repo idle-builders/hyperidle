@@ -17,10 +17,11 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { ObjectChangeEvent } from "@hyperidle/event-bus";
+import type { EventBus, ObjectChangeEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+import type { ActionContext } from "../actions/action.js";
 import { buildCoreActions } from "../actions/compose.js";
 import { registerWorkSessionStartedReactions } from "../services/work-session-started-reactions.js";
 
@@ -48,9 +49,16 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-/** The agent actor-override header the seam already uses (§12). */
-function agentHeaders(agentId: string): Record<string, string> {
-	return authHeaders({ "x-hyperidle-actor-id": agentId });
+function ctxFor(actor: string, db: HyperIdleDb, eventBus: EventBus): ActionContext {
+	return { actor, db, eventBus, now: new Date().toISOString() };
+}
+
+function buildTestActions(agentOrchestration: AgentOrchestrationPort) {
+	return buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	});
 }
 
 interface ActionEnvelope<T> {
@@ -163,6 +171,8 @@ describe("edit_task — create, human and agent", () => {
 	test("create as human (API key, no actor header) and as agent (actor header) produce identical rows", async ({
 		db,
 		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "ta-team-1");
 		await seedAgent(db, "ta-agent-1", "ta-team-1");
@@ -174,17 +184,18 @@ describe("edit_task — create, human and agent", () => {
 		expect(human.status).toBe(200);
 		expect(human.body.ok).toBe(true);
 
-		const agent = await call<TaskViewBody>(
-			app,
-			"edit_task",
-			{ teamId: "ta-team-1", title: "Agent-created" },
-			agentHeaders("ta-agent-1"),
-		);
-		expect(agent.status).toBe(200);
-		expect(agent.body.ok).toBe(true);
+		const actions = buildTestActions(agentOrchestration);
+		const editTask = actions.find((a) => a.declaration.name === "edit_task");
+		if (!editTask) throw new Error("edit_task action not found");
+		const agentCtx = ctxFor("ta-agent-1", db, eventBus);
+		const agentResult = await editTask.run(agentCtx, {
+			teamId: "ta-team-1",
+			title: "Agent-created",
+		});
+		if (!agentResult.ok) throw new Error("agent edit_task failed");
 
 		const humanRow = await readTask(db, human.body.data?.task.id ?? "");
-		const agentRow = await readTask(db, agent.body.data?.task.id ?? "");
+		const agentRow = await readTask(db, (agentResult.data as { task: { id: string } }).task.id);
 		expect(humanRow?.state).toBe("proposed");
 		expect(agentRow?.state).toBe("proposed");
 		expect(humanRow?.teamId).toBe("ta-team-1");
@@ -387,19 +398,20 @@ describe("edit_task — thread membership on create-with-threadId", () => {
 	test("adding an owner to an existing thread unions with, never replaces, the thread's current members", async ({
 		db,
 		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "ta-thr-1");
 		await seedAgent(db, "ta-thr1-agentA", "ta-thr-1");
 		await seedAgent(db, "ta-thr1-agentB", "ta-thr-1");
 
-		const dm = await call<{ thread: { id: string } }>(
-			app,
-			"send_message",
-			{ recipients: [FOUNDER_ID], text: "hi" },
-			agentHeaders("ta-thr1-agentA"),
-		);
-		expect(dm.body.ok).toBe(true);
-		const threadId = dm.body.data?.thread.id ?? "";
+		const dmActions = buildTestActions(agentOrchestration);
+		const sendMessage = dmActions.find((a) => a.declaration.name === "send_message");
+		if (!sendMessage) throw new Error("send_message action not found");
+		const dmCtx = ctxFor("ta-thr1-agentA", db, eventBus);
+		const dmResult = await sendMessage.run(dmCtx, { recipients: [FOUNDER_ID], text: "hi" });
+		if (!dmResult.ok) throw new Error("send_message failed");
+		const threadId = (dmResult.data as { thread: { id: string } }).thread.id;
 
 		const created = await call<TaskViewBody>(app, "edit_task", {
 			teamId: "ta-thr-1",
@@ -429,17 +441,19 @@ describe("edit_task — thread membership on create-with-threadId", () => {
 	test("an owner already a member: no adjust_thread write, no thread.changed row", async ({
 		db,
 		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "ta-thr-2");
 		await seedAgent(db, "ta-thr2-agentA", "ta-thr-2");
 
-		const dm = await call<{ thread: { id: string } }>(
-			app,
-			"send_message",
-			{ recipients: [FOUNDER_ID], text: "hi" },
-			agentHeaders("ta-thr2-agentA"),
-		);
-		const threadId = dm.body.data?.thread.id ?? "";
+		const dmActions = buildTestActions(agentOrchestration);
+		const sendMessage2 = dmActions.find((a) => a.declaration.name === "send_message");
+		if (!sendMessage2) throw new Error("send_message action not found");
+		const dmCtx2 = ctxFor("ta-thr2-agentA", db, eventBus);
+		const dmResult2 = await sendMessage2.run(dmCtx2, { recipients: [FOUNDER_ID], text: "hi" });
+		if (!dmResult2.ok) throw new Error("send_message failed");
+		const threadId = (dmResult2.data as { thread: { id: string } }).thread.id;
 		const beforeKinds = (await db.select().from(changes).where(eq(changes.objectId, threadId)))
 			.map((r) => r.kind)
 			.sort();

@@ -14,7 +14,6 @@ import { findMessage, listMessages } from "./thread-service.js";
 export interface ThreadTurnResolverDeps {
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
-	readServerConfig(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
 export interface BakedTranscriptRow {
@@ -39,7 +38,6 @@ export interface BakedThreadTurnRequest {
 	readonly transcript: ReadonlyArray<BakedTranscriptRow>;
 	readonly callingThreadId: string;
 	readonly agentConfig: BakedAgentRunnableConfig;
-	readonly harnessDisabled: readonly string[];
 }
 
 export async function resolveThreadTurnRequest(
@@ -63,7 +61,6 @@ export async function resolveThreadTurnRequest(
 		payload: row.payload,
 		type: row.type,
 	}));
-	const { harnessDisabled } = await deps.readServerConfig(db);
 	const agentPersona = await deps.getAgentIdentity(db, agent.id);
 	return {
 		defaultAgentId: agentId,
@@ -80,6 +77,5 @@ export async function resolveThreadTurnRequest(
 		transcript,
 		callingThreadId: message.threadId,
 		agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
-		harnessDisabled,
 	};
 }

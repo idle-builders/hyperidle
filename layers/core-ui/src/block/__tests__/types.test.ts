@@ -2,8 +2,8 @@
  * AC-4, AC-5: types and runtime constants for the Block primitive.
  *
  *
- * Closed enums: BLOCK_KINDS (10) and BLOCK_HOST_KINDS (6). The exported
- * names match docs/blocks/canonical-shapes.md.
+ * Closed enums: BLOCK_KINDS (10) and BLOCK_HOST_KINDS (5). The exported
+ * names match docs/interface/blocks.md.
  */
 
 import { describe, expect, expectTypeOf, it } from "vitest";

@@ -27,7 +27,7 @@ describe("startServer", () => {
 		expect(createServer).toHaveBeenCalledWith(0, expect.objectContaining({ topology: "local" }));
 	});
 
-	// S-9.2: the embedded server must not be reachable from the local network.
+	// The desktop app binds loopback only — the embedded server must not be reachable from the local network.
 	// `createServer` binds every interface unless a hostname is supplied, so the
 	// guarantee is only real if the desktop Application asks for loopback. That
 	// the parameter is honoured at the socket is proven separately, against a

@@ -369,7 +369,6 @@ export const WithSessions = (): React.JSX.Element => {
 				agent: "perf-agent",
 				status: "active",
 				harnessUrl: null,
-				effectivenessScore: null,
 			},
 			{
 				id: "sess-2",
@@ -377,7 +376,6 @@ export const WithSessions = (): React.JSX.Element => {
 				agent: "perf-agent",
 				status: "done",
 				harnessUrl: null,
-				effectivenessScore: 0.82,
 			},
 		],
 		threadView,

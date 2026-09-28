@@ -1,107 +1,75 @@
 # How Work Flows
 
-HyperIdle has four process primitives. Everything else is mechanics on top of these. There are no workflows, no DAGs, no central planner. Sequences emerge from task dependencies, not pre-wired graphs.
-
-| Primitive | What it is | Lifespan |
-|-----------|-----------|----------|
-| **Team** | Agents bound to a product | Life of the product |
-| **Task** | Shaped work with a goal, possibly containing subtasks | Until done or killed |
-| **Session** | One bounded run of an agent on a task | One context window |
-| **Subscription** | A row on a user that wakes it — an agent through a session, a person through an inbox row — every time an event it names happens | Until removed |
-
-All four are implemented as tables in `framework/db/src/schema.ts`. Spec depth lives in [the four primitives](../process-layer/the-four-primitives.md).
+Work in HyperIdle moves through tasks, sessions, reviews, and subscriptions. No central planner. No pre-wired DAGs. Sequences emerge from what tasks need and who owns them.
 
 ---
 
-## Teams persist across work, not per task
+## Tasks
 
-A team is a small group of agents bound to a product — not to a single task, not to a project. The Acme team works on Acme. The Ambrovia team works on Ambrovia. Both teams exist for the life of their respective products.
+A task is a unit of work with a goal and an explicit done condition. Tasks nest: a root task may contain subtasks to any depth. Every task has its own thread for discussion.
 
-This is the biggest departure from agent frameworks. CrewAI forms a crew per task. LangGraph assembles a graph per invocation. HyperIdle forms a team per product because teams that ship together accumulate context.
+**States:** `proposed → accepted → in_progress → blocked / review → done / killed`. Also `hold` for tasks waiting on their dependencies.
 
-The Acme Builder that shipped auth in January ships payments in March. It has read every Acme decision, failure, and architecture document. That context is why the tenth task is faster than the first.
+**A task only runs when it is `accepted` AND has an owner agent.** Setting a task to `accepted` without an owner does nothing — nothing will pick it up. Setting an owner without accepting does nothing either. Both must be true at the same time.
 
-A typical team: a Product Manager (team lead), one or more Builders, a Growth Agent, and an Ops Agent. The roster flexes with the product's lifecycle phase. Agents belong to exactly one team — a single `users.teamId` FK. An agent needed on a new product must finish its current work and transfer cleanly.
+**Outcome verdict.** When a task finishes, it carries one of four outcomes: `met`, `met_with_rework`, `partially_met`, or `not_met`, plus a summary. This is where the team records what actually happened.
 
-Depth: [Teams](../process-layer/teams.md).
-
----
-
-## Tasks carry a done condition, not a deadline
-
-Work comes in as tasks. A task is a unit of work with an explicit done condition, owned by a team. A task may contain subtasks, to any depth; a task with no parent is the top of its tree — the thing a team commits to.
-
-**Start with a goal.** The Product Manager creates a root task with a description and a done condition: the problem, what success looks like, explicit no-gos, rabbit holes to watch for. The task sits in `proposed` on the Work view. No subtasks yet.
-
-**Then activate.** A task's lifecycle is `proposed | accepted | hold | in_progress | blocked | review | done | killed`. The founder moves it to `accepted` and the team begins. Vague done conditions are the most common reason tasks drift.
-
-**No deadlines or sprint lengths.** The created and completed timestamps are recorded for retros — their delta is informational, never a budget. What is bounded is concurrency: how many sessions and tasks run at once. See [WIP limits](../process-layer/wip-and-cost-limits.md).
-
-**Changes go through one door.** Done conditions, descriptions, titles, and ownership can be revised through `edit_task`. There is no draft-only gate and no approval gate — whoever is closest to the work edits it, human or agent. Every change lands as a row in the `changes` table.
-
-Depth: [Tasks and sessions](../process-layer/tasks-and-sessions.md).
+**Every change is recorded.** Edits to description, goal, ownership, and state land in the `changes` table. There is no draft-only gate.
 
 ---
 
-## Subtasks
+## Subtasks and dependencies
 
-A task may contain subtasks, which may contain further subtasks — to any depth. Subtasks are added by agents on the team as they pick up work, or by the founder directly. No automatic breakdown happens when a task activates.
+A task can contain subtasks. Subtasks are added by the owner agent or by you. No automatic breakdown happens when a task activates.
 
-Each task (at any depth) has:
-- An owner (the responsible agent)
-- A state: proposed, accepted, hold, in-progress, blocked, review, done, or killed
-- A done condition (explicit)
-- An optional discussion thread
-- Artifacts it has produced
+Tasks can depend on other tasks. A task with unmet dependencies sits in `hold`. When its last dependency reaches `done`, it moves to `accepted` automatically — and if it has an owner, it starts running. That transition emits a `task.changed` event, so subscribers (agents and humans) are notified.
 
-**Example.** A root task "Implement payments" contains "Implement Stripe webhook handler" (a subtask owned by Mika, the Acme Builder). That subtask depends on "Define payment schema," which must finish first. Done condition: "webhook endpoint returns 200 for all test events and logs to the canonical store." When Mika completes it, the dependent subtask "Connect payments UI to API" moves from hold to accepted automatically.
-
-When all subtasks of a parent reach a terminal state (`done` or `killed`), the parent transitions automatically, walking up the tree until the root is reached.
-
-An artifact is something the team produced, hanging off whatever produced it. A task that builds the signup flow produces a code artifact; a task that writes landing page copy produces a content artifact; an agent answering in a conversation produces one there, and so does a person. Underneath they are all documents with a parent, which is why any of them can later be kept as team knowledge rather than staying task residue.
-
-**No central planner.** There is no orchestrator agent deciding what all agents should do. The Product Manager integrates and unblocks but does not micromanage. Sequences emerge from task dependencies: when task A completes, dependent tasks on hold move to accepted. The Dependency Watcher (`layers/core-api/work/src/dependency-watcher.ts`) handles this automatically. A task may depend on any other task, in any tree; setting a dependency that names a task that doesn't exist, names itself, or would close a loop is refused, with a reason, at the moment it's set — not left to park something forever. If a dependency is killed instead of finished, the premise it was planned under is gone: the id is dropped from whatever depended on it, and anything that was waiting on it goes back to `proposed` to be re-planned rather than starting on its own.
+If a dependency is killed, tasks that were waiting on it go back to `proposed` to be re-planned.
 
 ---
 
-## Sessions: bounded runs with resumability
+## Sessions
 
-A session is one agent's bounded run on a task. When an agent picks up a task, it starts a session. When the context window is about to compact, the session ends. The agent writes session notes. A new session picks up where the last left off.
+A session is one bounded run of an agent on a task. When an agent runs, it works in a sandbox directory, reads relevant knowledge, and writes back what it produces. Sessions are visible on the task page: state (active, done, stopped, crashed), duration, and notes.
 
-A task can span many sessions. Mika works a session on Acme payments, makes progress, hits a question about Stripe fee structure, and hands off to a human. The human answers. Mika starts a new session and continues. Two weeks later, the original session notes and handoff history are still there.
-
-The agent's memory persists between sessions through team-scoped knowledge and its practice's knowledge folder — see [Knowledge Architecture](../knowledge-architecture/index.md). Sessions give resumability without locking the model into a single long-running process.
+A task can span many sessions — the agent resumes by picking up the task again.
 
 ---
 
-## Handoffs: agents decide when to transfer work
+## Reviews: agent asks, human clears
 
-There is no pre-wired routing. When Mika finishes a backend API and the work moves to a frontend task, she calls a handoff with a structured message: what was done, what artifacts exist, what remains, who should pick it up. Exactly one of `toAgent`, `toRole`, or `toHuman` names the recipient — an agent by ID, or a role ("builder with frontend skills").
+When an agent needs a human decision, it sends a **review message** into the task's thread. The agent's session ends there. You open the review, look at what the agent proposed, and give a verdict:
 
-Handoffs to humans work the same way. When an agent hits something it cannot resolve — a product decision, an approval it wants — it hands off `toHuman` with a structured reason. The task moves to blocked. The human replies; the task resumes.
+| Verdict | Effect |
+|---|---|
+| **Approve** | Agent resumes with approval |
+| **Approve with comments** | Agent resumes, feedback attached |
+| **Request changes** | Agent resumes with your notes |
+| **Edit** | You adjust the proposal; agent resumes |
+| **Reject** | Proposal dropped; agent resumes with rejection |
 
-Depth: [Handoff and lifecycle propagation](../process-layer/handoff-and-lifecycle-propagation.md).
+One verdict resolves the whole review. The agent gets your verdict as context and continues.
 
----
-
-## Subscriptions: recurring work, the same mechanism as a person's notifications
-
-A subscription is a row on a user — human or agent — that fires on exactly one of two trigger shapes:
-
-- **Event** — every time a task changes, run a retro
-- **Schedule** — a cron string, every Monday at 9am
-
-When the subscriber is an agent, firing wakes a session the same way a mention does. When the
-subscriber is a person, it lands an inbox row instead — the identical mechanism serves both; only
-what happens on wake differs. Helena (the Facilitator for Growth) subscribes to a weekly schedule for
-"growth metrics review." Every Monday she checks what shipped, compares numbers against practice
-benchmarks, and posts a summary.
-
-A subscription's reach never exceeds what its owner could already see — company-wide, its team, or
-its own.
-
-Depth: [Subscriptions and retros](../process-layer/subscriptions-and-retros.md).
+There are nine review canvas kinds — code diffs, visual diffs, rendered previews, field change sets, and more — each matched to what the agent was proposing.
 
 ---
 
-Next: [Human + AI Collaboration](./human-ai-collaboration.md) — how trust is earned and how review works.
+## Subscriptions
+
+A subscription is a row on a user (agent or human) that wakes it when something happens.
+
+- **Event subscriptions** fire on any of the nine object events: task created/changed, thread created/message/changed, document created/changed, user created/changed.
+- **Schedule subscriptions** fire on a cron schedule.
+
+For an **agent**, a firing subscription starts a session.
+For a **human**, it drops a row in the inbox.
+
+Same mechanism, same table. The reader decides what it means.
+
+Fresh install: you and your assistant are both subscribed to all nine events. Nothing else runs until you install a plugin or create a task with an owner.
+
+Manage your own subscriptions in **Settings → Notifications**. Agent subscriptions live on the agent's profile page.
+
+---
+
+Next: [How Knowledge Compounds](./how-knowledge-compounds.md)

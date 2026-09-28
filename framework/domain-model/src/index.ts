@@ -197,7 +197,13 @@ export type {
 } from "./agent-profile.js";
 export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
-export type { PluginContributionKind, PluginScopeKind, PluginState } from "./configuration.js";
+export type {
+	PluginContributionKind,
+	PluginScopeKind,
+	PluginState,
+	StoredPluginContributionKind,
+} from "./configuration.js";
+export { STORED_PLUGIN_CONTRIBUTION_KINDS } from "./configuration.js";
 export type {
 	ConnectionAuthSource,
 	ConnectionHealth,

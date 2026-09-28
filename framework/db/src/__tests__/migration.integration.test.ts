@@ -16,7 +16,6 @@ describe("migrations bring a fresh database to the current schema", () => {
 		expect(tableNames).toEqual(
 			expect.arrayContaining([
 				"users",
-				"server_config",
 				"documents",
 				"messages",
 				"subscriptions",

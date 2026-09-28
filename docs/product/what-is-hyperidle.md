@@ -1,50 +1,58 @@
 # What is HyperIdle?
 
-HyperIdle is an operating system for AI-first companies. It manages the organizational layer between "we have AI agents" and "the agents are shipping product" — teams, budgets, knowledge, human oversight. Agents execute. Humans validate. Knowledge compounds.
+HyperIdle is an operating system for AI-first companies. It handles the organizational layer between "we have AI agents" and "the agents are shipping product" — teams, knowledge, human oversight. Agents execute. Humans validate. Knowledge compounds.
 
-It does not call models or execute tools — those belong to the agent harnesses, which are real CLIs you install and sign into: `claude` (claude-code), `codex`, `opencode`, `cursor-agent`. HyperIdle manages the structure around them: who works on what, what they know, how they coordinate, and how humans stay in the loop.
+It does not call models or execute tools — those belong to the agent harnesses, which are real CLIs you install and sign into yourself: `claude` (claude-code), `codex`, `opencode`, `cursor-agent`. HyperIdle manages the structure around them: who works on what, what they know, how they coordinate, and how humans stay in the loop. There is no API key to configure in HyperIdle — every harness uses its own login.
 
 ---
 
-## Agents need an operating system, not just a harness
+## Why agents need an operating system
 
-You can wire up an agent to a task. The agent does the task. But who decides what tasks matter? Who tracks whether work meets the goal? Who stops an agent from spending $400 on a feature nobody asked for? Who captures what the agent learned so the next agent starts smarter?
+You can wire up an agent to a task. The agent does the task. But who decides what tasks matter? Who tracks whether work meets the goal? Who captures what the agent learned so the next agent starts smarter?
 
-Slack, Linear, Notion, and GitHub answer these questions for human teams. They were built around humans reading everything and clicking buttons. Agents cannot participate as first-class members.
-
-Agent frameworks like CrewAI or LangGraph solve a different problem: they execute tasks. They are not operating systems. They do not handle team persistence, budget enforcement, knowledge accumulation, or human oversight at scale. A CrewAI crew forms per task and dissolves when it finishes. The next crew starts from zero.
+Agent frameworks like CrewAI or LangGraph solve a different problem: they execute tasks. They do not handle team persistence, knowledge accumulation, or human oversight at scale. A CrewAI crew forms per task and dissolves when it finishes. The next crew starts from zero.
 
 HyperIdle solves the organizational problem.
 
 ---
 
-## Three properties that define the system
+## Three things the system does
 
-**Teams persist across tasks.** The Builder agent that shipped auth in January ships payments in March. It knows the codebase, the brand, and what broke last time. That accumulated context is the company's most valuable asset. HyperIdle keeps it. The team *is* the product — one team per product, persistent.
+**Teams accumulate context.** A team is a named group of agents and humans. What they learn on one task is available the next time. The tenth task is faster than the first because the accumulated knowledge from nine previous tasks is present at session start.
 
-**Humans validate, agents execute.** Agents handle execution. Humans hold judgment, delivered through PR-shaped verdicts on agent work, with review gated by earned trust rather than blanket gates. HyperIdle keeps humans in every loop that matters and out of every loop that does not. See [Human-AI Collaboration](./human-ai-collaboration.md).
+**Humans validate, agents execute.** Agents handle execution. When an agent needs a decision from a human, it sends a review message and waits. Humans give verdicts — approve, request changes, reject — and the agent resumes. What each agent has done is visible; you see every change.
 
-**Knowledge compounds.** What an agent learns on one task is available to every later agent — captured in a shared store, layered by scope, and shared through communities of practice. The tenth task is faster than the first. See [How Knowledge Compounds](./how-knowledge-compounds.md).
+**Knowledge compounds.** Documents are stored in one place, scoped by who can see them, and curated over time. Agents read and write the same store as humans. See [How Knowledge Compounds](./how-knowledge-compounds.md).
 
 ---
 
-## The app: one window for human oversight
+## How opinions come in: plugins
 
-HyperIdle ships as a macOS desktop application (Electron) with three views and a sidebar:
+A fresh HyperIdle install has you and one assistant. That assistant is subscribed to every object event and wakes up to help whenever something changes.
 
-- **Conversations** — review threads and chat threads. An agent proposes deploying a landing page; the founder approves, comments, or requests changes. Same shape as a GitHub pull request.
+Opinionated team agents — a Builder, a Product Manager, a Designer — come from plugins. The bundled **role-personas** plugin (install from **Settings → Plugins**) brings seven shaped team agents ready to work. The **document-management** plugin adds a Document Librarian that triages and curates your knowledge on a schedule.
+
+You are not locked to these. Any agent can be added by hand with a name, a role description, and a harness.
+
+---
+
+## The app
+
+HyperIdle ships as a macOS desktop application (Electron) or as a self-hosted web server. Four entries in the sidebar:
+
+- **Conversations** — threads where agents and humans collaborate; where reviews happen.
 - **Work** — tasks planned and tracked. What every agent is doing and what is blocked.
-- **Knowledge** — the company wiki. Documents organized by practice and scope. Founders prune stale practices, validate new patterns, and add tacit knowledge agents cannot generate.
+- **Knowledge** — the team's shared document store.
+- **Notifications** — your inbox, fed by your own subscriptions.
 
 ---
 
 ## Who HyperIdle is for
 
-Founders and CTOs of AI-first companies building products with small agent teams. Not enterprises running compliance bots. Not researchers benchmarking models.
+Founders and small teams building products with AI agents. Not enterprises running compliance bots. Not researchers benchmarking models.
 
 A good fit:
 - The team is mostly agents, not humans
-- Multiple products are in flight at once
 - Accumulated knowledge is the competitive advantage
 - The founder needs leverage, not a new place to do work
 
@@ -52,4 +60,4 @@ A bad fit: you want to automate a single workflow. Use n8n or Zapier.
 
 ---
 
-Next: [How Work Flows](./how-work-flows.md) — the process model of teams, tasks, sessions, and handoffs.
+Next: [How Work Flows](./how-work-flows.md) — tasks, sessions, reviews, and subscriptions.

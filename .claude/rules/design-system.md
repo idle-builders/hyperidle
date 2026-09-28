@@ -63,6 +63,6 @@ Add them by hand — see the dead-rule note above. `data-ds-component` (shell co
 viewer's annotation overlay, and they are what a review cites when a claim about the render needs a
 number behind it.
 
-**Layout** must match the approved design and the app-shell structure in `docs/information-architecture/`.
+**Layout** must match the approved design and the app-shell structure in `docs/interface/navigation.md`.
 
 For how a visual change is proven, see `.pipeline/rules/visual-regression.md`.

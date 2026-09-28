@@ -47,7 +47,7 @@ interface FolderInfo {
 function WelcomeVisual(): JSX.Element {
 	const cards = [
 		{ color: "var(--accent-primary)", label: "Conversations", hint: "Chat with agents" },
-		{ color: "var(--accent-secondary)", label: "Work", hint: "Bets & tasks" },
+		{ color: "var(--accent-secondary)", label: "Work", hint: "Tasks & docs" },
 		{ color: "var(--status-info)", label: "Knowledge", hint: "Shared docs" },
 	] as const;
 

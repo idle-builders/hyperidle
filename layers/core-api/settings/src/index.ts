@@ -44,6 +44,3 @@ export type {
 	PluginManifest,
 } from "./plugin-manifest.js";
 export { parsePluginManifest } from "./plugin-manifest.js";
-// -- server config --
-export type { ServerConfig, ServerConfigPatch } from "./server-config.js";
-export { readServerConfig, updateServerConfig } from "./server-config.js";
