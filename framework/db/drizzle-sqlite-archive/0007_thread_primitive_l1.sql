@@ -1,4 +1,4 @@
--- L1a — Thread primitive migration (plan §5.3).
+-- Thread primitive migration.
 -- Forward-only. Drops `threads.kind`, `messages.recipient_id/subject/body/file_leases`,
 -- and the `responses` table; backfills new columns and projects legacy
 -- rows into the new shape; emits `verdict`-typed messages from `responses`.
@@ -6,7 +6,7 @@
 PRAGMA defer_foreign_keys=ON;--> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
 
--- Step 1: snapshot tables (rollback artifact, 30-day retention per plan §5.3).
+-- Step 1: snapshot tables (rollback artifact, 30-day retention).
 CREATE TABLE `_l1_snapshot_threads` AS SELECT * FROM `threads`;--> statement-breakpoint
 CREATE TABLE `_l1_snapshot_messages` AS SELECT * FROM `messages`;--> statement-breakpoint
 CREATE TABLE `_l1_snapshot_items` AS SELECT * FROM `items`;--> statement-breakpoint

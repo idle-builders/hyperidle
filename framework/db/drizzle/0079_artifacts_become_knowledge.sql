@@ -15,13 +15,13 @@
 -- EXISTING ROWS ARE DROPPED, NOT CONVERTED. Founder call. An artifact's content
 -- lived in an untyped preview blob whose shape varied by kind; converting those
 -- into markdown bodies is content-migration work this change deliberately does
--- not do. AM5 set the same pre-alpha precedent when incompatible preview shapes
+-- not do. The same pre-alpha precedent was set when incompatible preview shapes
 -- were dropped rather than migrated.
 --
 -- Threads hosted on an artifact lose their host, so they go with it, and their
 -- children go with them. threads.host_kind/host_id is an unconstrained
 -- polymorphic pair with no FK, so nothing would have stopped those rows from
--- pointing at a table that no longer exists; they would simply have stopped
+-- pointing at a table that does not exist; they would simply have stopped
 -- resolving, silently, which is worse than being gone.
 --
 -- threads.id has THREE inbound foreign keys, all ON DELETE RESTRICT, and every

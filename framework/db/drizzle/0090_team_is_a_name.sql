@@ -1,6 +1,6 @@
 -- 1. every human with no team gets the target of its oldest mechanism='team'
 --    edge whose target is an existing teams.id — an older edge's target can
---    be a pre-AU44 team_members id that no longer names any team, so it is
+--    be an older team_members id that does not name any team, so it is
 --    skipped by construction (the IN clause never matches it), not by a
 --    special case. Falls back to the oldest team when no edge matches.
 UPDATE "users" SET "team_id" = COALESCE(
@@ -58,7 +58,7 @@ UPDATE "agent_session_requests" SET "source_kind" = 'subscription' WHERE "source
 UPDATE "agent_session_requests" SET "prompt_mode" = 'subscription' WHERE "prompt_mode" = 'routine';
 --> statement-breakpoint
 
--- 4. sessions.routine_id — null until AA2, never populated in practice (the
+-- 4. sessions.routine_id — null, never populated in practice (the
 --    scheduler that would have written it never shipped a writer here); the
 --    subscription flavour of a session is `source_kind`/`source_id`, not a
 --    second FK.

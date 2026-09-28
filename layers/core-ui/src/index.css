@@ -90,10 +90,6 @@
 
 /* @lore: DaisyUI v5 .input — inline-flex with clamp width, not block/100%; raw .input outside DS Input needs w-full */
 
-/* L23 — DocumentBody scoped heading hierarchy.
- *
-  * @lore: heading line-height — omitted on purpose; HeadingPayload leading-[1.2] would silently lose at equal specificity
- */
 @keyframes assistant-open {
 	from {
 		opacity: 0;
@@ -106,7 +102,7 @@
 }
 
 @layer components {
-	/* AV5: Drag-region utilities. -webkit-app-region has no Tailwind utility;
+	/* Drag-region utilities. -webkit-app-region has no Tailwind utility;
 	 * centralizing as two classes keeps them reusable and out of inline styles.
 	 * These are no-ops in the browser (Electron-only property). */
 	.app-region-drag {
@@ -116,6 +112,7 @@
 		-webkit-app-region: no-drag;
 	}
 
+	/* @lore: heading line-height — omitted on purpose; HeadingPayload leading-[1.2] would silently lose at equal specificity */
 	[data-document-body] :is(h1) {
 	@apply type-display;
 		margin-top: 6px;

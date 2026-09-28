@@ -1,6 +1,6 @@
 ALTER TABLE "messages" ADD COLUMN "block_id" text;--> statement-breakpoint
 CREATE INDEX "messages_block_id_idx" ON "messages" USING btree ("block_id");--> statement-breakpoint
--- T5: Backfill block_id from existing plain-message JSON payloads.
+-- Backfill block_id from existing plain-message JSON payloads.
 -- Nullable: only plain messages carry blockId; others remain NULL.
 UPDATE "messages"
 SET "block_id" = (payload::json->>'blockId')

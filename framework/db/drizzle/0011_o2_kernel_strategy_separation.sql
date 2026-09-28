@@ -1,4 +1,4 @@
--- O2: Kernel/strategy separation.
+-- Kernel/strategy separation.
 --
 -- Moves strategy-layer signals from the kernel tables to a dedicated
 -- knowledge_strategy_fabric extension table (1:1 via UNIQUE FK).
@@ -74,7 +74,7 @@ ALTER TABLE "items" DROP COLUMN IF EXISTS "attention_score";
 ALTER TABLE "items" DROP COLUMN IF EXISTS "cost_estimate";
 --> statement-breakpoint
 
--- 3b. Drop harness/token columns from sessions (stripped from kernel table in O2).
+-- 3b. Drop harness/token columns from sessions.
 ALTER TABLE "sessions" DROP COLUMN IF EXISTS "tokens_json";
 --> statement-breakpoint
 ALTER TABLE "sessions" DROP COLUMN IF EXISTS "trace_id";
@@ -102,7 +102,7 @@ ALTER TABLE "tasks" DROP COLUMN IF EXISTS "attention_score";
 ALTER TABLE "tasks" DROP COLUMN IF EXISTS "cross_team";
 --> statement-breakpoint
 
--- 6. Create task_strategy_fabric (O2: tasks strategy signals)
+-- 6. Create task_strategy_fabric (tasks strategy signals)
 CREATE TABLE IF NOT EXISTS "task_strategy_fabric" (
     "id" text PRIMARY KEY NOT NULL,
     "task_id" text NOT NULL UNIQUE,

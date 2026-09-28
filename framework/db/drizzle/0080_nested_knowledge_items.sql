@@ -1,7 +1,7 @@
 -- Nested knowledge items: the tree, and the retirement of topic/kind/layer
 -- and the product/practice/task scope values.
 --
--- Order matters (architecture.md §7 — an earlier draft had it wrong):
+-- Order matters (an earlier draft had it wrong):
 --   1. add `position`.
 --   2. seed the three grouping roots (Product, Practices, General).
 --   3. topic items for product-scoped rows, under Product.
@@ -11,14 +11,14 @@
 --      id, feasibility.md finding 1); parent -> their topic item / Product.
 --   6. every remaining ordinary row: its topic item, or General.
 --   7. task-scoped rows: parent_kind='task', parent_id=scope_id, guarded
---      against a dangling task id (RAISE EXCEPTION, precedent: 0077 §4).
+--      against a dangling task id (RAISE EXCEPTION).
 --   8. `role <> 'ordinary'` rows (0077's agent identities / routine prompts)
 --      are never touched — every reparenting step above is scoped to
 --      `role = 'ordinary'`, so they keep the parent 0077 gave them.
 --   9. collapse status onto proposed | active | stale | archived.
 --  10. drop topic (kernel) and layer/kind (projection).
 --  11. fail any pending/claimed agent_work_intents row whose baked
---      contextBundle predates this migration (architecture.md §7: "either
+--      contextBundle predates this migration ("either
 --      drain the queue as a migration step or rewrite the persisted
 --      payloads. Name which, and do it." — draining is the one that does
 --      not require re-deriving a parent chain inside a migration).

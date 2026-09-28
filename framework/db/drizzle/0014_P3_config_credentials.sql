@@ -1,4 +1,4 @@
--- P3: Server-side credential storage (shared mode)
+-- Server-side credential storage (shared mode)
 CREATE TABLE IF NOT EXISTS "server_credentials" (
 	"name" text PRIMARY KEY NOT NULL,
 	"encrypted_value" text NOT NULL,
@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS "server_credentials" (
 	"updated_at" text NOT NULL
 );
 --> statement-breakpoint
--- P3: Typed server config
+-- Typed server config
 CREATE TABLE IF NOT EXISTS "server_config" (
 	"id" text PRIMARY KEY NOT NULL DEFAULT 'default',
 	"config" text NOT NULL DEFAULT '{}',

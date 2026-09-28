@@ -72,8 +72,7 @@
 
 		--card-max-h: 70vh;
 
-		/* AI2 — overlay z-layer scale. Single source of truth for every overlay surface.
-		   ⚠️ AI1 overlap: this block is added to tokens.css concurrently with AI1's token work.
+		/* Overlay z-layer scale. Single source of truth for every overlay surface.
 		   Do not reorder or renumber; surfaces reference these by name (var(--z-*)).
 		   --z-toast sits above the modal + scrim — toasts portal into #overlay-root
 		   (a body sibling never inerted) so they stay clickable over open modals. */
@@ -142,11 +141,10 @@
 		--shadow-default: 0 4px 12px rgba(44, 36, 26, 0.08);
 		--shadow-elevated: 0 8px 24px rgba(44, 36, 26, 0.1);
 
-		/* AI2 — modal scrim color. Placeholder token; AI6 will derive via color-mix.
-		   AI6: candidate for color-mix(in oklab, var(--text-primary) 45%, transparent) */
+		/* Modal scrim color. */
 		--scrim: rgba(26, 21, 16, 0.45);
 
-		/* AI6 — tint + hover tokens for status and accent-secondary (§2 approved.md).
+		/* Tint + hover tokens for status and accent-secondary.
 		   These replace recurring hardcoded rgba() literals across DS components.
 		   Dark mode counterparts defined below. */
 		--accent-secondary-dim: rgba(217, 119, 6, 0.08);
@@ -197,7 +195,7 @@
 		--status-info-chip-text: #4498d4;
 
 		/* Borders — warm-neutral with the same lemon whisper (CL1) */
-		--border-subtle: #434337; /* AZ UI-160: was #33332a (2.0 L* from card); now 9.1 L* — parity with light (8.9 L*) */
+		--border-subtle: #434337; /* 9.1 L* — parity with light (8.9 L*) */
 		--border-default: #46453a;
 		--border-strong: #626050;
 
@@ -206,11 +204,11 @@
 		--shadow-default: 0 4px 12px rgba(0, 0, 0, 0.4);
 		--shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.5);
 
-		/* AI2 — dark scrim. Warm family, higher opacity so lighter dark surfaces read as "behind".
-		   AQ-009: no pure black. AI6: candidate for color-mix derivation. */
+		/* Dark scrim. Warm family, higher opacity so lighter dark surfaces read as "behind".
+		   No pure black. */
 		--scrim: rgba(20, 16, 12, 0.62);
 
-		/* AI6 — dark tint + hover tokens. Slightly higher opacity (0.10) vs light (0.08)
+		/* Dark tint + hover tokens. Slightly higher opacity (0.10) vs light (0.08)
 		   to compensate for lower luminance on dark surfaces. Hover hexes unchanged. */
 		--accent-secondary-dim: rgba(217, 119, 6, 0.1);
 		--status-info-dim: rgba(68, 152, 212, 0.1);
@@ -256,7 +254,7 @@
 			--status-info-chip-text: #4498d4;
 
 			/* Borders — mirrors hearth-dark exactly */
-			--border-subtle: #434337; /* AZ UI-160: mirrors [data-theme="hearth-dark"] */
+			--border-subtle: #434337; /* mirrors [data-theme="hearth-dark"] */
 			--border-default: #46453a;
 			--border-strong: #626050;
 
@@ -265,7 +263,7 @@
 			--shadow-default: 0 4px 12px rgba(0, 0, 0, 0.4);
 			--shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.5);
 
-			/* AI6 — dark tint + hover tokens (matches [data-theme="hearth-dark"] block) */
+			/* Dark tint + hover tokens (matches [data-theme="hearth-dark"] block) */
 			--accent-secondary-dim: rgba(217, 119, 6, 0.1);
 			--status-info-dim: rgba(68, 152, 212, 0.1);
 			--status-error-dim: rgba(238, 106, 90, 0.1);
@@ -288,7 +286,7 @@
 	}
 }
 
-/* Compatibility until the loading migration lands in Wave 4. */
+/* Compatibility until the loading migration lands. */
 @keyframes skeleton-pulse {
 	0%,
 	100% {
@@ -518,13 +516,13 @@
 }
 
 /*
- * AI2 — Dialog mobile bottom-sheet (AC-4).
+ * Dialog mobile bottom-sheet.
  *
-  * @lore: Dialog geometry — Dialog.tsx sets inline styles; only !important here can override them
+ * @lore: Dialog geometry — Dialog.tsx sets inline styles; only !important here can override them
  */
 @media (max-width: 480px) {
 	[data-dialog-layer] {
-		/* biome-ignore lint/complexity/noImportantStyles: Override inline style via !important (CSS cascade §6.4). Required to switch desktop center-positioning to mobile bottom-anchoring. */
+		/* biome-ignore lint/complexity/noImportantStyles: Override inline style via !important. Required to switch desktop center-positioning to mobile bottom-anchoring. */
 		align-items: flex-end !important;
 		/* biome-ignore lint/complexity/noImportantStyles: Same rationale as align-items override above. */
 		padding: 0 !important;
@@ -535,7 +533,7 @@
 		max-width: 100% !important;
 		/* biome-ignore lint/complexity/noImportantStyles: Override inline borderRadius to round top corners only (bottom-sheet UX). */
 		border-radius: var(--r-default) var(--r-default) 0 0 !important;
-		/* biome-ignore lint/complexity/noImportantStyles: Override inline maxHeight for the sheet variant (85vh matches approved.md mobile spec). */
+		/* biome-ignore lint/complexity/noImportantStyles: Override inline maxHeight for the sheet variant (85vh). */
 		max-height: 85vh !important;
 	}
 }

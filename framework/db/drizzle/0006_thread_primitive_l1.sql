@@ -1,9 +1,9 @@
--- L1a — Thread primitive migration (Postgres parallel of SQLite 0007).
+-- Thread primitive migration (Postgres parallel of SQLite 0007).
 -- Forward-only. Drops `threads.kind`, `messages.recipient_id/subject/body/file_leases`,
 -- and the `responses` table; backfills new columns and projects legacy
 -- rows into the new shape; emits `verdict`-typed messages from `responses`.
 --
--- Step 1: snapshot tables (rollback artifact, 30-day retention per plan §5.3).
+-- Step 1: snapshot tables (rollback artifact, 30-day retention).
 CREATE TABLE "_l1_snapshot_threads" AS SELECT * FROM "threads";--> statement-breakpoint
 CREATE TABLE "_l1_snapshot_messages" AS SELECT * FROM "messages";--> statement-breakpoint
 CREATE TABLE "_l1_snapshot_items" AS SELECT * FROM "items";--> statement-breakpoint
@@ -27,7 +27,7 @@ ALTER TABLE "threads" ADD COLUMN "last_active_at" text;--> statement-breakpoint
 -- kind='direct' → host_kind='agent'; kind='post-bet-retro' → host_kind='bet';
 -- review/chat → host_kind='task'; everything else → 'task' as fallback.
 --
--- L1 step9 (Adv-C5): the CASE arms now MIRROR `drizzle/0007_thread_primitive_l1.sql`
+-- Step 9: the CASE arms now MIRROR `drizzle/0007_thread_primitive_l1.sql`
 -- exactly, including the `items.kind` review/questionnaire branch. Functionally
 -- both still default to 'task'; the parity prevents silent drift if either
 -- branch is later edited to project elsewhere.
@@ -71,7 +71,7 @@ ALTER TABLE "threads" ALTER COLUMN "pinned" SET DEFAULT false;--> statement-brea
 ALTER TABLE "threads" DROP COLUMN "kind";--> statement-breakpoint
 
 -- Step 7: add new messages columns. `payload` is text (NOT jsonb) per
--- plan §5.4 — confirmed via framework/db/src/schema.pg.ts:201
+-- Confirmed via framework/db/src/schema.pg.ts:201
 -- (payload column = text). client_key is required for idempotency;
 -- legacy_item_id ties the row back to its source item for backfill.
 ALTER TABLE "messages" ADD COLUMN "type" text;--> statement-breakpoint

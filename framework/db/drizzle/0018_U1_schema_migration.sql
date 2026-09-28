@@ -1,4 +1,4 @@
--- U1: Schema Migration — Products -> Teams + Bet Simplification (PostgreSQL)
+-- Schema Migration — Products -> Teams + Bet Simplification (PostgreSQL)
 -- Step 1: Rename old `teams` (agent membership) to `team_members` FIRST
 -- so the name `teams` becomes available for the products rename.
 ALTER TABLE "teams" RENAME TO "team_members";
@@ -59,7 +59,7 @@ ALTER TABLE "bets" ADD COLUMN "at_risk" boolean DEFAULT false NOT NULL;
 --> statement-breakpoint
 
 -- Step 12: Rename team_members.product_id to team_members.team_id
--- (it now references the `teams` table, formerly `products`).
+-- (it now references the `teams` table).
 ALTER TABLE "team_members" RENAME COLUMN "product_id" TO "team_id";
 --> statement-breakpoint
 

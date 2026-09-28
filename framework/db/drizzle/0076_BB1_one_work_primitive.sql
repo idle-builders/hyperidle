@@ -62,7 +62,7 @@ END $$;
 -- non-empty line, strip leading markdown heading markers, truncate to 60 chars,
 -- fall back to the id.
 --
--- State mapping (bet status -> task state), per BB1 plan §3:
+-- State mapping (bet status -> task state):
 --   draft -> proposed | active -> in_progress | completed -> done | killed -> killed
 --
 -- Outcome verdict mapping: the bet vocabulary is cut, so its four values fold

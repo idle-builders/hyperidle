@@ -1,5 +1,5 @@
 -- The built-in harness is gone. Agents configured to run on it point at an
--- adapter that no longer exists, so admission would find nothing to select and
+-- adapter that does not exist, so admission would find nothing to select and
 -- the session would fail with "no eligible harness".
 --
 -- They move to codex (founder's choice of replacement). Their model moves to

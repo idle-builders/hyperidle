@@ -1,4 +1,4 @@
--- P2: Rename agents -> users, add kind/email/avatar_url columns
+-- Rename agents -> users, add kind/email/avatar_url columns
 ALTER TABLE `agents` RENAME TO `users`;
 --> statement-breakpoint
 ALTER TABLE `users` ADD COLUMN `kind` text NOT NULL DEFAULT 'ai';

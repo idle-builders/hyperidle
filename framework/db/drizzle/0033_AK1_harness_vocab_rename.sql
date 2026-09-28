@@ -1,4 +1,4 @@
--- AK1: Harness-vocabulary rename rollout — column renames (forward-only).
+-- Harness-vocabulary rename rollout — column renames (forward-only).
 -- Renames: soul_prompt → system_prompt, soul_prompt_path → system_prompt_path,
 --          workspace_snapshot → sandbox_snapshot.
 -- All RENAME COLUMN operations are safe (data-preserving, supported by PostgreSQL ≥9.x).

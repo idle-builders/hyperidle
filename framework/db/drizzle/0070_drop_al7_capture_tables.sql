@@ -1,6 +1,6 @@
--- Drop AL7 capture machinery tables and update agent_work_intents constraints.
+-- Drop capture machinery tables and update agent_work_intents constraints.
 --
--- Removes the three tables that backed the AL7 trust-first two-session review
+-- Removes the three tables that backed the trust-first two-session review
 -- workflow (proposed_calls, tailored_grants, operation_outcomes). No production
 -- path writes to them; the capture machinery is dead code.
 --

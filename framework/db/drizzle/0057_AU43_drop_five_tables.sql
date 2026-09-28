@@ -6,8 +6,8 @@
 --
 -- WHY each table is dropped:
 --
--- agent_lifecycle_inbox: the no-op projector outbox. Its write path was removed
---   in stage 2 of the AU43 delete pass; no production inserter or reader ever
+-- agent_lifecycle_inbox: the no-op projector outbox. Its write path was removed;
+--   no production inserter or reader ever
 --   landed. The `agentLifecycleInbox` symbol was referenced only in a comment in
 --   service-bootstrap.ts.
 --
@@ -15,11 +15,11 @@
 --   the trigger resolution path; that path was never completed. Zero write or
 --   read sites in production.
 --
--- filesystem_captures: write-only archive whose consumer was cancelled (AO3).
+-- filesystem_captures: write-only archive whose consumer was cancelled.
 --   Capture write code removed in stage 2; no non-test reader has ever existed.
 --   Referenced only in comments in mounter-registry.ts and index.ts.
 --
--- task_planning_signals: formerly `task_strategy_fabric` (renamed in 0050).
+-- task_planning_signals: `task_strategy_fabric` renamed in migration 0050.
 --   Never had a production writer after the riskTier column it stored was
 --   dropped. Referenced only in comments in work/src/index.ts and
 --   review/src/index.ts.

@@ -1,5 +1,5 @@
 # electron-builder production configuration for HyperIdle desktop.
-# N5: signing, notarization, DMG distribution, Homebrew support.
+# Signing, notarization, DMG distribution, Homebrew support.
 #
 # @lore: extraMetadata.main — points packaged app at dist/main.cjs; package.json main stays src/main.ts for dev
 

@@ -1,4 +1,4 @@
--- AU26 G1 (architecture §D-L): relocate the run-config columns off the two
+-- Relocate the run-config columns off the two
 -- identity tables into agent-orchestration-owned tables.
 --
 -- Hand-authored incremental migration. This repo's migrations past 0042 are

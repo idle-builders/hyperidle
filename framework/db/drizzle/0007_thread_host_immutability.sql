@@ -1,6 +1,6 @@
--- L1a step9 (Adv-C4) — enforce host immutability on the threads table.
+-- Enforce host immutability on the threads table.
 --
--- Plan §5.1 + concept §4.5.8 hard-rule: `host_kind` and `host_id` are
+-- Hard-rule: `host_kind` and `host_id` are
 -- immutable post-creation. SQLite parity in `drizzle/0008_thread_host_immutability.sql`.
 -- Postgres needs a trigger function plus the trigger itself; SQLite gets
 -- away with an inline `RAISE` because its trigger language is in-band SQL.

@@ -46,7 +46,7 @@ ALTER TABLE "documents" ADD CONSTRAINT "doc_parent_pair_ck"
 --    so it wins here too (mergeWithProjection: `projection.scopeId ?? item.scopeId`).
 --    The four usage columns are added in the same step and start EMPTY — nothing
 --    is carried over from relevance_score/citation_count/last_cited_at, whose
---    only writer is the demo seed (§6.2, founder ruling A5).
+--    only writer is the demo seed.
 ALTER TABLE "documents" ADD COLUMN "confidence" text;
 --> statement-breakpoint
 ALTER TABLE "documents" ADD COLUMN "meta" text;
@@ -69,7 +69,7 @@ UPDATE "documents" d SET "scope_id" = p."scope_id"
   WHERE p."knowledge_item_id" = d."id" AND p."scope_id" IS NOT NULL;
 --> statement-breakpoint
 
--- 5. BACKFILL THE OWNER. §5.1 moves the "whose private note is this" key from
+-- 5. BACKFILL THE OWNER. Moves the "whose private note is this" key from
 --    `updated_by` to `scope_id`, and existing rows can be `scope_kind='user'`
 --    with a NULL or stale `scope_id`: `cascadeScopeNarrowing` set scope_kind
 --    alone (knowledge-repository.ts:167-201, note 192-193), `requiresScopeId`
@@ -165,7 +165,7 @@ WHERE "payload"::jsonb ? 'refs'
 
 -- 10. the plugin contribution kind. Constraint name confirmed at
 --    framework/db/src/schema.ts:1341-1344; the producing constant is
---    framework/domain-model/src/configuration.ts:23-29 (see §8.6).
+--    framework/domain-model/src/configuration.ts:23-29.
 ALTER TABLE "plugin_contributions" DROP CONSTRAINT "plugin_contributions_kind_ck";
 --> statement-breakpoint
 UPDATE "plugin_contributions" SET "kind" = 'document' WHERE "kind" = 'knowledge';

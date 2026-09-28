@@ -1,4 +1,4 @@
--- BA1 D6: belonging is a column on the agent row — a team, a person, or
+-- Belonging is a column on the agent row — a team, a person, or
 -- neither, never two. Humans satisfy the check trivially (their
 -- owner_user_id is always null); today no agent has an owner at all, so the
 -- constraint is safe against every existing row.

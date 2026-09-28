@@ -1,4 +1,4 @@
--- AU21 Increment 14a (Decision L1, founder 2026-08-03): HARD DELETE the cost
+-- HARD DELETE the cost
 -- feature — no cap gate, no ledger, no display, no DB columns, no
 -- replacement mechanism. Founder, verbatim: "no everything delete. zero
 -- mention of costs in the repo."
@@ -51,8 +51,7 @@ ALTER TABLE "routines" DROP COLUMN "cost_cap_monthly_minor";--> statement-breakp
 ALTER TABLE "routine_runs" DROP COLUMN "cost_minor";--> statement-breakpoint
 ALTER TABLE "routine_runs" DROP COLUMN "cost_currency";--> statement-breakpoint
 
--- agent_session_requests: per-session recorded cost (AU21 Increment 6's
--- per-session-cost door, reversed by this increment) + the now-unreachable
+-- agent_session_requests: per-session recorded cost + the unreachable
 -- 'cost_cap' termination reason (the cap gate that produced it is deleted).
 ALTER TABLE "agent_session_requests" DROP COLUMN "cost_cents";--> statement-breakpoint
 ALTER TABLE "agent_session_requests" DROP CONSTRAINT "agent_session_requests_termination_reason_ck";--> statement-breakpoint

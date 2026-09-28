@@ -1,4 +1,4 @@
--- AU18: retire the generic `factory_settings` key/value bucket.
+-- Retire the generic `factory_settings` key/value bucket.
 --
 -- Hand-authored incremental migration (this repo's migrations are additive
 -- SQL files tracked only by meta/_journal.json — see 0043-0048 — not by a
@@ -8,7 +8,7 @@
 -- this table held has already been migrated onto `server_config` (the typed
 -- successor table, see services/server-config.ts) or `server_credentials`
 -- (notification secrets) by the code changes that land alongside this
--- migration — see plan §3's per-namespace target-home table. Any row NOT
+-- migration. Any row NOT
 -- migrated is intentionally dropped as debris:
 --   - `cost_cycle` — zero readers anywhere in the codebase.
 --   - `factory_start_time` — no writer ever existed; the read always fell
@@ -25,5 +25,5 @@
 -- Ordering invariant: this migration runs LAST, only once every real caller
 -- has been re-backed onto server_config/server_credentials and
 -- `git grep factorySettings` (whole repo, outside migration history) is
--- empty. See plan §6.
+-- empty.
 DROP TABLE "factory_settings";

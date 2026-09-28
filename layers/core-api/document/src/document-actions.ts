@@ -536,9 +536,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 			effectiveScopeId = ctx.actor;
 		} else if (input.scopeKind !== undefined) {
 			effectiveScopeKind = input.scopeKind;
-			// A `user`-scoped write with no `scopeId` defaults to the actor — the
-			// same auto-fill the legacy route gave POST (`routes/knowledge.ts:467-
-			// 468`, "user scope auto-fills scopeId from userId"). Without this a
+			// A `user`-scoped write with no `scopeId` defaults to the actor. Without this a
 			// `user`-scoped, non-memory row stores `scopeId: null`, which no
 			// subject — not even its own writer — ever matches.
 			// `team` gets no such default:

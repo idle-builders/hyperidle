@@ -259,7 +259,7 @@ CREATE TABLE `__new_teams` (
 INSERT INTO `__new_teams`("id", "product_id", "members", "lead_agent_id", "capacity", "active_bets", "cost_cap", "cost_actual", "formed_at", "dissolved_at") SELECT "id", "product_id", "members", "lead_agent_id", "capacity", "active_bets", "cost_cap", "cost_actual", "formed_at", "dissolved_at" FROM `teams`;--> statement-breakpoint
 DROP TABLE `teams`;--> statement-breakpoint
 ALTER TABLE `__new_teams` RENAME TO `teams`;--> statement-breakpoint
--- I3 review C3 / arch C-1: re-enable foreign_keys at the end of the
+-- Re-enable foreign_keys at the end of the
 -- migration so subsequent connections enforce FKs again. Inside the
 -- wrapping BEGIN/COMMIT this is a no-op, but explicit re-enable here
 -- documents intent and serves as defence-in-depth if Drizzle's

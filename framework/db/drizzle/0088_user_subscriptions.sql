@@ -35,9 +35,8 @@ CREATE TABLE "inbox" (
 );
 --> statement-breakpoint
 
--- 3. F1: a health note on an agent — a crash count, or null for a healthy
---    row. Written by the same session-ended reaction that used to write a
---    notification-queue row; lands as a `user.changed` change row instead.
+-- 3. A health note on an agent — a crash count, or null for a healthy
+--    row. Written by the session-ended reaction.
 ALTER TABLE "users" ADD COLUMN "health" text;
 --> statement-breakpoint
 
