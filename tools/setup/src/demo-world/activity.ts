@@ -1,13 +1,8 @@
 /**
- * AX1 — demo world activity: ~45 sessions (terminal history + two live).
- * @lore BA9d: ritual subscriptions (retro, knowledge decay, knowledge promotion) removed
- * from the demo world — the plugin owns them. A demo install without the plugin
- * shows no ritual subscriptions; installing the plugin produces exactly one of each.
- * @lore BC5 T7b: the notification-popover fixture rows and the daily-digest
- * subscription's run-history row are deleted with `notification_queue` and
- * `routine_runs` — no fabricated inbox row replaces them (no code path
- * writes an inbox row except a real subscription's own wake), so the demo
- * inbox starts empty.
+ * AX1 — demo world activity: ~35 sessions (terminal history + two live).
+ * @lore Built-in subscriptions (retro, knowledge decay, knowledge promotion) are owned by the plugin,
+ * not seeded here — a demo install without the plugin shows none; installing it produces exactly one of each.
+ * @lore The demo inbox starts empty — only a real subscription's own wake writes an inbox row.
  */
 
 import { type HyperIdleDb, sessions } from "@hyperidle/db";

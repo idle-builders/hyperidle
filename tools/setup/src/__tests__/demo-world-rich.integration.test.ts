@@ -2,7 +2,7 @@
  * The lived-in demo world.
  *
  * Proves `seedDemoWorld` fills a fresh database with a coherent, weeks-old
- * world: bet history across all lifecycles, tasks in every state, threads
+ * world: task history across all lifecycles, tasks in every state, threads
  * with real reviews/verdicts, a document corpus, sessions and a paused
  * daily-digest subscription — everything the three views need to look alive.
  *
@@ -31,8 +31,7 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 }
 
 describe("lived-in demo world", () => {
-	// Root tasks (parent_task_id IS NULL) — there is no bets table.
-	// State mapping: draft→proposed, active→in_progress, completed→done, killed→killed.
+	// Root tasks have parent_task_id IS NULL and cover four states: proposed, in_progress, done, killed.
 	test("root tasks span all four states with outcomes on closed tasks", async ({ db }) => {
 		await seedWorld(db);
 
@@ -193,7 +192,7 @@ describe("lived-in demo world", () => {
 	test("document corpus fills curated + triage with real usage signals", async ({ db }) => {
 		await seedWorld(db);
 
-		// the practice-folder items (`demo-ki-practice-*`) also match `id LIKE
+		// the practice-folder items (`demo-doc-practice-*`) also match `id LIKE
 		// 'demo-%'`; 43 spec rows + 8 practice folders in the real seed.
 		expect(await count(db, "documents", "WHERE id LIKE 'demo-%'")).toBeGreaterThanOrEqual(45);
 
@@ -208,7 +207,7 @@ describe("lived-in demo world", () => {
 		);
 		expect(scopes.length).toBeGreaterThanOrEqual(3);
 
-		// Provenance loop: a done/killed root task produced a retro item under it.
+		// Provenance loop: a done/killed root task produced a retro document under it.
 		// @lore task-scoped items are parent_kind='task'/parent_id=<taskId>, factory-scoped (architecture §7 step 7).
 		const retro = await rows<{ id: string }>(
 			db,
@@ -286,20 +285,15 @@ describe("lived-in demo world", () => {
 		expect(dangling).toHaveLength(0);
 	});
 
-	// There is no builtin routine mechanism (no provisionTeamRoutines).
-	// Only demo-routine-daily_digest remains. The three ritual subscriptions
-	// (document-decay, document-triage, post-task-retro) were also removed
-	// from demo world per coordinator instruction. No builtin:* rows exist.
-	// @lore there is no run-history table on the subscriptions side — the daily-digest fixture is a paused schedule subscription.
 	test("subscriptions: daily_digest subscription, paused, no builtin:* rows", async ({ db }) => {
 		await seedWorld(db);
 
-		// Only the daily-digest subscription should exist, and it starts paused.
+		// The daily-digest subscription starts paused.
 		const digestRows = await rows<{ paused: boolean }>(
 			db,
-			"SELECT paused FROM subscriptions WHERE id = 'demo-routine-daily_digest'",
+			"SELECT paused FROM subscriptions WHERE id = 'demo-sub-daily-digest'",
 		);
-		expect(digestRows, "demo-routine-daily_digest").toHaveLength(1);
+		expect(digestRows, "demo-sub-daily-digest").toHaveLength(1);
 		expect(digestRows[0]?.paused, "starts paused").toBe(true);
 		// No builtin:* subscriptions — the mechanism does not exist.
 		expect(
@@ -313,7 +307,7 @@ describe("lived-in demo world", () => {
 	test("the world has weeks of history, anchored to seed time", async ({ db }) => {
 		await seedWorld(db);
 
-		// Use root tasks (parent_task_id IS NULL) for age anchor — there is no bets table.
+		// Use root tasks (parent_task_id IS NULL) for age anchor.
 		const oldest = await rows<{ min: string }>(
 			db,
 			"SELECT MIN(created_at) AS min FROM tasks WHERE parent_task_id IS NULL",
@@ -329,10 +323,9 @@ describe("lived-in demo world", () => {
 	test("seeding twice changes nothing", async ({ db }) => {
 		await seedWorld(db);
 
-		// "bets" is not in the table list — the table does not exist.
-		// @lore there is no "artifacts" table.
+		// @lore there is no "artifacts" table — content is in "documents".
 		// @lore there are no knowledge_app_projection/knowledge_edit_log/knowledge_access_log/knowledge_conflicts tables.
-		// @lore there are no routines/routine_runs/notification_queue tables — subscriptions and inbox take their place.
+		// @lore there are no routines/routine_runs/notification_queue tables — subscriptions and inbox are the scheduling primitives.
 		const tables = [
 			"users",
 			"teams",
@@ -358,7 +351,7 @@ describe("lived-in demo world", () => {
 	test("team state reflects the live workload", async ({ db }) => {
 		await seedWorld(db);
 
-		// @lore a team is an id and a name — there is no active_bets column, no bets table, and no lead_agent_id; WIP is counted live via countTeamTasksInProgress.
+		// @lore A team is an id and a name — no lead_agent_id; WIP is counted live via countTeamTasksInProgress.
 		const teamRow = await rows<{ id: string }>(
 			db,
 			"SELECT id FROM teams WHERE id = 'demo-team-acme'",

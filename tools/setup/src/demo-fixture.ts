@@ -36,8 +36,9 @@
 
 import { fileURLToPath } from "node:url";
 import { installBundledPlugin } from "@hyperidle/core-api";
-import { type HyperIdleDb, subscriptions, tasks, teams, threads, users } from "@hyperidle/db";
-import { ROLE_PERSONAS_PLUGIN } from "./demo-world/ids.js";
+import { type HyperIdleDb, subscriptions, teams, users } from "@hyperidle/db";
+import { OBJECT_EVENTS } from "@hyperidle/domain-model";
+import { PM_ID, ROLE_PERSONAS_PLUGIN } from "./demo-world/ids.js";
 import { seedDemoWorldContent } from "./demo-world/index.js";
 import { createDemoClock } from "./demo-world/time.js";
 
@@ -47,12 +48,12 @@ const BUNDLED_PLUGINS_DIR = fileURLToPath(new URL("../../../plugins", import.met
 /**
  * Seed a demo world for onboarding / development mode.
  *
- * Creates: team "Acme" (AU44 B1: team_members dissolved), two humans, the founder's
- * assistant, the role-personas plugin installed for the team (its seven
- * agents), seven root tasks across every lifecycle with
- * nested subtasks to three levels deep, fifteen threads with ~100 messages,
- * a ~40-item document corpus, ~45 sessions, a subscription, and
- * inbox rows — a world that reads as six weeks of use by a small team.
+ * Creates: team "Acme", two humans, the founder's assistant, the role-personas
+ * plugin installed for the team (its seven agents), seven root tasks across
+ * every lifecycle with nested subtasks to three levels deep, fifteen threads
+ * with ~100 messages, a ~50-document corpus, ~35 sessions, a paused schedule
+ * subscription, and changes rows — a world that reads as six weeks of use
+ * by a small team.
  *
  * Idempotent: onConflictDoNothing throughout, fixed `demo-*` ids, and the
  * plugin install re-runs as an in-place reinstall.
@@ -120,70 +121,11 @@ export async function seedDemoWorld(
 		now: clock.daysAgo(43),
 	});
 
-	// Daily digest bet (disabled by default — operator enables)
-	await db
-		.insert(threads)
-		.values({
-			id: "thr-demo-bet-daily-digest",
-			hostKind: "team",
-			hostId: teamId,
-			initiatorId: `ast-${founderId}`,
-			participants: "[]",
-			lastActiveAt: clock.daysAgo(19),
-			createdAt: clock.daysAgo(19),
-		})
-		.onConflictDoNothing();
-	await db
-		.insert(tasks)
-		.values({
-			id: "demo-bet-daily-digest",
-			threadId: "thr-demo-bet-daily-digest",
-			parentTaskId: null,
-			teamId: teamId,
-			title: "Internal: daily digest scaffolding bet",
-			description: "Internal: daily digest scaffolding bet",
-			state: "proposed",
-			createdAt: clock.daysAgo(19),
-			updatedAt: clock.daysAgo(19),
-		})
-		.onConflictDoNothing();
-
-	// Daily digest anchor task
-	await db
-		.insert(threads)
-		.values({
-			id: "thr-demo-task-daily-digest",
-			hostKind: "team",
-			hostId: teamId,
-			initiatorId: `ast-${founderId}`,
-			participants: "[]",
-			lastActiveAt: clock.daysAgo(19),
-			createdAt: clock.daysAgo(19),
-		})
-		.onConflictDoNothing();
-	await db
-		.insert(tasks)
-		.values({
-			id: "demo-task-daily-digest",
-			threadId: "thr-demo-task-daily-digest",
-			parentTaskId: "demo-bet-daily-digest",
-			teamId,
-			ownerAgentId: `ast-${founderId}`,
-			title: "Daily digest anchor task",
-			description: "Anchor task for the daily digest subscription.",
-			state: "accepted",
-			createdAt: clock.daysAgo(19),
-			updatedAt: clock.daysAgo(19),
-		})
-		.onConflictDoNothing();
-
-	// @lore BC5 T7b: the daily-digest routine becomes a paused schedule
-	// subscription — same row 0089's migration would produce from an
-	// `active: false` routine (`paused = true`).
+	// A paused daily-digest schedule subscription — no run history; the schedule is wired but inactive.
 	await db
 		.insert(subscriptions)
 		.values({
-			id: "demo-routine-daily_digest",
+			id: "demo-sub-daily-digest",
 			userId: `ast-${founderId}`,
 			event: null,
 			schedule: "0 8 * * *",
@@ -191,6 +133,39 @@ export async function seedDemoWorld(
 			nextRunAt: null,
 			createdAt: clock.daysAgo(19),
 			updatedAt: clock.daysAgo(19),
+		})
+		.onConflictDoNothing();
+
+	// Founder's assistant subscribes to all 9 object events so it can observe
+	// the full team activity stream.
+	for (const event of OBJECT_EVENTS) {
+		await db
+			.insert(subscriptions)
+			.values({
+				id: `demo-sub-ast-${event.replace(".", "-")}`,
+				userId: `ast-${founderId}`,
+				event,
+				schedule: null,
+				paused: false,
+				nextRunAt: null,
+				createdAt: clock.daysAgo(44),
+				updatedAt: clock.daysAgo(44),
+			})
+			.onConflictDoNothing();
+	}
+
+	// PM agent subscribes to task.created to stay on top of new tasks.
+	await db
+		.insert(subscriptions)
+		.values({
+			id: "demo-sub-pm-task-created",
+			userId: PM_ID,
+			event: "task.created",
+			schedule: null,
+			paused: false,
+			nextRunAt: null,
+			createdAt: clock.daysAgo(43),
+			updatedAt: clock.daysAgo(43),
 		})
 		.onConflictDoNothing();
 

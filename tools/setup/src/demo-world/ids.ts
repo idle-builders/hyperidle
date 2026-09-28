@@ -28,10 +28,9 @@ export const OPS_ID = personaAgent("ops");
 export const FACILITATOR_ID = personaAgent("facilitator");
 export const PROPAGATION_ID = "system:propagation";
 
-// ── Root tasks (formerly bets) ───────────────────────────────────────────────
-// @lore BB1: bets table dropped. Root tasks (parentTaskId: null) replace bets
-// as the top-level work container. IDs intentionally keep "demo-task-" prefix
-// so they are distinct from their child tasks.
+// ── Root tasks ──────────────────────────────────────────────────────────────
+// @lore Root tasks (parentTaskId: null) are the top-level work container. IDs
+// keep "demo-task-" prefix to distinguish them from their child tasks.
 export const ROOT_TASK_PRICING = "demo-task-pricing";
 export const ROOT_TASK_ONBOARDING = "demo-task-onboarding";
 export const ROOT_TASK_CHURN = "demo-task-churn";
@@ -39,8 +38,6 @@ export const ROOT_TASK_DOWNGRADE = "demo-task-downgrade";
 export const ROOT_TASK_TRIAL = "demo-task-trial";
 export const ROOT_TASK_SEARCH = "demo-task-search";
 export const ROOT_TASK_MOBILE = "demo-task-mobile";
-/** Daily digest root task (from factory skeleton). ID kept for FK compat with demo-fixture.ts. */
-export const ROOT_TASK_DIGEST = "demo-bet-daily-digest";
 
 // ── Tasks ───────────────────────────────────────────────────────────────────
 export const TASK_PRICING_RESEARCH = "demo-task-pricing-research";
@@ -48,7 +45,6 @@ export const TASK_PRICING_TIERS = "demo-task-pricing-tiers";
 export const TASK_PRICING_PAGE = "demo-task-pricing-page";
 // Grandchildren of TASK_PRICING_PAGE — creates the 3-level-deep branch:
 //   ROOT_TASK_PRICING → TASK_PRICING_PAGE → TASK_PRICING_PAGE_{DESKTOP,MOBILE}
-// @lore BB1: 3-level nesting proof (root → child → grandchild).
 export const TASK_PRICING_PAGE_DESKTOP = "demo-task-pricing-page-desktop";
 export const TASK_PRICING_PAGE_MOBILE = "demo-task-pricing-page-mobile";
 export const TASK_PRICING_COPY = "demo-task-pricing-copy";
@@ -81,13 +77,12 @@ export const TASK_DOWNGRADE_UI = "demo-task-downgrade-ui";
 export const TASK_CHURN_SIGNALS = "demo-task-churn-signals";
 export const TASK_CHURN_DASH = "demo-task-churn-dash";
 
-// ── Produced documents (ids reused from the former artifacts table) ─────────
-// @lore artifacts-become-knowledge: these ids were "artifact" ids; the table
-// is gone. Content is a document parented to the producing task.
-export const ART_PRICING_PAGE = "demo-art-pricing-page";
-export const ART_TRIAL_FLOW = "demo-art-trial-flow";
-export const ART_TRIAL_METRICS = "demo-art-trial-metrics";
-export const ART_SEARCH_RANKING = "demo-art-search-ranking";
+// ── Produced documents ──────────────────────────────────────────────────────
+// @lore Produced content is a document parented to the task that generated it.
+export const DOC_PRICING_PAGE = "demo-doc-pricing-page";
+export const DOC_TRIAL_FLOW = "demo-doc-trial-flow";
+export const DOC_TRIAL_METRICS = "demo-doc-trial-metrics";
+export const DOC_SEARCH_RANKING = "demo-doc-search-ranking";
 
 // ── Threads ─────────────────────────────────────────────────────────────────
 export const THREAD_ASSISTANT = "demo-thread-assistant";
@@ -98,12 +93,12 @@ export const THREAD_SEARCH_REVIEW = "demo-thread-search-review";
 export const THREAD_DM_PM_FOUNDER = "demo-thread-dm-pm-founder";
 export const THREAD_DM_FOUNDER_BUILDER = "demo-thread-dm-founder-builder";
 export const THREAD_DM_MAYA_GROWTH = "demo-thread-dm-maya-growth";
-export const THREAD_BET_PRICING = "demo-thread-bet-pricing";
-export const THREAD_BET_TRIAL_RETRO = "demo-thread-bet-trial-retro";
-export const THREAD_BET_MOBILE_KILL = "demo-thread-bet-mobile-kill";
+export const THREAD_TASK_PRICING = "demo-thread-task-pricing";
+export const THREAD_TASK_TRIAL_RETRO = "demo-thread-task-trial-retro";
+export const THREAD_TASK_MOBILE_KILL = "demo-thread-task-mobile-kill";
 export const THREAD_TEAM_FEED = "demo-thread-team-feed";
-export const THREAD_KI_CHURN = "demo-thread-ki-churn";
-export const THREAD_ART_TRIAL_METRICS = "demo-thread-art-trial-metrics";
+export const THREAD_DOC_CHURN = "demo-thread-doc-churn";
+export const THREAD_DOC_TRIAL_METRICS = "demo-thread-doc-trial-metrics";
 export const THREAD_TASK_ONBOARD = "demo-thread-task-onboard";
 
 // ── Messages (only the ones other rows reference) ───────────────────────────
@@ -113,17 +108,13 @@ export const MSG_TRIAL_REVIEW = "demo-msg-trial-review-request";
 export const MSG_SEARCH_REVIEW = "demo-msg-search-review-request";
 
 // ── Documents ─────────────────────────────────────────────────────────────
-export const KI_CHURN_SIGNALS = "demo-ki-churn-early-signals";
-export const KI_PRICING_TIERS = "demo-ki-two-tier-pricing";
-export const KI_TRIAL_RETRO = "demo-ki-retro-trial-extension";
-export const KI_MOBILE_POSTMORTEM = "demo-ki-postmortem-mobile";
+export const DOC_CHURN_SIGNALS = "demo-doc-churn-early-signals";
+export const DOC_PRICING_TIERS = "demo-doc-two-tier-pricing";
+export const DOC_TRIAL_RETRO = "demo-doc-retro-trial-extension";
+export const DOC_MOBILE_POSTMORTEM = "demo-doc-postmortem-mobile";
 
-// @lore BA9d: ritual subscription ids (post-task retro, knowledge decay,
-// knowledge promotion) removed from the demo world — the plugin owns them now.
-// @lore BC5 T7b: `ROUTINE_DAILY_DIGEST` deleted — the daily-digest
-// subscription's run-history row (`routine_runs`) is gone with the table;
-// `demo-fixture.ts` still seeds the (now paused) subscription itself, under
-// the same literal id.
+// @lore Ritual subscriptions (post-task retro, knowledge decay, knowledge promotion) are
+// owned by the plugin, not seeded here — installing the plugin produces exactly one of each.
 
 // ── Sessions (only the ones other rows reference) ───────────────────────────
 export const SESSION_ACTIVE_COPY = "demo-session-pricing-copy-live";
