@@ -282,7 +282,13 @@ async function assembleIntoSandbox(
 
 	const bundle: BakedContextBundle = {
 		kind: "task",
-		task: { id: `task-${sessionId}`, title: "NKT probe task", description: null, state: "active" },
+		task: {
+			id: `task-${sessionId}`,
+			title: "NKT probe task",
+			description: null,
+			state: "active",
+			doneCondition: null,
+		},
 		ancestors: [],
 		agent: { id: AGENT_ID, name: "NKT Probe Agent", role: "builder" },
 		team: { id: TEAM_ID, name: "NKT Probe Team" },
