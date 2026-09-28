@@ -1,6 +1,3 @@
-// @lore: AgentDetailPane — no role="dialog" (Dialog shell stripped); must stay in sync with AgentEditDialog body; drift is a CRITICAL defect
-// @lore: AgentDetailPane fetch — roster has no harness/model/identity; fetches open_user on select; roster data seeds header while fetch is in flight
-
 import { HARNESS_TYPES, type HarnessType } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { Link as RRLink } from "react-router-dom";
@@ -95,7 +92,6 @@ export function AgentDetailPane({
 
 	const role = rosterMember?.role ?? agent?.role ?? "";
 	const roleLabel = deriveRoleLabel(role);
-	// @lore: roleDescription — identity document says what the agent is for; no catalog description
 	const roleDescription = roleLabel;
 	const agentName = rosterMember?.name ?? agent?.name ?? "";
 	const initials = deriveInitials(agentName);

@@ -1,5 +1,3 @@
-// @lore: parseCron/nextCronMatch live in @hyperidle/user — the subscription clock (this Service) is their caller
-
 export interface CronFields {
 	minute: number[] | "*";
 	hour: number[] | "*";

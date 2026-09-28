@@ -2,7 +2,6 @@
  * Barrel for @hyperidle/user (core-api Layer, SQL-owning Service).
  * Typed functions only — must NOT re-export raw `users`/`teams`/`orgEdges` pgTable objects (Table ACL, Mechanism A).
  * Users, teams and org edges are one Service — a user with its team is one unit of state; parseCron/nextCronMatch live here because the subscription clock (this Service) is their caller.
- * @lore: upsertOrgEdge is idempotent — INSERT … ON CONFLICT DO NOTHING against the composite unique index, then re-select
  */
 
 // -- agent identity (moved verbatim from routes/agent-identity.ts) --

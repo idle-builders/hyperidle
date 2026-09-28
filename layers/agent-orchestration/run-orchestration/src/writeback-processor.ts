@@ -196,7 +196,6 @@ interface DirectoryParent {
  * missing, and return the immediate parent's document id + its REAL stored
  * scope (`null` at the `knowledge/` root itself).
  *
- * @lore: directory items — created item inherits parent's scope; manifest doubles as directory→item index (source_path is the dir's own relative path)
  * @lore: scope resolution — re-read REAL row (searchDocuments, not open_document); ManifestEntry caches only scopeKind, not scopeId; id required for scope
  */
 async function ensureDirectoryChainItem(
@@ -421,7 +420,6 @@ async function handleCreate(
 	return "created";
 }
 
-// @lore: stale writes — refused (code "stale"), no conflict object; agent text discarded; manifest re-read via searchDocuments so next save uses fresh version
 async function handleModify(
 	config: WritebackConfig,
 	caller: CaptureWritebackCaller,

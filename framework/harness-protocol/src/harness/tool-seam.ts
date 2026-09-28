@@ -12,8 +12,6 @@ import type { EventBus } from "@hyperidle/event-bus";
 
 /**
  * Minimal schema interface — structurally compatible with Zod v3 and v4.
- *
- * @lore: AnySchema — workspace has Zod v3; sub-packages carry v4; importing ZodType pins to whichever npm hoists → mismatch; structural interface sidesteps it
  */
 export interface AnySchema {
 	safeParse(

@@ -5,8 +5,6 @@
  * that RUNS A MODEL (`builtin`, `claude`, `codex`, `opencode`, `cursor-agent`) and nothing else.
  * `gh` is the GitHub CLI — a test that shells out to it needs the binary present, but calling that
  * requirement "a harness" put a credential probe inside the vocabulary of model execution.
- *
- * @lore gh is not a harness (no model call); requireBinary not requireHarness; gate hard-fails on absent binary without skipping to green
  */
 
 import { execFileSync } from "node:child_process";

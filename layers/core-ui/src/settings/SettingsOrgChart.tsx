@@ -1,6 +1,3 @@
-// @lore: team-mechanism edge target — real team id directly; no team_members indirection
-// @lore: teams list derived from users' effective team; deriving from edges was circular (first edge impossible)
-
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import {

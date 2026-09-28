@@ -1,7 +1,6 @@
 /**
  * AC-4, AC-5: types and runtime constants for the Block primitive.
  *
- * @lore this test lives in core-ui because blocks/types.ts lives there now.
  *
  * Closed enums: BLOCK_KINDS (10) and BLOCK_HOST_KINDS (6). The exported
  * names match docs/blocks/canonical-shapes.md.
@@ -45,7 +44,6 @@ describe("BLOCK_KINDS", () => {
 });
 
 describe("BLOCK_HOST_KINDS", () => {
-	// @lore "bet" is not in BLOCK_HOST_KINDS — root tasks are the one work primitive.
 	it("is a closed 5-entry array (BB1: bet removed)", () => {
 		expect(BLOCK_HOST_KINDS).toHaveLength(5);
 		expect([...BLOCK_HOST_KINDS]).toEqual(["task", "document", "artifact", "agent", "user"]);

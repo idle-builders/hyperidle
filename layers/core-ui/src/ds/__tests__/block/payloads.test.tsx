@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// @lore dynamic imports under jsdom take 10-30s from remark/unified cold-loading — every test here uses {timeout: 60_000}.
+// @lore: dynamic imports under jsdom take 10-30s from remark/unified cold-loading — every test here uses {timeout: 60_000}
 const TEST_TIMEOUT = { timeout: 60_000 };
 
 describe("Per-kind payload renderers", () => {

@@ -1,5 +1,3 @@
-// @lore: scopeId field — free-text input, not a dropdown; dropdown would require fetching teams/products list; server is the final word on validity
-
 import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
 import { Button, Dialog, Input, ScopePicker } from "../../ds";

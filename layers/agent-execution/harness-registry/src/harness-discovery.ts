@@ -179,7 +179,6 @@ function opencodeModelOptions(
 function mapOpencodeProvider(
 	raw: string,
 ): "anthropic" | "openrouter" | "openai-compatible" | undefined {
-	// @lore: opencode providerID — multi-provider aggregator; HarnessModelDescriptor.provider is a closed union; map known values, omit unknown
 	if (raw === "anthropic") return "anthropic";
 	if (raw === "openrouter") return "openrouter";
 	if (raw === "openai-compatible") return "openai-compatible";
@@ -219,7 +218,6 @@ function parseOpencodeModelJson(raw: string): HarnessModelDescriptor | null {
  * Each model: a "provider/id" header line followed by a JSON object.
  * The JSON has: id, name, limit.context (optional).
  *
- * @lore: opencode models --verbose — one JSON block per model, prefixed with a "provider/id" header line; real format captured 2026-07-06
  */
 function parseOpenCodeCatalog(output: string): HarnessModelDescriptor[] {
 	const models: HarnessModelDescriptor[] = [];
@@ -270,7 +268,6 @@ interface HarnessSessionProbeResult {
 	readonly reason?: string;
 }
 
-/** @lore: HarnessDiscoveryInput — private probe result; intentionally mirrors no shared type; maps to HarnessCapabilityDescriptor at the descriptor builder */
 interface HarnessDiscoveryInput {
 	readonly state: HarnessReadinessState;
 	readonly version?: string;
@@ -577,9 +574,6 @@ const CLI_PROBE_CONFIGS: readonly [CliProbeConfig, CliProbeConfig, CliProbeConfi
 			loginLabel: "Log in to OpenCode",
 			loginCmd: ["opencode", "providers", "login"],
 			authCmd: ["opencode", "providers", "list"],
-			/**
-			 * @lore: opencode model discovery — `opencode models --verbose` run when providers are configured; failure degrades to models:[]; format captured 2026-07-06
-			 */
 			async interpretAuth(stdout, _stderr, exitCode, d, version, authAction) {
 				if (exitCode !== 0) {
 					return {

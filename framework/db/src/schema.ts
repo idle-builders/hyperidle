@@ -14,7 +14,6 @@ import {
 
 // --- Core tables ---
 
-// @lore: teams — single domain entity; team_members dissolved into it; a team is an id and a name: no capacity, phase or lead agent
 export const teams = pgTable("teams", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
@@ -47,7 +46,6 @@ export const users = pgTable(
 		ownerUserId: text("owner_user_id").references((): AnyPgColumn => users.id, {
 			onDelete: "set null",
 		}),
-		// @lore: health — crash count over 7 days from user change rows; null for healthy; session-ended-crashed reaction writes it; meaningless for a human row
 		health: text("health"),
 	},
 	(table) => [
@@ -61,7 +59,6 @@ export const users = pgTable(
 /**
  * One agent's run configuration, keyed on its `users` row.
  *
- * @lore: agentRunConfig — execution config (harness, model) here not on users; absent row ≡ all-null; identity in agent_file doc not a column here
  */
 export const agentRunConfig = pgTable("agent_run_config", {
 	agentUserId: text("agent_user_id")
@@ -107,7 +104,6 @@ export const tasks = pgTable(
 		doneCondition: text("done_condition"),
 		state: text("state").notNull(),
 		dependencies: text("dependencies"),
-		// @lore: threadId — every task has a thread written at creation; NOT NULL; edit_task creates the thread before opening its own transaction
 		threadId: text("thread_id")
 			.notNull()
 			.references(() => threads.id, { onDelete: "restrict" }),
@@ -136,7 +132,6 @@ export const tasks = pgTable(
 		/**
 		 * Display order among siblings. Defaults to creation order; ties break on `createdAt` then `id`.
 		 *
-		 * @lore: tasks.position — NOT derived from dependencies; dependencies = FINISH order, position = SHOW order; recency sort reshuffles tree on every child edit
 		 */
 		position: integer("position").notNull().default(0),
 		/**
@@ -144,7 +139,6 @@ export const tasks = pgTable(
 		 *
 		 * `false` (the default) means the task closes straight to `done`; `true` sends it to `review` instead.
 		 *
-		 * @lore: needsReview — opt-in boolean; review is a meaningful queue; deliberately not a risk tier; a flag something sets beats a scale nothing computes
 		 */
 		needsReview: boolean("needs_review").notNull().default(false),
 	},
@@ -184,7 +178,6 @@ export const sessions = pgTable(
 		effectivenessRecordedAt: text("effectiveness_recorded_at"),
 		/** User ID (or agent ID) of the actor who last recorded the effectiveness score. */
 		effectivenessRecordedBy: text("effectiveness_recorded_by"),
-		// @lore: harnessSessionId — null = harness never reported one (error before first event or no resume support); null means unresumable; surface not fail-silently
 		harnessSessionId: text("harness_session_id"),
 	},
 	(table) => [
@@ -272,7 +265,6 @@ export const agentWorkIntents = pgTable(
 		attempts: integer("attempts").notNull().default(0),
 		lastError: text("last_error"),
 		lastErrorCode: text("last_error_code"),
-		// @lore: bakedRequestJson — every intent bakes its request at emit time; drain reads directly (zero domain reads); absent → INVALID_WORK_SOURCE, no fallback
 		bakedRequestJson: text("baked_request_json"),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
@@ -474,7 +466,6 @@ export const messages = pgTable(
  * OrgChart edges: defines review-routing relationships between human users and
  * AI users / roles / teams.
  *
- * @lore: orgEdges — polymorphic target; mechanism discriminates: direct→userId, function→role, team→teamId; no FK on target (points at multiple tables)
  */
 export const orgEdges = pgTable(
 	"org_edges",
@@ -495,7 +486,6 @@ export const orgEdges = pgTable(
 
 // --- Subscriptions and inbox ---
 
-// @lore: subscriptions — one row for person and agent; event|schedule, never both; person → inbox row, agent → intent door; nextRunAt on schedule rows only
 export const subscriptions = pgTable(
 	"subscriptions",
 	{
@@ -530,7 +520,6 @@ export const subscriptions = pgTable(
 	],
 );
 
-// @lore: inbox — pointer at the change row (not content); composite PK so a re-fire of the same event is onConflictDoNothing
 export const inbox = pgTable(
 	"inbox",
 	{
@@ -574,10 +563,8 @@ export const documents = pgTable(
 		 * Default 'ordinary' — all existing rows keep their current behaviour.
 		 */
 		slot: text("slot").notNull().default("ordinary"),
-		// @lore: knowledge-attachment-slot — NULL for unparented docs; nullable pair (doc_parent_pair_ck); no FK (five tables); app narrows/archives children on delete
 		parentKind: text("parent_kind"),
 		parentId: text("parent_id"),
-		// @lore: nested-knowledge-items — sibling ordering within parent; position/title ORDER BY for tree+children reads; column exists so hand-ordering can be added
 		position: integer("position").notNull().default(0),
 		/** Ranking signal, read only by `session-documents.ts`. */
 		confidence: text("confidence"),
@@ -641,7 +628,6 @@ export const documents = pgTable(
  * Registered, team-scoped file source. NOT owned by a single agent.
  * Per-bot wiring lives in the filesystemInjections mapping below.
  *
- * @lore: filesystems — source and kind stored not computed; registry shows without resolving Connection; connectionId plain text not FK by design
  */
 export const filesystems = pgTable(
 	"filesystems",
@@ -750,7 +736,6 @@ export const plugins = pgTable(
 /**
  * What a plugin contributed, and whether the person has since taken it over.
  *
- * @lore: pluginContributions — provenance in one table; a plugin_id on users would be provenance the plugin service owns sitting in a table core owns
  *
  * `detachedAt` replaces the `updated_by = 'plugin:<id>'` sentinel: a person
  * edited this contribution, so a reinstall must not overwrite their version.
@@ -834,7 +819,6 @@ export type PluginRow = typeof plugins.$inferSelect;
  * Stores ONLY held connections (token | mcp). Inherited connections are
  * projected live from the harness descriptor and NEVER written here.
  *
- * @lore: serviceConnections — no trust_tier (ETHOS); authSource enforced to {token,mcp} at Zod; inherited never stored; token cipher is this table's own primitive
  */
 export const serviceConnections = pgTable(
 	"service_connections",

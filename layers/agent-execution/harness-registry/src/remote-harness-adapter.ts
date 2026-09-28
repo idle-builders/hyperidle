@@ -1,7 +1,6 @@
 /**
  * RemoteHarnessAdapter — delegates session execution to a connected worker
  * over a WebSocket using the ServerToWorkerMessage / WorkerToServerMessage wire protocol.
- * @lore: RemoteHarnessAdapter — one instance per WebSocket connection; registered in AdapterPool on WorkerRegisterMessage, unregistered on close
  */
 
 import { randomUUID } from "node:crypto";
@@ -19,7 +18,6 @@ import type {
  * Inbound messages from a remote worker over the WS transport. All carry a
  * `sessionId` to route to the originating session.
  *
- * @lore: RemoteWorkerMessage narrowing — discriminated union on `type` required (TS2352: source does not overlap); guards preserve exact runtime dispatch
  */
 interface RemoteEventMessage {
 	readonly type: "event";
@@ -199,7 +197,6 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: this.registration.modelProviders,
 			mcpSupport: false,
-			// @lore: remote process-reengage — re-dispatches provisioning config over WS when session ends without return; non-conforming workers degrade post-budget
 			returnEnforcement: "process-reengage",
 		};
 	}

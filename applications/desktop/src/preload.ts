@@ -1,5 +1,3 @@
-// @lore: preload — sandboxed preloads run in restricted CJS at runtime; static import gives type checking; esbuild compiles to CJS with electron as external
-
 import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("__HYPERIDLE__", {

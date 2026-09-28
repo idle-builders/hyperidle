@@ -1,5 +1,3 @@
-// @lore: max-w-[720px] no mx-auto — left-aligns with PageHeader title; mx-auto would create different left edge than the title
-
 import type { JSX } from "react";
 import { PageHeader, PageScaffold } from "../ds";
 import { SettingsAgents } from "../settings/SettingsAgents.js";
@@ -130,7 +128,6 @@ export function SettingsPage(): JSX.Element {
 						<SettingsNotifications />
 					</section>
 
-					{/* @lore: backend section — SettingsBackend + SettingsWorker separated; two distinct sub-areas not one undifferentiated list */}
 					<section
 						id="settings-section-backend"
 						data-testid="settings-section-backend"

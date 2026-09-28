@@ -1,8 +1,3 @@
-/**
- * @lore: compose-api-application — Hono notFound fires on ROOT app only, not sub-apps; canonical JSON 404 for /api/* must be declared on the root app
- * @lore: preAuthRegistrars run strictly before `middleware.auth`; registration order determines auth boundary
- */
-
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { ErrorHandler, MiddlewareHandler } from "hono";
 import { Hono } from "hono";

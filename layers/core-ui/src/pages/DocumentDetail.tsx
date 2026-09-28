@@ -418,7 +418,6 @@ function DocumentDetailView({
 		onConflict: (problems) => setConflictMessage(problems[0]?.message ?? null),
 	});
 
-	// @lore: client-side invariants — same rules server runs first; doomed control greys before round trip; stable non-self probe target for slot/as checks
 	const moveReason = useMemo(() => {
 		const problems = editDocumentInvariants(
 			{ id: document.id, parent: { kind: "document", id: `${document.id}-probe` } },
@@ -675,7 +674,6 @@ function DocumentDetailView({
 						</div>
 					)}
 
-					{/* @lore: version conflict — editor text never overwritten; Reload always explicit */}
 					{conflictMessage !== null && (
 						<div
 							role="alert"

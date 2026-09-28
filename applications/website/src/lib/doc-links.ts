@@ -83,7 +83,6 @@ interface MarkdownLinkNode {
 	children?: MarkdownLinkNode[];
 }
 
-// @lore: remarkDocLinks — vfile.path is the absolute filesystem path; repoRoot converts it to repo-relative for resolveRepoPath
 export function remarkDocLinks(
 	options: DocLinkOptions & { repoRoot: string },
 ): (tree: MarkdownLinkNode, file: { path?: string }) => void {

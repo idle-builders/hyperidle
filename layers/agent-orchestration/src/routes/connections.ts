@@ -57,7 +57,6 @@ export type CreateConnectionInput = z.infer<typeof createConnectionSchema>;
 // ---------------------------------------------------------------------------
 
 // Derive the `via` display string. Server-constructed, never a raw secret echo.
-// @lore: `via` is always server-constructed — token → "API key · stored encrypted"; mcp → hostname of server URL
 function buildVia(authSource: string, serverUrl: string | null | undefined): string {
 	if (authSource === "token") return "API key · stored encrypted";
 	if (authSource === "mcp" && serverUrl) {
@@ -95,7 +94,6 @@ function rowToView(row: {
 }
 
 // Derive service name from serverUrl when omitted; strips "mcp." prefix.
-// @lore: derivation is deterministic — affects the (userId, service, authSource) unique constraint
 function deriveServiceFromUrl(serverUrl: string): string {
 	try {
 		const host = new URL(serverUrl).hostname;

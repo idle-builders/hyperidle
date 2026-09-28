@@ -183,7 +183,6 @@ function InspectDestination({ path }: { path: string }): JSX.Element {
 	return <EmptyState title="Unavailable" description="This reference cannot be inspected here." />;
 }
 
-// @lore: thread tasks — hostKind is never "task"; a thread can have multiple tasks; renders once per task, zero renders nothing
 function ThreadTaskLinks({ tasks }: { tasks: readonly TaskListItem[] }): JSX.Element | null {
 	if (tasks.length === 0) return null;
 	return (
@@ -305,7 +304,6 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		data.members.map((m) => [m.id, m]),
 	);
 
-	// @lore: messages DESC → ASC — API returns newest-first; reversed before Part adapter so PartList renders oldest→newest top-to-bottom
 	const parts = derivePartsFromMessages(
 		[...data.messages].reverse(),
 		viewerId,
@@ -316,7 +314,6 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		onInspectPath: (path) => setInspection({ kind: "path", path }),
 		onOpenSession: (sessionId) => setInspection({ kind: "session", sessionId }),
 	});
-	// @lore: threadTitle vs hostTitle — thread's own stored/computed title; hostTitle is the linked host object's title, null for unspecial-cased host kinds
 	const threadTitle: string = data.thread.title ?? data.thread.computedTitle;
 	const hostRoute = resolveHostRoute(data.thread.hostKind, data.thread.hostId);
 	const hostTitle = data.hostTitle ?? identities[data.thread.hostId]?.name ?? data.thread.hostId;
@@ -352,7 +349,6 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		<PageScaffold
 			data-testid="conversations-page"
 			header={
-				// @lore: header skip on mobile — breadcrumb suppressed + title hidden on mobile; <header> would be an empty 37px container; skip entirely
 				inspection || sidebarMobile ? undefined : (
 					<PageHeader
 						title={threadTitle}
@@ -393,7 +389,6 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						scroll
 						headerPresentation={inspection ? "pane" : "read"}
 						produced={
-							// @lore: produced slot — must go in surface's own slot, not as sibling; sibling renders below the composer which reads as conversation continuing past the input
 							<ArtifactSection
 								parentKind="thread"
 								parentId={threadId}
@@ -417,13 +412,11 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 export function Conversations(): JSX.Element {
 	const { threadId } = useParams<{ threadId?: string }>();
 
-	// @lore: OutletContext — undefined when Conversations renders outside AppShell (tests); filter falls back to "all"
 	const ctx = useOutletContext<AppShellOutletContext | undefined>();
 	const conversationsFilter: ConversationsFilter = ctx?.conversationsFilter ?? "all";
 	const onClearFilter = ctx?.onClearFilter ?? (() => undefined);
 	const onNewThread = ctx?.onNewThread;
 
-	// @lore: threads — sourced from AppShell's OutletContext (single useThreads call); never fetched independently; fallback values for tests outside AppShell
 	const conversationsThreads = {
 		threads: ctx?.threads ?? [],
 		status: ctx?.threadsStatus ?? ("loading" as const),
@@ -471,7 +464,6 @@ export function Conversations(): JSX.Element {
 				}
 			>
 				{isEmpty ? (
-					// @lore: h-full — scroll body's direct child, not flex item; h-full resolves against scroll body's definite height
 					<div className="flex items-center justify-center p-[48px_24px] h-full">
 						<EmptyState
 							title="No conversations yet"

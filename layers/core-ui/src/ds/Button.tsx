@@ -5,8 +5,6 @@
  * Three sizes: default, sm, icon.
  * Uses forwardRef for focus management, tooltips, and popovers.
  */
-// @lore: Button forwardRef — focus management for tooltips, popovers, and programmatic focus; Input carries forwardRef for the same reason
-// @lore: hearth-internal-padding — vertical padding (10px default, 7px sm) is optically tuned, not on the 6px grid
 
 import { forwardRef, type JSX } from "react";
 import { dsProps } from "./ds-attrs.js";
@@ -66,7 +64,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 	},
 	ref,
 ): JSX.Element {
-	// @lore: min-[1025px]: breakpoint — Tailwind lg: fires at 1024px (off-by-one); relaxes strictly above it so ≥44px touch floor holds through 1024px inclusive
 	const sizeClass =
 		size === "sm"
 			? "py-[7px] px-[12px] min-h-[44px] min-[1025px]:min-h-[32px]"

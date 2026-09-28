@@ -1,7 +1,6 @@
 /**
  * Shared error-state region with a retry affordance.
  */
-// @lore: error-state copy — deliberately generic; pages pick copy and supply the retry handler; role="alert" announces on mount
 
 // hearth-internal-padding
 // py-[10px] on the retry button is optically tuned vertical padding (same as Button).

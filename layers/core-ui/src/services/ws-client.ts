@@ -1,5 +1,3 @@
-// @lore: WebSocket — not available in JSDOM tests; callers must stub the ws-client module; degrades gracefully on token/connection failure
-
 import { apiFetch } from "./api-fetch.js";
 
 export type WsMessageHandler = (data: unknown) => void;
@@ -88,7 +86,6 @@ class WsClient {
 		}
 
 		// @lore: VITE_API_PORT — overrides default dev port (3001) for e2e environments where API runs on a different port; WS upgrades don't proxy through Vite
-		// @lore: import.meta.env.MODE not .DEV/.PROD — .env NODE_ENV=development flips .DEV/.PROD; MODE is set from CLI before env files and can't be poisoned by .env
 		const isDevProxy = typeof import.meta !== "undefined" && import.meta.env.MODE !== "production";
 		const devWsPort =
 			typeof import.meta !== "undefined" && import.meta.env.VITE_API_PORT
@@ -159,7 +156,6 @@ class WsClient {
 		};
 	}
 
-	// @lore: WS message routing — push envelope {type:"update", topic, kind, data}; match on envelope.topic; session:<id> carries content-free nudge, same shape
 	private messageMatchesTopic(msg: Record<string, unknown>, topic: string): boolean {
 		if (msg.type === "update") {
 			return msg.topic === topic;

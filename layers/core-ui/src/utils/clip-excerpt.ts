@@ -1,5 +1,3 @@
-// @lore: word-boundary clip — walks back to last space before limit; hard cut fallback if no space found; appends "…" when truncated
-
 const EXCERPT_MAX = 120;
 
 export function clipExcerpt(text: string, max = EXCERPT_MAX): string {

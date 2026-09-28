@@ -20,7 +20,6 @@ export type PolicyEditTask = (
 ) => Promise<ActionResult<TaskView>>;
 
 // send_message's bound run — policy may not import thread directly.
-// @lore: posts through action (not insertMessage) — gets changes row, WS nudge, lastActiveAt bump
 export type PolicySendMessage = (
 	ctx: {
 		readonly actor: string;

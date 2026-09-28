@@ -80,7 +80,6 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 			createdAt: now,
 		},
 	]);
-	// @lore the run config lives in `agent_run_config`, not `users`.
 	await db.insert(agentRunConfig).values({
 		agentUserId: "agent-src",
 		harnessType: "recording",
@@ -160,7 +159,6 @@ describe("agent session request sources", () => {
 	});
 
 	fixtureTest("all execution sources enter real session provisioning", async ({ db }) => {
-		// @lore the "recording" harness kind never invokes a domain tool, so an unconfigured transport that only throws when dialled is honest here.
 		const composition = buildTestRunOrchestrationComposition();
 		await seedWork(db);
 		const eventBus = new EventBus();

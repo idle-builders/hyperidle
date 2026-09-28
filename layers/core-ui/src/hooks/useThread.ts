@@ -3,9 +3,7 @@
  * `useHostThread`'s detail half. One door: `call("open_thread", { id })`,
  * kept live by the `thread:<id>` websocket nudge.
  *
- * @lore: nudge carries the changes row, never the assembled view; hook re-runs open_thread on every frame — no payload merging
  *
- * @lore: blockId never in this hook — open_thread's server-side filter is for agents; HostThreadSection filters client-side over the full ThreadView
  */
 
 import type { ThreadView } from "@hyperidle/domain-model";

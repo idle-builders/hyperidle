@@ -1,5 +1,3 @@
-// @lore: thread module's private row store — private to this package; outside callers get typed read functions from the package barrel
-
 import {
 	type HyperIdleDb,
 	type Message,

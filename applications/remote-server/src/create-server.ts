@@ -25,7 +25,6 @@ import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } fro
 import { EventBus } from "@hyperidle/event-bus";
 import { WebSocketServer } from "ws";
 import { resolveProfile } from "./profiles.js";
-// @lore: ws — no type declarations shipped; @types/ws in devDependencies required; stale local dist masks missing @types on clean npm ci
 
 /**
  * Which shape of execution face this
@@ -42,8 +41,6 @@ export interface CreateServerDeps {
 	 * Interface to bind the listening socket to. Omitted → `@hono/node-server`
 	 * binds EVERY interface, which is what the hosted deployment needs (the
 	 * container must be reachable from its ingress).
-	 *
-	 * @lore: hostname — Application property; desktop passes 127.0.0.1; remote-server leaves undefined; pinned by server-bind-address.integration.test.ts
 	 */
 	readonly hostname?: string;
 	/**
@@ -64,7 +61,6 @@ export interface CreateServerDeps {
 	readonly bundledPluginsDir?: string;
 }
 
-// @lore: ServerHandle.httpServer — typed as ServerType not http.Server; avoids unsafe cast; .close() exists on all union members
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
@@ -111,7 +107,6 @@ function createStaticHandler(
 	};
 }
 
-// @lore: resolvePglitePath — CWD differs between npm run dev and direct Node; resolve relative paths against repo root (3 levels up) not process.cwd()
 function resolvePglitePath(rawPath: string): string {
 	if (rawPath === ":memory:" || path.isAbsolute(rawPath)) {
 		return rawPath;
@@ -168,8 +163,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	const agentExecution =
 		deps.agentExecutionBoot ?? (await bootAgentExecution({ topology: deps.topology, mcpBaseUrl }));
 
-	// @lore: agentOrchestrationTransport — typed as Parameters<typeof buildAgentOrchestrationPort>[0]; avoids governance import to @hyperidle/api-contract
-	// @lore: deferred binding — transport must dial the composed app; no handler calls the port before then (methods are lazy)
 	let realAgentOrchestrationTransport:
 		| Parameters<typeof buildAgentOrchestrationPort>[0]
 		| undefined;
@@ -181,7 +174,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	};
 	const agentOrchestrationPort = buildAgentOrchestrationPort(agentOrchestrationTransport);
 
-	// @lore: onHarnessRedetect — deferred binding; bootCoreApi runs before bootAgentOrchestration; real refresh filled post-boot; handlers fire only on composed app
 	let realInheritedReachRefresh: (() => Promise<void>) | undefined;
 	const onHarnessRedetect: () => Promise<void> = () => {
 		if (!realInheritedReachRefresh) {
@@ -238,7 +230,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			sandboxBasePath,
 			worker: {
 				pool: agentExecution.adapters.pool,
-				// @lore: createWorkerAdapter — forwarded structurally; Application can't import @hyperidle/harness-protocol (governance crossing); function value carries type
 				createWorkerAdapter: agentExecution.adapters.createWorkerAdapter,
 			},
 			reapers: {

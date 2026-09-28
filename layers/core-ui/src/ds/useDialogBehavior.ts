@@ -1,8 +1,4 @@
-// @lore: `inert` is feature-detected ("inert" in HTMLElement.prototype) — jsdom lacks it; never assert inert in unit tests, use Playwright
-
 // @lore: focus-trap-react needs displayCheck:"none" under jsdom — jsdom has no layout (all sizes 0); without it trap throws "no focusable element"
-
-// @lore: ensureOverlayRoot creates #overlay-root as a body sibling of #root — createPortal works in bare jsdom without pre-mounted DialogPortalRoot; idempotent
 
 import {
 	type KeyboardEventHandler,

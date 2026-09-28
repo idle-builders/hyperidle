@@ -50,7 +50,6 @@ describe("bootAgentExecution", () => {
 			await expect(boot.adapters.sandbox.spawn("/tmp/anything")).rejects.toThrow();
 		});
 
-		// @lore the pool holds only the CLI harnesses whose binaries this machine has, and registers nothing else.
 		it("local topology: registers only real CLI harnesses, nothing always-present", async () => {
 			const boot = await bootAgentExecution({
 				topology: "local",

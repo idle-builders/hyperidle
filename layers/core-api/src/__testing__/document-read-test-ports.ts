@@ -1,6 +1,3 @@
-/**
- * @lore test port mirrors getAgentIdentity from task-run-resolver-bindings; bypasses full composition root; off the same search_documents runner
- */
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { type AgentIdentityPort, createAgentIdentityPort } from "@hyperidle/user";

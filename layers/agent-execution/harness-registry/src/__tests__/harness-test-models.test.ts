@@ -40,7 +40,6 @@ describe("HARNESS_TEST_MODELS — locked matrix shape", () => {
 		expect(HARNESS_TEST_MODELS["cursor-agent"].model).toBe("auto");
 	});
 
-	// @lore a locked MODEL is the whole of what a lane needs to fix — no harness calls a provider API.
 	test("an entry carries the model and nothing else", () => {
 		for (const [harness, spec] of Object.entries(HARNESS_TEST_MODELS)) {
 			expect(Object.keys(spec), `${harness} should lock only a model`).toEqual(["model"]);

@@ -1,5 +1,3 @@
-// @lore: MoveDialog refusal — concurrent edit can invalidate a shown legal choice; refusal shows named problem, not generic failure
-
 import { type JSX, useState } from "react";
 import { Button, Dialog } from "../../ds";
 import { call } from "../../services/call.js";

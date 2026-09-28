@@ -292,7 +292,6 @@ describe("DocumentList sort pills reorder the active tab", () => {
 
 		await waitFor(() => {
 			const curatedView = screen.getByTestId("document-curated-view");
-			// @lore nested-knowledge-items tree-ui: curated rows are <li role="treeitem">
 			const texts = within(curatedView)
 				.getAllByRole("treeitem")
 				.map((r) => r.textContent ?? "");

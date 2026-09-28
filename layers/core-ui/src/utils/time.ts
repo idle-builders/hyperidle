@@ -1,5 +1,3 @@
-// @lore: all registers accept string|number|Date|null|undefined; toEpoch → TIME_PLACEHOLDER on non-finite parse; Date.parse won't echo adversarial strings
-
 /** Shared placeholder for invalid / missing timestamps (em-dash U+2014). */
 export const TIME_PLACEHOLDER = "—";
 
@@ -79,7 +77,6 @@ export function relativeLong(input: TimestampInput, now?: number): string {
 	return `${short} ago`;
 }
 
-// @lore: clockTime seconds:true — hour12:false fixed; 24h reads cleaner in dense logs; locale hour-cycle for minute variant only
 export function clockTime(input: TimestampInput, opts?: { seconds?: boolean }): string {
 	const epoch = toEpoch(input);
 	if (epoch === null) return TIME_PLACEHOLDER;

@@ -1,6 +1,3 @@
-// @lore: connection.ts — "Connection" collides with db-connection; code uses ServiceConnection* prefix; user-facing copy says "connection" / "connected service"
-// @lore: connection.ts — must stay dependency-free of server imports; @hyperidle/domain-model is a leaf package; no server, no DB, no Node builtins
-
 /** Where a connection's authority lives. CLOSED set. */
 export const CONNECTION_AUTH_SOURCES = ["token", "mcp", "inherited"] as const;
 export type ConnectionAuthSource = (typeof CONNECTION_AUTH_SOURCES)[number];
@@ -13,7 +10,6 @@ export type ConnectionHealth = (typeof CONNECTION_HEALTH)[number];
  * Held auth sources only — what a user can create.
  * (inherited is never created by a user — it is reflected from the harness/environment.)
  *
- * @lore: HELD_AUTH_SOURCES — in domain-model; run-orchestration + boot.ts both need it; @hyperidle/connections would be a forbidden service→service import
  */
 export const HELD_AUTH_SOURCES = ["token", "mcp"] as const;
 export type HeldAuthSource = (typeof HELD_AUTH_SOURCES)[number];

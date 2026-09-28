@@ -1,6 +1,3 @@
-// @lore: SplitView ratio — dividerRatio + onRatioChange required for persistence; surfaceKey alone is informational
-// @lore: hasDetail gates split-open — a descriptor with no caps, no models, and no login command does not open a destination pane
-
 // hearth-internal-padding
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -242,7 +239,6 @@ export function SettingsHarnesses(): JSX.Element {
 						{sorted.map((descriptor) => {
 							const sl = statusLine(descriptor);
 							const clickable = hasDetail(descriptor);
-							// @lore: RowTone mapping — healthy→success, behind→warning, error|blocked→error, else→info; mirrors original hand-rolled ladder
 							const dotTone =
 								sl.tone === "healthy"
 									? ("success" as const)

@@ -1,5 +1,3 @@
-// @lore: open_user({}).subscriptions — no factory-wide mute; only per-person subscription rows; schedule subscriptions are agent-only
-
 import {
 	OBJECT_EVENTS,
 	type ObjectEventName,

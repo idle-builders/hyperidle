@@ -6,8 +6,6 @@
  * them up" pass. Pure: no DB, no HTTP, no React. Usable by both server and
  * client.
  *
- * @lore: mention resolution — server-side is authoritative; client sends raw text; MAX_MENTIONS_PER_MESSAGE=20 bounds transaction size and DB queries
- * @lore: mention matching — pool-driven longest-match (not token-shape regex); lets "My Team Agent" beat "My Team"; handles names with spaces or apostrophes
  */
 
 import type { IdentityId } from "./thread.js";

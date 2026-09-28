@@ -1,7 +1,6 @@
 /**
  * Task service: one repository vocabulary for the owned `tasks` table.
  *
- * @lore: zero foreign table reads — each mechanic has own named function with fixed predicate; no generic that leaks predicates through args
  * @lore: WriteExecutor param — callers inside db.transaction join this write into their tx; tx-scoped reads use WriteExecutor to see uncommitted state
  */
 

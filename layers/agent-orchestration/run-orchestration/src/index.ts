@@ -69,5 +69,4 @@ export {
 } from "./session-store.js";
 export { startRuntime } from "./start-runtime.js";
 export { transitionRun } from "./transition-run.js";
-// @lore: createWritebackProcessor public — e2e test needs process/subscribe wired to @hyperidle/document; forbidden here; test lives where both imports are legal
 export { createWritebackProcessor } from "./writeback-processor.js";

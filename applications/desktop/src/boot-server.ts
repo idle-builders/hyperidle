@@ -2,7 +2,7 @@ import { createServer as _createServer, type ServerHandle } from "./create-serve
 
 export type { ServerHandle };
 
-// @lore: desktop — always binds 127.0.0.1; remote-server omits hostname so ingress can reach it
+// @lore: desktop server — must bind 127.0.0.1; omitting hostname listens on all interfaces and exposes the desktop API to the network
 const LOOPBACK = "127.0.0.1";
 
 export function startServer(): Promise<ServerHandle> {

@@ -1,7 +1,3 @@
-/**
- * @lore: core-api barrel — never re-export a service by name; wrap in a function this package owns (laundering shape creates unowned surface)
- */
-
 export { createStandaloneSearchDocuments } from "./actions/compose.js";
 export { installBundledPlugin, teamPluginAgentId } from "./actions/install-bundled-plugin.js";
 export { applyFactoryCoreState } from "./bootstrap/factory-state.js";

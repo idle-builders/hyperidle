@@ -81,7 +81,7 @@ async function truncateAllTables(db: HyperIdleDb): Promise<void> {
 // ---------------------------------------------------------------------------
 // Pool — one instance per service-test WORKER, pre-warmed at startup
 //
-// @lore pool-spans-service-files: isolate:false keeps one module context and one PGlite instance per worker across files; harness tests remain isolated
+// @lore: pool-spans-service-files — isolate:false keeps one PGlite per worker across files; harness tests remain isolated
 //
 // Measured (VITEST_TRACE_FILE, three files, same pid): three `allocate` events,
 // ~1.47s each — 1.18s PGlite WASM boot + 0.30s migration. Across the 324-file

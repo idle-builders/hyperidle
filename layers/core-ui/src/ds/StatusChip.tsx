@@ -5,20 +5,12 @@ export type Status = "healthy" | "behind" | "blocked" | "paused" | "done" | "err
 
 export interface StatusChipProps {
 	/**
-	 * @lore: "unknown" NOT in KNOWN_STATUSES — unrecognised strings (version skew, missing value) fall to neutral-grey escape hatch; no as cast at call sites
 	 */
 	status: Status | "unknown";
 	/**
-	 * @lore: two-layer casing — CSS uppercase visual + registry string verbatim in DOM; label branch NEVER JS-uppercases; textContent must match registry string
 	 */
 	label?: string;
 }
-
-// @lore: color-mix() backgrounds not DaisyUI badge — TSX and HTML renderings must be pixel-identical
-
-// @lore: px-based values not rem — design-system viewer font-size:14px makes rem compute wrong (gap-1.5=5.25px not 6px)
-
-// @lore: density-static — badge-as-callout dimensions stay literal; density toggles would compete with body text and read as buttons
 
 interface StatusStyle {
 	chip: string;

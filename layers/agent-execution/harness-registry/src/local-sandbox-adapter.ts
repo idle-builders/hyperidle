@@ -1,4 +1,3 @@
-// @lore: LocalSandboxAdapter — host process, no container isolation; refused on server profiles (HYPERIDLE_PROFILE != laptop even in NODE_ENV=production)
 // @lore: spawn() does NOT git-init — ensureSandboxGitRepo (mounter.ts) runs AFTER mounting; git clone/worktree add refuse to write into an existing .git
 
 import { mkdir, rm } from "node:fs/promises";

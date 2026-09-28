@@ -1,5 +1,3 @@
-// @lore: data-ds-tier values are strings ("0"/"1"/"2"/"3") — DOM attributes are always strings; DsTier type alias is compile-time only
-
 export interface DsAttrs {
 	"data-ds-component": string;
 	"data-ds-tier": "0" | "1" | "2" | "3";

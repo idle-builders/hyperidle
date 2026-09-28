@@ -1,5 +1,3 @@
-// @lore: useNotifications — no per-type mute call here; subscription pause lives in Settings → Notifications
-
 import type { ChangeRow } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useState } from "react";
 import { call } from "../services/call.js";

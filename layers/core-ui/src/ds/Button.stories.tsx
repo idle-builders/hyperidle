@@ -38,7 +38,6 @@ export function SmallVariants(): JSX.Element {
 }
 
 /**
- * @lore size="icon": 32×32 desktop square control; 44×44 touch floor below lg
  */
 export function IconSize(): JSX.Element {
 	return (
@@ -60,7 +59,6 @@ export function IconSize(): JSX.Element {
 }
 
 /**
- * @lore ghost tone="neutral": swaps default --accent-deep for --text-secondary — plain icon/utility affordance, not a text-link look
  */
 export function GhostTone(): JSX.Element {
 	return (

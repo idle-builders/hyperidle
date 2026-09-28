@@ -4,7 +4,6 @@ function getApiKey(): string | undefined {
 	if (typeof window !== "undefined" && window.__HYPERIDLE__?.apiKey) {
 		return window.__HYPERIDLE__.apiKey;
 	}
-	// @lore: VITE_ prefix — Vite requires it to expose env vars to client code; dev-only, never user-facing
 	if (import.meta.env.VITE_HYPERIDLE_API_KEY) {
 		return import.meta.env.VITE_HYPERIDLE_API_KEY as string;
 	}
@@ -16,7 +15,6 @@ function getApiKey(): string | undefined {
 
 function isApiUrl(input: string | URL | Request): boolean {
 	if (typeof input === "string") {
-		// @lore: isApiUrl bare path — bare "/api" (no slash, no query) is also an API URL; original spec missed this case
 		return input === "/api" || input.startsWith("/api/") || input.startsWith("/api?");
 	}
 	if (input instanceof URL) {

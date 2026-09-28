@@ -3,7 +3,6 @@
  * OPTION_KEYS and OPTION_CARRIERS are typed together — a key with no carrier or a carrier
  * for an undeclared key fails `npm run check`.
  *
- * @lore: model-options coupling — `as const satisfies`; plain `Record<string, readonly string[]>` widens key types so both checks silently pass; do not change
  * @lore: model option values — stored on the agent (sparse); absent key = harness default; modelOptionArgv([]) must not change an unconfigured agent's invocation
  */
 
@@ -31,7 +30,6 @@ type OptionKeyOf<H extends OptionCarryingHarness> = (typeof OPTION_KEYS)[H][numb
 /**
  * How one option value reaches its harness: appended to its command line.
  *
- * @lore OptionCarrier is "argv" only — every harness is a spawned process; there is no request-body carrier because there is no built-in harness.
  */
 export type OptionCarrier = {
 	readonly kind: "argv";

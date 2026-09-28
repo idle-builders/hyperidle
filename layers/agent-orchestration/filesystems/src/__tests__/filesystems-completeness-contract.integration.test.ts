@@ -15,8 +15,6 @@ import {
 	updateFilesystemState,
 } from "../index.js";
 
-// @lore this file keeps only registry-CRUD + mounter coverage — `startWatcher` tests live in run-orchestration.
-
 const NOW = "2026-07-22T00:00:00.000Z";
 const temporaryDirectories: string[] = [];
 

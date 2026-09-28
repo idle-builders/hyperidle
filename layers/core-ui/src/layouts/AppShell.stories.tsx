@@ -1,5 +1,4 @@
 /**
- * @lore AppShell story renders inside existing router context; Outlet empty (no child routes) but shell chrome fully visible
  */
 import { AppShell } from "./AppShell";
 

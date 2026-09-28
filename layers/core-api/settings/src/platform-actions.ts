@@ -608,7 +608,6 @@ async function installRun(
 	}
 
 	// Phase 1 — agents and subscriptions materialize, in ONE transaction.
-	// Never a document write in here (top-of-file @lore).
 	await ctx.db.transaction(async (tx) => {
 		for (const agentSpec of agents) {
 			const dbId = agentItemId(plugin.name, agentSpec.id, scopeKind, scopeId);

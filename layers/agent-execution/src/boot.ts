@@ -2,8 +2,6 @@
  * `bootAgentExecution` — composes the adapter pool, sandbox adapter, enforcement registry, MCP bridge, and harness-environment provisioning.
  * Needs no DB handle and no credentials; it is pure runtime-adapter composition.
  *
- * @lore: adapters bundle — Application passes this to bootAgentOrchestration as a plain value; agent-orchestration never imports harness-registry directly
- * @lore: topology knob — adapter pool and sandbox adapter derive from the same "local | disabled" choice; one knob prevents drift between the two
  */
 
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
@@ -78,7 +76,6 @@ export interface AgentExecutionHarnessRuntime {
 		/** The session's mounted filesystems — see `ProvisionOptions.trustedPaths`. */
 		readonly trustedPaths?: readonly string[];
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
-	/** @lore: plugin stdio MCP entries — dialect knowledge lives in cli-mcp-config.ts */
 	writePluginStdioMcpEntries(params: {
 		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
 		readonly sandboxPath: string;

@@ -6,7 +6,6 @@
  * the id in memory during the run; if nothing writes it down, there is nothing
  * to resume and the agent can never be brought back.
  *
- * @lore a session whose harness reported no id stays null in the column, never a fabricated value.
  */
 import * as fs from "node:fs";
 import * as os from "node:os";

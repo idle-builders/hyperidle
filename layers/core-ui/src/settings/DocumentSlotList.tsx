@@ -1,6 +1,3 @@
-// @lore: DocumentSlotList — slot set at creation, never edited; single writer for its slots; skills/rules only list today
-// @lore: search_documents — filters by exactly one slot; two-slot callers run two hook calls (one per slot), not a loop
-
 import type { DocumentSlot } from "@hyperidle/domain-model";
 import { DOCUMENT_SLOT_LABEL } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";

@@ -1,5 +1,3 @@
-// @lore: team endpoint stays lean — agent config (systemPrompt up to 50KB) fetched separately and cached for the page session; do not embed
-
 import { useMemo, useRef } from "react";
 import type { AgentConfig } from "../settings/settings-types.js";
 import { useAgents } from "./useAgents.js";

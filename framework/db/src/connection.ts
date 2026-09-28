@@ -6,7 +6,6 @@ import postgres from "postgres";
 import { resolvePostgresSsl, sanitizePostgresUrl } from "./pg-ssl.js";
 import * as schema from "./schema.js";
 
-// @lore: HyperIdleDb — both PGlite and postgres-js satisfy PgDatabase<PgQueryResultHKT, typeof schema>; callers remain driver-agnostic
 export type HyperIdleDb = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 export interface DbHandle {

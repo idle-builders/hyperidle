@@ -1,7 +1,3 @@
-// @lore: AgentEditor — endpoint-agnostic; save routing (assistant vs. agent) is the container's responsibility
-// @lore: role lock — ownerUserId !== null means person-owned (assistant only today); id prefix means nothing
-// @lore: model source — descriptor.models discovered at probe time; MODEL_CATALOG never used; empty list means harness manages model itself
-
 // hearth-internal-padding
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -136,7 +132,6 @@ export function AgentEditor({
 					/>
 				</div>
 
-				{/* @lore: Combobox renders its own "Role" label; no outer label wrapper — produces "ROLE ROLE" stacked */}
 				<div className="flex-1 min-w-[140px]">
 					<Combobox
 						id={`edit-role-${agentId}`}

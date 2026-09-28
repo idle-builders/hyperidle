@@ -99,7 +99,6 @@ async function propagateSessionToTask(
 		// F1: InvalidTransitionError from a race condition — silently skip.
 		if (isInvalidTransitionError(err)) return;
 		// Unexpected error — emit propagation_failed for extension subscribers.
-		// @lore: propagation_failed event is the extension surface for failed hops; no retry apparatus
 		const failedEvent: PropagationFailedEvent = {
 			type: "propagation_failed",
 			streamId: taskId,
@@ -143,7 +142,6 @@ async function propagateTaskToParent(
 			// Terminal ancestors are already finished; `review` means a prior
 			// propagation pass (or a human) already advanced this ancestor and
 			// it is awaiting a verdict — do not re-trigger.
-			// review is in SKIP_ANCESTOR_STATES — see module-level @lore
 			if (SKIP_ANCESTOR_STATES.has(ancestor.state)) continue;
 
 			// Check: are ALL direct children of this ancestor terminal?
@@ -158,7 +156,6 @@ async function propagateTaskToParent(
 			const targetState: TaskState = ancestor.needsReview ? "review" : "done";
 			await transitionTask(db, eventBus, ancestorId, targetState, deps);
 
-			// @lore: anchored on parentTaskId === null (not depth or a flag)
 			if (ancestor.parentTaskId === null) {
 				await createShipConfirmationThread(
 					db,
@@ -262,14 +259,12 @@ async function createShipConfirmationThread(
 // ─── Public registration function ─────────────────────────────────────────────
 
 // Register lifecycle propagation handlers. Returns unsubscribe function.
-// @lore: propagation_failed event is the extension surface for failed hops; no retry apparatus
 export function registerLifecyclePropagation(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	deps: LifecyclePropagationDeps,
 ): () => void {
 	// Handler 1: session_ended -> evaluate task transition
-	// @lore: async handlers fail EventHandler<T> overload; use sync wrapper with void async IIFE
 	const unsubSessionEnded = eventBus.on("session_ended", (event: SessionEndedEvent) => {
 		void (async () => {
 			if (!event.taskId) return;

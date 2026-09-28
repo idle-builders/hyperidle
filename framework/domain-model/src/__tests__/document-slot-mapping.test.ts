@@ -72,7 +72,6 @@ describe("toBakedContextDocuments — slot and agentBindingId", () => {
 		expect(result?.agentBindingId).toBeNull();
 	});
 
-	// @lore a team-scoped agent_file has no parent, so its agentBindingId is null — UNBOUND, delivered to every session in reach.
 	it("an agent_file whose parent is not 'agent' has null agentBindingId, even with a parentId present", () => {
 		const [result] = toBakedContextDocuments([
 			makeItem({ slot: "agent_file", parentKind: "routine", parentId: "routine-1" }),

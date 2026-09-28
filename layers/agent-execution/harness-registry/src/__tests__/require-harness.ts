@@ -9,13 +9,11 @@
  *     This is the ONLY key that gates any harness. NEVER ANTHROPIC_API_KEY,
  *     NEVER OPENAI_API_KEY — those tokens do not gate anything in this system.
  *
- * @lore harness = thing that runs a model; gh is not (auth probe, no model call); plain binary gate goes in requireBinary
- *
  * A missing harness means the work is NOT done. requireHarness THROWS, naming the
  * absent harness, so the suite fails loudly rather than minting a false green by
  * silently skipping. The message never echoes a secret value — only harness names.
  *
- * @lore requireHarness: test-support only; vocabulary is strictly harness-named — no key-named member; requireHarness("anthropic-key") was the exact bug
+ * @lore: requireHarness — test-support only; vocabulary is harness-named not key-named; requireHarness("anthropic-key") was the exact bug
  */
 
 import { isBinaryOnPath } from "./require-binary.js";
@@ -24,10 +22,6 @@ export type HarnessName = "claude" | "codex" | "opencode" | "cursor-agent";
 
 /**
  * The supported-harness matrix. This file is now the SINGLE source of truth.
- *
- * @lore harness list and HarnessName union both live here; asserts enforce both directions — add to either without the other → check RED
- *
- * @lore harness sets are identical; asserts are plain mutual-extends; any non-harness in the vocabulary breaks the ← assert
  */
 // biome-ignore format: keep the mirror and asserts on adjacent lines for lockstep visibility
 const SUPPORTED_HARNESSES_MIRROR = [
@@ -56,8 +50,6 @@ const BINARY: Record<HarnessName, string> = {
 
 /**
  * True iff the harness is available: its binary is on PATH.
- *
- * @lore isHarnessAvailable: binary-on-PATH only; no key gates any harness
  */
 function isHarnessAvailable(name: HarnessName): boolean {
 	return isBinaryOnPath(BINARY[name]);
@@ -118,9 +110,6 @@ export function requireHarness(...names: HarnessName[]): void {
  * the absence of any imported model source make an off-matrix literal an obvious,
  * isolated red flag rather than a routine reach.
  *
- * @lore HARNESS_TEST_MODELS: haiku=smallest claude tier; gpt-5.6-luna=codex floor (nano/codex-mini API-key-only); no harness carries a key; verified 2026-09-09
- *
- * @lore HARNESS_TEST_MODELS: load-bearing — all harnesses enforce model via --model arg; off-matrix literal in run config is accepted gap; red flag in code review
  */
 export interface HarnessTestModelSpec {
 	/** The locked model id passed to the harness. */
@@ -142,7 +131,7 @@ export const HARNESS_TEST_MODELS = {
 		// replacement. Re-verified live 2026-09-09 via `codex exec --model
 		// gpt-5.6-luna "say hi"` (real completion, no warning) after confirming the
 		// slug against the installed binary's own model registry — see the header
-		// @lore above for the full method. nano is API-key-only; our codex auth is
+		// nano is API-key-only; our codex auth is
 		// the inherited ChatGPT/keychain login, so luna is the floor. Enforced via
 		// CLI_TOOL_CONFIGS.codex.args `--model {{model}}` on codex exec. See header.
 		model: "gpt-5.6-luna",
@@ -158,5 +147,3 @@ export const HARNESS_TEST_MODELS = {
 	// the exact key set — adding/removing a harness without updating this map is a
 	// `npm run check` error.
 } as const satisfies Record<SupportedHarnessName, HarnessTestModelSpec>;
-
-// @lore HARNESS_TEST_MODELS: model only — no provider/baseUrl/apiKeyEnv; each harness authenticates itself; locked value arrives as SessionConfig.selectedModel

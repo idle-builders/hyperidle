@@ -54,9 +54,6 @@ async function resolveApiKeyActorUserId(
 	return humanUser?.id ?? "u-founder";
 }
 
-/**
- * @lore: auth — "u-founder" placeholder until no human row exists; welcome screen edit_user runs as it, making first human role "founder"
- */
 export function createAuthMiddleware(
 	options: AuthMiddlewareOptions,
 ): MiddlewareHandler<HyperIdleEnv> {

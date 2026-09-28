@@ -2,8 +2,6 @@ import { z } from "zod";
 import { SCOPE_KINDS, SCOPES_REQUIRING_ID } from "../types.js";
 import type { ActionDeclaration, Problem } from "./action.js";
 
-// @lore: document actions — core-ui imports this file directly, never core-api; browser needs the exact same input/invariant shape the server runs
-
 export const DOCUMENT_STATUSES = ["proposed", "active", "stale", "archived"] as const;
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 
@@ -25,7 +23,6 @@ export const DOCUMENT_SLOT_LABEL: Record<DocumentSlot, string> = {
 	prompt: "Prompt",
 };
 
-// @lore: DOCUMENT_PARENT_KINDS — `routine` is not here; subscription's prompt parents to `subscription`
 export const DOCUMENT_PARENT_KINDS = [
 	"document",
 	"task",

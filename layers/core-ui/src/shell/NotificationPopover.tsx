@@ -1,5 +1,3 @@
-// @lore: markSeen called on mount when open=true — clears unseen dots immediately on popover open
-// @lore: Tier-3 shell composition, not a design-system primitive; uses raw DaisyUI + Hearth tokens
 // @lore: sourceLink guard — only navigate to routes starting with "/"; defense-in-depth against agent-authored content
 
 import { type JSX, useCallback, useEffect, useRef } from "react";
@@ -31,7 +29,6 @@ export function NotificationPopover({
 	const { unseenCount, rows, status, refetch, markSeen, markRead } = _data ?? hookData;
 	const overlayRef = useRef<HTMLDivElement>(null);
 
-	// @lore: useDialogBehavior modal=false — non-modal, no scrim, no backdrop dismiss; layer="overlay" (--z-overlay=40)
 	const behavior = useDialogBehavior({ open, onClose, modal: false, layer: "overlay" });
 	const overlayProps = behavior.getOverlayProps();
 
@@ -46,7 +43,6 @@ export function NotificationPopover({
 		}
 	}, [open]);
 
-	// @lore: Escape at document level — non-modal popover div won't receive keyboard events unless focused; outside-click closes via mousedown handler
 	const { requestDismiss } = behavior;
 	useEffect(() => {
 		if (!open) return;
@@ -93,7 +89,6 @@ export function NotificationPopover({
 			aria-label="Notifications"
 			data-testid="notification-popover"
 			data-dialog-layer={overlayProps["data-dialog-layer"]}
-			// @lore: top-[108px] clears below bell trigger (bottom ≈105px); top-[60px] overlapped; w-[440px] prevents title truncation
 			className="border-width-thin fixed top-[108px] left-[9px] flex w-[440px] flex-col overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]"
 			style={{ zIndex: overlayProps.style.zIndex, maxHeight: "70vh" }}
 		>
@@ -186,7 +181,6 @@ export function NotificationPopover({
 									{/*
 									 * Single-line dense row: div with row-level keyboard/click for jump,
 									 * plus a real <button> for dismiss at the trailing edge.
-									 * @lore: cannot use <button> wrapper when trailing affordances are also <button> — HTML spec forbids nested buttons; row is a div with role=button semantics
 									 */}
 									{/* biome-ignore lint/a11y/useSemanticElements: a real <button> here would nest inside the trailing dismiss <button>, which HTML forbids. */}
 									<div

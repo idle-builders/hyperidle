@@ -1,5 +1,3 @@
-/** @lore: wire schemas — live in the server package (not shared) because they encode HTTP response wire format, not domain types */
-
 import { z } from "zod";
 
 export const progressSchema = z.object({

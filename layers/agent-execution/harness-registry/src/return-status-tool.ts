@@ -1,7 +1,6 @@
 /**
  * return_status bridge tool — injected per-session via buildToolRegistry extraTools.
  * Reads sessionId → enforcement registry → { returned, exempt, forceCount, budgetLeft, forceMessage }.
- * @lore: return_status handler — 3-arg form (with registry) so tests inject an isolated registry; forRegistry() closes over the per-session enforcementRegistry
  */
 
 import {

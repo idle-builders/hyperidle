@@ -1,4 +1,3 @@
-// @lore: task-run-resolver-bindings — actor = agent own id (allowed its agent_file); synthesized ActionContext has inert EventBus; search_documents emits nothing
 import type { HyperIdleDb } from "@hyperidle/db";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import { EventBus } from "@hyperidle/event-bus";

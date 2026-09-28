@@ -120,7 +120,6 @@ describe("ThreadRow", () => {
 	});
 
 	it("renders the host tag pill when hostTag is provided", () => {
-		// @lore hostTag="team" renders "team" — a task's thread is team-hosted, so "task" is not a host kind.
 		render(<ThreadRow {...defaultProps} hostTag="team" />);
 		expect(screen.getByText("team")).toBeInTheDocument();
 	});

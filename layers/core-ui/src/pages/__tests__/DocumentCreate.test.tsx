@@ -1,11 +1,7 @@
 /**
  * DocumentCreate component tests.
  *
- * @lore document creation goes through call("edit_document", …); ParentPicker reads via useDocuments, not useFetch (architecture.md §9.2).
- *
- * @lore nesting under an existing item is one write — the chosen parent rides edit_document's parent field, with no follow-up call.
- *
- * @lore vi.mock is hoisted regardless of scope; the last factory wins for a repeated module — this file uses one file-level vi.mock, configured per-describe.
+ * @lore: vi.mock hoisting — last factory wins for a repeated module; this file uses one file-level vi.mock configured per-describe
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

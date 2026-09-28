@@ -1,6 +1,3 @@
-// @lore: tab memory — Triage/Curated stays in component state only; localStorage persistence explicitly forbidden
-// @lore: Memories — filter chip, not a page; toggles between {inTree:true} and {as:"memory"} filter; Curated tab is a nestable tree (DocumentTreeList)
-
 import type { DocumentRow, DocumentStatus, SearchDocumentsInput } from "@hyperidle/domain-model";
 import { DOCUMENT_STATUS_LABEL } from "@hyperidle/domain-model";
 import {
@@ -20,7 +17,6 @@ import {
 	TabBar,
 } from "../ds";
 
-// @lore: VISIBLE_SORT_OPTIONS — recency only; sort is client-side re-sort of fetched page; server's own sort param is never sent
 const VISIBLE_SORT_OPTIONS = ["recency"] as const;
 type DocumentSortOption = (typeof VISIBLE_SORT_OPTIONS)[number];
 
@@ -150,7 +146,6 @@ function DocumentListContent({
 	const filteredCuratedItems = normalizedQuery
 		? curatedItems.filter((i) => i.title.toLowerCase().includes(normalizedQuery))
 		: curatedItems;
-	// @lore: curatedTreeRows — Curated tab renders as a tree; each parent immediately followed by its own children, indented
 	const curatedTreeRows = useMemo(
 		() => buildDocumentTree(filteredCuratedItems),
 		[filteredCuratedItems],
@@ -267,7 +262,6 @@ function DocumentListContent({
 					testIdPrefix="scope-pill"
 					dataTestId="document-scope-pills"
 				/>
-				{/* @lore: Memories toggle — ScopePickerToggle not radiogroup; single-pill radiogroup unchecks on click 2 (screen reader can't turn it off) */}
 				<ScopePickerToggle
 					label="Memories"
 					pressed={showMemories}
@@ -276,7 +270,6 @@ function DocumentListContent({
 				/>
 			</div>
 
-			{/* @lore: sort buttons — explicit role overrides implicit element role; role="radio" buttons not found by getByRole("button") */}
 			{/* biome-ignore lint/a11y/useSemanticElements: not a form — a <fieldset> here would be semantically wrong; role="group" is the established compromise. */}
 			<div
 				role="group"
@@ -479,9 +472,7 @@ export function DocumentList({
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const sort = deriveSort(searchParams);
-	// @lore: outletCtx — optional; gracefully absent in story/test contexts without an AppShell outlet
 	const outletCtx = useOutletContext<AppShellOutletContext | null>();
-	// @lore: ToastContext direct read — not useToast; renders in tests/Storybook without a <ToastRegion> ancestor
 	const toast = useContext(ToastContext);
 
 	const [tab, setTab] = useState<DocumentTab>("triage");
@@ -504,13 +495,11 @@ export function DocumentList({
 	const apiLoading = apiStatus === "loading";
 	const apiError = apiStatus === "error" ? apiErrorMessage : null;
 
-	// @lore: handleRetry — retries both document and shell fetches; without shell retry, sidebar stays in error after outage+restart even when main content loads
 	const handleRetry = useCallback((): void => {
 		apiRetry();
 		outletCtx?.onRetryShell?.();
 	}, [apiRetry, outletCtx]);
 
-	// @lore: allItems filter — server excludes non-document parents via inTree:true; client duplicates check to express contract in code, not just server dependency
 	const allItems = useMemo<DocumentRow[]>(
 		() =>
 			apiDocuments.filter(
@@ -535,7 +524,6 @@ export function DocumentList({
 		return withOverrides.filter((i) => allowed.has(i.scopeKind));
 	}, [allItems, selectedScopePill, optimisticStatuses]);
 
-	// @lore: triage split — proposed status → triage; active → curated; triage sorted by recency only
 	const triageItems = useMemo<DocumentRow[]>(() => {
 		const raw = scopeFilteredItems.filter((i) => i.status === "proposed");
 		return sortItems(raw);
@@ -552,7 +540,6 @@ export function DocumentList({
 		setTab(hasTriage ? "triage" : "curated");
 	}, [allItems]);
 
-	// @lore: handleTriageAction version — item.version prevents stale write at version 2+; on API refusal, optimistic override cleared so item reappears in triage
 	function handleTriageAction(itemId: string, newStatus: "active" | "archived"): void {
 		const item = allItems.find((i) => i.id === itemId);
 		const version = item?.version;
@@ -620,7 +607,6 @@ export function DocumentList({
 		);
 	}
 
-	// @lore: systemEmpty — only when no API error; 500/429 must surface as ErrorState+retry, not empty state
 	const systemEmpty = allItems.length === 0 && !apiLoading && !apiError;
 	const isCuratedEmpty = curatedItems.length === 0 && !apiLoading;
 	const isTriageEmpty = triageItems.length === 0 && !apiLoading;

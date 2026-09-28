@@ -1,5 +1,3 @@
-// @lore: Message.payload is z.unknown() on wire — Message.type decides shape; one audited cast per helper; isRedactedPayload check narrows correctly
-
 import {
 	type Message,
 	type PlainPayload,
@@ -15,7 +13,6 @@ export function plainPayloadOf(message: Message): PlainPayload | RedactedPayload
 	return parseMessagePayload("plain", message.payload) as PlainPayload | RedactedPayload;
 }
 
-// @lore: PlainReadPayload used not PlainPayload — runtime parse uses read schema; cast narrows to wider read shape that includes notice/toolCalls
 export function plainReadPayloadOf(message: Message): PlainReadPayload | RedactedPayload {
 	return parseMessagePayload("plain", message.payload) as PlainReadPayload | RedactedPayload;
 }

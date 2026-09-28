@@ -1,5 +1,3 @@
-// @lore: inbox age check reads `listChanges` (inbox has no own timestamp); delete through `@hyperidle/user` — this Layer never writes another Service table
-
 import { listChanges } from "@hyperidle/changes";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { deleteReapableInboxRows, listReadInboxChangeIds } from "@hyperidle/user";

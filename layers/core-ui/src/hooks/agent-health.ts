@@ -21,7 +21,6 @@ export interface AgentPerformanceStats {
 	readonly successRate: number;
 }
 
-// @lore: AgentHealthSignals computed per-request, not cached — health is a live view; no stale reads
 export interface AgentHealthSignals {
 	readonly failureRate7d: number;
 	readonly lastSessionCrashed: boolean;
@@ -40,12 +39,10 @@ export interface HealthSignalInput {
 	readonly harnessAvailable: boolean;
 }
 
-// @lore: computeHealthSignals lives in core-ui so screens compute signals from run rows they fetch directly; harnessType input dropped (never read in body)
 export function computeHealthSignals(input: HealthSignalInput): AgentHealthSignals {
 	const { sessions: sessionRows, harnessAvailable } = input;
 
 	// --- Failure rate and last session crash (last 7 days) ---
-	// @lore: failure rate and lastSessionCrashed scoped to 7-day window — sessions older than 7d do not contribute to any degraded signal
 	const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).getTime();
 	const recent7d = sessionRows.filter((s) => new Date(s.startedAt).getTime() >= sevenDaysAgo);
 
@@ -56,7 +53,6 @@ export function computeHealthSignals(input: HealthSignalInput): AgentHealthSigna
 	}
 
 	// --- Last session crash (within 7 days only) ---
-	// @lore: tie between latest crash and latest success → NOT crashed; tie means neither is definitively "the" most recent; agent not clearly degraded
 	const recentCrashes = recent7d
 		.filter((s) => s.outcome === "crashed")
 		.map((s) => new Date(s.startedAt).getTime());
@@ -71,7 +67,6 @@ export function computeHealthSignals(input: HealthSignalInput): AgentHealthSigna
 		latestCrashTime !== null && (latestSuccessTime === null || latestCrashTime > latestSuccessTime);
 
 	// --- Idle duration ---
-	// @lore: idleDurationMs from ALL runs not just 7d — page shows how long since any run, not just a recent one
 	const allSortedByStart = [...sessionRows].sort(
 		(a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
 	);
@@ -94,9 +89,6 @@ export function computeHealthSignals(input: HealthSignalInput): AgentHealthSigna
  * - warning: lastSessionCrashed = true OR harness unavailable
  * - healthy: no degradation
  *
- * @lore: reuses AgentHealthSignals from computeHealthSignals so team page and agent profile page show identical health state
- *
- * @lore: accepts partial signal shape — does NOT use pre-computed `degraded` (may be absent); derives directly from failureRate7d + lastSessionCrashed
  */
 export function deriveHealthLevel(
 	signals: Pick<AgentHealthSignals, "failureRate7d" | "lastSessionCrashed"> & {
@@ -113,7 +105,6 @@ export function deriveHealthLevel(
  * Build a human-readable detail string from health signals.
  * Returns "Healthy" when not degraded. Lists active problems otherwise.
  *
- * @lore: plain text so it can be used as a title= attribute on health dots
  */
 export function deriveHealthDetail(
 	signals: Pick<AgentHealthSignals, "failureRate7d" | "lastSessionCrashed"> & {

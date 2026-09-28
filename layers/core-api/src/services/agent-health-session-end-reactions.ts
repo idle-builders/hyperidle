@@ -1,5 +1,3 @@
-// @lore: agent-health — crash writes `health` note via `edit_user`; `after.health` distinguishes crash notes from renames/team-moves; set ONLY by this reaction
-
 import { listChanges } from "@hyperidle/changes";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";

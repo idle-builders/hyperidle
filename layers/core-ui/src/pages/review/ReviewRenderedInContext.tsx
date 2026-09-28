@@ -6,7 +6,6 @@
 // faithful opened email render with a desktop/mobile toggle (L2), then exposes
 // flags + the send plan on demand (L3).
 //
-// @lore: email body — hand-built from divs (not screenshot/iframe); diffable in DOM-snapshot; email body uses neutral styling, review chrome uses Hearth tokens
 //
 // Presentational isolation component: local useState for the desktop/mobile
 // toggle + flag-panel expand. The review frame owns the verdict gate.

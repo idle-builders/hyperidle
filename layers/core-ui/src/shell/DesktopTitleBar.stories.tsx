@@ -4,7 +4,6 @@
  * Design artifact — renders the sidebar drag inset at /designsystem.
  * Two stories: browser context (null render) and Electron context (28px drag inset).
  *
- * @lore window.__HYPERIDLE__ injected via cast-through-unknown — partial stub avoids implementing full HyperIdleElectronBridge
  */
 
 import { useMemo } from "react";

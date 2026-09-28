@@ -1,5 +1,3 @@
-// @lore: sidebar-system — Settings swaps Main content without replacing primary navigation or domain navigator; mobile exposes the same shell in a 300px drawer
-
 import FocusTrap from "focus-trap-react";
 import type { JSX } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -42,7 +40,6 @@ export interface AppShellOutletContext {
 
 	/** Opens the RecipientPicker for creating a new thread. */
 	onNewThread: () => void;
-	/** @lore: onRetryShell — retries AppShell fetches (user + sidebar docs); clears sidebar errors on full outage; child pages call this alongside their own retry */
 	onRetryShell: () => void;
 }
 
@@ -67,7 +64,6 @@ function rowToItem(row: import("@hyperidle/domain-model").ThreadListRow): Thread
 	};
 }
 
-// @lore: pathToView — view id "knowledge" stays unchanged even though the route is /documents; the sidebar label and view id are stable identifiers
 export function pathToView(pathname: string): ViewId {
 	if (pathname.startsWith("/work")) return "work";
 	if (pathname.startsWith("/documents")) return "knowledge";
@@ -182,7 +178,6 @@ export function AppShell(): JSX.Element {
 		};
 	}, [drawerOpen]);
 
-	// @lore: /documents/new is a create page — excluded from detail routes so no back arrow shows on it
 	const isDetailRoute = useMemo((): boolean => {
 		const p = location.pathname;
 		if (/^\/conversations\/[^/]+/.test(p)) return true;
@@ -193,7 +188,6 @@ export function AppShell(): JSX.Element {
 		return false;
 	}, [location.pathname]);
 
-	// @lore: Up uses explicit parent paths (not navigate(-1)); direct-link entry has no history to go back to — navigate(-1) would land on a previous session's URL
 	const navigateToParent = useCallback((): void => {
 		const parent = parentPathFor(location.pathname);
 		if (parent !== null && parent !== location.pathname) {
@@ -374,7 +368,6 @@ export function AppShell(): JSX.Element {
 		[commandK, navigate],
 	);
 
-	// @lore: useThreads — undefined when no viewer yet short-circuits the call (no 400 on a fresh install; guard inside useThreads)
 	const threadsResult = useThreads(user?.id ? { mine: true } : undefined);
 	const threadItems = useMemo(() => threadsResult.threads.map(rowToItem), [threadsResult.threads]);
 	const conversationsThreads = {
@@ -462,7 +455,6 @@ export function AppShell(): JSX.Element {
 	} = useDocuments({ inTree: true, limit: 50 });
 	const documentsLoading = sidebarDocumentsStatus === "loading";
 	const documentsError = sidebarDocumentsStatus === "error" ? sidebarDocumentsError : null;
-	// @lore: sidebar documents — inTree excludes role-carrying bindings (non-document parents) server-side; client filters too in case the source changes
 	const sidebarDocumentItems = useMemo(
 		() =>
 			sidebarDocuments
@@ -548,7 +540,6 @@ export function AppShell(): JSX.Element {
 	} as const;
 
 	// Shared main content used in both mobile and desktop branches.
-	// @lore: SettingsPage route — real route at /settings; no conditional overlay; AssistantContext wraps Outlet for all routes
 	const mainContent = (
 		<main
 			id="main-content"
@@ -558,7 +549,7 @@ export function AppShell(): JSX.Element {
 		>
 			<AssistantContext.Provider value={assistantContextValue}>
 				<ErrorBoundary>
-					{/* @lore: RecipientPicker — fills main pane (not stacked above it); Outlet still rendered hidden to avoid unmounting side-effects */}
+					{/* @lore: Outlet still rendered hidden when RecipientPicker is active — unmounting tears down side-effects in child routes */}
 					{showRecipientPicker && activeView === "conversations" && (
 						<div className="flex flex-1 items-start justify-center p-[24px]">
 							<div className="w-full max-w-[480px]">
@@ -588,7 +579,6 @@ export function AppShell(): JSX.Element {
 									threads: conversationsThreads.threads,
 									threadsStatus: isThreadsError ? "error" : conversationsThreads.status,
 									threadsError: threadsErrorMessage,
-									// @lore: onRetryThreads — also retries user+sidebar-document fetches; short-circuit unblocks and sidebar fully clears after an outage
 									onRetryThreads: () => {
 										conversationsThreads.retry();
 										retryUser();
@@ -709,7 +699,6 @@ export function AppShell(): JSX.Element {
 
 					{mainContent}
 
-					{/* @lore: drawer focus-trap — displayCheck="none" required for jsdom; matches GlobalSearchPanel pattern */}
 					{drawerOpen &&
 						createPortal(
 							<>
@@ -783,9 +772,6 @@ export function AppShell(): JSX.Element {
 				Skip to main content
 			</a>
 			<div className="flex h-screen bg-[var(--surface-container)] overflow-hidden gap-[9px] p-[9px]">
-				{/* @lore: sidebar-system — parent owns 276px desktop width; Sidebar uses w-full internally */}
-				{/* @lore: sidebar-overflow — h-full + overflow-hidden clamps sidebar to viewport; without it the whole aside scrolls instead of just the fast-nav list */}
-				{/* @lore: DesktopTitleBar — sidebar column only; macOS traffic lights float top-left; 28px drag inset clears them; returns null in browser */}
 				<div className="w-[276px] shrink-0 h-full overflow-hidden flex flex-col">
 					<DesktopTitleBar />
 					<div className="flex-1 min-h-0 overflow-hidden">

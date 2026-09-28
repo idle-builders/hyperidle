@@ -162,7 +162,6 @@ function WorkTeamLoaded({
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
 	const { team, roster, tasksInProgress } = data;
-	// @lore: hooks placement — all hooks unconditional in WorkTeamLoaded; WorkTeam's early-return branches would make them conditional; data guaranteed present here
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [agentRatio, setAgentRatio] = useUiPreference("work.agent", 0.5);
 
@@ -175,17 +174,14 @@ function WorkTeamLoaded({
 	const rosterAgentIds = useMemo(() => roster.map((m) => m.agentId), [roster]);
 	const { agents: agentConfigs, refetch: refetchAgents } = useTeamAgents(rosterAgentIds);
 
-	// @lore: rosterRunState — UI fetches agent run state from orchestration directly; same derivations, same inputs, combined in UI not core-api
 	const { byAgent: rosterRunState, status: rosterRunStatus } = useRosterRunState(roster);
 	// @lore: rosterRunStateUnknown — failed or pending run read falls back to DEFAULT_ROSTER_RUN_STATE; renders as unknown, not falsely green
 	const rosterRunStateUnknown = rosterRunStatus !== "ready";
 
-	// @lore: paneAgent — split pane driven by ?agent search param; Customize button sets searchParams
 	const paneAgent = selectedAgentId !== null ? (agentConfigs.get(selectedAgentId) ?? null) : null;
 	const paneRosterMember =
 		selectedAgentId !== null ? (roster.find((m) => m.agentId === selectedAgentId) ?? null) : null;
 
-	// @lore: teamBodyContent — shared between full-width (PageScaffold) and split-view (SplitView origin) paths; SplitView origin already provides bounded scroll
 	const teamBodyContent = (
 		<div
 			className={
@@ -195,7 +191,6 @@ function WorkTeamLoaded({
 			}
 		>
 			<section aria-label="Team summary" data-testid="team-burn-vs-cap">
-				{/* @lore: stat tiles — flex-wrap avoids AQ-108 grid; empty roster shows "—"/"No agents" never "Healthy" */}
 				<div className="flex gap-[12px] flex-wrap">
 					<div
 						data-testid="stat-tile"
@@ -228,7 +223,6 @@ function WorkTeamLoaded({
 							);
 							const hasAttention = runStates.some((r) => r.healthLevel !== "healthy");
 							const idleCount = runStates.filter((r) => r.operationalStatus === "idle").length;
-							// @lore: Agent Health tile — uses RosterRunState.healthLevel, NOT deriveTeamStatus; separate measurement so it can't contradict the header StatusChip
 							return {
 								label: "Agent Health",
 								value: hasAttention ? "Needs attention" : "On track",
@@ -374,8 +368,6 @@ function WorkTeamLoaded({
 										"data-testid": "agent-status",
 									},
 									{
-										// @lore: RowCell error tint — no tone property; error tint applied to content itself
-										// @lore: context cell width — shrink-0 cap at 160 prevents role desc from starving agent name in narrow SplitView panes; uncapped name collapses to 0 at ~576px
 										content: contextIsError ? (
 											<span className="text-[var(--status-error)]">{contextText}</span>
 										) : (
@@ -402,7 +394,6 @@ function WorkTeamLoaded({
 											className="shrink-0"
 											onClick={(e) => {
 												e.stopPropagation();
-												// @lore: Customize — opens AgentDetailPane in split pane via ?agent param, not AgentEditDialog modal
 												setSearchParams({ agent: member.agentId });
 											}}
 											data-testid="agent-customize-btn"
@@ -419,8 +410,6 @@ function WorkTeamLoaded({
 			</section>
 
 			{!skipArtifacts && null}
-
-			{/* @lore: AgentAddDialog — mounts in outer return, not teamBody; works regardless of whether split pane is open */}
 		</div>
 	); // end teamBodyContent
 	const teamHeader = (presentation: "page" | "pane"): JSX.Element => (
@@ -449,7 +438,6 @@ function WorkTeamLoaded({
 	return (
 		<>
 			{/* PageHeader owns the pinned title strip. */}
-			{/* @lore: body scroll — no-selection: page-owned "scroll"; selection: SplitView-owned ("managed"); routine and agent selections mutually exclusive */}
 			<PageScaffold
 				frame="page"
 				header={hasSelection ? undefined : teamHeader("page")}
@@ -504,7 +492,6 @@ function WorkTeamLoaded({
 }
 
 // ---------------------------------------------------------------------------
-// @lore: TaskRow href — href over onClick so ⌘-click / middle-click work natively; StatusChip (actions) is display-only so nesting inside <a> is valid
 function TaskRow({ task, href }: { task: TeamTaskCard; href: string }): JSX.Element {
 	const progressText = task.progressTotal > 0 ? `${task.progressDone}/${task.progressTotal}` : "—";
 

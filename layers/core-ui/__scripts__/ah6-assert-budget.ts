@@ -10,16 +10,13 @@
  *   - If totalTokens > AH6_MAX_TOKENS → exit 1.
  *   - Otherwise → exit 0.
  *
- * @lore fail-closed: absent or unparseable ah6-cost.json exits 1; missing report is NOT evidence of zero usage
+ * @lore: fail-closed — absent or unparseable ah6-cost.json exits 1; missing report is not evidence of zero usage
  *
- * @lore budget-assert wrapper: report path is playwright-report-ah6/; env cap is AH6_MAX_TOKENS
- *
- * @lore gate is token count only (totalTokens vs AH6_MAX_TOKENS); file still named "ah6-cost.json" for backward-compat with orchestrator and playwright wiring
  */
 
 import * as fs from "node:fs";
 
-// @lore report written to /tmp/ah6-cost.json — /tmp bypasses Playwright's post-run reporter cleanup that would delete it before the backup step
+// @lore: ah6-cost.json in /tmp — Playwright post-run cleanup deletes test artifacts before backup; /tmp bypasses that cleanup
 const USAGE_FILE = "/tmp/ah6-cost.json";
 
 const MAX_TOKENS = Number(process.env.AH6_MAX_TOKENS ?? "20000");

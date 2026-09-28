@@ -8,7 +8,6 @@ export interface AppMenuOptions {
 	onOpenSettings: () => void;
 }
 
-// @lore: buildAppMenuTemplate — returns MenuItemConstructorOptions[] not Menu; avoids cast; caller calls Menu.buildFromTemplate(template)
 export function buildAppMenuTemplate(options: AppMenuOptions): MenuItemConstructorOptions[] {
 	const { isDev, logDir, dataDir, onOpenSettings } = options;
 

@@ -103,7 +103,7 @@ export async function registerFolder(
 			createdAt: now,
 		});
 	} catch (err) {
-		// @lore drizzle-orm 0.45.2: wraps PGlite errors — walk cause chain to find FK message.
+		// @lore: drizzle-orm 0.45.2: wraps PGlite errors — walk cause chain to find FK message.
 		const errMsg = (e: unknown): string => {
 			if (!(e instanceof Error)) return String(e);
 			const own = e.message;

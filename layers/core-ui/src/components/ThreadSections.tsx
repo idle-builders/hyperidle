@@ -315,7 +315,6 @@ export function ThreadSections({
 				}
 				const headerToneClass =
 					section.tone === "danger" ? "text-[var(--status-error)]" : "text-[var(--text-tertiary)]";
-				// @lore: blocking section tint — 10% --status-error mixed into surface; tint + sticky header encode danger without relying on color alone (a11y)
 				const isBlocking = section.id === "blocking";
 				const sectionStyle: CSSProperties | undefined = isBlocking
 					? {

@@ -1,5 +1,3 @@
-// @lore: backend mode — requires Electron bridge (window.__HYPERIDLE__); pure web shows static label, no switching UI
-
 import type { JSX } from "react";
 
 type BackendState = "web" | "local" | "shared";

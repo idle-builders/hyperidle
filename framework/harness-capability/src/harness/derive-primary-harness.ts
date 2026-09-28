@@ -2,8 +2,6 @@
  * Derive a run-config harness/model pick from a HarnessCapabilityDescriptor.
  * Filters models on .selectable === true to exclude inherited/non-choosable models.
  * A model the user named explicitly (bring-your-own-key) wins over both.
- *
- * @lore: only call on choosable (installed/ready) descriptors — greyed rows never produce a pick; .selectable blocks non-choosable CLI models from primary
  */
 
 import type { HarnessCapabilityDescriptor } from "./harness-capability-descriptor.js";

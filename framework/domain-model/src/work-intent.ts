@@ -64,7 +64,6 @@ export interface BakedWorkIntentRequest {
  * the same `agent: User` row `requireRunnableAgent` loads. Carries runnability
  * predicate (`kind`/`status`), `role` for prompt assembly, and home `teamId`.
  *
- * @lore: run-config fields (harnessType, modelProvider, etc.) are NOT in this bake — they live in agent_run_config (orchestration-owned); do not re-add them here
  */
 export interface BakedAgentRunnableConfig {
 	readonly kind: string;
@@ -107,9 +106,6 @@ export function bakeAgentRunnableConfig(
 	};
 }
 
-/**
- * @lore: one ancestor in BakedContextDocument.parentChain — carries all fields writeOrdinaryItems needs to materialise its dir + manifest entry without a DB read
- */
 export interface BakedDocumentAncestor {
 	readonly id: string;
 	readonly title: string;
@@ -125,10 +121,8 @@ export interface BakedContextDocument {
 	readonly format: string;
 	readonly version: number;
 	/**
-	 * @lore: ancestor chain, root first — writeContextBundle does zero DB reads; an unselected ancestor still needs its dir + manifest; empty for a root item
 	 */
 	readonly parentChain: readonly BakedDocumentAncestor[];
-	/** @lore: own scope — every manifest entry requires scopeKind */
 	readonly scopeKind: string;
 	/**
 	 * Slot determines how context assembly materialises this item. Defaults to 'ordinary'.
@@ -307,7 +301,6 @@ export type AgentWorkIntentRecorderInput =
  * (`framework/db/src/schema.ts`) so a kind-set drift test can derive its
  * accept-list mechanically from this single source.
  *
- * @lore: AGENT_WORK_INTENT_KINDS in @hyperidle/event-bus covers AgentRunAdmissionFailedEvent and omits `session_resume`; this list is distinct
  */
 export const AGENT_WORK_INTENT_KINDS = [
 	"thread_turn",
@@ -321,7 +314,6 @@ export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
 /**
  * What a resume needs, baked when the verdict is recorded.
  *
- * @lore: baked at verdict-time — drain does zero domain reads; record of what was approved is fixed at the moment a human decided it
  */
 export interface BakedSessionResumeRequest {
 	/** The HyperIdle session to bring back. */
@@ -336,8 +328,6 @@ export interface BakedSessionResumeRequest {
 	readonly decision: "approve" | "decline";
 	/**
 	 * The working directory the original session ran in.
-	 *
-	 * @lore: cursor-agent keys a chat on md5(cwd); resume from a different dir exits 0 with no context silently; path must match; claude finds by id from anywhere
 	 */
 	readonly sandboxPath?: string | null;
 	/** The thread the review lives in, where a failure has to be reported. */
@@ -363,7 +353,6 @@ export type AgentWorkIntentRecorderFn = (
 /**
  * What happened when a verdict tried to send an agent back to its work.
  *
- * @lore: status, not void — failure must reach the human who approved; silent failure is the defect; "approved" without feedback is indistinguishable from success
  */
 export type ReviewVerdictOutcome =
 	/** The resume is queued. The agent will be brought back. */

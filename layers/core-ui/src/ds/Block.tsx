@@ -62,7 +62,6 @@ export interface BlockProps {
 	outline?: AuthoredOutlineContext;
 }
 
-// @lore: data-ds-component="block" — lowercase not PascalCase; dsProps produces PascalCase so Block sets the marker manually; same applies to BlockActionsPopover
 export function Block({
 	id,
 	payload,

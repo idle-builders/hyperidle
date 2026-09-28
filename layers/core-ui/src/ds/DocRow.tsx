@@ -27,7 +27,6 @@ export interface DocRowProps {
 	preview?: string;
 	/** id: allows caller to pass id without error */
 	id?: string;
-	// @lore: factoryMode — single boolean toggle not a second component; avoids duplicating clickable/aria behavior; keep coarse
 	/**
 	 * Taller row, bold title, and version pill in factory context.
 	 */
@@ -37,7 +36,6 @@ export interface DocRowProps {
 	 * Ignored when `factoryMode` is false.
 	 */
 	version?: string;
-	// @lore: signals vs caption — signals replace caption in same sub-row slot; em dash for absent values avoids "0" (fake-zero guard)
 	/**
 	 * Relevance signal triad. When provided, suppresses the caption.
 	 * Null slot values render as em dash (—).
@@ -45,7 +43,6 @@ export interface DocRowProps {
 	signals?: DocRowSignals;
 }
 
-// @lore: DocRow name — DocumentRow is taken by the wire type in @hyperidle/domain-model; design-system row uses DocRow to avoid collision
 export function DocRow({
 	title,
 	status,
@@ -76,7 +73,6 @@ export function DocRow({
 						{title}
 					</span>
 					<StatusChip status={documentStatusToStatus(status)} />
-					{/* @lore: version pill — px-[9px] off AQ-001 grid; type-data for compact values; --tracking-caps for uppercase label */}
 					{factoryMode && version && (
 						<span
 							className="type-data inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]    bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-tertiary)] shrink-0"

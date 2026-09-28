@@ -21,7 +21,6 @@ export function useBodyEditor({
 	variant = "full",
 	placeholder = "Start writing...",
 }: UseBodyEditorOptions): Editor | null {
-	// @lore: onChangeRef holds latest onChange — TipTap onUpdate closure captured once; StrictMode recreates callbacks but TipTap keeps old reference
 	const onChangeRef = useRef(onChange);
 	onChangeRef.current = onChange;
 

@@ -266,7 +266,6 @@ function fetchOrdinaryItemsByScope(
 }
 
 // Fetch active capability items (skill/rule/agent_file) by scope.
-// @lore: named to exact three slots — a new slot added later is excluded by default, not included
 //
 // @lore: capability items do NOT use listBase — their scope is direct, not layer-keyed
 function fetchCapabilityItems(

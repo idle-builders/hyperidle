@@ -28,7 +28,6 @@ export interface DocumentBodyProps {
 	messagesByBlockId?: ReadonlyMap<string, ReadonlyArray<Message>>;
 }
 
-// @lore: AnchoredMessages — anchorLost: anchor block missing or unreachable (edit or removal) renders an indicator; same signal for both cases
 function AnchoredMessages({
 	messages,
 	anchorLost = false,
@@ -77,7 +76,6 @@ export function DocumentBody({
 		[body, hostId],
 	);
 
-	// @lore: orphanMessages — pitch content may change after posting; orphans always shown, never silently dropped
 	const orphanMessages = useMemo((): ReadonlyArray<Message> => {
 		if (!messagesByBlockId) return [];
 		// Widen to Set<string> so string keys from messagesByBlockId compare

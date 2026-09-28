@@ -9,8 +9,6 @@ import {
 } from "../thread.js";
 import type { ActionDeclaration, Problem } from "./action.js";
 
-// @lore: thread actions — thread.ts owns vocabulary (HOST_KINDS, MESSAGE_TYPES, display helpers); this file owns row shapes actions validate against
-
 export const entityRefSchema = z.object({
 	kind: z.enum(["document", "task", "message"]),
 	id: z.string(),
@@ -125,7 +123,6 @@ export const verdictPayloadSchema = z.object({
 });
 export type VerdictPayload = z.infer<typeof verdictPayloadSchema>;
 
-// @lore: parseMessagePayload — function not a discriminated-union schema; four-arm union in OUTPUT buys nothing; UI-only narrowing at render time
 export function parseMessagePayload(
 	type: (typeof MESSAGE_TYPES)[number],
 	payload: unknown,
@@ -424,8 +421,6 @@ export function adjustThreadInvariants(input: AdjustThreadInput): Problem[] {
 	return problems;
 }
 
-// @lore: canReadThread — team/document/factory are shared (any signed-in principal reads); user/agent hosts are members-only; canWriteThread delegates here
-
 const HOST_SCOPED: ReadonlySet<HostKind> = new Set(["team", "document", "factory"]);
 
 export function canReadThread(
@@ -437,8 +432,6 @@ export function canReadThread(
 }
 
 export const canWriteThread = canReadThread;
-
-// @lore: agentsToWake — pure; post-commit over the FINAL member list; wakes mentioned agents + the other party in a 2-member thread; never wakes the sender
 
 export function agentsToWake(input: {
 	readonly members: readonly string[]; // after the send's mention-adds

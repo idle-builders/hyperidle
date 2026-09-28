@@ -1,5 +1,4 @@
 export type { ActionDeclaration, ActionResult, Problem } from "./actions/action.js";
-// @lore: Document — DOM global in core-ui; the row type is never called Document
 export type {
 	DocumentAs,
 	DocumentListRow,
@@ -205,7 +204,6 @@ export type {
 	HeldAuthSource,
 	ServiceConnectionView,
 } from "./connection.js";
-// @lore: HeldAuthSource — survivor in domain-model; run-orchestration cannot cross to the connections service
 export {
 	CONNECTION_AUTH_SOURCES,
 	CONNECTION_HEALTH,
@@ -293,14 +291,12 @@ export {
 	verdictDecisionLabel,
 } from "./thread.js";
 export type { TierTokenCount, TokenUsage } from "./types/money.js";
-// @lore: SessionOutcome — lives in types.js; core-ui cannot reach @hyperidle/event-bus so it imports from here
 export type {
 	AgentCategory,
 	HarnessType,
 	HealthResponse,
 	KernelDocumentStatus,
 	ModelTier,
-	// @lore: MoneyModelTier alias — declaration is ModelTier in types.ts; alias stated here so the barrel is the single hop
 	ModelTier as MoneyModelTier,
 	OrgEdgeMechanism,
 	ScopeKind,

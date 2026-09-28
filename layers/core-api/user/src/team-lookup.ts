@@ -58,8 +58,6 @@ export function listTeams(db: HyperIdleDb, filter?: { ids?: readonly string[] })
 
 /**
  * Input for {@link createTeam}.
- *
- * @lore: CreateTeamInput — team is id + name only; phase/factoryDbPath columns are gone (migration 0090)
  */
 export interface CreateTeamInput {
 	readonly id: string;

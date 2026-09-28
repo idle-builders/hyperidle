@@ -5,7 +5,6 @@
  * `POST /api/actions/{search,open}_document` responses without vi.mock
  * (unavailable in the browser story renderer).
  *
- * @lore ArtifactSection: calls search_documents/open_document via call(), not GET /api/knowledge
  */
 
 import { useEffect, useState } from "react";

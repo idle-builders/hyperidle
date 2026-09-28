@@ -5,7 +5,6 @@
  * `provisioning` field — this is the Layer that owns the wiring, so this is
  * the Layer whose test proves it.
  *
- * @lore this test boots the REAL `bootAgentOrchestration` and asserts all three provisioning ports are the real implementations, against a real DB.
  */
 
 import { bootAgentExecution } from "@hyperidle/agent-execution";
@@ -128,7 +127,6 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 		topology: "disabled",
 		mcpBaseUrl: "http://localhost:0",
 	});
-	// @lore `encryptCredentialValue` above is this package's own real AES cipher, used only to seed fixture data.
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
@@ -175,7 +173,6 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 		await seed(db);
 		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(db);
 		try {
-			// @lore no instanceof check here — the functional check below proves the contract against `resolveHeldToken` directly.
 			expect(agentOrchestration.provisioning?.serviceConnectionResolver).toBeDefined();
 			// The two-argument call the provisioner makes. This is the exact
 			// call that silently returned null in production.

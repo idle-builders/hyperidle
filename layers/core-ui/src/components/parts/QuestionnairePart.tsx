@@ -5,7 +5,6 @@
  * `QuestionnairePayload.options` is flat strings with no per-option metadata.
  * Prominence comes from layering (elevated surface + shadow), never from an accent border.
  */
-// @lore: options button vs chip — <button> when onAnswer is wired; static chip otherwise; no-op-button rule exempt — buttons always have a real handler
 
 import { type JSX, useState } from "react";
 import { Button } from "../../ds";
@@ -20,7 +19,6 @@ const ICON_QUESTION =
 const CHIP_CLASS =
 	"type-small border-width-thin inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] px-[12px] py-[6px] text-[var(--text-secondary)]";
 
-// @lore: selectedAnswer sessionStorage — Part schema has no answer field; keyed by part.id survives remounts; clears at browser session end
 export function QuestionnairePart({
 	part,
 	onAnswer,

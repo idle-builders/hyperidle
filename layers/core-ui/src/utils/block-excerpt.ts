@@ -1,5 +1,3 @@
-// @lore: excerpt display-only — never persisted or sent over the wire; capped at 60 chars for chip compactness
-
 import type { BlockPayload, InlineNode } from "../block/types.js";
 
 const EXCERPT_MAX_LENGTH = 60;

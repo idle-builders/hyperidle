@@ -1,5 +1,3 @@
-// @lore: kept live by thread:<id> nudge — re-runs search_tasks on any frame, no payload merging; same shape as useThread
-
 import type { Problem, TaskListItem } from "@hyperidle/domain-model";
 import { useEffect, useRef, useState } from "react";
 import { call } from "../services/call.js";

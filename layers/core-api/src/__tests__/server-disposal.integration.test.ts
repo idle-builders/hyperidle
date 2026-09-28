@@ -4,7 +4,6 @@ import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
-// @lore clear evaluated modules before vitest resolves hoisted mocks, then remove only this suite's registrations.
 vi.hoisted(() => vi.resetModules());
 
 const shutdown = vi.hoisted(() => {

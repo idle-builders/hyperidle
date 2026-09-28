@@ -4,7 +4,6 @@ export interface ManifestEntry {
 	version: number;
 	source_path: string;
 	format: string;
-	// @lore: scopeKind — carried on every entry (dirs included); directory scope known from manifest alone; child inherits without a knowledgeItems read
 	scopeKind: string;
 }
 

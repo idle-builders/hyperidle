@@ -8,9 +8,6 @@ export interface HtmlPayloadProps {
 	sanitizeHtml: (raw: string) => string;
 }
 
-// @lore: empty sanitiser output falls through to UnknownPayload reason=sanitiser-stripped — user must always see evidence of filtering
-
-// @lore: DS never imports DOMPurify directly — host-agnostic; sanitizer injected by consumer
 export function HtmlPayload({ raw, sanitizeHtml }: HtmlPayloadProps): JSX.Element {
 	const safe = sanitizeHtml(raw);
 	if (!safe || safe.trim().length === 0) {

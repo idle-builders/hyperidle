@@ -33,7 +33,6 @@ const DEFAULT_STATUS: WorkerStatus = {
 
 type ConnectionState = "connected" | "connecting" | "disconnected";
 
-// @lore: ConnectionStatusChip — disconnected=amber(behind) not blue; connecting=blue(paused); transitional must read calmer than degraded; do not invert
 function ConnectionStatusChip({ state }: { state: ConnectionState }): JSX.Element {
 	const status = state === "connected" ? "healthy" : state === "connecting" ? "paused" : "behind";
 	const label =
@@ -127,7 +126,6 @@ export function SettingsWorker(): JSX.Element {
 		setStatus((s) => ({ ...s, paused: false }));
 	};
 
-	// @lore: shared key field — write-only; never read back; worker reads encrypted file directly on next enable
 	const handleSaveSharedKey = async (): Promise<void> => {
 		const credentials = window.__HYPERIDLE__?.credentials;
 		if (!credentials) return;

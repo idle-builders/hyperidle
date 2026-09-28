@@ -4,8 +4,6 @@
  * Label, hint, error states. textarea mode.
  */
 // @lore: mobile font — ≥16px at ≤768px prevents iOS Safari zoom; responsive override applies at mobile
-// @lore: hearth-internal-padding — input padding (10px vertical) is optically tuned, not on the 6px grid
-// @lore: Input forwardRef — typed as HTMLInputElement | HTMLTextAreaElement union; which one a caller gets depends on the textarea prop
 
 // hearth-internal-padding
 
@@ -34,7 +32,6 @@ export interface InputProps
 	rows?: number;
 }
 
-// @lore: INPUT_SINGLE_LINE_HEIGHT — split from INPUT_BASE; textarea must not carry 36px min-h; separate const avoids cascade conflict with textarea's 80px min-h
 const INPUT_BASE =
 	"w-full px-[12px] py-[10px] bg-[var(--surface-elevated)] border-width-default border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-hidden focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed";
 

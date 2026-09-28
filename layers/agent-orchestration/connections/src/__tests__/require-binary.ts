@@ -1,7 +1,6 @@
 /**
  * A hard-fail gate for a plain CLI binary a test needs on PATH.
  *
- * @lore local copy of harness-registry/require-binary — cross-layer dev import not legal; governance reads the import; binary-on-PATH check, never a model call
  */
 
 import { execFileSync } from "node:child_process";

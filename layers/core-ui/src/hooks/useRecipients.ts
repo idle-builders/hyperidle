@@ -1,5 +1,3 @@
-// @lore: useRecipients — active-session read failure degrades to "nobody is busy"; does not fail the picker; recipient list is independent
-
 import type { SessionRow, UserRow } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { call } from "../services/call.js";
@@ -47,7 +45,6 @@ function countActiveSessions(rows: ReadonlyArray<SessionRow>): Readonly<Record<s
 	return counts;
 }
 
-// @lore: fetchActiveSessionCounts — degrades to empty record on any failure; recipient list renders without active-session signal
 async function fetchActiveSessionCounts(
 	signal: AbortSignal,
 ): Promise<Readonly<Record<string, number>>> {
@@ -80,7 +77,6 @@ export function useRecipients(query?: string): UseRecipientsResult {
 
 		(async (): Promise<void> => {
 			try {
-				// @lore: two reads are INDEPENDENT — recipient list + active-session count both go out in Promise.all; neither blocks the other
 				const [result, counts] = await Promise.all([
 					call("search_users", { status: "active", ...(query ? { name: query } : {}) }, ac.signal),
 					fetchActiveSessionCounts(ac.signal),

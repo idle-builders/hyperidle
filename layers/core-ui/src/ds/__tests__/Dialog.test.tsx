@@ -7,11 +7,6 @@
  * closing; focus enters on open, is trapped, and returns to the trigger on
  * close; a mobile bottom-anchored sheet class.
  *
- * @lore #overlay-root is lazily created by ensureOverlayRoot() inside useDialogBehavior — tests don't mount DialogPortalRoot; Dialog is self-sufficient in jsdom.
- *
- * @lore: `inert` is NOT asserted here — jsdom doesn't implement it. Use a real-browser E2E test to assert the #root inert attribute.
- *
- * @lore: focus-trap-react requires displayCheck:"none" under jsdom. This must be threaded into useDialogBehavior's FocusTrap initialization.
  */
 
 import { act, createElement } from "react";
@@ -373,7 +368,6 @@ describe("Dialog focus behavior", () => {
 	});
 
 	it("focus returns to the trigger element after dialog closes", async () => {
-		// @lore this verifies FocusTrap's returnFocusOnDeactivate actually fires: focus trigger → open → focus in dialog → close → focus returns to trigger.
 		const trigger = document.createElement("button");
 		trigger.textContent = "Trigger";
 		document.body.appendChild(trigger);

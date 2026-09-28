@@ -34,8 +34,6 @@ function unknownEvent(input: unknown): HarnessEvent {
 /**
  * Translate claude `--output-format stream-json --verbose` events to canonical types.
  * Types: assistant (turn content), result (summary), system (ignored), user (ignored).
- *
- * @lore: preMapClaudeEvent — NOT called from normalizeHarnessEvent; CLI adapter applies it so codex/opencode are unaffected; multi-block: first tool_use kept
  */
 export function preMapClaudeEvent(input: unknown): Record<string, unknown> {
 	if (!isRecord(input) || typeof input.type !== "string") {
@@ -189,8 +187,6 @@ export function normalizeHarnessEvent(input: unknown): HarnessEvent {
 		return unknownEvent(input);
 	}
 
-	// @lore: normalizeHarnessEvent codex pre-map — global; codex dot-types disjoint from all others; claude pre-map adapter-gated ("result"/"system" ambiguous)
-	// @lore: normalizeHarnessEvent reference-identity — `afterOpencode === input` requires preMapOpencodeEvent to return the SAME ref; a copy inverts the guard
 	const afterOpencode = preMapOpencodeEvent(input);
 	const mapped = afterOpencode === input ? preMapCodexEvent(input) : afterOpencode;
 

@@ -38,6 +38,5 @@ function renderNode(node: InlineNode, key: number): JSX.Element | string {
 		case "break":
 			return <br key={key} />;
 	}
-	// @lore: unreachable throw required — TS does not treat switch-on-discriminant as exhaustive; satisfies TS2366 without a `default` that forces `never` narrowing
 	throw new Error(`Unhandled inline node type: ${(node as { type: string }).type}`);
 }

@@ -1,6 +1,3 @@
-// @lore: overlay stays open on outside click — user must interact with Main content while overlay is open; only Escape or trigger click closes it
-// @lore: shell-level composition, not a design-system primitive; lives in layers/core-ui/src/shell/
-
 import type { AssistantNotice, InlineRef, Message } from "@hyperidle/domain-model";
 import { ASSISTANT_TURN_TIMEOUT_MS, isRedactedPayload } from "@hyperidle/domain-model";
 import { type JSX, type RefObject, useCallback, useEffect } from "react";
@@ -88,7 +85,6 @@ function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeC
 	}
 }
 
-// @lore: AssistantNoticeCard — role="alert" required (announces immediately); use --status-warning/--status-error; --color-error/success are dead tokens
 function AssistantNoticeCard({
 	notice,
 	onRetry,
@@ -252,8 +248,6 @@ function AssistantOverlayInner({
 				throw new Error(res.problems[0]?.message ?? "Failed to send message");
 			}
 
-			// @lore: artifacts-become-documents — each pending block becomes a real document row parented to this thread; content captured at click time
-			// @lore: edit_document as:"artifact" — forces artifact rules; explicit thread parent beats session stamp; scopeKind informational only, never "user"
 			const teamId = user?.teamId ?? null;
 			await Promise.all(
 				pendingBlocks.map((ref) =>
@@ -366,7 +360,6 @@ function AssistantOverlayInner({
 		a.createdAt.localeCompare(b.createdAt),
 	);
 
-	// @lore: lastMessageIsHuman — identity comparison against myAgentId; not an id-prefix check (structural prefix has no meaning for ordinary owned agents)
 	const lastMessage = msgsAsc[msgsAsc.length - 1];
 	const lastMessageIsHuman = lastMessage !== undefined && lastMessage.senderId !== myAgentId;
 	const lastMessageIsWithinTimeout =
@@ -376,7 +369,6 @@ function AssistantOverlayInner({
 	const isThinking = lastMessageIsWithinTimeout;
 	const isStale = lastMessageIsHuman && !lastMessageIsWithinTimeout;
 
-	// @lore: notice messages filtered out of ThreadShell — renderMessageExtra injects below bubble text; keeping them in produces duplicate title matches in tests
 	const plainPayloadCache = new Map(
 		msgsAsc.filter((m) => m.type === "plain").map((m) => [m.id, plainReadPayloadOf(m)] as const),
 	);
@@ -450,7 +442,6 @@ function AssistantOverlayInner({
 	);
 }
 
-// @lore: useDialogBehavior modal=false — no scrim, no backdrop dismiss; layer="overlay" sets z-index via --z-overlay (40)
 export function AssistantOverlay({
 	open,
 	onClose,
@@ -458,7 +449,6 @@ export function AssistantOverlay({
 	contextRefs,
 	onRemoveContextRef,
 }: AssistantOverlayProps): JSX.Element | null {
-	// @lore: modal=false — no scrim, no backdrop dismiss; Escape closes via document-level handler
 	const behavior = useDialogBehavior({
 		open,
 		onClose,

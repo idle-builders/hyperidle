@@ -1,4 +1,3 @@
-// @lore: legacy redirect empty id — whitespace-only id is semantically absent; redirect to queue not /conversations/%20%20
 // @lore: replace: true — overwrites legacy URL in history; pressing back skips the legacy URL; prevents bounce-loop
 import type { JSX } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";

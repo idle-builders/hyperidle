@@ -525,10 +525,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		input: SendMessageInput,
 	): Promise<{ ok: true; data: SendMessageOutput } | { ok: false; problems: readonly Problem[] }> {
 		// -- 1. pure invariants ---------------------------------------------
-		// @lore `hasCallingThread` here means "a session is calling" (any
-		// fallback MIGHT exist), not literally `caller.threadId != null` — an
-		// agent with a caller but no calling thread must still reach the
-		// server-side sole-human fallback, not be pre-empted here.
+		// @lore: hasCallingThread — means "a session is calling", not caller.threadId != null; narrowing it blocks the sole-human fallback
 		const pureProblems = sendMessageInvariants(input, {
 			hasCallingThread: ctx.caller !== undefined,
 		});
@@ -852,7 +849,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						hostId: creatingThread.hostId,
 						initiatorId: ctx.actor,
 						participants: JSON.stringify(creatingThread.members),
-						// @lore: two-party create carries same directKey the lookup computed; >1-recipient group-thread leaves directKey undefined (never deduped).
 						directKey: creatingThread.directKey,
 						pinned: false,
 						lastActiveAt: now,
@@ -1052,7 +1048,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					at: now,
 				});
 
-				// @lore: resolve/reopen changes thread own state — changed row never names members; adjust_thread ONLY writer of thread.changed naming members; no bump reported
 				if (resolvedAtAfter !== resolvedAtBefore) {
 					const { before, after } = diffFields(
 						effectiveThreadId,

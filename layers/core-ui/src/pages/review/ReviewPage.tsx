@@ -85,7 +85,7 @@ function hostMessagesToReviewComments(
  * resolved THIS review; a thread may hold several. Shared between
  * `defaultLoader`'s initial composition and `ReviewPage`'s reactive overlay
  * (recomputed off `useThread`'s own data on every refresh, so a verdict
- * update never needs a second loader call — see @lore below `ReviewPage`).
+ * update never needs a second loader call.
  */
 function findVerdictForReview(
 	messages: ReadonlyArray<Message>,
@@ -101,7 +101,6 @@ function findVerdictForReview(
 	return verdict;
 }
 
-// @lore: defaultLoader — thread fetch belongs to useThread, not the loader; taskId absent/refused leaves fields empty; betTitle has no source so stays empty
 async function defaultLoader({
 	reviewId,
 	threadId,
@@ -373,7 +372,6 @@ export function ReviewPage({
 	}
 
 	return (
-		// @lore: ReviewPage body managed — ReviewComposition owns its own scroll; needs only bounded flex column from managed body
 		<PageScaffold body="managed">
 			{verdictError ? (
 				// A refused verdict is a control-level rejection,
@@ -398,5 +396,3 @@ export function ReviewPage({
 		</PageScaffold>
 	);
 }
-
-// @lore: REVIEW_COMPOSITION_SUBJECT — not re-exported from this production module; consumers import the fixture directly

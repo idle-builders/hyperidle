@@ -32,7 +32,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 	}
 
 	componentDidCatch(error: Error, info: ErrorInfo): void {
-		// biome-ignore lint/suspicious/noConsole: observability surface — see @lore above
+		// biome-ignore lint/suspicious/noConsole: only observability path for render errors caught by error boundary
 		console.error("[ErrorBoundary] caught render error", {
 			message: error.message,
 			componentStack: info.componentStack,

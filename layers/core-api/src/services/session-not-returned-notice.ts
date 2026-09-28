@@ -1,5 +1,3 @@
-// @lore: never-silent net — session can end without its return action; posts plain notice into calling thread so caller is never silently abandoned
-
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus, SessionNotReturnedEvent } from "@hyperidle/event-bus";

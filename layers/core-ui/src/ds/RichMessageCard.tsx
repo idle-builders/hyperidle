@@ -1,8 +1,4 @@
-// @lore: promotedRichMessageId computed upstream — this component renders ONE message; it does not pick
-
 // @lore: clientKey held in state across saving phase — retry reuses same key; server returns 200 on second POST for same key; fresh click gets new key
-
-// @lore: action footer position:sticky;bottom:0 inside card — browsers without nested-sticky fall back to static; pure CSS, no JS coordination
 
 import {
 	isRedactedPayload,
@@ -131,7 +127,6 @@ function isShortReasoning(reasoning: ReadonlyArray<string>): boolean {
 	);
 }
 
-// @lore: crypto.randomUUID() not Math.random — Math.random not cryptographically random; missing secure-context surfaces loudly rather than shipping a weak key
 function generateClientKey(): string {
 	return globalThis.crypto.randomUUID();
 }
@@ -377,7 +372,6 @@ export function RichMessageCard({
 					data-sticky="bottom"
 					className="border-width-thin-t sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]"
 				>
-					{/* @lore: all-ghost on questionnaire answers — no preferred option specified; primary on index 0 invents false hierarchy */}
 					{questionnaire.options.map((opt) => (
 						<button
 							key={`${message.id}-opt-${opt}`}

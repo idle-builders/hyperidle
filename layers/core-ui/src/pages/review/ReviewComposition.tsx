@@ -641,7 +641,6 @@ export function ReviewComposition({
 		[subject.conversation, activeArtifactId, resolved, onPostComment, openArtifact],
 	);
 
-	// @lore: reviewListPane — self-contained header+scroll unit; outer div carries surface classes because PageScaffold root has no className prop
 	const reviewListPane = (
 		<div className="h-full bg-[var(--surface-page)] text-[var(--text-primary)]">
 			<PageScaffold

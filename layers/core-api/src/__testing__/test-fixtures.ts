@@ -95,7 +95,6 @@ export async function createServiceTestApp(
 		pluginsBaseDir,
 	});
 	const rawFetch = app.fetch.bind(app);
-	// @lore shared service fixture owns authentication explicitly; app must remain valid when another isolate:false file changes process.env
 	app.fetch = (request, env, executionCtx) => {
 		const headers = new Headers(request.headers);
 		const omitDefaultAuth = headers.has("X-HyperIdle-Test-Without-Auth");
@@ -107,11 +106,8 @@ export async function createServiceTestApp(
 }
 
 export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
-	// @lore registerAgentRunAdmissionReactions wired in fixture — createApp skips serviceBootstrap; per-eventBus idempotency guard makes double-wiring safe
 	//
-	// @lore assistant-thread pin reaction and coherence re-bake trigger absent; @hyperidle/thread's agentsToWake handles wakeup
 	//
-	// @lore eventBus fixture: own AgentOrchestrationPort over throwaway bootAgentOrchestration; backing surface only; lets reaction test assert real effect
 	eventBus: async ({ db }, use) => {
 		const eventBus = new EventBus();
 		const orchestrationBoot = await bootAgentOrchestration({
@@ -162,9 +158,7 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		await use(port);
 		orchestrationBoot.dispose();
 	},
-	// @lore app fixture = Application; delegates to createTestApp which boots BOTH Layers; without second Layer, /api/sessions routes 404; teardown via disposeApp
 	app: async ({ db, eventBus }, use) => {
-		// @lore middleware-exercising routes (/protected-test, /test-validate, /test-error) mount from the fixture, not from app.ts — dev world only
 		const { app } = await createServiceTestApp(db, eventBus);
 		await use(app);
 		disposeApp(app);
@@ -176,7 +170,6 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 			return app.request(input, { ...requestInit, headers }, env, executionCtx);
 		});
 	},
-	// @lore pluginsApp: temp pluginsBaseDir so install_path is recorded and skill restore (/contributions/restore) can re-read from disk; per-test, not shared
 	pluginsApp: async ({ db, eventBus }, use) => {
 		const pluginsBaseDir = join(
 			tmpdir(),

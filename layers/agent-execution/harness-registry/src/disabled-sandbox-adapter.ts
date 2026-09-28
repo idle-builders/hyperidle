@@ -1,6 +1,5 @@
 import type { SandboxAdapter, SandboxHandle } from "./sandbox-adapter.js";
 
-// @lore: DisabledSandboxAdapter — shared backend runs no agents (no Anthropic creds); boots successfully but rejects all sandbox provision with a loud error
 export class DisabledSandboxAdapter implements SandboxAdapter {
 	private fail(): Promise<never> {
 		return Promise.reject(

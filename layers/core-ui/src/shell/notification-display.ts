@@ -1,5 +1,3 @@
-// @lore: ChangeRow-based — no notification type registry; labels and links derived from change.object/kind
-
 import type { ChangeObject, ChangeRow } from "@hyperidle/domain-model";
 
 const OBJECT_LABELS: Record<ChangeObject, string> = {

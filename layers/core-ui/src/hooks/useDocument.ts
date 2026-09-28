@@ -1,5 +1,3 @@
-// @lore: ws nudge carries the changes row, not the assembled view — hook re-runs open_document on any frame; never tries to apply change row directly
-
 import type { DocumentView } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { call } from "../services/call.js";

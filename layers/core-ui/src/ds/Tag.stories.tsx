@@ -30,9 +30,6 @@ export const KindVariants = (): React.JSX.Element => (
 	</div>
 );
 
-/**
- * @lore tone="accent": accent-tinted uppercase badge for distinctive chip labels (host kind, count, role)
- */
 export const AccentTone = (): React.JSX.Element => (
 	<div className="flex flex-wrap gap-3">
 		<Tag label="task" tone="accent" />

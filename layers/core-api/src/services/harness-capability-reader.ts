@@ -1,5 +1,3 @@
-// @lore: HarnessCapabilityReader structural — core-api never imports harness-registry; pool satisfies by structural subtyping; anti-drift: read-model.test.ts
-
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { AdapterMeta, HarnessCapabilities } from "@hyperidle/harness-protocol";
 

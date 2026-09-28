@@ -15,7 +15,6 @@ import { createContext } from "react";
  * persisted in the message payload — only the wire fields travel over the wire).
  *
  */
-// @lore: pending_block kind — block id rots when source edits; captures content at attach time and creates a document on send; no pointer, no degradation
 export type AssistantContextRef =
 	| {
 			kind: "document" | "task" | "message";

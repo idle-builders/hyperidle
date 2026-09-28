@@ -1,5 +1,4 @@
 // SSRF defences: isPrivateHostLiteral is the only exported symbol.
-// @lore: run-orchestration keeps its own resolveUrlForSSRF — spawn provisioning resolves live at connect time
 import * as net from "node:net";
 
 const PRIVATE_HOSTS: ReadonlySet<string> = new Set(["localhost", "localhost.", "broadcasthost"]);

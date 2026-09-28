@@ -1,5 +1,3 @@
-// @lore: ws-subscribe-authorizer — session:<id> admits any signed-in; document:<id> uses canReadDocument (same as open_document) — socket and REST never diverge
-
 import type { HyperIdleDb } from "@hyperidle/db";
 import { canReadDocument, canReadThread, type HostKind } from "@hyperidle/domain-model";
 import type { SubscribeAuthorizer } from "./ws-connection-hub.js";

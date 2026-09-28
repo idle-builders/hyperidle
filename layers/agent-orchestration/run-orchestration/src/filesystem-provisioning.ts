@@ -1,4 +1,3 @@
-// @lore: filesystem-provisioning — resourceRef arrives already parsed; do not re-JSON.parse it
 import type { Filesystem, MountResult } from "./mounter.js";
 
 /** Structural mounter port — run-orchestration declares the shape it needs (Mechanism C). */

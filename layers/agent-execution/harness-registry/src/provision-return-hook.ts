@@ -1,10 +1,6 @@
 /**
  * Per-harness return-enforcement hook provisioning. Writes the hook artifact
  * appropriate to the harness's declared channel, called at sandbox setup time (BEFORE startSession).
- *
- * @lore: return hook — hook artifact written at sandbox setup; fires natively at turn-end; bridge URL and token are server-minted (no injection surface)
- * @lore: codex CODEX_HOME — per-session CODEX_HOME (.codex-home/); copy ONLY auth.json + config.toml; SQLite files lock and crash codex
- * @lore: workspace trust — settings-claude and settings-codex must establish trust or harness silently skips project-local hook (forceCount=0 regression)
  */
 
 import * as fs from "node:fs";
@@ -92,7 +88,6 @@ function provisionClaudeSettings(sandboxPath: string, bridgeToken: string, mcpUr
  * settings-codex: Create per-session CODEX_HOME and write hooks.json.
  * Also writes .codex/hooks.json for backward-compat with unit tests.
  * @lore: codex hooks format — `{ "hooks": { "Stop": [{ "hooks": [{ "type":"command", "command":"..." }] }] } }`; flat top-level "Stop" is silently ignored
- * @lore: codex decision:block — Stop hooks use JSON-on-stdout (`{"decision":"block","reason":"..."}`); exit-2+stderr also works but JSON form is used here
  */
 function provisionCodexHome(sandboxPath: string, bridgeToken: string, mcpUrl: string): void {
 	const codexDir = path.join(sandboxPath, ".codex");
@@ -188,7 +183,6 @@ function buildReturnCheckScript(bridgeToken: string, mcpUrl: string): string {
 
 /**
  * Build the Codex Stop hook script. Protocol: empty body → {"decision":"approve"}; forceMessage → {"decision":"block","reason":"..."}.
- * @lore: codex hook semantics — JSON stdout, NOT exit-2+stderr; verified codex-cli v0.141.0
  */
 function buildCodexReturnCheckScript(bridgeToken: string, mcpUrl: string): string {
 	return [
@@ -207,7 +201,6 @@ function buildCodexReturnCheckScript(bridgeToken: string, mcpUrl: string): strin
 
 /**
  * process-reengage: Write .opencode/plugins/return-signal.ts.
- * @lore: opencode reengage — no native Stop hook; uses session.idle event + plugin; weaker than settings-claude (requires plugin runtime + reliable idle event)
  */
 function provisionOpencodePlugin(sandboxPath: string, bridgeToken: string, mcpUrl: string): void {
 	const pluginDir = path.join(sandboxPath, ".opencode", "plugins");

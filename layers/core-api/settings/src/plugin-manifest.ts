@@ -393,7 +393,6 @@ function parsePluginAgent(
 		});
 		return null;
 	}
-	// @lore: agentCategory accepts any non-empty string — plugin agents are trusted; API guard enforces enum; parse-layer gate would break forward-compat
 	//
 	// A path that escapes the plugin root or is missing drops the identity silently.
 	let identity: string | null = null;

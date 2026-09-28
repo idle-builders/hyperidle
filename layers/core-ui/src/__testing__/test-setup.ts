@@ -1,13 +1,12 @@
 /// <reference types="node" />
 //
-// @lore /// <reference types="node" /> is load-bearing — makes @types/node explicit in core-ui; without it, ~110 test files can't resolve Node global
 
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 /**
- * @lore ws-client mocked at module level — ws calls apiFetch("/api/auth/ws-token") which intercepts per-test fetch mocks; corrupts call-count assertions
+ * @lore: ws-client mocked at module level — ws calls apiFetch("/api/auth/ws-token") which intercepts per-test fetch mocks; corrupts call-count assertions
  */
 vi.mock("../services/ws-client.js", () => ({
 	getWsClient: () => ({
@@ -15,7 +14,6 @@ vi.mock("../services/ws-client.js", () => ({
 	}),
 }));
 
-// @lore Node 26 globalThis.localStorage experimental (undefined without --localstorage-file); shadows jsdom's localStorage; in-memory polyfill ensures tests work
 if (typeof window !== "undefined" && window.localStorage === undefined) {
 	const store = new Map<string, string>();
 	const storage: Storage = {
@@ -46,9 +44,8 @@ if (typeof window !== "undefined" && window.localStorage === undefined) {
 }
 
 /**
- * @lore RTL's waitFor checks typeof jest for fake timers; without shim falls back to real setInterval (hangs under vi.useFakeTimers()); Vitest has no jest global
+ * @lore: waitFor shim — RTL checks typeof jest for fake timers; Vitest has no jest global; without shim falls back to real setInterval and hangs
  */
-// @lore globalThis cast to Record: no index signature (TS7017); jest namespace cast via unknown (TS2708); test-only shim for RTL waitFor fake-timer detection
 const globalAny = globalThis as Record<string, unknown>;
 globalAny.jest = {
 	...(globalAny.jest as Record<string, unknown>),
@@ -56,7 +53,7 @@ globalAny.jest = {
 };
 
 /**
- * @lore React Router v7: jsdom AbortSignal doesn't match Node's native class; PatchedRequest strips signal from RequestInit then re-applies it; test-only
+ * @lore: PatchedRequest — React Router v7 jsdom AbortSignal mismatches Node's class; strip+reapply prevents navigate() throws in tests
  */
 const OriginalRequest = globalThis.Request;
 class PatchedRequest extends OriginalRequest {
@@ -79,7 +76,6 @@ class PatchedRequest extends OriginalRequest {
 globalThis.Request = PatchedRequest as typeof Request;
 
 /**
- * @lore jsdom lacks window.matchMedia; useViewportBreakpoint hook uses it for sidebar mobile breakpoint; polyfill prevents throw on mount
  */
 // jsdom defaults `window.innerWidth` to 1024, which is below the 1280px
 // desktop breakpoint. Force a desktop viewport so tests that assume
@@ -128,7 +124,6 @@ if (typeof window.matchMedia !== "function") {
 }
 
 /**
- * @lore jsdom lacks HTMLDialogElement.showModal()/close(); polyfill lets component tests exercise dialog open/close (sets/removes 'open' attribute)
  */
 if (typeof window !== "undefined" && !window.HTMLDialogElement.prototype.showModal) {
 	Object.assign(window.HTMLDialogElement.prototype, {

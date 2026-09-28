@@ -6,10 +6,7 @@
  * and writes the provisioned form into the session working directory. No gate;
  * re-applies every spawn; idempotent.
  *
- * @lore: connection-provisioning ownership — per-row userId; tokens resolve to actual owner; multi-tenancy flows on the request, not looked up by orchestration
  * @lore: connection-provisioning claude-write — .mcp.json written by session-provisioning.ts AND here (claudeNative); merges to preserve inbound hyperidle entry
- * @lore: connection-provisioning token-env — per-server env var = <UPPER_SERVICE>_MCP_TOKEN; distinct from HYPERIDLE_MCP_TOKEN (inbound bridge token)
- * @lore: connection-provisioning builtin — builtin has no MCP carrier; do not inject mcpTokenEnv for builtin sessions (dead write)
  * @lore: connection-provisioning SSRF — outbound URL SSRF-checked at provision; harness re-resolves at connect; DNS-rebinding unguarded; pinning only on /validate
  */
 
@@ -26,7 +23,6 @@ import { resolveUrlForSSRF } from "./ssrf.js";
  * `HeldConnectionForProvisioning` — the two are wired together by the
  * Application, so this Service names the shape without importing that one.
  *
- * @lore: HeldConnectionForProvisioning userId — per-row; each token resolves against its row's owner; orchestration never reads users
  */
 export interface HeldConnectionForProvisioning {
 	readonly id: string;
@@ -78,7 +74,6 @@ export interface ProvisioningPlan {
  * The _ssrfLookup parameter is injectable for tests (overrides the DNS
  * resolution step without patching global dns.lookup).
  *
- * @lore: buildProvisioningPlan token-fork — no kind column; inferred: CLI slug → CLI-key; serverUrl present → MCP-bearer; else convention <SERVICE>_TOKEN env var
  */
 export async function buildProvisioningPlan(deps: {
 	readonly connections?: HeldConnectionsReaderPort;
@@ -187,7 +182,6 @@ export async function buildProvisioningPlan(deps: {
  * If (github token) and (github mcp) both exist as server entries, the token
  * entry gets "github" and the mcp entry gets "github-mcp".
  *
- * @lore: deriveMcpServerName — "-mcp" suffix is deterministic; asserted in tests so two builders cannot diverge
  */
 function deriveMcpServerName(
 	service: string,
@@ -260,7 +254,6 @@ export function applyProvisioningPlan(args: {
  * Returns tokenEnv for each bearer server (caller injects outside allowlist).
  * This is the generalized 1→N extension of writeCodexToml in cli-mcp-config.ts.
  *
- * @lore: codex-toml token-env — per-server env var = <UPPER_SERVICE>_MCP_TOKEN; appends to existing config.toml so the inbound hyperidle entry is preserved
  */
 function writeCodexTomlEntries(params: {
 	sandboxPath: string;
@@ -356,7 +349,6 @@ function writeOpencodeJsonEntries(params: {
  * Merges with existing .mcp.json if present (preserves the inbound hyperidle
  * entry written by Phase 8b in session-provisioning.ts).
  *
- * @lore: claude-mcp-json merge — merges into existing .mcp.json (preserves inbound hyperidle entry); creates from scratch if no inbound bridge is configured
  */
 function writeClaudeMcpJsonEntries(params: {
 	sandboxPath: string;

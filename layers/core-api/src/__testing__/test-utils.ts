@@ -27,7 +27,6 @@ export interface TestAppOptions extends AppOptions {
 	 * A pre-booted orchestration Layer. Omitted → this harness boots one itself
 	 * (when a `db` is present), exactly as production does.
 	 *
-	 * @lore agentOrchestrationBoot: the Layer boot handle, not the seam port (agentOrchestration in AppOptions is the port); collision avoidance by distinct names
 	 */
 	agentOrchestrationBoot?: AgentOrchestrationBoot;
 	/**
@@ -35,7 +34,7 @@ export interface TestAppOptions extends AppOptions {
 	 * Application mounts the MCP bridge: after both Layers' pre-auth
 	 * registrations, BEFORE `stack.auth`.
 	 *
-	 * @lore registerPreAuthRoutes: mounting is an application decision (not layer); MCP client uses 64-char hex session token in URL, not X-API-Key; must be pre-auth
+	 * @lore: registerPreAuthRoutes: mounting is an application decision (not layer); MCP client uses 64-char hex session token in URL, not X-API-Key; must be pre-auth
 	 */
 	registerPreAuthRoutes?: (apiRouter: Hono) => void;
 }
@@ -43,9 +42,7 @@ export interface TestAppOptions extends AppOptions {
 /**
  * Build the SAME two-app composition production boots, for a test.
  *
- * @lore createTestApp: second and last composition site (after create-server.ts); must mirror production: one Hono root, /api router, both Layer apps
  *
- * @lore JSON 404 lives on the ROOT app — Hono does not apply parent's notFound to mounted sub-apps
  */
 export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	const t0 = performance.now();

@@ -50,7 +50,6 @@ interface UseGlobalSearchReturn {
 	clear: () => void;
 }
 
-// @lore: sets typed as Set<string> so .has() accepts any string without casts; type narrowing happens inside parse* functions after set membership confirmed
 const CONVERSATION_KINDS: ReadonlySet<string> = new Set(["review", "chat"]);
 const TASK_STATE_SET: ReadonlySet<string> = new Set<string>(TASK_STATES);
 const DOCUMENT_STATUS_SET: ReadonlySet<string> = new Set<string>(DOCUMENT_STATUSES);

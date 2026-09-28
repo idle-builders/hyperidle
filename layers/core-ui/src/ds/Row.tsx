@@ -1,7 +1,3 @@
-// @lore: nested-button constraint — <button> wrapping inner <button> is invalid HTML; div[role=button] + tabIndex + onKeyDown gives equivalent keyboard a11y
-
-// @lore: hover/focus/motion via clickableProps — do NOT hardcode rgba; lint flags hardcoded colors; clickableProps bundles color-mix token + focus ring + motion
-
 import { createContext, type JSX, type ReactNode, useContext } from "react";
 import { clickableProps } from "./clickable.js";
 import { dsProps } from "./ds-attrs.js";
@@ -94,7 +90,6 @@ export interface RowProps {
 // Shared cell renderer — single implementation for all wrapper branches
 // ---------------------------------------------------------------------------
 
-// @lore: RowCell has no tone prop — three-channel status conflicts with StatusChip and RowDot; cells needing tint color their ReactNode content directly
 function renderCell(cell: RowCell, i: number): JSX.Element {
 	const cellStyle: React.CSSProperties = {};
 	if (cell.width !== undefined) cellStyle.width = `${cell.width}px`;
@@ -233,10 +228,8 @@ export function Row({
 	// li>div[role=button] branches get it via spread; the div+actions branch does
 	// not hand-roll the utilities.
 	//
-	// @lore: every interactive wrapper goes through clickableProps(onClick, baseClasses) — one path for hover/focus/motion across all wrapper branches
 	const clickable = onClick ? clickableProps(onClick, baseClasses) : null;
 
-	// @lore: href renders a real anchor — ⌘-click, middle-click, copy-link, hover-preview require <a>; no nested <button>/<a> when href is set
 	if (href) {
 		return (
 			<a
@@ -271,11 +264,8 @@ export function Row({
 		//
 		// @lore: li MUST NOT have role=button — overrides listitem role; li wraps inner div[role=button] for interactivity
 
-		// @lore: <li> holds only separator border-b; all layout + hover surface on inner div so hover fill is edge-to-edge not inset
-
 		const liSeparatorClass = "border-width-thin-b border-[var(--border-subtle)] last:border-none";
 
-		// @lore: inner div built from layout classes only (no separator) — separator classes stay on <li>; building from baseClasses leaks border-b onto inner div
 		const liInnerLayoutWithActions = `flex-1 min-w-0 flex items-center gap-[12px] ${px} min-h-[44px]`;
 		const liInnerLayout = `w-full flex items-center gap-[12px] ${px} min-h-[44px]`;
 
@@ -320,7 +310,6 @@ export function Row({
 			// li + click + NO actions → li wraps inner div[role=button] so the li keeps
 			// its implicit listitem role (getAllByRole("listitem") must still find it).
 			//
-			// @lore: role=button on <li> overrides listitem role; inner div[role=button] handles interactivity; data-testid on inner div (the interactive element)
 			const innerClickableClass = clickableProps(onClick, liInnerLayout).className ?? liInnerLayout;
 			return (
 				<li

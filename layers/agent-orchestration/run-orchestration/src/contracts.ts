@@ -41,7 +41,6 @@ export interface RunContextBundle {
 	readonly harnessDisabled?: readonly string[];
 	readonly callingThreadId?: string;
 	readonly transcript?: readonly ConversationMessage[];
-	// @lore: resume — present only for session_resume; harness reopens its own session and takes verdict as user turn; nothing is composed
 	readonly resume?: BakedSessionResumeRequest;
 }
 

@@ -57,11 +57,6 @@
  *   randomness to absorb. retry:0 removes any ambiguity about which attempt a result
  *   came from.
  *
- * @lore placed here (not harness-registry/__tests__/) so it can import run-orchestration — a governance boundary a harness-registry test can't cross.
- * @lore opencode uses qwen3-8b (coordinator-authorized override) — the locked baseline model cannot drive skill selection reliably.
- * @lore the probe token is a fresh randomUUID() per run — a fixed constant risks model confabulation from training data.
- * @lore file presence at the harness path is the sanity-break signal — codex/cursor-agent scan all CWD files, model output alone can't.
- * @lore all binary harnesses override PWD=sandboxPath — opencode needs it for skill scanning; applied uniformly as a defensive measure.
  *
  * HARNESS LANE: real binaries, real LLM calls, zero stubs.
  * Gate: requireHarness() — hard-fail (never skip) if any binary/key is absent.
@@ -111,7 +106,6 @@ let probeToken: string;
 /**
  * Skill body with YAML frontmatter. Generated fresh per run to embed the
  * per-run probeToken.
- * @lore YAML frontmatter is harmless for claude/codex/cursor-agent; for opencode, the description triggers on-demand invocation.
  */
 let skillBody: string;
 
@@ -220,7 +214,7 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 // ---------------------------------------------------------------------------
 
 /**
- * @lore execFile leaves stdin open, which blocks codex — spawn with stdio: ['ignore','pipe','pipe'] closes it at process start.
+ * @lore: execFile leaves stdin open, which blocks codex — spawn with stdio: ['ignore','pipe','pipe'] closes it at process start.
  */
 async function spawnWithClosedStdin(
 	bin: string,
@@ -328,9 +322,8 @@ describe("skill materialisation via production writeSkillItem — real harnesses
 							// carries no key any more, and the inherited environment is where
 							// opencode looks for one anyway.
 							...process.env,
-							// @lore pwd-override: pin PWD to sandbox so claude doesn't scan the worktree's skill dirs via inherited parent PWD.
+							// @lore: pwd-override: pin PWD to sandbox so claude doesn't scan the worktree's skill dirs via inherited parent PWD.
 							PWD: sandboxPath,
-							// @lore real-claude-full-binary: zero these so claude does not detect it is running inside claude-code (would skip the run).
 							CLAUDECODE: "",
 							CLAUDE_CODE_ENTRYPOINT: "",
 							CLAUDE_CODE_EXECPATH: "",
@@ -384,7 +377,6 @@ describe("skill materialisation via production writeSkillItem — real harnesses
 						cwd: sandboxPath,
 						env: {
 							...process.env,
-							// @lore pwd-override: pin PWD to sandbox — defensive against codex scanning the worktree's .agents/skills/ via inherited PWD.
 							PWD: sandboxPath,
 						},
 						timeoutMs: 90_000,
@@ -413,7 +405,7 @@ describe("skill materialisation via production writeSkillItem — real harnesses
 				expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
 
 				// Injection check: spawn and assert model output.
-				// @lore opencode uses qwen3-8b (coordinator-authorized) — the locked baseline model can't drive skill selection.
+				// @lore: opencode uses qwen3-8b (coordinator-authorized) — the locked baseline model can't drive skill selection.
 				const opencodeModel = "openrouter/qwen/qwen3-8b";
 
 				const { stdout, stderr } = await spawnWithClosedStdin(
@@ -423,7 +415,7 @@ describe("skill materialisation via production writeSkillItem — real harnesses
 						cwd: sandboxPath,
 						env: {
 							...process.env,
-							// @lore opencode uses process.env.PWD, not process.cwd(), for project-root skill scanning.
+							// @lore: opencode uses process.env.PWD, not process.cwd(), for project-root skill scanning.
 							PWD: sandboxPath,
 						},
 						timeoutMs: 180_000,
@@ -476,7 +468,6 @@ describe("skill materialisation via production writeSkillItem — real harnesses
 						cwd: sandboxPath,
 						env: {
 							...process.env,
-							// @lore pwd-override: pin PWD to sandbox — defensive against cursor-agent scanning the worktree's skill dirs.
 							PWD: sandboxPath,
 						},
 						timeoutMs: 90_000,

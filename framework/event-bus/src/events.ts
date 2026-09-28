@@ -131,8 +131,6 @@ export interface SessionEndedEvent {
 /**
  * Emitted by `buildHandoff` post-commit. Handoff deliberately does NOT emit
  * `session_ended` — a handoff is not a session-end outcome.
- *
- * @lore: requestedBy carries the outgoing agent's id — registerHandoffTerminationRequester passes it to terminationRequestedBy write; absent causes a silent drop
  */
 export interface SessionHandoffCompletedEvent {
 	type: "session_handoff_completed";
@@ -146,8 +144,6 @@ export interface SessionHandoffCompletedEvent {
  * Emitted by `runSession` (site A) when a task-session turn exhausts its
  * event stream without having invoked any member of the accepted-return set
  * (RETURN_ACTION_NAMES). The turn is flagged — never silently completed.
- *
- * @lore: "flag" policy — endSession closes the turn; this event surfaces the miss; "redirect" where harness supports it; streamId = sessionId for routing
  */
 export interface SessionNotReturnedEvent {
 	readonly type: "session_not_returned";
@@ -181,8 +177,6 @@ export interface SandboxWritebackChange {
 /**
  * Emitted by `file-watcher.ts` debounced flush. `@hyperidle/capture-writeback`'s
  * `registerCaptureWriteback` subscribes and drives `processWriteback` off the batch.
- *
- * @lore: inversion bridge — filesystems and capture-writeback neither imports the other; see file-watcher.ts and writeback-subscriber.ts for atomicity reasoning
  */
 export interface SandboxWritebackChangesDetectedEvent {
 	type: "sandbox_writeback_changes_detected";
@@ -215,7 +209,6 @@ export interface ToolCallRecordedEvent {
 
 /**
  * Inline literal union — avoids importing from the strategy fabric layer.
- * @lore: boundary rule: kernel never imports from strategy; canonical definition lives in packages/server/src/knowledge/types.ts
  */
 type PropagationLevelLiteral = "session" | "task" | "team" | "portfolio";
 
@@ -337,8 +330,6 @@ export type EventType = DomainEvent["type"];
 
 /**
  * The one compile-time-complete list of every event type.
- *
- * @lore: as const satisfies EventType[] — satisfies rejects unlisted names; the completeness check below rejects missing types; plain string[] makes both vacuous
  */
 export const EVENT_TYPES = [
 	// The nine object events — one per `changes` row,

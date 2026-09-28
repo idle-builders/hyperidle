@@ -13,7 +13,6 @@ function asMcpInputSchema(schema: unknown): McpAnySchema {
 /**
  * A live MCP bridge instance for a single agent session.
  * One McpServer + transport per session; 64-char hex path-token = auth + routing key.
- * @lore: McpSession — path-token routes to the right instance; mcp-session-id is MCP protocol session on requests 2+; both coexist
  */
 interface McpSession {
 	readonly token: string;

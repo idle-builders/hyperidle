@@ -6,7 +6,6 @@
  * on any error.
  *
  * @lore: inspect-local-path — currentBranch() returns null for detached HEAD / empty repo; callers register doc_set instead of 400-ing on branch.min(1)
- * @lore: inspect-local-path gitRunner — gitRunnerFactory is a required injected port; never an internal createGitRunner default
  */
 
 import { stat } from "node:fs/promises";

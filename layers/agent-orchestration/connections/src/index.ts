@@ -1,13 +1,11 @@
 /**
  * Barrel for `@hyperidle/connections` — the agent-orchestration Layer's `service_connections` Service.
  * Must NOT re-export the raw pgTable object (defeats Table ACL).
- * @lore: token-cipher — AES-256-GCM cipher for connection tokens; sole production consumer in this package
  */
 
 // -- Cipher (2) — AES-256-GCM encrypt/decrypt for connection tokens --
 export { decryptCredentialValue, encryptCredentialValue } from "./token-cipher.js";
 // -- Connection vocabulary: InheritedConnectionFact moved from domain-model --
-// @lore: HeldAuthSource/HELD_AUTH_SOURCES lives in domain-model (prevents service→service crossing)
 export type { InheritedConnectionFact } from "./types.js";
 
 // -- Provisioning read — callers use listConnections({ userId, authSource }) directly --

@@ -7,7 +7,6 @@
  * That import-absence is the conversation↔session reuse boundary, enforced by a scoped
  * `no-restricted-imports` ESLint rule.
  */
-// @lore: dispatch exhaustiveness — unknown fallback never throws; a future drifted PartKind degrades to UnknownPart silently
 
 import { Fragment, type JSX } from "react";
 import { Avatar } from "../ds";

@@ -57,9 +57,6 @@ export interface CoreApiBoot {
 	readonly upgradeTokenStore: UpgradeTokenStore | null;
 	/** Present whenever `db` is provided. */
 	readonly resolveProvisioningOwnerUserId?: () => Promise<string | null>;
-	/**
-	 * @lore: pluginMcpContributions — typed inline, not importing from @hyperidle/run-orchestration; compat checked at call site in create-server.ts
-	 */
 	readonly pluginMcpContributions?: {
 		getContributions(teamId: string | null): Promise<
 			readonly {

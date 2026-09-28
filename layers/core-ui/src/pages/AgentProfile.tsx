@@ -111,7 +111,6 @@ export function AgentProfile({
 		const is404 = httpStatus === 404 || error.message.includes("404");
 		if (is404) {
 			return (
-				// @lore: body="managed" — children get flex-1 flex-col container; frame="page" is auto-height so min-h-full = content height not viewport
 				<PageScaffold
 					body="managed"
 					header={<PageHeader title="Agent" />}
@@ -206,7 +205,6 @@ function AgentProfileLoaded({
 	const [sessionRatio, setSessionRatio] = useUiPreference("agent.session", 0.6);
 	const openSessionTarget = createOpenHandler(navigate, { onOpenSession: setOpenSessionId });
 
-	// @lore: harnessAvailable — from useAgentProfile (adapter pool state), not useAgentRunState; browser cannot compute it
 	const fetchedRunState = useAgentRunState(
 		overrideRunState ? null : data.id,
 		data.harnessAvailable,
@@ -225,7 +223,6 @@ function AgentProfileLoaded({
 	);
 	// @lore: runStateUnavailable — computeHealthSignals([]) says "not degraded"; true for zero runs, false for failed load; show unavailability alert instead
 	const runStateUnavailable = status === "error";
-	// @lore: runStateSettled — render "—" until runs confirmed; avoids painting false zeros mid-flight
 	const runStateSettled = status === "ready";
 
 	const isActive = activeSession !== null;
@@ -234,7 +231,6 @@ function AgentProfileLoaded({
 
 	const createdDate = absoluteDate(data.createdAt);
 
-	// @lore: breadcrumb — team agents show Work → Team → Name; others show Conversations → Name; parentPathFor(/agents/:id) returns /conversations as fallback
 	const agentSegments = data.teamId
 		? ([
 				{ label: "Work", to: "/work" },
@@ -486,7 +482,6 @@ function AgentProfileLoaded({
 										No sessions recorded.
 									</p>
 								) : (
-									// @lore: table element — genuinely tabular (sessions × outcome/when); gives row/col semantics free; flex/grid needs manual aria-rowcount
 									<table
 										className="type-metadata w-full "
 										aria-label="Recent agent session activity"

@@ -2,7 +2,6 @@
  * Inherited reach: probe + cache for services the machine already holds auth for.
  * Runs four probes concurrently (claude, codex, opencode, environment) and atomically
  * swaps a frozen snapshot. refresh() never rejects — every probe error degrades to [].
- * @lore: CLI helpers duplicated here (~50 lines); cross-layer sharing not legal (agent-orchestration may not import agent-execution)
  */
 
 import { execFile } from "node:child_process";

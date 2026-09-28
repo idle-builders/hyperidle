@@ -1,6 +1,5 @@
 /**
  * @lore: ws-token — only source of WS upgrade tokens; must not accept master API key via ?token=; token in upgrade URL (browsers cannot set Authorization on WS)
- * @lore: ws-token — 32-byte random, 60s TTL, single-shot
  */
 
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";

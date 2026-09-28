@@ -83,8 +83,6 @@ export interface ServerStopMessage {
 
 /**
  * Sent by the server to acknowledge a WorkerRegisterMessage.
- *
- * @lore: worker blocks after sending register until it receives "registered" — ensures the pool entry is live before accepting sessions
  */
 export interface ServerRegisteredMessage {
 	readonly type: "registered";

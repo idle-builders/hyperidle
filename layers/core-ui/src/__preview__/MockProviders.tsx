@@ -14,7 +14,6 @@
  *    stable default (the exact { overlayOpen: false, attachContext: noop }
  *    default declared in AssistantContext.tsx).
  *
- * @lore MockProviders lives in core-ui, not framework/design-system — DS has no react-router-dom dep; importing router or AssistantContext into DS breaks check
  *
  * A surface needing a route param wraps its children in
  * `<Routes><Route path=… element=… /></Routes>` itself — MockProviders

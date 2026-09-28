@@ -1,7 +1,7 @@
 /**
  * SessionView — the header Stop control.
  *
- * @lore the Stop button calls call("stop_session", {id}) directly, disabled once streaming ends — the terminal state arrives via useSessionActivity nudge.
+ * @lore: Stop button — terminal state arrives via useSessionActivity nudge, not the stop_session call result; assert from the nudge not the response
  */
 
 import { render, screen } from "@testing-library/react";

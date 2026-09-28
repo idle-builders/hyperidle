@@ -7,7 +7,6 @@ import { type Status, StatusChip } from "./StatusChip";
 import { Tag } from "./Tag";
 import type { TagKind } from "./tag-kinds";
 
-// @lore: PresenceDot kept inline — extraction saves nothing without a DS export; both are 10 lines; keep in sync with ThreadHostBanner
 function ThreadRowPresenceDot({
 	status,
 	initials,
@@ -44,9 +43,6 @@ export interface ThreadRowProps {
 	actions?: ReactNode;
 	unread?: boolean;
 	onClick?: () => void;
-	/**
-	 * @lore: conversation queue rows must be real links — ⌘-click, middle-click, copy-link, and hover-preview require <a href>
-	 */
 	href?: string;
 	blocking?: boolean;
 	kind?: "review" | "chat";
@@ -139,7 +135,6 @@ export function ThreadRow({
 						{title}
 					</span>
 					{hostTag && (
-						// @lore: host pill not <Tag> — Tag is sans-12px @ --r2; this slot needs mono-10px @ 1px-6px @ --r-pill; promote to HostPill when a second consumer surfaces.
 						<span
 							data-testid="thread-row-host-pill"
 							className="type-data inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)]    bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] whitespace-nowrap"

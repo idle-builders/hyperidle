@@ -7,7 +7,7 @@
  * worst case), and 375x812 (the mobile AppShell branch, a different DOM
  * chain at the <=768px cut).
  *
- * @lore a sweep over zero routes reads as passing forever — the first assertion hard-fails if ROUTES is empty; keep it when trimming the list.
+ * @lore: route sweep guard — a sweep over zero routes passes forever; first assertion hard-fails if ROUTES is empty; keep it when trimming the list
  */
 
 import {
@@ -253,7 +253,6 @@ const ROUTES: readonly RouteCase[] = [
 		},
 	},
 	{
-		// @lore The bet page and its nested task page are the same page now, so this is one row.
 		name: "work-task",
 		url: `/work/task/${ROOT_TASK_ID}`,
 		readySelector: "[data-testid='task-detail-page']",
@@ -262,7 +261,6 @@ const ROUTES: readonly RouteCase[] = [
 		},
 	},
 	{
-		// @lore `/work/routine/:id` and WorkRoutine are gone — subscriptions replace routines, and they live on AgentProfile now, not their own page.
 		name: "agent-profile",
 		url: `/agents/${AGENT_ID}`,
 		readySelector: "[data-testid='agent-profile-page']",
@@ -337,7 +335,6 @@ const ROUTES: readonly RouteCase[] = [
 		url: `/conversations/${THREAD_ID}`,
 		readySelector: "[data-testid='conversations-page']",
 		setup: async (page) => {
-			// @lore No `bet` host kind — a task's own thread is `team`-hosted.
 			await mockThread(page, {
 				thread: makeThread(THREAD_ID, { hostKind: "team", hostId: ROOT_TASK_ID }),
 				messages: [],

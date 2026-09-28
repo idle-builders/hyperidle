@@ -5,8 +5,6 @@ import { AGENT_CATEGORIES, HARNESS_TYPES, ORG_EDGE_MECHANISMS } from "../types.j
 import type { ActionDeclaration, Problem } from "./action.js";
 import { DOCUMENT_SLOTS } from "./document.js";
 
-// @lore: user actions — core-ui imports this directly; browser needs the exact server shape; subscriptions replace routines; team and org edges are attributes
-
 export const USER_KINDS = ["human", "ai"] as const;
 export type UserKind = (typeof USER_KINDS)[number];
 

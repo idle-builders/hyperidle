@@ -1,7 +1,5 @@
 /**
  * RemoteWorkerClient — manages the desktop worker WebSocket connection.
- * @lore: no auto-reconnect; if WS drops, status = disconnected; user must toggle off and on to reconnect
- * @lore: CliHarnessAdapter instantiated once, reused across concurrent sessions (session ID tracked in a Map)
  */
 
 import type {
@@ -27,7 +25,6 @@ export interface RemoteWorkerClientOptions {
 	 * How long disconnect() waits for active sessions to complete before force-stopping them.
 	 * Defaults to 60_000ms (60s) in production. Injectable for tests.
 	 *
-	 * @lore: disconnectTimeoutMs injectable — 60s real-time wait is not acceptable in unit tests
 	 */
 	disconnectTimeoutMs?: number;
 }
@@ -53,8 +50,6 @@ export interface WorkerStatus {
  * The second constructor parameter accepts typeof WebSocket for production
  * or a vi.fn() mock for tests. The mock must return a WebSocket-compatible
  * object when called (either via `new` or as a regular function).
- *
- * @lore: wsConstructor — stored and called with `new`; vi.fn().mockImplementation(() => mockInstance) works (vitest supports `new` when impl returns an object)
  */
 export class RemoteWorkerClient {
 	private readonly options: RemoteWorkerClientOptions;

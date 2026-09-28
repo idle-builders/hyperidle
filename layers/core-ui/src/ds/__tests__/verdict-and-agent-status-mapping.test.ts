@@ -41,7 +41,6 @@ describe("TASK_OUTCOME_VERDICT_STATUS (AI4 AC5, Decision 6)", () => {
 	});
 
 	it("maps met_with_rework to 'behind' (amber — not a clean pass)", () => {
-		// @lore amber-for-not-clean-win: amber for anything "not a clean win"
 		expect(TASK_OUTCOME_VERDICT_STATUS.met_with_rework).toBe("behind" satisfies Status);
 	});
 

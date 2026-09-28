@@ -1,4 +1,3 @@
-// @lore: E2E vite config — proxies /api to a real Hono test server; VITE_API_PORT set by playwright.ah1.config.ts webServer env
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 

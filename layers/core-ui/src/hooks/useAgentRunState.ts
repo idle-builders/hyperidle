@@ -1,5 +1,3 @@
-// @lore: harnessAvailable comes from core-api (adapter pool state) not from session rows — the one health input the browser cannot compute from runs alone
-
 import type { AgentHealthLevel, AgentOperationalStatus, SessionRow } from "@hyperidle/domain-model";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { call } from "../services/call.js";
@@ -11,7 +9,6 @@ import type {
 } from "./agent-health.js";
 import { computeHealthSignals, deriveHealthDetail, deriveHealthLevel } from "./agent-health.js";
 
-// @lore: RunStateStatus — callers must NOT show defaults on "error"; pre-fetch "idle"/"healthy" is indistinguishable from a crashed-but-healthy agent
 export type RunStateStatus = "loading" | "ready" | "error";
 
 const MAX_SESSIONS = 500;

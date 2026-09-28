@@ -6,7 +6,6 @@
  * No status glyph — reasoning is never success/failure.
  *
  */
-// @lore: reasoning Part kind — carries durationMs for resting label; renders quieter than prose; renderer concern belongs in dispatch, not ad-hoc wrapping
 
 import { type JSX, useState } from "react";
 import type { Part } from ".";

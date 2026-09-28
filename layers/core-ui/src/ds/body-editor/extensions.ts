@@ -1,8 +1,4 @@
-// @lore: two builder fns (full/mini) — mini never loads heading/list/table code; variant split is in extension array, not hook conditionals
-
 // @lore: codeBlock:false in StarterKit — CodeBlockLowlight provides syntax highlighting; StarterKit built-in codeBlock is inactive
-
-// @lore: @tiptap/suggestion not in StarterKit — must be installed separately; used by slash-menu.tsx
 
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Image from "@tiptap/extension-image";
@@ -74,7 +70,6 @@ export function buildFullExtensions(placeholder: string): AnyExtension[] {
 	];
 }
 
-// @lore: mini variant — inline formatting only (no heading/list/table/slash-menu); for short structured text fields
 export function buildMiniExtensions(placeholder: string): AnyExtension[] {
 	return [
 		StarterKit.configure({

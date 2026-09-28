@@ -20,8 +20,6 @@ const logger = createLogger({ pkg: "event-bus" });
  * Events are delivered synchronously — emit() returns only after all handlers
  * have been called. This guarantees at-least-once delivery when emit() is called
  * after database write durability.
- *
- * @lore: one throwing handler must not abort delivery — a bad subscriber silently breaks every handler after it; try/catch+log limits blast radius
  */
 export class EventBus {
 	private readonly handlers = new Map<EventType, Set<EventHandler<EventType>>>();

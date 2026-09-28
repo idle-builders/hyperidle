@@ -1,4 +1,3 @@
-// @lore: user-store executor — plain HyperIdleDb param; drizzle tx is structurally compat; callers pass tx as HyperIdleDb inside db.transaction
 // @lore: updateUser patch — admits SQL per column for atomic patches; SQL expressions stay race-free under concurrent writes
 
 import {
@@ -109,7 +108,6 @@ export function listUsers(exec: HyperIdleDb, filter: UserFilter = {}): Promise<U
 // Writes
 // ===========================================================================
 
-// @lore: insertUser — WriteExecutor not HyperIdleDb; agent identity + agent_run_config are two writes; transaction wraps both to prevent silent null-config
 export async function insertUser(exec: WriteExecutor, values: NewUser): Promise<void> {
 	await exec.insert(users).values(values);
 }

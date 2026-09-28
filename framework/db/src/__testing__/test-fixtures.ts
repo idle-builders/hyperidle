@@ -18,13 +18,13 @@ export interface TestDbLease {
 	readonly release: () => Promise<void>;
 }
 
-// @lore isolate:false reuses worker DB — key owner bag by per-test wrapper; detach and await before checkin; no late projection crosses
+// @lore: isolate:false reuses worker DB — key owner bag by per-test wrapper; detach and await before checkin; no late projection crosses
 const fixtureCleanupBags = new WeakMap<HyperIdleDb, FixtureCleanupBag>();
 
 /**
  * Unwrap drizzle-orm 0.45.2+ wrapped errors in tests.
  *
- * @lore drizzle-orm 0.45.2 wraps PGlite errors — "Failed query:…" outer msg hides cause; normalizer re-throws cause.message so assertions see real DB error
+ * @lore: drizzle-orm 0.45.2 wraps PGlite errors — "Failed query:…" outer msg hides cause; normalizer re-throws cause.message so assertions see real DB error
  */
 function unwrapDrizzleError(err: unknown): never {
 	if (

@@ -12,11 +12,6 @@
  * testMatch targets only ah1-*.spec.ts files so the rest of the e2e suite
  * is unaffected (it continues to run via the main playwright.config.ts).
  *
- * @lore port layout: 3099=API (Hono+PGlite tmp dir), 5180=Vite (proxies /api→3099); 3001/5179 are main dev/test ports
- *
- * @lore API server: mkdtemp fresh PGlite dir, apply migrations, boot createServer(3099, {db}); deps.db bypasses file-path DB resolution
- *
- * @lore VITE_HYPERIDLE_API_KEY must match HYPERIDLE_API_KEY in API server env — apiFetch injects it as X-API-Key; mismatch → 401 on every API call
  */
 import { defineConfig, devices } from "@playwright/test";
 

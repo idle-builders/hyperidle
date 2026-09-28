@@ -1,4 +1,3 @@
-// @lore: SplitView is presentational; this hook owns persistence — reads last ratio on mount, writes on drag; clamped 0.2–0.8, NaN-safe
 import { useCallback, useState } from "react";
 
 const PREFIX = "hyperidle.split.";

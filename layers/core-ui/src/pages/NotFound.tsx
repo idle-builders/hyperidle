@@ -2,8 +2,6 @@ import { type JSX, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, ErrorState, PageHeader, PageScaffold } from "../ds";
 
-// @lore: onRetry omitted — hardcodes "Retry" label; 404 needs "Go to conversations"; both action buttons rendered in action slot instead
-
 const SAD_FACE_ICON = (
 	<svg
 		width="24"
@@ -27,7 +25,6 @@ const SAD_FACE_ICON = (
 export function NotFound(): JSX.Element {
 	const navigate = useNavigate();
 
-	// @lore: #root height — NotFound is outside AppShell; without AppShell h-full = content-only; force 100vh on mount so centered layout works
 	useEffect(() => {
 		const root = document.getElementById("root");
 		if (!root) return;
@@ -61,7 +58,6 @@ export function NotFound(): JSX.Element {
 							</Button>
 							<Button
 								variant="secondary"
-								// @lore: go-back button — navigate(-1) exits app on direct entry; falls back to /work when no history
 								onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/work"))}
 								data-testid="not-found-go-back"
 							>

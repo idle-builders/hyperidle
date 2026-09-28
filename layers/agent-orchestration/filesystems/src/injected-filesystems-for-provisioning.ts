@@ -2,7 +2,6 @@
  * Session-launch-time injected-filesystem read, in-layer.
  * Reads filesystem injections live so a filesystem assigned after emit still reaches the sandbox.
  *
- * @lore: injected-filesystems — agentId arrives on the drained request (core put it there); orchestration reads its own two tables; never a core-api read
  */
 
 import type { WriteExecutor } from "@hyperidle/db";

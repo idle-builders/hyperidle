@@ -36,7 +36,6 @@ interface RunOrchestrationRemoteHarnessAdapterFactory {
 
 // ── Zod schemas for worker protocol messages ──────────────────────────────────
 
-// @lore: worker message validation — Zod parse before processing; prevents type-unsafe `as` casts from propagating malformed messages into session routing
 const WorkerRegisterSchema = z.object({
 	type: z.literal("register"),
 	id: z.string().min(1),
@@ -77,7 +76,6 @@ const WorkerToServerMessageSchema = z.discriminatedUnion("type", [
 	WorkerResumeSchema,
 ]);
 
-// @lore: LIVE_WORKER_SOCKETS — AdapterPool stores no WS ref; readyState tracked separately to avoid coupling pool to WebSocket; module-level so managers share it
 const LIVE_WORKER_SOCKETS = new Map<string, { isLive: () => boolean }>();
 
 /**

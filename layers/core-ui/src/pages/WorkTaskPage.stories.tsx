@@ -7,7 +7,6 @@
  * Per visual-regression.md: stories render POPULATED real state only.
  * No skeleton or error states in an initial design.
  *
- * @lore HostThreadSection reads task.threadId directly (no hostKind:"task" lookup); loads via POST /api/actions/open_thread; mock provides threadId per story
  */
 
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -45,7 +44,6 @@ function makeTask(
 		state: overrides.state ?? "proposed",
 		position: overrides.position ?? 0,
 		dependencies: null,
-		// @lore Task.threadId is NOT NULL — every task gets its own thread at creation
 		threadId: overrides.threadId ?? `${overrides.id ?? "task-1"}-thread`,
 		notes: null,
 		outcomeVerdict: null,

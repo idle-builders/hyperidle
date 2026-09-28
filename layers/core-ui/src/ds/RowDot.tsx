@@ -1,7 +1,5 @@
 import type { JSX } from "react";
 
-// @lore: RowDot is static + tone-keyed; LiveDot is pulsing accent for live-activity — do NOT copy LiveDot markup or animate-pulse class
-
 export type RowTone = "success" | "warning" | "error" | "info" | "neutral";
 
 export interface RowDotProps {
@@ -18,7 +16,6 @@ export interface RowDotProps {
 	title?: string;
 }
 
-// @lore: TONE_COLOR exported — consumers needing a tone→color ladder reuse this instead of forking; RowDot is presentation, TONE_COLOR is data
 export const TONE_COLOR: Record<RowTone, string> = {
 	success: "var(--status-success)",
 	warning: "var(--status-warning)",

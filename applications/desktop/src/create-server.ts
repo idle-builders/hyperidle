@@ -1,5 +1,3 @@
-// @lore: desktop can't import @hyperidle/remote-server (app→app crossing); duplicates remote-server composition root; topology:"local" hostname:"127.0.0.1"
-
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as os from "node:os";
@@ -154,7 +152,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 
 	const agentExecution = await bootAgentExecution({ topology: deps.topology, mcpBaseUrl });
 
-	// @lore: agentOrchestrationTransport — typed as Parameters<typeof buildAgentOrchestrationPort>[0]; avoids governance import to @hyperidle/api-contract
 	let realAgentOrchestrationTransport:
 		| Parameters<typeof buildAgentOrchestrationPort>[0]
 		| undefined;
@@ -166,7 +163,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	};
 	const agentOrchestrationPort = buildAgentOrchestrationPort(agentOrchestrationTransport);
 
-	// @lore: onHarnessRedetect — deferred binding; bootCoreApi runs before bootAgentOrchestration; real refresh filled post-boot; handlers fire only on composed app
 	let realInheritedReachRefresh: (() => Promise<void>) | undefined;
 	const onHarnessRedetect: () => Promise<void> = () => {
 		if (!realInheritedReachRefresh) {
@@ -223,7 +219,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			sandboxBasePath,
 			worker: {
 				pool: agentExecution.adapters.pool,
-				// @lore: createWorkerAdapter — forwarded structurally; Application can't import @hyperidle/harness-protocol (governance crossing); function value carries type
 				createWorkerAdapter: agentExecution.adapters.createWorkerAdapter,
 			},
 			reapers: {
@@ -278,7 +273,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		websocket: { server: wss },
 	});
 
-	// @lore: @hono/node-server — with hostname, listen routes through dns.lookup and bind is async; httpServer.address() is null until listening event fires
 	await new Promise<void>((resolve, reject) => {
 		if (httpServer.listening) {
 			resolve();

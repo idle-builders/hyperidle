@@ -8,7 +8,6 @@
  * - GFM markdown serialization via tiptap-markdown
  *
  */
-// @lore: body-editor.css — relative import; scoped under .body-editor to prevent global style pollution
 
 import { EditorContent } from "@tiptap/react";
 import type { JSX } from "react";

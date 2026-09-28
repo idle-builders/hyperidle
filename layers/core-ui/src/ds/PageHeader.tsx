@@ -1,7 +1,3 @@
-// @lore: tracking-[-0.01em] literal — negative-em kerning has no token equivalent; design/no-handcoded-tracking only forbids positive-em literals
-
-// @lore: pageTitleClassName exported — DocumentCreate reuses it on <input> to avoid no-handrolled-page-header lint on a literal class combo
-
 // hearth-internal-padding
 import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs.js";

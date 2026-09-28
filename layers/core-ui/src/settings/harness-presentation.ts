@@ -1,5 +1,3 @@
-// @lore: ALL presence decisions flow through these functions — zero per-harness-type branching; ESLint no-restricted-syntax enforces it
-
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { Status } from "../ds";
 
@@ -68,7 +66,6 @@ export function hasActionableNextStep(d: HarnessCapabilityDescriptor): boolean {
 	return true;
 }
 
-// @lore: showsToggle — real persisted control; every harness can be disabled including the last one; no always-present harness
 export function showsToggle(d: HarnessCapabilityDescriptor): boolean {
 	const s = getDiscovery(d).state;
 	return s === "ready" || s === "unauthenticated" || s === "installed";
@@ -79,7 +76,6 @@ export function isEnabled(d: HarnessCapabilityDescriptor): boolean {
 	return !discovery.disabled;
 }
 
-// @lore: provenCapabilities — caps never populated in production; always returns []
 export function provenCapabilities(_d: HarnessCapabilityDescriptor): readonly string[] {
 	return [];
 }

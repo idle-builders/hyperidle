@@ -164,7 +164,6 @@ describe("rule items materialise to knowledge/rules/", () => {
 });
 
 describe("agent_file items are bound to a specific agent", () => {
-	// @lore an agent file bound to THIS agent is baked into AGENTS.md "## Identity" — materialising it into knowledge/rules/ too would duplicate it.
 	it("does not re-materialise the bound agent's own identity", async () => {
 		const bundle = makeBundle("agent-alpha", [
 			{
@@ -310,7 +309,6 @@ describe("a prompt item never reaches the sandbox", () => {
 });
 
 describe("ordinary items are unaffected", () => {
-	// @lore an ordinary item materialises into knowledge/, shaped by its baked parent chain, not a layer zone.
 	it("ordinary item materialises into knowledge/", async () => {
 		const bundle = makeBundle("agent-1", [
 			{

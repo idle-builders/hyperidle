@@ -63,7 +63,6 @@ export type ValidatedJson<T extends z.ZodTypeAny> = {
  * Request body validator using Zod.
  * Returns 400 with VALIDATION_ERROR code on failure.
  *
- * @lore: @hono/zod-validator uses a deduped zod whose $ZodType brand differs from server schemas; inferring overload unreachable; only cast is schema as never
  */
 export function validateBody<T extends z.ZodTypeAny>(
 	schema: T,

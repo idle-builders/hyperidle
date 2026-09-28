@@ -2,7 +2,6 @@ import { type JSX, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { call } from "../services/call.js";
 
-// @lore: first-run routing — API failure defaults to /setup (not /conversations); fresh install may have timing issues; /setup always safe
 export function FirstRunRedirect(): JSX.Element {
 	const [target, setTarget] = useState<string | null>(null);
 

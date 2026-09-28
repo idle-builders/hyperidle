@@ -89,7 +89,6 @@ export function GlobalSearchPanel({
 		onClose,
 	});
 
-	// @lore: focus on mount — ref callback used instead of autoFocus (biome noAutofocus forbids it)
 	const focusRef = useCallback((node: HTMLInputElement | null): void => {
 		node?.focus();
 	}, []);

@@ -77,9 +77,6 @@ const BASE_PROFILE: AgentProfileData = {
 	},
 };
 
-/**
- * @lore run state fetched from agent-orchestration separately; stories inject it via prop
- */
 const BASE_RUN_STATE: AgentRunState = {
 	status: "ready",
 	activeSession: null,
@@ -232,7 +229,6 @@ export const StrategyAgent = (): JSX.Element =>
 				...BASE_PROFILE,
 				name: "Scout Strategy",
 				role: "scout",
-				// @lore agentCategory "strategy" is not valid; use "individual"
 				agentCategory: "individual",
 				teamName: null,
 				teamId: null,

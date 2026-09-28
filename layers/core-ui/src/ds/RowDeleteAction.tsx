@@ -1,9 +1,3 @@
-// @lore: destructive delete behind a Menu — no inline one-click Delete on a row
-
-// @lore: Menu closes after onSelect so two-step confirm flips row to inline Confirm/Cancel; cannot stay inside one open menu
-
-// @lore: Menu always anchored not inline — row-level kebab can be in overflow-hidden containers; inline menu clips at the box edge; anchoring escapes it
-
 import { type JSX, useCallback, useRef, useState } from "react";
 import { Menu, type MenuItem } from "./Menu.js";
 

@@ -2,8 +2,6 @@
  * The server-persisted config singleton: read returns defaults on an empty
  * table, write merges partial patches, and a corrupt or superseded config
  * column falls back to defaults instead of throwing.
- *
- * @lore `notifications` is never read — a subscription's `paused` flag is the one mute mechanism; an old row carrying the dead key must still parse.
  */
 
 import { serverConfig } from "@hyperidle/db";

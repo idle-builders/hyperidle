@@ -86,7 +86,6 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 	);
 
 	const handleMessageKeyDown = useCallback(
-		// @lore: textarea onKeyDown — Input.tsx casts to HTMLInputElement; widening to HTMLTextAreaElement union is type-correct; reads key/shiftKey/preventDefault only
 		(e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
 			if (e.key === "Escape") {
 				onCancel();

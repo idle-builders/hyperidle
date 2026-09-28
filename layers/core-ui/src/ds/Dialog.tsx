@@ -111,7 +111,6 @@ export function Dialog({
 					// initialFocus not set: trap moves focus to first tabbable element
 					allowOutsideClick: true,
 					fallbackFocus: "[data-dialog-box]",
-					// @lore: displayCheck:"none" — required for jsdom; jsdom skips visibility computation; trap throws without it
 					tabbableOptions: { displayCheck: "none" },
 				}}
 			>

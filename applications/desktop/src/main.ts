@@ -256,7 +256,6 @@ async function runMigrationsWithRetry(
 			migrated = true;
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "";
-			// @lore: PGlite — throws "database is locked" or Postgres error code 55P03 when another process holds the data directory
 			if (msg.includes("locked") || msg.includes("55P03")) {
 				const response = await dialog.showMessageBox({
 					type: "warning",
@@ -378,7 +377,6 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	const preloadPath = path.join(Dirname, "preload.js");
 	log("boot:local preload", { preloadPath, exists: fs.existsSync(preloadPath) });
 
-	// @lore: backgroundColor — must stay in sync with --surface-container (#242418); mismatch causes flash of wrong color before app shell paints
 	const mainWindow = new BrowserWindow({
 		x: windowState.x,
 		y: windowState.y,
@@ -473,7 +471,6 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 	const windowState = clientConfig.windowState;
 	const preloadPath = path.join(Dirname, "preload.js");
 
-	// @lore: backgroundColor — must stay in sync with --surface-container (#242418); mismatch causes flash of wrong color before app shell paints
 	const mainWindow = new BrowserWindow({
 		x: windowState.x,
 		y: windowState.y,

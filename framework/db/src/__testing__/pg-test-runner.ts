@@ -1,7 +1,5 @@
 import { spawnSync } from "node:child_process";
 
-// @lore Real-Postgres runner — DATABASE_URL unset exits 0; set it to run vitest against real cluster; no PGlite env mutation; real-PG is opt-in
-
 /** Redact the password from a DB connection URL for safe logging. */
 function redactDbUrl(url: string): string {
 	let out = url;

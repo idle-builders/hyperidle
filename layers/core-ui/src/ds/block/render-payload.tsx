@@ -51,6 +51,5 @@ export function renderPayload(
 		case "unknown":
 			return <UnknownPayload raw={payload.raw} reason={payload.reason} />;
 	}
-	// @lore: unreachable throw — TS does not treat switch-on-discriminant as exhaustive; satisfies TS2366
 	throw new Error(`Unhandled payload kind: ${(payload as { kind: string }).kind}`);
 }

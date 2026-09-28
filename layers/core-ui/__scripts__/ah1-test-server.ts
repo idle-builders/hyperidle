@@ -10,11 +10,7 @@
  * Flow: mkdtemp → apply Drizzle migrations against it → open a live PGlite
  * handle on the same dir → boot Hono server.
  *
- * @lore test server: main e2e suite mocks all /api/* routes; this script adds minimal glue for real credential routes (PUT/GET /api/credentials/*)
- *
- * @lore workspace hoisting: pglite, @hyperidle/db and @hyperidle/server available from root node_modules — not a dep of core-ui/package.json
- *
- * @lore port 3099: avoids collision with dev server (3001) and Vite ports (5179/5180)
+ * @lore: workspace hoisting — pglite/@hyperidle/db/@hyperidle/server from root node_modules, not core-ui deps; adding explicit deps risks version divergence
  */
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -77,7 +73,6 @@ function shutdown(): Promise<void> {
 			process.stderr.write(`[ah1-test-server] database close failed: ${String(error)}\n`);
 			exitCode = 1;
 		}
-		// @lore shutdown removes the mkdtemp data dir — there IS a file to clean up (per-boot tmp dir PGlite, not in-memory)
 		try {
 			await rm(dataDir, { recursive: true, force: true });
 		} catch (error) {

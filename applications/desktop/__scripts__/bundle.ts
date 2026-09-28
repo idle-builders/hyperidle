@@ -5,13 +5,9 @@
  * A separate preload entry produces dist/preload.js.
  * splash.html is copied to dist/.
  *
- * @lore desktop: bundle from main.ts — inlines all hyperidle packages into one CJS; eliminates split-brain dep management and runtime require() tricks
+ * @lore: desktop: node target is node24 — Electron 42 ships Node 24.x (ABI 137); node22 prevents Node 24 API use
  *
- * @lore desktop: postgres/drizzle-orm/postgres-js stubbed — desktop uses PGlite only; pglite externalized so WASM binary resolvable at runtime from node_modules
- *
- * @lore desktop: node target is node24 — Electron 42 ships Node 24.x (ABI 137); node22 prevents Node 24 API use
- *
- * @lore desktop: preload.js not .cjs — main.ts path.join reference resolves in dev (tsx .js→.ts) and production (esbuild outputs preload.js)
+ * @lore: desktop: preload.js not .cjs — main.ts path.join reference resolves in dev (tsx .js→.ts) and production (esbuild outputs preload.js)
  */
 
 import * as fs from "node:fs";
@@ -42,7 +38,6 @@ const PG_STUB_MODULES = ["postgres", "drizzle-orm/postgres-js"];
 // packaged with the Electron app (only dist/**/* is included), these sub-path
 // requires would fail at startup. We stub them with minimal shims that satisfy
 // the interface expected by the generated validators.
-// @lore desktop: AJV runtime stubs — generated MCP validators emit require() calls for ajv runtime helpers; stubs prevent startup failures in packaged app
 const AJV_STUB_MODULES = [
 	"ajv/dist/runtime/validation_error",
 	"ajv/dist/runtime/uri",
@@ -69,12 +64,11 @@ const pgStubPlugin: esbuild.Plugin = {
 };
 
 // Bundle main process
-// @lore desktop: import.meta.url undefined in CJS output — esbuild empties import.meta; MCP SDK calls createRequire(import.meta.url) without guard; define+banner replaces it before esbuild shims
+// @lore: desktop import.meta.url — undefined in CJS (esbuild); MCP SDK calls createRequire(import.meta.url) without guard; define+banner must replace it
 await esbuild.build({
 	entryPoints: [path.join(DESKTOP_DIR, "src/main.ts")],
 	bundle: true,
 	platform: "node",
-	// @lore desktop: Electron 42 ships Node 24.x — use node24 as the esbuild target.
 	target: "node24",
 	format: "cjs",
 	outfile: path.join(DIST_DIR, "main.cjs"),
@@ -127,7 +121,6 @@ const ALLOWED_EXTERNALS = new Set([
 	// These are data strings embedded by AJV for use in generated validator code —
 	// they are not require() calls that execute at module load time. Adding them
 	// here tells the validator to skip these false-positive matches.
-	// @lore desktop: AJV embeds require() strings as code templates — validator regex matches but never executed; all schemas pre-compiled by MCP SDK at build time
 	...AJV_STUB_MODULES,
 ]);
 

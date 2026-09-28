@@ -367,7 +367,6 @@ function assemblePrompt(input: PromptCompositionInput): PromptCompositionResult 
  * Synchronous — consistent with other context-assembly writes.
  *
  * @lore: writeSandboxAgentsMd dual-write — writes AGENTS.md AND CLAUDE.md (identical); all adapters read CLAUDE.md; AGENTS.md-only would break every harness
- * @lore: writeSandboxAgentsMd CLAUDE.md — drop CLAUDE.md write once every adapter is verified to auto-discover AGENTS.md; until then, dual-write stays
  */
 /**
  * Root-level files emitted by writeSandboxAgentsMd (dual-write: AGENTS.md + CLAUDE.md).
@@ -542,7 +541,6 @@ function cleanDirectory(dirPath: string): void {
 	fs.rmSync(dirPath, { recursive: true, force: true });
 }
 
-// @lore: CONTEXT_ASSEMBLY_DIRS — one writable watched knowledge/ tree; knowledge/rules survives because slot='rule' items land there regardless of tree position
 const CONTEXT_ASSEMBLY_DIRS = [".fabric", "context", "knowledge/rules", "work/artifacts"] as const;
 
 // @lore: HARNESS_SKILL_DIRS — empirically verified: .claude/skills (claude+cursor+opencode), .agents/skills (codex+cursor+opencode); re-probe on harness change
@@ -701,10 +699,7 @@ function writeSkillItem(sandboxPath: string, item: BakedContextDocument): string
  * manifest entries — the pure write-side counterpart to the (deleted)
  * `fetchAllForLayer`/`rankAndBudget` DB-reading pair.
  *
- * @lore: writeBundleKnowledge roles — skill/rule/agent_file routed by role, not layer
- * @lore: writeBundleKnowledge agent_file — agent identity already in AGENTS.md "## Identity"; materialising here duplicates it; unbound agent files still written
- * @lore: writeBundleKnowledge agentBindingId — already-derived upstream in toBakedContextDocuments; this function only compares the value
- *
+
  */
 function writeBundleKnowledge(
 	sandboxPath: string,
@@ -716,7 +711,6 @@ function writeBundleKnowledge(
 	for (const item of knowledge) {
 		const role = item.slot;
 
-		// @lore: knowledge prompt guard — prompt role skipped here (it is the run's instruction, not a sandbox file); fall-through, not guarded by role==='ordinary'
 		if (role === "prompt") continue;
 
 		if (role === "skill") {

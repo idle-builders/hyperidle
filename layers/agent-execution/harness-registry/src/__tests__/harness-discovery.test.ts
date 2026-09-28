@@ -16,7 +16,6 @@ opencode/good
 
 const response = (stdout = "", exitCode = 0, stderr = "") => ({ stdout, stderr, exitCode });
 
-// @lore this file keeps only the harness-family assertions — inherited-reach probes live in agent-orchestration/connections.
 function discoveryRunner(overrides: Readonly<Record<string, ReturnType<typeof response>>> = {}) {
 	const defaults: Readonly<Record<string, ReturnType<typeof response>>> = {
 		"codex --version": response("codex-cli 1.2.3"),

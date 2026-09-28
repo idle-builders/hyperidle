@@ -1,7 +1,3 @@
-// @lore: tracking-[var(--tracking-caps-sm)] token form required — design/no-hardcoded-tracking forbids positive-em literals; rendered value identical (0.06em)
-
-// @lore: default h3 not h2 — PageHeader title is h2; section opener is one level below; pages with SectionLabel as top heading pass as="h2"
-
 import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs.js";
 

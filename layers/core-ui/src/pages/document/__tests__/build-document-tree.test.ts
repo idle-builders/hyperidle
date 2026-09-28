@@ -1,6 +1,3 @@
-/**
- * @lore nested-knowledge-items tree-ui — pure tree assembly + collapse filter.
- */
 import { describe, expect, it } from "vitest";
 import {
 	buildDocumentTree,

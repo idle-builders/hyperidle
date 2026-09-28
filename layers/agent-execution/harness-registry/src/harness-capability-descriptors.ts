@@ -69,7 +69,6 @@ function describe(
 	const type = meta.type ?? meta.name;
 
 	if (isKnownHarnessFamily(type)) {
-		// @lore: known harness descriptor — discoveries[type].models wins over caps.descriptorModels; probed models always override static fallback
 		const discoveredModels = discoveries?.[type]?.models;
 		const models: readonly HarnessModelDescriptor[] =
 			discoveredModels && discoveredModels.length > 0 ? discoveredModels : cliModels(caps);

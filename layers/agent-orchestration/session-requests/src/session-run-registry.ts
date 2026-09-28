@@ -1,4 +1,3 @@
-// @lore: session-run-registry — dependency-free leaf singleton; route layer and orchestrator share one instance; no circular import possible
 // @lore: abort — stopSession call is load-bearing; loop-flag alone does nothing for builtin adapters (tools run in their own loop)
 
 import type { HarnessAdapter, SessionHandle } from "@hyperidle/harness-protocol";

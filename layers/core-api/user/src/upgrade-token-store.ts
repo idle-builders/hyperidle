@@ -7,7 +7,6 @@
  * access logs or browser history and replayed.
  */
 // @lore: WS upgrade auth — browsers can't set Authorization on WS upgrade; token travels in URL; 32-byte, 60s TTL, single-shot
-// @lore: UpgradeTokenStore cap — HYPERIDLE_WS_TOKEN_MAX (default 1000) prevents unbounded Map growth; oldest evicted at cap
 
 import { randomBytes } from "node:crypto";
 

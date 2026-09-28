@@ -1,5 +1,3 @@
-// @lore: no DaisyUI — custom CSS; appearance:none removes native chrome; CSS triangle arrow
-
 // @lore: className forwarded to inner <select> NOT the wrapper — only way width overrides work; conditional w-full so caller's w-* class is sole width authority
 
 // hearth-internal-padding
@@ -23,7 +21,6 @@ const SELECT_CLASS_BASE =
 	"appearance-none px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-width-default border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] outline-hidden focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 
 // hearth-internal-padding
-// @lore: min-h-[44px] xl:min-h-[32px] — 44px floor holds at ≤1024px (touch target); xl: (≥1280px) reduces to dense height; lg: applies AT 1024px so xl: required
 const SELECT_SIZE: Record<NonNullable<SelectProps["size"]>, string> = {
 	md: "py-[10px] min-h-[44px] xl:min-h-0",
 	sm: "py-[6px] min-h-[44px] xl:min-h-[32px]",

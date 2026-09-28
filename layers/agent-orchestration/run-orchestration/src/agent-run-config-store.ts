@@ -115,7 +115,7 @@ function rowToConfig(row: {
 	return { ...rest, modelOptions: parseModelOptions(modelOptionsJson) };
 }
 
-/** Read one agent's effective run config. Never `undefined` — see this module's `@lore`. */
+/** Read one agent's effective run config. Never `undefined` — absent row is treated as all-null. */
 export async function readAgentRunConfig(
 	exec: HyperIdleDb,
 	agentUserId: string,

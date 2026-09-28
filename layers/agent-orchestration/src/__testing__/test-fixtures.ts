@@ -1,7 +1,6 @@
 /**
  * `agent-orchestration`'s own vitest fixtures.
  *
- * @lore agent-orchestration→core-api import forbidden by anti-regrowth guard; only EventBus fixture needed here; DB tests use @hyperidle/db/test-fixtures directly
  */
 
 import { EventBus } from "@hyperidle/event-bus";

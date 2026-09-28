@@ -29,7 +29,6 @@ export function headingIdentityMatches(left: string, right: string): boolean {
 	return normalizeEmpty(left) === normalizeEmpty(right);
 }
 
-// @lore: heading profiles — h1/h2 use type-scale tokens; h3-h6 map to type-subheading (smallest); font-heading absent (Hearth uses system-ui via --font-sans)
 const HEADING_PROFILE: Record<1 | 2 | 3 | 4 | 5 | 6, string> = {
 	1: "type-display",
 	2: "type-title",

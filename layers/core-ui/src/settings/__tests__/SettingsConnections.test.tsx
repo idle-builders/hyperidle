@@ -7,7 +7,6 @@
  * appears first; removable held rows show overflow menu, inherited rows
  * do not.
  *
- * @lore open_user({}).connections is the door — held and inherited groups are both ConnectionView rows, so the component reads every row typed.
  */
 
 import { render, screen } from "@testing-library/react";

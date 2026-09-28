@@ -319,7 +319,6 @@ const browserArtifact: ReviewArtifact<BrowserPreviewPayload> = {
 /**
  * AL2 — canonical review Subject used by the integration scaffold page.
  *
- * @lore default ReviewSubject keeps canvases mounted in production code; full composition fetches real subjects from server
  */
 export const AL2_REVIEW_SUBJECT: ReviewSubject = {
 	id: "review:AL2:fixture",

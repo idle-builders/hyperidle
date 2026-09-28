@@ -182,7 +182,6 @@ describe("admitSession — baked agent-runnability config", () => {
 		expect(fs.existsSync(path.join(sandboxPath, ".git"))).toBe(true);
 	});
 
-	// @lore `admitSession` resolves `agentConfig.persona` into `systemPromptText` — this asserts only the half it owns.
 	test("the baked persona becomes the session's systemPromptText", async ({ db }) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({

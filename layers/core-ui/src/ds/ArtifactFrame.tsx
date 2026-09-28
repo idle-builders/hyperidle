@@ -29,11 +29,9 @@ export interface ArtifactFrameProps {
 	title?: string;
 }
 
-// @lore: bg-white on iframe — artifact viewport is paper-white; colorScheme:light stops browser from passing color-scheme:dark into srcdoc; letterbox stays light
 const FRAME_CLASS =
 	"block w-full border-width-thin border-[var(--border-subtle)] rounded-[var(--r-default)] bg-white max-h-[70vh]";
 
-// @lore: SEALED_NOTE wording — states what the frame IS; enumerating channels eventually lies when a new channel is added; present-tense wording stays true
 const SEALED_NOTE = "Runs on its own, in a box sealed off from the app.";
 
 /** Read a height out of a size-changed notification, or null if it is not one. */

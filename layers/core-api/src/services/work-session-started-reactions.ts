@@ -1,5 +1,3 @@
-// @lore: work-session-start — `markRunning` repairs dispatch-attempt before in_progress; `edit_task` returns Problem; re-dispatch on running task is no-op
-
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ActionResult, EditTaskInput, TaskView } from "@hyperidle/domain-model";

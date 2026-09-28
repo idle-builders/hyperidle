@@ -140,8 +140,7 @@ describe("DocumentBody — html block sanitizer pass-through", () => {
 		// DOMPurify-safe HTML — will not be stripped
 		const body = "<div>Hello from raw HTML</div>";
 		// deriveBlocks parses raw HTML as kind:html
-		// @lore Core remark/mdast parses raw top-level HTML as mdast `html` nodes
-		// (not a remark-gfm feature). DocumentBody must pass sanitizeHtml to Block so HtmlPayload renders correctly.
+		// DocumentBody must pass sanitizeHtml to Block so HtmlPayload renders correctly.
 		const { container } = render(<DocumentBody body={body} hostId="k-html" />);
 		// Should render a block with ds-kind=html, not ds-kind=unknown
 		const htmlBlock = container.querySelector('[data-ds-component="block"][data-ds-kind="html"]');
@@ -220,7 +219,7 @@ describe("DocumentBody — XSS defence", () => {
 	});
 
 	it("(f) markdown javascript: link href is sanitised — regression guard", () => {
-		// @lore this is a regression guard at the inline-render boundary for javascript: hrefs already stripped by deriveBlocks — a failure means renderInline has a bug.
+		// @lore: javascript: href guard — regression at inline-render boundary; hrefs stripped by deriveBlocks; failure here means renderInline has a bug
 		const body = "[click](javascript:alert(1))\n";
 		const { container } = render(<DocumentBody body={body} hostId="k-xss-f" />);
 		const anchors = container.querySelectorAll("a");

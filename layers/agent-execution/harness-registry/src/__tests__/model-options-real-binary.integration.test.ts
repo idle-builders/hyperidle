@@ -48,7 +48,6 @@ import { productionCliConfig } from "./production-cli-config.js";
 import { requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
-// @lore `track` stops any handle a test leaves unstopped in afterEach — see session-handle-tracker.ts.
 const { track } = trackHarnessSessions();
 
 const execFileAsync = promisify(execFile);

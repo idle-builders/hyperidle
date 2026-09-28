@@ -1,5 +1,3 @@
-// @lore: KpiStat is a pure content primitive — no empty/error/loading branch; callers guarantee non-empty metrics
-
 import type { JSX } from "react";
 
 export interface KpiStatMetric {

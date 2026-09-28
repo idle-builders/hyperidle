@@ -26,7 +26,6 @@ export const WithTaskRow = () => (
 );
 
 /**
- * @lore tone="secondary": --accent-secondary (orange) pulse for in-progress indicators
  */
 export const Tones = () => (
 	<div style={{ display: "flex", alignItems: "center", gap: 16 }}>

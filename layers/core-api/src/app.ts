@@ -132,7 +132,6 @@ interface AppOptions {
 	 * (which harnesses are registered/discovered), used only to gate route
 	 * mounting and answer descriptor reads (`agents.ts`, `teams-routes.ts`,
 	 * `users.ts`, `workers.ts`, `harnesses.ts`).
-	 * @lore: HarnessCapabilityReader not AdapterPool — this layer only reads capability descriptors, never provisions sessions
 	 */
 	adapterPool?: HarnessCapabilityReader;
 	/**
@@ -173,11 +172,8 @@ interface AppOptions {
 	bundledPluginsDir?: string;
 }
 
-// @lore: WeakMap keyed by Hono instance keeps disposers off the public surface; GC'd with the app
 const APP_DISPOSERS = new WeakMap<Hono, Array<() => void>>();
-// @lore: tool projection keyed off Hono instance; bootCoreApi reads it once; MCP registry and tool provider share the same composed list
 const APP_ACTION_TOOLS = new WeakMap<Hono, ReadonlyArray<RegisteredTool<HyperIdleDb>>>();
-// @lore: raw runners (not MCP-wrapped) for boot.ts to build CoreApiBoot document ports; separate WeakMap — tool and raw runner are different things
 const APP_DOCUMENT_RUNNERS = new WeakMap<
 	Hono,
 	{

@@ -13,7 +13,6 @@ export class MissingCredentialError extends Error {
  * a `provider_error` notice. Exported from @hyperidle/domain-model so both server
  * (timeout enforcement) and client (crash-recovery indicator) use the same boundary value.
  *
- * @lore: ASSISTANT_TURN_TIMEOUT_MS — 2 min: enough for a slow provider; short enough that a hung provider surfaces in the session rather than stranding the UI
  */
 export const ASSISTANT_TURN_TIMEOUT_MS = 120_000;
 
@@ -22,7 +21,6 @@ export const ASSISTANT_TURN_TIMEOUT_MS = 120_000;
  * `dispatch`'s `mapErrorToNotice` maps 401/403 → auth notice, 400 →
  * model/config notice, other codes → generic (transient) provider_error.
  *
- * @lore: HttpError — instanceof crosses agent-orchestration → agent-execution; Service→Service class import forbidden; cross-cutting errors live in domain-model
  */
 export class HttpError extends Error {
 	constructor(
@@ -57,7 +55,6 @@ export class InvalidTransitionError extends Error {
  * error, it spins. So this is rejected at write time, and the recursive CTEs
  * additionally carry a depth cap as a backstop.
  *
- * @lore: TaskCycleError — reused for the dependency graph; a cycle is a cycle regardless of which edge closed it; `relation` only changes the message
  */
 export class TaskCycleError extends Error {
 	constructor(
@@ -129,7 +126,6 @@ export class TaskDependencyBlockedError extends Error {
 /**
  * Thrown when a team is already at its WIP limit — `teams.capacity` tasks are `in_progress`.
  *
- * @lore: CapacityExceededError — co-located with InvalidTransitionError in domain-model; the error-handler's instanceof covers errors thrown by either service
  */
 export class CapacityExceededError extends Error {
 	constructor(
@@ -163,7 +159,6 @@ export class TaskInvalidTransitionError extends InvalidTransitionError {
  * the response's machine-readable `code` (when the body is `{ error, code }`
  * JSON) alongside the status and a formatted message.
  *
- * @lore: SeamRequestError — carries `.code` so callers distinguish structured route rejections (e.g. 409 TASK_CYCLE) without string-matching the message text
  */
 export class SeamRequestError extends Error {
 	constructor(

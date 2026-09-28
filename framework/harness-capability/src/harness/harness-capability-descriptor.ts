@@ -4,8 +4,6 @@ import type { ModelProvider } from "@hyperidle/domain-model";
  * The per-harness return-enforcement provisioning channel.
  * Declares HOW HyperIdle provisions return enforcement for this adapter.
  *
- * @lore: non-optional field — `npm run check` fails any adapter that doesn't declare a channel; drain-end ReturnGate is the un-bypassable backstop on all
- *
  * Channels:
  *   "sdk-inprocess"   — dead; no adapter declares this
  *   "settings-claude" — HyperIdle writes .claude/settings.json Stop hook (BLOCKING)

@@ -42,8 +42,6 @@ export interface SelectRequirements {
 	 * Caller-supplied list of disabled harness types (pool is DB-free and
 	 * select() is synchronous — cannot read server_config itself). The caller (admitSession)
 	 * reads harnessDisabled from readServerConfig(db) and passes it here.
-	 *
-	 * @lore: disabledTypes — pool is DB-free; caller reads harnessDisabled from readServerConfig(db) and passes it here
 	 */
 	readonly disabledTypes?: readonly string[];
 }
@@ -58,7 +56,6 @@ export interface AdapterFilter {
 export class AdapterPool {
 	private readonly entries = new Map<string, PoolEntry>();
 	/**
-	 * @lore: discoveries is reassignable — Object.freeze() on each assignment; the await in refresh() completes before reassign so no reader sees a partial map
 	 */
 	private discoveries?: Readonly<Record<string, HarnessDiscoveryInput>>;
 
@@ -78,8 +75,6 @@ export class AdapterPool {
 	 * Re-run discoverLocalHarnesses() and replace the discovery snapshot.
 	 * Refreshes readiness/version/auth state — does NOT run the session probe
 	 * (same probe-gating as boot; runtime caps stay false).
-	 *
-	 * @lore: pool is DB-free — caller stamps discovery.disabled from readServerConfig separately
 	 *
 	 * `discoveryDeps` is the same injectable command-runner discoverLocalHarnesses
 	 * already takes — a unit test passes a stub here so refresh() never spawns a
@@ -149,8 +144,6 @@ export class AdapterPool {
 	/**
 	 * Select the least-loaded eligible adapter and increment its active session count.
 	 * Returns null if no eligible adapter with remaining capacity exists.
-	 *
-	 * @lore: select — "least-loaded" = lowest currentLoad/maxConcurrent; filtering (capacity + modelProviders) runs before selection
 	 */
 	select(requirements?: SelectRequirements): {
 		readonly id: string;
@@ -183,7 +176,6 @@ export class AdapterPool {
 
 			// disabledTypes gate. The caller (admitSession) passes
 			// `harnessDisabled` from server_config here.
-			// @lore: no harness is exempt from disabledTypes — every adapter was installed by the person and can be turned off
 			if (
 				requirements?.disabledTypes &&
 				requirements.disabledTypes.length > 0 &&
@@ -267,8 +259,6 @@ export class AdapterPool {
 	 * harnessType. When harnessType is null, returns capabilities from any adapter
 	 * (useful when the agent has no preference — any adapter will do).
 	 * Returns null when no matching adapter is registered.
-	 *
-	 * @lore: capabilities queried at runtime via adapter.getCapabilities() — not cached; avoids stale data if adapters reconnect; O(n) scan, no I/O
 	 */
 	describe(filter?: AdapterFilter): HarnessCapabilityDescriptor[] {
 		const includeKnownMissing = filter?.includeKnownMissing ?? true;
@@ -310,17 +300,10 @@ export class AdapterPool {
  * Well-known CLI tool configurations.
  * Each tool registers with its own harnessType (binary name) so agents can
  * express a preference: harnessType: "opencode" routes to the OpenCode adapter.
- *
- * @lore: codex invocation is `codex exec <prompt> --json`; cwd is sandboxPath so no --dir flag needed; events are ndjson (turn.completed JSONL)
- *
- * @lore: CLI_TOOL_CONFIGS is exported — integration tests spawn CliHarnessAdapter from this object; a wrong flag or dropped template var fails in that lane too
  */
 export const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 	codex: {
 		binary: "codex",
-		// @lore: codex exec — single-turn headless; --json emits JSONL (turn.completed + usage); prompt via AGENTS.md in sandboxPath
-		// @lore: absent seed prompt defaults to "proceed" — codex runs on AGENTS.md; CODEX_HOME injection also appends --dangerously-bypass-hook-trust
-		// @lore: --model {{model}} passes the resolved model to codex; all three harnesses (claude, codex, opencode) receive the model as an explicit CLI arg
 		// @lore: --sandbox workspace-write — codex defaults read-only, refuses writes without it; workspace-write allows writes within cwd tree only
 		// @lore: codex requires CWD to be a git repo — trust_level in config.toml has no observed effect; ensureSandboxGitRepo (mounter.ts) is the actual fix
 		args: ["exec", "--sandbox", "workspace-write", "--model", "{{model}}", "{{prompt}}", "--json"],
@@ -330,12 +313,10 @@ export const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = 
 		eventFormat: "ndjson",
 		envAllowlist: ["PATH", "HOME", "LANG"],
 		// Explicit channel — avoids relying on deriveCliChannel binary-string matching.
-		// @lore: explicit returnEnforcementChannel is authoritative; deriveCliChannel("codex") → "settings-codex" is a fallback only
 		returnEnforcementChannel: "settings-codex",
 		// Per-session seed prompt carrier for Codex.
 		// "positional" means the {{prompt}} template arg in args[] carries the message.
 		// CliHarnessAdapter resolves {{prompt}} to the seed prompt before spawning.
-		// @lore: without seedPrompt, re-engage runs send the same "proceed" prompt regardless of the forcing message
 		seedPrompt: "positional",
 		// Codex reads MCP server from .codex-home/config.toml;
 		// the token is delivered via HYPERIDLE_MCP_TOKEN env var (bearer_token_env_var).
@@ -354,21 +335,17 @@ export const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = 
 		// @lore: XDG_CONFIG_HOME=<sandbox>/.hyperidle/opencode-xdg-config isolates config; --pure absent: it silently disables external plugins including the gate plugin
 		args: ["run", "{{prompt}}", "--dir", "{{sandbox}}", "--format", "json", "--model", "{{model}}"],
 		envMap: {},
-		// @lore: opencode JSONL events may normalize to "unknown"; router capture (captured>=1) is on the MCP path, independent of event normalization
 		eventFormat: "ndjson",
 		// @lore: XDG_DATA_HOME isolates opencode's SQLite db — without it concurrent processes hang on ~/.local/share/opencode/opencode.db write-lock
 		envAllowlist: ["PATH", "HOME", "LANG", "OPENROUTER_API_KEY", "XDG_DATA_HOME"],
 		// Explicit channel — avoids relying on deriveCliChannel binary-string matching.
-		// @lore: explicit returnEnforcementChannel is authoritative; deriveCliChannel("opencode") → "process-reengage" is a fallback only
 		returnEnforcementChannel: "process-reengage",
 		// Per-session re-engage carrier for OpenCode (process-reengage channel).
 		// "run-arg" passes the forcing message as a positional arg to `opencode run <msg>`.
-		// @lore: without reEngageCarrier, re-engage invocations don't carry the forcing message; the agent won't know it must return
 		reEngageCarrier: "run-arg",
 		// Opencode reads MCP server from opencode.json in the sandbox cwd;
 		// the token is inline in headers.Authorization (no tokenEnv needed).
 		mcpConfig: { dialect: "opencode-json" },
-		// @lore: all opencode stderr is benign — real failures appear as non-zero exit or JSONL error events; stderrIgnorePatterns suppresses false crashes
 		stderrIgnorePatterns: [/.*/],
 	},
 };
@@ -381,8 +358,6 @@ export const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = 
  *   Injecting our key would shadow the user's configured auth and break the
  *   intended "installed harness brings its own credentials" pattern (mirrors
  *   codex reading ~/.codex/auth.json — we don't inject OpenAI keys there either).
- * @lore: claude envMap is empty — auth via ~/.claude/ credentials; ANTHROPIC_API_KEY injection shadows user auth, breaks enterprise/SSO setups
- * @lore: CLAUDE_CLI_CONFIG is exported — integration tests spawn CliHarnessAdapter from this object; a wrong flag fails in that lane
  */
 export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 	binary: "claude",
@@ -422,10 +397,6 @@ export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 
 /**
  * CLI adapter config for the `cursor-agent` binary (cursor-agent harness type).
- *
- * @lore: cursor-agent headless: --print --output-format stream-json; auth via Cursor login; --trust + --approve-mcps for headless workspace + MCP
- *
- * @lore: CURSOR_AGENT_CLI_CONFIG is exported — integration tests spawn CliHarnessAdapter from this exact object; a wrong flag fails in that lane
  */
 export const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
 	binary: "cursor-agent",
@@ -443,7 +414,6 @@ export const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
 	envMap: {},
 	eventFormat: "ndjson",
 	envAllowlist: ["PATH", "HOME", "LANG", "USER", "LOGNAME"],
-	// @lore: cursor-agent has no return enforcement — channel "none" is correct; turns held only by the drain-end gate; sessions may stop without returning
 	returnEnforcementChannel: "none",
 	eventDialect: "claude-stream-json",
 	mcpConfig: { dialect: "cursor-json" },
@@ -452,8 +422,6 @@ export const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
 /**
  * Register CLI adapters for any well-known tools that are available on PATH.
  * Silently skips tools whose binary is not found — no error thrown.
- *
- * @lore: each adapter registers with its own harnessType (binary name) — a generic "cli" type would make specific-tool selection ambiguous
  */
 async function registerCliAdaptersIfAvailable(
 	pool: AdapterPool,
@@ -481,12 +449,6 @@ async function registerCliAdaptersIfAvailable(
  * Create an AdapterPool pre-loaded with all available local adapters:
  * 1. claude-code (CliHarnessAdapter, binary `claude`) — registered if on PATH
  * 2. codex / opencode / cursor-agent — registered if their binary is on PATH
- *
- * @lore: factory keeps server-factory.ts free of adapter internals
- *
- * @lore: discoverLocalHarnesses does not run the session probe — fileEditing/toolUse capabilities stay false; probe must be wired separately to update them
- *
- * @lore: claude modelProviders ["anthropic"] is registration metadata — not getCapabilities().modelProviders (returns []); AdapterPool.select() reads it
  */
 export async function createLocalAdapterPool(opts?: {
 	enforcement?: EnforcementRegistry;
@@ -512,7 +474,6 @@ export async function createLocalAdapterPool(opts?: {
 			name: "Claude Code",
 			kind: "local",
 			type: "claude-code",
-			// @lore claude-cli-adapter: modelProviders — registration metadata only; getCapabilities().modelProviders returns []; "anthropic" matches provider sessions
 			modelProviders: ["anthropic"],
 			maxConcurrent,
 		});

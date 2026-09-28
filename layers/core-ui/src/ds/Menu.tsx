@@ -1,5 +1,3 @@
-// @lore: Menu — single owner of role=menu; all overflow menus render through here; no re-implementation of container/keyboard/Escape
-
 // @lore: anchorRef — position:fixed portal to #overlay-root escapes overflow-hidden; renders inline without it; dataAttrs spread verbatim for e2e selectors
 
 // hearth-internal-padding

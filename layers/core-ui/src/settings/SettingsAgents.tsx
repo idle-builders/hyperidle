@@ -1,6 +1,3 @@
-// @lore: SplitView ratio — dividerRatio + onRatioChange required for persistence; surfaceKey alone is presentational only
-// @lore: open_user({}).folders — team's registered folders; injection pool for agents; runsOn is install-wide
-
 // hearth-internal-padding
 
 import { HARNESS_TYPES, type HarnessType } from "@hyperidle/domain-model";
@@ -54,7 +51,6 @@ function folderToInjectable(folder: {
 	return { id: folder.id, source: folder.source, kind: folder.kind, resource };
 }
 
-// @lore: search_sessions limit 500 — action max; no cap existed on the old route; closest to "every active" available
 async function fetchActiveRunCounts(): Promise<Readonly<Record<string, number>>> {
 	const result = await call("search_sessions", { state: "active", limit: 500 }).catch(() => null);
 	if (!result?.ok) return {};
@@ -70,7 +66,6 @@ export function SettingsAgents(): JSX.Element {
 	const [agents, setAgents] = useState<AgentConfig[]>([]);
 	const [harnesses, setHarnesses] = useState<HarnessCapabilityDescriptor[]>([]);
 	const [filesystems, setFilesystems] = useState<InjectableFilesystem[]>([]);
-	// @lore: activeRunCounts — own state, not part of agent rows; counted client-side from search_sessions
 	const [activeRunCounts, setActiveRunCounts] = useState<Readonly<Record<string, number>>>({});
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -337,7 +332,6 @@ export function SettingsAgents(): JSX.Element {
 							title={agent.name}
 							subtitle={`${roleLabel(agent.role)} · ${harnesses.find((h) => h.type === agent.harnessType)?.name ?? agent.harnessType ?? "Default"} · ${activeRunCounts[agent.id] ?? 0} active`}
 							selected={isSelected}
-							// @lore: destructive delete behind Menu via RowDeleteAction; person-owned agent (ownerUserId non-null) gets no onDelete
 							actions={
 								<RowDeleteAction
 									triggerLabel={`Actions for ${agent.name}`}

@@ -9,7 +9,6 @@
  * 5. Electron, shared mode — enabled worker (connected)
  * 6. Electron, shared mode — enabled worker (paused)
  *
- * @lore window.__HYPERIDLE__ typed as HyperIdleElectronBridge; cast through unknown to install minimal stub — intersecting T still requires full interface
  */
 
 import { useMemo } from "react";

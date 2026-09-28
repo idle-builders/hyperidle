@@ -1,6 +1,3 @@
-// @lore: sidebar-system — persistent context-switching shell; desktop 276px fixed column, mobile 300px drawer
-// @lore: raw <li><button>/<Link> (not NavItem/Row) — NavItem and Row don't expose data-thread-id/team-id/document-id attrs needed for E2E selectors
-
 // hearth-internal-padding
 import type { JSX } from "react";
 import { Link } from "react-router-dom";
@@ -8,7 +5,6 @@ import { Button, LiveDot, Row, Tag } from "../ds";
 import type { ViewId } from "./shell-types";
 import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
 
-// @lore: work href is /work not /work/team/:id — WorkOverview redirects for single-team; Link must produce stable bookmarkable URL
 const VIEW_HREFS: Record<ViewId, string> = {
 	conversations: "/conversations",
 	work: "/work",
@@ -242,7 +238,6 @@ function SectionHeader({
 	const isActive = view === activeView;
 	const { label, icon } = VIEW_ICONS[view];
 
-	// @lore: real Link not button — right-click opens in new tab; onViewChange is side-effect only; Link to prop handles navigation
 	return (
 		<Link
 			to={href}
@@ -427,8 +422,6 @@ function SettingsFooter({
 	);
 }
 
-// @lore: FastNavItem — plain <li><Link> for E2E data-* attrs; Row as="li" won't accept arbitrary data-* props; aria-current="page" on selected item
-
 interface FastNavItemProps {
 	label: string;
 	selected: boolean;
@@ -471,7 +464,6 @@ function FastNavItem({
 					"flex h-[44px] w-full items-center rounded-[var(--r-subtle)] px-[9px] min-[1025px]:h-[34px]",
 					"  text-[var(--text-primary)] truncate",
 					"  ",
-					// @lore: -outline-offset-1 — matches SectionHeader + NotificationButton; without it the 1px outline bleeds into adjacent rows
 					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1",
 					!selected
 						? "hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"

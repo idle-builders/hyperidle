@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
 	plugins: [react()],
-	// @lore resolve aliases prevent walk-up to primary checkout's node_modules — dissolved packages gone; without alias, old code loads and duplicate React splits
+	// @lore: resolve aliases prevent walk-up to primary checkout's node_modules — dissolved packages gone; without alias, old code loads and duplicate React splits
 	resolve: {
 		alias: {
 			"@hyperidle/design-system": resolve(import.meta.dirname, "src/ds"),
@@ -23,7 +23,6 @@ export default defineConfig({
 		setupFiles: ["./src/__testing__/test-setup.ts"],
 		include: ["src/**/*.test.{ts,tsx}"],
 		exclude: ["**/*.integration.test.{ts,tsx}"],
-		// @lore testTimeout 60s: React init + createBrowserRouter >15s under heavy CI load (10+ parallel worktrees)
 		testTimeout: 60_000,
 	},
 });

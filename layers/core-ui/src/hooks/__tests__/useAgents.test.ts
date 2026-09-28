@@ -1,7 +1,6 @@
 /**
  * useAgents — the shared agent-catalog fetch.
  *
- * @lore door-swap: `call("search_users", { kind: "ai" })` replaces `apiFetch("/api/agents")`.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";

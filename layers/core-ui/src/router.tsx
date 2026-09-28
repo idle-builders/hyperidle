@@ -40,7 +40,6 @@ export function buildRoutes(): RouteObject[] {
 				{ path: "conversations", element: <Conversations /> },
 				{ path: "conversations/:threadId", element: <Conversations /> },
 				// Legacy redirects — preserve user-facing history via replace:true.
-				// @lore: legacy conversation redirect — reads ?id= or ?thread=, trims whitespace, redirects to canonical /conversations/:threadId or /conversations
 				{
 					path: "conversations/review",
 					element: <RedirectLegacyConversation paramName="id" />,
@@ -55,7 +54,6 @@ export function buildRoutes(): RouteObject[] {
 				// /work/portfolio → /work (graceful redirect for bookmarks/external links).
 				// The team-count branch lives in WorkOverview, not here — unconditional redirect.
 				{ path: "work/portfolio", element: <Navigate to="/work" replace /> },
-				// @lore: team route — old /work/product/:productId redirects via RedirectProductToTeam; Navigate cannot forward params directly
 				{ path: "work/team/:teamId", element: <WorkTeam /> },
 				{ path: "work/product/:productId", element: <RedirectProductToTeam /> },
 				{ path: "work/task/new", element: <WorkTaskCreate /> },
@@ -70,7 +68,6 @@ export function buildRoutes(): RouteObject[] {
 				{ path: "documents", element: <DocumentList /> },
 				{ path: "documents/new", element: <DocumentCreate /> },
 				{ path: "documents/:documentId", element: <DocumentDetail /> },
-				// @lore: settings route — real route; Sidebar marks active when pathname starts with /settings
 				{ path: "settings", element: <SettingsPage /> },
 			],
 		},

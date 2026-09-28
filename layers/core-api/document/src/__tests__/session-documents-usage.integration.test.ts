@@ -114,9 +114,6 @@ describe("assembleSessionDocuments — session_use_count (architecture.md §6.7)
 	});
 });
 
-/**
- * @lore `resolveParentChain` resolves the ancestor chain once at bake time; `assembleSessionDocuments` attaches it to every ordinary item it ranks.
- */
 describe("assembleSessionDocuments: parentChain (review.md B4)", () => {
 	test("an ordinary item's baked parentChain matches its real ancestors — not the [] default", async ({
 		db,

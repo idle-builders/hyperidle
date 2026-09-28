@@ -63,10 +63,6 @@ interface IngestionHandle {
 // ---- ports ----
 
 // ---------------------------------------------------------------------------
-// @lore: run-orchestration holds ZERO users edge; orchestration is a blind executor — every unit of work comes from a request core already sent
-// @lore: baked kind/status check — defense-in-depth only; resolver-bug signal not a race; never a live authority gate; all fields from baked agentConfig
-
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // observability — SessionLifecycleObservability (ordinary downward edge, real target)
@@ -80,7 +76,7 @@ interface SessionLifecycleObservability {
 // filesystems (founder ruling): `filesystems` and `filesystem_injections` are
 // `agent-orchestration`'s OWN tables; spawn reads them LIVE — no seam, no stale
 // bake. `deps.injectedFilesystems` (`InjectedFilesystemsReaderPort`) is a port
-// (not a direct import) — Mechanism C boundary. See `filesystem-provisioning.ts`'s @lore.
+// (not a direct import) — Mechanism C boundary.
 // ---------------------------------------------------------------------------
 
 interface SessionLifecycleServiceConnectionResolver {
@@ -90,7 +86,7 @@ interface SessionLifecycleServiceConnectionResolver {
 // ---------------------------------------------------------------------------
 // connections: `service_connections` is `agent-orchestration`'s OWN table; spawn
 // reads it LIVE — no seam. `deps.heldConnections` (`HeldConnectionsReaderPort`)
-// is a port — Mechanism C boundary. See `connection-provisioning.ts`'s @lore.
+// is a port — Mechanism C boundary.
 // ---------------------------------------------------------------------------
 
 interface SessionLifecycleHarnessAdapter {
@@ -224,7 +220,6 @@ interface SessionLifecycleHarnessRuntime {
 		/** The session's mounted filesystems, so a harness with a trust precondition (codex) can declare them trusted alongside the sandbox. */
 		readonly trustedPaths?: readonly string[];
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
-	/** @lore: plugin stdio MCP entries — written in harness's dialect; dialect knowledge lives in cli-mcp-config.ts */
 	writePluginStdioMcpEntries(params: {
 		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
 		readonly sandboxPath: string;
@@ -246,7 +241,6 @@ interface SessionLifecycleHarnessRuntime {
 		readonly toolRegistry: unknown;
 		readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
 	}): Promise<{ readonly token: string; readonly url: string }>;
-	/** The dial's close half — see `openMcpBridge`'s `@lore`. */
 	closeMcpBridge(
 		registry: SessionLifecycleMcpBridgeRegistry | undefined,
 		token: string,
@@ -588,7 +582,6 @@ interface BeforeTeardownContext {
  * Read-only pre-start observation point after session files are written and
  * before the external harness process is spawned.
  *
- * @lore: BeforeHarnessStartContext — harness tests inspect production config without an LLM call; "abort" stops before startSession; teardown still runs
  */
 interface BeforeHarnessStartContext {
 	readonly sessionId: string;
@@ -618,10 +611,6 @@ function expandMcpConfigValue(val: unknown, pluginRoot: string): unknown {
 	return val;
 }
 
-/**
- * @lore: plugin MCP merge — factory-scoped (all sessions) and team-scoped (teamId match); plugins without installPath skipped; dialect in cli-mcp-config.ts
- * @lore: plugin contributions port — settings owns plugin installs; provisioner cannot query directly; injected via PluginMcpContributionsPort
- */
 /** @for-testing exported so the unit test can verify expansion + routing without copy-pasting helpers. */
 export async function mergePluginMcpContributions(
 	port: PluginMcpContributionsPort | undefined,
@@ -701,7 +690,6 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
  * working on a repo that tracks .mcp.json does not overwrite the real config.
  */
 
-/** @lore: plugin MCP contributions port — settings owns plugin installs; provisioner cannot query directly; composition root wires the implementation */
 export interface PluginMcpContributionsPort {
 	getContributions(teamId: string | null): Promise<
 		readonly {
@@ -783,7 +771,6 @@ interface ProvisionSessionDeps {
 interface ProvisionSessionParams {
 	readonly taskId: string | null;
 	readonly agentId: string;
-	/** @lore: productId field — value is a teams.id; field name unchanged (backward compat) */
 	readonly productId: string;
 	readonly sandboxBasePath: string;
 	readonly factoryCap?: number;
@@ -863,9 +850,7 @@ interface ProvisionSessionParams {
 	 * transcript.
 	 */
 	readonly transcript?: readonly ConversationMessage[];
-	/**
-	 * @lore: resume — present only when returning an agent to an existing session with a verdict; changes only where the harness starts; all other paths are identical
-	 */
+
 	readonly resume?: BakedSessionResumeRequest;
 }
 
@@ -887,10 +872,7 @@ interface ProvisionSessionResult {
 }
 
 // @lore: gate push-back — deny carries only the blocked-rule fact; instruction lives in the prompt; deny with next-step refused by model as suspected injection
-/**
- * @lore: approval prompt — agent decides what work needs agreement and how to ask; wording leaves judgement with agent; what agents ask informs interception lists
- * @lore: review mechanism — send_message's `review` field (title, reasoning, artifacts); no thread → originating conversation; names the LITERAL adapter tool
- */
+
 function reviewOrientation(sendMessageToolName: string): string {
 	return `
 
@@ -961,7 +943,6 @@ interface AdmittedSession {
  * failures (ConcurrencyLimit 429 / MissingCredential 500)
  * throw BEFORE the P5 row insert — the detach boundary — so they map to HTTP
  * status on the POST path and never leave a doomed row.
- * @lore: cost-cap pre-flight is absent — no replacement gate; phase numbering below is preserved as-is
  */
 async function admitSession(
 	deps: ProvisionSessionDeps,
@@ -998,7 +979,6 @@ async function admitSession(
 	// — is orchestration's own.
 	const persona = agentConfig.persona ?? "";
 
-	// @lore: modelTier — keys the token-usage bucket a session's spend is reported in
 	const modelTier: ModelTier = params.modelTier ?? "workhorse";
 
 	// ── Phase 3: adapter selection + concurrency check + task transition.
@@ -1108,8 +1088,7 @@ async function admitSession(
 	}
 
 	// ── Phase 4.5: mount injected filesystems. Reads the
-	// injection record LIVE, in-layer, at spawn — no seam, and no emit-time bake
-	// to go stale (see this file's own top-of-file `filesystems` `@lore`).
+	// injection record LIVE, in-layer, at spawn — no seam, no stale bake.
 	if (deps.mounter) {
 		mountedFilesystems = await mountFilesystemsForAgent({
 			agentId: params.agentId,
@@ -1185,7 +1164,6 @@ async function admitSession(
 		...(params.requestContext ? { requestContext: params.requestContext } : {}),
 		sandboxPath,
 		ingestion,
-		// @lore: traceId — minted by the provisioning path; correlates every observability event for this session
 		traceId: randomUUID(),
 	};
 
@@ -1353,11 +1331,9 @@ async function runSession(
 		// subscription+agent+team context from the baked `kind:"subscription"`
 		// bundle, ZERO db read.
 		const subscriptionContextData = subscriptionSessionContextDataFromBundle(params.contextBundle);
-		// See `requiresReturnStatusReturn`'s `@lore` and `assembleTaskFreePrompt`'s
-		// own `returnStatusOrientation` — a subscription wake has no calling
-		// thread and no work-output action, so it needs the same proactive,
-		// one-line heads-up, computed the same way (the literal tool name the
-		// SELECTED harness exposes) and threaded through as pre-rendered text
+		// A subscription wake has no calling thread and no work-output action;
+		// needs the same proactive one-line heads-up (literal tool name the
+		// SELECTED harness exposes) threaded through as pre-rendered text
 		// so this module's own prompt composer never needs the
 		// harness-protocol return-action vocabulary imported into it.
 		const subscriptionReturnStatusToolName = literalToolNamerForAdapterType(
@@ -2013,8 +1989,7 @@ interface Provisioner {
 	/**
 	 * Takes the agent id plus the live, in-layer injected-filesystem
 	 * reader — `mountFilesystemsForAgent` reads the record itself at spawn
-	 * rather than consuming a list frozen onto the request. See
-	 * `filesystem-provisioning.ts`'s own top-of-file `@lore`.
+	 * rather than consuming a list frozen onto the request.
 	 */
 	mount(
 		agentId: string,

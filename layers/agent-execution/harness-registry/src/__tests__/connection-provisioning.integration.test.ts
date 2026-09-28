@@ -26,11 +26,9 @@
  * HARD-FAILS (never skips) when the binary is absent — a missing harness means the work
  * is not done (AR1). The inner auth checks remain only for binary-present-but-unauthed.
  *
- * @lore streamable HTTP is stateful — one McpServer+Transport instance per server, never per-request, or tools appear absent.
+ * @lore: streamable HTTP — stateful; one McpServer+Transport per server, never per-request; tools appear absent otherwise
  *
- * @lore claude prompts for .mcp.json trust in interactive mode — pre-approve via `enableAllProjectMcpServers: true` in .claude/settings.json.
- *
- * @lore builtin has mcpSupport:false and never spawns a child — its external-tool story is the inbound MCP bridge, a separate path this test does not own.
+ * @lore: claude MCP trust — prompts in interactive mode; pre-approve via enableAllProjectMcpServers:true in .claude/settings.json
  */
 
 import { execFileSync, spawn } from "node:child_process";
@@ -38,7 +36,6 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
-// @lore session-launch-time provisioning is agent-orchestration's own job — `applyProvisioningPlan` lives in `@hyperidle/run-orchestration`.
 import { applyProvisioningPlan } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
 import { buildCleanEnv, createHarnessSandbox, requireHarnessAuthed } from "./harness-sandbox.js";
@@ -116,7 +113,6 @@ async function spawnDetached(
 // instance. Creating a new instance per request breaks the session: tools appear
 // absent after initialize because tools/list hits a fresh, unconnected server.
 //
-// @lore a new McpServer instance per request leaves tools absent — only a single stateful instance returns them.
 
 interface McpTestServer {
 	url: string;
@@ -133,7 +129,6 @@ async function startMcpTestServer(): Promise<McpTestServer> {
 	);
 	const { z } = await import("zod");
 
-	// @lore server pkg zod 4.4.3 vs SDK's deduped zod 3.25.76 — cast is safe, no wire change.
 	type McpAnySchema = import("@modelcontextprotocol/sdk/server/zod-compat.js").AnySchema;
 	type McpRawShape = Record<string, McpAnySchema>;
 	function asMcpShape(shape: unknown): McpRawShape {
@@ -231,7 +226,6 @@ describe("claude-code: real CLI connects to the provisioned MCP server via .mcp.
 
 			// Write .claude/settings.json to pre-approve all project MCP servers.
 			// This bypasses the interactive trust prompt for .mcp.json entries.
-			// @lore enableAllProjectMcpServers:true in .claude/settings.json pre-approves all .mcp.json servers in that cwd.
 			fs.mkdirSync(path.join(sandboxPath, ".claude"), { recursive: true });
 			fs.writeFileSync(
 				path.join(sandboxPath, ".claude", "settings.json"),
@@ -249,7 +243,6 @@ describe("claude-code: real CLI connects to the provisioned MCP server via .mcp.
 				"[AN2 real-harness claude] Starting real claude session with AN2-provisioned MCP server...\n",
 			);
 
-			// @lore this proof deliberately uses Haiku, the locked smallest Claude model, so a larger model can't hide a floor-level break.
 			//
 			// Bounded retry (≤2 attempts) scoped ONLY to "model declined to call the tool":
 			// - Condition: the MCP-namespaced tool name `mcp__an2-test__ping_test` appears in
@@ -675,7 +668,6 @@ describe("CLI-key: GH_TOKEN env injection → real gh CLI op succeeds", () => {
 			// but NOT the checkmark success line) — the old /Logged in|github\.com/i regex
 			// passed on a bogus token (reviewer W-gh finding). The ✓ line only appears when the
 			// token authenticates successfully.
-			// @lore only a valid token prints the "✓ Logged in to github.com account" checkmark line.
 			expect(allOutput).toMatch(/✓ Logged in to github\.com account/);
 
 			process.stdout.write(

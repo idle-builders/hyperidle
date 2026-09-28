@@ -19,7 +19,6 @@
  * "edge genuinely gone, not deferred" idiom of
  * `run-orchestration-users-edge-closed.test.ts`.
  *
- * @lore connections-provisioning reads the held-connection record live at spawn — proving app.fetch never fires here proves the seam stays closed.
  */
 
 import * as fs from "node:fs";

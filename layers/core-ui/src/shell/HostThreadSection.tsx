@@ -1,9 +1,3 @@
-// @lore: two ways in — threadId (caller has thread; task page) or host (caller resolves; document page creates on first post)
-// @lore: inline prop — suppresses <section> wrapper and header chrome for TaskSheet
-// @lore: prefill — stateless here; page owns state and clears by passing undefined; onClearPrefill called on dismiss
-// @lore: filterBlockId reads Message.blockId — real column, not a field buried in payload; client-side slice only
-// @lore: onThreadView — single fetch point; host pages that need the same thread data read it from here, not by resolving the host again
-
 import type { HostKind, Message, ThreadView } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import type { CommentRowSender, ComposerSubmitInput } from "../ds";
@@ -138,7 +132,6 @@ export function HostThreadSection({
 		[activeThreadId, host, prefill?.blockId, refresh, retryResolved],
 	);
 
-	// @lore: useThread(undefined) is "idle" not "loading" — only count status==="loading" once an id is resolved; host with no thread must not show skeleton forever
 	const isLoading =
 		resolved.status === "loading" || (activeThreadId !== undefined && status === "loading");
 
@@ -161,7 +154,6 @@ export function HostThreadSection({
 		);
 	}
 
-	// @lore: open_thread returns messages DESC; reversed to ASC for oldest-first rendering
 	const allMessages: ReadonlyArray<Message> = data?.messages ? [...data.messages].reverse() : [];
 	const identities: Record<string, HostThreadIdentity> = data
 		? Object.fromEntries(

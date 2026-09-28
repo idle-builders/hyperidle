@@ -49,14 +49,12 @@ function migrationsFolder(): string {
 
 // ---------------------------------------------------------------------------
 // Pool: fixed set of pre-warmed PGlite instances
-// @lore perf: PGlite cold-start ~891ms; pre-warm pool at worker startup; checkout TRUNCATEs in ~19ms; fallback allocates fresh when pool not warmed
 // ---------------------------------------------------------------------------
 
 const POOL_SIZE = Number(process.env.VITEST_POOL_SIZE) || 2;
 
 interface PooledInstance {
 	readonly client: PGlite;
-	// @lore pool-utils: PgliteDatabase required (not HyperIdleDb) — migrate() needs pglite-specific PgliteQueryResultHKT; HyperIdleDb uses common PgQueryResultHKT
 	readonly db: PgliteDatabase<typeof schema>;
 }
 
@@ -134,7 +132,7 @@ export async function createTestDb(): Promise<TestDbHandle> {
 	slot = slots.find((s) => !s.checkedOut);
 
 	// 2. No free slot — allocate a fresh instance.
-	//    @lore isolation: concurrent tests can hold two live handles; reclaiming first breaks isolation; fresh alloc safe — PGlite in-memory, lives until close()
+	// @lore: isolation — concurrent tests hold two live handles; reclaiming first breaks isolation; fresh alloc safe (PGlite in-memory)
 	if (!slot) {
 		const instance = await allocateInstance();
 		slot = { instance, checkedOut: false, checkedOutAt: 0 };

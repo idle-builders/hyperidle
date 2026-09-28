@@ -2,9 +2,7 @@
  * E2E for Settings → Skills & Rules delete (the one-click Delete button on
  * a DocumentSlotList row).
  *
- * @lore jsdom's synthetic click missed a real anchor swallowing "Delete" as navigation — only a real Chromium click proves this fix.
  *
- * @lore Repointed at `POST /api/actions/{search_documents, edit_document}` — never `GET/POST /api/knowledge*`.
  */
 import { expect, makeDocumentRow, test } from "./fixtures";
 

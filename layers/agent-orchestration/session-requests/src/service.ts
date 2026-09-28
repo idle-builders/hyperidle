@@ -539,7 +539,6 @@ function parseBakedRequest(intent: AgentWorkIntent): BakedWorkIntentRequest | un
 	return JSON.parse(intent.bakedRequestJson) as BakedWorkIntentRequest;
 }
 
-// @lore: session_resume — bakes a resume, not a start request; same bakedRequestJson column, different shape
 function parseBakedResume(intent: AgentWorkIntent): BakedSessionResumeRequest | undefined {
 	if (!intent.bakedRequestJson) return undefined;
 	return JSON.parse(intent.bakedRequestJson) as BakedSessionResumeRequest;
@@ -670,7 +669,6 @@ async function processIntentsInternal(
 		}
 
 		try {
-			// @lore: unbaked intents — production-unreachable (bakedRequest required at emit); legacy rows with null bakedRequestJson fail via INVALID_WORK_SOURCE, not stuck
 			if (intent.kind === "session_resume") {
 				const resume = parseBakedResume(intent);
 				if (!resume) {

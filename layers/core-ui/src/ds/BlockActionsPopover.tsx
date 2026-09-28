@@ -29,7 +29,6 @@ const COPY_FEEDBACK_MS = 1500;
  * surface: role=menu, items role=menuitem, Escape closes, click invokes.
  *
  */
-// @lore: copy feedback — label rotates to "Copied" for 1500ms; popover closes automatically after; aria-live region announces it
 export function BlockActionsPopover({
 	id,
 	open,

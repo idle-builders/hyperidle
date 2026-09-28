@@ -10,9 +10,6 @@
  * rule (W1). The adapters below are the ONLY place that knows the source.
  *
  */
-// @lore: prose Part kind — decoupled from the "plain" Message type; a session answer is also "prose"; keeps the renderer source-agnostic
-// @lore: entity-ref routing — block/entity routes to its HOST surface via the host OpenTarget; page resolves via resolveHostRoute; no fabricated documentId
-// @lore: message InlineRef — EntityRef.kind==="message" has no permalink route; collapses to unknown Embed (label-only)
 
 import type {
 	ActivityEntry,
@@ -56,7 +53,6 @@ type PartKind =
  * Closed tool-family set — icon/verb/expanded-shape per family.
  * An unrecognized family falls back to "generic" (mirrors `unknown` Part discipline).
  */
-// @lore: generic fallback — never throw on an unknown tool family; closed set lives here so callers dispatch without guessing
 export const TOOL_KINDS = [
 	"command",
 	"file-read", // "read" alias
@@ -259,7 +255,6 @@ function inlineRefToEmbed(ref: InlineRef): Embed {
 	// CanvasArtifactRef (kind:"artifact") — points to a review canvas artifact,
 	// not a navigable page route. Renders as a non-navigating label so the chip
 	// appears in the conversation without trying to open a deleted /artifacts/:id.
-	// @lore: artifact embed — CanvasArtifactRef has no navigable page route; renders as non-navigating label; ReviewPage reads the ref by kind separately
 	if (ref.kind === "artifact") {
 		return { kind: "unknown", label: ref.id };
 	}
@@ -296,7 +291,6 @@ function refsToEmbeds(refs: ReadonlyArray<InlineRef> | undefined): ReadonlyArray
  * Part (concept hard-rule 3) — a session is an Embed only.
  *
  */
-// @lore: Message.payload — unknown on the wire; each branch parses via shared per-type helpers in ds/message-payload.ts rather than narrowing the bare field
 export function derivePartsFromMessages(
 	messages: ReadonlyArray<Message>,
 	viewerId: string,
@@ -414,7 +408,6 @@ export function derivePartsFromMessages(
  * Normalize a toolKind string to the closed ToolKind family set.
  * An unrecognized family → "generic" (never throw — mirrors `unknown` Part).
  */
-// @lore: tool family aliases — "read"/"file-read" and "edit"/"file-change" are the same family; normalized here so the renderer dispatches on a consistent set
 function normalizeToolKind(raw: string | undefined): ToolKind {
 	if (raw === undefined || raw === "") return "generic";
 	if ((TOOL_KINDS as ReadonlyArray<string>).includes(raw)) return raw as ToolKind;
@@ -422,7 +415,6 @@ function normalizeToolKind(raw: string | undefined): ToolKind {
 }
 
 /** Derive a file-diff Embed. `meta` carries the `+N/−M` stat for the diff chip. */
-// @lore: diff embed label — file path used as stable handle; one diff renderer (ReviewCodeDiff); never add a second
 function diffEmbed(label: string, added: number, removed: number): Embed {
 	return {
 		kind: "diff",
@@ -577,7 +569,6 @@ export function derivePartsFromSession(
 
 			default: {
 				// Forward-compat: a future ActivityEntry type lands here quietly.
-				// @lore: no exhaustiveAssert in this default — must not throw at runtime; unknown future types degrade quietly
 				break;
 			}
 		}
@@ -595,7 +586,6 @@ export function derivePartsFromSession(
  * A stream block — either a single (non-tool or standalone-running-tool) or
  * a tool-run aggregate (all completed tool calls within the agent turn).
  */
-// @lore: ToolRunBlock is a renderer grouping beside groupParts — NOT a Part kind; keeping aggregation out of the union keeps the union small and exhaustive
 export type ToolRunBlock =
 	| { readonly kind: "single"; readonly part: Part }
 	| {

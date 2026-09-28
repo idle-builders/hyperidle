@@ -1,4 +1,3 @@
-// @lore: word-initials not slice(0,2) — team-prefix names share first two chars, making avatar rosters unreadable; derivation lives in web layer
 export function deriveInitials(name: string): string {
 	const trimmed = name.trim();
 	if (trimmed.length === 0) return "?";

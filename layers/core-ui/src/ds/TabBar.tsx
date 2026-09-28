@@ -1,5 +1,3 @@
-// @lore: no DaisyUI — custom CSS; pill and underline variants
-
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";
 

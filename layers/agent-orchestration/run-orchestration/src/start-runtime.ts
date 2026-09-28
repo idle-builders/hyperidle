@@ -49,7 +49,6 @@ async function recoverRunningRequests(
 	}
 }
 
-/** @lore: resolveEventBus — every recovery/reap primitive needs a bus; boot constructs one when absent */
 function resolveEventBus(deps: RuntimeDeps): EventBus {
 	return deps.eventBus ?? new EventBus();
 }
@@ -135,9 +134,6 @@ function classifyAdmissionFailure(error: unknown): {
 	}
 }
 
-/**
- * @lore: shutdown marking — stores shutdown reason on running requests before abort; recovery sweep disposes via durable reason; best-effort
- */
 async function markRunningAgentSessionRequestsForShutdown(
 	db: HyperIdleDb,
 	ports: RuntimePorts,

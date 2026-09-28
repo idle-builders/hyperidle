@@ -9,9 +9,6 @@ export interface MentionSegment {
 
 // ── segmentMentions ──────────────────────────────────────────────────────────
 
-// @lore: accepts full refs array and filters MentionRef internally — caller need not pre-filter
-
-// @lore: string indexOf not regex — matches exact byte sequence the user typed; no regex interpretation
 export function segmentMentions(text: string, refs: ReadonlyArray<InlineRef>): MentionSegment[] {
 	const mentionRefs = refs.filter((r): r is MentionRef => r.kind === "mention");
 

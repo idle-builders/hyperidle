@@ -24,9 +24,6 @@ interface HyperIdleElectronBridge {
 	platform: "electron";
 	/** Backend mode: "local" (embedded server) or "shared" (remote server). */
 	backendMode?: "local" | "shared" | null;
-	/**
-	 * @lore credentials.set only — Worker settings writes shared backend key; no read-back needed
-	 */
 	credentials: {
 		set(name: string, value: string): Promise<{ stored: boolean; warning?: string }>;
 	};

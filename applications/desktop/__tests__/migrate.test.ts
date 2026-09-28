@@ -98,7 +98,7 @@ describe("runMigrations", () => {
 // ---------------------------------------------------------------------------
 // Production path resolution (app.isPackaged branch)
 // ---------------------------------------------------------------------------
-// @lore vi.mock() is hoisted; use vi.doMock() + vi.resetModules() for per-test module control here.
+// @lore: vi.mock — hoisted above imports; use vi.doMock() + vi.resetModules() for per-test module control
 
 describe("resolveMigrationsFolder — packaged app", () => {
 	it("returns process.resourcesPath/drizzle when app.isPackaged is true", async () => {

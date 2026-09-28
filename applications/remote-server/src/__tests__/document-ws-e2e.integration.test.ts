@@ -15,7 +15,6 @@
  * place that proves the two ends — the real hub's authorizer and a real
  * socket — actually meet.
  *
- * @lore `CORE_API_ACTOR_OVERRIDE_HEADER` is a wire constant, inlined below since applications/* cannot import @hyperidle/api-contract directly.
  */
 
 import * as os from "node:os";

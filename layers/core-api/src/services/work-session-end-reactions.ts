@@ -1,5 +1,3 @@
-// @lore: work-session-end — writeback via `edit_task`; no ancestor rollup — `tokensActualRollup` summed at read time by GET /api/tasks/:id/tree
-
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ActionResult, EditTaskInput, TaskView } from "@hyperidle/domain-model";

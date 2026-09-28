@@ -3,7 +3,6 @@
  * All auxiliary named types (FilesystemKind, WriteBack, ResourceRef, FilesystemState)
  * are inlined — their single consumers use the literals directly.
  *
- * @lore: filesystem-shape — FILESYSTEM_KINDS and WRITEBACK_MODES inlined into the route's Zod enum; FilesystemState lives in filesystem-reachability.ts
  */
 
 /** A REGISTERED, team-scoped file source — NOT owned by one agent.

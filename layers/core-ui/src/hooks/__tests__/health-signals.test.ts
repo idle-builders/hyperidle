@@ -3,7 +3,6 @@
  *
  * Per reviewer finding A5: health signal computation needs dedicated unit tests.
  *
- * @lore computeHealthSignals lives in core-ui — the browser fetches runs from agent-orchestration and computes signals itself.
  */
 
 import { describe, expect, it } from "vitest";
@@ -202,7 +201,6 @@ describe("computeHealthSignals", () => {
 // AB2 — the two display derivations over the same signals.
 //
 // ---------------------------------------------------------------------------
-// @lore computeHealthSignals' callers are the team page's roster health dot and the notification body.
 
 describe("deriveHealthLevel", () => {
 	it("returns 'critical' when failureRate7d > 0.5", () => {

@@ -21,7 +21,6 @@ function personResultMessage(result: ActionResult<unknown>): string {
 	return result.problems[0]?.message ?? "Something went wrong";
 }
 
-// @lore: isChoosable — greyed rows render but not choosable; greyed affordance IS the actionable element (install hint)
 function isChoosable(d: HarnessCapabilityDescriptor): boolean {
 	return d.discovery.state === "ready";
 }
@@ -163,12 +162,10 @@ export function SetupFlow(): JSX.Element {
 			setSubmitError(null);
 
 			try {
-				// @lore: teamName — not user-visible; derives from repo folder basename; split on / and \ handles Windows paths
 				const derivedTeamName = repoPath.trim()
 					? (repoPath.trim().split(/[/\\]/).filter(Boolean).pop() ?? "My Team")
 					: "My Team";
 
-				// @lore: primaryHarness — absent when discovery never resolved; no default; server told nothing rather than wrong
 				const primaryHarness = selectedDescriptor
 					? derivePrimaryHarness(selectedDescriptor)
 					: undefined;
@@ -386,7 +383,6 @@ export function SetupFlow(): JSX.Element {
 								Project folder{" "}
 								<span className="type-small  text-[var(--text-tertiary)]">(optional)</span>
 							</label>
-							{/* @lore: Input migration — browse button beside the field (Button size="icon") not overlaid inside padding; no bespoke conditional padding needed */}
 							<div className="flex items-center gap-[6px]">
 								{window.__HYPERIDLE__?.shell?.selectFolder && (
 									<Button

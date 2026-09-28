@@ -43,8 +43,6 @@ describe("derivePrimaryHarness", () => {
 		expect(result.modelProvider).toBe("anthropic");
 	});
 
-	// @lore when the descriptor names no selectable model, the absence is carried as absence — the harness runs its own default.
-
 	it("names no model when the descriptor lists none as selectable", () => {
 		const descriptor = makeDescriptor("codex", [{ id: "o3-mini", selectable: false }]);
 		const result = derivePrimaryHarness(descriptor);

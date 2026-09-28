@@ -213,7 +213,6 @@ export const SizeLg = LargeDemo;
  * MobileSheet — AC-4 proof: at ≤480px every dialog becomes a bottom-anchored
  * full-width-minus-gutter bottom-sheet.
  *
- * @lore bottom-sheet: CSS @media (max-width:480px) on [data-dialog-box]; this story simulates 375px viewport; AC-4 asserts bounding box bottom ≈ viewport height
  */
 function MobileSheetDemo(): JSX.Element {
 	const [open, setOpen] = useState(true);

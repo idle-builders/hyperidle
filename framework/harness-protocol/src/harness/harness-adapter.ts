@@ -44,8 +44,6 @@ export interface SessionConfig {
 	 *
 	 * Distinct from `assembledPrompt`, which is CONTEXT and goes to AGENTS.md:
 	 * who the agent is, what it knows, what tools it has. This is the ask.
-	 *
-	 * @lore: instruction must arrive whole — context is not an instruction; a truncated instruction looks complete to the model
 	 */
 	readonly instruction?: string;
 	readonly modelTier: ModelTier;
@@ -127,7 +125,6 @@ export interface SessionMetrics {
 }
 
 /**
- * @lore: callers must use totalTokens(tokenUsage), not a raw number — prevents unit ambiguity; every harness reports token usage; cost is NOT included
  */
 export interface SessionResult {
 	readonly outcome: "completed" | "crashed" | "stopped";
@@ -164,8 +161,6 @@ export interface HarnessCapabilities {
 	 * Per-harness return-enforcement provisioning channel.
 	 * Non-optional — every adapter must declare its channel.
 	 * provisionReturnHook dispatches on this to install the right enforcement.
-	 *
-	 * @lore: the non-optional field is the "uniform across harnesses" forcing function; npm run check fails any adapter that doesn't declare this
 	 */
 	readonly returnEnforcement: ReturnEnforcementChannel;
 	readonly descriptorModels?: readonly HarnessModelDescriptor[];
@@ -186,8 +181,6 @@ export interface HarnessCapabilities {
 
 /**
  * Descriptor for a registered adapter-pool entry.
- *
- * @lore: type lives in harness-protocol (shared) — core-api-side read model needs it but cannot import @hyperidle/harness-registry (execution layer boundary)
  */
 export interface AdapterMeta {
 	readonly name: string;
@@ -215,8 +208,6 @@ export interface AdapterInfo {
 
 /**
  * Configuration for resuming a previously started session.
- *
- * @lore: sandboxPath required for claude + cursor-agent — bound to start dir; selectedModel/mcpTokenEnv mirror SessionConfig fields affecting resume
  */
 export interface SessionResumeConfig {
 	/** Absolute path to the sandbox where the original session ran. */
@@ -244,8 +235,6 @@ export interface HarnessAdapter {
 	 * hook/wrapper got forceMessage!==null), not a loop counter. Only adapters with
 	 * in-process enforcement implement this; file-provisioned adapters use the
 	 * enforcement registry directly via the bridge.
-	 *
-	 * @lore: forceReturnCount comes entirely from the enforcement registry (here for in-process adapters, from registry.get(sessionId).forceCount for all others)
 	 */
 	getForceReturnCount?(sessionId: string): number;
 
@@ -270,8 +259,6 @@ export interface HarnessAdapter {
 	 *                  --model <m> --trust --approve-mcps --force --resume <chat-id>
 	 *   opencode:      opencode run <msg> --dir <sandbox> --format json --pure
 	 *                  --model <m> --session <id>
-	 *
-	 * @lore: cursor-agent exits 0 even on wrong/missing session id, echoing back the id; caller must verify prior context survived — exit 0 is not proof
 	 */
 	resumeSession?(
 		nativeSessionId: string,

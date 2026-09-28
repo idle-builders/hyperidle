@@ -30,7 +30,6 @@ export interface ErrorEvent {
 	readonly code: string;
 }
 
-// @lore: cost_update is absent from HarnessEvent — "very few harnesses can report cost"; token_usage is the one signal every harness tracks
 export type HarnessEvent = TokenUsageEvent | ToolCallEvent | CompletionEvent | ErrorEvent;
 
 export type HarnessEventType = HarnessEvent["type"];

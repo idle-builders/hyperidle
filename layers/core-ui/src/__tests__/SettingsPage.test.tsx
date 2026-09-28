@@ -9,8 +9,6 @@
  * - The Worker section appears before Backend in DOM order (design spec)
  *
  * Also: no "Email digests" control in SettingsPage.
- *
- * @lore SettingsPage mounts sections unconditionally — SettingsWorker self-gates, and SettingsAgents fetches /api/agents independently.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

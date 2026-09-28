@@ -1,5 +1,4 @@
 // Single source of truth for plugin provenance.
-// @lore: plugin service records WHICH rows it owns; the table-owning service does the writes (users/subscriptions/documents)
 
 import { pluginContributions, type WriteExecutor } from "@hyperidle/db";
 import type { PluginContributionKind } from "@hyperidle/domain-model";

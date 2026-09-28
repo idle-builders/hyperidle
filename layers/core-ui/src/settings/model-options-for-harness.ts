@@ -1,5 +1,3 @@
-// @lore: model source — descriptor.models discovered at probe time; MODEL_CATALOG never used; empty list → hasModels:false; catalog import banned by deletion
-
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 
 export interface ModelOption {

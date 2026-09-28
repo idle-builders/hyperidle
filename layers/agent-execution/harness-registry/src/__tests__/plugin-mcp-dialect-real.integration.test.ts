@@ -33,12 +33,7 @@
  * HARNESS LANE: real binaries, zero stubs, no LLM calls.
  * Gate: requireHarness("codex") / requireHarness("opencode") — hard-fail if absent.
  * Local-only: no CI job exists for this lane by design.
- *
- * @lore placed in harness-registry/__tests__/ so it can import writePluginStdioMcpEntries directly, no governance boundary crossed.
- *
- * @lore opencode 1.18.x requires command as a SINGLE array [binary, ...args] — a separate args array is rejected.
- *
- * @lore `codex mcp list` shows "enabled" regardless of whether the subprocess is running — it proves the TOML shape is accepted, not a live connection.
+
  */
 
 import { execFileSync, execSync } from "node:child_process";

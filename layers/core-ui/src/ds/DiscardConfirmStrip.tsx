@@ -2,7 +2,6 @@
  * DiscardConfirmStrip: the guard strip that replaces the dialog footer
  * when a dirty dialog receives a dismissal intent.
  */
-// @lore: button order — Keep editing is first (focused on mount); Discard is second (reachable via Tab); one Tab from Keep reaches Discard without a mouse
 
 import type { JSX } from "react";
 import { useEffect, useRef } from "react";

@@ -4,16 +4,10 @@
  * CLOSED: membership is a fixed list of tool names, never "any tool". Adding a
  * member is a deliberate edit here. (HyperIdle enumerates valid turn endings
  * by reading RETURN_ACTION_NAMES.)
- *
- * @lore: RETURN_ACTION_NAMES — tool layer, adapters, and enforcement observer share one definition; closure test asserts all members are registered
- *
- * @lore: edit_task is terminal only when it's this session's task AND moves it away (owner change or state→review/done); editing a different task never satisfies
  */
 
 /**
  * The return-action names as a frozen readonly tuple.
- *
- * @lore: membership alone is not enough to bind an agent to the RIGHT action — see shouldForceReturn's required param and createGate(requiredReturnActions?)
  */
 export const RETURN_ACTION_NAMES = ["edit_task", "send_message"] as const;
 
@@ -51,7 +45,7 @@ function stripMcpNamespace(toolName: string): string {
  * closed accepted-return set AND its per-tool argument predicate holds.
  *
  * `submit_review` / `send_message` / `reply` are unconditionally terminal.
- * `edit_task` is the first argument-gated member — see the `@lore` on `RETURN_ACTION_NAMES`: terminal
+ * `edit_task` is the first argument-gated member — terminal
  * only when the edit targets the session's OWN task (`args.id === taskId`)
  * AND moves it away from the calling agent (an owner change, or the state
  * moving to `review`/`done`). `taskId` absent ⇒ never terminal for
@@ -59,8 +53,6 @@ function stripMcpNamespace(toolName: string): string {
  * membership check would be exactly the over-wide predicate this narrowed.
  * Do NOT widen this to "any tool with the right args" — the set stays the
  * four named members.
- *
- * @lore: MCP-namespaced tool names (`mcp__hyperidle__send_message` etc.) are normalised to bare form before the set lookup — idempotent for bare names
  */
 export function isReturnAction(
 	toolName: string,
@@ -88,8 +80,6 @@ export function isReturnAction(
  * registry too — plain membership would let it end without answering).
  *
  * `required` absent or empty ⇒ falls back to plain membership (every return action satisfies).
- *
- * @lore: return_status not in RETURN_ACTION_SET — status alone lets a task_run stop without acting; gate satisfied only when the session's required set names it
  */
 export function isRequiredReturnAction(
 	toolName: string,
@@ -108,8 +98,6 @@ export function isRequiredReturnAction(
  * The canonical forcing message re-injected when an agent attempts to
  * stop without returning. Single source of truth — used by the Stop hook
  * callback and any future forcing path.
- *
- * @lore: used when no required subset applies; names return tools valid for every session; reply excluded — only satisfiable by a session with a calling thread
  */
 export const FORCE_RETURN_MESSAGE =
 	"You have not yet returned your work to HyperIdle. Before this turn can end you must call exactly one of: " +
@@ -125,8 +113,6 @@ const RETURN_ACTION_HINTS: Record<ReturnActionName, string> = {
 /**
  * A function from a canonical bare tool name to the LITERAL tool name the
  * current harness will accept — see `literalToolNamerForAdapterType`.
- *
- * @lore: accepts string not ReturnActionName — return_status still needs its harness-namespaced form for subscription session prompt orientation
  */
 export type LiteralToolNamer = (name: string) => string;
 
@@ -214,8 +200,6 @@ export function buildForceReturnMessage(
  * Maximum number of force-continue re-injections per turn before falling
  * through to Tier-2 reject. N=2 is a bounded-retry discipline: one nudge, one
  * recovery.
- *
- * @lore: once spent the forcing hook allows the stop; provisioning drain applies not_returned; session never loops or hard-crashes losing mid-turn side-effects
  */
 export const MAX_FORCE_RETURNS = 2;
 

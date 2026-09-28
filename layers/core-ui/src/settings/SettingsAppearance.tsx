@@ -17,7 +17,6 @@ const THEME_OPTIONS: ThemeSwatch[] = [
 	{ value: "system", label: "System", description: "Match OS setting" },
 ];
 
-// @lore: swatchStyle — CSS vars resolve to the active theme, not the previewed one; fixed warm-toned hex values required for inactive theme previews
 function swatchStyle(value: ThemeOption): CSSProperties {
 	switch (value) {
 		case "light":

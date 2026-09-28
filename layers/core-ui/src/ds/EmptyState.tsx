@@ -1,7 +1,6 @@
 /**
  * Shared empty-state region.
  */
-// @lore: empty-state copy — noun-forward title, agent-forward description; role="status" announces to assistive tech without a route change
 import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs";
 

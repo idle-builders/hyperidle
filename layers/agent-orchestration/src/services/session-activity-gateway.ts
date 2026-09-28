@@ -1,6 +1,5 @@
 // Gateway: forwards session_started/session_ended/tool_call_recorded off the EventBus
 // as a content-free `session:<id>` nudge onto the browser's websocket.
-// @lore: push is (topic, envelope) => void, never WsConnectionHub — prevents an agent-orchestration → core-api import edge
 
 import type { EventBus } from "@hyperidle/event-bus";
 

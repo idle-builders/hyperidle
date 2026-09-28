@@ -1,5 +1,3 @@
-// @lore: no DaisyUI — custom CSS; spring thumb uses --easing-expressive: cubic-bezier(0.34, 1.56, 0.64, 1); 2px internal gap is sub-grid AQ-001 exemption
-
 // hearth-internal-padding
 
 import type { JSX } from "react";
@@ -8,9 +6,6 @@ import { dsProps } from "./ds-attrs.js";
 export interface ToggleProps {
 	on?: boolean;
 	label: string;
-	/**
-	 * @lore: label-less toggle — label prop becomes aria-label on the track button; sr-only satisfies WCAG 2.1 AA; do NOT ship inline copies
-	 */
 	labelHidden?: boolean;
 	description?: string;
 	onChange?: (on: boolean) => void;
@@ -25,7 +20,6 @@ export function Toggle({
 	onChange,
 	disabled = false,
 }: ToggleProps): JSX.Element {
-	// @lore: button inlined (not extracted to variable) — biome noLabelWithoutControl uses static analysis; extracting to variable caused <label> lint failure
 	if (labelHidden) {
 		return (
 			<span

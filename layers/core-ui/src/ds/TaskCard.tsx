@@ -16,7 +16,6 @@ export interface TaskCardProps {
 	owner?: string;
 	state: TaskState;
 	/**
-	 * @lore: team rendered in its own slot, never the owner slot — a team is not a person; misrendering team as owner fabricates a value indistinguishable from truth
 	 */
 	team?: string;
 

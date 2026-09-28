@@ -115,7 +115,6 @@ describe("edit_document — D-invariants (document parent/state checks)", () => 
 		expect(result.problems[0]?.code).toBe("parent_not_found");
 	}, 5000);
 
-	// @lore `subscription`/`agent` parents are attached exclusively by core-api's own routes — a non-existent one is refused.
 	test("forbidden_parent_kind: a non-internal caller may not name a subscription parent", async ({
 		db,
 	}) => {

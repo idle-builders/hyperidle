@@ -65,8 +65,6 @@ export function ItemList({
 	isEmpty,
 	"data-testid": dataTestId,
 }: ItemListProps): JSX.Element {
-	// @lore: contained surface — only in populated branch; empty/error/loading states render transparent; grey container around lone EmptyState looks broken
-	// @lore: boxed variant — hairline-border container, no shadow; one spelling shared by all callers
 	const containerClass =
 		variant === "contained"
 			? "rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px]"

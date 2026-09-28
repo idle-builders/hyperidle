@@ -1,7 +1,3 @@
-// @lore: min-h-[44px] xl:min-h-[24px] — 44px floor holds at ≤1024px (touch target); xl: restores dense 24px so all 4 sites are pixel-identical
-
-// @lore: vocabulary NOT in this component — callers map SCOPE_PILL_OPTIONS/SCOPE_CREATE_OPTIONS to ScopePickerOption[]; ScopePicker is a dumb renderer
-
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";
 
@@ -49,7 +45,6 @@ export function ScopePicker({
 	testIdPrefix,
 	dataTestId,
 }: ScopePickerProps): JSX.Element {
-	// @lore: filter mode — first option active when value is null; select mode null never matches
 	const activeId = value ?? (mode === "filter" ? (options[0]?.id ?? null) : null);
 
 	return (
@@ -77,7 +72,6 @@ export function ScopePicker({
 						data-active={isActive ? "true" : "false"}
 						onClick={() => {
 							if (isDisabled) return;
-							// @lore: filter mode emits null for the first option so caller clears its filter rather than filtering to "all".
 							onChange(mode === "filter" && option.id === options[0]?.id ? null : option.id);
 						}}
 						className={`type-control ${[

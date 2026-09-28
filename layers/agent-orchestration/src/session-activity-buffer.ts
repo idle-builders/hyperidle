@@ -1,5 +1,4 @@
 // In-memory ring buffer for session activity events.
-// @lore: activity intentionally not persisted — dial-in view is a live observation aid, not a durable audit log
 
 import type { ActivityEntry } from "@hyperidle/domain-model";
 import type { EventBus, SessionEndedEvent, ToolCallRecordedEvent } from "@hyperidle/event-bus";
@@ -73,7 +72,6 @@ export class SessionActivityBuffer {
 		this.evictionTimers.clear();
 	}
 
-	// @lore: getActivity returns a defensive copy ([...bucket]) — callers cannot mutate the buffer
 	getActivity(sessionId: string): ReadonlyArray<ActivityEntry> {
 		const bucket = this.entries.get(sessionId);
 		return bucket ? [...bucket] : [];

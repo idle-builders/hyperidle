@@ -5,7 +5,6 @@
  * No agent-health tie-break (removed per founder design-review; AU26 J1 then
  * deleted the `agentHealthWarning` field from the wire type outright).
  *
- * @lore "behind" does not exist — only "blocked"/"healthy" remain, and the wire shape is TeamsListItem (hooks/useTeams.ts).
  */
 
 import { describe, expect, it } from "vitest";

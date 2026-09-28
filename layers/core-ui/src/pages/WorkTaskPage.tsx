@@ -1,5 +1,4 @@
 // @lore: PageScaffold scroll — AppShell main is overflow-hidden with no padding; use shrink-0 header + flex-1 overflow-y-auto body pattern
-// @lore: taskInvariants — client-side version of the same check edit_task.run runs server-side; greys Save before the round trip, not just after
 
 import {
 	type EditTaskInput,
@@ -643,7 +642,6 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 	const [sessionRatio, setSessionRatio] = useUiPreference("task.session", 0.6);
 	const openSessionTarget = createOpenHandler(navigate, { onOpenSession: setOpenSessionId });
 
-	// @lore: position reorder — useEditTask(refresh) wires onSaved so tree re-fetches after every edit; server order is authoritative, never an optimistic swap
 	const { edit: editPosition } = useEditTask(refresh);
 	const onReorder = useCallback(
 		(reorderTaskId: string, newPosition: number): void => {
@@ -705,7 +703,6 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 	const activeSessions = sessions.filter((s) => s.status === "active");
 	const completedSessions = sessions.filter((s) => s.status === "done" || s.status === "completed");
 
-	// @lore: breadcrumbSegments — typed as non-empty tuple (not Array); compiler verifies shape; non-empty by construction (Work root + current task always present)
 	const breadcrumbSegments: readonly [BreadcrumbSegment, ...BreadcrumbSegment[]] = [
 		{ label: "Work", to: "/work" },
 		...ancestors.map((a) => ({ label: a.title, to: `/work/task/${encodeURIComponent(a.id)}` })),

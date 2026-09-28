@@ -1,5 +1,3 @@
-// @lore: requestRunStopForTasks — return value is the ACTUAL stopped runs, not a count; 0-row CAS (already-stopped) is not in the result
-
 import type { HyperIdleDb } from "@hyperidle/db";
 import { sessions } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";

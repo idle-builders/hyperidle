@@ -214,7 +214,6 @@ describe("a written-back item hangs off what the session is working on, attribut
 		expect(call.input).not.toHaveProperty("parent");
 	});
 
-	// @lore `changes.actor` is an FK — an unresolvable session has no real `users.id`, so the write is skipped, never fabricated.
 	test("an unknown session writes nothing back — there is no real agent to attribute it to", async ({
 		db,
 	}) => {

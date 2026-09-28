@@ -1,5 +1,4 @@
 /**
- * @lore: search — separate query per category (not UNION): distinct shape/join/auth per category; UNION would require normalization across incompatible shapes
  * @lore: search threads — participants LIKE-probe then JS-verified for exact membership; a substring LIKE could match a user whose id is a prefix of another
  */
 
@@ -97,7 +96,6 @@ export function createSearchRoutes(
 		const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
 
 		// ── Conversations ──────────────────────────────────────────────────────
-		// @lore: search participants — LIKE-probe `%"<userId>"%` is correct for JSON array of quoted strings; JS-verify after fetch eliminates substring false positives
 
 		const participantPattern = `%"${userId.replace(/[\\%_]/g, "\\$&")}"%`;
 
@@ -197,7 +195,6 @@ export function createSearchRoutes(
 		}));
 
 		// ── Documents ──────────────────────────────────────────────────────────
-		// @lore: search documents — `search_documents` is the ONE door; applies actor-scoped predicate; raises no read count
 		const documentResult = await searchDocuments(ctx, { text: query, limit: MAX_PER_CATEGORY });
 		const documentRows = documentResult.ok ? documentResult.data : [];
 

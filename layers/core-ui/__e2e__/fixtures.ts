@@ -1,11 +1,9 @@
 /**
  * Shared Playwright test fixtures for HyperIdle e2e tests.
  *
- * @lore every page load calls API; without mocks CI (no backend) gets ECONNREFUSED on /api/* proxied calls
  *
- * @lore thread door: POST /api/actions/{search_threads,open_thread,send_message,adjust_thread}; no GET/POST /api/threads*
  *
- * @lore user door: POST /api/actions/{search_users,open_user,edit_user}; open_user called on every page load by AppShell; default auto-use fixture answers it
+ * @lore: user door — open_user fires on every AppShell page load; without default fixture every test fails before its own assertions
  *
  * This file extends Playwright's `test` with an auto-use fixture that intercepts
  * the core M3 endpoints before every test. Individual tests can register
@@ -214,7 +212,7 @@ export const test = base.extend<CoreApiFixtures>({
 
 			// POST /api/actions/open_task — WorkTaskPage's only data source.
 			//
-			// @lore open_task default mock: most specs use task page as vehicle; without default a spec that forgets a mock hangs; tests override via mockTaskTree() (LIFO)
+			// @lore: open_task mock — without default a spec that forgets its mock hangs; tests override via mockTaskTree() LIFO
 			await page.route("**/api/actions/open_task", async (route) => {
 				if (route.request().method() !== "POST") {
 					await route.continue();
@@ -284,7 +282,6 @@ export async function registerCoreMocks(page: import("@playwright/test").Page): 
 
 // ---------------------------------------------------------------------------
 // BB1 task fixtures
-// @lore task fixtures: shapes live in ONE place; TaskTreeResponse from real type so contract drift fails compilation, not silently mocks wrong shape
 // ---------------------------------------------------------------------------
 
 /**
@@ -368,7 +365,7 @@ export async function mockTaskTree(
 	await page.route("**/api/actions/open_task", async (route) => {
 		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
 		if (input.id !== opts.task.id) {
-			// @lore fallback() not continue() — continue() skips to network bypassing other handlers; fallback() lets next-registered mockTaskTree handler match
+			// @lore: fallback() not continue() — continue() skips to network bypassing other handlers; fallback() lets next-registered mockTaskTree handler match
 			await route.fallback();
 			return;
 		}
@@ -382,7 +379,6 @@ export async function mockTaskTree(
 	await page.route("**/api/actions/edit_task", async (route) => {
 		const patch = JSON.parse(route.request().postData() ?? "{}") as Partial<Task> & { id?: string };
 		if (patch.id !== opts.task.id) {
-			// @lore fallback() not continue() — so a second mockTaskTree() call's handler gets a turn; see open_task handler
 			await route.fallback();
 			return;
 		}
@@ -409,7 +405,6 @@ export async function mockTaskTree(
 /**
  * One row of a team's "Active tasks" list.
  *
- * @lore makeTaskCardSummary: key is tasksInProgress not activeBets — mocking activeBets renders an empty task list silently (key absent, no error)
  */
 export function makeTaskCardSummary(
 	id: string,
@@ -427,7 +422,6 @@ export function makeTaskCardSummary(
 
 // ---------------------------------------------------------------------------
 // User fixtures
-// @lore user surface: POST /api/actions/{search_users,open_user,edit_user} only — no per-noun REST route; {ok,data} or {ok,problems} response
 // ---------------------------------------------------------------------------
 
 /** A complete user row — person or agent. Pass only the fields the assertion depends on. */
@@ -519,7 +513,6 @@ export async function mockUser(
 		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
 		const matches = input.id === row.id || (opts.self === true && input.id === undefined);
 		if (!matches) {
-			// @lore fallback() not continue() — mocking more than one user id requires each handler to fall through
 			await route.fallback();
 			return;
 		}
@@ -742,7 +735,7 @@ export async function mockSearchTasks(
 
 // ---------------------------------------------------------------------------
 // Thread fixtures
-// @lore thread surface: POST /api/actions/{search_threads,open_thread,send_message,adjust_thread}; Thread.members not participants; task thread is team-hosted
+
 // ---------------------------------------------------------------------------
 
 /** A complete thread row. Pass only the fields the assertion depends on. */
@@ -840,7 +833,6 @@ export async function mockThread(
 	await page.route("**/api/actions/open_thread", async (route) => {
 		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
 		if (input.id !== opts.thread.id) {
-			// @lore fallback() not continue() — mocking more than one thread id requires each handler to fall through
 			await route.fallback();
 			return;
 		}
@@ -908,7 +900,6 @@ export interface MockAgentsOptions {
  * Mock `search_users({ kind: "ai" })` — `useAgents`' one fetch, the source
  * for every agent picker and the assistant overlay's `myAgentId` lookup.
  *
- * @lore mockAgents: search_users({kind:"ai"}) only; useAgents reads id/name/role/ownerUserId/status/agentCategory; rest null/default; fallback on non-ai query
  */
 export async function mockAgents(
 	page: import("@playwright/test").Page,
@@ -995,7 +986,6 @@ export interface MockSearchSessionsOptions {
  * Mock `search_sessions` — every session read (task detail, agent profile,
  * the recipient picker's live dot, Settings → Agents' active-session counts).
  *
- * @lore session surface: POST /api/actions/search_sessions only — no GET /api/sessions* or runs* routes
  */
 export async function mockSearchSessions(
 	page: import("@playwright/test").Page,
@@ -1016,7 +1006,6 @@ export async function mockSearchSessions(
 
 // ---------------------------------------------------------------------------
 // Document fixtures
-// @lore document surface: POST /api/actions/{search_documents,open_document,edit_document} only — no /api/knowledge* routes; {ok,data} or {ok,problems} response
 // ---------------------------------------------------------------------------
 
 /** A complete document row. Pass only the fields the assertion depends on. */
@@ -1098,7 +1087,6 @@ export async function mockDocument(
 	await page.route("**/api/actions/open_document", async (route) => {
 		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
 		if (input.id !== row.id) {
-			// @lore fallback() not continue() — mocking more than one document id requires each handler to fall through
 			await route.fallback();
 			return;
 		}

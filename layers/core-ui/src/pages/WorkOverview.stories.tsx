@@ -14,7 +14,6 @@
  * The 1-team short-circuit (<Navigate>) is a wrapper concern and never reaches
  * the view, so it is intentionally NOT a story state.
  *
- * @lore stories render WorkOverviewView (props-driven), not WorkOverview (hook+router) — no backend or fetch stubbing needed
  */
 
 import type { TeamsListItem } from "../hooks/useTeams.js";

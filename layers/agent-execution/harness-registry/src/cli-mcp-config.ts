@@ -5,9 +5,6 @@
  * dialect file written into the per-session sandbox. This writer is the
  * ONLY per-binary difference: it teaches each binary how to find the bridge URL
  * in its own config dialect.
- *
- * @lore: cli-mcp-config — mcpUrl is server-constructed; codex token travels via HYPERIDLE_MCP_TOKEN env var (bearer_token_env_var); injected outside envAllowlist
- * @lore: codex token injection — MUST be outside-allowlist; token is per-session, NOT in process.env; caller injects outside resolvedEnvMap/envAllowlist
  */
 
 import * as fs from "node:fs";
@@ -109,7 +106,7 @@ function buildCodexTrustBlock(sandboxPath: string, extraPaths?: readonly string[
  * (new keys/tables), and a literal newline is not valid inside a basic string
  * at all.
  *
- * @lore escapeTomlString — single-pass regex; replace chain misses control chars → "invalid string"; TOML requires full escape; one pass avoids double-escape
+ * @lore: escapeTomlString — single-pass regex; replace chain misses control chars → "invalid string"; TOML requires full escape; one pass avoids double-escape
  */
 function escapeTomlString(value: string): string {
 	// biome-ignore lint/suspicious/noControlCharactersInRegex: matching control characters IS the point of this escape function.
@@ -181,7 +178,6 @@ function writeCursorJson(params: {
 	fs.mkdirSync(cursorDir, { recursive: true });
 	const mcpJsonPath = path.join(cursorDir, "mcp.json");
 
-	// @lore: cursor-json shape — same mcpServers shape as Cursor IDE; token inline in headers
 	const config = {
 		mcpServers: {
 			hyperidle: {
@@ -215,7 +211,6 @@ export interface PluginStdioServer {
  *
  * All ${PLUGIN_ROOT}/${PLUGIN_DATA} expansion and cwd-defaulting are done by the caller.
  *
- * @lore: plugin stdio MCP — dialect per binary: codex-toml: TOML command/args; opencode-json: type:"local" + command array; cursor-json: mcpServers
  */
 export function writePluginStdioMcpEntries(params: {
 	readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";

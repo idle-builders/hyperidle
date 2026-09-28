@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-// @lore: inline SVG glyphs — no lucide-react dep; only three glyphs needed; centralised here for Tag.tsx and document taxonomy consumers
 export type TagKind = "pattern" | "decision" | "failure";
 
 export interface TagKindMeta {

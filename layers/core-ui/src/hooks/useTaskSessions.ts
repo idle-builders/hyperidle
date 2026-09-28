@@ -1,5 +1,3 @@
-// @lore: search_sessions serves newest-first; list is reversed for oldest-first Session N numbering; harnessUrl/tokens have no source
-
 import type { SessionRow } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
 import { call } from "../services/call.js";

@@ -142,8 +142,6 @@ export async function writeSessionNotes(
 	await db.update(sessions).set({ notes }).where(eq(sessions.id, sessionId));
 }
 
-// @lore: stopSessionRun — ONE stop path for stop_session and task-kill; abort injected so composition root wires it; "stopped" never appears as "completed"
-// @lore: stopSessionRun — abort path: runtime teardown emits session_ended; no-entry path: CAS here + emit here
 export async function stopSessionRun(
 	db: HyperIdleDb,
 	eventBus: EventBus,

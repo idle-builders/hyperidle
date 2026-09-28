@@ -16,7 +16,6 @@ export default defineConfig(({ command, mode }) => {
 			},
 			proxy: {
 				"/api": {
-					// @lore: no rewrite — Hono mounts under /api so it expects the full /api/* path; old rewrite stripped the prefix and caused 404s
 					target: "http://localhost:3001",
 					changeOrigin: true,
 				},

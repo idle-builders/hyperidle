@@ -13,7 +13,6 @@
  * `derivePartsFromSession` adapter → `PartList` dispatch. The DOM-snapshot net
  * exercises the real production components.
  *
- * @lore one message renderer: PartList over derivePartsFromSession; fixture data inlined here (sessionContentFixtures.tsx had no other consumers)
  */
 
 import type { ActivityEntry } from "@hyperidle/domain-model";

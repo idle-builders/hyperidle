@@ -7,9 +7,6 @@
  * `matchMedia("(prefers-color-scheme: dark)")` so `system` mode follows the OS
  * at runtime without a reload.
  *
- * @lore: boot script in index.html paints theme before React mounts; hook re-asserts data-theme on mount and keeps sync with setTheme + OS changes
- *
- * @lore: non-enum value in localStorage coerced to 'system' — boot script and hook agree on fallback value
  */
 
 const STORAGE_KEY = "hyperidle-theme";

@@ -1,8 +1,6 @@
 /**
  * DocumentDetail stories — the (mixture / block-body) review surface.
  *
- * @lore data from call("open_document"), not fixture id — same pattern as WorkTaskPage; stories mock /api/actions/* via window.fetch
- *
  * AM5: page-fed stories mount through the shared isolation harness
  * (`MockProviders`), exactly like `WorkBetCreate.stories.tsx`. The page reaches
  * for router hooks (useNavigate/useParams/<Link>) and AssistantContext; a bare

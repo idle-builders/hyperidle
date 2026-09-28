@@ -55,7 +55,6 @@ describe("Sidebar utility controls", () => {
 		expect(searchHint).toHaveAttribute("title", expect.stringMatching(/⌘K|cmd\+k/i));
 	});
 
-	// @lore: regression guard — old agent display name must not appear.
 	it("does NOT render the legacy full-width assistant trigger button", () => {
 		render(<Sidebar {...makeProps()} />);
 		// Regression guard: the old full-width button text should not appear.
@@ -63,13 +62,11 @@ describe("Sidebar utility controls", () => {
 	});
 
 	it("renders an 'Assistant' label/button for CoC trigger", () => {
-		// @lore the assistant is an icon-only button in the top row with no visible text — the test asserts by accessible name via getByRole.
 		render(<Sidebar {...makeProps()} />);
 		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
 	});
 
 	it("renders settings button (click → settings)", () => {
-		// @lore the bottom strip carries a Settings gear button (sidebar-settings-btn), not an avatar button.
 		const onSettingsClick = vi.fn();
 		render(<Sidebar {...makeProps({ onSettingsClick })} />);
 		const settingsBtn = screen.getByTestId("sidebar-settings-btn");

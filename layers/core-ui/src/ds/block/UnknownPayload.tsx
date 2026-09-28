@@ -6,9 +6,6 @@ export interface UnknownPayloadProps {
 	reason: "parser-unrecognised" | "body-too-large" | "sanitiser-stripped";
 }
 
-// @lore: plain pill not StatusChip — StatusChip closed enum is Tier-1 protected; bespoke pill keeps Block Tier-2 (tokens directly, not extending Tier-1)
-
-// @lore: reason never shown verbatim — "parser-unrecognised" is parser-author language; maps to plain words for users; present in artifacts, documents, comments
 const REASON_TEXT: Record<UnknownPayloadProps["reason"], string> = {
 	"parser-unrecognised": "HyperIdle couldn't read this part.",
 	"body-too-large": "This part is too long to show in full.",

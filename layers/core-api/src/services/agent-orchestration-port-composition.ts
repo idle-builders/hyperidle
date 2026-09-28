@@ -1,5 +1,3 @@
-// @lore: agent-orchestration-port — no singleton transport; composition root builds ONE port threaded as a value; call before binding fills throws a named error
-
 import type {
 	AgentOrchestrationAddFolderResult,
 	AgentOrchestrationConnectionCreateInput,
@@ -379,7 +377,6 @@ export function buildSeamBackedWorkIntentRecorder(
 	return (input: AgentWorkIntentRecorderInput) => port.intents.submit(input);
 }
 
-// @lore: review-verdict recorder — `review_sessions` belongs to agent-orchestration; the thread route asks across the seam rather than reading the table
 export function buildSeamBackedReviewVerdictRecorder(
 	port: AgentOrchestrationPort,
 ): ReviewVerdictRecorderFn {

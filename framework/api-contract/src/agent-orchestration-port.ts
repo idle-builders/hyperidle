@@ -1,5 +1,3 @@
-// @lore: AgentOrchestrationPort — TYPE-ONLY; zero-runtime-deps; hand-written mirrors; fidelity tested in agent-orchestration-port.integration.test.ts
-
 // @lore: AgentOrchestrationSessionWireRow — NOT a narrowing; POST /api/sessions returns verbatim; narrowed shape would silently drop fields from responses
 export interface AgentOrchestrationSessionWireRow {
 	readonly id: string;
@@ -25,8 +23,6 @@ export interface AgentOrchestrationSessionsPort {
 	getById(sessionId: string): Promise<AgentOrchestrationSessionWireRow | null>;
 }
 
-// @lore: AgentOrchestrationWorkIntentInput — duck-type mirrors AgentWorkIntentRecorderInput (@hyperidle/shared); seam recorder at composition root; no third type
-
 /** Mirrors `AgentWorkIntentRecorderInput`'s discriminant (`@hyperidle/shared`). */
 export type AgentOrchestrationWorkIntentKind =
 	| "thread_turn"
@@ -51,7 +47,6 @@ export interface AgentOrchestrationWorkIntentReceipt {
 	readonly idempotencyKey: string;
 }
 
-// @lore: AgentOrchestrationReviewVerdictOutcome — port carries verdict result as data so core-api can tell the human without reading review_sessions directly
 export type AgentOrchestrationReviewVerdictOutcome =
 	| { readonly status: "queued" }
 	| { readonly status: "not_a_review_session" }
@@ -245,10 +240,8 @@ export interface AgentOrchestrationPort {
 	readonly gate: AgentOrchestrationGatePort;
 }
 
-// @lore: AgentOrchestrationGatePort.linkReview — send_message in core-api; may not touch review_sessions; port crosses into agent-orchestration instead
 export interface AgentOrchestrationGatePort {
 	linkReview(sessionId: string, reviewMessageId: string): Promise<void>;
 }
 
-// @lore: AgentOrchestrationTransport — identical shape to CoreApiTransport (app.fetch); supports in-process and network transport via same injectable pattern
 export type AgentOrchestrationTransport = (req: Request) => Promise<Response>;

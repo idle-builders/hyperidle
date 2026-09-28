@@ -1,7 +1,7 @@
 /**
  * Vitest worker setup file — pre-warms PGlite WASM before the first test runs.
  *
- * @lore PGlite WASM cold-start takes 60-120s; running warm-up in setupFiles avoids hookTimeout; pool in test-utils.ts persists for worker lifetime
+ * @lore: PGlite WASM cold-start — takes 60-120s; setupFiles warm-up avoids hookTimeout; pool persists for worker lifetime
  */
 
 import { createTestDb } from "./test-utils.js";

@@ -6,7 +6,6 @@
  * the session dial-in; the work-fold expands the trace.
  *
  */
-// @lore: Fold is a single quiet <button> — no card, no border; used for both work-fold and session dial-in
 
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";

@@ -625,7 +625,6 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		// arm above is. Review finding: "a missing agent/subscription ->
 		// parent_not_found" on the internal path.
 		//
-		// @lore: DOCUMENT_PARENT_KINDS is exhaustive over agent/subscription (routine is gone)
 		if (
 			parentActivelySet &&
 			effectiveParent !== null &&

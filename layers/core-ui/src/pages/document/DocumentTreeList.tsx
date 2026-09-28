@@ -1,5 +1,3 @@
-// @lore: DocumentTreeList scope — page-local; not promoted to ds/ until a second surface needs the same tree chrome
-
 import { type JSX, useCallback, useMemo, useState } from "react";
 import { Button } from "../../ds";
 import { clipExcerpt } from "../../utils/clip-excerpt.js";
@@ -78,7 +76,6 @@ export function DocumentTreeList({
 						aria-expanded={hasChildren ? !isCollapsed : undefined}
 						aria-level={depth + 1}
 					>
-						{/* @lore: indent guides — hairline per ancestor depth; positioned at 12px + i*18px + 9px to centre in column */}
 						{Array.from({ length: cappedDepth }, (_, i) => (
 							<span
 								// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length run of purely positional indent guides — nothing to identify them by but position.

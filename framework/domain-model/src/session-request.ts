@@ -6,7 +6,6 @@ export const AGENT_SESSION_SOURCE_KINDS = [
 	"knowledge",
 	/** A subscription's wake — an event or schedule woke the subscriber. */
 	"subscription",
-	// @lore: review_resume — returns an agent to a session it already had; composes no prompt and assembles no context
 	"review_resume",
 ] as const;
 
@@ -15,7 +14,6 @@ export const AGENT_SESSION_PROMPT_MODES = [
 	"conversation",
 	"knowledge",
 	"subscription",
-	// @lore: resume — not a prompt; verdict arrives as a user turn in a session the harness replays; named to stay honest about having no prompt to compose
 	"resume",
 ] as const;
 

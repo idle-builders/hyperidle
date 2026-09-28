@@ -9,7 +9,7 @@
  * checked out in, so a `mkdtemp` there is a directory the spawned CLI's own
  * filesystem walk-up can never resolve back to hyperidle.
  *
- * @lore sandbox cwd gap: HOME-scoped plugins load regardless of cwd (e.g. cursor ~/.cursor/plugins/local); this helper owns sandbox dir only
+ * @lore: sandbox cwd gap — HOME-scoped plugins load regardless of cwd (e.g. cursor ~/.cursor/plugins/local); this helper owns sandbox dir only
  */
 
 import { execFile, execFileSync } from "node:child_process";
@@ -30,7 +30,6 @@ import type { HarnessName } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
-// @lore cursor-agent-worker-sweep: registered once at module scope — every real-binary test file gets the sweep by importing this module
 afterEach(() => {
 	killOrphanedCursorAgentWorkers();
 });
@@ -54,7 +53,7 @@ export function createHarnessSandbox(prefix: string): HarnessSandbox {
 				} catch (err) {
 					const code = (err as NodeJS.ErrnoException).code;
 					if (code !== "ENOTEMPTY" && code !== "EBUSY") throw err;
-					// @lore sandbox cleanup: a just-exited CLI harness can leave a helper touching the temp dir for a tick on macOS; retry rather than fail for a non-product race
+					// @lore: sandbox cleanup — just-exited CLI harness can touch temp dir for a tick on macOS; retry rather than fail
 					await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
 				}
 			}

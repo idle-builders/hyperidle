@@ -1,4 +1,4 @@
-// @lore: validateStartupEnv — laptop/dev sets a default key so npm run dev works without env setup; vps/cloud are network-exposed and require an explicit key
+// @lore: validateStartupEnv — only laptop/dev may fall back to the default key; vps/cloud are network-exposed and must require an explicit key
 export function validateStartupEnv(env: Record<string, string | undefined>): string | null {
 	if (!env.HYPERIDLE_API_KEY) {
 		const profile = env.HYPERIDLE_PROFILE ?? "laptop";

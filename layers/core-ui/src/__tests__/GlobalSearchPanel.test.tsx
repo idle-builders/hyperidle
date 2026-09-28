@@ -20,7 +20,6 @@ const mockConversations = [
 	},
 ];
 
-// @lore: work items are now tasks — `state` replaces `status` + `appetite`.
 const mockWork = [
 	{
 		id: "w1",
@@ -39,7 +38,6 @@ const mockDocuments = [
 	},
 ];
 
-// @lore the raw fetch payload keeps the knowledge wire key, owned by layers/core-api/src/routes/search.ts.
 const mockSearchResults = {
 	conversations: mockConversations,
 	work: mockWork,
@@ -257,7 +255,6 @@ describe("GlobalSearchPanel", () => {
 
 		await waitFor(() => {
 			expect(screen.getByText("Mobile App V2")).toBeInTheDocument();
-			// @lore: TaskCard shows title and state; team maps to owner. Title is sufficient to confirm rendering.
 		});
 	});
 

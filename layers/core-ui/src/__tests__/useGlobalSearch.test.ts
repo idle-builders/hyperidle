@@ -12,7 +12,6 @@ const mockConversations = [
 	},
 ];
 
-// @lore work-items-are-tasks: `state` replaces `status` + `appetite`.
 const mockWork = [
 	{
 		id: "w1",
@@ -31,7 +30,6 @@ const mockDocuments = [
 	},
 ];
 
-// @lore the raw fetch payload keeps the knowledge wire key (search.ts) — only the parsed local shape is documents.
 const mockSearchResults = {
 	conversations: mockConversations,
 	work: mockWork,

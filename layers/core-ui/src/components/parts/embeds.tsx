@@ -11,7 +11,6 @@
  *   unknown             → non-navigating inline label (no affordance, no onOpen)
  *
  */
-// @lore: embed file imports — ONLY Embed/OpenHandler from the source-agnostic Part vocabulary; never Message/InlineRef
 
 import type { JSX } from "react";
 import { Fold, ReferenceChip } from "../../ds";

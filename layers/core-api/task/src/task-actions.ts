@@ -49,7 +49,6 @@ export interface TaskActionsDeps {
 		input: SearchDocumentsInput,
 	) => Promise<ActionResult<DocumentRow[]>>;
 	readonly taskRunResolver: TaskRunResolverDeps;
-	// @lore: adjustThread ONE crossing task→thread — function value, never import; thread written in-process as same actor, never touching threads table
 	readonly adjustThread: (
 		ctx: ActionContext,
 		input: AdjustThreadInput,
@@ -124,7 +123,6 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		doneCondition: null,
 		state: "proposed",
 		dependencies: null,
-		// @lore: threadId placeholder — never inspected by taskInvariants; resolved via deps.adjustThread before transaction, set on INSERT directly
 		threadId: "",
 		notes: null,
 		createdAt: "",
@@ -530,7 +528,6 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		}
 
 		// -- 3b. resolve the task's thread -------------------------------------
-		// @lore: every task has real thread; created BEFORE this task transaction via thread action (never table) — tasks.threadId NOT NULL must exist before INSERT
 		let resolvedThreadId = prev?.threadId;
 		if (!prev) {
 			if (input.threadId) {

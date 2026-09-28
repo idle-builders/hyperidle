@@ -1,5 +1,3 @@
-// @lore: strips markdown syntax from raw agent/user body — prevents "## Summary" and bullets appearing verbatim in list-row subtitles
-
 export function stripMarkdown(input: string): string {
 	let s = input;
 

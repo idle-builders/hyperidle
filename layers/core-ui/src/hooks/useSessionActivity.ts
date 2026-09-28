@@ -1,5 +1,3 @@
-// @lore: nudge carries no content — hook reacts to topic match only, never reads `data`
-
 // @lore: stop_session answer is not terminal state — "ended" comes only from a re-run watch_session reporting state !== active
 
 import type { ActivityEntry, SessionRow } from "@hyperidle/domain-model";
@@ -33,7 +31,6 @@ function statusFor(session: SessionRow): SessionActivityStatus {
 	return session.state === "active" ? "streaming" : "ended";
 }
 
-// @lore: summary null while active — Conversations.tsx resolveSessionAgentAuthor falls back to generic agent placeholder on null; do not return early ids
 function summaryFor(session: SessionRow): SessionSummary | null {
 	if (session.state === "active") return null;
 	return { agentId: session.agentId, taskId: session.taskId ?? "", endedAt: session.endedAt };

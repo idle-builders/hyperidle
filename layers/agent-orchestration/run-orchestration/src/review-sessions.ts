@@ -93,8 +93,6 @@ export type ResumeIntentEnqueuer = (input: {
  * - **not_resumable** — a session filed it, but cannot be brought back. The human
  *   answered something that will not reach anyone, so they have to be told.
  * - **queued** — the resume is durable and the drain will carry it.
- *
- * @lore: review-verdict — resume is baked at verdict time, not reconstructed at drain time; fixes decision at the moment it was made
  */
 export async function recordReviewVerdict(
 	db: HyperIdleDb,

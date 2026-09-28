@@ -1,4 +1,3 @@
-// @lore: skeleton shape mirrors eventual content (list→list, card→card); custom pulse animation; role=status + aria-label required
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs";
 
@@ -10,7 +9,6 @@ export interface SkeletonListProps {
 
 const DEFAULT_ROWS = 3;
 
-// @lore: px-based values not rem-based — root font-size 14px makes 1rem=14px; rem utilities compute wrong vs the HTML reference
 const SKELETON_BAR = "bg-[var(--surface-container)] rounded-[var(--r-default)]";
 
 export interface SkeletonProps {
@@ -24,7 +22,6 @@ export interface SkeletonProps {
 	dataTestId?: string;
 }
 
-// @lore: use SKELETON_BAR (skeleton-pulse animation) not animate-pulse (Tailwind default) — skeleton-pulse has no --accent tint
 export function Skeleton({
 	width = "100%",
 	height = "32px",
@@ -57,7 +54,6 @@ export function SkeletonList({
 			role="status"
 			aria-label={ariaLabel}
 			data-testid={dataTestId ?? "skeleton-list"}
-			/* @lore: row height matches eventual list-row height — skeleton must mirror target so content arrival has no visual pop */
 			className="flex flex-col gap-[12px]"
 		>
 			{Array.from({ length: rows }).map((_, i) => (
@@ -85,7 +81,6 @@ export function SkeletonCard({ ariaLabel, dataTestId }: SkeletonCardProps): JSX.
 			role="status"
 			aria-label={ariaLabel}
 			data-testid={dataTestId ?? "skeleton-card"}
-			/* @lore: outer pad/gap mirrors BetCard/TaskCard; inner bar heights stay literal — abstract placeholders not subject to type scale */
 			className="flex flex-col gap-[6px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px]"
 		>
 			<div

@@ -1,5 +1,3 @@
-// @lore: buildDocumentTree orphan — item whose parentId doesn't resolve renders as root, not dropped; a status filter must not make an item unreachable
-
 export interface DocumentTreeItem {
 	id: string;
 	title: string;
@@ -51,7 +49,6 @@ export function buildDocumentTree(items: DocumentTreeItem[]): DocumentTreeRow[] 
 	return rows;
 }
 
-// @lore: visibleDocumentTreeRows — DFS order guarantees depth > parent.depth ↔ descendant; one skipDepthFrom variable is sufficient
 export function visibleDocumentTreeRows(
 	rows: DocumentTreeRow[],
 	collapsedIds: ReadonlySet<string>,

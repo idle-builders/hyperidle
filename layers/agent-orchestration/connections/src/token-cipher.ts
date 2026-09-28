@@ -123,7 +123,6 @@ function decryptWithSecret(encrypted: string, serverSecret: string): string | nu
  *
  * @throws {Error & { code: "MISSING_ROOT_SECRET" }} when no secret is configured.
  *
- * @lore: token-cipher no-param — cipher owns the key; callers catch MISSING_ROOT_SECRET for graceful handling
  */
 export function encryptCredentialValue(plaintext: string): string {
 	const secret = requireServerSecret();
@@ -136,7 +135,6 @@ export function encryptCredentialValue(plaintext: string): string {
  * Returns the plaintext string, or null if decryption fails for any reason
  * (wrong key, tampered ciphertext, invalid format, or no secret configured).
  *
- * @lore: token-cipher graceful-degradation — null on missing secret; reads that can't decrypt surface as MissingCredentialError downstream
  */
 export function decryptCredentialValue(ciphertext: string): string | null {
 	const secret = getServerSecret();

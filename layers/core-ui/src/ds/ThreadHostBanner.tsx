@@ -4,7 +4,6 @@ import { dsProps } from "./ds-attrs.js";
 import { StatusChip } from "./StatusChip.js";
 import { Tag } from "./Tag.js";
 
-// @lore: inline SVG not lucide-react — same convention as Tag.tsx and tag-kinds.tsx; no dep for a single icon
 function PinIcon(): JSX.Element {
 	return (
 		<svg
@@ -27,7 +26,6 @@ function PinIcon(): JSX.Element {
 	);
 }
 
-// @lore: PresenceDot defined once here, used in ThreadHostBanner and ThreadRow — no cross-file import of a 10-line component; keep in sync if dot style changes
 function PresenceDot({
 	status,
 	name,

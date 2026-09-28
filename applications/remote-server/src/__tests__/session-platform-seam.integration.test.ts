@@ -26,9 +26,6 @@
  * needs no seed at all: `editPluginInvariants` answers `one_change`
  * before either door touches the database.
  *
- * @lore `CORE_API_ACTOR_OVERRIDE_HEADER` is a wire constant, inlined below since applications/* cannot import @hyperidle/api-contract directly.
- *
- * @lore `stop_session`'s CAS path emits `session_ended` on the same pipeline as the real nudge, proving that seam.
  */
 
 import * as fs from "node:fs";

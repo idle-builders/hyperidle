@@ -15,7 +15,6 @@ class WsContextAdapter implements WsClient {
 
 /**
  * @lore: ws identity — keyed by Hono Context of upgrade; module-scoped slot unsafe: interleaved async middleware causes A to join under B identity
- * @lore: in-process test isolation relies on the returned disposer
  */
 function registerWsRoute(
 	apiApp: Hono,
@@ -26,7 +25,6 @@ function registerWsRoute(
 	const broadcaster: WsConnectionHub = injectedHub ?? new WsConnectionHub();
 
 	const adapters = new Map<WSContext, WsContextAdapter>();
-	// Identity travels keyed on the Hono Context — see @lore above for why a module-scoped slot is unsafe.
 	// Weakly keyed, so a request that never upgrades leaves nothing behind.
 	const identityByRequest = new WeakMap<object, string>();
 

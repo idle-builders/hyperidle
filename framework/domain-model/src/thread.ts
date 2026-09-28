@@ -1,4 +1,3 @@
-// @lore: Thread/Message type-only import from actions/thread.ts — that file imports HOST_KINDS etc. as values; type-only is erased, no runtime cycle
 import type { Message, Thread } from "./actions/thread.js";
 
 export type BlockId = string & { readonly __brand: "BlockId" };
@@ -6,7 +5,6 @@ export type BlockHostKind = "task" | "document" | "agent" | "user";
 
 // ── Closed enums ────────────────────────────────────────────────
 
-// @lore: HOST_KINDS excludes "task" — a task's thread is team-hosted; BlockHostKind above keeps "task" for block anchors, which is a different vocabulary
 export const HOST_KINDS = ["document", "agent", "user", "team", "factory"] as const;
 export type HostKind = (typeof HOST_KINDS)[number];
 
@@ -22,7 +20,6 @@ export const VERDICT_DECISIONS = [
 ] as const;
 export type VerdictDecision = (typeof VERDICT_DECISIONS)[number];
 
-// @lore: REVIEW_CANVAS_KINDS lives here so @hyperidle/tool-handlers and core-ui both derive from one source; payload contracts stay in core-ui type guards
 export const REVIEW_CANVAS_KINDS = [
 	"outcome_summary",
 	"field_change_set",
@@ -97,7 +94,6 @@ export interface CanvasArtifactRef {
  * Resolves to an IdentityId; stores displayName for render-time use without lookup.
  * sourceText preserves the original @name token as written (round-trip fidelity).
  *
- * @lore: sourceText is required on MentionRef — segmentMentions needs exact spans; "@{displayName}" alone fails on different casing or a partial name
  */
 export interface MentionRef {
 	readonly kind: "mention";
@@ -113,7 +109,6 @@ export type InlineRef = EntityRef | MentionRef | CanvasArtifactRef;
  * field so error/guidance messages share the same message type as normal chat
  * but render with special styling keyed on notice.kind.
  *
- * @lore: optional field on PlainPayload, not a new MessageType — a new type touches the zod schema and all renderers; optional field limits blast radius
  */
 export interface AssistantNotice {
 	readonly kind: "missing_key" | "missing_harness" | "provider_error";
@@ -205,7 +200,6 @@ export function isBlocking(
  * APPROVED; reject → REJECTED; request-changes → CHANGES REQUESTED;
  * edit → EDITED.
  *
- * @lore: verdictDecisionLabel — single source; adding a 6th VerdictDecision triggers exactly one TypeScript narrowing failure
  */
 export function verdictDecisionLabel(decision: VerdictDecision): string {
 	switch (decision) {

@@ -1,6 +1,3 @@
-// @lore: scopeKindToLabel in domain-model — shared between core-api and core-ui; re-exported here so existing import sites don't need updating
-// @lore: SCOPE_KINDS is exactly factory/team/user — no Filesystem or Role option
-
 import type { ScopeKind } from "@hyperidle/domain-model";
 
 export { scopeKindToLabel } from "@hyperidle/domain-model";
@@ -39,8 +36,6 @@ export const SCOPE_PILL_OPTIONS: ScopePillOption[] = [
  * Options for the document create/change flow scope picker.
  * Shared → factory | Team → team | Private → user.
  *
- * @lore: no Filesystem option — filesystems are agent execution environments, not a knowledge location
- * @lore: no Role/practice option — role-scoped patterns are tree children under Practices, reached by nesting
  */
 export const SCOPE_CREATE_OPTIONS: ScopeCreateOption[] = [
 	{ label: "Shared", id: "shared", scopeKind: "factory" },

@@ -49,7 +49,6 @@ export {
 	sessions,
 	subscriptions,
 	type Task,
-	// @lore: Team — single domain entity; membership via teamId on users/agents, no join table
 	type Team,
 	type Thread,
 	taskDispatchAttempts,
@@ -59,5 +58,4 @@ export {
 	type User,
 	users,
 } from "./schema.js";
-// @lore: @hyperidle/db/testing subpath — test-only exports behind separate subpath; production entry point cannot reach test symbols
 export type { WriteExecutor } from "./write-executor.js";

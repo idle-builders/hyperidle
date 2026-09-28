@@ -13,7 +13,6 @@
  *   - Changed files panel always surfaces diffs regardless of fold.
  *   - `aggregateAt = 2` (calm bias).
  */
-// @lore: initialsOf — exported from PartList.tsx; serves both conversation and session avatars from one canonical location
 
 import type { ActivityEntry } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -271,7 +270,6 @@ function HardAggregate({
  * Surfaces ALL file diffs from the session's tool Parts regardless of aggregation.
  * READ-ONLY: rows name the files but do not offer navigation (no resolved artifactId target).
  */
-// @lore: diffs panel — never hidden by aggregation fold; surfaces all file changes regardless of whether tool rows are collapsed
 function ChangedFilesPanel({
 	toolParts,
 }: {

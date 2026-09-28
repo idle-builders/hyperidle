@@ -1,5 +1,3 @@
-// @lore: ServiceMark — inline single-use shape; do not promote to design system
-
 import type {
 	ConnectionAuthSource,
 	ConnectionHealth,

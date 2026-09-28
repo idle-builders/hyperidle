@@ -154,7 +154,6 @@ function ReviewedBox({
 			}}
 			aria-pressed={reviewed}
 			title={reviewed ? "Reviewed" : "Mark reviewed"}
-			// @lore: reviewed toggle — Checkbox needs visible label (too wide); Button primary/secondary gives checked/unchecked look without per-row style
 		>
 			{reviewed && <CheckGlyph />}
 		</Button>
@@ -163,7 +162,6 @@ function ReviewedBox({
 
 // ── L1: CI checks row ─────────────────────────────────────────────────────────────
 //
-// @lore: CiRow — checks are labels only (no pass/fail); never claim CI is green or name coverage delta when payload has neither
 function CiRow({ checks }: { readonly checks: readonly CiCheck[] }): JSX.Element {
 	return (
 		<div className="flex flex-wrap items-center gap-x-[12px] gap-y-[3px]">
@@ -204,7 +202,6 @@ function lineKey(hunkIndex: number, lineIndex: number): string {
 
 // ── L3: a single file's hunks with a line-number gutter ───────────────────────────
 //
-// @lore: FileDiff CodeDeltaRenderer — DS core owns hunk/line structure; review chrome fills slots (dual gutter, "+" button, InlineComposer, orphan pass)
 function FileDiff({
 	hunks,
 	filePath,

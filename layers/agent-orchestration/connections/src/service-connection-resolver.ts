@@ -1,7 +1,6 @@
 /**
  * Sole plaintext resolver for held connections. Wired exclusively to sandbox injection.
  * @lore: per-user isolation — query enforces AND(id, userId); cross-user lookup returns null (never throws, never leaks existence)
- * @lore: decrypt injected as param — threaded from boot options so this package never imports credential-access
  */
 
 import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";

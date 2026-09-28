@@ -1,5 +1,3 @@
-// @lore: open_user({}).folders — already the team's registry; no second call needed to resolve team id
-
 import type { FolderView } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useCallback, useEffect, useState } from "react";

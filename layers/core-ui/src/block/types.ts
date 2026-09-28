@@ -20,7 +20,6 @@ export type BlockKind = (typeof BLOCK_KINDS)[number];
 export const BLOCK_HOST_KINDS = ["task", "document", "artifact", "agent", "user"] as const;
 export type BlockHostKind = (typeof BLOCK_HOST_KINDS)[number];
 
-// @lore: BlockId — branded nominal type; prevents passing arbitrary strings where a derived BlockId is required; construct only via blockId()
 export type BlockId = string & { readonly __brand: "BlockId" };
 
 export const BLOCK_ID_VERSION = "blk:v1" as const;

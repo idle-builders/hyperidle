@@ -1,5 +1,3 @@
-// @lore: useGlobalSearch rejected as this picker's door — caps tasks at 5 and restricts to parentTaskId:null; search_tasks finds any depth
-
 import { useEffect, useRef, useState } from "react";
 import { call } from "../services/call.js";
 

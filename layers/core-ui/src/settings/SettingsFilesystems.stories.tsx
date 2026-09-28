@@ -31,7 +31,6 @@
  *     / connection / state), split into a files cluster and an auth cluster by a
  *     hairline so Filesystem ⟂ Connection stays structurally legible.
  *
- * @lore KeyValue renders 15px SANS — mono identifiers read sans in the inspect grid; accepted; row title still carries mono resource
  *
  * Renders only the populated real state + a needs_attention row (AC). No skeleton /
  * empty / error here — those reuse Settings conventions at build.

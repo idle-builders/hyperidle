@@ -12,7 +12,6 @@
  * design reference the human review renders at /designsystem; production wiring
  * (fetches, save routing) is the builder's job.
  *
- * @lore settings surface reuses SplitView + Row shape from Conversations/review
  */
 
 import { useState } from "react";

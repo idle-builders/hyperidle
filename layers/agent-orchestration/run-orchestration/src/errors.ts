@@ -30,7 +30,6 @@ export class ConcurrencyLimitError extends Error {
 	}
 }
 
-// @lore: deactivated-after-admission — treated as provisioning failure (TARGET_AGENT_NOT_RUNNABLE), not special race-handling
 export class TargetAgentNotRunnableError extends Error {
 	constructor(public readonly agentId: string) {
 		super(`Agent '${agentId}' is not a runnable AI agent (deactivated after admission was baked)`);
@@ -40,7 +39,6 @@ export class TargetAgentNotRunnableError extends Error {
 
 /**
  * Thrown by session provisioning when no registered adapter matches the agent's harnessType.
- * @lore: NoEligibleHarnessError — config problem (no adapter for type), not a credential problem; distinct from MissingCredentialError
  */
 export class NoEligibleHarnessError extends Error {
 	constructor(

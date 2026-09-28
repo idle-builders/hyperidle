@@ -1,7 +1,6 @@
 /**
  * Dispatch-mechanics unit tests for `buildToolRegistry`.
  *
- * @lore uses a locally-built fixture tool, not the real `returnStatusTool` — importing it here would be an illegal cross-layer import.
  */
 
 import { EventBus } from "@hyperidle/event-bus";

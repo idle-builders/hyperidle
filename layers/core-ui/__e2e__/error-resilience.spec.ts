@@ -1,8 +1,6 @@
 /**
  * Journey: an unknown URL shows an actionable "Page not found" screen instead
  * of a blank page, with a real way back into the app.
- *
- * @lore NotFound is deliberately a standalone page outside AppShell (no sidebar) — see NotFound.tsx's own UI-128 lore.
  */
 import { expect, test } from "./fixtures";
 

@@ -1,7 +1,5 @@
 // @lore: renderer-level keydown, not Electron accelerators — accelerators fire while typing (no guard); document-level gives per-keystroke control
 
-// @lore: does NOT handle ⌘K (useCommandK owns it); only these 5 combos claimed here to avoid swallowing other app shortcuts
-
 import { useEffect } from "react";
 import type { ViewId } from "../shell/shell-types.js";
 

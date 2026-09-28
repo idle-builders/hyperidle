@@ -10,14 +10,10 @@ export interface TagProps {
 	tone?: "neutral" | "accent" | "solid";
 }
 
-// @lore: custom Tailwind not DaisyUI badge — TSX/HTML pixel-identical; px-based values not rem (font-size:14px makes rem compute wrong)
-
-// @lore: density-static — badge-as-callout dimensions stay literal; long labels would swell at comfortable density and break inline flow
 const TAG_BASE =
 	"inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-[var(--r-pill)] whitespace-nowrap border-none";
 
 export function Tag({ label, kind, tone = "neutral" }: TagProps): JSX.Element {
-	// @lore: defensive guard — arbitrary string cast to TagKind leaves meta undefined; crash on meta.tintClass; neutral chip fallback keeps page up
 	const meta = kind ? TAG_KIND_ICONS[kind] : undefined;
 	if (!meta) {
 		if (tone === "accent") {

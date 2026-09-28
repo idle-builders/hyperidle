@@ -1,5 +1,3 @@
-// @lore: requireRunnableAgent — task never imports user; same validated User row supplies agent.name/role for contextBundle; no second DB read
-
 import type { HyperIdleDb, Task, Team, User } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
@@ -115,8 +113,7 @@ export async function resolveTaskRunRequest(
 	// provisioner never touches documents.
 	const agentPersona = await deps.getAgentIdentity(db, agent.id);
 
-	// Bake the contextBundle only when the
-	// caller supplied both context deps (see TaskRunResolverDeps `@lore`) —
+	// Bake the contextBundle only when both context deps are supplied —
 	// destructured into locals so TS keeps them narrowed non-optional inside
 	// the block below, no non-null assertion needed.
 	let contextBundle: BakedContextBundle | undefined;

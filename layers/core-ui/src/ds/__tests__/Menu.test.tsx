@@ -259,7 +259,7 @@ describe("Menu: keyboard navigation", () => {
 		await act(async () => {
 			items[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
 		});
-		// @lore an extra act() flush ensures the focus() call has settled in JSDOM before asserting document.activeElement, since it can defer under parallel load.
+		// @lore: act() flush — focus() can defer under parallel JSDOM load; extra act() ensures it settles before asserting document.activeElement
 		await act(async () => {});
 		expect(document.activeElement).toBe(items[1]);
 	});

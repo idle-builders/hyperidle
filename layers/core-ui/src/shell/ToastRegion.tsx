@@ -1,5 +1,3 @@
-// @lore: single-toast invariant — most recent showToast replaces current toast; auto-dismisses after 4 seconds with role="status"
-
 import {
 	createContext,
 	type JSX,
@@ -60,7 +58,6 @@ export function ToastRegion({ children }: ToastRegionProps): JSX.Element {
 	return (
 		<ToastContext.Provider value={{ showToast }}>
 			{children}
-			{/* @lore: z-layer — --z-toast token; toasts sit above dialogs */}
 			{message !== null ? (
 				<div
 					className="toast toast-top toast-end"

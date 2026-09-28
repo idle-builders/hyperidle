@@ -2,7 +2,6 @@
  * AB3 — AgentAddDialog stories.
  * Renders key states for visual verification.
  *
- * @lore wrapped in <ToastRegion> — AgentAddDialog calls useToast(); story viewer provides none
  */
 
 import type { JSX, ReactNode } from "react";

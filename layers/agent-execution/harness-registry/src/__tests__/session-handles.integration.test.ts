@@ -14,9 +14,7 @@
  *   4. A resume aimed at a WRONG/unknown session id is detected and fails loudly.
  *      Most important on cursor-agent, which exits 0 on a wrong id.
  *
- * @lore cursor-agent exits 0 even on a wrong or missing session id — detect failure from content, not exit code.
- *
- * @lore claude's --resume <uuid> finds sessions globally by UUID, not per working directory — probe wrong-resume with a bogus UUID.
+ * @lore: claude --resume global — finds sessions by UUID globally, not per directory; probe with bogus UUID to test wrong-resume
  */
 
 import * as fs from "node:fs";
@@ -36,14 +34,13 @@ import { productionCliConfig } from "./production-cli-config.js";
 import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
-// @lore `track` stops any handle a test leaves unstopped in afterEach, so a real CLI session can never outlive its test.
 const { track } = trackHarnessSessions();
 
 // ── Context marker planted in session 1, tested in the resumed session ────────
 // A non-guessable task-ID token so "did the model know this?" is meaningful.
 // Framed as a task ID (not a "codeword") to avoid security-minded model
 // refusals that treat codeword exchanges as prompt-injection attempts.
-// @lore "codeword" framing trips haiku's security heuristics — "Task ID" framing is semantically identical but does not.
+// @lore: codeword framing — trips haiku security heuristics; use "Task ID" framing which is semantically identical but safe
 const CODEWORD = "KESTREL-7429";
 const PHASE1_PROMPT =
 	`The task ID for this session is ${CODEWORD}. ` +
@@ -167,7 +164,6 @@ describe("session handles — claude-code", () => {
 			// Detection is content-based: outcome may be "completed" (exit 0) but
 			// the session has no task ID in its output.
 			//
-			// @lore claude's --resume <uuid> is found globally by UUID, not per cwd — a wrong-dir resume succeeds; only a bogus UUID fails.
 			const bogusId = "00000000-0000-0000-0000-000000000000";
 			let bogusIdDetected = false;
 			try {
@@ -305,7 +301,6 @@ describe("session handles — codex", () => {
 	}, 120_000);
 
 	test("resumed codex session can write files — sandbox mode is thread-scoped not config-scoped", async () => {
-		// @lore `exec resume` has no --sandbox flag — the original thread's sandbox mode (workspace-write) is inherited by the resumed session.
 		await requireHarnessAuthed("codex");
 
 		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-sbox-"));
@@ -465,7 +460,6 @@ describe("session handles — cursor-agent", () => {
 			).toBe(true);
 
 			// ── Proof 4: wrong-directory resume detected as context-free ──────
-			// @lore cursor-agent-silent-fail: cursor-agent exits 0 on a wrong-dir
 			// resume, echoes the requested id, but runs context-free. Detection is
 			// content-based: the resumed session does NOT know the codeword from sandboxA.
 			const resumeConfigB: SessionResumeConfig = {

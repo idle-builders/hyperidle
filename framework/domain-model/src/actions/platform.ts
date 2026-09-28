@@ -2,8 +2,6 @@ import { z } from "zod";
 import { PLUGIN_CONTRIBUTION_KINDS } from "../configuration.js";
 import type { ActionDeclaration, Problem } from "./action.js";
 
-// @lore: edit_plugin — one partial input discriminated by which field is present; scope nested inside source makes "scope without source" unrepresentable
-
 // `"removed"` (third PluginState member) is neither list state: a removed plugin is a tombstone search_plugins never returns.
 
 export const PLUGIN_LIST_STATES = ["enabled", "disabled"] as const;

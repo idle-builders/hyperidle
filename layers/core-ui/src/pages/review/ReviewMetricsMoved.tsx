@@ -72,7 +72,6 @@ interface CloseFixture {
 
 // ── format helpers ───────────────────────────────────────────────────────────
 //
-// @lore: fmt helpers — payload carries no currency field; format grouping only, never USD (would assert a fact the payload never supplied)
 
 function fmt(n: number): string {
 	return n.toLocaleString("en-US", {

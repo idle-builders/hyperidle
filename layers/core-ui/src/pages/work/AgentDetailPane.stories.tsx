@@ -1,7 +1,6 @@
 /**
  * AV4 — AgentDetailPane stories (design artifacts for the component viewer).
  *
- * @lore wrapped in <ToastRegion> only — AgentDetailPane uses no router hooks; no Dialog shell (no role="dialog"); stories render standalone
  */
 
 import type { JSX, ReactNode } from "react";
@@ -29,7 +28,6 @@ const TEAM_AGENT: AgentConfig = {
 	agentCategory: "team",
 };
 
-// @lore agentCategory "strategy" is not valid; use "individual"
 const INDIVIDUAL_AGENT: AgentConfig = {
 	id: "agent-scout-1",
 	name: "Scout Agent",
@@ -50,7 +48,6 @@ const TEAM_MEMBER: TeamRosterMember = {
 	agentCategory: "team",
 };
 
-// @lore member category is "individual"; strategy category absent
 const INDIVIDUAL_MEMBER: TeamRosterMember = {
 	agentId: "agent-scout-1",
 	name: "Scout Agent",

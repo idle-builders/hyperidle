@@ -33,7 +33,6 @@ export const TaskSchema = z.object({
 	doneCondition: z.string().nullable(),
 	state: z.enum(TASK_STATES),
 	dependencies: z.string().nullable(),
-	// @lore: threadId — every task has a thread written at creation; column is NOT NULL
 	threadId: z.string(),
 	notes: z.string().nullable(),
 	createdAt: z.string(),
@@ -68,7 +67,6 @@ export const SearchTasksInputSchema = z
 		ownerAgentId: z.string().optional(),
 		state: z.enum(TASK_STATES).optional(),
 		teamId: z.string().optional(),
-		// @lore: threadId filter — task module reads its own tasks.thread_id; a thread shows its tasks this way, not a lookup owned by thread
 		threadId: z.string().optional(),
 		text: z.string().optional(),
 		excludeKilled: z.boolean().optional(),

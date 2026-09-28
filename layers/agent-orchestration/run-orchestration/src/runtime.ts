@@ -130,7 +130,6 @@ function parseCorrelation(request: AgentSessionRequest): AgentSessionSourceCorre
 	return parsed;
 }
 
-/** @lore: resume — present only for review_resume; absent for every other kind */
 function parseBakedResume(request: AgentSessionRequest): BakedSessionResumeRequest | undefined {
 	if (!request.payloadJson) return undefined;
 	const payload = JSON.parse(request.payloadJson) as { resume?: BakedSessionResumeRequest };
@@ -351,7 +350,6 @@ async function runClaimedRequest(
 						// best-effort last-resort teardown
 					}
 					// @lore: detached-runtime failure — single terminal writer for ONE transition (CAS + inbox); double-write loses inbox row when second CAS matches zero rows
-					// @lore: terminal transition in detached chain — unhandled rejection; benign if CAS matches no row (already terminal); swallow to prevent noise
 					try {
 						await ports.sessionLifecycle.transitionAgentRunLifecycle(deps.db, deps.eventBus, {
 							requestId: request.id,
@@ -457,7 +455,6 @@ async function consumeAgentSessionRequest(
 	const transcript = rawTranscript
 		? mapTranscriptToMessages(rawTranscript, claimedRequest.agentId)
 		: undefined;
-	// @lore: review_resume — resume is on the payload, baked when the human decided; nothing read here
 	const resume = parseBakedResume(claimedRequest);
 	const provisionParams: RunContextBundle = {
 		taskId: claimedRequest.taskId,

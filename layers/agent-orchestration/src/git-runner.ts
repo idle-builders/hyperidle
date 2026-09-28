@@ -52,13 +52,9 @@ interface GitRunner {
 		branch: string,
 		opts?: { createBranch?: boolean },
 	): Promise<void>;
-	/**
-	 * @lore: worktreeRemove — force=true removes worktrees with untracked/modified files
-	 */
 	worktreeRemove(worktreePath: string, opts?: { force?: boolean }): Promise<void>;
 	/**
 	 * Restores tracked files to HEAD state in the index (unstage).
-	 * @lore: restoreStaged — same spawn+allowlist env as other verbs; no shell exec, no env leak
 	 */
 	restoreStaged(paths: readonly string[]): Promise<void>;
 	/**

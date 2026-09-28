@@ -1,8 +1,6 @@
 /**
  * safe-credentials tests — one channel, write-only.
  *
- * @lore credentials:set accepts the one recognized channel name, writes the encrypted blob, and never hands the value back.
- *
  * AC coverage:
  *  - encryptCredential() returns a base64-encoded string when safeStorage is available
  *  - encryptCredential() returns null when safeStorage is unavailable

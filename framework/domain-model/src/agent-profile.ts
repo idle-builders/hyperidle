@@ -1,5 +1,3 @@
-// @lore: AgentProfileResponse — in domain-model so server and web share the contract; operational status (active/idle/error) derived on the frontend
-
 /**
  * Harness capability flags derived from the adapter's getCapabilities() call.
  * Mapped from HarnessCapabilities to a UI-friendly shape.
@@ -60,7 +58,6 @@ export interface AgentProfileResponse {
 	 * True when the agent has no `harnessType` preference (any adapter works) OR
 	 * when an adapter matching it is registered in the server's pool.
 	 *
-	 * @lore: harnessAvailable — NOT run state; a fact about the adapter pool the server holds, which the browser cannot compute from session data
 	 */
 	readonly harnessAvailable: boolean;
 

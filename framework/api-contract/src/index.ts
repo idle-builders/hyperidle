@@ -1,4 +1,3 @@
-// @lore: @hyperidle/api-contract — type-only; no runtime code; pins wire shapes so server and client stay in sync
 export { CORE_API_ACTOR_OVERRIDE_HEADER } from "./actor-override-header.js";
 export type {
 	AgentOrchestrationAddFolderResult,

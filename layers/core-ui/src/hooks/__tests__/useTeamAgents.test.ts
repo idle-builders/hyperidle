@@ -1,9 +1,7 @@
 /**
  * useTeamAgents: filters the full agent catalog down to a team's roster.
  *
- * @lore useTeamAgents filters useAgents' single fetch — WorkTeam's own tests never assert on the filter, so this test covers it directly.
  *
- * @lore useAgents' internal fetch is call("search_users", …) — this test mocks call instead of apiFetch.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";

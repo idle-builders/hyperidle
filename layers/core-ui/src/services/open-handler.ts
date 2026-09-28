@@ -56,7 +56,6 @@ export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext
 				const path = resolveHostRoute(target.hostKind, target.hostId);
 				const kind = objectKindForHost(target.hostKind);
 				if (path === null || kind === null) return;
-				// @lore: block-anchored open — #block-<encodeURIComponent(blockId)> fragment; matched by value at scroll site, not by selector
 				openInspect(
 					kind,
 					target.blockId ? `${path}#block-${encodeURIComponent(target.blockId)}` : path,
@@ -66,7 +65,6 @@ export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext
 				return;
 			}
 			case "review": {
-				// @lore: review route — threadId in query string; open_thread needs it and no action resolves it from a bare message id
 				const path = `/reviews/${target.reviewId}?threadId=${encodeURIComponent(target.threadId)}`;
 				if (target.intent === "inspect") openInspect("review", path, navigate, ctx);
 				else navigate(path);

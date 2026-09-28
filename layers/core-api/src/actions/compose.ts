@@ -213,7 +213,6 @@ function buildDocumentActionsDeps(
  * bound to the real function, because `@hyperidle/settings` may not import
  * `@hyperidle/user`.
  *
- * @lore: schedule subscription's nextRunAt is computed here because @hyperidle/settings cannot import @hyperidle/user's cron helpers
  */
 function buildPlatformActionsDeps(
 	documentActions: readonly Action[],

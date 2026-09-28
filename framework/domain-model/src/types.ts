@@ -3,7 +3,6 @@
  * derived from this constant so the runtime list (used by Zod enums at
  * route boundaries) and the type checker cannot drift.
  *
- * @lore: TASK_STATES — routes must use z.enum(TASK_STATES); a bare z.string() lets invalid states reach the state-machine and surface as 409 instead of 400
  */
 export const TASK_STATES = [
 	"proposed",
@@ -22,11 +21,9 @@ export type TaskState = (typeof TASK_STATES)[number];
  * Human-readable labels for each TaskState. Exhaustive `Record` so adding
  * a 9th TaskState is a TS error until labelled here.
  *
- * @lore: labels render verbatim into DOM; CSS `uppercase` in StatusChip provides visual uppercasing
  */
 export const TASK_STATE_LABEL: Record<TaskState, string> = {
 	proposed: "Planned",
-	// @lore: `proposed` = drafted, not yet picked up; `accepted` = committed to owner, counts against concurrent-task limit; labels must remain distinct
 	accepted: "Accepted",
 	hold: "On hold",
 	in_progress: "In progress",
@@ -42,7 +39,6 @@ export interface HealthResponse {
 }
 
 /**
- * @lore: KERNEL_DOCUMENT_STATUSES — same four-value ladder as DOCUMENT_STATUSES; one lifecycle, no divergence between kernel and app-runtime
  */
 export const KERNEL_DOCUMENT_STATUSES = ["proposed", "active", "stale", "archived"] as const;
 export type KernelDocumentStatus = (typeof KERNEL_DOCUMENT_STATUSES)[number];
@@ -64,7 +60,6 @@ export type TriggerType = "heartbeat" | "calendar" | "event" | "continuous";
  * - team: bound to a team, domain specialist
  * - individual: bound to a human user (or a factory-wide agent not tied to one team)
  *
- * @lore: "individual" category covers factory-wide (no-team) plugin agents; "strategy" rows migrated to "individual" in 0065
  */
 export const AGENT_CATEGORIES = ["team", "individual"] as const;
 export type AgentCategory = (typeof AGENT_CATEGORIES)[number];
@@ -98,7 +93,6 @@ export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
  * Kernel-level scope kinds for documents. Closed enum — three concentric rings:
  * factory (everyone) > team (a team) > user (one person).
  *
- * @lore: scope_kind on kernel documents — every item knows where it belongs; fabric maps scope_kind → layer via scopeToLayer() regardless of active strategy
  */
 export const SCOPE_KINDS = ["factory", "team", "user"] as const;
 
@@ -115,7 +109,6 @@ export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>(["
  * factory → "Shared", team → "Team", user → "Private".
  * Anything else → "Shared" (safe fallback).
  *
- * @lore: scopeKindToLabel — SSOT; server (core-api) and web (core-ui) import here rather than inlining copies that can drift
  */
 export function scopeKindToLabel(scopeKind: string): string {
 	if (scopeKind === "user") return "Private";
@@ -127,7 +120,6 @@ export function scopeKindToLabel(scopeKind: string): string {
  * Closed enum of task outcome verdicts.
  * Adding a fifth value is a concept change, not a type change.
  *
- * @lore: TaskOutcomeVerdict — records whether done condition was met; NOT set automatically; must be explicitly recorded by a human or evaluator agent
  */
 export const TASK_OUTCOME_VERDICTS = [
 	"met",
@@ -140,7 +132,6 @@ export type TaskOutcomeVerdict = (typeof TASK_OUTCOME_VERDICTS)[number];
 /**
  * Human-readable labels for each TaskOutcomeVerdict.
  *
- * @lore: "met_with_rework"→"Rework" and "partially_met"→"Partial" are intentional abbreviations, not truncation errors
  */
 export const TASK_OUTCOME_VERDICT_LABEL: Record<TaskOutcomeVerdict, string> = {
 	met: "Met",
@@ -161,6 +152,5 @@ export const AGENT_OPERATIONAL_STATUS_LABEL: Record<"active" | "error" | "idle",
  * harness). Every switch(outcome) consumer MUST handle this member — see the
  * exhaustiveness guard in session-lifecycle.ts.
  *
- * @lore: SessionOutcome lives in domain-model — core-ui reads it via the barrel (cannot reach @hyperidle/event-bus); event-bus imports it back from here
  */
 export type SessionOutcome = "completed" | "crashed" | "stopped" | "not_returned";

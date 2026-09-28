@@ -10,8 +10,6 @@
 
 // @lore: srcdoc inherits embedding page's CSP — an app-wide CSP without 'unsafe-inline' in script-src will silently kill artifact scripts
 
-// @lore: MCP Apps shape for isolation only — no JSON-RPC bridge; policy follows spec default-CSP; nesting follows sandbox-proxy shape
-
 export const ARTIFACT_FRAME_SANDBOX = "allow-scripts";
 
 // @lore: no 'self' in CSP — srcdoc opaque origin; Chromium maps 'self' to embedding app's origin; artifact reaches server via 8 channels with it (measured)
@@ -95,11 +93,9 @@ try{parent.postMessage(d,"*");}catch(err){}
 const HEAD = (csp: string, style = ""): string =>
 	`<head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><meta name="viewport" content="width=device-width, initial-scale=1">${style}</head>`;
 
-// @lore: SHELL_STYLE white background — shell canvas shows through gaps; dark mode paints it dark without this; background-color:#fff;color-scheme:light
 const SHELL_STYLE =
 	"<style>html,body{margin:0;padding:0;height:100%;overflow:hidden;background-color:#fff;color-scheme:light}</style>";
 
-// @lore: ARTIFACT_DOC_STYLE — srcdoc inherits color-scheme:dark; Chromium renders dark canvas; fix in wrapper style, not markup (markup is passed verbatim)
 const ARTIFACT_DOC_STYLE = "<style>html,body{background-color:#fff;color-scheme:light}</style>";
 
 export function buildArtifactDocument(html: string): string {

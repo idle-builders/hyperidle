@@ -1,7 +1,3 @@
-// @lore: promotedRichMessageId replaces headCollapsePredicate — head was WHERE rich content rendered; promotion is WHICH message becomes a card
-
-// @lore: sticky-within-card replaces IntersectionObserver verdict bar — card sits in stream; no sentinel to scroll to
-
 import type {
 	AgentSessionStateSnapshot,
 	Message,
@@ -48,15 +44,12 @@ export interface ThreadShellProps {
 	hostTitle?: string;
 	hostHref?: string;
 	/**
-	 * @lore: Conversations.tsx renders its own header — without this prop ThreadShell also renders ThreadHostBanner, producing two stacked headers
 	 */
 	hideHostBanner?: boolean;
 	/**
-	 * @lore: web consumer passes DOMPurify here; design-system stays free of DOMPurify dependency; absent → html payloads degrade to UnknownPayload
 	 */
 	sanitizeHtml?: (raw: string) => string;
 	/**
-	 * @lore: design-system free of ToolCallSummary logic — web consumer (AssistantOverlay) provides the render function; ThreadShell calls it per message
 	 */
 	renderMessageExtra?: (message: Message) => ReactNode;
 }
@@ -145,7 +138,6 @@ function buildRichSlots(message: Message): RichSlotsForRow | null {
 				</>
 			),
 			body: null,
-			// @lore: questionnaire buttons disabled + aria-disabled — no answer commit endpoint; user gets honest feedback instead of a dead click
 			actions:
 				payload.options.length > 0
 					? payload.options.map((opt: string) => (
@@ -190,7 +182,6 @@ export function ThreadShell({
 		[messages],
 	);
 
-	// @lore: single card subject — promoted unresolved when present, else most-recent resolved with verdict; one render path; resolved prop flips on verdict
 	const cardSubject = useMemo(() => {
 		const promotedId = promotedRichMessageId(ordered);
 		if (promotedId !== null) {
@@ -235,7 +226,6 @@ export function ThreadShell({
 		{ phase: "idle" } | { phase: "saving" } | { phase: "error"; reason: string }
 	>({ phase: "idle" });
 
-	// @lore: lastVerdictInput stored here so retry can re-invoke dispatchVerdict without re-lifting state to the page
 	const lastVerdictInput = useRef<{
 		type: "verdict";
 		payload: { decision: string; resolvesMessageId: string };

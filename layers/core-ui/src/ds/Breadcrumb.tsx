@@ -5,9 +5,6 @@
  * Renders a <nav aria-label="Breadcrumb"> flex row at 13px (--text-sm).
  *
  */
-// @lore: router-agnostic via injected LinkComponent — no react-router import in design-system
-// @lore: link text color — --text-secondary (≥4.5:1), not --text-tertiary (2.85:1 decorative-only); tertiary fails WCAG AA for interactive content
-// @lore: focus-visible ring — explicit outline on link segments; plain <a> elements receive no ring by default
 
 import type { ComponentType, JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs.js";

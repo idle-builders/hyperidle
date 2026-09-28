@@ -1,5 +1,3 @@
-// @lore: -webkit-app-region — not in React.CSSProperties; applied via .app-region-drag utility class in index.css
-
 import type { ReactElement } from "react";
 
 export function DesktopTitleBar(): ReactElement | null {

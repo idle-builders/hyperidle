@@ -1,6 +1,3 @@
-// @lore: desktop-only; rendered behind !sidebarMobile guard; never on mobile
-// @lore: forward button omitted from DOM entirely when canGoForward is false — no dimmed affordance; Back stays disabled to preserve muscle memory for deep links
-
 import type { JSX } from "react";
 import { Button } from "../ds";
 import { useHistoryAvailability } from "../hooks/useHistoryAvailability.js";

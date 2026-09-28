@@ -16,9 +16,6 @@
  *   1 team         → <Navigate to="/work/team/:id" replace>    ← single chokepoint
  *   0 teams        → EmptyState (finish setup)
  *   2+ teams       → attention-sorted ItemList of Rows
- *
- * @lore: 1-team branch — single chokepoint for "skip the overview at 1 team"; every entry path (/work/portfolio redirect, bookmarked /work) flows through here
- * @lore: WorkOverviewView — presentational; stories render all states without backend or router-fetch stubbing; view takes onSelectTeam/onNewBet
  */
 
 import type { JSX } from "react";

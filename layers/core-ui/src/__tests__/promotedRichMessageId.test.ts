@@ -8,7 +8,6 @@
  * a card. "Oldest unresolved review/questionnaire wins" — deterministic
  * across renders. Returns null when no candidate exists.
  *
- * @lore red-phase: fails with "is not a function" until the helper is exported from framework/domain-model/src/thread.ts's index.
  */
 
 import type { Message } from "@hyperidle/domain-model";

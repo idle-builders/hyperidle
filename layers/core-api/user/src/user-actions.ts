@@ -337,7 +337,6 @@ async function searchUsersRun(
 		status: input.status,
 		nameContains: input.name,
 	});
-	// @lore: system role — filtered from lists (not a person/agent); callers resolving by id still get it; presentation, not access control
 	const listed = rows.filter((r) => r.role !== "system" || (input.ids ?? []).includes(r.id));
 	let views = await toUserRows(ctx.db, listed);
 	if (input.teamId !== undefined) {
@@ -797,7 +796,6 @@ async function createUserRun(
 	const changeActor = callerRow ? ctx.actor : id;
 	const agentCategory: AgentCategory | null =
 		kind === "ai" ? (input.agentCategory ?? (input.ownerUserId ? "individual" : "team")) : null;
-	// @lore: founder role — rowless caller creating a human is always the welcome screen's first call; gets "founder" not "member"
 	const role = input.role ?? (kind === "human" ? (callerRow ? "member" : "founder") : "agent");
 
 	const values: NewUser = {
@@ -1137,8 +1135,7 @@ async function editExistingUserRun(
 	// -- post-commit: ports, documents, redetect, retire archive.
 	// No port or document call sits inside the transaction above. A
 	// folder/connection problem is held, not returned, so the rest of this
-	// sequence — including the `user.changed` emit below — still runs (see
-	// `applyUserFolders`/`applyUserConnections` @lore). --
+	// sequence — including the `user.changed` emit below — still runs. --
 	if (input.runConfig) await deps.runConfig.write(id, input.runConfig);
 
 	let stepProblem: Problem | null = null;

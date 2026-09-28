@@ -1,5 +1,3 @@
-// @lore: restore — names contribution by PluginContributionView.key; no REGISTRY_KINDS branch needed
-
 // hearth-internal-padding
 
 import type {
@@ -409,7 +407,6 @@ export function SettingsPlugins(): JSX.Element {
 								<div key={plugin.id} className="flex flex-col">
 									<Row
 										title={<PluginTitle name={plugin.name} version={plugin.version} />}
-										// @lore: scope in subtitle not actions — tag beside three buttons collapsed the title to nothing
 										subtitle={scopeLabel(plugin.scope, teamNames)}
 										lead={
 											<StatusChip status={stateChipStatus(plugin.state)} label={plugin.state} />

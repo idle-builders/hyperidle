@@ -7,8 +7,6 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
  * An `ErrorBoundary` component catches render errors in its children
  * and renders a fallback UI. The spec requires that it wraps `<Outlet />` in
  * AppShell so a page render error does not produce a white screen.
- *
- * @lore RTL's console.error spy silences React's boundary-error logging and our own componentDidCatch log, keeping suite output clean.
  */
 
 function Throws(): JSX.Element {

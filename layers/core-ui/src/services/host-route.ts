@@ -1,6 +1,5 @@
 import type { HostKind } from "@hyperidle/domain-model";
 
-// @lore: RouteHostKind — "task" not in HOST_KINDS but still a navigable page (/work/task/:id) and EntityRef.kind; do not conflate with thread HostKind
 export type RouteHostKind = HostKind | "task";
 
 export function resolveHostRoute(hostKind: RouteHostKind, hostId: string): string | null {

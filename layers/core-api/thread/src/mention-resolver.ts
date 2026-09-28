@@ -1,5 +1,3 @@
-// @lore: @mention resolution — a nested Service may not import `@hyperidle/user` directly; the name lookup is injected via `ThreadActionsDeps.users`
-
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type InlineRef, resolveMentionsInText } from "@hyperidle/domain-model";
 

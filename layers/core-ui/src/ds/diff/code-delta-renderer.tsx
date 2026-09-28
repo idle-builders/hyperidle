@@ -1,5 +1,3 @@
-// @lore: CodeDelta type is LOCAL — diff delta is review's concern; no import from @hyperidle/web or ReviewArtifact types allowed
-
 import type { JSX, ReactNode } from "react";
 
 interface DiffLine {

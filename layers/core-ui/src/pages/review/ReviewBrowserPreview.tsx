@@ -3,7 +3,6 @@
 // Deliberately-basic canvas: a browser chrome frame (traffic lights + URL bar) wrapping a faithful render of a deployed page.
 // The frame IS the framing — no inbox row, no diff panel, no flags. Look, then verdict.
 //
-// @lore: preview page — hand-built from divs (not iframe); diffable in DOM-snapshot; rendered page uses neutral styling, review chrome uses Hearth tokens
 //
 // Presentational isolation component: no local state needed (the page is static —
 // there is nothing to toggle). The verdict gate lives in the review frame, not here.
@@ -211,7 +210,6 @@ function isBrowserPreviewPayload(payload: unknown): payload is BrowserPreviewPay
 
 // Review artifact wrapper.
 //
-// @lore: BrowserPreviewPayload — {url, title, previewBody} only; no nav/tier/footer fields; render only what the payload has, nothing invented
 function mapBrowserPayload(payload: BrowserPreviewPayload): PreviewPage {
 	return {
 		url: payload.url,

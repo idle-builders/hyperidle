@@ -78,7 +78,6 @@ export interface CommentRowProps extends CommentRowRichSlots {
  * - Border-radius: var(--r-pill)
  * - Padding: 1px 3px (sub-grid exempt, internal inline padding)
  *
- * @lore: MentionToken — not interactive; no click-to-navigate, no hover card; click-to-profile deferred until agent profile page covers all identity types
  */
 function MentionToken({ displayName }: { displayName: string }): JSX.Element {
 	return (
@@ -96,9 +95,7 @@ function MentionToken({ displayName }: { displayName: string }): JSX.Element {
  * When the message has MentionRef entries in refs[], the text is first
  * segmented by segmentMentions() so @name tokens render as MentionToken spans.
  *
- * @lore: plain messages — rendered through derivePayloads() → renderPayload() so markdown (bold, code, lists, headings) displays correctly
  *
- * @lore: mention tokens pre-segmented before markdown pipeline — highlights in code blocks are intentional; mention was explicit regardless of formatting
  */
 function MessagePayloads({
 	text,
@@ -164,7 +161,6 @@ function MessagePayloads({
  * `exhaustiveAssert(message.type)`.
  *
  */
-// @lore: Message flat shape — payload: unknown, type: MessageType; switch narrows the type field only; exhaustiveAssert moves onto message.type directly
 function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): ReactNode {
 	if (isRedactedPayload(message.payload)) {
 		return (
@@ -236,7 +232,6 @@ export function CommentRow({
 		: undefined;
 	const isAgent = sender.isAgent ?? false;
 	// clockTime always returns a string; TIME_PLACEHOLDER means invalid input.
-	// @lore: sender-header time chip — coerced to null (not "—") when TIME_PLACEHOLDER; chip has no reserved cell so absence is the right "no value" state
 	const timeRaw = showSenderHeader ? clockTime(message.createdAt) : null;
 	const timeString = timeRaw === TIME_PLACEHOLDER ? null : timeRaw;
 
@@ -244,7 +239,6 @@ export function CommentRow({
 		? "inline-flex items-center justify-center w-[36px] h-[36px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-width-strong border-[var(--accent-deep)] shrink-0"
 		: "inline-flex items-center justify-center w-[36px] h-[36px] rounded-[var(--r-pill)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] border-width-strong border-[var(--border-subtle)] shrink-0";
 
-	// @lore: data-sender-kind — "ai"|"human" is the stable Playwright selector for AI vs human; derives from CommentRowSender.isAgent
 	return (
 		<li
 			{...dsProps("CommentRow", "2")}

@@ -1,7 +1,6 @@
 /**
  * SubscriptionsSection stories.
  *
- * @lore wrapped in <ToastRegion> — SubscriptionsSection calls useToast() on pause/remove/add; story viewer provides none
  */
 
 import type { JSX, ReactNode } from "react";

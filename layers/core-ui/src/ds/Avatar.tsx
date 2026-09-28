@@ -5,7 +5,6 @@
  * Agent variant uses forest green accent styling.
  *
  */
-// @lore: Avatar forwardRef — Button uses forwardRef; Avatar does not (no focus management needed)
 
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";

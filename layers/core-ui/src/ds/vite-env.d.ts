@@ -4,7 +4,6 @@
  * Declares only `import.meta.glob` — avoids importing the full `vite/client` lib
  * which conflicts with `"types": ["node"]` in the DS tsconfig.
  *
- * @lore DS tsconfig uses "types":["node"]; this declaration adds only Vite's glob extension, narrowly scoped to avoid conflicts
  */
 
 // Augments the global ImportMeta to include Vite's `glob` transform.

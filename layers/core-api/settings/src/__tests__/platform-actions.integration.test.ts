@@ -8,8 +8,7 @@
  * `deps.editDocument`/`deps.searchDocuments` are the REAL
  * `@hyperidle/document` actions, not a stub — the one genuinely external
  * crossing this module has, and the phase-discipline this whole module
- * exists to protect (top-of-file @lore in `platform-actions.ts`) only means
- * something against the real thing.
+ * exists to protect only means something against the real thing.
  */
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -139,7 +138,6 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 		},
 		subscriptions: {
 			insert: async (exec, values, opts) => {
-				// @lore builds a raw-drizzle stand-in for `compose.ts`'s binding — settings cannot import @hyperidle/user directly.
 				const row = {
 					id: values.id,
 					userId: values.userId,

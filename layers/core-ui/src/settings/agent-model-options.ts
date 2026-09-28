@@ -1,5 +1,3 @@
-// @lore: model options — harness default shown, never stored; absent key = "whatever the harness does"; prevents pinning to a stale default
-
 import type {
 	HarnessCapabilityDescriptor,
 	HarnessModelOptionDescriptor,
@@ -29,7 +27,6 @@ export function displayedValue(
 	return option.key in stored ? stored[option.key] : option.defaultValue;
 }
 
-// @lore: withOptionValue — value at harness default clears the key; no stored key = "track harness default"
 export function withOptionValue(
 	stored: ModelOptionValues,
 	option: HarnessModelOptionDescriptor,
@@ -48,7 +45,6 @@ export function withOptionValue(
 	return next;
 }
 
-// @lore: reconcileForModel — undeclared keys dropped; unknown values kept (empty declaration can mean unreachable harness, not no options)
 export function reconcileForModel(
 	stored: ModelOptionValues,
 	declared: readonly HarnessModelOptionDescriptor[],

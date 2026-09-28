@@ -203,7 +203,6 @@ describe("provisionReturnHook", () => {
 			const hooksPath = path.join(sandboxPath, ".codex", "hooks.json");
 			const content = JSON.parse(fs.readFileSync(hooksPath, "utf-8")) as Record<string, unknown>;
 
-			// @lore codex's real hook format is { "hooks": { "Stop": [...] } }, not a top-level "Stop" key.
 			expect(content).toHaveProperty("hooks");
 			const hooksObj = content.hooks as Record<string, unknown>;
 			expect(hooksObj).toHaveProperty("Stop");
@@ -222,7 +221,7 @@ describe("provisionReturnHook", () => {
 		});
 
 		it("codex trust is per-invocation (--dangerously-bypass-hook-trust), no sentinel file needed", async () => {
-			// @lore codex trust is a per-invocation flag (--dangerously-bypass-hook-trust) — no sentinel trust file exists.
+			// @lore: codex trust flag — per-invocation (--dangerously-bypass-hook-trust); no sentinel trust file exists
 			await provisionReturnHook({
 				sandboxPath,
 				channel: "settings-codex",

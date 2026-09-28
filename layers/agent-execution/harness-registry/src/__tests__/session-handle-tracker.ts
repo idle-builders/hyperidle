@@ -2,8 +2,6 @@
  * Test-support helper (development world — lives in `__tests__/`,
  * never imported by production code).
  *
- * @lore process-group kill only helps once stopSession is called; afterEach ensures stopSession runs even when test body unwinds; stopSession is idempotent
- *
  * `trackHarnessSessions()` is called once per test file (module scope, before
  * any `test`). It registers a single `afterEach` that stops every handle the
  * test tracked but never stopped itself — timeouts and thrown assertions

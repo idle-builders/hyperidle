@@ -1,5 +1,3 @@
-// @lore: computeApprovalRate — `policy` never imports another Service; the `conversation` port is injected here (Mechanism C)
-
 import type { HyperIdleDb } from "@hyperidle/db";
 import { computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
 import { listMessages } from "@hyperidle/thread";

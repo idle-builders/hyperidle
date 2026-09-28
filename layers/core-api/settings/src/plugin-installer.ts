@@ -121,7 +121,6 @@ function pluginFromRow(row: PluginRow, warnings: ManifestWarning[] = []): Instal
 	};
 }
 
-// @lore: skillItemId — factory suffix is empty; team-scoped id carries the team so two teams never share one skill document
 export function skillItemId(
 	pluginId: string,
 	dirName: string,
@@ -134,7 +133,6 @@ export function skillItemId(
 }
 
 // Stable DB id for a plugin-declared agent. Deterministic from pluginId + localId + scope.
-// @lore: factory install → one global row (null scopeId); team install → one row per team; same derivation used everywhere these ids are looked up
 export function agentItemId(
 	pluginId: string,
 	localId: string,
@@ -172,9 +170,7 @@ export interface PluginMcpContributionRow {
  * installs always, a team install only for its own team), read from each
  * install's `mcp.json` at the moment a session is provisioned.
  */
-// @lore: install folder is the only copy; an edit to mcp.json reaches the next session; no folder → no MCP servers
 //
-// @lore: provisioner (run-orchestration) cannot read plugins — settings owns it; this door is wrapped in a boot capability
 export async function getPluginMcpContributions(
 	db: HyperIdleDb,
 	teamId: string | null,
@@ -262,7 +258,6 @@ export async function installPlugin(
 
 		// Persist plugin files whenever we have somewhere to put them.
 		//
-		// @lore: condition is simply "can we persist" — agents with identity files also need the install folder, not just skills and MCP servers
 		let installPath: string | null = null;
 		if (input.pluginsBaseDir) {
 			try {
@@ -359,7 +354,6 @@ export async function getInstalledPlugin(
 /**
  * Disable a plugin — its MCP servers stop reaching sessions at once.
  */
-// @lore: only flips plugins.state; deactivating subs/agents/skills lives in platform-actions.ts — governance boundary; run this first, cleanup second
 export async function disablePlugin(
 	db: HyperIdleDb,
 	pluginId: string,
@@ -386,7 +380,6 @@ export async function enablePlugin(db: HyperIdleDb, pluginId: string, now?: stri
 /** Remove a plugin: its row stays as a `removed` tombstone. */
 export async function removePlugin(db: HyperIdleDb, pluginId: string, now?: string): Promise<void> {
 	const ts = nowIso(now);
-	// @lore: row cleanup (subscriptions/agents/skills) is in platform-actions.ts — settings cannot write those tables; split state surfaced as REMOVE_CLEANUP_FAILED
 	await db
 		.update(plugins)
 		.set({ state: "removed", removedAt: ts, updatedAt: ts })

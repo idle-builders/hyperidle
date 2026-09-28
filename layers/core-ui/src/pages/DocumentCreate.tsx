@@ -148,7 +148,6 @@ export function DocumentCreate(): JSX.Element {
 				/>
 			}
 		>
-			{/* @lore: items-stretch — both columns grow to same height; min-h fills viewport below header so editor claims vertical space not a 300px card */}
 			<div
 				className="max-w-[960px] w-full py-[24px] flex gap-[24px] items-stretch min-h-[calc(100svh-7rem)]"
 				data-testid="document-create-body"

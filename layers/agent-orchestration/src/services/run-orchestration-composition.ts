@@ -232,7 +232,6 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 				sessionId: input.sessionId,
 				claimToken: input.claimToken,
 				failureCode: input.failureCode,
-				// @lore: errorMessage — optional on both sides so omit-is-ok; any new field needs a test through the real composition
 				errorMessage: input.errorMessage,
 			},
 		);

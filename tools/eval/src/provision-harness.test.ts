@@ -4,11 +4,6 @@ import type { AdapterPool } from "@hyperidle/harness-registry";
 import { describe, expect, it, vi } from "vitest";
 import { runEvalSession } from "./provision-harness.js";
 
-/**
- * @lore runSession lives on the composition's factory — this mocks the factory to return a spy runSession, since the concern is adapter-pool selection.
- *
- * @lore runEvalSession boots a real HTTP server before calling runSession — the boot dependencies are mocked so this stays a unit test of adapter-pool selection.
- */
 const runSession = vi.fn();
 vi.mock("@hyperidle/agent-orchestration", () => ({
 	buildRunOrchestrationComposition: () => ({ runSession }),

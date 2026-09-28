@@ -4,7 +4,6 @@
  * Shows the three visible states: loading, populated (with messages),
  * and the prefill-chip variant (block discuss flow).
  *
- * @lore stories render content DIV directly (not full component) — HostThreadSection calls hooks internally; CommentRow used directly for visual parity
  */
 
 import { CommentRow, ReferenceChip } from "../ds";

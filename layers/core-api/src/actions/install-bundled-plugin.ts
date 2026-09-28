@@ -6,7 +6,6 @@
  * plugin: same install row, same agent ids, same identity documents, same
  * contribution registry.
  */
-// @lore: no orchestration behind bundled install — adapterPool absent, so port is never dialled; transport throws so any future orchestration step fails loudly
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EditPluginInput, PluginView } from "@hyperidle/domain-model";

@@ -1,5 +1,3 @@
-// @lore: two sibling elevated cards in split mode — root is transparent; do NOT "simplify" to one bordered surface; drag + icon controls are intentional
-
 import { type JSX, useRef, useState } from "react";
 
 export type FoldMode = "fold-back" | "split" | "full";
@@ -11,7 +9,6 @@ export interface SplitViewProps {
 	dividerRatio: number; // 0..1 — origin's share in `split`
 	onModeChange?: (mode: FoldMode) => void;
 	onRatioChange?: (ratio: number) => void;
-	/** @lore: per-surface persistence key — web composes SplitView + useUiPreference(surfaceKey) for divider ratio persistence; SplitView itself stays presentational */
 	surfaceKey?: string;
 	compact?: boolean;
 	originLabel?: string;
@@ -104,7 +101,6 @@ function ControlButton({
 	);
 }
 
-// @lore: existing DS Fold.tsx is an unrelated disclosure component — name collision; SplitView is distinct
 export function SplitView({
 	origin,
 	destination,
@@ -164,7 +160,6 @@ export function SplitView({
 			data-fold-mode={mode}
 		>
 			{showOrigin ? (
-				// @lore: card wrapper overflow-hidden — overflow-auto skips background clipping at border-radius; hover/selected state bleeds past rounded corners without it
 				<div
 					hidden={compactDestination}
 					className={`flex min-w-0 flex-col overflow-hidden ${paneSurfaceClass}`}

@@ -11,7 +11,6 @@
 //       (Side-by-side · Overlay · Swipe).
 //   L3  on demand   — the differing regions listed as chips; clicking one flags it.
 //
-// @lore: visual evidence panes — payload carries labels only (no image data); until a payload supplies image data, honest behavior is to say so
 //
 // Chrome tokens are Hearth/CP1 by NAME (var(--token)). No hex anywhere in this
 // surface; tool identity is shown once, in `CanvasSourceHeader`.
