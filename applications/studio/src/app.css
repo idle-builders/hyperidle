@@ -357,7 +357,6 @@ kbd { font: var(--t-data); border: var(--line-w) solid var(--line-strong); borde
 .detail-head { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4) var(--sp-6); border-bottom: var(--line-w) solid var(--line); }
 .detail-head h2 { font: var(--t-title); }
 .detail-scroll { flex: 1; overflow-y: auto; min-height: 0; padding: var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-5); }
-.detail-scroll--brief { background: var(--canvas); }
 
 .hint { display: flex; align-items: center; gap: var(--sp-4); max-width: var(--w-measure); margin-left: 38px; padding: var(--sp-3) var(--sp-4); border: var(--line-w) dashed var(--line-strong); border-radius: var(--r); font: var(--t-meta); color: var(--ink-2); }
 .hint-acts { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); flex: none; }
@@ -365,20 +364,6 @@ kbd { font: var(--t-data); border: var(--line-w) solid var(--line-strong); borde
 .hint-skip { white-space: nowrap; }
 .hint-skip { font: var(--t-meta); color: var(--ink-3); padding: 0 var(--sp-2); }
 
-.brief { max-width: 640px; width: 100%; margin: var(--sp-7) auto 0; display: flex; flex-direction: column; gap: var(--sp-5); }
-.brief-when { font: var(--t-label); color: var(--ink-3); }
-.brief h1 { font: 600 1.75rem/1.2 var(--font-ui); margin-top: calc(-1 * var(--sp-3)); }
-.brief-nums { display: flex; gap: var(--sp-7); }
-.brief-nums span { display: flex; flex-direction: column; font: var(--t-label); color: var(--ink-3); }
-.brief-nums b { font: var(--t-metric); color: var(--ink); }
-.brief-nums-flag b { color: var(--accent); }
-.brief-lead { font: var(--t-lead); color: var(--ink-2); }
-.brief-by { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5); border: var(--line-w) solid var(--line); border-radius: var(--r); background: var(--surface); }
-.brief-by-h { font: var(--t-label); color: var(--ink-3); margin-bottom: var(--sp-1); }
-.brief-agent { display: flex; align-items: center; gap: var(--sp-3); font: var(--t-body); }
-.brief-agent b { font: var(--t-strong); min-width: 84px; }
-.brief-agent span:last-child { color: var(--ink-3); font: var(--t-meta); }
-.brief-foot { font: var(--t-meta); color: var(--ink-3); }
 
 .first { display: grid; place-items: center; min-height: 100vh; background: var(--canvas); padding: var(--sp-6); }
 .first-card { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-7); border: var(--line-w) solid var(--line); border-radius: var(--r); background: var(--surface); box-shadow: var(--sh-2); }
@@ -398,3 +383,16 @@ kbd { font: var(--t-data); border: var(--line-w) solid var(--line-strong); borde
 .doc { max-width: 640px; display: flex; flex-direction: column; gap: var(--sp-3); font: var(--t-lead); color: var(--ink); }
 .doc h3 { font: var(--t-section); font-size: 1.125rem; }
 .caret { display: inline-block; width: 2px; height: 1.1em; vertical-align: text-bottom; background: var(--accent); margin-left: 1px; }
+
+/* knowledge is a tree of documents */
+.tree-row { display: flex; align-items: center; gap: var(--sp-1); min-height: 28px; padding-right: var(--sp-4); border-left: 2px solid transparent; }
+.tree-row:hover { background: var(--surface); }
+.tree-row[aria-current="true"] { background: var(--surface); border-left-color: var(--accent); }
+.tree-fold { width: 16px; flex: none; display: grid; place-items: center; color: var(--ink-3); }
+.chev { display: inline-block; font: 600 1rem/1 var(--font-ui); transition: transform var(--dur-tap) var(--ease); }
+.tree-fold[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.tree-title { font: var(--t-body); color: var(--ink); text-align: left; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-note { font: var(--t-label); color: var(--ink-3); background: var(--canvas); border: var(--line-w) solid var(--line); border-radius: var(--r-sm); padding: 0 var(--sp-1); }
+.nav-empty { font: var(--t-meta); color: var(--ink-3); padding: var(--sp-4); }
+.handover { margin-top: var(--sp-3); padding-left: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); }
+.handover a { color: var(--accent); font-weight: 550; white-space: nowrap; }

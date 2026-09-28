@@ -143,9 +143,20 @@ Objects that appear inside surfaces. Designed once, reused everywhere.
 
 ## 7. Open concerns
 
-- ~~Double navigation~~ — **settled 2026-09-28: one sidebar.** Top: the four items Home ·
-  Conversations · Work · Knowledge, stacked, with counts. Then a separator. Then the list for the
+- ~~Double navigation~~ — **settled 2026-09-28: one sidebar.** Top: the three items
+  Conversations · Work · Knowledge, stacked, with a needs-you count. Then a separator. Then the list for the
   selected item. Detail on the right. **Never tabs in the nav** (founder: "absolutely not").
+- **No Home** (founder, 2026-09-28: "not convinced of this home concept"). The morning overview is a
+  **routine that posts a thread** ("Morning handover", weekdays 08:00), so it arrives in
+  Conversations like anything else.
+- **Each spine's list is in priority order** — the founder's point: "each of conversation, work,
+  knowledge have this valuable prioritization in the sub nav so that you actually see per category
+  what there is to see."
+  - Conversations: Needs you · Unread · Recent.
+  - Work: Needs your review · Running · Done since you looked.
+  - Knowledge: Needs you (drafts to publish) · Changed since you looked · then the **document tree**.
+- **Bets do not exist.** Work is tasks; a task can have subtasks.
+- **Knowledge is a tree of documents.**
 - Whether another owner's review belongs in your thread at all, or collapses to one line and lives
   only in theirs.
 - Whether the thread should auto-scroll to the newest content.

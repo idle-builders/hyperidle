@@ -428,3 +428,13 @@ studio's own controls sit in a dashed "Studio controls" column so they are not m
 the sidebar the 4 items then separator and then the changeable list of items per type."* Rebuilt:
 Find or ask · Home / Conversations / Work / Knowledge stacked with counts (Home's count uses the flag
 colour) · separator · the selected item's list. Double-nav concern closed.
+
+**Founder on the first Arrive pass:** stacked items plus a list is right; find-or-ask liked. Home
+rejected — "could be a special screen or could even be just a routine that pops up as a thread".
+The value is **per-spine prioritization** in the list. Also: bets don't exist anymore; knowledge is
+a tree of documents.
+
+**Rebuilt ARRIVE (7 steps):** first start · first conversation · morning handover (a routine thread
+in Conversations, with links to what needs you) · Work in priority order · Knowledge: priority
+groups then a foldable document tree · find or ask · something new while you focus (you stay in the
+doc; only the Conversations count moves 2 → 3).
