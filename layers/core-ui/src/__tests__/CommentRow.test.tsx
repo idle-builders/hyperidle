@@ -134,7 +134,7 @@ describe("CommentRow rich-row variant", () => {
 		render(
 			<CommentRow
 				message={review()}
-				sender={{ id: "agent-1", name: "Aria", role: "builder" }}
+				sender={{ id: "agent-1", name: "Aria" }}
 				showSenderHeader={true}
 				{...richSlots}
 			/>,

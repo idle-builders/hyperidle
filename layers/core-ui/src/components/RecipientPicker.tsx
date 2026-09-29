@@ -12,9 +12,9 @@ export interface RecipientPickerProps {
 
 type PickerState = "browsing" | "selected" | "sending";
 
-/** The Combobox row's description line — role and status. The live-session state has its own dot in `leading` instead. */
+/** The Combobox row's description line — discipline and status. The live-session state has its own dot in `leading` instead. */
 function recipientDescription(r: Recipient): string {
-	return [r.role, r.status].join(" · ");
+	return [r.discipline, r.status].filter((part): part is string => Boolean(part)).join(" · ");
 }
 
 /**

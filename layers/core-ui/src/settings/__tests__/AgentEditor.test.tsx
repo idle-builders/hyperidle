@@ -93,7 +93,7 @@ const CLAUDE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 
 const NORMAL_AGENT_DRAFT: AgentEditorDraft = {
 	name: "Atlas",
-	role: "builder",
+	discipline: "builder",
 	systemPrompt: "Build things",
 	harnessType: "opencode",
 	modelId: "deepseek/deepseek-v4-flash",
@@ -105,7 +105,7 @@ const NORMAL_AGENT_DRAFT: AgentEditorDraft = {
 
 const ASSISTANT_DRAFT: AgentEditorDraft = {
 	name: "Nova",
-	role: "assistant",
+	discipline: "assistant",
 	systemPrompt: "I am your assistant",
 	harnessType: "opencode",
 	modelId: "claude-haiku-4-5",
@@ -169,7 +169,7 @@ const DECLARING_DESCRIPTOR: HarnessCapabilityDescriptor = {
 
 const DECLARING_DRAFT: AgentEditorDraft = {
 	name: "Atlas",
-	role: "builder",
+	discipline: "builder",
 	systemPrompt: "Build things",
 	harnessType: "declaring",
 	modelId: "model-with-options",
@@ -261,7 +261,6 @@ describe("AgentEditor save routing", () => {
 		render(
 			<AgentEditor
 				agentId="ast-user1"
-				ownerUserId={null}
 				draft={ASSISTANT_DRAFT}
 				onDraftChange={vi.fn()}
 				harnesses={[OPENCODE_DESCRIPTOR]}
@@ -283,7 +282,6 @@ describe("AgentEditor save routing", () => {
 		render(
 			<AgentEditor
 				agentId="agent-abc"
-				ownerUserId={null}
 				draft={NORMAL_AGENT_DRAFT}
 				onDraftChange={vi.fn()}
 				harnesses={[OPENCODE_DESCRIPTOR]}
@@ -315,7 +313,6 @@ describe("Model dropdown uses discovered descriptor.models", () => {
 		render(
 			<AgentEditor
 				agentId="agent-1"
-				ownerUserId={null}
 				draft={{ ...NORMAL_AGENT_DRAFT, harnessType: "opencode" }}
 				onDraftChange={vi.fn()}
 				harnesses={[OPENCODE_DESCRIPTOR]}
@@ -343,7 +340,6 @@ describe("Model dropdown uses discovered descriptor.models", () => {
 		render(
 			<AgentEditor
 				agentId="agent-1"
-				ownerUserId={null}
 				draft={{ ...NORMAL_AGENT_DRAFT, harnessType: "codex", modelId: "", modelProvider: null }}
 				onDraftChange={vi.fn()}
 				harnesses={[CODEX_DESCRIPTOR]}
@@ -405,7 +401,6 @@ describe("Save payload anti-422 guard (modelProvider reconcile)", () => {
 		render(
 			<AgentEditor
 				agentId="agent-1"
-				ownerUserId={null}
 				draft={{
 					...NORMAL_AGENT_DRAFT,
 					harnessType: "codex",
@@ -435,7 +430,6 @@ describe("Save payload anti-422 guard (modelProvider reconcile)", () => {
 		render(
 			<AgentEditor
 				agentId="agent-1"
-				ownerUserId={null}
 				draft={{
 					...NORMAL_AGENT_DRAFT,
 					harnessType: "opencode",
@@ -465,10 +459,10 @@ describe("Save payload anti-422 guard (modelProvider reconcile)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Role lock is decided by ownerUserId, never an id prefix
+// Discipline is never locked — role (RBAC) is a separate field, not edited here
 // ---------------------------------------------------------------------------
 
-describe("Role field lock is decided by ownerUserId, not an id prefix", () => {
+describe("The discipline field is a picker, never locked", () => {
 	beforeEach(() => {
 		mockApiFetch();
 	});
@@ -476,11 +470,10 @@ describe("Role field lock is decided by ownerUserId, not an id prefix", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("an owned agent (ownerUserId set) with no ast- id gets a locked role field", () => {
+	it("a person-owned agent still gets an editable discipline field", () => {
 		render(
 			<AgentEditor
 				agentId="agent-x"
-				ownerUserId="u1"
 				draft={NORMAL_AGENT_DRAFT}
 				onDraftChange={vi.fn()}
 				harnesses={[OPENCODE_DESCRIPTOR]}
@@ -491,25 +484,40 @@ describe("Role field lock is decided by ownerUserId, not an id prefix", () => {
 			/>,
 		);
 
-		expect(screen.getByRole("combobox", { name: "Role" })).toBeDisabled();
+		expect(screen.getByRole("combobox", { name: "Discipline" })).not.toBeDisabled();
 	});
 
-	it("a team agent (ownerUserId null) named ast-ops gets an editable role field", () => {
+	it("the picker offers every discipline in use, and a typed value introduces a new one", async () => {
+		const user = userEvent.setup();
+		const onDraftChange = vi.fn();
 		render(
 			<AgentEditor
-				agentId="ast-ops"
-				ownerUserId={null}
+				agentId="agent-x"
 				draft={NORMAL_AGENT_DRAFT}
-				onDraftChange={vi.fn()}
+				onDraftChange={onDraftChange}
 				harnesses={[OPENCODE_DESCRIPTOR]}
 				onSave={vi.fn()}
 				onCancel={vi.fn()}
 				saving={false}
 				error={null}
+				disciplinesInUse={["builder", "designer"]}
 			/>,
 		);
 
-		expect(screen.getByRole("combobox", { name: "Role" })).not.toBeDisabled();
+		const trigger = screen.getByRole("combobox", { name: "Discipline" });
+		await user.click(trigger);
+		expect(await screen.findByText("designer")).toBeInTheDocument();
+
+		const input = screen.getByLabelText("Filter or define a discipline");
+		await user.type(input, "growth-hacker");
+		await user.click(
+			await screen.findByRole("option", { name: /Use new discipline: growth-hacker/i }),
+		);
+
+		const update = onDraftChange.mock.calls.at(-1)?.[0] as (
+			p: AgentEditorDraft,
+		) => AgentEditorDraft;
+		expect(update(NORMAL_AGENT_DRAFT).discipline).toBe("growth-hacker");
 	});
 });
 
@@ -525,11 +533,10 @@ describe("AgentEditor field labels are sentence-case (not hardcoded ALLCAPS)", (
 		vi.restoreAllMocks();
 	});
 
-	it("Role label text content is 'Role', not 'ROLE'", () => {
+	it("Discipline label text content is 'Discipline', not 'DISCIPLINE'", () => {
 		render(
 			<AgentEditor
 				agentId="agent-1"
-				ownerUserId={null}
 				draft={NORMAL_AGENT_DRAFT}
 				onDraftChange={vi.fn()}
 				harnesses={[OPENCODE_DESCRIPTOR]}
@@ -541,18 +548,17 @@ describe("AgentEditor field labels are sentence-case (not hardcoded ALLCAPS)", (
 		);
 
 		// The form label span must have sentence-case text content — CSS handles
-		// the visual uppercase. getAllByText confirms at least one "Role" node exists
-		// in the rendered DOM (the label span); queryByText("ROLE") confirms none
+		// the visual uppercase. getAllByText confirms at least one "Discipline" node exists
+		// in the rendered DOM (the label span); queryByText("DISCIPLINE") confirms none
 		// are hardcoded all-caps.
-		expect(screen.getAllByText("Role").length).toBeGreaterThan(0);
-		expect(screen.queryByText("ROLE")).not.toBeInTheDocument();
+		expect(screen.getAllByText("Discipline").length).toBeGreaterThan(0);
+		expect(screen.queryByText("DISCIPLINE")).not.toBeInTheDocument();
 	});
 
-	it("the role Combobox trigger has 'Role' as its accessible name", () => {
+	it("the discipline Combobox trigger has 'Discipline' as its accessible name", () => {
 		render(
 			<AgentEditor
 				agentId="agent-1"
-				ownerUserId={null}
 				draft={NORMAL_AGENT_DRAFT}
 				onDraftChange={vi.fn()}
 				harnesses={[OPENCODE_DESCRIPTOR]}
@@ -563,14 +569,13 @@ describe("AgentEditor field labels are sentence-case (not hardcoded ALLCAPS)", (
 			/>,
 		);
 
-		expect(screen.getByRole("combobox", { name: "Role" })).toBeInTheDocument();
+		expect(screen.getByRole("combobox", { name: "Discipline" })).toBeInTheDocument();
 	});
 
 	it("when harness has no models, Model label text content is 'Model', not 'MODEL'", () => {
 		render(
 			<AgentEditor
 				agentId="agent-1"
-				ownerUserId={null}
 				draft={{ ...NORMAL_AGENT_DRAFT, harnessType: "codex", modelId: "", modelProvider: null }}
 				onDraftChange={vi.fn()}
 				harnesses={[CODEX_DESCRIPTOR]}
@@ -591,7 +596,6 @@ describe("AgentEditor field labels are sentence-case (not hardcoded ALLCAPS)", (
 		render(
 			<AgentEditor
 				agentId="agent-1"
-				ownerUserId={null}
 				draft={{ ...NORMAL_AGENT_DRAFT, filesystemIds: ["fs-1"] }}
 				onDraftChange={vi.fn()}
 				harnesses={[OPENCODE_DESCRIPTOR]}
@@ -632,7 +636,6 @@ describe("AgentEditor — model options", () => {
 		render(
 			<AgentEditor
 				agentId="a1"
-				ownerUserId={null}
 				draft={draft}
 				onDraftChange={onDraftChange}
 				harnesses={[DECLARING_DESCRIPTOR]}

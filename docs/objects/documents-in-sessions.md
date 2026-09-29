@@ -12,22 +12,23 @@ Only `task_run` and `subscription_run` sessions get a `knowledge/` tree with doc
 
 ## Selection
 
-`assembleSessionDocuments` (`session-documents.ts`) fetches documents from three scope groups:
+`assembleSessionDocuments` (`session-documents.ts`) fetches documents from three scope groups, each filtered by discipline:
 
 1. Factory-scoped ordinary documents (always included, non-negotiable).
 2. Team-scoped ordinary documents (the agent's team, if any).
 3. User-scoped ordinary documents (the agent's own).
 4. Capability documents (`skill`, `rule`, `agent_file` slot) — appended after ranking, not ranked themselves.
 
-## Scoring and budget
+A document reaches an agent only if its own `discipline` is empty or matches the agent's, case-insensitively. `agent_file` is exempt — it is already about exactly one agent.
 
-Ordinary documents are ranked and then trimmed to fit a 40,000-token budget (200k context × 0.2 allocation). Scoring uses three factors:
+## Scoring
 
-- Tag match: weight 0.55 — derived by tokenising the task description (split on non-alphanumeric characters, lowercase, drop tokens shorter than 3 characters). A document whose title or meta tags contain a task keyword scores higher.
+No budget or cutoff: every scope-and-discipline-selected item is returned. Documents are written as real files in the session sandbox, not inlined into a prompt, so there is nothing to fit into a token budget. Ranking (highest first) uses two factors:
+
 - Recency: weight 0.20 — decays over 30 days.
 - Confidence: weight 0.15 — from `documents.confidence` (0–1).
 
-Factory-scoped items are included first regardless of score; the budget is applied to the rest.
+Factory-scoped items rank alongside team- and user-scoped items; none are held back.
 
 Usage counters (`lastUsedAt`) are bumped in a batched update after selection.
 

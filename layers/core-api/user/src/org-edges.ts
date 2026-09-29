@@ -10,9 +10,9 @@
  * so no re-validation is needed at that call site.
  */
 
-import { type HyperIdleDb, orgEdges } from "@hyperidle/db";
+import { type HyperIdleDb, orgEdges, users } from "@hyperidle/db";
 import type { OrgEdgeMechanism } from "@hyperidle/domain-model";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 
 /**
  * List `orgEdges` rows, optionally filtered by id or by the set of users the
@@ -91,4 +91,37 @@ export async function upsertOrgEdge(
 	// row is always present: either our insert succeeded, or the concurrent one did.
 	const finalRow = row as typeof orgEdges.$inferSelect;
 	return { edge: finalRow, created: finalRow.id === id };
+}
+
+/**
+ * The one thing a `discipline` edge is for: every user (human or agent)
+ * whose own `discipline` matches `target`, case-insensitively — same rule as
+ * `documents.discipline`'s cluster match. Batched over every distinct target
+ * a caller names in one query, so `toUserRows` can resolve every user's
+ * edges in one call regardless of how many discipline edges are in play.
+ *
+ * @lore: resolveDisciplineUsers — the only place a discipline edge resolves to people; `toUserRows` is its one caller, feeding `edges[].resolvedUserIds`.
+ */
+export async function resolveDisciplineUsers(
+	db: HyperIdleDb,
+	targets: readonly string[],
+): Promise<ReadonlyMap<string, readonly string[]>> {
+	const byTarget = new Map<string, string[]>();
+	if (targets.length === 0) return byTarget;
+	const rows = await db
+		.select({ id: users.id, discipline: users.discipline })
+		.from(users)
+		.where(isNotNull(users.discipline));
+	const byLowerDiscipline = new Map<string, string[]>();
+	for (const row of rows) {
+		if (!row.discipline) continue;
+		const key = row.discipline.toLowerCase();
+		const list = byLowerDiscipline.get(key) ?? [];
+		list.push(row.id);
+		byLowerDiscipline.set(key, list);
+	}
+	for (const target of targets) {
+		byTarget.set(target, byLowerDiscipline.get(target.toLowerCase()) ?? []);
+	}
+	return byTarget;
 }

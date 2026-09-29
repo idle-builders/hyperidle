@@ -32,11 +32,12 @@ export default {
 interface DemoAgent {
 	id: string;
 	name: string;
-	role: string;
-	roleLabel: string;
+	discipline: string;
+	disciplineLabel: string;
 	harness: string;
 	model: string;
-	assistant?: boolean;
+	/** A person's own agent (`ownerUserId`), not a craft. */
+	owned?: boolean;
 	harnessUnavailable?: boolean;
 }
 
@@ -44,40 +45,40 @@ const AGENTS: DemoAgent[] = [
 	{
 		id: "ast-u1",
 		name: "Nova",
-		role: "assistant",
-		roleLabel: "Assistant",
+		discipline: "ops",
+		disciplineLabel: "Ops",
 		harness: "claude-code",
 		model: "Sonnet 4.6",
-		assistant: true,
+		owned: true,
 	},
 	{
 		id: "a1",
 		name: "Atlas",
-		role: "builder",
-		roleLabel: "Builder",
+		discipline: "builder",
+		disciplineLabel: "Builder",
 		harness: "claude-code",
 		model: "Opus 4.8",
 	},
 	{
 		id: "a2",
 		name: "Iris",
-		role: "designer",
-		roleLabel: "Designer",
+		discipline: "designer",
+		disciplineLabel: "Designer",
 		harness: "opencode",
 		model: "Sonnet 4.6",
 	},
 	{
 		id: "a3",
 		name: "Sol",
-		role: "product_manager",
-		roleLabel: "Product Manager",
+		discipline: "product_manager",
+		disciplineLabel: "Product Manager",
 		harness: "codex",
 		model: "Haiku 4.5",
 		harnessUnavailable: true,
 	},
 ];
 
-const ROLES: readonly ComboboxOption[] = [
+const DISCIPLINES: readonly ComboboxOption[] = [
 	{
 		id: "builder",
 		label: "Builder",
@@ -115,7 +116,7 @@ const HARNESSES = [
 ];
 
 function AgentEditor({ agent }: { agent: DemoAgent }): React.JSX.Element {
-	const [role, setRole] = useState(agent.role);
+	const [discipline, setDiscipline] = useState(agent.discipline);
 	const [harness, setHarness] = useState(agent.harness);
 	const [model, setModel] = useState(
 		agent.model === "Opus 4.8"
@@ -131,14 +132,14 @@ function AgentEditor({ agent }: { agent: DemoAgent }): React.JSX.Element {
 			<Input id="ed-name" label="Name" type="text" value={agent.name} onChange={() => {}} />
 
 			<Combobox
-				label="Role"
-				options={ROLES}
-				value={role}
-				onChange={setRole}
-				disabled={agent.assistant}
+				label="Discipline"
+				options={DISCIPLINES}
+				value={discipline}
+				onChange={setDiscipline}
+				disabled={agent.owned}
 				allowCustomValue
-				placeholder="Filter roles or type a new one…"
-				listAriaLabel="Roles"
+				placeholder="Filter disciplines or type a new one…"
+				listAriaLabel="Disciplines"
 			/>
 
 			<div className="flex flex-wrap gap-[12px]">
@@ -216,7 +217,7 @@ export function AgentsListWithEditor(): React.JSX.Element {
 									key={a.id}
 									as="li"
 									title={a.name}
-									subtitle={a.assistant ? `${a.roleLabel} · You` : a.roleLabel}
+									subtitle={a.owned ? `${a.disciplineLabel} · Yours` : a.disciplineLabel}
 									selected={a.id === selectedId}
 									onClick={() => setSelectedId(a.id)}
 									cells={[

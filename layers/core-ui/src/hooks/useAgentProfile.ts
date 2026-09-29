@@ -5,7 +5,7 @@ import { call } from "../services/call.js";
 export interface AgentProfileData {
 	readonly id: string;
 	readonly name: string;
-	readonly role: string;
+	readonly discipline: string | null;
 	readonly agentCategory: string | null;
 	readonly teamName: string | null;
 	readonly teamId: string | null;
@@ -87,7 +87,7 @@ export function useAgentProfile(agentId: string | undefined): UseAgentProfileRes
 					data: {
 						id: row.id,
 						name: row.name,
-						role: row.role,
+						discipline: row.discipline,
 						agentCategory: row.agentCategory,
 						teamName: row.team?.name ?? null,
 						teamId: row.team?.id ?? null,

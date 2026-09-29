@@ -673,6 +673,13 @@
 			"when": 1790591281807,
 			"tag": "0096_drop_dead_server_config_and_effectiveness",
 			"breakpoints": true
+		},
+		{
+			"idx": 97,
+			"version": "7",
+			"when": 1790677681807,
+			"tag": "0097_discipline_clusters_role_is_rbac",
+			"breakpoints": true
 		}
 	]
 }

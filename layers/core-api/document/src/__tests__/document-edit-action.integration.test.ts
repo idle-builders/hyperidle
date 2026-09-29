@@ -942,3 +942,94 @@ describe("edit_document — a user-scoped write with no scopeId defaults to the 
 		expect(seenByStranger.problems[0]?.code).toBe("not_found");
 	});
 });
+
+describe("edit_document — discipline is explicit only", () => {
+	test("a child document does not inherit its parent's discipline", async ({ db }) => {
+		await seedUser(db, "writer-discipline-1");
+		const deps = writeDeps();
+		const edit = editAction(deps);
+		const ctx = ctxFor(db, "writer-discipline-1");
+
+		const parent = await edit.run(ctx, {
+			title: "Design practice",
+			body: "x",
+			discipline: "design",
+		});
+		expect(parent.ok).toBe(true);
+		if (!parent.ok) throw new Error("expected success");
+		expect(parent.data.document.discipline).toBe("design");
+
+		const child = await edit.run(ctx, {
+			title: "Child doc",
+			body: "y",
+			parent: { kind: "document", id: parent.data.document.id },
+		});
+		expect(child.ok).toBe(true);
+		if (!child.ok) throw new Error("expected success");
+		expect(child.data.document.discipline).toBeNull();
+	});
+
+	test("an edit that omits discipline leaves it unchanged; an explicit null clears it", async ({
+		db,
+	}) => {
+		await seedUser(db, "writer-discipline-2");
+		const deps = writeDeps();
+		const edit = editAction(deps);
+		const ctx = ctxFor(db, "writer-discipline-2");
+
+		const created = await edit.run(ctx, { title: "Doc", body: "x", discipline: "builder" });
+		expect(created.ok).toBe(true);
+		if (!created.ok) throw new Error("expected success");
+
+		const untouched = await edit.run(ctx, {
+			id: created.data.document.id,
+			version: created.data.document.version,
+			body: "y",
+		});
+		expect(untouched.ok).toBe(true);
+		if (!untouched.ok) throw new Error("expected success");
+		expect(untouched.data.document.discipline).toBe("builder");
+
+		const cleared = await edit.run(ctx, {
+			id: created.data.document.id,
+			version: untouched.data.document.version,
+			discipline: null,
+		});
+		expect(cleared.ok).toBe(true);
+		if (!cleared.ok) throw new Error("expected success");
+		expect(cleared.data.document.discipline).toBeNull();
+	});
+});
+
+describe("edit_document — an agent_file must be bound to its agent", () => {
+	test("no parent is refused with a real Problem, not a raw constraint violation", async ({
+		db,
+	}) => {
+		await seedUser(db, "writer-af-1");
+		const deps = writeDeps();
+		const edit = editAction(deps);
+
+		const result = await edit.run(ctxFor(db, "writer-af-1", { internal: true }), {
+			title: "Orphan identity",
+			body: "x",
+			slot: "agent_file",
+		});
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error("expected a refusal");
+		expect(result.problems[0]?.code).toBe("agent_file_needs_agent_parent");
+	});
+
+	test("bound to its agent succeeds", async ({ db }) => {
+		await seedUser(db, "writer-af-2");
+		const deps = writeDeps({ systemParentExists: async () => true });
+		const edit = editAction(deps);
+
+		const result = await edit.run(ctxFor(db, "writer-af-2", { internal: true }), {
+			title: "Bound identity",
+			body: "x",
+			slot: "agent_file",
+			parent: { kind: "agent", id: "agent-af-2" },
+		});
+		expect(result.ok).toBe(true);
+	});
+});

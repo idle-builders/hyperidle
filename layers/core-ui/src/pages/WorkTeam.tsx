@@ -30,7 +30,6 @@ import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
-import { roleLabel } from "../utils/role-label.js";
 import { AgentAddDialog } from "./AgentAddDialog.js";
 import { AgentDetailPane } from "./work/AgentDetailPane.js";
 
@@ -317,7 +316,8 @@ function WorkTeamLoaded({
 							: healthDetail;
 
 						let contextText = (() => {
-							return roleLabel(member.role);
+							// @lore: contextText fallback — an agent's identity document says what it is for, never a product-written sentence about its discipline.
+							return member.discipline ?? "";
 						})();
 						let contextIsError = false;
 						if (memberStatus === "active" && runState.activeTaskTitle) {
@@ -469,7 +469,9 @@ function WorkTeamLoaded({
 			{/* Add dialog — only mounted when open to avoid DOM content collisions */}
 			{addDialogOpen && (
 				<AgentAddDialog
-					rolesInUse={(data?.roster ?? []).map((m) => m.role)}
+					disciplinesInUse={(data?.roster ?? [])
+						.map((m) => m.discipline)
+						.filter((d): d is string => d !== null)}
 					open={addDialogOpen}
 					teamName={data.team.name}
 					onClose={() => setAddDialogOpen(false)}

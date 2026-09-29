@@ -34,7 +34,6 @@ import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { createOpenHandler } from "../services/open-handler.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
-import { roleLabel } from "../utils/role-label.js";
 import { absoluteDate } from "../utils/time.js";
 import { SubscriptionsSection } from "./SubscriptionsSection.js";
 
@@ -363,7 +362,7 @@ function AgentProfileLoaded({
 											)}
 										</div>
 										<p className="type-metadata  text-[var(--text-tertiary)] mt-[3px]">
-											{roleLabel(data.role)}
+											{data.discipline && <span>{data.discipline}</span>}
 											{data.teamName && <span className="ml-[6px]">· {data.teamName}</span>}
 											<span className="ml-[6px]">· Created {createdDate}</span>
 										</p>
@@ -391,7 +390,7 @@ function AgentProfileLoaded({
 							>
 								<SectionLabel label="Configuration" as="h2" />
 								<div className="flex flex-col gap-[6px] max-w-[320px]">
-									<KeyValue label="Role" value={roleLabel(data.role)} />
+									{data.discipline && <KeyValue label="Discipline" value={data.discipline} />}
 									<KeyValue label="Harness" value={harnessLabel(data.harnessType)} />
 									<KeyValue label="Category" value={data.agentCategory ?? "team"} />
 									{data.teamName && <KeyValue label="Team" value={data.teamName} />}

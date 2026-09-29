@@ -226,7 +226,7 @@ export function SetupFlow(): JSX.Element {
 				const assistantResult = await call("edit_user", {
 					kind: "ai",
 					name: `${name.trim()}'s Assistant`,
-					role: "assistant",
+					role: "agent",
 					agentCategory: "individual",
 					ownerUserId: createdUserId,
 					...(primaryHarness ? { runConfig: primaryHarness } : {}),

@@ -14,7 +14,7 @@ function toAgentConfig(row: UserRow): AgentConfig {
 	return {
 		id: row.id,
 		name: row.name,
-		role: row.role,
+		discipline: row.discipline,
 		ownerUserId: row.ownerUserId,
 		identityDocumentId: null,
 		harnessType: null,

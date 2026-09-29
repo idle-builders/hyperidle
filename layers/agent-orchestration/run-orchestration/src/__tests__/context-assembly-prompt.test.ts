@@ -90,11 +90,9 @@ describe("substituteTemplateVars", () => {
 });
 
 describe("buildTemplateVariables", () => {
-	it("maps team name to product and derives community from agent role", () => {
+	it("maps team name to product", () => {
 		const vars = assembler.buildTemplateVariables(sessionContext());
 		expect(vars.product).toBe("Alpha");
-		expect(typeof vars.community).toBe("string");
-		expect(vars.community?.length).toBeGreaterThan(0);
 	});
 });
 

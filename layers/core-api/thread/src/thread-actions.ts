@@ -165,7 +165,7 @@ function toIdentity(user: User): Identity {
 	return IdentitySchema.parse({
 		id: user.id,
 		name: user.name,
-		role: user.role,
+		discipline: user.discipline,
 		isAgent: user.kind === "ai",
 	});
 }

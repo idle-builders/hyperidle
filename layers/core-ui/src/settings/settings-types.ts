@@ -9,7 +9,8 @@ export interface InjectableFilesystem {
 export interface AgentConfig {
 	id: string;
 	name: string;
-	role: string;
+	/** The agent's craft — designer, developer, whatever it was given. null when unset. */
+	discipline: string | null;
 	/**
 	 * The human this agent belongs to, or null for a team-owned agent.
 	 * Every user's agent is an ordinary agent that the user owns —

@@ -28,6 +28,10 @@ async function insertDocument(
 ) {
 	const id = opts.id ?? generateId();
 	const now = new Date().toISOString();
+	// `doc_agent_file_parent_ck`: an agent_file must be bound to its agent —
+	// this test suite always sets scopeId to the bound agent's id already, so
+	// that same id is the real parent too.
+	const bound = opts.role === "agent_file" ? (opts.scopeId ?? null) : null;
 	await db.insert(documents).values({
 		id,
 		scopeKind: opts.scopeKind ?? "factory",
@@ -37,6 +41,8 @@ async function insertDocument(
 		format: "markdown",
 		status: "active",
 		slot: opts.role,
+		parentKind: bound ? "agent" : null,
+		parentId: bound,
 		version: 1,
 		updatedBy: "test-user",
 		createdAt: now,

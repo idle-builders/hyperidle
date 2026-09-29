@@ -1,8 +1,8 @@
 /**
- * The role picker offers the roles that exist, not a hardcoded list.
+ * The discipline picker offers the disciplines that exist, not a hardcoded list.
  *
- * `ROLE_OPTIONS` was `AGENT_ROLE_CATALOG.map(...)` — 17 roles the product had
- * opinions about, offered whether or not any agent had them, while a role a
+ * `disciplineOptions` was `AGENT_ROLE_CATALOG.map(...)` — 17 roles the product had
+ * opinions about, offered whether or not any agent had them, while a discipline a
  * plugin or a person actually introduced was never offered back.
  *
  * Founder: "the roles catalog shouldn't be hardcoded, but based of what really
@@ -22,7 +22,7 @@ vi.mock("../../services/api-fetch", async (importOriginal) => {
 
 const DRAFT: AgentEditorDraft = {
 	name: "Rita",
-	role: "release_manager",
+	discipline: "release_manager",
 	systemPrompt: "",
 	harnessType: "",
 	modelId: "",
@@ -32,12 +32,11 @@ const DRAFT: AgentEditorDraft = {
 	modelOptions: {},
 };
 
-function renderEditor(roleOptions: readonly string[]) {
+function renderEditor(disciplinesInUse: readonly string[]) {
 	return render(
 		<MemoryRouter>
 			<AgentEditor
 				agentId="a1"
-				ownerUserId={null}
 				draft={DRAFT}
 				onDraftChange={vi.fn()}
 				harnesses={[]}
@@ -45,30 +44,30 @@ function renderEditor(roleOptions: readonly string[]) {
 				onCancel={vi.fn()}
 				saving={false}
 				error={null}
-				rolesInUse={roleOptions}
+				disciplinesInUse={disciplinesInUse}
 			/>
 		</MemoryRouter>,
 	);
 }
 
-describe("the role picker offers the roles that exist", () => {
-	it("offers a role somebody introduced, which no catalog knew about", async () => {
+describe("the discipline picker offers the disciplines that exist", () => {
+	it("offers a discipline somebody introduced, which no catalog knew about", async () => {
 		renderEditor(["release_manager", "builder"]);
 
-		// The combobox shows the current role by its derived label — no catalog
+		// The combobox shows the current discipline verbatim — no catalog
 		// entry exists for `release_manager` and none is needed.
 		const triggers = await screen.findAllByRole("combobox");
-		const roleTrigger = triggers.find((t) => t.id === "edit-role-a1");
-		expect(roleTrigger?.textContent).toContain("Release Manager");
+		const disciplineTrigger = triggers.find((t) => t.id === "edit-discipline-a1");
+		expect(disciplineTrigger?.textContent).toContain("release_manager");
 	});
 
-	it("does not offer roles nobody has", async () => {
+	it("does not offer disciplines nobody has", async () => {
 		renderEditor(["release_manager"]);
 
 		// `brand_voice`, `scout` and `data_analyst` were in the hardcoded catalog
 		// and are on no agent here.
-		expect(screen.queryByText("Brand Voice")).toBeNull();
-		expect(screen.queryByText("Scout")).toBeNull();
-		expect(screen.queryByText("Data Analyst")).toBeNull();
+		expect(screen.queryByText("brand_voice")).toBeNull();
+		expect(screen.queryByText("scout")).toBeNull();
+		expect(screen.queryByText("data_analyst")).toBeNull();
 	});
 });

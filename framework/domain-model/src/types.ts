@@ -79,10 +79,13 @@ export type HarnessType = (typeof HARNESS_TYPES)[number];
 /**
  * OrgChart edge mechanisms.
  * "direct" = edge targets a specific userId,
- * "function" = edge targets a role string,
+ * "discipline" = edge targets a discipline string, resolved to every user
+ * (human or agent) whose own `discipline` matches it case-insensitively,
  * "team" = edge targets a teamId.
+ *
+ * @lore: mechanism values — free text like `users.discipline`/`documents.discipline`; an edge keyed on a stale value breaks, the accepted cost of open vocabulary.
  */
-export const ORG_EDGE_MECHANISMS = ["direct", "function", "team"] as const;
+export const ORG_EDGE_MECHANISMS = ["direct", "discipline", "team"] as const;
 export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
 
 /**

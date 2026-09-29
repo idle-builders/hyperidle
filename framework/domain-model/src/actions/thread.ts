@@ -173,7 +173,8 @@ export type Message = z.infer<typeof MessageSchema>;
 export const IdentitySchema = z.object({
 	id: z.string(),
 	name: z.string(),
-	role: z.string(),
+	/** Someone's craft (see `users.discipline`), null when they have none. */
+	discipline: z.string().nullable(),
 	isAgent: z.boolean(),
 });
 export type Identity = z.infer<typeof IdentitySchema>;

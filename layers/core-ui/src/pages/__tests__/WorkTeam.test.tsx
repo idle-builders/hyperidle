@@ -110,14 +110,14 @@ vi.mock("../../hooks/useAgentRunState", async () => {
 const AGENT_HEALTHY: TeamRosterMember = {
 	agentId: "agent-h",
 	name: "Healthy Agent",
-	role: "builder",
+	discipline: "builder",
 	agentCategory: "team",
 };
 
 const AGENT_WARNING: TeamRosterMember = {
 	agentId: "agent-w",
 	name: "Warning Agent",
-	role: "builder",
+	discipline: "builder",
 	agentCategory: "team",
 };
 
@@ -256,19 +256,19 @@ describe("WorkTeam agent roster rows", () => {
 	const AGENT_IDLE: TeamRosterMember = {
 		agentId: "agent-idle",
 		name: "Idle Agent",
-		role: "builder",
+		discipline: "builder",
 		agentCategory: null,
 	};
 	const AGENT_ACTIVE: TeamRosterMember = {
 		agentId: "agent-active",
 		name: "Active Agent",
-		role: "builder",
+		discipline: "builder",
 		agentCategory: null,
 	};
 	const AGENT_ERROR: TeamRosterMember = {
 		agentId: "agent-error",
 		name: "Error Agent",
-		role: "builder",
+		discipline: "builder",
 		agentCategory: null,
 	};
 	const TEAM_WITH_AGENTS: TeamPageData = {
@@ -402,7 +402,7 @@ describe("WorkTeam agent split-pane", () => {
 	const ROSTER_MEMBER: TeamRosterMember = {
 		agentId: "a1",
 		name: "Atlas Builder",
-		role: "builder",
+		discipline: "builder",
 		agentCategory: "team",
 	};
 	const TEAM_DATA: TeamPageData = {
@@ -483,12 +483,22 @@ describe("WorkTeam agent configuration", () => {
 	const TEAM_WITH_CATEGORIES: TeamPageData = {
 		team: { id: "ab3-team-1", name: "Sample Team", status: "healthy" },
 		roster: [
-			{ agentId: "agent-builder-1", name: "Atlas Builder", role: "builder", agentCategory: "team" },
-			{ agentId: "agent-scout-1", name: "Scout Agent", role: "scout", agentCategory: "individual" },
+			{
+				agentId: "agent-builder-1",
+				name: "Atlas Builder",
+				discipline: "builder",
+				agentCategory: "team",
+			},
+			{
+				agentId: "agent-scout-1",
+				name: "Scout Agent",
+				discipline: "scout",
+				agentCategory: "individual",
+			},
 			{
 				agentId: "agent-cos-1",
 				name: "System Agent",
-				role: "assistant",
+				discipline: "assistant",
 				agentCategory: "individual",
 			},
 		],
@@ -679,7 +689,7 @@ describe("WorkTeam agent configuration", () => {
 		});
 	});
 
-	it("'+ Add agent' opens a create dialog with a name input and role combobox", async () => {
+	it("'+ Add agent' opens a create dialog with a name input and discipline combobox", async () => {
 		const user = userEvent.setup();
 		renderConfig();
 		await waitFor(() => expect(screen.getAllByTestId("agent-row")).toHaveLength(3));
@@ -689,7 +699,7 @@ describe("WorkTeam agent configuration", () => {
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
 			expect(screen.getByRole("textbox", { name: /agent name/i })).toBeInTheDocument();
-			expect(screen.getByRole("combobox", { name: /role/i })).toBeInTheDocument();
+			expect(screen.getByRole("combobox", { name: /discipline/i })).toBeInTheDocument();
 		});
 	});
 

@@ -25,7 +25,7 @@ function wrap(element: JSX.Element): JSX.Element {
 const BASE_PROFILE: AgentProfileData = {
 	id: "agent-1",
 	name: "Atlas Builder",
-	role: "builder",
+	discipline: "builder",
 	agentCategory: "team",
 	teamName: "HyperIdle Core",
 	teamId: "team-1",
@@ -228,7 +228,8 @@ export const StrategyAgent = (): JSX.Element =>
 			overrideData={{
 				...BASE_PROFILE,
 				name: "Scout Strategy",
-				role: "scout",
+				discipline: "scout",
+				// @lore: agentCategory — "strategy" is not a valid value; every such row carries "individual".
 				agentCategory: "individual",
 				teamName: null,
 				teamId: null,

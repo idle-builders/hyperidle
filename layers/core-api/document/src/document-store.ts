@@ -329,6 +329,8 @@ export interface DocumentSearchFilter {
 	readonly slot?: DocumentSlot;
 	readonly status?: string;
 	readonly scopeKind?: string;
+	/** Case-insensitive exact match against a document's own `discipline`. */
+	readonly discipline?: string;
 	readonly as?: DocumentAs;
 	readonly unusedSince?: string;
 	readonly sort?: "least_used" | "most_read";
@@ -436,6 +438,9 @@ export function searchDocumentRows(
 	if (input.slot !== undefined) conditions.push(eq(documents.slot, input.slot));
 	if (input.status !== undefined) conditions.push(eq(documents.status, input.status));
 	if (input.scopeKind !== undefined) conditions.push(eq(documents.scopeKind, input.scopeKind));
+	if (input.discipline !== undefined) {
+		conditions.push(sql`LOWER(${documents.discipline}) = LOWER(${input.discipline})`);
+	}
 	if (input.unusedSince !== undefined) {
 		const cutoff = input.unusedSince;
 		conditions.push(sql`COALESCE(${documents.lastUsedAt}, ${documents.createdAt}) < ${cutoff}`);

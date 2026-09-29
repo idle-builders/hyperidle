@@ -3,9 +3,8 @@ import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import { Button, Combobox, Dialog, Input, KeyValue } from "../ds";
 import { call } from "../services/call.js";
-import { roleOptions } from "../settings/role-options.js";
+import { disciplineOptions } from "../settings/discipline-options.js";
 import { useToast } from "../shell/ToastRegion.js";
-import { roleLabel } from "../utils/role-label.js";
 
 export interface AgentAddDialogProps {
 	open: boolean;
@@ -13,13 +12,14 @@ export interface AgentAddDialogProps {
 	teamName: string;
 	onClose: () => void;
 	onCreated: () => void;
-	/** The roles agents actually have — what the picker offers. A new one introduces itself. */
-	rolesInUse?: readonly string[];
+	/** The disciplines agents actually have — what the picker offers. A new one introduces itself. */
+	disciplinesInUse?: readonly string[];
 }
 
 interface AddFormValues {
 	name: string;
-	role: string;
+	/** "" means unset — no discipline is sent for it. */
+	discipline: string;
 	systemPrompt: string;
 	harnessType: string;
 	maxConcurrentSessions: number;
@@ -27,7 +27,7 @@ interface AddFormValues {
 
 const INITIAL_FORM: AddFormValues = {
 	name: "",
-	role: "agent",
+	discipline: "",
 	systemPrompt: "",
 	harnessType: "",
 	maxConcurrentSessions: 1,
@@ -38,7 +38,7 @@ export function AgentAddDialog({
 	teamName,
 	onClose,
 	onCreated,
-	rolesInUse,
+	disciplinesInUse,
 }: AgentAddDialogProps): JSX.Element {
 	const { showToast } = useToast();
 	const [formValues, setFormValues] = useState<AddFormValues>(INITIAL_FORM);
@@ -52,8 +52,8 @@ export function AgentAddDialog({
 
 	const isDirty = formValues.name.trim().length > 0 || formValues.systemPrompt.trim().length > 0;
 
-	const handleRoleChange = useCallback((newRole: string): void => {
-		setFormValues((prev) => ({ ...prev, role: newRole, systemPrompt: "" }));
+	const handleDisciplineChange = useCallback((newDiscipline: string): void => {
+		setFormValues((prev) => ({ ...prev, discipline: newDiscipline, systemPrompt: "" }));
 	}, []);
 
 	const handleCreate = useCallback(async (): Promise<void> => {
@@ -66,7 +66,7 @@ export function AgentAddDialog({
 			const result = await call("edit_user", {
 				kind: "ai",
 				name: formValues.name.trim(),
-				role: formValues.role,
+				discipline: formValues.discipline || null,
 				identity: formValues.systemPrompt || "",
 				team: { name: teamName },
 				runConfig: {
@@ -84,8 +84,6 @@ export function AgentAddDialog({
 			setCreating(false);
 		}
 	}, [formValues, teamName, onCreated, onClose, showToast]);
-
-	const roleDescription = roleLabel(formValues.role);
 
 	return (
 		<Dialog
@@ -126,20 +124,21 @@ export function AgentAddDialog({
 					onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))}
 				/>
 				<Combobox
-					id="add-dialog-role"
-					label="Role"
-					options={roleOptions([...(rolesInUse ?? []), formValues.role])}
-					value={formValues.role}
+					id="add-dialog-discipline"
+					label="Discipline"
+					options={disciplineOptions(
+						formValues.discipline
+							? [...(disciplinesInUse ?? []), formValues.discipline]
+							: (disciplinesInUse ?? []),
+					)}
+					value={formValues.discipline}
 					allowCustomValue
-					placeholder="Filter roles or type a new one…"
-					listAriaLabel="Roles"
-					inputAriaLabel="Filter or define a role"
-					customValuePrefix="Use new role: "
-					onChange={handleRoleChange}
+					placeholder="Filter disciplines or type a new one…"
+					listAriaLabel="Disciplines"
+					inputAriaLabel="Filter or define a discipline"
+					customValuePrefix="Use new discipline: "
+					onChange={handleDisciplineChange}
 				/>
-				{roleDescription && (
-					<p className="type-metadata  text-[var(--text-tertiary)]">{roleDescription}</p>
-				)}
 			</div>
 
 			<div className="mt-[18px]">

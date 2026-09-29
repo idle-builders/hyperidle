@@ -159,6 +159,21 @@ function practiceFolderId(practiceId: string): string {
 	return id;
 }
 
+/**
+ * Reverse of `PRACTICE_FOLDER_ID` — a document's `parentId` names its practice
+ * folder, and `discipline` must carry that same practice id, so every spec
+ * below is tagged by lookup rather than a second hand-typed literal that
+ * could drift from the map.
+ */
+const PRACTICE_ID_BY_FOLDER_ID: Readonly<Record<string, string>> = Object.fromEntries(
+	Object.entries(PRACTICE_FOLDER_ID).map(([practiceId, folderId]) => [folderId, practiceId]),
+);
+
+/** A spec's discipline: the practice its parent folder belongs to, or null when it isn't filed under Practices. */
+function disciplineFor(spec: DocumentSpec): string | null {
+	return PRACTICE_ID_BY_FOLDER_ID[spec.parentId] ?? null;
+}
+
 export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 	for (const [position, root] of ROOTS.entries()) {
 		await db
@@ -193,6 +208,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 				version: 1,
 				parentKind: "document",
 				parentId: PRACTICES_ROOT_ID,
+				discipline: practiceId,
 				updatedBy: "demo-seed",
 				createdAt: clock.daysAgo(44),
 				updatedAt: clock.daysAgo(44),
@@ -286,7 +302,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-review-before-deploy",
 			scopeKind: "factory",
-			scopeId: "builder",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("builder"),
 			title: "Every deploy goes through a review thread",
@@ -299,7 +315,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-small-prs",
 			scopeKind: "factory",
-			scopeId: "builder",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("builder"),
 			title: "Small changes, reviewed same day",
@@ -312,7 +328,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-metric-before-build",
 			scopeKind: "factory",
-			scopeId: "product_manager",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("product_manager"),
 			title: "Instrument the metric before building the feature",
@@ -325,7 +341,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-empty-state-first",
 			scopeKind: "factory",
-			scopeId: "designer",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("designer"),
 			title: "Design the empty state first",
@@ -338,7 +354,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-feature-flag-rollout",
 			scopeKind: "factory",
-			scopeId: "builder",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("builder"),
 			title: "Flag-gated rollouts for anything user-visible",
@@ -351,7 +367,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-email-deliverability",
 			scopeKind: "factory",
-			scopeId: "growth",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Deliverability checklist before any new email",
@@ -364,7 +380,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-subject-line-ab",
 			scopeKind: "factory",
-			scopeId: "growth",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Subject lines: behavior-referencing beats clever",
@@ -377,7 +393,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: DOC_CHURN_SIGNALS,
 			scopeKind: "factory",
-			scopeId: "product_manager",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("product_manager"),
 			title: "Churn early signals: the three that repeat",
@@ -390,7 +406,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-search-eval-loop",
 			scopeKind: "factory",
-			scopeId: "qa_engineer",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("qa_engineer"),
 			title: "The 50-query search eval loop",
@@ -403,7 +419,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-staging-data",
 			scopeKind: "factory",
-			scopeId: "qa_engineer",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("qa_engineer"),
 			title: "Anti-pattern: seeding staging with production exports",
@@ -416,7 +432,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: DOC_MOBILE_POSTMORTEM,
 			scopeKind: "factory",
-			scopeId: ROOT_TASK_MOBILE,
+			scopeId: null,
 			parentKind: "task",
 			parentId: ROOT_TASK_MOBILE,
 			title: "Postmortem: the mobile spike we killed",
@@ -429,7 +445,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-discount-panic",
 			scopeKind: "factory",
-			scopeId: "growth",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Anti-pattern: discounting in response to a single loud request",
@@ -442,7 +458,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-onboarding-dropoff",
 			scopeKind: "factory",
-			scopeId: "growth",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "The onboarding cliff is source-connection, not signup",
@@ -455,7 +471,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-session-notes",
 			scopeKind: "factory",
-			scopeId: "builder",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("builder"),
 			title: "Session notes are the handoff contract",
@@ -468,7 +484,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-retro-format",
 			scopeKind: "factory",
-			scopeId: "product_manager",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("product_manager"),
 			title: "Retro format: hypothesis vs reality, one keeper, one drop",
@@ -481,7 +497,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-copy-review-checklist",
 			scopeKind: "factory",
-			scopeId: "growth",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Copy review checklist",
@@ -494,7 +510,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-search-weights",
 			scopeKind: "factory",
-			scopeId: "builder",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("builder"),
 			title: "Decision: search weights live in config",
@@ -508,7 +524,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: DOC_TRIAL_RETRO,
 			scopeKind: "factory",
-			scopeId: ROOT_TASK_TRIAL,
+			scopeId: null,
 			parentKind: "task",
 			parentId: ROOT_TASK_TRIAL,
 			title: "Retro: trial extension — validated, and the hidden labor",
@@ -521,7 +537,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-retro-search",
 			scopeKind: "factory",
-			scopeId: ROOT_TASK_SEARCH,
+			scopeId: null,
 			parentKind: "task",
 			parentId: ROOT_TASK_SEARCH,
 			title: "Retro: search relevance — partial, and the eval loop wins",
@@ -535,7 +551,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-trial-date-math",
 			scopeKind: "factory",
-			scopeId: TASK_TRIAL_FLOW,
+			scopeId: null,
 			parentKind: "task",
 			parentId: TASK_TRIAL_FLOW,
 			title: "Trial entitlement date math is UTC end-to-end",
@@ -589,7 +605,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-old-onboarding",
 			scopeKind: "factory",
-			scopeId: "growth",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Fixed-day onboarding emails (superseded)",
@@ -602,7 +618,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-legacy-slack",
 			scopeKind: "factory",
-			scopeId: "builder",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("builder"),
 			title: "Archived: the Slack-webhook experiment",
@@ -629,7 +645,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-regression-suite",
 			scopeKind: "factory",
-			scopeId: "qa_engineer",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("qa_engineer"),
 			title: "The regression suite runs on every review verdict",
@@ -642,7 +658,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-design-tokens",
 			scopeKind: "factory",
-			scopeId: "designer",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("designer"),
 			title: "New screens compose from tokens, never raw values",
@@ -655,7 +671,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-weekly-planning",
 			scopeKind: "factory",
-			scopeId: "product_manager",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("product_manager"),
 			title: "Weekly planning: activate what is ready, kill what is stale",
@@ -668,7 +684,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-knowledge-hygiene",
 			scopeKind: "factory",
-			scopeId: "facilitator",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("facilitator"),
 			title: "Knowledge hygiene: triage weekly, archive without guilt",
@@ -681,7 +697,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-competitor-watch",
 			scopeKind: "factory",
-			scopeId: "growth",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Competitor teardowns: one page, kept current",
@@ -694,7 +710,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-uptime-runbook",
 			scopeKind: "factory",
-			scopeId: "ops",
+			scopeId: null,
 			parentKind: "document",
 			parentId: practiceFolderId("ops"),
 			title: "Incident runbook: the four first checks",
@@ -785,6 +801,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 				version: spec.version ?? 1,
 				parentKind: spec.parentKind ?? null,
 				parentId: spec.parentId ?? null,
+				discipline: disciplineFor(spec),
 				confidence: spec.status === "active" ? "0.9" : "0.6",
 				updatedBy: spec.updatedBy,
 				createdAt: spec.createdAt,

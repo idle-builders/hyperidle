@@ -613,7 +613,10 @@ async function installRun(
 				id: dbId,
 				kind: "ai",
 				name: agentSpec.name,
-				role: agentSpec.role,
+				// A plugin agent spec declares a discipline, never a role —
+				// `role` is RBAC only (founder | member | agent | system).
+				role: "agent",
+				discipline: agentSpec.discipline,
 				status: "active",
 				agentCategory: agentSpec.agentCategory,
 				teamId: scopeKind === "team" ? scopeId : null,

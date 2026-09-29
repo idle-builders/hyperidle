@@ -19,13 +19,13 @@ const MOCK_DETAIL = {
 		{
 			agentId: "agent-lead",
 			name: "Lead Agent",
-			role: "lead",
+			discipline: "lead",
 			agentCategory: "team",
 		},
 		{
 			agentId: "agent-member",
 			name: "Alice Agent",
-			role: "member",
+			discipline: "member",
 			agentCategory: "team",
 		},
 	],

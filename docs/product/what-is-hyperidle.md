@@ -32,7 +32,7 @@ A fresh HyperIdle install has you and one assistant. That assistant is subscribe
 
 Opinionated team agents — a Builder, a Product Manager, a Designer — come from plugins. The bundled **role-personas** plugin (install from **Settings → Plugins**) brings seven shaped team agents ready to work. The **document-management** plugin adds a Document Librarian that triages and curates your knowledge on a schedule.
 
-You are not locked to these. Any agent can be added by hand with a name, a role description, and a harness.
+You are not locked to these. Any agent can be added by hand with a name, a discipline, and a harness.
 
 ---
 

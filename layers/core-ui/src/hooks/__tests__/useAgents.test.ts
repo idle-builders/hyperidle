@@ -16,7 +16,7 @@ const AGENT_ROWS = [
 		id: "agent-a",
 		kind: "ai",
 		name: "Alpha",
-		role: "builder",
+		discipline: "builder",
 		status: "active",
 		ownerUserId: null,
 		agentCategory: "team",
@@ -25,7 +25,7 @@ const AGENT_ROWS = [
 		id: "agent-b",
 		kind: "ai",
 		name: "Bravo",
-		role: "reviewer",
+		discipline: "reviewer",
 		status: "idle",
 		ownerUserId: "u-1",
 		agentCategory: "individual",
@@ -41,7 +41,7 @@ describe("useAgents", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("maps rows to AgentConfig, id/name/role/ownerUserId preserved", async () => {
+	it("maps rows to AgentConfig, id/name/discipline/ownerUserId preserved", async () => {
 		callMock.mockResolvedValueOnce({ ok: true, data: AGENT_ROWS });
 		const { result } = renderHook(() => useAgents());
 
@@ -53,7 +53,7 @@ describe("useAgents", () => {
 		expect(result.current.agents[1]).toMatchObject({
 			id: "agent-b",
 			name: "Bravo",
-			role: "reviewer",
+			discipline: "reviewer",
 			ownerUserId: "u-1",
 		});
 	});

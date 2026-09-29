@@ -19,6 +19,7 @@ import {
 	documentStatusToStatus,
 	EmptyState,
 	ErrorState,
+	Input,
 	Menu,
 	PageHeader,
 	PageScaffold,
@@ -395,6 +396,12 @@ function DocumentDetailView({
 	const [version, setVersion] = useState<number>(document.version);
 	const [conflictMessage, setConflictMessage] = useState<string | null>(null);
 
+	// Discipline — explicit only, never inherited from the parent folder.
+	const [disciplineEditing, setDisciplineEditing] = useState(false);
+	const [disciplineDraft, setDisciplineDraft] = useState(document.discipline ?? "");
+	const [disciplineSaving, setDisciplineSaving] = useState(false);
+	const [disciplineError, setDisciplineError] = useState<string | null>(null);
+
 	const latestContentRef = useRef<string>("");
 	const { user } = useCurrentUser();
 
@@ -471,6 +478,24 @@ function DocumentDetailView({
 		latestContentRef.current = markdown;
 		if (markdown === editContent) return;
 		triggerSave(markdown);
+	}
+
+	async function handleDisciplineSave(): Promise<void> {
+		setDisciplineSaving(true);
+		setDisciplineError(null);
+		const result = await call("edit_document", {
+			id: document.id,
+			discipline: disciplineDraft.trim() || null,
+			version,
+		});
+		setDisciplineSaving(false);
+		if (!result.ok) {
+			setDisciplineError(result.problems[0]?.message ?? "Failed to save discipline");
+			return;
+		}
+		setVersion(result.data.document.version);
+		setDisciplineEditing(false);
+		refresh();
 	}
 
 	async function handleArchive(): Promise<void> {
@@ -805,6 +830,64 @@ function DocumentDetailView({
 								)}
 							</span>
 						</div>
+						<div
+							className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] "
+							data-testid="document-discipline-row"
+						>
+							<span className="text-[var(--text-tertiary)]">Discipline</span>
+							{disciplineEditing ? (
+								<span className="flex items-center gap-[6px]">
+									<Input
+										aria-label="Discipline"
+										type="text"
+										value={disciplineDraft}
+										onChange={(e) => setDisciplineDraft(e.target.value)}
+										disabled={disciplineSaving}
+									/>
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => void handleDisciplineSave()}
+										disabled={disciplineSaving}
+									>
+										Save
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => {
+											setDisciplineDraft(document.discipline ?? "");
+											setDisciplineEditing(false);
+											setDisciplineError(null);
+										}}
+										disabled={disciplineSaving}
+									>
+										Cancel
+									</Button>
+								</span>
+							) : (
+								<span className="flex items-center gap-[6px]">
+									<span className="type-small text-[var(--text-primary)] ">
+										{document.discipline ?? ""}
+									</span>
+									{!isReadOnly && (
+										<Button
+											variant="ghost"
+											size="sm"
+											data-testid="document-discipline-change-trigger"
+											onClick={() => setDisciplineEditing(true)}
+										>
+											Change
+										</Button>
+									)}
+								</span>
+							)}
+						</div>
+						{disciplineError && (
+							<p className="type-metadata  text-[var(--status-error)]" role="alert">
+								{disciplineError}
+							</p>
+						)}
 						<div className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Status</span>
 							<StatusChip

@@ -57,6 +57,13 @@ export const DocumentRowSchema = z.object({
 	lastReadAt: z.string().nullable(),
 	sessionUseCount: z.number().int(),
 	lastUsedAt: z.string().nullable(),
+	/**
+	 * Who this document is for — open vocabulary, `null`/empty reaches
+	 * everyone. Clusters an agent's context bundle; never controls access
+	 * (`canReadDocument` does not look at it). Matched case-insensitively
+	 * against an agent's own `discipline`.
+	 */
+	discipline: z.string().nullable(),
 	/** Derived, never stored — see `documentAs` below. */
 	as: z.enum(DOCUMENT_AS),
 });
@@ -78,6 +85,8 @@ export const SearchDocumentsInputSchema = z
 		slot: z.enum(DOCUMENT_SLOTS).optional(),
 		status: z.enum(DOCUMENT_STATUSES).optional(),
 		scopeKind: z.enum(SCOPE_KINDS).optional(),
+		/** Case-insensitive exact match against a document's own `discipline`. */
+		discipline: z.string().min(1).optional(),
 		as: z.enum(DOCUMENT_AS).optional(),
 		/**
 		 * Neither read nor handed to a session since this ISO instant, counting
@@ -143,6 +152,11 @@ export const EditDocumentInputSchema = z
 		slot: z.enum(DOCUMENT_SLOTS).optional(), // default "ordinary"
 		scopeKind: z.enum(SCOPE_KINDS).optional(),
 		scopeId: z.string().nullable().optional(),
+		/**
+		 * Who this document is for. Explicit only — never inherited from a
+		 * parent folder. `null` clears it back to "reaches everyone".
+		 */
+		discipline: z.string().nullable().optional(),
 		/** A move. `null` ⇒ to the top of the tree. Absent ⇒ no move. */
 		parent: z
 			.object({
@@ -235,6 +249,7 @@ const CONTENT_FIELDS = [
 	"slot",
 	"scopeKind",
 	"scopeId",
+	"discipline",
 	"parent",
 	"position",
 ] as const satisfies readonly (keyof EditDocumentInput)[];
@@ -465,6 +480,28 @@ function slotAndParentInvariants(input: EditDocumentInput, prev: DocumentRow | n
 	return problems;
 }
 
+/**
+ * An `agent_file` is only meaningful bound to the one agent it is the
+ * identity of (`doc_agent_file_parent_ck` enforces this at the database
+ * level) — refused here first so a client sees a real `Problem`, not a raw
+ * constraint violation. Create-only: a slotted document's parent is fixed at
+ * create (I10 above) and its slot cannot change (I9), so an existing row can
+ * never drift into this shape.
+ */
+function agentFileInvariants(input: EditDocumentInput, prev: DocumentRow | null): Problem[] {
+	if (prev !== null) return [];
+	const slot = input.slot ?? "ordinary";
+	if (slot !== "agent_file") return [];
+	if (input.parent && input.parent.kind === "agent") return [];
+	return [
+		{
+			code: "agent_file_needs_agent_parent",
+			message: "An identity document must be bound to the agent it belongs to.",
+			path: "parent",
+		},
+	];
+}
+
 export function editDocumentInvariants(
 	input: EditDocumentInput,
 	prev: DocumentRow | null,
@@ -525,6 +562,7 @@ export function editDocumentInvariants(
 	}
 
 	problems.push(...slotAndParentInvariants(input, prev));
+	problems.push(...agentFileInvariants(input, prev));
 
 	if (
 		prev !== null &&

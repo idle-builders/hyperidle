@@ -41,7 +41,7 @@ vi.mock("../../hooks/useAgentRunState", async () => {
 const AGENT_CONFIG: AgentConfig = {
 	id: "a1",
 	name: "Atlas Builder",
-	role: "builder",
+	discipline: "builder",
 	identityDocumentId: null,
 	harnessType: null,
 	modelId: null,
@@ -54,7 +54,7 @@ const AGENT_CONFIG: AgentConfig = {
 const ROSTER_MEMBER: TeamRosterMember = {
 	agentId: "a1",
 	name: "Atlas Builder",
-	role: "builder",
+	discipline: "builder",
 	agentCategory: "team",
 };
 

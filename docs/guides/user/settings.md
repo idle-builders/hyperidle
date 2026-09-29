@@ -6,7 +6,7 @@ Click **Settings** pinned at the bottom of the sidebar. All sections stack verti
 |---|---|
 | **Profile** | Your name |
 | **Org chart** | Reporting lines between humans |
-| **Agents** | Per-agent name, role, system prompt, harness, max sessions; add new agents |
+| **Agents** | Per-agent name, discipline, system prompt, harness, max sessions; add new agents |
 | **Skills & rules** | Skill and rule documents attached to agents |
 | **Plugins** | Install, enable, disable, and remove plugins |
 | **Filesystems** | View registered file sources |
@@ -26,7 +26,7 @@ Your name. No email field, no avatar.
 
 ## Org chart
 
-Reporting lines between humans. Add an edge to record a direct report, a function, or a team relationship. If you are the only human, use **Function** to describe your role.
+Reporting lines between humans. Add an edge to record a direct report, a discipline, or a team relationship. If you are the only human, use **Discipline** to describe your craft.
 
 ---
 
@@ -35,7 +35,7 @@ Reporting lines between humans. Add an edge to record a direct report, a functio
 Lists all agents. Click **+ Add Agent** to create one:
 
 - **Name** — display name
-- **Role** — any text; the picker shows roles already in use
+- **Discipline** — any text; the picker shows disciplines already in use
 - **System prompt** — the agent's instructions
 - **Harness** — which CLI runs it
 - **Max concurrent sessions** — how many sessions this agent can run at once

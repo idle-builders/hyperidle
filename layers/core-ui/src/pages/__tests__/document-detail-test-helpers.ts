@@ -27,6 +27,7 @@ export function makeDocumentRow(
 		lastReadAt: null,
 		sessionUseCount: 0,
 		lastUsedAt: null,
+		discipline: null,
 		as: "document",
 		...overrides,
 	};
@@ -82,7 +83,7 @@ export function makeThreadView(overrides: Partial<ThreadView> = {}): ThreadView 
 			lastActiveAt: "2026-01-02T10:00:00.000Z",
 			createdAt: "2026-01-02T09:00:00.000Z",
 		},
-		members: [{ id: "u-founder", name: "Founder", role: "founder", isAgent: false }],
+		members: [{ id: "u-founder", name: "Founder", discipline: null, isAgent: false }],
 		messages: [],
 		headMessageId: null,
 		hostTitle: null,

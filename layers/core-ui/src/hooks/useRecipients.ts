@@ -6,7 +6,7 @@ export interface Recipient {
 	id: string;
 	kind: "agent" | "user";
 	name: string;
-	role: string;
+	discipline: string | null;
 	status: string;
 	hasActiveSession: boolean;
 	avatarUrl: string | null;
@@ -24,7 +24,7 @@ function toRecipient(row: UserRow): Omit<Recipient, "hasActiveSession"> {
 		id: row.id,
 		kind: row.kind === "ai" ? "agent" : "user",
 		name: row.name,
-		role: row.role,
+		discipline: row.discipline,
 		status: row.status,
 		avatarUrl: row.avatarUrl,
 	};

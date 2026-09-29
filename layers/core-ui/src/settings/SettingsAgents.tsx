@@ -18,7 +18,6 @@ import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { call } from "../services/call.js";
 import { useToast } from "../shell/ToastRegion.js";
-import { roleLabel } from "../utils/role-label.js";
 import type { AgentEditorDraft } from "./AgentEditor.js";
 import { AgentEditor } from "./AgentEditor.js";
 import type { AgentConfig, InjectableFilesystem } from "./settings-types.js";
@@ -26,7 +25,8 @@ import type { AgentConfig, InjectableFilesystem } from "./settings-types.js";
 function agentToEditorDraft(agent: AgentConfig): AgentEditorDraft {
 	return {
 		name: agent.name,
-		role: agent.role,
+		discipline: agent.discipline ?? "",
+		// The identity is a document; the draft only seeds one when creating.
 		systemPrompt: "",
 		harnessType: agent.harnessType ?? "",
 		modelId: agent.modelId ?? "",
@@ -84,7 +84,7 @@ export function SettingsAgents(): JSX.Element {
 	const [adding, setAdding] = useState(false);
 	const [addDraft, setAddDraft] = useState<AgentEditorDraft>({
 		name: "",
-		role: "agent",
+		discipline: "",
 		systemPrompt: "",
 		harnessType: "",
 		modelId: "",
@@ -125,7 +125,7 @@ export function SettingsAgents(): JSX.Element {
 				return {
 					id: row.id,
 					name: row.name,
-					role: row.role,
+					discipline: row.discipline,
 					ownerUserId: row.ownerUserId,
 					identityDocumentId,
 					harnessType: view?.ok ? (view.data.runConfig?.harnessType ?? null) : null,
@@ -185,7 +185,7 @@ export function SettingsAgents(): JSX.Element {
 			const result = await call("edit_user", {
 				id: selectedId,
 				name: draft.name,
-				role: draft.role,
+				discipline: draft.discipline || null,
 				runConfig: {
 					...(harnessType ? { harnessType } : {}),
 					...(draft.modelId ? { modelId: draft.modelId } : {}),
@@ -207,7 +207,7 @@ export function SettingsAgents(): JSX.Element {
 						? {
 								...a,
 								name: draft.name,
-								role: draft.role,
+								discipline: draft.discipline || null,
 								harnessType: draft.harnessType || null,
 								modelId: draft.modelId || null,
 								modelProvider: draft.modelProvider,
@@ -241,7 +241,7 @@ export function SettingsAgents(): JSX.Element {
 			const result = await call("edit_user", {
 				kind: "ai",
 				name: addDraft.name,
-				role: addDraft.role,
+				discipline: addDraft.discipline || null,
 				identity: addDraft.systemPrompt || "",
 				...(selfTeamName ? { team: { name: selfTeamName } } : {}),
 				runConfig: {
@@ -257,7 +257,7 @@ export function SettingsAgents(): JSX.Element {
 			setAddMode(false);
 			setAddDraft({
 				name: "",
-				role: "agent",
+				discipline: "",
 				systemPrompt: "",
 				harnessType: "",
 				modelId: "",
@@ -316,19 +316,28 @@ export function SettingsAgents(): JSX.Element {
 				isEmpty={agents.length === 0}
 				empty={{
 					title: "No agents configured",
-					description: "Add an agent to configure name, role, harness, model, and sessions.",
+					description: "Add an agent to configure name, discipline, harness, model, and sessions.",
 				}}
 			>
 				{/* no role filter — the assistant appears as a row here */}
 				{agents.map((agent) => {
 					const isSelected = selectedId === agent.id;
+					const subtitle = [
+						agent.discipline,
+						harnesses.find((h) => h.type === agent.harnessType)?.name ??
+							agent.harnessType ??
+							"Default",
+						`${activeRunCounts[agent.id] ?? 0} active`,
+					]
+						.filter((part): part is string => Boolean(part))
+						.join(" · ");
 
 					return (
 						<Row
 							key={agent.id}
 							as="div"
 							title={agent.name}
-							subtitle={`${roleLabel(agent.role)} · ${harnesses.find((h) => h.type === agent.harnessType)?.name ?? agent.harnessType ?? "Default"} · ${activeRunCounts[agent.id] ?? 0} active`}
+							subtitle={subtitle}
 							selected={isSelected}
 							actions={
 								<RowDeleteAction
@@ -357,7 +366,6 @@ export function SettingsAgents(): JSX.Element {
 				<div className="flex flex-col gap-[9px]">
 					<AgentEditor
 						agentId="new-agent"
-						ownerUserId={null}
 						draft={addDraft}
 						onDraftChange={(fn) => setAddDraft((prev) => fn(prev))}
 						harnesses={harnesses}
@@ -369,7 +377,9 @@ export function SettingsAgents(): JSX.Element {
 						saving={adding}
 						error={addError}
 						filesystems={filesystems}
-						rolesInUse={agents.map((a) => a.role)}
+						disciplinesInUse={agents
+							.map((a) => a.discipline)
+							.filter((d): d is string => d !== null)}
 					/>
 				</div>
 			)}
@@ -382,7 +392,6 @@ export function SettingsAgents(): JSX.Element {
 		selectedId && draft ? (
 			<AgentEditor
 				agentId={selectedId}
-				ownerUserId={selectedAgent?.ownerUserId ?? null}
 				draft={draft}
 				onDraftChange={(fn) => setDraft((prev) => (prev ? fn(prev) : prev))}
 				harnesses={harnesses}
@@ -392,7 +401,7 @@ export function SettingsAgents(): JSX.Element {
 				error={editError}
 				filesystems={filesystems}
 				identityDocumentId={selectedAgent?.identityDocumentId ?? null}
-				rolesInUse={agents.map((a) => a.role)}
+				disciplinesInUse={agents.map((a) => a.discipline).filter((d): d is string => d !== null)}
 			/>
 		) : (
 			<EmptyState

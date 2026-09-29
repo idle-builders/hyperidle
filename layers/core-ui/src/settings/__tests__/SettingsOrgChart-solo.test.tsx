@@ -69,7 +69,7 @@ describe("SettingsOrgChart — solo contextual message", () => {
 		await waitFor(() => {
 			expect(
 				screen.getByText(
-					/add a second human to define reporting lines|add a function.*describe your role/i,
+					/add a second human to define reporting lines|add a discipline.*describe your craft/i,
 				),
 			).toBeInTheDocument();
 		});
@@ -82,7 +82,7 @@ describe("SettingsOrgChart — solo contextual message", () => {
 		await waitFor(() => {
 			expect(
 				screen.getByText(
-					/add a second human to define reporting lines|add a function.*describe your role/i,
+					/add a second human to define reporting lines|add a discipline.*describe your craft/i,
 				),
 			).toBeInTheDocument();
 		});
@@ -97,7 +97,7 @@ describe("SettingsOrgChart — solo contextual message", () => {
 		await waitFor(() => {
 			expect(
 				screen.getByText(
-					/add a second human to define reporting lines|add a function.*describe your role/i,
+					/add a second human to define reporting lines|add a discipline.*describe your craft/i,
 				),
 			).toBeInTheDocument();
 		});
@@ -118,7 +118,7 @@ describe("SettingsOrgChart — solo contextual message", () => {
 
 		expect(
 			screen.queryByText(
-				/add a second human to define reporting lines|add a function.*describe your role/i,
+				/add a second human to define reporting lines|add a discipline.*describe your craft/i,
 			),
 		).not.toBeInTheDocument();
 	});
@@ -133,7 +133,7 @@ describe("SettingsOrgChart — solo contextual message", () => {
 
 		expect(
 			screen.queryByText(
-				/add a second human to define reporting lines|add a function.*describe your role/i,
+				/add a second human to define reporting lines|add a discipline.*describe your craft/i,
 			),
 		).not.toBeInTheDocument();
 	});

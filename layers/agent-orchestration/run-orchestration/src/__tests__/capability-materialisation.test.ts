@@ -229,7 +229,10 @@ describe("agent_file items are bound to a specific agent", () => {
 		expect(files).toHaveLength(0);
 	});
 
-	it("writes unbound agent_file (agentBindingId=null) to all sessions", async () => {
+	// An unbound agent_file cannot exist (`doc_agent_file_parent_ck` forbids
+	// the row); the writer skips every agent_file unconditionally, never
+	// materialising one into knowledge/rules regardless of its binding.
+	it("does not materialise an agent_file with no binding", async () => {
 		const bundle = makeBundle("any-agent", [
 			{
 				id: "af-2",
@@ -255,7 +258,7 @@ describe("agent_file items are bound to a specific agent", () => {
 
 		const rulesDir = path.join(sandboxPath, "knowledge/rules");
 		const files = fs.existsSync(rulesDir) ? fs.readdirSync(rulesDir) : [];
-		expect(files.length).toBeGreaterThan(0);
+		expect(files).toHaveLength(0);
 	});
 });
 

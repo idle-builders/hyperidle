@@ -27,6 +27,7 @@ export interface SubscriptionWakeDeps {
 			readonly teamId?: string;
 			readonly taskDescription: string;
 			readonly agentId: string;
+			readonly agentDiscipline?: string | null;
 		},
 	) => Promise<readonly SessionDocumentLike[]>;
 }
@@ -117,6 +118,7 @@ export async function resolveSubscriptionWakeRequest(
 			...(team ? { teamId: team.id } : {}),
 			taskDescription: prompt ?? input.subscription.event ?? input.subscription.schedule ?? "",
 			agentId: agent.id,
+			agentDiscipline: agent.discipline,
 		});
 		contextBundle = {
 			kind: "subscription",

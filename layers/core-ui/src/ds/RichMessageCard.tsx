@@ -15,7 +15,8 @@ import { StatusChip } from "./StatusChip.js";
 export interface RichMessageCardSender {
 	readonly id: string;
 	readonly name: string;
-	readonly role?: string;
+	/** Their craft, e.g. "designer" — absent renders no badge, never a placeholder. */
+	readonly discipline?: string | null;
 	readonly avatarUrl?: string;
 }
 
@@ -451,7 +452,9 @@ export function RichMessageCard({
 					{tagLabel}
 				</span>
 				<span className="type-small text-[var(--text-primary)] ">{sender.name}</span>
-				{sender.role ? <span className="text-[var(--text-tertiary)]">· {sender.role}</span> : null}
+				{sender.discipline ? (
+					<span className="text-[var(--text-tertiary)]">· {sender.discipline}</span>
+				) : null}
 				{blocking ? (
 					<span className="type-label ml-auto    uppercase">
 						<StatusChip status="blocked" />

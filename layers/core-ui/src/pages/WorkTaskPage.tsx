@@ -457,12 +457,18 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 	const ownerOptions = useMemo(
 		() => [
 			{ id: "", label: "No owner" },
-			...agents.map((a) => ({ id: a.id, label: a.name, description: a.role })),
+			...agents.map((a) => ({ id: a.id, label: a.name, description: a.discipline ?? undefined })),
 		],
 		[agents],
 	);
 
+	// @lore: reseed skips its mount run — fields already match task; rerunning would race a slow first commit against a fast first keystroke
+	const isFirstRenderRef = useRef(true);
 	useEffect(() => {
+		if (isFirstRenderRef.current) {
+			isFirstRenderRef.current = false;
+			return;
+		}
 		setFields(taskToEditState(task));
 	}, [task]);
 

@@ -30,6 +30,7 @@ function makeRow(overrides: Partial<DocumentRow> & Pick<DocumentRow, "id" | "tit
 		lastReadAt: null,
 		sessionUseCount: 0,
 		lastUsedAt: null,
+		discipline: null,
 		as: "document",
 		...overrides,
 	};

@@ -8,7 +8,7 @@ Source: `framework/domain-model/src/actions/user.ts`, `layers/core-api/user/src/
 
 From `UserRowSchema` (`actions/user.ts`):
 
-- `id`, `kind` (`human | ai`), `name`, `role` (free text), `status`.
+- `id`, `kind` (`human | ai`), `name`, `role` (`founder | member | agent | system` — access control, not a craft), `discipline` (free text, nullable — someone's craft; clusters a context bundle, never gates access), `status`.
 - `ownerUserId` — the person who owns an agent.
 - `agentCategory` (`team | individual | null`).
 - `health` — a note on the agent (e.g. crash count); null when healthy.

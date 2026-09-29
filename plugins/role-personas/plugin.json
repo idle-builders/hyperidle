@@ -9,49 +9,49 @@
 				{
 					"id": "builder",
 					"name": "Builder",
-					"role": "builder",
+					"discipline": "builder",
 					"agentCategory": "team",
 					"identity": "personas/builder.md"
 				},
 				{
 					"id": "designer",
 					"name": "Designer",
-					"role": "designer",
+					"discipline": "designer",
 					"agentCategory": "team",
 					"identity": "personas/designer.md"
 				},
 				{
 					"id": "product-manager",
 					"name": "Product Manager",
-					"role": "product_manager",
+					"discipline": "product_manager",
 					"agentCategory": "team",
 					"identity": "personas/product-manager.md"
 				},
 				{
 					"id": "qa-engineer",
 					"name": "QA Engineer",
-					"role": "qa_engineer",
+					"discipline": "qa_engineer",
 					"agentCategory": "team",
 					"identity": "personas/qa-engineer.md"
 				},
 				{
 					"id": "growth",
 					"name": "Growth",
-					"role": "growth",
+					"discipline": "growth",
 					"agentCategory": "team",
 					"identity": "personas/growth.md"
 				},
 				{
 					"id": "ops",
 					"name": "Ops",
-					"role": "ops",
+					"discipline": "ops",
 					"agentCategory": "team",
 					"identity": "personas/ops.md"
 				},
 				{
 					"id": "facilitator",
 					"name": "Facilitator",
-					"role": "facilitator",
+					"discipline": "facilitator",
 					"agentCategory": "team",
 					"identity": "personas/facilitator.md"
 				}

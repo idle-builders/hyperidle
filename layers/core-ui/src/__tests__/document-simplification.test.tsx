@@ -92,6 +92,7 @@ function makeItem(
 		lastReadAt: null,
 		sessionUseCount: 0,
 		lastUsedAt: null,
+		discipline: null,
 		as: "document",
 	};
 }

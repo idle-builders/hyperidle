@@ -8,12 +8,11 @@ import { call } from "../../services/call.js";
 import type { AgentConfig } from "../../settings/settings-types.js";
 import { useToast } from "../../shell/ToastRegion.js";
 import { deriveInitials } from "../../utils/initials.js";
-import { roleLabel as deriveRoleLabel } from "../../utils/role-label.js";
 
 export interface AgentDetailPaneProps {
 	/** Non-null = display this agent; null = empty state. */
 	agent: AgentConfig | null;
-	/** Roster context (name, role, category). */
+	/** Roster context (name, discipline, category). */
 	rosterMember: TeamRosterMember | null;
 	onClose: () => void;
 	/** Called after successful save. Triggers refetch in parent. */
@@ -90,9 +89,8 @@ export function AgentDetailPane({
 		}
 	}, [agent, formValues, onSaved, onClose, showToast]);
 
-	const role = rosterMember?.role ?? agent?.role ?? "";
-	const roleLabel = deriveRoleLabel(role);
-	const roleDescription = roleLabel;
+	const discipline = rosterMember?.discipline ?? agent?.discipline ?? null;
+	// @lore: agentCategory — "strategy" is not a valid value, so no isStrategy branch exists here.
 	const agentName = rosterMember?.name ?? agent?.name ?? "";
 	const initials = deriveInitials(agentName);
 
@@ -142,13 +140,14 @@ export function AgentDetailPane({
 		>
 			{/* Same content as AgentEditDialog, Dialog shell stripped */}
 			<div className="p-[18px]">
-				{/* Lead avatar + role info — agentName already shown in PageHeader */}
+				{/* Lead avatar + discipline info — agentName already shown in PageHeader */}
 				<div className="flex items-center gap-[12px] mb-[18px]">
 					<Avatar initials={initials} size="sm" agent />
-					<div>
-						<p className="type-small  text-[var(--text-secondary)]">{roleLabel}</p>
-						<p className="type-small  text-[var(--text-secondary)] mt-[3px]">{roleDescription}</p>
-					</div>
+					{discipline && (
+						<div>
+							<p className="type-small  text-[var(--text-secondary)]">{discipline}</p>
+						</div>
+					)}
 				</div>
 
 				{/* Identity section. It is a document, so this pane links

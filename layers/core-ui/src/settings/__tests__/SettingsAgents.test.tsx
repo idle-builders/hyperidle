@@ -24,7 +24,7 @@ import { SettingsAgents } from "../SettingsAgents.js";
 interface MockAgent {
 	id: string;
 	name: string;
-	role: string;
+	discipline: string;
 	ownerUserId: string | null;
 	status: string;
 	agentCategory: string | null;
@@ -43,7 +43,7 @@ function seedAgents(): MockAgent[] {
 		{
 			id: "agent-pm-1",
 			name: "Acme PM",
-			role: "product_manager",
+			discipline: "product_manager",
 			ownerUserId: null,
 			status: "active",
 			agentCategory: "team",
@@ -56,7 +56,7 @@ function seedAgents(): MockAgent[] {
 		{
 			id: "agent-builder-1",
 			name: "Builder Bot",
-			role: "builder",
+			discipline: "builder",
 			ownerUserId: null,
 			status: "active",
 			agentCategory: "team",
@@ -124,7 +124,7 @@ const SPLITVIEW_AGENTS: MockAgent[] = [
 	{
 		id: "agent-nova",
 		name: "Nova",
-		role: "assistant",
+		discipline: "assistant",
 		// The assistant is a person-owned agent — `ownerUserId` set, not a
 		// structural id prefix.
 		ownerUserId: "user1",
@@ -139,7 +139,7 @@ const SPLITVIEW_AGENTS: MockAgent[] = [
 	{
 		id: "agent-atlas",
 		name: "Atlas",
-		role: "builder",
+		discipline: "builder",
 		ownerUserId: null,
 		status: "active",
 		agentCategory: "team",
@@ -166,7 +166,8 @@ function setupSplitViewCall(agents: MockAgent[] = SPLITVIEW_AGENTS): void {
 					id: a.id,
 					kind: "ai",
 					name: a.name,
-					role: a.role,
+					role: "agent",
+					discipline: a.discipline,
 					status: "active",
 					avatarUrl: null,
 					createdAt: "2026-01-01T00:00:00.000Z",
@@ -201,7 +202,14 @@ function setupSplitViewCall(agents: MockAgent[] = SPLITVIEW_AGENTS): void {
 			return Promise.resolve({
 				ok: true,
 				data: {
-					user: { id: agent.id, kind: "ai", name: agent.name, role: agent.role, status: "active" },
+					user: {
+						id: agent.id,
+						kind: "ai",
+						name: agent.name,
+						role: "agent",
+						discipline: agent.discipline,
+						status: "active",
+					},
 					runsOn: MOCK_HARNESSES_WITH_MODELS,
 					runConfig: {
 						harnessType: agent.harnessType,
@@ -233,7 +241,8 @@ function setupCall(store: MockAgent[]): void {
 					id: a.id,
 					kind: "ai",
 					name: a.name,
-					role: a.role,
+					role: "agent",
+					discipline: a.discipline,
 					status: a.status,
 					avatarUrl: null,
 					createdAt: "2026-01-01T00:00:00.000Z",
@@ -280,7 +289,8 @@ function setupCall(store: MockAgent[]): void {
 						id: agent.id,
 						kind: "ai",
 						name: agent.name,
-						role: agent.role,
+						role: "agent",
+						discipline: agent.discipline,
 						status: agent.status,
 					},
 					runsOn: HARNESSES,
@@ -306,7 +316,7 @@ function setupCall(store: MockAgent[]): void {
 				const newAgent: MockAgent = {
 					id: `new-agent-${store.length}`,
 					name: (input.name as string) ?? "",
-					role: (input.role as string) ?? "",
+					discipline: (input.discipline as string | null) ?? "",
 					ownerUserId: null,
 					status: "active",
 					agentCategory: "team",
@@ -328,7 +338,9 @@ function setupCall(store: MockAgent[]): void {
 				return Promise.resolve({ ok: true, data: { user: { id, status: "retired" } } });
 			}
 			if (typeof input.name === "string") agent.name = input.name;
-			if (typeof input.role === "string") agent.role = input.role;
+			if (typeof input.discipline === "string" || input.discipline === null) {
+				agent.discipline = input.discipline ?? "";
+			}
 			return Promise.resolve({ ok: true, data: { user: { id: agent.id } } });
 		}
 		return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
@@ -372,14 +384,14 @@ describe("SettingsAgents renders agent list", () => {
 		});
 	});
 
-	it("renders role display label for each agent (not raw slug)", async () => {
+	it("renders each agent's discipline verbatim — no title-casing", async () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			// role displayed as human label via roleLabel(), not raw slug.
-			expect(screen.getAllByText(/Product Manager/).length).toBeGreaterThan(0);
-			expect(screen.getAllByText(/Builder ·/).length).toBeGreaterThan(0);
-			expect(screen.queryByText(/product_manager/)).not.toBeInTheDocument();
+			// A discipline is its own display name — shown as the raw string.
+			expect(screen.getAllByText(/product_manager/).length).toBeGreaterThan(0);
+			expect(screen.getAllByText(/builder ·/).length).toBeGreaterThan(0);
+			expect(screen.queryByText(/Product Manager/)).not.toBeInTheDocument();
 		});
 	});
 

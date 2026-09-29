@@ -57,6 +57,7 @@ const ITEM_A: DocumentRow = {
 	lastReadAt: null,
 	sessionUseCount: 0,
 	lastUsedAt: null,
+	discipline: null,
 	as: "artifact" as const,
 };
 

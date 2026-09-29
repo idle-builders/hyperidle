@@ -345,8 +345,9 @@ describe("UserRowSchema", () => {
 		agentCategory: "individual" as const,
 		ownerUserId: "u0",
 		health: null,
+		discipline: null,
 		team: { id: "t1", name: "Core" },
-		edges: [{ id: "e1", mechanism: "direct" as const, target: "u0" }],
+		edges: [{ id: "e1", mechanism: "direct" as const, target: "u0", resolvedUserIds: [] }],
 	};
 
 	it("parses a full row", () => {
