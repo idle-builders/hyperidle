@@ -437,6 +437,7 @@ export function makeUserRow(id: string, overrides: Partial<UserRow> = {}): UserR
 		agentCategory: null,
 		ownerUserId: null,
 		health: null,
+		discipline: null,
 		team: null,
 		edges: [],
 		...overrides,
