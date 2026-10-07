@@ -537,3 +537,11 @@ Built (8 steps):
 - **Edit vs view** — edit: "✎ Editing" mark + Done, caret, handles, "Type / for a block, @ to ask
   someone" line. View: "✎ Edit" button only; hover shows just the block and comment button.
   Drafts open in edit mode, published documents in view mode.
+
+**Founder on the third pass: the boxed comments and green block highlight are ugly.** Restyled:
+no boxes, no fill. A block's extent is a thin line in the left margin (on hover, and while its
+thread is open); the line runs on down the thread — darker beside the block, lighter along the
+thread. A thread is plain messages: small avatar, name, time, text, in smaller and greyer type
+than the page; the reply is a bare underlined line with Hide · Resolve as quiet text beside it.
+The task made in a thread is a one-line reference. Suggestions: dashed underline, no tint. The
+"Editing" mark is grey, not green.

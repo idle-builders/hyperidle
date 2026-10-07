@@ -464,56 +464,58 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .doc-act { margin-left: auto; display: flex; align-items: center; gap: var(--sp-3); flex: none; }
 .doc-cm { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; }
 .doc-state { font: var(--t-meta); color: var(--ink-3); white-space: nowrap; flex: none; }
-.doc-mode { padding: 3px var(--sp-2); border-radius: var(--r-sm); background: var(--accent-soft); font: var(--t-label); color: var(--accent); white-space: nowrap; }
+.doc-mode { padding: 3px var(--sp-2); border-radius: var(--r-sm); background: var(--sunk); font: var(--t-label); color: var(--ink-2); white-space: nowrap; }
 .page { width: 100%; max-width: 800px; margin: 0 auto; padding: var(--sp-5) var(--sp-7) var(--sp-9); display: flex; flex-direction: column; gap: var(--sp-2); }
 .page-title { font: 700 2rem/1.2 var(--font-ui); margin-bottom: var(--sp-3); }
 .page-empty { color: var(--ink-3); }
 .mention { color: var(--accent); font-weight: 600; }
 
-/* a block: hover shows exactly how far it goes; edit mode adds the handle on the left */
+/* a block: a thin line in the left margin shows how far it goes; edit mode adds the handle */
 .blk { position: relative; font: var(--t-lead); color: var(--ink); }
 .blk--h { margin-top: var(--sp-4); }
 .blk h3 { font: 600 1.1875rem/1.35 var(--font-ui); }
 .blk ul { padding-left: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-1); }
-.blk-row { position: relative; margin: 0 calc(-1 * var(--sp-2)); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); transition: background var(--dur-tap) var(--ease); }
-.blk-row:hover, .blk--hover > .blk-row { background: var(--sunk); }
-.blk--open > .blk-row, .blk--open > .blk-row:hover { background: var(--accent-soft); }
+.blk-row { position: relative; padding: 2px 0; }
 .blk--edit > .blk-row { cursor: text; }
-.blk-handle { position: absolute; left: -24px; top: var(--sp-1); width: 18px; text-align: center; font-size: 15px; line-height: 1.6; color: var(--ink-3); opacity: 0; cursor: grab; user-select: none; border-radius: var(--r-sm); }
+.blk::before { content: ""; position: absolute; left: -14px; top: 4px; bottom: 4px; width: 2px; border-radius: 1px; background: transparent; transition: background var(--dur-tap) var(--ease); }
+.blk:hover::before, .blk--hover::before { background: var(--ink-3); }
+/* the same line runs on down the thread, so a thread always shows which block it is about */
+.blk--open::before, .blk--open:hover::before { background: var(--line-strong); }
+.blk--open > .blk-row::before { content: ""; position: absolute; left: -14px; top: 2px; bottom: 2px; width: 2px; border-radius: 1px; background: var(--ink-3); }
+.blk-handle { position: absolute; left: -38px; top: 2px; width: 18px; text-align: center; font-size: 15px; line-height: 1.6; color: var(--ink-3); opacity: 0; cursor: grab; user-select: none; border-radius: var(--r-sm); }
 .blk-handle:hover { background: var(--sunk); }
-.blk-row:hover .blk-handle, .blk--hover .blk-handle, .blk-handle--on { opacity: 1; }
-.blk-side { position: absolute; left: 100%; top: var(--sp-1); margin-left: var(--sp-1); }
-.blk-add, .blk-count { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 24px; padding: 0 6px; border-radius: var(--r-sm); font: var(--t-label); color: var(--ink-2); white-space: nowrap; }
-.blk-add { opacity: 0; border: var(--line-w) solid var(--line); background: var(--surface); box-shadow: var(--sh-1); }
-.blk-row:hover .blk-add, .blk--hover .blk-add { opacity: 1; }
-.blk-add:hover, .blk-count:hover { background: var(--sunk); color: var(--ink-2); }
-/* the bar joins a block to its thread, so a thread always shows which block it is about */
-.blk--open::before, .blk--folded::before { content: ""; position: absolute; left: -12px; top: 2px; bottom: 2px; width: 2px; border-radius: 1px; background: var(--accent); }
-.blk--folded::before { background: var(--line-strong); }
-.blk-empty { font: var(--t-lead); color: var(--ink-3); padding: var(--sp-1) 0; }
+.blk:hover .blk-handle, .blk--hover .blk-handle, .blk-handle--on { opacity: 1; }
+.blk-side { position: absolute; left: 100%; top: 3px; margin-left: var(--sp-3); }
+.blk-add, .blk-count { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 24px; padding: 0 var(--sp-1); border-radius: var(--r-sm); font: var(--t-label); color: var(--ink-3); white-space: nowrap; }
+.blk-add { opacity: 0; transition: opacity var(--dur-tap) var(--ease); }
+.blk:hover .blk-add, .blk--hover .blk-add { opacity: 1; }
+.blk-add:hover, .blk-count:hover { color: var(--ink); }
+.blk-empty { font: var(--t-lead); color: var(--ink-3); padding: 2px 0; }
 
-/* the conversation layer — a thread hanging under its block */
-.cm { margin-top: var(--sp-2); border: var(--line-w) solid var(--line); border-radius: var(--r-sm); background: var(--surface); font: var(--t-body); box-shadow: var(--sh-1); }
-.cm-head { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-2) var(--sp-3); border-bottom: var(--line-w) solid var(--line); font: var(--t-meta); color: var(--ink-3); }
-.cm-acts { display: flex; gap: var(--sp-3); }
-.cm-acts button { font: var(--t-meta); color: var(--ink-2); }
-.cm-acts button:hover { color: var(--ink); text-decoration: underline; }
-.cm-msg { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); }
-.cm-who { font: var(--t-label); font-weight: 600; color: var(--ink-2); padding-top: 2px; }
-.cm-who--agent { color: var(--accent); }
-.cm-text { color: var(--ink-2); }
-.cm-task { margin: var(--sp-1) var(--sp-3) var(--sp-2); width: calc(100% - 2 * var(--sp-3)); }
-.cm-reply { display: flex; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-top: var(--line-w) solid var(--line); }
-.cm--new .cm-reply { border-top: 0; }
-.cm-reply input { flex: 1; min-width: 0; min-height: 30px; padding: 0 var(--sp-2); border: var(--line-w) solid var(--line); border-radius: var(--r-sm); background: var(--canvas); font: var(--t-body); }
-.cm--new .cm-reply input { border-color: var(--accent); }
-.cm-reply .btn { min-height: 30px; padding: 0 var(--sp-3); font: var(--t-label); }
-.cm-note { padding: 0 var(--sp-3) var(--sp-2); font: var(--t-meta); color: var(--ink-3); }
+/* the conversation layer — plain messages under the block, smaller and quieter than the page */
+.cm { display: flex; flex-direction: column; gap: var(--sp-3); margin: var(--sp-3) 0 var(--sp-2); font: var(--t-body); }
+.cm-msg { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: var(--sp-2); align-items: start; }
+.cm-av { width: 20px; height: 20px; font-size: 9px; margin-top: 1px; }
+.cm-who { display: flex; align-items: baseline; gap: var(--sp-2); font: var(--t-meta); color: var(--ink-3); }
+.cm-who b { font: var(--t-label); font-weight: 600; color: var(--ink); }
+.cm-text { margin-top: 1px; color: var(--ink-2); }
+.cm-foot { display: flex; align-items: center; gap: var(--sp-4); padding-left: 28px; }
+.cm-in { flex: 1; min-width: 0; padding: var(--sp-1) 0; border: 0; border-bottom: var(--line-w) solid var(--line); background: transparent; font: var(--t-body); color: var(--ink); }
+.cm-in:focus { outline: none; border-bottom-color: var(--ink-3); }
+.cm-in--new { border-bottom-color: var(--ink-3); }
+.cm-acts { display: flex; gap: var(--sp-3); margin-left: auto; flex: none; }
+.cm-acts button { font: var(--t-meta); color: var(--ink-3); }
+.cm-acts button:hover { color: var(--ink); }
+.cm-acts .cm-send { font-weight: 600; color: var(--ink); }
+.cm-note { font: var(--t-meta); color: var(--ink-3); }
+.cm-task { display: flex; align-items: baseline; gap: var(--sp-2); margin-left: 28px; text-align: left; font: var(--t-meta); color: var(--ink-3); }
+.cm-task-t { font: var(--t-label); color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.cm-task:hover .cm-task-t { text-decoration-color: var(--ink-3); }
 .cm-receipt { margin-top: var(--sp-1); font: var(--t-meta); color: var(--ink-3); }
 .cm-receipt button { font: var(--t-meta); color: var(--ink-2); text-decoration: underline; }
 
-/* a suggestion is not document text yet: tinted, dashed, with who suggested it */
-.sugg-text { background: var(--accent-soft); text-decoration: underline dashed var(--accent); text-underline-offset: 4px; }
-.sugg-meta { display: block; font: var(--t-meta); color: var(--accent); margin-top: 2px; }
-.sugg-meta button { font: var(--t-meta); font-weight: 600; color: var(--accent); }
-.sugg-meta button:hover { text-decoration: underline; }
+/* a suggestion is not document text yet: dashed underline, who suggested it, and the choice */
+.sugg-text { color: var(--ink-2); text-decoration: underline dashed var(--ink-3); text-underline-offset: 4px; }
+.sugg-meta { display: block; margin-top: 2px; font: var(--t-meta); color: var(--ink-3); }
+.sugg-meta button { font: var(--t-meta); font-weight: 600; color: var(--ink-2); }
+.sugg-meta button:hover { color: var(--ink); text-decoration: underline; }

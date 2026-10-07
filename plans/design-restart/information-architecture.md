@@ -86,12 +86,16 @@ like a chat. A document can start empty or from an existing thread.
 - **No session on a document.** "A thinking session isn't a session in the technical sense." A
   thread on a block can hand work off (@Builder …) — that thread gets the task and the session.
 - Draft → Publish → followers told. Comments stay as threads; the page shows what was decided.
-- **A block shows its extent on hover** (a paragraph, a heading, a whole list). A thread is joined
-  to its block by a bar on the left, and the block stays tinted while its thread is open.
+- **A block shows its extent with a thin line in the left margin** (a paragraph, a heading, a
+  whole list) — on hover, and while its thread is open. No fill, no boxes (founder, 2026-10-07:
+  boxed comments and green highlight are ugly). The line runs on down the thread: darker beside
+  the block, lighter along the thread.
+- **A thread is plain messages** in smaller, greyer type than the page: avatar, name, time, text;
+  a bare reply line with Hide · Resolve beside it.
 - **Opening:** the comment button in the right margin → a composer under the block → send starts
   the thread. **Closing:** Hide folds to a count beside the block (click to reopen); Resolve takes
   it off the page, it stays in Conversations, with Undo.
-- **A suggestion sits inside the block**, tinted with a dashed underline, Accept / Discard under it.
+- **A suggestion sits inside the block** with a dashed underline, Accept / Discard under it.
 - **Edit vs view mode.** Edit: "Editing" mark + Done, caret, block handles, an empty line "Type /
   for a block, @ to ask someone". View: an Edit button; no handles, no caret. Drafts open in edit,
   published documents in view. Commenting works in both.

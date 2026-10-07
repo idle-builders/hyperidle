@@ -26,17 +26,19 @@ type ThreadState = "none" | "compose" | "open" | "folded" | "resolved";
 interface Msg {
 	id: string;
 	who: string;
+	av: string;
 	agent?: boolean;
+	when: string;
 	text: React.ReactNode;
 }
 
-const ASK: Msg = { id: "ask", who: "You", text: <><b className="mention">@Growth</b> how many people who pay would we lose with 10 days?</> };
+const ASK: Msg = { id: "ask", who: "You", av: "FO", when: "10:42", text: <><b className="mention">@Growth</b> how many people who pay would we lose with 10 days?</> };
 const ANSWER: Msg = {
-	id: "answer", who: "Growth", agent: true,
+	id: "answer", who: "Growth", av: "GR", agent: true, when: "10:44",
 	text: <>61% decide by day 9, so most stay. The risk is the 1 in 5 who decide on days 11–14. I added that to the list as a suggestion.</>,
 };
-const HAND: Msg = { id: "hand", who: "You", text: <><b className="mention">@Builder</b> set new signups to a 10-day trial from Monday, for two weeks.</> };
-const TAKE: Msg = { id: "take", who: "Builder", agent: true, text: <>Taking it. I will come back in this thread when it is live.</> };
+const HAND: Msg = { id: "hand", who: "You", av: "FO", when: "11:05", text: <><b className="mention">@Builder</b> set new signups to a 10-day trial from Monday, for two weeks.</> };
+const TAKE: Msg = { id: "take", who: "Builder", av: "BU", agent: true, when: "11:05", text: <>Taking it. I will come back in this thread when it is live.</> };
 
 function Bubble({ plus }: { plus?: boolean }) {
 	return (
@@ -47,13 +49,13 @@ function Bubble({ plus }: { plus?: boolean }) {
 	);
 }
 
-/** One block. Hover shows exactly how far it goes; a bar joins it to its thread. */
+/** One block. A thin line in the left margin shows how far it goes, and runs on down its thread. */
 function Block({ edit, active, hover, thread, count, heading, onComment, onOpen, children, under }: {
 	edit: boolean; active?: boolean; hover?: boolean; thread: ThreadState; count: number; heading?: boolean;
 	onComment: () => void; onOpen: () => void; children: React.ReactNode; under?: React.ReactNode;
 }) {
 	const cls = ["blk", heading && "blk--h", edit && "blk--edit", hover && "blk--hover",
-		(thread === "open" || thread === "compose") && "blk--open", thread === "folded" && "blk--folded"].filter(Boolean).join(" ");
+		(thread === "open" || thread === "compose") && "blk--open"].filter(Boolean).join(" ");
 	return (
 		<div className={cls}>
 			<div className="blk-row">
@@ -72,44 +74,48 @@ function Block({ edit, active, hover, thread, count, heading, onComment, onOpen,
 	);
 }
 
-/** The thread on a block. Hide folds it to a count; Resolve takes it off the page. */
+/** The thread on a block: plain messages, no box. Hide folds it to a count; Resolve takes it off the page. */
 function Thread({ msgs, onHide, onResolve, children }: {
 	msgs: Msg[]; onHide: () => void; onResolve: () => void; children?: React.ReactNode;
 }) {
 	return (
 		<div className="cm">
-			<div className="cm-head">
-				<span>Thread · also in Conversations</span>
+			{msgs.map((m) => (
+				<div className="cm-msg" key={m.id}>
+					<span className={m.agent ? "avatar cm-av" : "avatar avatar--human cm-av"}>{m.av}</span>
+					<div>
+						<div className="cm-who"><b>{m.who}</b><span>{m.when}</span></div>
+						<div className="cm-text">{m.text}</div>
+					</div>
+				</div>
+			))}
+			{children}
+			<div className="cm-foot">
+				<input className="cm-in" placeholder="Reply…" aria-label="Reply" />
 				<span className="cm-acts">
 					<button type="button" onClick={onHide}>Hide</button>
 					<button type="button" onClick={onResolve}>Resolve</button>
 				</span>
 			</div>
-			{msgs.map((m) => (
-				<div className="cm-msg" key={m.id}>
-					<span className={m.agent ? "cm-who cm-who--agent" : "cm-who"}>{m.who}</span>
-					<div className="cm-text">{m.text}</div>
-				</div>
-			))}
-			{children}
-			<div className="cm-reply">
-				<input placeholder="Reply, or @someone…" aria-label="Reply" />
-				<button type="button" className="btn">Send</button>
-			</div>
 		</div>
 	);
 }
 
-/** The first comment on a block: one field, and the thread starts when you send. */
+/** The first comment on a block: one quiet line; sending starts the thread. */
 function Composer({ draft, onSend, onCancel }: { draft: string; onSend: () => void; onCancel: () => void }) {
 	return (
-		<div className="cm cm--new">
-			<div className="cm-reply">
-				<input defaultValue={draft} placeholder="Comment on this block, or @someone…" aria-label="Comment" />
-				<button type="button" className="btn btn--accent" onClick={onSend}>Comment</button>
-				<button type="button" className="btn" onClick={onCancel}>Cancel</button>
+		<div className="cm">
+			<div className="cm-msg">
+				<span className="avatar avatar--human cm-av">FO</span>
+				<input className="cm-in cm-in--new" defaultValue={draft} placeholder="Comment, or @someone…" aria-label="Comment" />
 			</div>
-			<div className="cm-note">Starts a thread on this block · also in Conversations · esc to cancel</div>
+			<div className="cm-foot cm-foot--new">
+				<span className="cm-note">↵ to send · esc to cancel · also shows in Conversations</span>
+				<span className="cm-acts">
+					<button type="button" onClick={onCancel}>Cancel</button>
+					<button type="button" className="cm-send" onClick={onSend}>Comment</button>
+				</span>
+			</div>
 		</div>
 	);
 }
@@ -246,12 +252,10 @@ export function Think({ step }: { step: number }) {
 						), {
 							active: true,
 							extra: (
-								<button type="button" className="workitem cm-task">
-									<div>
-										<div className="workitem-title">10-day trial for new signups</div>
-										<div className="workitem-sub">Builder owns this · made from this thread</div>
-									</div>
-									<span className="workitem-state"><span className="dot" />Queued</span>
+								<button type="button" className="cm-task">
+									<span className="cm-task-k">Task</span>
+									<span className="cm-task-t">10-day trial for new signups</span>
+									<span className="cm-task-s">Builder · Queued</span>
 								</button>
 							),
 						})}
