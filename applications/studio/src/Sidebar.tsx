@@ -208,9 +208,14 @@ interface SidebarProps {
 	/** Shown above the Conversations list, e.g. a quiet "1 new since you started". */
 	conversationsNote?: ReactNode;
 	notificationsOpen?: boolean;
+	/** Documents published during the walkthrough; the tree stops calling them drafts. */
+	published?: string[];
 }
 
-export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote, notificationsOpen = false }: SidebarProps) {
+const withoutDraft = (docs: Doc[], ids: string[]): Doc[] =>
+	docs.map((d) => ({ ...d, note: ids.includes(d.id) ? undefined : d.note, children: d.children && withoutDraft(d.children, ids) }));
+
+export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote, notificationsOpen = false, published = [] }: SidebarProps) {
 	const [notesOpen, setNotesOpen] = useState(notificationsOpen);
 	const [spine, setSpine] = useState<Spine>(initialSpine);
 	const [picked, setPicked] = useState<string | null>(initialPicked);
@@ -272,7 +277,7 @@ export function Sidebar({ initialSpine = "conversations", initialPicked = null, 
 						{spine === "knowledge" && (
 							<section className="tree-wrap" aria-label="All documents">
 								<div className="tree">
-									<Tree docs={TREE} open={open} toggle={toggle} picked={picked} onPick={setPicked}
+									<Tree docs={published.length ? withoutDraft(TREE, published) : TREE} open={open} toggle={toggle} picked={picked} onPick={setPicked}
 										icons={icons} onIcon={(id, ic) => setIcons((p) => ({ ...p, [id]: ic }))}
 										picking={picking} setPicking={setPicking} />
 								</div>

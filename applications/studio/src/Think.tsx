@@ -3,44 +3,90 @@ import { Sidebar } from "./Sidebar";
 
 /**
  * THINK — a document stays a document. Conversation is a layer on top: a comment on a block
- * opens a thread anchored there, which you can hide. An agent answers in the thread and, when
- * it wants to change the page, leaves a suggestion you accept or discard. Sessions belong to
- * threads, never to the document.
+ * opens a thread that hangs under that block, joined to it by a bar, so you always see which
+ * block it is about. Hide folds a thread to a count beside its block; Resolve takes it off the
+ * page (it stays in Conversations). Edit mode shows a caret, block handles and an "Editing" mark;
+ * view mode shows none of them. Sessions belong to threads, never to the document.
  */
 export const THINK_STEPS = [
-	{ id: 0, name: "Start empty, write" },
-	{ id: 1, name: "Ask on a block" },
-	{ id: 2, name: "Answer + suggestion" },
-	{ id: 3, name: "Accepted" },
-	{ id: 4, name: "Hand off from the doc" },
-	{ id: 5, name: "Publish" },
+	{ id: 0, name: "Edit mode: write" },
+	{ id: 1, name: "Hover shows the block" },
+	{ id: 2, name: "Open a comment" },
+	{ id: 3, name: "Answer + suggestion" },
+	{ id: 4, name: "Accepted, thread hidden" },
+	{ id: 5, name: "Thread resolved" },
+	{ id: 6, name: "Hand off from the doc" },
+	{ id: 7, name: "Published, view mode" },
 ];
 
+type BlockId = "intro" | "know-h" | "know" | "decision-h" | "decision";
+/** none · composing a first comment · thread open under the block · folded to a count · resolved (off the page) */
+type ThreadState = "none" | "compose" | "open" | "folded" | "resolved";
+
 interface Msg {
+	id: string;
 	who: string;
 	agent?: boolean;
 	text: React.ReactNode;
 }
 
-/** A thread anchored to a block. Shown under it; folds to a count when hidden. */
-function Comments({ msgs, open, onToggle, children }: {
-	msgs: Msg[]; open: boolean; onToggle: () => void; children?: React.ReactNode;
+const ASK: Msg = { id: "ask", who: "You", text: <><b className="mention">@Growth</b> how many people who pay would we lose with 10 days?</> };
+const ANSWER: Msg = {
+	id: "answer", who: "Growth", agent: true,
+	text: <>61% decide by day 9, so most stay. The risk is the 1 in 5 who decide on days 11–14. I added that to the list as a suggestion.</>,
+};
+const HAND: Msg = { id: "hand", who: "You", text: <><b className="mention">@Builder</b> set new signups to a 10-day trial from Monday, for two weeks.</> };
+const TAKE: Msg = { id: "take", who: "Builder", agent: true, text: <>Taking it. I will come back in this thread when it is live.</> };
+
+function Bubble({ plus }: { plus?: boolean }) {
+	return (
+		<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+			<path d="M3 2.5h10a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H7.5L4.5 14v-3H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z" strokeLinejoin="round" />
+			{plus && <path d="M8 4.75v4M6 6.75h4" strokeLinecap="round" />}
+		</svg>
+	);
+}
+
+/** One block. Hover shows exactly how far it goes; a bar joins it to its thread. */
+function Block({ edit, active, hover, thread, count, heading, onComment, onOpen, children, under }: {
+	edit: boolean; active?: boolean; hover?: boolean; thread: ThreadState; count: number; heading?: boolean;
+	onComment: () => void; onOpen: () => void; children: React.ReactNode; under?: React.ReactNode;
 }) {
-	if (!open) {
-		return (
-			<button type="button" className="cm-fold" onClick={onToggle}>
-				<span className="cm-fold-ic">💬</span> {msgs.length} {msgs.length === 1 ? "comment" : "comments"}
-			</button>
-		);
-	}
+	const cls = ["blk", heading && "blk--h", edit && "blk--edit", hover && "blk--hover",
+		(thread === "open" || thread === "compose") && "blk--open", thread === "folded" && "blk--folded"].filter(Boolean).join(" ");
+	return (
+		<div className={cls}>
+			<div className="blk-row">
+				{edit && <span className={active ? "blk-handle blk-handle--on" : "blk-handle"} aria-hidden="true">⠿</span>}
+				{children}
+				<span className="blk-side">
+					{thread === "folded" ? (
+						<button type="button" className="blk-count" onClick={onOpen} aria-label={`Open ${count} comments`}><Bubble />{count}</button>
+					) : thread !== "open" && thread !== "compose" && (
+						<button type="button" className="blk-add" onClick={onComment} aria-label="Comment on this block" title="Comment"><Bubble plus /></button>
+					)}
+				</span>
+			</div>
+			{under}
+		</div>
+	);
+}
+
+/** The thread on a block. Hide folds it to a count; Resolve takes it off the page. */
+function Thread({ msgs, onHide, onResolve, children }: {
+	msgs: Msg[]; onHide: () => void; onResolve: () => void; children?: React.ReactNode;
+}) {
 	return (
 		<div className="cm">
 			<div className="cm-head">
-				<span>Thread on this block · also in Conversations</span>
-				<button type="button" onClick={onToggle}>Hide</button>
+				<span>Thread · also in Conversations</span>
+				<span className="cm-acts">
+					<button type="button" onClick={onHide}>Hide</button>
+					<button type="button" onClick={onResolve}>Resolve</button>
+				</span>
 			</div>
-			{msgs.map((m, i) => (
-				<div className="cm-msg" key={`${m.who}${i}`}>
+			{msgs.map((m) => (
+				<div className="cm-msg" key={m.id}>
 					<span className={m.agent ? "cm-who cm-who--agent" : "cm-who"}>{m.who}</span>
 					<div className="cm-text">{m.text}</div>
 				</div>
@@ -54,114 +100,163 @@ function Comments({ msgs, open, onToggle, children }: {
 	);
 }
 
-function Suggestion({ who, children }: { who: string; children: React.ReactNode }) {
+/** The first comment on a block: one field, and the thread starts when you send. */
+function Composer({ draft, onSend, onCancel }: { draft: string; onSend: () => void; onCancel: () => void }) {
 	return (
-		<div className="sugg">
-			<div className="sugg-head">
-				<span>Suggested by {who}</span>
-				<span className="sugg-acts">
-					<button type="button" className="btn btn--accent">Accept</button>
-					<button type="button" className="btn">Discard</button>
-				</span>
+		<div className="cm cm--new">
+			<div className="cm-reply">
+				<input defaultValue={draft} placeholder="Comment on this block, or @someone…" aria-label="Comment" />
+				<button type="button" className="btn btn--accent" onClick={onSend}>Comment</button>
+				<button type="button" className="btn" onClick={onCancel}>Cancel</button>
 			</div>
-			<div className="sugg-body">{children}</div>
+			<div className="cm-note">Starts a thread on this block · also in Conversations · esc to cancel</div>
 		</div>
 	);
 }
 
-const ASK: Msg = { who: "You", text: <><b className="mention">@Growth</b> how many people who pay would we lose with 10 days?</> };
-const ANSWER: Msg = {
-	who: "Growth", agent: true,
-	text: <>61% decide by day 9, so most stay. The risk is the 1 in 5 who decide on days 11–14. I put the numbers in the document as a suggestion.</>,
-};
-
 export function Think({ step }: { step: number }) {
+	const [published, setPublished] = useState(step === 7);
+	const [edit, setEdit] = useState(step < 7);
 	const [hidden, setHidden] = useState(false);
-	const [openA, setOpenA] = useState(step >= 1 && step <= 2);
-	const [openB, setOpenB] = useState(step === 4);
-	const published = step === 5;
+	const [sugg, setSugg] = useState<"pending" | "accepted" | "discarded">(step >= 4 ? "accepted" : "pending");
+	const [justResolved, setJustResolved] = useState<BlockId | null>(step === 5 ? "know" : null);
+	const [threads, setThreads] = useState<Record<BlockId, ThreadState>>({
+		intro: "none",
+		"know-h": "none",
+		know: step === 2 ? "compose" : step === 3 ? "open" : step === 4 ? "folded" : step >= 5 ? "resolved" : "none",
+		"decision-h": "none",
+		decision: step === 6 ? "open" : step === 7 ? "folded" : "none",
+	});
+	const set = (id: BlockId, s: ThreadState) => setThreads((t) => ({ ...t, [id]: s }));
+	const decided = step >= 6;
+
+	const msgs: Partial<Record<BlockId, Msg[]>> = {
+		know: step >= 3 ? [ASK, ANSWER] : [ASK],
+		decision: [HAND, TAKE],
+	};
+	const anyComments = Object.values(threads).some((s) => s === "open" || s === "folded");
+
+	/** What hangs under a block: the composer, its thread, or a short receipt after resolving. */
+	const under = (id: BlockId, extra?: React.ReactNode) => {
+		if (hidden) return null;
+		const s = threads[id];
+		if (s === "compose") {
+			return (
+				<Composer
+					draft={id === "know" ? "@Growth how many people who pay would we lose with 10 days?" : ""}
+					onSend={() => set(id, msgs[id] ? "open" : "none")}
+					onCancel={() => set(id, "none")}
+				/>
+			);
+		}
+		if (s === "open" && msgs[id]) {
+			return (
+				<Thread msgs={msgs[id]} onHide={() => set(id, "folded")} onResolve={() => { set(id, "resolved"); setJustResolved(id); }}>
+					{extra}
+				</Thread>
+			);
+		}
+		if (s === "resolved" && justResolved === id) {
+			return (
+				<p className="cm-receipt">
+					Resolved. The thread stays in Conversations.{" "}
+					<button type="button" onClick={() => { set(id, "folded"); setJustResolved(null); }}>Undo</button>
+				</p>
+			);
+		}
+		return null;
+	};
+
+	const block = (id: BlockId, children: React.ReactNode, opts: { heading?: boolean; active?: boolean; extra?: React.ReactNode } = {}) => (
+		<Block
+			edit={edit}
+			heading={opts.heading}
+			active={opts.active}
+			hover={step === 1 && id === "know"}
+			thread={hidden && threads[id] !== "compose" ? "none" : threads[id]}
+			count={msgs[id]?.length ?? 0}
+			onComment={() => set(id, "compose")}
+			onOpen={() => set(id, "open")}
+			under={under(id, opts.extra)}
+		>
+			{children}
+		</Block>
+	);
 
 	return (
 		<>
-			<Sidebar initialSpine="knowledge" initialPicked="t-10days" />
+			<Sidebar initialSpine="knowledge" initialPicked="t-10days" published={published ? ["t-10days"] : []} />
 			<section className="detail">
 				<header className="detail-head">
 					<span className="chip chip--quiet">Document</span>
 					<h2>Should trials be 10 days?</h2>
-					<span className="meta">
-						{published ? "Published · 4 followers told · in Product › How we price" : "Draft · in Product › How we price"}
-					</span>
+					<span className="doc-state">{published ? "Published · 4 followers told" : "Draft"}</span>
 					<span className="doc-act">
-						{step >= 1 && (
-							<button type="button" className="tool" aria-pressed={!hidden} onClick={() => setHidden(!hidden)}>
-								{hidden ? "Show comments" : "Hide comments"}
+						{(anyComments || hidden) && (
+							<button type="button" className="tool doc-cm" onClick={() => setHidden(!hidden)}>
+								<Bubble />{hidden ? "Show comments" : "Hide comments"}
 							</button>
 						)}
-						{published ? <span className="doc-done">Published</span> : <button type="button" className="btn">Publish</button>}
+						{edit ? (
+							<>
+								<span className="doc-mode">✎ Editing</span>
+								<button type="button" className="btn" onClick={() => setEdit(false)}>Done</button>
+							</>
+						) : (
+							<button type="button" className="btn" onClick={() => setEdit(true)}>✎ Edit</button>
+						)}
+						{!published && (
+							<button type="button" className="btn btn--accent" onClick={() => { setPublished(true); setEdit(false); }}>Publish</button>
+						)}
 					</span>
 				</header>
 
 				<div className="detail-scroll">
-					<article className="page">
+					<article className={edit ? "page page--edit" : "page"}>
 						<h1 className="page-title">🤔 Should trials be 10 days?</h1>
 
-						<div className="pblk">
-							<p>Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose.</p>
-						</div>
+						{block("intro", <p>Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose.</p>)}
 
-						<div className="pblk">
-							<h3>What we know</h3>
+						{block("know-h", <h3>What we know</h3>, { heading: true })}
+						{block("know", (
 							<ul>
 								<li>Trials run 14 days, card up front.</li>
 								<li>Since the warning email, 27% more trials convert.</li>
 								<li>Most cancellations happen on day 13.</li>
-								{step >= 3 && <li>61% of people who pay decide by day 9; 1 in 5 decide on days 11–14.</li>}
+								{step >= 3 && sugg === "accepted" && <li>61% of people who pay decide by day 9; 1 in 5 decide on days 11–14.</li>}
+								{step >= 3 && sugg === "pending" && (
+									<li className="sugg">
+										<span className="sugg-text">61% of people who pay decide by day 9; 1 in 5 decide on days 11–14.</span>
+										<span className="sugg-meta">
+											Suggested by Growth ·{" "}
+											<button type="button" onClick={() => setSugg("accepted")}>Accept</button> ·{" "}
+											<button type="button" onClick={() => setSugg("discarded")}>Discard</button>
+										</span>
+									</li>
+								)}
 							</ul>
-							{step === 0 && <span className="pblk-hint">Hover a block to comment, or type @ to ask someone</span>}
-							{step >= 1 && !hidden && (
-								<Comments msgs={step === 1 ? [ASK] : [ASK, ANSWER]} open={openA} onToggle={() => setOpenA(!openA)} />
-							)}
-						</div>
+						))}
 
-						{step === 2 && !hidden && (
-							<Suggestion who="Growth">
-								<ul><li>61% of people who pay decide by day 9; 1 in 5 decide on days 11–14.</li></ul>
-							</Suggestion>
-						)}
-
-						<div className="pblk">
-							<h3>Decision</h3>
-							<p>
-								{step >= 3
-									? "Try 10 days for new signups for two weeks, and watch refund requests."
-									: <span className="page-caret">Not yet<span className="caret" /></span>}
+						{block("decision-h", <h3>Decision</h3>, { heading: true })}
+						{block("decision", (
+							<p className={decided ? undefined : "page-empty"}>
+								{decided ? "Try 10 days for new signups for two weeks, and watch refund requests." : "Not yet"}
+								{edit && <span className="caret" />}
 							</p>
-							{step >= 4 && !hidden && (
-								<Comments
-									msgs={[
-										{ who: "You", text: <><b className="mention">@Builder</b> set new signups to a 10-day trial from Monday, for two weeks.</> },
-										{ who: "Builder", agent: true, text: <>Taking it. I will come back in this thread when it is live.</> },
-									]}
-									open={openB}
-									onToggle={() => setOpenB(!openB)}
-								>
-									<button type="button" className="workitem cm-task">
-										<div>
-											<div className="workitem-title">10-day trial for new signups</div>
-											<div className="workitem-sub">Builder owns this · made from this thread</div>
-										</div>
-										<span className="workitem-state"><span className="dot" />Queued</span>
-									</button>
-								</Comments>
-							)}
-						</div>
+						), {
+							active: true,
+							extra: (
+								<button type="button" className="workitem cm-task">
+									<div>
+										<div className="workitem-title">10-day trial for new signups</div>
+										<div className="workitem-sub">Builder owns this · made from this thread</div>
+									</div>
+									<span className="workitem-state"><span className="dot" />Queued</span>
+								</button>
+							),
+						})}
 
-						{published && (
-							<p className="page-note">
-								Published. The 4 people and agents who follow this document got a notification. The comments
-								stay as threads; the page shows only what was decided.
-							</p>
-						)}
+						{edit && <p className="blk-empty">Type / for a block, @ to ask someone</p>}
 					</article>
 				</div>
 			</section>

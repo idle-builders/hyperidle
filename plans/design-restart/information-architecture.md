@@ -75,7 +75,7 @@ Seven states of one thread, walkable in the studio:
 
 ---
 
-### THINK — second pass, 2026-09-28 (founder shaped it; awaiting a look)
+### THINK — third pass, 2026-10-07 (founder shaped it; awaiting a look)
 **A document stays a document; conversation is a layer on top** (founder: "the document is still a
 document and you have a conversation as a layer above"). No per-block authors — they made it look
 like a chat. A document can start empty or from an existing thread.
@@ -86,6 +86,15 @@ like a chat. A document can start empty or from an existing thread.
 - **No session on a document.** "A thinking session isn't a session in the technical sense." A
   thread on a block can hand work off (@Builder …) — that thread gets the task and the session.
 - Draft → Publish → followers told. Comments stay as threads; the page shows what was decided.
+- **A block shows its extent on hover** (a paragraph, a heading, a whole list). A thread is joined
+  to its block by a bar on the left, and the block stays tinted while its thread is open.
+- **Opening:** the comment button in the right margin → a composer under the block → send starts
+  the thread. **Closing:** Hide folds to a count beside the block (click to reopen); Resolve takes
+  it off the page, it stays in Conversations, with Undo.
+- **A suggestion sits inside the block**, tinted with a dashed underline, Accept / Discard under it.
+- **Edit vs view mode.** Edit: "Editing" mark + Done, caret, block handles, an empty line "Type /
+  for a block, @ to ask someone". View: an Edit button; no handles, no caret. Drafts open in edit,
+  published documents in view. Commenting works in both.
 
 ## 4. Object vocabulary
 

@@ -518,3 +518,22 @@ under it) · Growth answers in the thread and leaves a suggestion (Accept / Disc
 plain text, thread folds to "2 comments", Hide comments switch · hand off from the doc (@Builder
 in a block's thread → task in that thread) · publish (followers told). Dropped the deploy-rule
 detour, Close by, and "built upon" from this journey.
+
+## Session 8 — THINK, third pass (2026-10-07)
+
+Founder on the second pass: cannot see how far a block goes — which block a comment is about;
+design how comments open and close; show edit mode versus view mode.
+
+Built (8 steps):
+- **Block extent** — hover tints exactly the block (a paragraph, a heading, a whole list). Edit mode
+  adds a ⠿ handle on the left. A comment button sits in the right margin.
+- **Opening** — the comment button starts a composer right under the block; the block turns
+  tinted and a bar on the left joins block and thread. Sending starts the thread.
+- **Closing, two ways** — Hide folds the thread to a count ("2") in the margin beside the block,
+  with a grey bar; click it to reopen. Resolve takes the thread off the page with a receipt
+  ("Resolved. The thread stays in Conversations. Undo"). Header switch hides all comments.
+- **Suggestion inside the block** — tinted, dashed underline, "Suggested by Growth · Accept ·
+  Discard" right under the line. Answers the open question of where suggestions sit.
+- **Edit vs view** — edit: "✎ Editing" mark + Done, caret, handles, "Type / for a block, @ to ask
+  someone" line. View: "✎ Edit" button only; hover shows just the block and comment button.
+  Drafts open in edit mode, published documents in view mode.
