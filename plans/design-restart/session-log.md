@@ -545,3 +545,17 @@ thread. A thread is plain messages: small avatar, name, time, text, in smaller a
 than the page; the reply is a bare underlined line with Hide · Resolve as quiet text beside it.
 The task made in a thread is a one-line reference. Suggestions: dashed underline, no tint. The
 "Editing" mark is grey, not green.
+
+**Founder on the restyle: still ugly; unclear what belongs where; two-colour lines not
+aesthetic; the comment field hard to use; hide/open hard to use.** Stopped inventing and built
+the three patterns document tools actually use, switchable in the studio rail ("Comment style"),
+all on one 6-step story:
+- **Margin** (Google Docs, Notion wide, Linear) — the thread is a card beside the line it is
+  about; closed threads shrink to a one-line summary there. Needs a wide window.
+- **Pop-up** (Notion, Figma) — the thread opens over the page just under its line, with a pointer;
+  closes on ×, Escape or a click elsewhere on the page; a closed thread is a count in the margin.
+- **Under** (GitHub review threads) — the thread folds open under its block on a soft grey panel;
+  closed, it is one row: who, "2 comments", the latest line.
+Shared: the commented text gets a highlighter mark (soft when closed, stronger while open; click
+it to open); a real text box with Cancel / Comment that grows with its text and posts for real;
+✓ Resolve and close in the thread's top line. No block lines.

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { drafts, mentionables, sessionSteps, STEPS, tickets } from "./handoff";
 import { Arrive, ARRIVE_STEPS } from "./Arrive";
 import { Judge, JUDGE_STEPS } from "./Judge";
-import { Think, THINK_STEPS } from "./Think";
+import { COMMENT_STYLES, type CommentStyle, Think, THINK_STEPS } from "./Think";
 import { conversations, type Item, Sidebar } from "./Sidebar";
 
 const SKINS = [
@@ -71,6 +71,7 @@ export function App() {
 	const [journey, setJourney] = useState("handoff");
 	const [step, setStep] = useState(0);
 	const [peek, setPeek] = useState(false);
+	const [commentStyle, setCommentStyle] = useState<CommentStyle>("margin");
 	const steps = journey === "handoff" ? STEPS : journey === "judge" ? JUDGE_STEPS : journey === "think" ? THINK_STEPS : ARRIVE_STEPS;
 	const arrive = journey === "arrive";
 
@@ -107,6 +108,19 @@ export function App() {
 					))}
 				</div>
 
+				{journey === "think" && (
+					<div className="steps">
+						<span className="steps-head">Comment style</span>
+						<div className="switcher">
+							{COMMENT_STYLES.map((c) => (
+								<button key={c.id} type="button" aria-pressed={commentStyle === c.id} onClick={() => setCommentStyle(c.id)}>
+									{c.name}
+								</button>
+							))}
+						</div>
+					</div>
+				)}
+
 				<div className="steps">
 					<span className="steps-head">Walkthrough</span>
 					{steps.map((s) => (
@@ -136,7 +150,7 @@ export function App() {
 				</div>
 			</nav>
 
-			{journey === "judge" ? <><Sidebar key={`j${step}`} initialPicked="c-r1" /><Judge key={step} step={step} /></> : arrive ? <Arrive key={step} step={step} /> : journey === "think" ? <Think key={step} step={step} /> : <>
+			{journey === "judge" ? <><Sidebar key={`j${step}`} initialPicked="c-r1" /><Judge key={step} step={step} /></> : arrive ? <Arrive key={step} step={step} /> : journey === "think" ? <Think key={`${step}-${commentStyle}`} step={step} style={commentStyle} /> : <>
 			<Sidebar key={`h${step}`} initialPicked="x" lists={{ conversations: handoffList }} />
 
 			<section className="thread">

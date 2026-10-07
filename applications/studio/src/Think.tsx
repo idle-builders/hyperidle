@@ -1,27 +1,32 @@
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Sidebar } from "./Sidebar";
 
 /**
- * THINK — a document stays a document. Conversation is a layer on top: a comment on a block
- * opens a thread that hangs under that block, joined to it by a bar, so you always see which
- * block it is about. Hide folds a thread to a count beside its block; Resolve takes it off the
- * page (it stays in Conversations). Edit mode shows a caret, block handles and an "Editing" mark;
- * view mode shows none of them. Sessions belong to threads, never to the document.
+ * THINK — a document stays a document; conversation is a layer on top. A comment marks the text
+ * it is about, like a highlighter, and its thread shows in one of three styles under comparison:
+ * beside the text in the margin, in a pop-up over it, or folded under the block. Edit mode shows a
+ * caret, block handles and an "Editing" mark; view mode shows none of them. Sessions belong to
+ * threads, never to the document.
  */
 export const THINK_STEPS = [
 	{ id: 0, name: "Edit mode: write" },
-	{ id: 1, name: "Hover shows the block" },
-	{ id: 2, name: "Open a comment" },
-	{ id: 3, name: "Answer + suggestion" },
-	{ id: 4, name: "Accepted, thread hidden" },
-	{ id: 5, name: "Thread resolved" },
-	{ id: 6, name: "Hand off from the doc" },
-	{ id: 7, name: "Published, view mode" },
+	{ id: 1, name: "Comment on a line" },
+	{ id: 2, name: "Answer + suggestion" },
+	{ id: 3, name: "Accepted, thread closed" },
+	{ id: 4, name: "Hand off from the doc" },
+	{ id: 5, name: "Published, view mode" },
 ];
 
-type BlockId = "intro" | "know-h" | "know" | "decision-h" | "decision";
-/** none · composing a first comment · thread open under the block · folded to a count · resolved (off the page) */
-type ThreadState = "none" | "compose" | "open" | "folded" | "resolved";
+export type CommentStyle = "margin" | "popup" | "under";
+export const COMMENT_STYLES: { id: CommentStyle; name: string }[] = [
+	{ id: "margin", name: "Margin" },
+	{ id: "popup", name: "Pop-up" },
+	{ id: "under", name: "Under" },
+];
+
+type BlockId = "intro" | "know" | "decision";
+/** none · writing the first comment · open · closed (only the mark shows) · resolved (off the page) */
+type ThreadState = "none" | "compose" | "open" | "closed" | "resolved";
 
 interface Msg {
 	id: string;
@@ -29,165 +34,257 @@ interface Msg {
 	av: string;
 	agent?: boolean;
 	when: string;
-	text: React.ReactNode;
+	plain: string;
+	text?: React.ReactNode;
+}
+interface Thread {
+	state: ThreadState;
+	msgs: Msg[];
 }
 
-const ASK: Msg = { id: "ask", who: "You", av: "FO", when: "10:42", text: <><b className="mention">@Growth</b> how many people who pay would we lose with 10 days?</> };
+const ASK_TEXT = "@Growth if trials end on day 10, how many people who pay would we lose?";
+const ASK: Msg = {
+	id: "ask", who: "You", av: "FO", when: "10:42", plain: ASK_TEXT,
+	text: <><b className="mention">@Growth</b> if trials end on day 10, how many people who pay would we lose?</>,
+};
 const ANSWER: Msg = {
 	id: "answer", who: "Growth", av: "GR", agent: true, when: "10:44",
-	text: <>61% decide by day 9, so most stay. The risk is the 1 in 5 who decide on days 11–14. I added that to the list as a suggestion.</>,
+	plain: "About 1 in 5. 61% decide by day 9; 1 in 5 decide on days 11–14. I suggested a line for the list.",
 };
-const HAND: Msg = { id: "hand", who: "You", av: "FO", when: "11:05", text: <><b className="mention">@Builder</b> set new signups to a 10-day trial from Monday, for two weeks.</> };
-const TAKE: Msg = { id: "take", who: "Builder", av: "BU", agent: true, when: "11:05", text: <>Taking it. I will come back in this thread when it is live.</> };
+const HAND: Msg = {
+	id: "hand", who: "You", av: "FO", when: "11:05", plain: "@Builder set new signups to a 10-day trial from Monday, for two weeks.",
+	text: <><b className="mention">@Builder</b> set new signups to a 10-day trial from Monday, for two weeks.</>,
+};
+const TAKE: Msg = { id: "take", who: "Builder", av: "BU", agent: true, when: "11:05", plain: "Taking it. I will come back in this thread when it is live." };
 
-function Bubble({ plus }: { plus?: boolean }) {
+function Bubble() {
 	return (
 		<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
 			<path d="M3 2.5h10a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H7.5L4.5 14v-3H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z" strokeLinejoin="round" />
-			{plus && <path d="M8 4.75v4M6 6.75h4" strokeLinecap="round" />}
 		</svg>
 	);
 }
 
-/** One block. A thin line in the left margin shows how far it goes, and runs on down its thread. */
-function Block({ edit, active, hover, thread, count, heading, onComment, onOpen, children, under }: {
-	edit: boolean; active?: boolean; hover?: boolean; thread: ThreadState; count: number; heading?: boolean;
-	onComment: () => void; onOpen: () => void; children: React.ReactNode; under?: React.ReactNode;
+function Av({ m }: { m: { av: string; agent?: boolean } }) {
+	return <span className={m.agent ? "avatar cm-av" : "avatar avatar--human cm-av"}>{m.av}</span>;
+}
+
+/** A text box you can see, with its buttons. A reply box stays one line until you use it. */
+function Field({ draft = "", placeholder, button, compact, onPost, onCancel }: {
+	draft?: string; placeholder: string; button: string; compact?: boolean;
+	onPost: (text: string) => void; onCancel?: () => void;
 }) {
-	const cls = ["blk", heading && "blk--h", edit && "blk--edit", hover && "blk--hover",
-		(thread === "open" || thread === "compose") && "blk--open"].filter(Boolean).join(" ");
+	const [text, setText] = useState(draft);
+	const [focus, setFocus] = useState(false);
+	const post = () => { if (text.trim()) { onPost(text.trim()); setText(""); } };
+	const showActs = !compact || focus || text.length > 0;
 	return (
-		<div className={cls}>
+		<div className="fld">
+			<textarea
+				className={compact && !focus && !text ? "fld-in fld-in--one" : "fld-in"} value={text} rows={2} placeholder={placeholder} aria-label={placeholder}
+				onChange={(e) => setText(e.target.value)} onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
+				onKeyDown={(e) => {
+					if (e.key === "Escape") onCancel?.();
+					if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) post();
+				}}
+			/>
+			{showActs && (
+				<div className="fld-acts">
+					<span className="fld-hint">⌘↵ to send</span>
+					{onCancel && <button type="button" className="btn" onClick={onCancel}>Cancel</button>}
+					<button type="button" className="btn btn--accent" disabled={!text.trim()} onMouseDown={(e) => e.preventDefault()} onClick={post}>{button}</button>
+				</div>
+			)}
+		</div>
+	);
+}
+
+/** An open thread: who said what, then a reply box. Resolve and close sit in its top line. */
+function ThreadView({ t, closeLabel, onClose, onResolve, onReply, task }: {
+	t: Thread; closeLabel: string; onClose: () => void; onResolve: () => void; onReply: (text: string) => void; task?: React.ReactNode;
+}) {
+	return (
+		<div className="tv">
+			<div className="tv-head">
+				<span className="tv-where">Also in Conversations</span>
+				<button type="button" className="tv-btn" onClick={onResolve}>✓ Resolve</button>
+				<button type="button" className="tv-btn" onClick={onClose} aria-label="Close thread">{closeLabel}</button>
+			</div>
+			{t.msgs.map((m) => (
+				<div className="tv-msg" key={m.id}>
+					<Av m={m} />
+					<div>
+						<div className="tv-who"><b>{m.who}</b><span>{m.when}</span></div>
+						<div className="tv-text">{m.text ?? m.plain}</div>
+					</div>
+				</div>
+			))}
+			{task}
+			<Field placeholder="Reply…" button="Reply" compact onPost={onReply} />
+		</div>
+	);
+}
+
+/** A closed thread, as one line: who is in it, how many comments, the latest. Click to open. */
+function Summary({ t, onOpen }: { t: Thread; onOpen: () => void }) {
+	const last = t.msgs[t.msgs.length - 1];
+	const people = [...new Map(t.msgs.map((m) => [m.av, m])).values()];
+	return (
+		<button type="button" className="sum" onClick={onOpen}>
+			<span className="sum-avs">{people.map((m) => <Av key={m.av} m={m} />)}</span>
+			<span className="sum-n">{t.msgs.length} comments</span>
+			{last && <span className="sum-last">{last.who}: {last.plain}</span>}
+		</button>
+	);
+}
+
+/** A thread over the page. Closes on ×, Escape, or a click anywhere else on the page. */
+function PopUp({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+	const ref = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const down = (e: MouseEvent) => {
+			const t = e.target as Node;
+			if (!ref.current?.contains(t) && (t as Element).closest?.(".page")) onClose();
+		};
+		const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+		document.addEventListener("mousedown", down);
+		document.addEventListener("keydown", key);
+		return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key); };
+	}, [onClose]);
+	return <div className="pop" role="dialog" aria-label="Thread" ref={ref}>{children}</div>;
+}
+
+function Block({ edit, active, heading, children, side, over, under }: {
+	edit: boolean; active?: boolean; heading?: boolean; children: React.ReactNode;
+	side?: React.ReactNode; over?: React.ReactNode; under?: React.ReactNode;
+}) {
+	return (
+		<div className={["blk", heading && "blk--h", edit && "blk--edit"].filter(Boolean).join(" ")}>
 			<div className="blk-row">
 				{edit && <span className={active ? "blk-handle blk-handle--on" : "blk-handle"} aria-hidden="true">⠿</span>}
 				{children}
-				<span className="blk-side">
-					{thread === "folded" ? (
-						<button type="button" className="blk-count" onClick={onOpen} aria-label={`Open ${count} comments`}><Bubble />{count}</button>
-					) : thread !== "open" && thread !== "compose" && (
-						<button type="button" className="blk-add" onClick={onComment} aria-label="Comment on this block" title="Comment"><Bubble plus /></button>
-					)}
-				</span>
 			</div>
+			{side}
+			{over}
 			{under}
 		</div>
 	);
 }
 
-/** The thread on a block: plain messages, no box. Hide folds it to a count; Resolve takes it off the page. */
-function Thread({ msgs, onHide, onResolve, children }: {
-	msgs: Msg[]; onHide: () => void; onResolve: () => void; children?: React.ReactNode;
-}) {
-	return (
-		<div className="cm">
-			{msgs.map((m) => (
-				<div className="cm-msg" key={m.id}>
-					<span className={m.agent ? "avatar cm-av" : "avatar avatar--human cm-av"}>{m.av}</span>
-					<div>
-						<div className="cm-who"><b>{m.who}</b><span>{m.when}</span></div>
-						<div className="cm-text">{m.text}</div>
-					</div>
-				</div>
-			))}
-			{children}
-			<div className="cm-foot">
-				<input className="cm-in" placeholder="Reply…" aria-label="Reply" />
-				<span className="cm-acts">
-					<button type="button" onClick={onHide}>Hide</button>
-					<button type="button" onClick={onResolve}>Resolve</button>
-				</span>
-			</div>
-		</div>
-	);
-}
-
-/** The first comment on a block: one quiet line; sending starts the thread. */
-function Composer({ draft, onSend, onCancel }: { draft: string; onSend: () => void; onCancel: () => void }) {
-	return (
-		<div className="cm">
-			<div className="cm-msg">
-				<span className="avatar avatar--human cm-av">FO</span>
-				<input className="cm-in cm-in--new" defaultValue={draft} placeholder="Comment, or @someone…" aria-label="Comment" />
-			</div>
-			<div className="cm-foot cm-foot--new">
-				<span className="cm-note">↵ to send · esc to cancel · also shows in Conversations</span>
-				<span className="cm-acts">
-					<button type="button" onClick={onCancel}>Cancel</button>
-					<button type="button" className="cm-send" onClick={onSend}>Comment</button>
-				</span>
-			</div>
-		</div>
-	);
-}
-
-export function Think({ step }: { step: number }) {
-	const [published, setPublished] = useState(step === 7);
-	const [edit, setEdit] = useState(step < 7);
+export function Think({ step, style }: { step: number; style: CommentStyle }) {
+	const [published, setPublished] = useState(step === 5);
+	const [edit, setEdit] = useState(step < 5);
 	const [hidden, setHidden] = useState(false);
-	const [sugg, setSugg] = useState<"pending" | "accepted" | "discarded">(step >= 4 ? "accepted" : "pending");
-	const [justResolved, setJustResolved] = useState<BlockId | null>(step === 5 ? "know" : null);
-	const [threads, setThreads] = useState<Record<BlockId, ThreadState>>({
-		intro: "none",
-		"know-h": "none",
-		know: step === 2 ? "compose" : step === 3 ? "open" : step === 4 ? "folded" : step >= 5 ? "resolved" : "none",
-		"decision-h": "none",
-		decision: step === 6 ? "open" : step === 7 ? "folded" : "none",
+	const [sugg, setSugg] = useState<"pending" | "accepted" | "discarded">(step >= 3 ? "accepted" : "pending");
+	const [justResolved, setJustResolved] = useState<BlockId | null>(null);
+	const [threads, setThreads] = useState<Record<BlockId, Thread>>({
+		intro: { state: "none", msgs: [] },
+		know: step === 1 ? { state: "compose", msgs: [] }
+			: step === 2 ? { state: "open", msgs: [ASK, ANSWER] }
+			: step >= 3 ? { state: "closed", msgs: [ASK, ANSWER] } : { state: "none", msgs: [] },
+		decision: step === 4 ? { state: "open", msgs: [HAND, TAKE] } : step === 5 ? { state: "closed", msgs: [HAND, TAKE] } : { state: "none", msgs: [] },
 	});
-	const set = (id: BlockId, s: ThreadState) => setThreads((t) => ({ ...t, [id]: s }));
-	const decided = step >= 6;
+	const setState = (id: BlockId, state: ThreadState) => setThreads((t) => ({ ...t, [id]: { ...t[id], state } }));
+	const post = (id: BlockId, text: string) =>
+		setThreads((t) => ({
+			...t,
+			[id]: { state: "open", msgs: [...t[id].msgs, { id: `m${t[id].msgs.length}-${Date.now()}`, who: "You", av: "FO", when: "now", plain: text }] },
+		}));
+	const decided = step >= 4;
+	const pageRef = useRef<HTMLElement>(null);
+	// A thread sits by the text it is about, not by the top of its block: a margin card level
+	// with it, a pop-up just under it.
+	useLayoutEffect(() => {
+		for (const card of pageRef.current?.querySelectorAll<HTMLElement>(".mg, .pop") ?? []) {
+			const blk = card.closest(".blk")?.getBoundingClientRect();
+			const anchor = card.closest(".blk")?.querySelector<HTMLElement>(".anc")?.getBoundingClientRect();
+			if (!(blk && anchor)) continue;
+			if (card.classList.contains("mg")) card.style.top = `${anchor.top - blk.top - 6}px`;
+			else {
+				card.style.top = `${anchor.bottom - blk.top + 10}px`;
+				card.style.left = `${Math.max(0, anchor.left - blk.left - 12)}px`;
+			}
+		}
+	});
+	const anyComments = Object.values(threads).some((t) => t.state === "open" || t.state === "closed");
 
-	const msgs: Partial<Record<BlockId, Msg[]>> = {
-		know: step >= 3 ? [ASK, ANSWER] : [ASK],
-		decision: [HAND, TAKE],
-	};
-	const anyComments = Object.values(threads).some((s) => s === "open" || s === "folded");
-
-	/** What hangs under a block: the composer, its thread, or a short receipt after resolving. */
-	const under = (id: BlockId, extra?: React.ReactNode) => {
-		if (hidden) return null;
-		const s = threads[id];
-		if (s === "compose") {
-			return (
-				<Composer
-					draft={id === "know" ? "@Growth how many people who pay would we lose with 10 days?" : ""}
-					onSend={() => set(id, msgs[id] ? "open" : "none")}
-					onCancel={() => set(id, "none")}
-				/>
-			);
-		}
-		if (s === "open" && msgs[id]) {
-			return (
-				<Thread msgs={msgs[id]} onHide={() => set(id, "folded")} onResolve={() => { set(id, "resolved"); setJustResolved(id); }}>
-					{extra}
-				</Thread>
-			);
-		}
-		if (s === "resolved" && justResolved === id) {
-			return (
-				<p className="cm-receipt">
-					Resolved. The thread stays in Conversations.{" "}
-					<button type="button" onClick={() => { set(id, "folded"); setJustResolved(null); }}>Undo</button>
-				</p>
-			);
-		}
-		return null;
+	/** The commented text, marked like a highlighter. Darker while its thread is open. */
+	const mark = (id: BlockId, text: React.ReactNode) => {
+		const s = hidden ? "none" : threads[id].state;
+		if (s === "none" || s === "resolved") return text;
+		const on = s === "open" || s === "compose";
+		const open = () => { if (s === "closed") setState(id, "open"); };
+		return (
+			<mark className={on ? "anc anc--on" : "anc"} title="Open the thread on this text" onClick={open} onKeyDown={(e) => { if (e.key === "Enter") open(); }}>
+				{text}
+			</mark>
+		);
 	};
 
-	const block = (id: BlockId, children: React.ReactNode, opts: { heading?: boolean; active?: boolean; extra?: React.ReactNode } = {}) => (
-		<Block
-			edit={edit}
-			heading={opts.heading}
-			active={opts.active}
-			hover={step === 1 && id === "know"}
-			thread={hidden && threads[id] !== "compose" ? "none" : threads[id]}
-			count={msgs[id]?.length ?? 0}
-			onComment={() => set(id, "compose")}
-			onOpen={() => set(id, "open")}
-			under={under(id, opts.extra)}
-		>
-			{children}
-		</Block>
-	);
+	/** The thread for a block, placed by the comment style under comparison. */
+	const layer = (id: BlockId, task?: React.ReactNode): { side?: React.ReactNode; over?: React.ReactNode; under?: React.ReactNode } => {
+		const t = threads[id];
+		const add = (
+			<span className="blk-side">
+				<button type="button" className="blk-add" onClick={() => setState(id, "compose")} aria-label="Comment on this block" title="Comment">
+					<Bubble />
+				</button>
+			</span>
+		);
+		if (hidden || t.state === "none") return { side: add };
+		if (t.state === "resolved") {
+			return {
+				side: add,
+				under: justResolved === id && (
+					<p className="cm-receipt">
+						Resolved. The thread stays in Conversations.{" "}
+						<button type="button" onClick={() => { setState(id, "closed"); setJustResolved(null); }}>Undo</button>
+					</p>
+				),
+			};
+		}
+		const open = () => setState(id, "open");
+		const close = () => setState(id, t.msgs.length ? "closed" : "none");
+		const body = t.state === "compose" ? (
+			<Field
+				draft={id === "know" ? ASK_TEXT : ""} placeholder="Comment, or @mention someone" button="Comment"
+				onPost={(text) => post(id, text)} onCancel={close}
+			/>
+		) : (
+			<ThreadView
+				t={t} closeLabel={style === "under" ? "Hide" : "×"} onClose={close}
+				onResolve={() => { setState(id, "resolved"); setJustResolved(id); }}
+				onReply={(text) => post(id, text)} task={task}
+			/>
+		);
+
+		if (style === "margin") {
+			return { side: <aside className={t.state === "closed" ? "mg" : "mg mg--on"}>{t.state === "closed" ? <Summary t={t} onOpen={open} /> : body}</aside> };
+		}
+		if (style === "popup") {
+			if (t.state === "closed") {
+				return {
+					side: (
+						<span className="blk-side">
+							<button type="button" className="blk-count" onClick={open} aria-label={`Open ${t.msgs.length} comments`}><Bubble />{t.msgs.length}</button>
+						</span>
+					),
+				};
+			}
+			return { over: <PopUp onClose={close}>{body}</PopUp> };
+		}
+		return { under: <div className="ub">{t.state === "closed" ? <Summary t={t} onOpen={open} /> : body}</div> };
+	};
+
+	const intro = layer("intro");
+	const know = layer("know");
+	const decision = layer("decision", (
+		<button type="button" className="cm-task">
+			<span className="cm-task-k">Task</span>
+			<span className="cm-task-t">10-day trial for new signups</span>
+			<span className="cm-task-s">Builder · Queued</span>
+		</button>
+	));
 
 	return (
 		<>
@@ -218,20 +315,22 @@ export function Think({ step }: { step: number }) {
 				</header>
 
 				<div className="detail-scroll">
-					<article className={edit ? "page page--edit" : "page"}>
+					<article className={`page page--${style}`} ref={pageRef}>
 						<h1 className="page-title">🤔 Should trials be 10 days?</h1>
 
-						{block("intro", <p>Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose.</p>)}
+						<Block edit={edit} {...intro}>
+							<p>{mark("intro", "Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose.")}</p>
+						</Block>
 
-						{block("know-h", <h3>What we know</h3>, { heading: true })}
-						{block("know", (
+						<Block edit={edit} heading><h3>What we know</h3></Block>
+						<Block edit={edit} {...know}>
 							<ul>
 								<li>Trials run 14 days, card up front.</li>
 								<li>Since the warning email, 27% more trials convert.</li>
-								<li>Most cancellations happen on day 13.</li>
-								{step >= 3 && sugg === "accepted" && <li>61% of people who pay decide by day 9; 1 in 5 decide on days 11–14.</li>}
-								{step >= 3 && sugg === "pending" && (
-									<li className="sugg">
+								<li>{mark("know", "Most cancellations happen on day 13.")}</li>
+								{step >= 2 && sugg === "accepted" && <li>61% of people who pay decide by day 9; 1 in 5 decide on days 11–14.</li>}
+								{step >= 2 && sugg === "pending" && (
+									<li>
 										<span className="sugg-text">61% of people who pay decide by day 9; 1 in 5 decide on days 11–14.</span>
 										<span className="sugg-meta">
 											Suggested by Growth ·{" "}
@@ -241,24 +340,15 @@ export function Think({ step }: { step: number }) {
 									</li>
 								)}
 							</ul>
-						))}
+						</Block>
 
-						{block("decision-h", <h3>Decision</h3>, { heading: true })}
-						{block("decision", (
+						<Block edit={edit} heading><h3>Decision</h3></Block>
+						<Block edit={edit} active {...decision}>
 							<p className={decided ? undefined : "page-empty"}>
-								{decided ? "Try 10 days for new signups for two weeks, and watch refund requests." : "Not yet"}
+								{decided ? mark("decision", "Try 10 days for new signups for two weeks, and watch refund requests.") : "Not yet"}
 								{edit && <span className="caret" />}
 							</p>
-						), {
-							active: true,
-							extra: (
-								<button type="button" className="cm-task">
-									<span className="cm-task-k">Task</span>
-									<span className="cm-task-t">10-day trial for new signups</span>
-									<span className="cm-task-s">Builder · Queued</span>
-								</button>
-							),
-						})}
+						</Block>
 
 						{edit && <p className="blk-empty">Type / for a block, @ to ask someone</p>}
 					</article>
