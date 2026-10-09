@@ -27,13 +27,13 @@ const POPULATED_ROSTER = [
 	makeUserRow("agent-h", {
 		kind: "ai",
 		name: "Healthy Agent",
-		role: "builder",
+		discipline: "builder",
 		agentCategory: "team",
 	}),
 	makeUserRow("agent-w", {
 		kind: "ai",
 		name: "Warning Agent",
-		role: "builder",
+		discipline: "builder",
 		agentCategory: "team",
 	}),
 ];
