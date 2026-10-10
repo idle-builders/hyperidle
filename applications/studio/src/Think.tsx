@@ -125,7 +125,7 @@ function Av({ m }: { m: { av: string; agent?: boolean } }) {
 	return <span className={m.agent ? "avatar cm-av" : "avatar avatar--human cm-av"}>{m.av}</span>;
 }
 
-/** A proposed change as lines: taken out, kept, put in. Apply puts it into the document. */
+/** A proposed change as diff lines: old in red, kept in grey, new in green. Apply puts it into the document. */
 function ChangeBox({ c, onApply, onDismiss }: { c: Change; onApply: () => void; onDismiss: () => void }) {
 	const was = c.from.split("\n");
 	const now = c.to.split("\n").filter(Boolean);
@@ -187,12 +187,18 @@ function Field({ draft = "", placeholder, button, compact, note, covers, onPost,
 				}}
 			/>
 			{to !== null && (
-				<div className="chg chg--edit">
+				<div className="chg">
 					<div className="chg-h">
 						<span>Proposed change</span>
 						<button type="button" onClick={() => setTo(null)}>Remove</button>
 					</div>
-					<textarea className="fld-in" value={to} rows={2} aria-label="Text as it should become" onChange={(e) => setTo(e.target.value)} />
+					{covers?.split("\n").map((l) => (
+						<div key={l} className="chg-l chg-l--out"><span className="chg-s">−</span><span>{l}</span></div>
+					))}
+					<label className="chg-l chg-l--in">
+						<span className="chg-s">+</span>
+						<textarea className="chg-in" value={to} rows={1} aria-label="Text as it should become" onChange={(e) => setTo(e.target.value)} />
+					</label>
 				</div>
 			)}
 			{used && covers && to === null && (
@@ -223,13 +229,15 @@ function ThreadView({ t, covers, onClose, onResolve, onReply, onChange, task }: 
 				<button type="button" className="tv-btn" onClick={onClose} aria-label="Close thread">×</button>
 			</div>
 			{t.msgs.map((m) => (
-				<div className="tv-msg" key={m.id}>
-					<Av m={m} />
-					<div>
-						<div className="tv-who"><b>{m.who}</b><span>{m.when}</span></div>
-						{(m.text ?? m.plain) && <div className="tv-text">{m.text ?? m.plain}</div>}
-						{m.change && <ChangeBox c={m.change} onApply={() => onChange(m.id, "applied")} onDismiss={() => onChange(m.id, "dismissed")} />}
+				<div className="tv-turn" key={m.id}>
+					<div className="tv-msg">
+						<Av m={m} />
+						<div>
+							<div className="tv-who"><b>{m.who}</b><span>{m.when}</span></div>
+							{(m.text ?? m.plain) && <div className="tv-text">{m.text ?? m.plain}</div>}
+						</div>
 					</div>
+					{m.change && <ChangeBox c={m.change} onApply={() => onChange(m.id, "applied")} onDismiss={() => onChange(m.id, "dismissed")} />}
 				</div>
 			))}
 			{task}

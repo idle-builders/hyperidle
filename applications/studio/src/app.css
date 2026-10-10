@@ -545,22 +545,25 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .mg .sum-last { flex-basis: 100%; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .mg--on { padding: var(--sp-3); border: var(--line-w) solid var(--line); border-radius: var(--r); background: var(--surface); box-shadow: var(--sh-2); z-index: 2; }
 
-/* a change proposed inside a comment: lines taken out, kept and put in — said with signs and
-   strike-through, not colour — then Apply */
-.chg { margin-top: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--sunk); font: var(--t-body); }
-.chg-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-1); font: var(--t-meta); color: var(--ink-3); }
+/* a change proposed inside a comment, shown like a diff: old lines red, new lines green, running
+   edge to edge in the comment card so there is no box inside a box */
+.tv-turn { display: flex; flex-direction: column; gap: var(--sp-2); }
+.chg { margin: 0 calc(-1 * var(--sp-3)); font: var(--t-body); }
+.chg-h { display: flex; align-items: center; justify-content: space-between; padding: 0 var(--sp-3) var(--sp-1); font: var(--t-meta); color: var(--ink-3); }
 .chg-h button { font: var(--t-meta); color: var(--ink-2); text-decoration: underline; }
-.chg-l { display: grid; grid-template-columns: 14px minmax(0, 1fr); }
-.chg-s { font-weight: 600; color: var(--ink-3); }
+.chg-l { display: grid; grid-template-columns: 18px minmax(0, 1fr); padding: 3px var(--sp-3); }
+.chg-s { font-weight: 600; }
 .chg-l--same { color: var(--ink-3); }
-.chg-l--out { color: var(--ink-3); }
-.chg-l--out > span:last-child { text-decoration: line-through; }
-.chg-l--in { color: var(--ink); font-weight: 500; }
-.chg-l--in .chg-s { color: var(--ink); }
-.chg-f { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); font: var(--t-meta); color: var(--ink-2); }
+.chg-l--out { background: var(--diff-out); color: var(--ink-2); }
+.chg-l--out .chg-s { color: var(--diff-out-ink); }
+.chg-l--in { background: var(--diff-in); color: var(--ink); }
+.chg-l--in .chg-s { color: var(--diff-in-ink); }
+.chg-f { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) 0; font: var(--t-meta); color: var(--ink-2); }
 .chg-f .btn { min-height: 28px; padding: 0 var(--sp-3); font: var(--t-label); }
-.chg--off { opacity: 0.6; }
-.chg--edit { margin-top: 0; }
-.chg--edit .fld-in { min-height: 0; background: var(--surface); }
+.chg--off { opacity: 0.55; }
+/* writing one: the old text in red above, the new text typed straight into the green line */
+.chg-in { width: 100%; padding: 0; border: 0; resize: none; field-sizing: content; background: transparent; font: inherit; color: inherit; }
+.chg-in:focus { outline: none; }
+.chg-l--in:focus-within { box-shadow: inset 2px 0 0 var(--diff-in-ink); }
 .fld-link { align-self: flex-start; font: var(--t-label); color: var(--ink-2); }
 .fld-link:hover { color: var(--ink); text-decoration: underline; }

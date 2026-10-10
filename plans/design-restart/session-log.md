@@ -585,3 +585,10 @@ comment box, like GitHub's proposed change. Rebuilt:
 - **Apply** puts the new text where the comment's region was; the box then reads "✓ Applied by
   You". The document shows nothing of a change until it is applied.
 Steps 4 and 5 renamed: "Reply proposes a change" · "Change applied".
+
+**Founder: the grey box inside the comment box looks weird; wants red (old) versus green (new)
+like GitHub and other diff tools.** Changed: no inner box — the changed lines run edge to edge
+inside the comment card, old lines on a soft red with a red −, new lines on a soft green with a
+green +, kept lines plain grey. Writing one: the old text shows in red and you type the new text
+straight into the green line. This is the one place colour carries meaning, by the founder's
+choice; the − / + signs stay so it also reads without colour.

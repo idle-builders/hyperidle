@@ -98,8 +98,11 @@ like a chat. A document can start empty or from an existing thread.
   used. ✓ Resolve and × sit in the thread's top line. Resolve takes it off the page, with Undo.
 - **A change is proposed inside a comment, by anyone** (founder, 2026-10-10: "agents and human
   are all users so making agents special is a fault"). "± Propose a change" in the comment box
-  adds the covered text to edit. The thread shows it as lines taken out / kept / put in, with
+  adds the covered text to edit. The thread shows it like a diff, edge to edge in the comment
+  card with no inner box: old lines red with −, new lines green with +, kept lines grey, then
   Apply / Dismiss. Apply replaces the comment's region; the document shows nothing before that.
+  (Founder, 2026-10-10: red/green like GitHub — the one exception to "colour does not carry
+  status".)
 - **No agent-only features anywhere.** Whatever an agent does, a person does the same way.
 - Open: on a narrow window the margin has no room — what then? Not designed yet.
 - **Edit vs view mode.** Edit: "Editing" mark + Done, caret, block handles, an empty line "Type /
