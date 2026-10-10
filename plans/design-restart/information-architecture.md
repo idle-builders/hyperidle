@@ -96,8 +96,11 @@ like a chat. A document can start empty or from an existing thread.
   block, then you narrow it.
 - **The comment box is a real text box** with Cancel / Comment; a reply box stays one line until
   used. ✓ Resolve and × sit in the thread's top line. Resolve takes it off the page, with Undo.
-- **A suggestion sits inside the block** as greyed text, Accept / Discard under it. (The dashed
-  underline belongs to comments.)
+- **A change is proposed inside a comment, by anyone** (founder, 2026-10-10: "agents and human
+  are all users so making agents special is a fault"). "± Propose a change" in the comment box
+  adds the covered text to edit. The thread shows it as lines taken out / kept / put in, with
+  Apply / Dismiss. Apply replaces the comment's region; the document shows nothing before that.
+- **No agent-only features anywhere.** Whatever an agent does, a person does the same way.
 - Open: on a narrow window the margin has no room — what then? Not designed yet.
 - **Edit vs view mode.** Edit: "Editing" mark + Done, caret, block handles, an empty line "Type /
   for a block, @ to ask someone". View: an Edit button; no handles, no caret. Drafts open in edit,

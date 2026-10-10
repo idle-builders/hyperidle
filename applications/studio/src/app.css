@@ -545,8 +545,22 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .mg .sum-last { flex-basis: 100%; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .mg--on { padding: var(--sp-3); border: var(--line-w) solid var(--line); border-radius: var(--r); background: var(--surface); box-shadow: var(--sh-2); z-index: 2; }
 
-/* a suggestion is not document text yet: greyed, with who suggested it and the choice */
-.sugg-text { color: var(--ink-3); }
-.sugg-meta { display: block; margin-top: 2px; font: var(--t-meta); color: var(--ink-3); }
-.sugg-meta button { font: var(--t-meta); font-weight: 600; color: var(--ink-2); }
-.sugg-meta button:hover { color: var(--ink); text-decoration: underline; }
+/* a change proposed inside a comment: lines taken out, kept and put in — said with signs and
+   strike-through, not colour — then Apply */
+.chg { margin-top: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--sunk); font: var(--t-body); }
+.chg-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-1); font: var(--t-meta); color: var(--ink-3); }
+.chg-h button { font: var(--t-meta); color: var(--ink-2); text-decoration: underline; }
+.chg-l { display: grid; grid-template-columns: 14px minmax(0, 1fr); }
+.chg-s { font-weight: 600; color: var(--ink-3); }
+.chg-l--same { color: var(--ink-3); }
+.chg-l--out { color: var(--ink-3); }
+.chg-l--out > span:last-child { text-decoration: line-through; }
+.chg-l--in { color: var(--ink); font-weight: 500; }
+.chg-l--in .chg-s { color: var(--ink); }
+.chg-f { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); font: var(--t-meta); color: var(--ink-2); }
+.chg-f .btn { min-height: 28px; padding: 0 var(--sp-3); font: var(--t-label); }
+.chg--off { opacity: 0.6; }
+.chg--edit { margin-top: 0; }
+.chg--edit .fld-in { min-height: 0; background: var(--surface); }
+.fld-link { align-self: flex-start; font: var(--t-label); color: var(--ink-2); }
+.fld-link:hover { color: var(--ink); text-decoration: underline; }

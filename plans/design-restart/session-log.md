@@ -573,3 +573,15 @@ Pop-up and Under removed, with the style switch. Two changes asked for and built
 Suggestions lost their dashed underline (it now means "has a comment"): suggested text is greyed.
 Steps are now 7: edit · comment on a block · drag to narrow · answer + suggestion · accepted,
 comment in the background · hand off · published, view mode.
+
+**Founder: "what is an agent suggestion? makes no sense. agents and human are all users so
+making agents special is a fault."** Suggesting a change happens via a comment, shown in the open
+comment box, like GitHub's proposed change. Rebuilt:
+- The greyed "Suggested by Growth · Accept · Discard" line in the document is gone.
+- **Anyone proposes a change inside a comment.** The comment box has "± Propose a change": it
+  adds the covered text below, to edit into what it should become.
+- **In the thread** the change shows as lines — taken out (− and struck through), kept (grey),
+  put in (+) — with Apply / Dismiss. Signs and strike-through carry it, not colour.
+- **Apply** puts the new text where the comment's region was; the box then reads "✓ Applied by
+  You". The document shows nothing of a change until it is applied.
+Steps 4 and 5 renamed: "Reply proposes a change" · "Change applied".

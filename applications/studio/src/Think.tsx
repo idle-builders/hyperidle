@@ -5,15 +5,16 @@ import { Sidebar } from "./Sidebar";
  * THINK — a document stays a document; conversation is a layer on top, in the margin. A comment
  * waiting there is faded, and its text carries only a faint dashed underline, so reading is never
  * disturbed. Open it and its text is highlighted, with two ends you can drag to change what the
- * comment covers. Edit mode shows a caret, block handles and an "Editing" mark; view mode shows
- * none of them. Sessions belong to threads, never to the document.
+ * comment covers. Anyone — person or agent — proposes a change the same way: inside a comment,
+ * as removed and added lines with Apply. Edit mode shows a caret, block handles and an "Editing"
+ * mark; view mode shows none of them. Sessions belong to threads, never to the document.
  */
 export const THINK_STEPS = [
 	{ id: 0, name: "Edit mode: write" },
 	{ id: 1, name: "Comment on a block" },
 	{ id: 2, name: "Drag to narrow the region" },
-	{ id: 3, name: "Answer + suggestion" },
-	{ id: 4, name: "Accepted, comment in the background" },
+	{ id: 3, name: "Reply proposes a change" },
+	{ id: 4, name: "Change applied" },
 	{ id: 5, name: "Hand off from the doc" },
 	{ id: 6, name: "Published, view mode" },
 ];
@@ -24,6 +25,13 @@ type ThreadState = "none" | "compose" | "open" | "closed" | "resolved";
 /** First and last word a comment covers, counted across the block's lines. */
 type Region = [number, number];
 
+/** A change proposed inside a comment: the covered text as it was, and as it should become. */
+interface Change {
+	from: string;
+	to: string;
+	state: "open" | "applied" | "dismissed";
+	by?: string;
+}
 interface Msg {
 	id: string;
 	who: string;
@@ -32,6 +40,7 @@ interface Msg {
 	when: string;
 	plain: string;
 	text?: React.ReactNode;
+	change?: Change;
 }
 interface Thread {
 	state: ThreadState;
@@ -46,9 +55,46 @@ const DECISION = ["Try 10 days for new signups for two weeks, and watch refund r
 
 const count = (lines: string[]) => lines.reduce((n, l) => n + l.split(" ").length, 0);
 const whole = (lines: string[]): Region => [0, count(lines) - 1];
-const line = (lines: string[], i: number): Region => {
-	const start = count(lines.slice(0, i));
-	return [start, start + lines[i].split(" ").length - 1];
+const span = (lines: string[], first: number, last = first): Region => {
+	const start = count(lines.slice(0, first));
+	return [start, start + count(lines.slice(first, last + 1)) - 1];
+};
+
+/** The text a region covers, one covered line per line. */
+const covered = (lines: string[], [a, b]: Region): string => {
+	let start = 0;
+	const out: string[] = [];
+	for (const l of lines) {
+		const ws = l.split(" ");
+		const inside = ws.filter((_, k) => start + k >= a && start + k <= b);
+		if (inside.length) out.push(inside.join(" "));
+		start += ws.length;
+	}
+	return out.join("\n");
+};
+
+/** Put new text where a region was. The region then covers the new text. */
+const replace = (lines: string[], [a, b]: Region, to: string): { lines: string[]; region: Region } => {
+	const toks = lines.map((l) => l.split(" "));
+	let i = 0;
+	let first = { line: 0, word: 0 };
+	let last = { line: 0, word: 0 };
+	for (const [li, ws] of toks.entries()) {
+		for (const wi of ws.keys()) {
+			if (i === a) first = { line: li, word: wi };
+			if (i === b) last = { line: li, word: wi };
+			i++;
+		}
+	}
+	const fresh = to.split("\n").map((l) => l.trim().split(" ").filter(Boolean)).filter((ws) => ws.length);
+	const added = fresh.reduce((n, ws) => n + ws.length, 0);
+	const body = fresh.length ? fresh : [[]];
+	body[0] = [...toks[first.line].slice(0, first.word), ...body[0]];
+	body[body.length - 1] = [...body[body.length - 1], ...toks[last.line].slice(last.word + 1)];
+	return {
+		lines: [...lines.slice(0, first.line), ...body.map((ws) => ws.join(" ")).filter(Boolean), ...lines.slice(last.line + 1)],
+		region: [a, Math.max(a, a + added - 1)],
+	};
 };
 
 const ASK_TEXT = "@Growth if trials end on day 10, how many people who pay would we lose?";
@@ -56,10 +102,11 @@ const ASK: Msg = {
 	id: "ask", who: "You", av: "FO", when: "10:42", plain: ASK_TEXT,
 	text: <><b className="mention">@Growth</b> if trials end on day 10, how many people who pay would we lose?</>,
 };
-const ANSWER: Msg = {
+const answer = (state: Change["state"]): Msg => ({
 	id: "answer", who: "Growth", av: "GR", agent: true, when: "10:44",
-	plain: "About 1 in 5. 61% decide by day 9; 1 in 5 decide on days 11–14. I suggested a line for the list.",
-};
+	plain: "About 1 in 5. The numbers are worth a line in the list.",
+	change: { from: KNOW[2], to: `${KNOW[2]}\n${KNOW_ADDED}`, state, by: state === "open" ? undefined : "You" },
+});
 const HAND: Msg = {
 	id: "hand", who: "You", av: "FO", when: "11:05", plain: "@Builder set new signups to a 10-day trial from Monday, for two weeks.",
 	text: <><b className="mention">@Builder</b> set new signups to a 10-day trial from Monday, for two weeks.</>,
@@ -78,31 +125,85 @@ function Av({ m }: { m: { av: string; agent?: boolean } }) {
 	return <span className={m.agent ? "avatar cm-av" : "avatar avatar--human cm-av"}>{m.av}</span>;
 }
 
-/** A text box you can see, with its buttons. A reply box stays one line until you use it. */
-function Field({ draft = "", placeholder, button, compact, note, onPost, onCancel }: {
-	draft?: string; placeholder: string; button: string; compact?: boolean; note?: string;
-	onPost: (text: string) => void; onCancel?: () => void;
+/** A proposed change as lines: taken out, kept, put in. Apply puts it into the document. */
+function ChangeBox({ c, onApply, onDismiss }: { c: Change; onApply: () => void; onDismiss: () => void }) {
+	const was = c.from.split("\n");
+	const now = c.to.split("\n").filter(Boolean);
+	const rows = [
+		...was.filter((l) => !now.includes(l)).map((l) => ({ kind: "out", sign: "−", l })),
+		...now.map((l) => (was.includes(l) ? { kind: "same", sign: "", l } : { kind: "in", sign: "+", l })),
+	];
+	return (
+		<div className={c.state === "dismissed" ? "chg chg--off" : "chg"}>
+			<div className="chg-h">Proposed change</div>
+			{rows.map((r) => (
+				<div key={`${r.kind}${r.l}`} className={`chg-l chg-l--${r.kind}`}>
+					<span className="chg-s">{r.sign}</span>
+					<span>{r.l}</span>
+				</div>
+			))}
+			<div className="chg-f">
+				{c.state === "open" ? (
+					<>
+						<button type="button" className="btn btn--accent" onClick={onApply}>Apply</button>
+						<button type="button" className="btn" onClick={onDismiss}>Dismiss</button>
+					</>
+				) : (
+					<span>{c.state === "applied" ? `✓ Applied by ${c.by}` : `Dismissed by ${c.by}`}</span>
+				)}
+			</div>
+		</div>
+	);
+}
+
+/**
+ * A text box you can see, with its buttons. A reply box stays one line until you use it.
+ * "Propose a change" adds the covered text below, to edit into what it should become.
+ */
+function Field({ draft = "", placeholder, button, compact, note, covers, onPost, onCancel }: {
+	draft?: string; placeholder: string; button: string; compact?: boolean; note?: string; covers?: string;
+	onPost: (text: string, to?: string) => void; onCancel?: () => void;
 }) {
 	const [text, setText] = useState(draft);
+	const [to, setTo] = useState<string | null>(null);
 	const [focus, setFocus] = useState(false);
-	const post = () => { if (text.trim()) { onPost(text.trim()); setText(""); } };
-	const showActs = !compact || focus || text.length > 0;
+	const changed = to !== null && to.trim() !== covers;
+	const ready = text.trim().length > 0 || changed;
+	const post = () => {
+		if (!ready) return;
+		onPost(text.trim(), changed && to !== null ? to : undefined);
+		setText("");
+		setTo(null);
+	};
+	const used = !compact || focus || text.length > 0 || to !== null;
 	return (
 		<div className="fld">
 			<textarea
-				className={compact && !focus && !text ? "fld-in fld-in--one" : "fld-in"} value={text} rows={2} placeholder={placeholder} aria-label={placeholder}
+				className={used ? "fld-in" : "fld-in fld-in--one"} value={text} rows={2} placeholder={placeholder} aria-label={placeholder}
 				onChange={(e) => setText(e.target.value)} onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
 				onKeyDown={(e) => {
 					if (e.key === "Escape") onCancel?.();
 					if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) post();
 				}}
 			/>
+			{to !== null && (
+				<div className="chg chg--edit">
+					<div className="chg-h">
+						<span>Proposed change</span>
+						<button type="button" onClick={() => setTo(null)}>Remove</button>
+					</div>
+					<textarea className="fld-in" value={to} rows={2} aria-label="Text as it should become" onChange={(e) => setTo(e.target.value)} />
+				</div>
+			)}
+			{used && covers && to === null && (
+				<button type="button" className="fld-link" onMouseDown={(e) => e.preventDefault()} onClick={() => setTo(covers)}>± Propose a change</button>
+			)}
 			{note && <p className="fld-note">{note}</p>}
-			{showActs && (
+			{used && (
 				<div className="fld-acts">
 					<span className="fld-hint">⌘↵ to send</span>
 					{onCancel && <button type="button" className="btn" onClick={onCancel}>Cancel</button>}
-					<button type="button" className="btn btn--accent" disabled={!text.trim()} onMouseDown={(e) => e.preventDefault()} onClick={post}>{button}</button>
+					<button type="button" className="btn btn--accent" disabled={!ready} onMouseDown={(e) => e.preventDefault()} onClick={post}>{button}</button>
 				</div>
 			)}
 		</div>
@@ -110,8 +211,9 @@ function Field({ draft = "", placeholder, button, compact, note, onPost, onCance
 }
 
 /** An open thread: who said what, then a reply box. Resolve and close sit in its top line. */
-function ThreadView({ t, onClose, onResolve, onReply, task }: {
-	t: Thread; onClose: () => void; onResolve: () => void; onReply: (text: string) => void; task?: React.ReactNode;
+function ThreadView({ t, covers, onClose, onResolve, onReply, onChange, task }: {
+	t: Thread; covers?: string; onClose: () => void; onResolve: () => void; onReply: (text: string, to?: string) => void;
+	onChange: (msg: string, state: "applied" | "dismissed") => void; task?: React.ReactNode;
 }) {
 	return (
 		<div className="tv">
@@ -125,12 +227,13 @@ function ThreadView({ t, onClose, onResolve, onReply, task }: {
 					<Av m={m} />
 					<div>
 						<div className="tv-who"><b>{m.who}</b><span>{m.when}</span></div>
-						<div className="tv-text">{m.text ?? m.plain}</div>
+						{(m.text ?? m.plain) && <div className="tv-text">{m.text ?? m.plain}</div>}
+						{m.change && <ChangeBox c={m.change} onApply={() => onChange(m.id, "applied")} onDismiss={() => onChange(m.id, "dismissed")} />}
 					</div>
 				</div>
 			))}
 			{task}
-			<Field placeholder="Reply…" button="Reply" compact onPost={onReply} />
+			<Field placeholder="Reply…" button="Reply" compact covers={covers} onPost={onReply} />
 		</div>
 	);
 }
@@ -143,7 +246,7 @@ function Summary({ t, onOpen }: { t: Thread; onOpen: () => void }) {
 		<button type="button" className="sum" onClick={onOpen}>
 			<span className="sum-avs">{people.map((m) => <Av key={m.av} m={m} />)}</span>
 			<span className="sum-n">{t.msgs.length} {t.msgs.length === 1 ? "comment" : "comments"}</span>
-			{last && <span className="sum-last">{last.who}: {last.plain}</span>}
+			{last && <span className="sum-last">{last.who}: {last.plain || "proposed a change"}</span>}
 		</button>
 	);
 }
@@ -167,21 +270,21 @@ export function Think({ step }: { step: number }) {
 	const [published, setPublished] = useState(step === 6);
 	const [edit, setEdit] = useState(step < 6);
 	const [hidden, setHidden] = useState(false);
-	const [sugg, setSugg] = useState<"pending" | "accepted" | "discarded">(step >= 4 ? "accepted" : "pending");
 	const [justResolved, setJustResolved] = useState<BlockId | null>(null);
 	const [drag, setDrag] = useState<{ id: BlockId; end: 0 | 1 } | null>(null);
-	const decided = step >= 5;
-	const lines: Record<BlockId, string[]> = {
+	const applied = [...KNOW, KNOW_ADDED];
+	const [doc, setDoc] = useState<Record<BlockId, string[]>>({
 		intro: INTRO,
-		know: step >= 3 && sugg === "accepted" ? [...KNOW, KNOW_ADDED] : KNOW,
-		decision: decided ? DECISION : [],
-	};
+		know: step >= 4 ? applied : KNOW,
+		decision: step >= 5 ? DECISION : [],
+	});
 	const [threads, setThreads] = useState<Record<BlockId, Thread>>({
 		intro: { state: "none", msgs: [], region: null },
 		know: step === 1 ? { state: "compose", msgs: [], region: whole(KNOW) }
-			: step === 2 ? { state: "compose", msgs: [], region: line(KNOW, 2) }
-			: step === 3 ? { state: "open", msgs: [ASK, ANSWER], region: line(KNOW, 2) }
-			: step >= 4 ? { state: "closed", msgs: [ASK, ANSWER], region: line(KNOW, 2) }
+			: step === 2 ? { state: "compose", msgs: [], region: span(KNOW, 2) }
+			: step === 3 ? { state: "open", msgs: [ASK, answer("open")], region: span(KNOW, 2) }
+			: step === 4 ? { state: "open", msgs: [ASK, answer("applied")], region: span(applied, 2, 3) }
+			: step >= 5 ? { state: "closed", msgs: [ASK, answer("applied")], region: span(applied, 2, 3) }
 			: { state: "none", msgs: [], region: null },
 		decision: step === 5 ? { state: "open", msgs: [HAND, TAKE], region: whole(DECISION) }
 			: step === 6 ? { state: "closed", msgs: [HAND, TAKE], region: whole(DECISION) }
@@ -197,18 +300,35 @@ export function Think({ step }: { step: number }) {
 			next[id] = { ...next[id], state: "open" };
 			return next;
 		});
-	const compose = (id: BlockId) => setThreads((t) => ({ ...t, [id]: { state: "compose", msgs: [], region: whole(lines[id]) } }));
+	const compose = (id: BlockId) => setThreads((t) => ({ ...t, [id]: { state: "compose", msgs: [], region: whole(doc[id]) } }));
 	const close = (id: BlockId) => setThreads((t) => ({ ...t, [id]: t[id].msgs.length ? { ...t[id], state: "closed" } : { state: "none", msgs: [], region: null } }));
-	const post = (id: BlockId, text: string) =>
-		setThreads((t) => ({
-			...t,
-			[id]: { ...t[id], state: "open", msgs: [...t[id].msgs, { id: `m${t[id].msgs.length}-${Date.now()}`, who: "You", av: "FO", when: "now", plain: text }] },
+	const post = (id: BlockId, text: string, to?: string) =>
+		setThreads((t) => {
+			const r = t[id].region;
+			const change: Change | undefined = to !== undefined && r ? { from: covered(doc[id], r), to, state: "open" } : undefined;
+			const msg: Msg = { id: `m${t[id].msgs.length}-${Date.now()}`, who: "You", av: "FO", when: "now", plain: text, change };
+			return { ...t, [id]: { ...t[id], state: "open", msgs: [...t[id].msgs, msg] } };
+		});
+	/** Apply puts the proposed text where the comment's region was; Dismiss only marks it. */
+	const settle = (id: BlockId, msgId: string, state: "applied" | "dismissed") => {
+		const t = threads[id];
+		const to = t.msgs.find((m) => m.id === msgId)?.change?.to;
+		const next = state === "applied" && t.region && to !== undefined ? replace(doc[id], t.region, to) : null;
+		if (next) setDoc((d) => ({ ...d, [id]: next.lines }));
+		setThreads((all) => ({
+			...all,
+			[id]: {
+				...all[id],
+				region: next ? next.region : all[id].region,
+				msgs: all[id].msgs.map((m) => (m.id === msgId && m.change ? { ...m, change: { ...m.change, state, by: "You" } } : m)),
+			},
 		}));
+	};
 	const moveEnd = (id: BlockId, end: 0 | 1, to: number) =>
 		setThreads((t) => {
 			const r = t[id].region;
 			if (!r) return t;
-			const region: Region = end === 0 ? [Math.max(0, Math.min(to, r[1])), r[1]] : [r[0], Math.min(count(lines[id]) - 1, Math.max(to, r[0]))];
+			const region: Region = end === 0 ? [Math.max(0, Math.min(to, r[1])), r[1]] : [r[0], Math.min(count(doc[id]) - 1, Math.max(to, r[0]))];
 			return region[0] === r[0] && region[1] === r[1] ? t : { ...t, [id]: { ...t[id], region } };
 		});
 
@@ -275,7 +395,7 @@ export function Think({ step }: { step: number }) {
 			/>
 		);
 		let i = 0;
-		return lines[id].map((text) => {
+		return doc[id].map((text) => {
 			const ws = text.split(" ").map((w) => ({ w, idx: i++ }));
 			const run = (items: { w: string; idx: number }[]) =>
 				items.flatMap(({ w, idx }, k) => [k ? " " : "", <span key={idx} data-b={id} data-w={idx}>{w}</span>]);
@@ -302,7 +422,7 @@ export function Think({ step }: { step: number }) {
 	/** What a block has in the margin: the comment button, a faded waiting comment, or the open one. */
 	const margin = (id: BlockId, task?: React.ReactNode): { side?: React.ReactNode; under?: React.ReactNode } => {
 		const t = threads[id];
-		const add = lines[id].length > 0 && (
+		const add = doc[id].length > 0 && (
 			<span className="blk-side">
 				<button type="button" className="blk-add" onClick={() => compose(id)} aria-label="Comment on this block" title="Comment">
 					<Bubble />
@@ -322,19 +442,20 @@ export function Think({ step }: { step: number }) {
 			};
 		}
 		if (t.state === "closed") return { side: <aside className="mg"><Summary t={t} onOpen={() => open(id)} /></aside> };
+		const covers = t.region ? covered(doc[id], t.region) : undefined;
 		return {
 			side: (
 				<aside className="mg mg--on">
 					{t.state === "compose" ? (
 						<Field
-							draft={id === "know" ? ASK_TEXT : ""} placeholder="Comment, or @mention someone" button="Comment"
+							draft={id === "know" ? ASK_TEXT : ""} placeholder="Comment, or @mention someone" button="Comment" covers={covers}
 							note="Drag the ends of the highlight to change what this covers."
-							onPost={(text) => post(id, text)} onCancel={() => close(id)}
+							onPost={(text, to) => post(id, text, to)} onCancel={() => close(id)}
 						/>
 					) : (
 						<ThreadView
-							t={t} onClose={() => close(id)} onResolve={() => { setState(id, "resolved"); setJustResolved(id); }}
-							onReply={(text) => post(id, text)} task={task}
+							t={t} covers={covers} onClose={() => close(id)} onResolve={() => { setState(id, "resolved"); setJustResolved(id); }}
+							onReply={(text, to) => post(id, text, to)} onChange={(msg, state) => settle(id, msg, state)} task={task}
 						/>
 					)}
 				</aside>
@@ -379,24 +500,12 @@ export function Think({ step }: { step: number }) {
 						<h1 className="page-title">🤔 Should trials be 10 days?</h1>
 
 						<Block edit={edit} {...margin("intro")}>
-							<p>{intro[0]}</p>
+							{intro.map((p, i) => <p key={doc.intro[i]}>{p}</p>)}
 						</Block>
 
 						<Block edit={edit} heading><h3>What we know</h3></Block>
 						<Block edit={edit} {...margin("know")}>
-							<ul>
-								{know.map((item, i) => <li key={lines.know[i]}>{item}</li>)}
-								{step >= 3 && sugg === "pending" && (
-									<li>
-										<span className="sugg-text">{KNOW_ADDED}</span>
-										<span className="sugg-meta">
-											Suggested by Growth ·{" "}
-											<button type="button" onClick={() => setSugg("accepted")}>Accept</button> ·{" "}
-											<button type="button" onClick={() => setSugg("discarded")}>Discard</button>
-										</span>
-									</li>
-								)}
-							</ul>
+							<ul>{know.map((item, i) => <li key={doc.know[i]}>{item}</li>)}</ul>
 						</Block>
 
 						<Block edit={edit} heading><h3>Decision</h3></Block>
@@ -410,10 +519,10 @@ export function Think({ step }: { step: number }) {
 								</button>
 							))}
 						>
-							<p className={decided ? undefined : "page-empty"}>
-								{decided ? decision[0] : "Not yet"}
-								{edit && <span className="caret" />}
-							</p>
+							{doc.decision.length === 0 && <p className="page-empty">Not yet{edit && <span className="caret" />}</p>}
+							{decision.map((p, i) => (
+								<p key={doc.decision[i]}>{p}{edit && i === decision.length - 1 && <span className="caret" />}</p>
+							))}
 						</Block>
 
 						{edit && <p className="blk-empty">Type / for a block, @ to ask someone</p>}
