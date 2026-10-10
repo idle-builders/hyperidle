@@ -61,7 +61,7 @@
 	--accent: #2f6d4f; --accent-ink: #ffffff; --accent-soft: #e7f1ea;
 	--flag: #fcee0a; --flag-ink: #1b1a17;
 	--live: #2f6d4f; --wait: #a8560f;
-	--mark: #f3e9cc; --mark-on: #ebd7a0; --mark-line: #cfb36a;
+	--mark: #ebd7a0; --mark-line: #cfb36a;
 	--sh-1: 0 1px 2px rgb(28 26 23 / 0.06);
 	--sh-2: 0 2px 4px rgb(28 26 23 / 0.06), 0 8px 20px rgb(28 26 23 / 0.07);
 }
@@ -72,7 +72,7 @@
 	--accent: #6fbc92; --accent-ink: #10231a; --accent-soft: #1b2a22;
 	--flag: #fcee0a; --flag-ink: #1b1a17;
 	--live: #6fbc92; --wait: #e0954f;
-	--mark: #3a3322; --mark-on: #514528; --mark-line: #8a7440;
+	--mark: #514528; --mark-line: #8a7440;
 	--sh-1: 0 1px 2px rgb(0 0 0 / 0.3);
 	--sh-2: 0 4px 14px rgb(0 0 0 / 0.36), 0 1px 2px rgb(0 0 0 / 0.3);
 }
@@ -97,7 +97,7 @@
 	--accent: #2563eb; --accent-ink: #ffffff; --accent-soft: #e8efff;
 	--flag: #e8efff; --flag-ink: #1d4ed8;
 	--live: #0f7b52; --wait: #b45309;
-	--mark: #fdf3cf; --mark-on: #fae39a; --mark-line: #dcba45;
+	--mark: #fae39a; --mark-line: #dcba45;
 }
 :root[data-skin="precision"][data-mode="dark"] {
 	--canvas: #0e1114; --surface: #161a1f; --sunk: #0a0c0f;
@@ -106,7 +106,7 @@
 	--accent: #5b8cff; --accent-ink: #06122b; --accent-soft: #17253f;
 	--flag: #17253f; --flag-ink: #9dbcff;
 	--live: #3ec98c; --wait: #e0a44f;
-	--mark: #3a3218; --mark-on: #51461d; --mark-line: #9c8434;
+	--mark: #51461d; --mark-line: #9c8434;
 }
 
 /* ============================================================
@@ -128,7 +128,7 @@
 	--accent: #a85f12; --accent-ink: #ffffff; --accent-soft: #fbf0e0;
 	--flag: #f7d9a6; --flag-ink: #5e3606;
 	--live: #1f7a52; --wait: #a85f12;
-	--mark: #e6edf3; --mark-on: #d0deea; --mark-line: #94adc2;
+	--mark: #d0deea; --mark-line: #94adc2;
 	/* light-tuned: shallow, warm-tinted, never muddy */
 	--sh-1: 0 1px 2px rgb(25 23 20 / 0.07);
 	--sh-2: 0 2px 4px rgb(25 23 20 / 0.06), 0 8px 18px rgb(25 23 20 / 0.08);
@@ -140,7 +140,7 @@
 	--accent: #e0a458; --accent-ink: #1a1410; --accent-soft: #2a2115;
 	--flag: #33270f; --flag-ink: #f3c98a;
 	--live: #74c79a; --wait: #e0a458;
-	--mark: #1f2a33; --mark-on: #2b3b48; --mark-line: #4f6b82;
+	--mark: #2b3b48; --mark-line: #4f6b82;
 	--sh-1: 0 1px 2px rgb(0 0 0 / 0.28);
 	--sh-2: 0 4px 12px rgb(0 0 0 / 0.34), 0 1px 2px rgb(0 0 0 / 0.3);
 }

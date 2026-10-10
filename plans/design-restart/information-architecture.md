@@ -86,14 +86,19 @@ like a chat. A document can start empty or from an existing thread.
 - **No session on a document.** "A thinking session isn't a session in the technical sense." A
   thread on a block can hand work off (@Builder …) — that thread gets the task and the session.
 - Draft → Publish → followers told. Comments stay as threads; the page shows what was decided.
-- **A comment marks the text it is about**, like a highlighter (soft when closed, stronger while
-  its thread is open; click the mark to open). No block lines, no fill (founder, 2026-10-07).
-- **Where the thread shows — under comparison, three proven patterns:** Margin (beside the line,
-  like Google Docs), Pop-up (over the page under the line, like Notion/Figma), Under (folded open
-  under the block, like GitHub review threads). Switch in the studio rail.
+- **Comments live in the margin** (founder picked this, 2026-10-10). A waiting comment is faded
+  text beside its line — who, how many, the latest — so the page always reads in full. Opening it
+  turns it into a card; one comment is in front at a time; a click elsewhere or × sends it back.
+- **No highlight while reading.** Waiting comment → a faint dashed underline on its text. Open
+  comment → its text is highlighted.
+- **The region can be dragged.** An open comment's highlight has a slim edge and small knob at
+  each end; drag to change what the comment covers. Commenting on a block starts with the whole
+  block, then you narrow it.
 - **The comment box is a real text box** with Cancel / Comment; a reply box stays one line until
-  used. ✓ Resolve and close sit in the thread's top line.
-- **A suggestion sits inside the block** with a dashed underline, Accept / Discard under it.
+  used. ✓ Resolve and × sit in the thread's top line. Resolve takes it off the page, with Undo.
+- **A suggestion sits inside the block** as greyed text, Accept / Discard under it. (The dashed
+  underline belongs to comments.)
+- Open: on a narrow window the margin has no room — what then? Not designed yet.
 - **Edit vs view mode.** Edit: "Editing" mark + Done, caret, block handles, an empty line "Type /
   for a block, @ to ask someone". View: an Edit button; no handles, no caret. Drafts open in edit,
   published documents in view. Commenting works in both.

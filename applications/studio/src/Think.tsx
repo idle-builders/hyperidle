@@ -2,31 +2,27 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Sidebar } from "./Sidebar";
 
 /**
- * THINK — a document stays a document; conversation is a layer on top. A comment marks the text
- * it is about, like a highlighter, and its thread shows in one of three styles under comparison:
- * beside the text in the margin, in a pop-up over it, or folded under the block. Edit mode shows a
- * caret, block handles and an "Editing" mark; view mode shows none of them. Sessions belong to
- * threads, never to the document.
+ * THINK — a document stays a document; conversation is a layer on top, in the margin. A comment
+ * waiting there is faded, and its text carries only a faint dashed underline, so reading is never
+ * disturbed. Open it and its text is highlighted, with two ends you can drag to change what the
+ * comment covers. Edit mode shows a caret, block handles and an "Editing" mark; view mode shows
+ * none of them. Sessions belong to threads, never to the document.
  */
 export const THINK_STEPS = [
 	{ id: 0, name: "Edit mode: write" },
-	{ id: 1, name: "Comment on a line" },
-	{ id: 2, name: "Answer + suggestion" },
-	{ id: 3, name: "Accepted, thread closed" },
-	{ id: 4, name: "Hand off from the doc" },
-	{ id: 5, name: "Published, view mode" },
-];
-
-export type CommentStyle = "margin" | "popup" | "under";
-export const COMMENT_STYLES: { id: CommentStyle; name: string }[] = [
-	{ id: "margin", name: "Margin" },
-	{ id: "popup", name: "Pop-up" },
-	{ id: "under", name: "Under" },
+	{ id: 1, name: "Comment on a block" },
+	{ id: 2, name: "Drag to narrow the region" },
+	{ id: 3, name: "Answer + suggestion" },
+	{ id: 4, name: "Accepted, comment in the background" },
+	{ id: 5, name: "Hand off from the doc" },
+	{ id: 6, name: "Published, view mode" },
 ];
 
 type BlockId = "intro" | "know" | "decision";
-/** none · writing the first comment · open · closed (only the mark shows) · resolved (off the page) */
+/** none · writing the first comment · open · closed (waiting in the margin) · resolved (off the page) */
 type ThreadState = "none" | "compose" | "open" | "closed" | "resolved";
+/** First and last word a comment covers, counted across the block's lines. */
+type Region = [number, number];
 
 interface Msg {
 	id: string;
@@ -40,7 +36,20 @@ interface Msg {
 interface Thread {
 	state: ThreadState;
 	msgs: Msg[];
+	region: Region | null;
 }
+
+const INTRO = ["Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose."];
+const KNOW = ["Trials run 14 days, card up front.", "Since the warning email, 27% more trials convert.", "Most cancellations happen on day 13."];
+const KNOW_ADDED = "61% of people who pay decide by day 9; 1 in 5 decide on days 11–14.";
+const DECISION = ["Try 10 days for new signups for two weeks, and watch refund requests."];
+
+const count = (lines: string[]) => lines.reduce((n, l) => n + l.split(" ").length, 0);
+const whole = (lines: string[]): Region => [0, count(lines) - 1];
+const line = (lines: string[], i: number): Region => {
+	const start = count(lines.slice(0, i));
+	return [start, start + lines[i].split(" ").length - 1];
+};
 
 const ASK_TEXT = "@Growth if trials end on day 10, how many people who pay would we lose?";
 const ASK: Msg = {
@@ -70,8 +79,8 @@ function Av({ m }: { m: { av: string; agent?: boolean } }) {
 }
 
 /** A text box you can see, with its buttons. A reply box stays one line until you use it. */
-function Field({ draft = "", placeholder, button, compact, onPost, onCancel }: {
-	draft?: string; placeholder: string; button: string; compact?: boolean;
+function Field({ draft = "", placeholder, button, compact, note, onPost, onCancel }: {
+	draft?: string; placeholder: string; button: string; compact?: boolean; note?: string;
 	onPost: (text: string) => void; onCancel?: () => void;
 }) {
 	const [text, setText] = useState(draft);
@@ -88,6 +97,7 @@ function Field({ draft = "", placeholder, button, compact, onPost, onCancel }: {
 					if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) post();
 				}}
 			/>
+			{note && <p className="fld-note">{note}</p>}
 			{showActs && (
 				<div className="fld-acts">
 					<span className="fld-hint">⌘↵ to send</span>
@@ -100,15 +110,15 @@ function Field({ draft = "", placeholder, button, compact, onPost, onCancel }: {
 }
 
 /** An open thread: who said what, then a reply box. Resolve and close sit in its top line. */
-function ThreadView({ t, closeLabel, onClose, onResolve, onReply, task }: {
-	t: Thread; closeLabel: string; onClose: () => void; onResolve: () => void; onReply: (text: string) => void; task?: React.ReactNode;
+function ThreadView({ t, onClose, onResolve, onReply, task }: {
+	t: Thread; onClose: () => void; onResolve: () => void; onReply: (text: string) => void; task?: React.ReactNode;
 }) {
 	return (
 		<div className="tv">
 			<div className="tv-head">
 				<span className="tv-where">Also in Conversations</span>
 				<button type="button" className="tv-btn" onClick={onResolve}>✓ Resolve</button>
-				<button type="button" className="tv-btn" onClick={onClose} aria-label="Close thread">{closeLabel}</button>
+				<button type="button" className="tv-btn" onClick={onClose} aria-label="Close thread">×</button>
 			</div>
 			{t.msgs.map((m) => (
 				<div className="tv-msg" key={m.id}>
@@ -125,38 +135,21 @@ function ThreadView({ t, closeLabel, onClose, onResolve, onReply, task }: {
 	);
 }
 
-/** A closed thread, as one line: who is in it, how many comments, the latest. Click to open. */
+/** A comment waiting in the margin, faded: who is in it, how many, the latest. Click to open. */
 function Summary({ t, onOpen }: { t: Thread; onOpen: () => void }) {
 	const last = t.msgs[t.msgs.length - 1];
 	const people = [...new Map(t.msgs.map((m) => [m.av, m])).values()];
 	return (
 		<button type="button" className="sum" onClick={onOpen}>
 			<span className="sum-avs">{people.map((m) => <Av key={m.av} m={m} />)}</span>
-			<span className="sum-n">{t.msgs.length} comments</span>
+			<span className="sum-n">{t.msgs.length} {t.msgs.length === 1 ? "comment" : "comments"}</span>
 			{last && <span className="sum-last">{last.who}: {last.plain}</span>}
 		</button>
 	);
 }
 
-/** A thread over the page. Closes on ×, Escape, or a click anywhere else on the page. */
-function PopUp({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
-	const ref = useRef<HTMLDivElement>(null);
-	useEffect(() => {
-		const down = (e: MouseEvent) => {
-			const t = e.target as Node;
-			if (!ref.current?.contains(t) && (t as Element).closest?.(".page")) onClose();
-		};
-		const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-		document.addEventListener("mousedown", down);
-		document.addEventListener("keydown", key);
-		return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key); };
-	}, [onClose]);
-	return <div className="pop" role="dialog" aria-label="Thread" ref={ref}>{children}</div>;
-}
-
-function Block({ edit, active, heading, children, side, over, under }: {
-	edit: boolean; active?: boolean; heading?: boolean; children: React.ReactNode;
-	side?: React.ReactNode; over?: React.ReactNode; under?: React.ReactNode;
+function Block({ edit, active, heading, children, side, under }: {
+	edit: boolean; active?: boolean; heading?: boolean; children: React.ReactNode; side?: React.ReactNode; under?: React.ReactNode;
 }) {
 	return (
 		<div className={["blk", heading && "blk--h", edit && "blk--edit"].filter(Boolean).join(" ")}>
@@ -165,69 +158,153 @@ function Block({ edit, active, heading, children, side, over, under }: {
 				{children}
 			</div>
 			{side}
-			{over}
 			{under}
 		</div>
 	);
 }
 
-export function Think({ step, style }: { step: number; style: CommentStyle }) {
-	const [published, setPublished] = useState(step === 5);
-	const [edit, setEdit] = useState(step < 5);
+export function Think({ step }: { step: number }) {
+	const [published, setPublished] = useState(step === 6);
+	const [edit, setEdit] = useState(step < 6);
 	const [hidden, setHidden] = useState(false);
-	const [sugg, setSugg] = useState<"pending" | "accepted" | "discarded">(step >= 3 ? "accepted" : "pending");
+	const [sugg, setSugg] = useState<"pending" | "accepted" | "discarded">(step >= 4 ? "accepted" : "pending");
 	const [justResolved, setJustResolved] = useState<BlockId | null>(null);
+	const [drag, setDrag] = useState<{ id: BlockId; end: 0 | 1 } | null>(null);
+	const decided = step >= 5;
+	const lines: Record<BlockId, string[]> = {
+		intro: INTRO,
+		know: step >= 3 && sugg === "accepted" ? [...KNOW, KNOW_ADDED] : KNOW,
+		decision: decided ? DECISION : [],
+	};
 	const [threads, setThreads] = useState<Record<BlockId, Thread>>({
-		intro: { state: "none", msgs: [] },
-		know: step === 1 ? { state: "compose", msgs: [] }
-			: step === 2 ? { state: "open", msgs: [ASK, ANSWER] }
-			: step >= 3 ? { state: "closed", msgs: [ASK, ANSWER] } : { state: "none", msgs: [] },
-		decision: step === 4 ? { state: "open", msgs: [HAND, TAKE] } : step === 5 ? { state: "closed", msgs: [HAND, TAKE] } : { state: "none", msgs: [] },
+		intro: { state: "none", msgs: [], region: null },
+		know: step === 1 ? { state: "compose", msgs: [], region: whole(KNOW) }
+			: step === 2 ? { state: "compose", msgs: [], region: line(KNOW, 2) }
+			: step === 3 ? { state: "open", msgs: [ASK, ANSWER], region: line(KNOW, 2) }
+			: step >= 4 ? { state: "closed", msgs: [ASK, ANSWER], region: line(KNOW, 2) }
+			: { state: "none", msgs: [], region: null },
+		decision: step === 5 ? { state: "open", msgs: [HAND, TAKE], region: whole(DECISION) }
+			: step === 6 ? { state: "closed", msgs: [HAND, TAKE], region: whole(DECISION) }
+			: { state: "none", msgs: [], region: null },
 	});
+
 	const setState = (id: BlockId, state: ThreadState) => setThreads((t) => ({ ...t, [id]: { ...t[id], state } }));
+	/** One comment is in front at a time; opening one sends any other back to the margin. */
+	const open = (id: BlockId) =>
+		setThreads((t) => {
+			const next = { ...t };
+			for (const k of Object.keys(next) as BlockId[]) if (next[k].state === "open") next[k] = { ...next[k], state: "closed" };
+			next[id] = { ...next[id], state: "open" };
+			return next;
+		});
+	const compose = (id: BlockId) => setThreads((t) => ({ ...t, [id]: { state: "compose", msgs: [], region: whole(lines[id]) } }));
+	const close = (id: BlockId) => setThreads((t) => ({ ...t, [id]: t[id].msgs.length ? { ...t[id], state: "closed" } : { state: "none", msgs: [], region: null } }));
 	const post = (id: BlockId, text: string) =>
 		setThreads((t) => ({
 			...t,
-			[id]: { state: "open", msgs: [...t[id].msgs, { id: `m${t[id].msgs.length}-${Date.now()}`, who: "You", av: "FO", when: "now", plain: text }] },
+			[id]: { ...t[id], state: "open", msgs: [...t[id].msgs, { id: `m${t[id].msgs.length}-${Date.now()}`, who: "You", av: "FO", when: "now", plain: text }] },
 		}));
-	const decided = step >= 4;
+	const moveEnd = (id: BlockId, end: 0 | 1, to: number) =>
+		setThreads((t) => {
+			const r = t[id].region;
+			if (!r) return t;
+			const region: Region = end === 0 ? [Math.max(0, Math.min(to, r[1])), r[1]] : [r[0], Math.min(count(lines[id]) - 1, Math.max(to, r[0]))];
+			return region[0] === r[0] && region[1] === r[1] ? t : { ...t, [id]: { ...t[id], region } };
+		});
+
 	const pageRef = useRef<HTMLElement>(null);
-	// A thread sits by the text it is about, not by the top of its block: a margin card or a
-	// closed thread's count level with it, a pop-up just under it.
+	// A margin comment sits level with the first line it is about, not with the top of its block.
 	useLayoutEffect(() => {
-		for (const card of pageRef.current?.querySelectorAll<HTMLElement>(".mg, .pop, .blk-side--count") ?? []) {
+		for (const card of pageRef.current?.querySelectorAll<HTMLElement>(".mg") ?? []) {
 			const blk = card.closest(".blk")?.getBoundingClientRect();
 			const anchor = card.closest(".blk")?.querySelector<HTMLElement>(".anc")?.getBoundingClientRect();
-			if (!(blk && anchor)) continue;
-			if (card.classList.contains("mg")) card.style.top = `${anchor.top - blk.top - 6}px`;
-			else if (card.classList.contains("blk-side--count")) card.style.top = `${anchor.top - blk.top}px`;
-			else {
-				card.style.top = `${anchor.bottom - blk.top + 10}px`;
-				card.style.left = `${Math.max(0, anchor.left - blk.left - 12)}px`;
-			}
+			if (blk && anchor) card.style.top = `${anchor.top - blk.top - 6}px`;
 		}
 	});
+
+	// Dragging an end of the highlight: the end follows the word under the pointer.
+	useEffect(() => {
+		if (!drag) return;
+		const move = (e: MouseEvent) => {
+			const word = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>(`[data-b="${drag.id}"]`);
+			if (word) moveEnd(drag.id, drag.end, Number(word.dataset.w));
+		};
+		const up = () => setDrag(null);
+		document.addEventListener("mousemove", move);
+		document.addEventListener("mouseup", up);
+		return () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); };
+	});
+
+	// A click on the page outside an open comment sends it back to the margin.
+	useEffect(() => {
+		const down = (e: MouseEvent) => {
+			const el = e.target as Element;
+			if (!el.closest?.(".page") || el.closest(".mg, .anc, .anc-h, .blk-side")) return;
+			setThreads((t) => {
+				const next = { ...t };
+				for (const k of Object.keys(next) as BlockId[]) if (next[k].state === "open") next[k] = { ...next[k], state: "closed" };
+				return next;
+			});
+		};
+		document.addEventListener("mousedown", down);
+		return () => document.removeEventListener("mousedown", down);
+	}, []);
+
 	const anyComments = Object.values(threads).some((t) => t.state === "open" || t.state === "closed");
 
-	/** The commented text, marked like a highlighter. Darker while its thread is open. */
-	const mark = (id: BlockId, text: React.ReactNode) => {
-		const s = hidden ? "none" : threads[id].state;
-		if (s === "none" || s === "resolved") return text;
-		const on = s === "open" || s === "compose";
-		const open = () => { if (s === "closed") setState(id, "open"); };
-		return (
-			<mark className={on ? "anc anc--on" : "anc"} title="Open the thread on this text" onClick={open} onKeyDown={(e) => { if (e.key === "Enter") open(); }}>
-				{text}
-			</mark>
+	/**
+	 * A block's lines, word by word. The words a comment covers get a faint dashed underline while
+	 * the comment waits in the margin, and a highlight with two draggable ends while it is open.
+	 */
+	const words = (id: BlockId): React.ReactNode[] => {
+		const t = threads[id];
+		const state = hidden ? "none" : t.state;
+		const r = state === "none" || state === "resolved" ? null : t.region;
+		const front = state === "open" || state === "compose";
+		const grip = (end: 0 | 1) => (
+			<button
+				type="button" className={end === 0 ? "anc-h anc-h--start" : "anc-h anc-h--end"}
+				aria-label={end === 0 ? "Drag to change where the comment starts" : "Drag to change where the comment ends"}
+				title="Drag to change what this comment covers"
+				onMouseDown={(e) => { e.preventDefault(); setDrag({ id, end }); }}
+				onKeyDown={(e) => {
+					if (!r) return;
+					if (e.key === "ArrowLeft") moveEnd(id, end, r[end] - 1);
+					if (e.key === "ArrowRight") moveEnd(id, end, r[end] + 1);
+				}}
+			/>
 		);
+		let i = 0;
+		return lines[id].map((text) => {
+			const ws = text.split(" ").map((w) => ({ w, idx: i++ }));
+			const run = (items: { w: string; idx: number }[]) =>
+				items.flatMap(({ w, idx }, k) => [k ? " " : "", <span key={idx} data-b={id} data-w={idx}>{w}</span>]);
+			const mid = r ? ws.filter((x) => x.idx >= r[0] && x.idx <= r[1]) : [];
+			if (!(r && mid.length)) return run(ws);
+			const pre = ws.filter((x) => x.idx < r[0]);
+			const post = ws.filter((x) => x.idx > r[1]);
+			return (
+				<>
+					{run(pre)}{pre.length > 0 && " "}
+					{/* biome-ignore lint/a11y/noStaticElementInteractions: the margin summary is the keyboard way to open a comment; the text is a pointer shortcut */}
+					{/* biome-ignore lint/a11y/useKeyWithClickEvents: same */}
+					<span className={front ? "anc anc--on" : "anc anc--bg"} onClick={front ? undefined : () => open(id)}>
+						{front && mid[0].idx === r[0] && grip(0)}
+						{run(mid)}
+						{front && mid[mid.length - 1].idx === r[1] && grip(1)}
+					</span>
+					{post.length > 0 && " "}{run(post)}
+				</>
+			);
+		});
 	};
 
-	/** The thread for a block, placed by the comment style under comparison. */
-	const layer = (id: BlockId, task?: React.ReactNode): { side?: React.ReactNode; over?: React.ReactNode; under?: React.ReactNode } => {
+	/** What a block has in the margin: the comment button, a faded waiting comment, or the open one. */
+	const margin = (id: BlockId, task?: React.ReactNode): { side?: React.ReactNode; under?: React.ReactNode } => {
 		const t = threads[id];
-		const add = (
+		const add = lines[id].length > 0 && (
 			<span className="blk-side">
-				<button type="button" className="blk-add" onClick={() => setState(id, "compose")} aria-label="Comment on this block" title="Comment">
+				<button type="button" className="blk-add" onClick={() => compose(id)} aria-label="Comment on this block" title="Comment">
 					<Bubble />
 				</button>
 			</span>
@@ -244,48 +321,30 @@ export function Think({ step, style }: { step: number; style: CommentStyle }) {
 				),
 			};
 		}
-		const open = () => setState(id, "open");
-		const close = () => setState(id, t.msgs.length ? "closed" : "none");
-		const body = t.state === "compose" ? (
-			<Field
-				draft={id === "know" ? ASK_TEXT : ""} placeholder="Comment, or @mention someone" button="Comment"
-				onPost={(text) => post(id, text)} onCancel={close}
-			/>
-		) : (
-			<ThreadView
-				t={t} closeLabel={style === "under" ? "Hide" : "×"} onClose={close}
-				onResolve={() => { setState(id, "resolved"); setJustResolved(id); }}
-				onReply={(text) => post(id, text)} task={task}
-			/>
-		);
-
-		if (style === "margin") {
-			return { side: <aside className={t.state === "closed" ? "mg" : "mg mg--on"}>{t.state === "closed" ? <Summary t={t} onOpen={open} /> : body}</aside> };
-		}
-		if (style === "popup") {
-			if (t.state === "closed") {
-				return {
-					side: (
-						<span className="blk-side blk-side--count">
-							<button type="button" className="blk-count" onClick={open} aria-label={`Open ${t.msgs.length} comments`}><Bubble />{t.msgs.length}</button>
-						</span>
-					),
-				};
-			}
-			return { over: <PopUp onClose={close}>{body}</PopUp> };
-		}
-		return { under: <div className="ub">{t.state === "closed" ? <Summary t={t} onOpen={open} /> : body}</div> };
+		if (t.state === "closed") return { side: <aside className="mg"><Summary t={t} onOpen={() => open(id)} /></aside> };
+		return {
+			side: (
+				<aside className="mg mg--on">
+					{t.state === "compose" ? (
+						<Field
+							draft={id === "know" ? ASK_TEXT : ""} placeholder="Comment, or @mention someone" button="Comment"
+							note="Drag the ends of the highlight to change what this covers."
+							onPost={(text) => post(id, text)} onCancel={() => close(id)}
+						/>
+					) : (
+						<ThreadView
+							t={t} onClose={() => close(id)} onResolve={() => { setState(id, "resolved"); setJustResolved(id); }}
+							onReply={(text) => post(id, text)} task={task}
+						/>
+					)}
+				</aside>
+			),
+		};
 	};
 
-	const intro = layer("intro");
-	const know = layer("know");
-	const decision = layer("decision", (
-		<button type="button" className="cm-task">
-			<span className="cm-task-k">Task</span>
-			<span className="cm-task-t">10-day trial for new signups</span>
-			<span className="cm-task-s">Builder · Queued</span>
-		</button>
-	));
+	const intro = words("intro");
+	const know = words("know");
+	const decision = words("decision");
 
 	return (
 		<>
@@ -316,23 +375,20 @@ export function Think({ step, style }: { step: number; style: CommentStyle }) {
 				</header>
 
 				<div className="detail-scroll">
-					<article className={`page page--${style}`} ref={pageRef}>
+					<article className={drag ? "page page--dragging" : "page"} ref={pageRef}>
 						<h1 className="page-title">🤔 Should trials be 10 days?</h1>
 
-						<Block edit={edit} {...intro}>
-							<p>{mark("intro", "Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose.")}</p>
+						<Block edit={edit} {...margin("intro")}>
+							<p>{intro[0]}</p>
 						</Block>
 
 						<Block edit={edit} heading><h3>What we know</h3></Block>
-						<Block edit={edit} {...know}>
+						<Block edit={edit} {...margin("know")}>
 							<ul>
-								<li>Trials run 14 days, card up front.</li>
-								<li>Since the warning email, 27% more trials convert.</li>
-								<li>{mark("know", "Most cancellations happen on day 13.")}</li>
-								{step >= 2 && sugg === "accepted" && <li>61% of people who pay decide by day 9; 1 in 5 decide on days 11–14.</li>}
-								{step >= 2 && sugg === "pending" && (
+								{know.map((item, i) => <li key={lines.know[i]}>{item}</li>)}
+								{step >= 3 && sugg === "pending" && (
 									<li>
-										<span className="sugg-text">61% of people who pay decide by day 9; 1 in 5 decide on days 11–14.</span>
+										<span className="sugg-text">{KNOW_ADDED}</span>
 										<span className="sugg-meta">
 											Suggested by Growth ·{" "}
 											<button type="button" onClick={() => setSugg("accepted")}>Accept</button> ·{" "}
@@ -344,9 +400,18 @@ export function Think({ step, style }: { step: number; style: CommentStyle }) {
 						</Block>
 
 						<Block edit={edit} heading><h3>Decision</h3></Block>
-						<Block edit={edit} active {...decision}>
+						<Block
+							edit={edit} active
+							{...margin("decision", (
+								<button type="button" className="cm-task">
+									<span className="cm-task-k">Task</span>
+									<span className="cm-task-t">10-day trial for new signups</span>
+									<span className="cm-task-s">Builder · Queued</span>
+								</button>
+							))}
+						>
 							<p className={decided ? undefined : "page-empty"}>
-								{decided ? mark("decision", "Try 10 days for new signups for two weeks, and watch refund requests.") : "Not yet"}
+								{decided ? decision[0] : "Not yet"}
 								{edit && <span className="caret" />}
 							</p>
 						</Block>

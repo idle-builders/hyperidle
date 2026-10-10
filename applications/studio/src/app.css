@@ -465,7 +465,8 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .doc-cm { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; }
 .doc-state { font: var(--t-meta); color: var(--ink-3); white-space: nowrap; flex: none; }
 .doc-mode { padding: 3px var(--sp-2); border-radius: var(--r-sm); background: var(--sunk); font: var(--t-label); color: var(--ink-2); white-space: nowrap; }
-.page { width: 100%; max-width: 800px; margin: 0 auto; padding: var(--sp-5) var(--sp-7) var(--sp-9); display: flex; flex-direction: column; gap: var(--sp-2); }
+.page { width: 100%; max-width: 1040px; margin: 0 auto; padding: var(--sp-5) calc(272px + var(--sp-6)) var(--sp-9) var(--sp-7); display: flex; flex-direction: column; gap: var(--sp-2); }
+.page--dragging { cursor: ew-resize; user-select: none; }
 .page-title { font: 700 2rem/1.2 var(--font-ui); margin-bottom: var(--sp-3); }
 .page-empty { color: var(--ink-3); }
 .mention { color: var(--accent); font-weight: 600; }
@@ -482,16 +483,26 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .blk-handle:hover { background: var(--sunk); }
 .blk:hover .blk-handle, .blk-handle--on { opacity: 1; }
 .blk-side { position: absolute; left: 100%; top: 2px; margin-left: var(--sp-2); }
-.blk-add, .blk-count { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 26px; padding: 0 var(--sp-2); border-radius: var(--r-sm); font: var(--t-label); color: var(--ink-3); white-space: nowrap; }
+.blk-add { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 26px; padding: 0 var(--sp-2); border-radius: var(--r-sm); font: var(--t-label); color: var(--ink-3); white-space: nowrap; }
 .blk-add { opacity: 0; transition: opacity var(--dur-tap) var(--ease); }
 .blk:hover .blk-add { opacity: 1; }
-.blk-add:hover, .blk-count:hover { background: var(--sunk); color: var(--ink); }
-.blk-count { color: var(--ink-2); }
+.blk-add:hover { background: var(--sunk); color: var(--ink); }
 .blk-empty { font: var(--t-lead); color: var(--ink-3); padding: 2px 0; }
 
-/* the commented text, marked like a highlighter: soft when closed, stronger while its thread is open */
-.anc { background: var(--mark); color: inherit; border-bottom: 2px solid var(--mark-line); border-radius: 2px; padding: 0 1px; cursor: pointer; transition: background var(--dur-tap) var(--ease); }
-.anc:hover, .anc--on { background: var(--mark-on); }
+/* the commented text: a faint dashed underline while its comment waits in the margin, so reading
+   is not disturbed; a highlight while the comment is open */
+.anc--bg { cursor: pointer; padding-bottom: 1px; border-bottom: 1.5px dashed var(--line-strong); transition: border-color var(--dur-tap) var(--ease); }
+.anc--bg:hover { border-bottom-color: var(--ink-3); }
+.anc--on { background: var(--mark); border-radius: 3px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+/* the two ends of an open comment's highlight: a slim edge with a small knob, draggable */
+.anc-h { position: relative; z-index: 1; display: inline-block; width: 10px; height: 1.35em; margin: 0 -5px; vertical-align: text-bottom; cursor: ew-resize; }
+.anc-h::before { content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 2px; border-radius: 1px; background: var(--mark-line); }
+.anc-h::after { content: ""; position: absolute; left: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--mark-line); transition: transform var(--dur-tap) var(--ease); }
+.anc-h--start::after { top: -5px; }
+.anc-h--end::after { bottom: -5px; }
+.anc-h:hover::before, .anc-h:hover::after, .anc-h:focus-visible::before, .anc-h:focus-visible::after { background: var(--ink-2); }
+.anc-h:hover::after { transform: scale(1.35); }
+.anc-h:focus-visible { outline: none; }
 
 /* a text box you can see, and its buttons */
 .fld { display: flex; flex-direction: column; gap: var(--sp-2); }
@@ -500,6 +511,7 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .fld-in:focus { outline: none; border-color: var(--ink-3); background: var(--surface); }
 .fld-acts { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }
 .fld-acts .btn { min-height: 30px; padding: 0 var(--sp-3); font: var(--t-label); }
+.fld-note { font: var(--t-meta); color: var(--ink-3); }
 .fld-hint { margin-right: auto; font: var(--t-meta); color: var(--ink-3); }
 
 /* an open thread */
@@ -526,25 +538,15 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .sum-n { flex: none; font: var(--t-label); color: var(--ink-2); }
 .sum-last { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* style: Margin — the thread sits beside the text it is about, like Google Docs */
-.page--margin { max-width: 1040px; padding-right: calc(272px + var(--sp-6)); }
+/* the margin: a waiting comment is faded text beside its line; the open one is a card */
 .mg { position: absolute; top: 0; left: calc(100% + var(--sp-6)); width: 272px; }
-.mg .sum { flex-wrap: wrap; }
+.mg .sum { flex-wrap: wrap; opacity: 0.75; transition: opacity var(--dur-tap) var(--ease); }
+.mg .sum:hover { opacity: 1; }
 .mg .sum-last { flex-basis: 100%; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .mg--on { padding: var(--sp-3); border: var(--line-w) solid var(--line); border-radius: var(--r); background: var(--surface); box-shadow: var(--sh-2); z-index: 2; }
 
-/* style: Pop-up — the thread opens over the page just under its text, and closes like any pop-up */
-.pop { position: absolute; top: calc(100% + var(--sp-2)); left: 0; z-index: 10; width: min(440px, 100%); padding: var(--sp-3) var(--sp-4) var(--sp-4); border: var(--line-w) solid var(--line); border-radius: var(--r); background: var(--surface); box-shadow: var(--sh-3); }
-.pop::before { content: ""; position: absolute; top: -6px; left: var(--sp-6); width: 10px; height: 10px; background: var(--surface); border-left: var(--line-w) solid var(--line); border-top: var(--line-w) solid var(--line); transform: rotate(45deg); }
-
-/* style: Under — the thread folds open under its block */
-.ub { margin-top: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-radius: var(--r); background: var(--sunk); }
-.ub .sum { padding: 0; }
-.ub .sum:hover { background: transparent; color: var(--ink-2); }
-.ub .fld-in { background: var(--surface); }
-
-/* a suggestion is not document text yet: dashed underline, who suggested it, and the choice */
-.sugg-text { color: var(--ink-2); text-decoration: underline dashed var(--ink-3); text-underline-offset: 4px; }
+/* a suggestion is not document text yet: greyed, with who suggested it and the choice */
+.sugg-text { color: var(--ink-3); }
 .sugg-meta { display: block; margin-top: 2px; font: var(--t-meta); color: var(--ink-3); }
 .sugg-meta button { font: var(--t-meta); font-weight: 600; color: var(--ink-2); }
 .sugg-meta button:hover { color: var(--ink); text-decoration: underline; }

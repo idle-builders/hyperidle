@@ -559,3 +559,17 @@ all on one 6-step story:
 Shared: the commented text gets a highlighter mark (soft when closed, stronger while open; click
 it to open); a real text box with Cancel / Comment that grows with its text and posts for real;
 ✓ Resolve and close in the thread's top line. No block lines.
+
+**Founder picked Margin (2026-10-10):** "there slightly faded to understand there is something.
+And when you click it opens … you always see the full text so comments never disrupt reading."
+Pop-up and Under removed, with the style switch. Two changes asked for and built:
+- **No highlight while reading.** A comment waiting in the margin leaves only a faint dashed
+  underline on its text. The highlight shows only while that comment is open. Clicking the
+  underlined text or the faded margin summary opens it; a click elsewhere on the page, or ×, sends
+  it back. One comment is in front at a time.
+- **Drag the region.** An open comment's highlight has a slim edge with a small knob at each end;
+  drag either to change what the comment covers (arrow keys work too). Commenting on a block
+  starts with the whole block covered, then you narrow it.
+Suggestions lost their dashed underline (it now means "has a comment"): suggested text is greyed.
+Steps are now 7: edit · comment on a block · drag to narrow · answer + suggestion · accepted,
+comment in the background · hand off · published, view mode.
