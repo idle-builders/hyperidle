@@ -522,8 +522,7 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 /* a closed thread as one line: who, how many, the latest */
 .sum { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-width: 0; padding: var(--sp-2); border-radius: var(--r-sm); text-align: left; font: var(--t-meta); color: var(--ink-3); }
 .sum:hover { background: var(--sunk); }
-.sum-avs { display: flex; flex: none; }
-.sum-avs .avatar + .avatar { margin-left: -6px; box-shadow: 0 0 0 2px var(--canvas); }
+.sum-avs { display: flex; flex: none; gap: 3px; }
 .sum-n { flex: none; font: var(--t-label); color: var(--ink-2); }
 .sum-last { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

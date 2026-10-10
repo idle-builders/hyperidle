@@ -192,14 +192,15 @@ export function Think({ step, style }: { step: number; style: CommentStyle }) {
 		}));
 	const decided = step >= 4;
 	const pageRef = useRef<HTMLElement>(null);
-	// A thread sits by the text it is about, not by the top of its block: a margin card level
-	// with it, a pop-up just under it.
+	// A thread sits by the text it is about, not by the top of its block: a margin card or a
+	// closed thread's count level with it, a pop-up just under it.
 	useLayoutEffect(() => {
-		for (const card of pageRef.current?.querySelectorAll<HTMLElement>(".mg, .pop") ?? []) {
+		for (const card of pageRef.current?.querySelectorAll<HTMLElement>(".mg, .pop, .blk-side--count") ?? []) {
 			const blk = card.closest(".blk")?.getBoundingClientRect();
 			const anchor = card.closest(".blk")?.querySelector<HTMLElement>(".anc")?.getBoundingClientRect();
 			if (!(blk && anchor)) continue;
 			if (card.classList.contains("mg")) card.style.top = `${anchor.top - blk.top - 6}px`;
+			else if (card.classList.contains("blk-side--count")) card.style.top = `${anchor.top - blk.top}px`;
 			else {
 				card.style.top = `${anchor.bottom - blk.top + 10}px`;
 				card.style.left = `${Math.max(0, anchor.left - blk.left - 12)}px`;
@@ -265,7 +266,7 @@ export function Think({ step, style }: { step: number; style: CommentStyle }) {
 			if (t.state === "closed") {
 				return {
 					side: (
-						<span className="blk-side">
+						<span className="blk-side blk-side--count">
 							<button type="button" className="blk-count" onClick={open} aria-label={`Open ${t.msgs.length} comments`}><Bubble />{t.msgs.length}</button>
 						</span>
 					),
