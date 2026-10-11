@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Avatar } from "./Msg";
 import { type Need, NeedIcon } from "./NeedIcon";
+import { type Row as Pair, ReachDialog, StartDialog, type Subject, UserDialog } from "./Setup";
 import { Sidebar } from "./Sidebar";
 
 /**
@@ -11,15 +12,22 @@ import { Sidebar } from "./Sidebar";
  * they are told about, and what makes them who they are (instructions, skills, memory). There
  * is no separate settings screen: your own page is where your settings live, and it is one click
  * away at the bottom of the sidebar. A team is not a thing of its own, only everyone who has it.
+ * Changing any of it happens in a small dialog over the page; a new agent is finished on its page.
  */
 export const PEOPLE_STEPS = [
 	{ id: 0, name: "The team: people and their agents" },
 	{ id: 1, name: "An agent's page" },
 	{ id: 2, name: "A person's page" },
 	{ id: 3, name: "Your own page: your list and your settings" },
+	{ id: 4, name: "Dialog: connect a folder or a service" },
+	{ id: 5, name: "Dialog: add a time or an event" },
+	{ id: 6, name: "Dialog: edit a user" },
+	{ id: 7, name: "Dialog: add someone" },
+	{ id: 8, name: "The new agent, finished on its page" },
 ];
 
-type UserId = "you" | "maya" | "builder" | "growth" | "designer" | "facilitation";
+type UserId = "you" | "maya" | "builder" | "growth" | "designer" | "facilitation" | "researcher";
+type DialogId = "reach" | "start" | "edit";
 
 interface Work {
 	title: string;
@@ -28,10 +36,6 @@ interface Work {
 	needs?: Need;
 	/** Whose initials mark a running row, when it is not the user the page is about. */
 	by?: string;
-}
-interface Pair {
-	what: string;
-	why: string;
 }
 interface User {
 	name: string;
@@ -59,6 +63,8 @@ interface User {
 	facts: string[];
 	/** When you last talked. */
 	talked?: string;
+	/** Not in the team until someone adds it. */
+	fresh?: boolean;
 }
 
 const TEAM = "Northwind";
@@ -238,11 +244,32 @@ const USERS: Record<UserId, User> = {
 		],
 		facts: ["Agent · works for the whole team", `Team ${TEAM}`, "Here since 3 July"],
 	},
+	researcher: {
+		name: "Researcher", av: "RE", kind: "Agent", owner: "you", fresh: true,
+		what: "Reads what competitors ship and writes it down.",
+		status: "Idle",
+		stand: "New. Nothing is handed to it yet.",
+		about: "Watches what the three closest competitors ship and says what it means for pricing.",
+		onTitle: "On now",
+		on: [],
+		runsOn: [
+			{ what: "Claude Code", why: "on your computer · signed in" },
+			{ what: "Model", why: "the default" },
+			{ what: "1 session at a time", why: "" },
+		],
+		reach: [],
+		when: [
+			{ what: "Someone mentions @Researcher", why: "it joins that thread" },
+			{ what: "A task is handed to it", why: "it starts when a session is free" },
+		],
+		self: [{ what: "Instructions", why: "Who Researcher is and how it works · you wrote it just now" }],
+		facts: ["Agent · works for you", `Team ${TEAM}`, "Here since today"],
+	},
 };
 
 const PEOPLE: UserId[] = ["you", "maya"];
-const worksFor = (owner: UserId | "team"): UserId[] => (Object.keys(USERS) as UserId[]).filter((id) => USERS[id].owner === owner);
-const START: (UserId | null)[] = [null, "builder", "maya", "you"];
+const START: (UserId | null)[] = [null, "builder", "maya", "you", "builder", "growth", "builder", null, "researcher"];
+const DIALOG: (DialogId | "add" | null)[] = [null, null, null, null, "reach", "start", "edit", "add", null];
 
 /** The same marks as on a task's graph: an icon where a person is needed, initials where an agent is working. */
 function Mark({ w, av }: { w: Work; av: string }) {
@@ -266,8 +293,10 @@ function Row({ id, onOpen }: { id: UserId; onOpen: (id: UserId) => void }) {
 	);
 }
 
-function TeamPage({ onOpen }: { onOpen: (id: UserId) => void }) {
-	const agents = (Object.keys(USERS) as UserId[]).filter((id) => USERS[id].kind === "Agent").length;
+function TeamPage({ added, onOpen, onAdd }: { added: boolean; onOpen: (id: UserId) => void; onAdd: () => void }) {
+	const here = (Object.keys(USERS) as UserId[]).filter((id) => added || !USERS[id].fresh);
+	const worksFor = (owner: UserId | "team"): UserId[] => here.filter((id) => USERS[id].owner === owner);
+	const agents = here.filter((id) => USERS[id].kind === "Agent").length;
 	return (
 		<article className="tk-page tk-page--one">
 			<div className="tk-main">
@@ -286,23 +315,24 @@ function TeamPage({ onOpen }: { onOpen: (id: UserId) => void }) {
 					<div className="crew-agents">{worksFor("team").map((a) => <Row key={a} id={a} onOpen={onOpen} />)}</div>
 				</section>
 
-				<div className="crew-add"><button type="button" className="btn">Add someone</button></div>
+				<div className="crew-add"><button type="button" className="btn" onClick={onAdd}>Add someone</button></div>
 			</div>
 		</article>
 	);
 }
 
-function Section({ title, note, items, add }: { title: string; note?: string; items: Pair[]; add?: string }) {
+function Section({ title, items, none, add, onAdd }: { title: string; items: Pair[]; none?: string; add?: string; onAdd?: () => void }) {
 	return (
 		<section className="tbox-sec">
-			<h4>{title} {note && <span>{note}</span>}</h4>
+			<h4>{title}</h4>
+			{items.length === 0 && <p className="tbox-none">{none}</p>}
 			{items.map((x) => (
-				<div key={x.what} className="pair">
+				<div key={x.what + x.why} className="pair">
 					<span className="pair-what">{x.what}</span>
 					{x.why && <span className="pair-why">{x.why}</span>}
 				</div>
 			))}
-			{add && <button type="button" className="tbox-more">{add}</button>}
+			{add && <button type="button" className="tbox-more" onClick={onAdd}>{add}</button>}
 		</section>
 	);
 }
@@ -323,14 +353,24 @@ function Jobs({ u, items }: { u: User; items: Work[] }) {
 	);
 }
 
-function UserPage({ id, onOpen, onTeam }: { id: UserId; onOpen: (id: UserId) => void; onTeam: () => void }) {
+function UserPage({ id, initialDialog, onOpen, onTeam }: { id: UserId; initialDialog: DialogId | null; onOpen: (id: UserId) => void; onTeam: () => void }) {
 	const u = USERS[id];
+	const [dialog, setDialog] = useState(initialDialog);
+	const [reach, setReach] = useState(u.reach);
+	const [when, setWhen] = useState(u.when);
 	const [paused, setPaused] = useState(false);
 	const [looks, setLooks] = useState("Light");
 	const [off, setOff] = useState<Set<string>>(new Set());
 	const me = id === "you";
 	const mine = me || u.owner === "you" || u.owner === "team";
 	const owner = u.owner && u.owner !== "team" ? u.owner : null;
+	const edited = u.self[0].why.split(" · ")[1];
+	const subject: Subject = {
+		name: u.name, kind: u.kind, what: u.what, me,
+		sessions: Number.parseInt(u.runsOn?.[2].what ?? "1", 10),
+		edited: edited && `${edited[0].toUpperCase()}${edited.slice(1)}.`,
+	};
+	const close = () => setDialog(null);
 	return (
 		<article className="tk-page">
 			<div className="tk-main">
@@ -344,6 +384,7 @@ function UserPage({ id, onOpen, onTeam }: { id: UserId; onOpen: (id: UserId) => 
 				<p>{u.about}</p>
 
 				<h3>{u.onTitle} <span>{u.on.length}</span></h3>
+				{u.on.length === 0 && <p className="tbox-none">Nothing yet. Hand it a task, or mention @{u.name} in a thread.</p>}
 				<Jobs u={u} items={u.on} />
 				{u.doneToday && <button type="button" className="tbox-more">{u.doneToday} more, done today</button>}
 
@@ -363,7 +404,7 @@ function UserPage({ id, onOpen, onTeam }: { id: UserId; onOpen: (id: UserId) => 
 				{(mine || !me) && (
 					<div className="tbox-acts">
 						{!me && <button type="button" className="btn btn--accent">Open conversation</button>}
-						{mine && <button type="button" className="btn">Edit</button>}
+						{mine && <button type="button" className="btn" onClick={() => setDialog("edit")}>Edit</button>}
 						{mine && u.kind === "Agent" && <button type="button" className="btn" onClick={() => setPaused(!paused)}>{paused ? "Let it work" : "Pause"}</button>}
 					</div>
 				)}
@@ -373,13 +414,13 @@ function UserPage({ id, onOpen, onTeam }: { id: UserId; onOpen: (id: UserId) => 
 				</ul>
 
 				{u.runsOn && <Section title="Runs on" items={u.runsOn} />}
-				<Section title="Can reach" items={u.reach} add={mine ? "Connect a folder or a service" : undefined} />
+				<Section title="Can reach" items={reach} none="Nothing outside HyperIdle yet." add={mine ? "Connect a folder or a service" : undefined} onAdd={() => setDialog("reach")} />
 
-				{u.kind === "Agent" && <Section title="Starts working when" items={u.when} add={mine ? "Add a time or an event" : undefined} />}
+				{u.kind === "Agent" && <Section title="Starts working when" items={when} add={mine ? "Add a time or an event" : undefined} onAdd={() => setDialog("start")} />}
 				{me && (
 					<section className="tbox-sec">
 						<h4>Notifications <span>tell me when</span></h4>
-						{u.when.map((x) => (
+						{when.map((x) => (
 							<button
 								key={x.what} type="button" className="fact-switch" role="switch" aria-checked={!off.has(x.what)}
 								onClick={() => setOff((o) => { const n = new Set(o); if (n.has(x.what)) n.delete(x.what); else n.add(x.what); return n; })}
@@ -388,6 +429,7 @@ function UserPage({ id, onOpen, onTeam }: { id: UserId; onOpen: (id: UserId) => 
 								{x.what}
 							</button>
 						))}
+						<button type="button" className="tbox-more" onClick={() => setDialog("start")}>Add an event</button>
 						<p className="pair-why">{u.following}. You follow a document, task or thread from its own page.</p>
 						<button type="button" className="tbox-more">See what you follow</button>
 					</section>
@@ -397,21 +439,25 @@ function UserPage({ id, onOpen, onTeam }: { id: UserId; onOpen: (id: UserId) => 
 				{me && (
 					<section className="tbox-sec">
 						<h4>Looks</h4>
-						<div className="looks" role="radiogroup" aria-label="Looks">
-							{["Light", "Dark", "Like this computer"].map((l) => (
-								// biome-ignore lint/a11y/useSemanticElements: a row of buttons reads better here than native radio inputs
-								<button key={l} type="button" role="radio" aria-checked={looks === l} onClick={() => setLooks(l)}>{l}</button>
-							))}
+						<div className="chips">
+							{["Light", "Dark", "Like this computer"].map((l) => <button key={l} type="button" aria-pressed={looks === l} onClick={() => setLooks(l)}>{l}</button>)}
 						</div>
 					</section>
 				)}
 			</aside>
+
+			{dialog === "reach" && <ReachDialog who={subject} onClose={close} onDone={(added) => { if (added) setReach([...reach, added]); close(); }} />}
+			{dialog === "start" && <StartDialog who={subject} onClose={close} onDone={(added) => { setWhen([added, ...when]); close(); }} />}
+			{dialog === "edit" && <UserDialog user={subject} program={u.runsOn?.[0].what} onClose={close} onDone={close} />}
 		</article>
 	);
 }
 
 export function People({ step }: { step: number }) {
 	const [open, setOpen] = useState<UserId | null>(START[step] ?? null);
+	const [adding, setAdding] = useState(DIALOG[step] === "add");
+	const [added, setAdded] = useState(START[step] === "researcher");
+	const first = DIALOG[step] ?? null;
 	const u = open ? USERS[open] : null;
 	return (
 		<>
@@ -423,7 +469,15 @@ export function People({ step }: { step: number }) {
 					<span className="doc-state">{u ? u.what : "Everyone in it"}</span>
 				</header>
 				<div className="detail-scroll">
-					{open ? <UserPage key={open} id={open} onOpen={setOpen} onTeam={() => setOpen(null)} /> : <TeamPage onOpen={setOpen} />}
+					{open
+						? <UserPage key={open} id={open} initialDialog={first !== "add" && open === START[step] ? first : null} onOpen={setOpen} onTeam={() => setOpen(null)} />
+						: <TeamPage added={added} onOpen={setOpen} onAdd={() => setAdding(true)} />}
+					{adding && (
+						<UserDialog
+							onClose={() => setAdding(false)}
+							onDone={(agent) => { setAdding(false); if (agent) { setAdded(true); setOpen("researcher"); } }}
+						/>
+					)}
 				</div>
 			</section>
 		</>

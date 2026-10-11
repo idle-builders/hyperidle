@@ -853,3 +853,53 @@ Where each of those stands after People:
   a service" is not drawn.
 - Plugins → nothing drawn. Not placed in the layout yet.
 - Not placed either: where the app runs (this computer or a shared server) and model keys.
+
+## Session 12 — SETTING UP A USER, the four forms (2026-10-12)
+
+The founder: "lets build these missing forms. Check if those deserve their own pages or are just
+dialogs."
+
+**Verdict: all four are dialogs. None needs a page.**
+- Each is a handful of fields, opened from the page it changes, and the result shows up in the
+  box behind it. A page would take you away from the thing you are setting up.
+- The one long piece of writing — an agent's instructions, and a person's "About you" — is a
+  document. It opens where documents are edited (Think), so the dialog only links to it.
+- Adding someone and editing someone are the same form. Setup of a new agent is not a wizard:
+  the dialog makes it, then you land on its page and finish there (folders, services, start times).
+
+**Built** (`Setup.tsx`; People walkthrough steps 5–9):
+1. **What X can reach** (behind "Connect a folder or a service"). A list of everything already
+   connected, one line each, with a tick on an agent's page (and "Read and change / Only read"
+   for a folder). Below it, "Connect something new": **a folder** (where · agents may) or **a
+   service** (name · a key or a server address). On your own page the list says who each thing is
+   given to, and the new part asks "Who gets it". Connect once, tick per agent.
+2. **When should X start working?** (behind "Add a time or an event"). When: **at a time**
+   (every week on Thursday at 08:00, with the next time spelled out) or **when something
+   happens** (a task is created / changes · a thread starts / gets a message · a document is
+   created / changes · someone joins the team). Then a name and "What to do". Every run shows
+   up as a part of a task with that name. On your own page the same dialog is "When should you be
+   told?": events only, no "what to do" — it adds one more switch under Notifications.
+3. **Edit X** (behind Edit). Name · what it does · works for (fixed) · runs on (the programs
+   found on this computer) · model · how many sessions at a time · a link to the instructions
+   document · "Remove X from the team". For yourself: name · what you do · the "About you" link.
+4. **Add someone** (on the team page). An agent or a person. An agent: name · what it does ·
+   works for (you or the whole team) · runs on · model · instructions in your own words. A
+   person: name · email · what they do; they get a link to join.
+5. **The new agent's page**: "New. Nothing is handed to it yet.", "Can reach: nothing outside
+   HyperIdle yet", and the two default ways it starts (a mention, a hand-off).
+
+**Grounded in the product** (`framework/domain-model/src/actions/user.ts`, connection and
+subscription docs): a folder is connected once and given per agent; a service signed in on this
+computer shows up by itself, otherwise it is a pasted key or a server address; a start time or an
+event is one thing on a user and, for a person, it only sends a notification; who an agent works
+for cannot change after it is added.
+
+**Where the design goes past the product today:**
+- A person joins by a link sent to their email. The product has no invite yet.
+- A service is ticked per agent. Today a person's services reach all of their agents.
+- A person can add an event to be told about. Built today; no screen offers it.
+
+**Shared pieces:** one dialog frame; one field row (name left, control and a word of help
+right); `Seg` (one of a few, all visible) now also used by find-or-ask; `.chips` (one of a few,
+as small buttons) now also used by Looks. Overlays leave the studio walkthrough clickable.
+

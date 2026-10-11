@@ -400,11 +400,8 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 
 /* find or ask — an overlay, one input, two intents */
 .pal-back { position: fixed; inset: 0; z-index: 80; display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; background: var(--scrim); }
-.pal { width: min(820px, calc(100vw - 48px)); max-height: 72vh; display: flex; flex-direction: column; border: var(--line-w) solid var(--line-strong); border-radius: 12px; background: var(--surface); box-shadow: var(--sh-3); overflow: hidden; }
+.pal { width: min(820px, calc(100vw - 48px)); max-height: 72vh; display: flex; flex-direction: column; border: var(--line-w) solid var(--line-strong); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--sh-3); overflow: hidden; }
 .pal-top { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: var(--line-w) solid var(--line); }
-.pal-mode { display: flex; padding: 2px; border-radius: var(--r-sm); background: var(--sunk); flex: none; }
-.pal-mode button { min-height: 28px; padding: 0 var(--sp-3); border-radius: 5px; font: var(--t-label); color: var(--ink-3); }
-.pal-mode button[aria-checked="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); font-weight: 600; }
 .pal-in { flex: 1; min-width: 0; border: 0; background: transparent; font: 400 1.0625rem/1.4 var(--font-ui); color: var(--ink); outline: none; }
 .pal-kbd { flex: none; }
 .pal-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); min-height: 0; flex: 1; }
@@ -437,7 +434,6 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .pal-foot { display: flex; align-items: center; gap: var(--sp-5); padding: var(--sp-2) var(--sp-4); border-top: var(--line-w) solid var(--line); background: var(--canvas); font: var(--t-meta); color: var(--ink-3); }
 .pal-foot span { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .pal-saved { margin-right: auto; color: var(--ink-2); }
-/* studio-only: keep the walkthrough clickable while the overlay is open */
 
 /* notifications — what happened in things you follow */
 .nav--rel { position: relative; }
@@ -735,12 +731,75 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .pair { display: flex; flex-direction: column; }
 .pair-what { font: var(--t-body); line-height: 1.35; color: var(--ink); }
 .pair-why { font: var(--t-meta); color: var(--ink-3); }
-.looks { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
-.looks button { min-height: 28px; padding: 0 var(--sp-2); border: var(--line-w) solid var(--line); border-radius: var(--r-sm); font: var(--t-label); color: var(--ink-2); }
-.looks button[aria-checked="true"] { border-color: var(--ink-2); background: var(--sunk); color: var(--ink); }
+/* one of a few, as small buttons */
+.chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.chips button { min-height: 28px; padding: 0 var(--sp-2); border: var(--line-w) solid var(--line); border-radius: var(--r-sm); font: var(--t-label); color: var(--ink-2); }
+.chips button[aria-pressed="true"] { border-color: var(--ink-2); background: var(--sunk); color: var(--ink); }
 /* your own page, one click away at the bottom of the sidebar */
 .nav-you { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-2); padding: var(--sp-2); border-radius: var(--r); text-align: left; }
 .nav-you:hover { background: var(--surface); }
 .nav-you[aria-current="true"] { background: var(--surface); box-shadow: var(--sh-1); }
 .nav-you-name { font: var(--t-strong); font-weight: 600; }
 .nav-you-sub { margin-left: auto; font: var(--t-meta); color: var(--ink-3); }
+
+/* ---------- SETTING UP A USER — small forms in a dialog over the page they change ---------- */
+.dlg-back { position: fixed; inset: 0; z-index: 80; display: flex; justify-content: center; align-items: flex-start; padding: 8vh var(--sp-6) var(--sp-6); background: var(--scrim); }
+/* studio-only: an overlay leaves the walkthrough clickable */
+.pal-back, .dlg-back { left: var(--w-rail); }
+.dlg-scrim { position: absolute; inset: 0; cursor: default; }
+.dlg { position: relative; width: min(580px, 100%); max-height: 100%; margin: 0; padding: 0; overflow-y: auto; border: var(--line-w) solid var(--line-strong); border-radius: var(--r-lg); background: var(--surface); color: var(--ink); box-shadow: var(--sh-3); }
+.dlg-h { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-5) var(--sp-6) 0; }
+.dlg-h h3 { font: var(--t-title); }
+.dlg-h p { font: var(--t-body); color: var(--ink-3); }
+.dlg-b { display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-5) var(--sp-6); }
+.dlg-f { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-6); border-top: var(--line-w) solid var(--line); background: var(--canvas); }
+.dlg-aside { margin-right: auto; font: var(--t-meta); color: var(--ink-3); }
+.dlg-quiet { font: var(--t-meta); color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
+.dlg-quiet:hover { color: var(--diff-out-ink); }
+.dlg-note { font: var(--t-meta); color: var(--ink-3); }
+/* a second half of a dialog, under a line of its own */
+.dlg-part { display: flex; flex-direction: column; gap: var(--sp-4); padding-top: var(--sp-4); border-top: var(--line-w) solid var(--line); }
+.dlg-part-h { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); font: var(--t-strong); font-weight: 600; }
+
+/* a field: what it is on the left, the control and a word of help on the right */
+.field { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: var(--sp-4); align-items: baseline; }
+.field-l { font: var(--t-label); color: var(--ink-2); }
+.field-c { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); min-width: 0; }
+.field-h { font: var(--t-meta); color: var(--ink-3); }
+.field-fixed { font: var(--t-body); color: var(--ink-2); }
+.in { width: 100%; min-height: 34px; padding: 0 var(--sp-3); border: var(--line-w) solid var(--line-strong); border-radius: var(--r-sm); background: var(--canvas); font: var(--t-body); color: var(--ink); }
+.in:focus { outline: none; border-color: var(--ink-3); background: var(--surface); }
+select.in { width: auto; padding: 0 var(--sp-2); }
+.in--small { min-height: 28px; font: var(--t-meta); color: var(--ink-2); }
+.in--time { width: 4.75em; }
+.in--text { resize: none; field-sizing: content; min-height: 84px; padding: var(--sp-2) var(--sp-3); line-height: 1.5; }
+.in-row { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
+.in-row .btn { flex: none; min-height: 34px; }
+.in-row--words { font: var(--t-body); color: var(--ink-2); }
+
+/* one of a few, all visible */
+.seg { display: flex; padding: 2px; border-radius: var(--r-sm); background: var(--sunk); flex: none; }
+.seg button { min-height: 28px; padding: 0 var(--sp-3); border-radius: calc(var(--r-sm) - 1px); font: var(--t-label); color: var(--ink-3); white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); font-weight: 600; }
+/* one of a list, or several: a mark, the name, a few words */
+.picks { display: flex; flex-direction: column; gap: var(--sp-1); width: 100%; }
+/* what can happen, sorted by what it happens to */
+.events { display: flex; flex-direction: column; gap: var(--sp-2); }
+.events-row { display: grid; grid-template-columns: 7.5em auto; align-items: center; font: var(--t-body); color: var(--ink-2); }
+.ticks { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-5); }
+.pick { display: flex; align-items: center; gap: var(--sp-2); font: var(--t-body); cursor: pointer; }
+.pick input, .reach-row input { flex: none; width: 15px; height: 15px; accent-color: var(--ink-2); }
+.pick-why { font: var(--t-meta); color: var(--ink-3); }
+.pick[aria-disabled="true"] { color: var(--ink-3); cursor: default; }
+
+/* everything connected so far, one line each */
+.reach { display: flex; flex-direction: column; }
+.reach-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0 var(--sp-3); min-height: 44px; padding: var(--sp-1) 0; border-top: var(--line-w) solid var(--line); }
+.reach-row:first-child { border-top: 0; }
+.reach-row input { grid-row: 1 / span 2; }
+.reach-name { grid-column: 2; font: var(--t-strong); }
+.reach-how { grid-column: 2; grid-row: 2; font: var(--t-meta); color: var(--ink-3); }
+.reach-row > :last-child:not(.reach-how) { grid-column: 3; grid-row: 1 / span 2; }
+.reach-users { font: var(--t-meta); color: var(--ink-2); }
+.doc-link { font: var(--t-body); text-align: left; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.doc-link:hover { text-decoration-color: var(--ink-3); }

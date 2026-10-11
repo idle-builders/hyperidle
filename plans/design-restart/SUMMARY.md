@@ -22,7 +22,7 @@ Whether the founder would trust the **agent flagging its own uncertainty**. The 
 leans on agent-placed pins. Answered 2026-09-28: **yes, we trust agents to flag their own uncertain
 spots.** So the agent's pins are the main way a review shows where to look.
 
-**Q: Which journeys are done?** (updated 2026-10-11)
+**Q: Which journeys are done?** (updated 2026-10-12)
 - **HAND OFF**: designed and approved.
 - **JUDGE**: designed; reject needs a reason, a retry is a new review, agent flags are trusted.
 - **ARRIVE**: designed and approved — one sidebar, find or ask, notifications, name your team.
@@ -30,6 +30,10 @@ spots.** So the agent's pins are the main way a review shows where to look.
   proposed inside a comment, the format bar. Details in `information-architecture.md`.
 - **RUN THE SHIFT**: first version accepted — the task page: a graph of its parts that follows
   where you are, a floating box for what is attached, title + details + conversation on the page.
+- **PEOPLE**: accepted for now — a team page, and one page for an agent, a person and yourself.
+  Your own page holds your settings; there is no settings screen.
+- **SETTING UP A USER**: built, awaiting the founder — four dialogs over the user page (what
+  someone can reach · when they start working · edit · add someone). No form has its own page.
 
 ---
 

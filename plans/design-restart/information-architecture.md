@@ -162,8 +162,13 @@ An agent and a person are the same kind of user, so they share one page.
   "Notifications"; what makes an agent start is "Starts working when" (a mention, a hand-off, a
   time such as every Monday at 07:00).
 - Every user is in exactly one team today, so there is no team picker.
-- Not drawn yet: the forms behind Edit, "Connect a folder or a service" and "Add a time or an
-  event"; adding someone; the list behind "See what you follow".
+- **Changing any of it is a dialog over the page** (built 2026-10-12, awaiting the founder): what
+  someone can reach · when they start working, or are told · edit · add someone. No form has a
+  page of its own. Adding and editing are one form. Instructions and "About you" are documents
+  and open as documents. A new agent is finished on its own page, not in a wizard.
+- **Connect once, tick per agent:** the reach dialog lists everything connected; an agent's page
+  ticks what it gets, your own page connects new things and says who gets them.
+- Not drawn yet: the list behind "See what you follow".
 
 ## 4. Object vocabulary
 
@@ -297,13 +302,14 @@ the end.
 - At the whole task the graph shows only direct parts; is that enough of an overview?
 - A dependency arrow shows only while both of its parts are in view.
 - Can a user be in several teams? Today: no. If yes, the team name at the top becomes a picker.
+- Adding a person: the design sends a link by email; the product has no invite yet.
+- A service is ticked per agent in the design; today a person's services reach all their agents.
+- Should a person be able to add an event to be told about, or are the four switches plus
+  Follow enough?
 
 ## 8. Not yet registered
 
-All five journeys and People have a design. Still undrawn:
-- **Setting up a user** — four small forms that hang off the user page: connect a folder or a
-  service · add a time or an event that starts an agent · edit a user (name, instructions, what
-  it runs on) · add someone.
+All five journeys, People and the four set-up dialogs have a design. Still undrawn:
 - **Plugins** — not placed in the layout and not drawn.
 - **Where the app runs and model keys** — not placed.
 - The list behind "See what you follow".

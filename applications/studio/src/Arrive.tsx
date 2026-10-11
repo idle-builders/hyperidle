@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CHAT_FORMATS, FormatBar } from "./FormatBar";
+import { Seg } from "./Seg";
 import { conversations, Sidebar } from "./Sidebar";
 
 /**
@@ -46,10 +47,7 @@ function Palette({ initialMode }: { initialMode: "find" | "ask" }) {
 		<div className="pal-back">
 			<div className="pal" role="dialog" aria-label="Find or ask">
 				<div className="pal-top">
-					<div className="pal-mode" role="radiogroup" aria-label="Mode">
-						<button type="button" role="radio" aria-checked={mode === "find"} onClick={() => setMode("find")}>Find</button>
-						<button type="button" role="radio" aria-checked={mode === "ask"} onClick={() => setMode("ask")}>Ask</button>
-					</div>
+					<Seg label="Mode" options={["Find", "Ask"] as const} value={mode === "find" ? "Find" : "Ask"} onChange={(m) => setMode(m === "Find" ? "find" : "ask")} />
 					<input className="pal-in" defaultValue={query} key={mode} aria-label={mode === "find" ? "Find" : "Ask"}
 						placeholder={mode === "find" ? "Find threads, tasks, documents…" : "Ask anything — an agent answers with sources"} />
 					<kbd className="pal-kbd">esc</kbd>
