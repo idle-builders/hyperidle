@@ -123,13 +123,16 @@ Work happens in three stages (founder): **plan** in documents and conversations 
   dashed arrow points from a part to the part that waits for it. A chip: a mark for how it
   stands (✓ done, ◐ under way, ○ not started, the agent's initials where one is working), the
   name, a few words, document/review counts.
+- **The graph must stay easy to read and never scroll on its own** (founder, 2026-10-11). The
+  root is not drawn. Parent chips open and close; deeper levels start closed. A long row of
+  finished parts folds into one chip that opens in place.
 - **Where a person is needed is an icon, never "You"**: a question mark = needs input, an eye =
   needs review. "Review or input doesn't assign the task to me." Parents count them.
 - **The page holds only title, details and conversation.** Details = where it stands, what it
   is about, Done when, the owner's summary.
-- **Everything attached sits in one floating box on the right:** quick actions (hold, stop, open
-  the review) · facts · attached conversations, documents and reviews ranked by the owner, the
-  agent-made rest folded away · sessions.
+- **Everything attached sits in one floating box on the right:** quick actions (hold, stop) ·
+  facts · then **Questions, Reviews and Documents each in a section of their own** · sessions.
+  Documents are ranked by the owner, the agent-made rest folded away.
 - **Clicking a part** changes what the page and the box are about; the graph does not move.
   "‹ The whole task" goes back.
 - **Summaries trickle up.** Every part gets a summary when it finishes or gets stuck; a parent's

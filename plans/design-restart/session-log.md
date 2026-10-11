@@ -728,3 +728,28 @@ hairlines in the ranked list.
   summary, and the conversation with its chat box.
 - Columns and Lanes styles and their switch are removed, and the "⋯" menu (its actions moved
   into the box).
+
+**Founder (2026-10-11): "the graph works", now make it easier to read.** The root does not need
+a column — it is always just the root. From the second layer below the root, items should be
+expandable so you can navigate the graph. Even the first layer can grow gigantic, e.g. weekly
+tasks; **no scroll areas on the graph**, "that's poor experience". The floating box works well,
+but **questions, reviews and documents/artifacts each get their own section.**
+
+**Built:**
+- The root is gone from the graph; the first column is the task's direct parts. "‹ The whole
+  task" under the graph takes you back to it.
+- **Every parent chip has a small expander** on its edge ("3 ›" closed, "‹" open). To begin
+  with, first-level branches still under way are open, finished ones and deeper ones are
+  closed, and whatever leads to the picked part is open.
+- **A long row of finished parts folds into one chip** ("11 earlier, done · Show them"), keeping
+  the latest finished one and anything not done in sight. Opening it grows the page; the graph
+  has no scroll area. A weekly task with twelve runs shows three chips.
+- **Chips use the width there is:** wide while two columns show, narrower once a third opens,
+  so the graph always fits beside the box.
+- The curved dependency arrow stays in the gap between columns.
+- **Box sections:** Questions (with "1 open") · Reviews (with "1 open") · Documents (ranked by
+  the owner, agent-made ones folded) · Sessions. A task's own conversation is on the page, so
+  it is no longer listed in the box.
+- Demo data: "Self-serve checkout at day 12" now has three parts of its own (a third level);
+  the weekly task has twelve runs.
+Not solved: a fourth level would not fit beside the box.

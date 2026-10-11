@@ -603,7 +603,7 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 
 /* ---------- RUN THE SHIFT — the task page: title, details and conversation; a graph of its parts as a
    section; everything attached in one box floating on the right ---------- */
-.tk-page { width: 100%; max-width: 1120px; margin: 0 auto; padding: var(--sp-5) 0 var(--sp-9); display: grid; grid-template-columns: minmax(0, 1fr) 272px; gap: var(--sp-7); align-items: start; }
+.tk-page { width: 100%; max-width: 1120px; margin: 0 auto; padding: var(--sp-5) 0 var(--sp-9); display: grid; grid-template-columns: minmax(0, 1fr) 272px; gap: var(--sp-6); align-items: start; }
 .tk-main { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; font: var(--t-lead); color: var(--ink); }
 .tk-main > *, .tk-part > * { max-width: 720px; }
 .tk-main > .tk-map, .tk-main > .tk-part { max-width: none; }
@@ -643,13 +643,10 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .nd--head { background: transparent; }
 .nd--head .nd-name { font-weight: 600; }
 
-/* the graph: branches run left to right, each parent level with its first part */
-.mp { position: relative; padding-right: var(--sp-7); }
+/* the graph: the task's parts, branches running left to right, each parent level with its first part */
+.mp { position: relative; padding-right: var(--sp-6); }
 .st { display: flex; align-items: flex-start; }
-.st > .nd { width: 256px; flex: none; }
-.st > .nd--head { width: 232px; }
-.st > .nd--root { width: 128px; }
-.st-kids { position: relative; display: flex; flex-direction: column; gap: 14px; margin-left: 36px; }
+.st-kids { --w: 320px; position: relative; display: flex; flex-direction: column; gap: 14px; margin-left: 36px; }
 .st-kids::before { content: ""; position: absolute; left: -36px; top: 19px; width: 18px; border-top: var(--line-w) solid var(--line-strong); }
 .st-kid { position: relative; }
 .st-kid::before { content: ""; position: absolute; left: -18px; top: 19px; width: 18px; border-top: var(--line-w) solid var(--line-strong); }
@@ -657,6 +654,19 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .st-kid:first-child::after { top: 19px; }
 .st-kid:last-child::after { bottom: auto; height: 33px; }
 .st-kid:first-child:last-child::after { display: none; }
+/* the first column is the task's direct parts: nothing to hang them from, the task is the page */
+.st-kids--first { --w: 240px; margin-left: 0; }
+/* three columns need narrower chips to fit beside the box */
+.mp--deep .st-kids { --w: 216px; }
+.mp--deep .st-kids--first { --w: 196px; }
+.st-kids--first::before, .st-kids--first > .st-kid::before, .st-kids--first > .st-kid::after { display: none; }
+.nd-wrap { position: relative; flex: none; width: var(--w); }
+/* open or close a branch: a small round button on the chip's edge, where its parts hang off */
+.nd-fold { position: absolute; z-index: 2; top: 8px; right: 0; transform: translateX(50%); display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border: var(--line-w) solid var(--line-strong); border-radius: 11px; white-space: nowrap; background: var(--canvas); font: var(--t-label); font-weight: 600; color: var(--ink-2); }
+.nd-fold:hover { border-color: var(--ink-3); color: var(--ink); }
+/* a long row of finished parts, folded into one chip */
+.nd--more { width: var(--w); background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong); }
+.nd--more .nd-name { color: var(--ink-2); }
 /* what waits for what: a dashed arrow, darker while the wait is still on */
 .waits { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .wait { fill: none; stroke: var(--line-strong); stroke-width: 1.5; stroke-dasharray: 2 5; stroke-linecap: round; }
@@ -670,7 +680,9 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .tbox-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-1); }
 .tbox-acts .btn { min-height: 30px; padding: 0 var(--sp-3); font: var(--t-label); }
 .tbox-facts { display: flex; flex-direction: column; gap: 3px; margin-top: var(--sp-1); list-style: none; font: var(--t-meta); color: var(--ink-2); }
-.tbox h4 { display: flex; align-items: baseline; gap: var(--sp-2); margin-top: var(--sp-3); font: var(--t-label); font-weight: 600; color: var(--ink); }
+.tbox-sec { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); padding-top: var(--sp-3); border-top: var(--line-w) solid var(--line); }
+.tbox h4 { display: flex; align-items: baseline; gap: var(--sp-2); font: var(--t-label); font-weight: 600; color: var(--ink); }
+.tbox-link { font: var(--t-meta); color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; text-align: left; }
 .tbox h4 span { font: var(--t-meta); color: var(--ink-3); }
 .tbox-none { font: var(--t-meta); color: var(--ink-3); }
 .tbox-more { align-self: flex-start; font: var(--t-meta); color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; text-align: left; }
