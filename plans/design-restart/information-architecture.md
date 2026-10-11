@@ -75,7 +75,7 @@ Seven states of one thread, walkable in the studio:
 
 ---
 
-### THINK — third pass, 2026-10-07 (founder shaped it; awaiting a look)
+### THINK — designed, founder-approved 2026-10-11
 **A document stays a document; conversation is a layer on top** (founder: "the document is still a
 document and you have a conversation as a layer above"). No per-block authors — they made it look
 like a chat. A document can start empty or from an existing thread.
@@ -232,5 +232,7 @@ Objects that appear inside surfaces. Designed once, reused everywhere.
 
 ## 8. Not yet registered
 
-JUDGE · THINK · RUN THE SHIFT · first run and harness discovery · search results · notifications ·
-failure states · the Work and Knowledge spines beyond stub buttons.
+RUN THE SHIFT (the task page, handing a batch of work over, seeing what runs) · routines and
+triggers · agents, people and team settings · "what I follow" · connecting folders and GitHub
+after first start · comments on a narrow window · failure, empty and loading states · the
+"this session cost X" line.

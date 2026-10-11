@@ -613,3 +613,7 @@ Built `FormatBar` as one shared component:
 Also: the story's proposed change now *replaces* a line, so the walkthrough shows red and green
 (before it only added a line, so no red showed — the founder noticed). Judge's code diff uses the
 same red/green tokens.
+
+**Founder, 2026-10-11: "that looks great. that marks think as finished to me."** THINK is done.
+Left open on purpose: comments on a narrow window; whether the small comment box gets the
+format bar. Next journey: RUN THE SHIFT.

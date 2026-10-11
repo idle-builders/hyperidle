@@ -22,11 +22,13 @@ Whether the founder would trust the **agent flagging its own uncertainty**. The 
 leans on agent-placed pins. Answered 2026-09-28: **yes, we trust agents to flag their own uncertain
 spots.** So the agent's pins are the main way a review shows where to look.
 
-**Q: Which journeys are done?**
+**Q: Which journeys are done?** (updated 2026-10-11)
 - **HAND OFF**: designed and approved.
-- **JUDGE**: third attempt built. Two open points settled 2026-09-28 (agent flags trusted; reject needs a reason). Broader feedback on the design still pending.
-- **ARRIVE, THINK, RUN THE SHIFT**: not started. The rail and the queue were drawn only as
-  background for the HAND OFF screen; ARRIVE owns them.
+- **JUDGE**: designed; reject needs a reason, a retry is a new review, agent flags are trusted.
+- **ARRIVE**: designed and approved — one sidebar, find or ask, notifications, name your team.
+- **THINK**: designed and approved — comments in the margin, draggable comment region, changes
+  proposed inside a comment, the format bar. Details in `information-architecture.md`.
+- **RUN THE SHIFT**: not started.
 
 ---
 
