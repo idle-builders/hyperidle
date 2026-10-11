@@ -119,14 +119,19 @@ Work happens in three stages (founder): **plan** in documents and conversations 
 **watch it move through the task tree** (this screen) → **check the result** in a review.
 - **The sidebar lists root tasks only. No second navigation inside the page** (founder,
   2026-10-11: "horrible"). The tree is a **section** of the task page.
-- **The tree is a map of chips**, not a list of rows. How it is drawn is under comparison:
-  Columns (parts side by side in order), Tree (branches fanning right), Lanes (one row per main
-  part). A chip: a mark for how it stands, the name, a few words, document/review counts. What
-  you owe is the yellow "You".
-- **Clicking a part changes only what shows under the map:** its title · where it stands · what
-  it is about · its owner's **summary** · **conversations and documents ranked by the owner** —
-  what a person takes part in first, what the agents made while working folded away · sessions ·
-  a chat box into its thread. "‹ The whole task" goes back.
+- **The tree is a graph** (founder, 2026-10-11): branches run left to right, top aligned; a
+  dashed arrow points from a part to the part that waits for it. A chip: a mark for how it
+  stands (✓ done, ◐ under way, ○ not started, the agent's initials where one is working), the
+  name, a few words, document/review counts.
+- **Where a person is needed is an icon, never "You"**: a question mark = needs input, an eye =
+  needs review. "Review or input doesn't assign the task to me." Parents count them.
+- **The page holds only title, details and conversation.** Details = where it stands, what it
+  is about, Done when, the owner's summary.
+- **Everything attached sits in one floating box on the right:** quick actions (hold, stop, open
+  the review) · facts · attached conversations, documents and reviews ranked by the owner, the
+  agent-made rest folded away · sessions.
+- **Clicking a part** changes what the page and the box are about; the graph does not move.
+  "‹ The whole task" goes back.
 - **Summaries trickle up.** Every part gets a summary when it finishes or gets stuck; a parent's
   summary is a summary of those. Summarising and ranking is the root agent's job.
 - **Sizes:** a small fix has no tree; a recurring task is a root whose parts are its runs.

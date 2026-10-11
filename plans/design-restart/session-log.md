@@ -703,3 +703,28 @@ a yellow "You" where it waits on you), the name, a few words, and document/revie
 Clicking a chip changes only what shows under the map; the map does not move. "‹ The whole
 task" goes back. Dropped: the tree column, the "From its parts" list (the map replaces it), the
 hairlines in the ranked list.
+
+**Founder on the three tree styles (2026-10-11):**
+- Tasks have interdependencies, so the best view may be a **graph**, made easy to read. The Tree
+  style "isn't so bad"; work from it. Make it **top aligned**, not centre aligned.
+- "The mark for where it stands is nice."
+- "The you is horrible. We need **icons** for where it needs review or input. Review or input
+  doesn't assign the task to me."
+- Attached things — documents, sessions, maybe meta information — belong in **a floating box on
+  the right, "the typical thing"**, with the quick actions for the task in it too.
+- "So that the content of the task is really only the **title & details + conversation**."
+
+**Rebuilt:**
+- **Graph.** Branches run left to right, each parent level with its first part. A dashed arrow
+  runs from a part to the part that waits for it: straight down when nothing is in the way, a
+  curve out to the right when something is; darker while the wait is still on. Arrows are drawn
+  from where the chips really sit. The root is a small "The whole task" chip.
+- **Icons, not "You".** A question mark on yellow = needs input; an eye on yellow = needs
+  review. Parents show how many of each are inside. Words say "Needs input" / "Needs review".
+- **Floating box** on the right, sticky: the part's name and state · Put on hold / Stop (and
+  "Open the review" when one is waiting) · facts and the "Review before it is done" switch ·
+  Attached, ranked by the owner, with the agent-made rest folded away · Sessions with Peek.
+- **The page** keeps only: title, where it stands, what it is about, Done when, the owner's
+  summary, and the conversation with its chat box.
+- Columns and Lanes styles and their switch are removed, and the "⋯" menu (its actions moved
+  into the box).

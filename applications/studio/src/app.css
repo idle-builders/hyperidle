@@ -601,92 +601,95 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .lnk-url { margin-left: var(--sp-2); padding: 2px var(--sp-2); border: var(--line-w) solid var(--line-strong); border-radius: var(--r-sm); font: var(--t-meta); color: var(--ink-3); }
 .picker--inline { max-width: 420px; margin: var(--sp-1) 0 0; }
 
-/* ---------- RUN THE SHIFT — the task page: one column; the tree is a section of it, never a second navigation ---------- */
-.tk-page { width: 100%; max-width: 1080px; margin: 0 auto; padding: var(--sp-5) var(--sp-7) var(--sp-9); display: flex; flex-direction: column; gap: var(--sp-3); font: var(--t-lead); color: var(--ink); }
-.tk-page > *, .tk-part > * { max-width: 760px; }
-.tk-page > .tk-map, .tk-page > .tk-part { max-width: none; }
-.tk-page h3 { display: flex; align-items: baseline; gap: var(--sp-3); margin-top: var(--sp-5); font: 600 1.0625rem/1.35 var(--font-ui); }
-.tk-page h3 span { font: var(--t-meta); color: var(--ink-3); }
-.tk-meta { margin-top: calc(-1 * var(--sp-2)); font: var(--t-meta); color: var(--ink-3); }
+/* ---------- RUN THE SHIFT — the task page: title, details and conversation; a graph of its parts as a
+   section; everything attached in one box floating on the right ---------- */
+.tk-page { width: 100%; max-width: 1120px; margin: 0 auto; padding: var(--sp-5) 0 var(--sp-9); display: grid; grid-template-columns: minmax(0, 1fr) 272px; gap: var(--sp-7); align-items: start; }
+.tk-main { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; font: var(--t-lead); color: var(--ink); }
+.tk-main > *, .tk-part > * { max-width: 720px; }
+.tk-main > .tk-map, .tk-main > .tk-part { max-width: none; }
+.tk-main h3 { display: flex; align-items: baseline; gap: var(--sp-3); margin-top: var(--sp-5); font: 600 1.0625rem/1.35 var(--font-ui); }
+.tk-main h3 span { font: var(--t-meta); color: var(--ink-3); }
 .tk-none { font: var(--t-body); color: var(--ink-3); }
 .tk-map { display: flex; flex-direction: column; gap: var(--sp-3); }
-/* what shows under the map: the whole task, or the part you clicked */
+.tk-legend { font: var(--t-meta); color: var(--ink-3); }
+/* what shows under the graph: the whole task, or the part you clicked */
 .tk-part { display: flex; flex-direction: column; gap: var(--sp-3); }
 .tk-part--sub { margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: var(--line-w) solid var(--line); }
 .tk-part-title { font: 600 1.5rem/1.25 var(--font-ui); }
-
-/* one part on the map: a mark for how it stands, its name, a few words */
-.nd { display: flex; align-items: flex-start; gap: var(--sp-2); width: 100%; padding: var(--sp-2) var(--sp-3); border-radius: var(--r); background: var(--sunk); text-align: left; box-shadow: inset 0 0 0 1.5px transparent; transition: box-shadow var(--dur-tap) var(--ease), background var(--dur-tap) var(--ease); }
-.nd:hover { box-shadow: inset 0 0 0 1.5px var(--line-strong); }
-.nd[aria-pressed="true"] { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--ink); }
-.nd-mark { flex: none; display: grid; place-items: center; min-width: 22px; height: 22px; font: var(--t-label); color: var(--ink-3); }
-.nd-av { width: 22px; height: 22px; font-size: 9px; }
-.nd-you { padding: 1px 5px; border-radius: 4px; background: var(--flag); color: var(--flag-ink); font: var(--t-label); font-weight: 600; }
-.nd-text { min-width: 0; }
-.nd-name { display: block; font: var(--t-body); line-height: 1.35; color: var(--ink); }
-.nd-sub { display: block; margin-top: 1px; font: var(--t-meta); color: var(--ink-3); }
-.nd--yours .nd-sub { color: var(--ink-2); font-weight: 600; }
-.nd--done { background: transparent; }
-.nd--done .nd-name { color: var(--ink-3); }
-.nd--head { background: transparent; padding-left: var(--sp-2); }
-.nd--head .nd-name { font-weight: 600; }
-
-/* style: Columns — the main parts side by side in order, their parts stacked under them */
-.mp--cols { display: grid; gap: var(--sp-6); align-items: start; }
-.mp-col { position: relative; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
-.mp-then { position: absolute; left: calc(-1 * var(--sp-5) - 2px); top: var(--sp-2); font: var(--t-body); color: var(--ink-3); }
-
-/* style: Tree — the task on the left, branches fanning right, joined by lines */
-.mp--tree { overflow-x: auto; padding-bottom: var(--sp-1); }
-.st { display: flex; align-items: center; }
-.st > .nd { width: 272px; flex: none; padding-top: 6px; padding-bottom: 6px; }
-.mp--tree .nd-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.st-kids { position: relative; display: flex; flex-direction: column; gap: 4px; margin-left: var(--sp-7); }
-.st-kids::before { content: ""; position: absolute; left: calc(-1 * var(--sp-7)); top: 50%; width: var(--sp-5); border-top: var(--line-w) solid var(--line-strong); }
-.st-kid { position: relative; }
-.st-kid::before { content: ""; position: absolute; left: calc(-1 * var(--sp-5)); top: 50%; width: var(--sp-5); border-top: var(--line-w) solid var(--line-strong); }
-.st-kid::after { content: ""; position: absolute; left: calc(-1 * var(--sp-5)); top: -2px; bottom: -2px; border-left: var(--line-w) solid var(--line-strong); }
-.st-kid:first-child::after { top: 50%; }
-.st-kid:last-child::after { bottom: 50%; }
-.st-kid:only-child::after { display: none; }
-
-/* style: Lanes — one row per main part, its parts as chips along the row */
-.mp--lanes { display: flex; flex-direction: column; gap: var(--sp-3); }
-.ln { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
-.ln-kids { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-.ln-kids .nd { width: auto; max-width: 300px; }
-
 /* where it stands, in one sentence — the first thing under the title */
 .stand { display: flex; align-items: center; gap: var(--sp-3); font: var(--t-lead); font-weight: 500; color: var(--ink); }
-.stand .btn { flex: none; min-height: 32px; }
 .task-list { padding-left: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-1); }
-
-/* conversations and documents, ranked: what a person takes part in first; the rest folds away */
-.things { display: flex; flex-direction: column; }
-.thing { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: var(--sp-3); padding: 6px 0; }
-.thing-kind { padding-top: 3px; font: var(--t-meta); color: var(--ink-3); }
-.thing-title { display: block; text-align: left; font: var(--t-body); color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
-.thing-title:hover { text-decoration-color: var(--ink-3); }
-.thing-why { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); margin-top: 2px; font: var(--t-meta); color: var(--ink-3); }
-.thing-on { font: var(--t-meta); color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; }
-.things--quiet .thing-title { color: var(--ink-2); }
-
-/* one row per session: what it is on the left, how it went in words on the right */
-.trow { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-4); width: 100%; padding: var(--sp-2) 0; border-bottom: var(--line-w) solid var(--line); text-align: left; font: var(--t-body); color: var(--ink); }
-.trow-t { flex: 1 1 auto; min-width: 40%; }
-.trow-s { display: inline-flex; align-items: baseline; justify-content: flex-end; gap: var(--sp-3); flex: 0 1 auto; font: var(--t-meta); color: var(--ink-3); text-align: right; }
-.trow-s .peek { flex: none; }
-.tk-part .session { margin-top: var(--sp-2); }
-.task-more { align-self: flex-start; width: auto; padding: var(--sp-2) 0; font: var(--t-meta); color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
-.task-more:hover { color: var(--ink); }
 .task-reply { flex: none; margin-top: var(--sp-2); }
 .task-reply input { min-height: 40px; padding: 0 var(--sp-4); border: 0; background: transparent; font: var(--t-body); }
 .task-reply input:focus { outline: none; }
 
-/* the "more" menu: each choice says what will happen */
-.doc-act { position: relative; }
-.menu { position: absolute; top: calc(100% + var(--sp-2)); right: 0; z-index: 20; width: 300px; padding: var(--sp-1); border: var(--line-w) solid var(--line); border-radius: var(--r); background: var(--surface); box-shadow: var(--sh-2); }
-.menu button { display: block; width: 100%; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); text-align: left; }
-.menu button:hover { background: var(--sunk); }
-.menu b { display: block; font: var(--t-strong); }
-.menu span { display: block; margin-top: 2px; font: var(--t-meta); color: var(--ink-3); white-space: normal; }
+/* a person is needed here: a question mark for input, an eye for a review */
+.need { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: var(--r-sm); background: var(--flag); color: var(--flag-ink); }
+
+/* one part on the graph: a mark for how it stands, its name, a few words */
+.nd { position: relative; z-index: 1; display: flex; align-items: flex-start; gap: var(--sp-2); width: 100%; padding: var(--sp-2) var(--sp-3); border-radius: var(--r); background: var(--sunk); text-align: left; box-shadow: inset 0 0 0 1.5px transparent; transition: box-shadow var(--dur-tap) var(--ease), background var(--dur-tap) var(--ease); }
+.nd:hover { box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.nd[aria-pressed="true"] { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.nd-mark { flex: none; display: grid; place-items: center; min-width: 22px; height: 22px; font: var(--t-label); color: var(--ink-3); }
+.nd-av { width: 22px; height: 22px; font-size: 9px; }
+.nd-text { min-width: 0; }
+.nd-name { display: block; font: var(--t-body); line-height: 1.35; color: var(--ink); }
+.nd-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-2); margin-top: 1px; font: var(--t-meta); color: var(--ink-3); }
+.nd-in { display: inline-flex; align-items: center; gap: 3px; }
+.nd-in .need { width: 16px; height: 16px; border-radius: 4px; }
+.nd-in .need svg { width: 11px; height: 11px; }
+.nd--done { background: transparent; }
+.nd--done .nd-name { color: var(--ink-3); }
+.nd--head { background: transparent; }
+.nd--head .nd-name { font-weight: 600; }
+
+/* the graph: branches run left to right, each parent level with its first part */
+.mp { position: relative; padding-right: var(--sp-7); }
+.st { display: flex; align-items: flex-start; }
+.st > .nd { width: 256px; flex: none; }
+.st > .nd--head { width: 232px; }
+.st > .nd--root { width: 128px; }
+.st-kids { position: relative; display: flex; flex-direction: column; gap: 14px; margin-left: 36px; }
+.st-kids::before { content: ""; position: absolute; left: -36px; top: 19px; width: 18px; border-top: var(--line-w) solid var(--line-strong); }
+.st-kid { position: relative; }
+.st-kid::before { content: ""; position: absolute; left: -18px; top: 19px; width: 18px; border-top: var(--line-w) solid var(--line-strong); }
+.st-kid::after { content: ""; position: absolute; left: -18px; top: -14px; bottom: 0; border-left: var(--line-w) solid var(--line-strong); }
+.st-kid:first-child::after { top: 19px; }
+.st-kid:last-child::after { bottom: auto; height: 33px; }
+.st-kid:first-child:last-child::after { display: none; }
+/* what waits for what: a dashed arrow, darker while the wait is still on */
+.waits { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.wait { fill: none; stroke: var(--line-strong); stroke-width: 1.5; stroke-dasharray: 2 5; stroke-linecap: round; }
+.wait--open { stroke: var(--ink-3); }
+
+/* the floating box: quick actions, the facts, and everything attached */
+.tbox { position: sticky; top: 0; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4); border: var(--line-w) solid var(--line); border-radius: var(--r); background: var(--surface); box-shadow: var(--sh-1); font: var(--t-body); }
+.tbox-head { display: flex; flex-direction: column; gap: 2px; }
+.tbox-name { font: var(--t-strong); font-weight: 600; }
+.tbox-state { font: var(--t-meta); color: var(--ink-3); }
+.tbox-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-1); }
+.tbox-acts .btn { min-height: 30px; padding: 0 var(--sp-3); font: var(--t-label); }
+.tbox-facts { display: flex; flex-direction: column; gap: 3px; margin-top: var(--sp-1); list-style: none; font: var(--t-meta); color: var(--ink-2); }
+.tbox h4 { display: flex; align-items: baseline; gap: var(--sp-2); margin-top: var(--sp-3); font: var(--t-label); font-weight: 600; color: var(--ink); }
+.tbox h4 span { font: var(--t-meta); color: var(--ink-3); }
+.tbox-none { font: var(--t-meta); color: var(--ink-3); }
+.tbox-more { align-self: flex-start; font: var(--t-meta); color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; text-align: left; }
+.tbox-more:hover { color: var(--ink); }
+.tbox .session { margin-top: 0; }
+.fact-switch { display: inline-flex; align-items: center; gap: var(--sp-2); text-align: left; font: var(--t-meta); color: var(--ink-2); }
+.fact-knob { position: relative; flex: none; width: 26px; height: 15px; border-radius: 8px; background: var(--line-strong); transition: background var(--dur-tap) var(--ease); }
+.fact-knob::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: var(--surface); transition: transform var(--dur-tap) var(--ease); }
+.fact-switch[aria-checked="true"] .fact-knob { background: var(--ink-2); }
+.fact-switch[aria-checked="true"] .fact-knob::after { transform: translateX(11px); }
+/* something attached: its kind as an icon, its name, and why it matters */
+.att { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: var(--sp-2); align-items: start; }
+.att-ic { margin: 3px 4px 0; color: var(--ink-3); }
+.att .need { width: 20px; height: 20px; margin-top: 1px; }
+.att-title { display: block; text-align: left; font: var(--t-body); line-height: 1.35; color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.att-title:hover { text-decoration-color: var(--ink-3); }
+.att-why { display: block; margin-top: 1px; font: var(--t-meta); color: var(--ink-3); }
+.att-why button { font: var(--t-meta); color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; text-align: left; }
+.att--quiet .att-title { color: var(--ink-2); }
+.ses { display: flex; flex-direction: column; font: var(--t-meta); }
+.ses-t { color: var(--ink); }
+.ses-s { color: var(--ink-3); }
