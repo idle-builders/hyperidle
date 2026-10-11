@@ -838,3 +838,18 @@ else" are not drawn yet.
 - **Your own page** is one click away at the bottom of the sidebar ("You · 4 waiting for you").
 - Several teams: today every user is in exactly one team (`docs/process-layer/teams.md`), so no
   team picker was built. If that changes, the team name at the top becomes the picker.
+
+**Founder, 2026-10-12: "that looks great, lets keep user & agent like this for now."** PEOPLE is
+accepted for now. He listed what he still sees open: Settings, Routines, Notifications?,
+Connection/Folder setup, Plugins.
+
+Where each of those stands after People:
+- Settings → your own page (its box). No settings screen. The forms are not drawn.
+- Routines → "Starts working when" on an agent's page; a recurring task shows one part per run.
+  The form behind "Add a time or an event" is not drawn.
+- Notifications → the bell panel (Arrive), the four switches on your own page, Follow on a task
+  and on a document. The list behind "See what you follow" is not drawn.
+- Connection / folder setup → "Can reach" on a user's page. The form behind "Connect a folder or
+  a service" is not drawn.
+- Plugins → nothing drawn. Not placed in the layout yet.
+- Not placed either: where the app runs (this computer or a shared server) and model keys.

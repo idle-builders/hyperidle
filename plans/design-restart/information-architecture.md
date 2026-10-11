@@ -145,7 +145,7 @@ Work happens in three stages (founder): **plan** in documents and conversations 
 - Not designed, dropped unless asked for: handing over a batch for the night (hand-off already
   happens from a document or thread) · seeing what runs across all tasks (the Work list).
 
-### PEOPLE — second pass 2026-10-12 (awaiting the founder's look)
+### PEOPLE — accepted for now 2026-10-12
 An agent and a person are the same kind of user, so they share one page.
 - **Two ways in:** the team's name at the top of the sidebar opens the team page (people, each
   with the agents that work for them; then the agents that work for the whole team). Your own
@@ -300,7 +300,11 @@ the end.
 
 ## 8. Not yet registered
 
-All five journeys have a design, and People has a first pass. Still undrawn:
-editing a user (who an agent is, what it runs on) · connecting a folder or a service · following
-something (including a schedule) · adding someone · failure, empty and loading states · the
-"this session cost X" line.
+All five journeys and People have a design. Still undrawn:
+- **Setting up a user** — four small forms that hang off the user page: connect a folder or a
+  service · add a time or an event that starts an agent · edit a user (name, instructions, what
+  it runs on) · add someone.
+- **Plugins** — not placed in the layout and not drawn.
+- **Where the app runs and model keys** — not placed.
+- The list behind "See what you follow".
+- Failure, empty and loading states · the "this session cost X" line.
