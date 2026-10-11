@@ -601,51 +601,69 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .lnk-url { margin-left: var(--sp-2); padding: 2px var(--sp-2); border: var(--line-w) solid var(--line-strong); border-radius: var(--r-sm); font: var(--t-meta); color: var(--ink-3); }
 .picker--inline { max-width: 420px; margin: var(--sp-1) 0 0; }
 
-/* ---------- RUN THE SHIFT — the task screen: the tree stays put on the left, the picked part beside it ---------- */
-.tk { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px minmax(0, 1fr); }
-.tk--single { grid-template-columns: minmax(0, 1fr); }
-.tk-tree { min-height: 0; overflow-y: auto; padding: var(--sp-4) var(--sp-3) var(--sp-6); border-right: var(--line-w) solid var(--line); }
-.tk-page { min-height: 0; overflow-y: auto; padding: var(--sp-6) var(--sp-7) var(--sp-9); display: flex; flex-direction: column; gap: var(--sp-3); font: var(--t-lead); color: var(--ink); }
-.tk-page > * { width: 100%; max-width: 720px; }
-.tk--single .tk-page > * { margin-left: auto; margin-right: auto; }
+/* ---------- RUN THE SHIFT — the task page: one column; the tree is a section of it, never a second navigation ---------- */
+.tk-page { width: 100%; max-width: 1080px; margin: 0 auto; padding: var(--sp-5) var(--sp-7) var(--sp-9); display: flex; flex-direction: column; gap: var(--sp-3); font: var(--t-lead); color: var(--ink); }
+.tk-page > *, .tk-part > * { max-width: 760px; }
+.tk-page > .tk-map, .tk-page > .tk-part { max-width: none; }
 .tk-page h3 { display: flex; align-items: baseline; gap: var(--sp-3); margin-top: var(--sp-5); font: 600 1.0625rem/1.35 var(--font-ui); }
 .tk-page h3 span { font: var(--t-meta); color: var(--ink-3); }
 .tk-meta { margin-top: calc(-1 * var(--sp-2)); font: var(--t-meta); color: var(--ink-3); }
 .tk-none { font: var(--t-body); color: var(--ink-3); }
+.tk-map { display: flex; flex-direction: column; gap: var(--sp-3); }
+/* what shows under the map: the whole task, or the part you clicked */
+.tk-part { display: flex; flex-direction: column; gap: var(--sp-3); }
+.tk-part--sub { margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: var(--line-w) solid var(--line); }
+.tk-part-title { font: 600 1.5rem/1.25 var(--font-ui); }
 
-/* a tree row: the name, then its state in words, who has it, and how many documents and reviews hang on it */
-.tk-row { display: flex; align-items: flex-start; border-radius: var(--r-sm); }
-.tk-row .tree-fold { margin-top: 7px; }
-.tk-row:hover { background: var(--surface); }
-.tk-row[aria-current="true"] { background: var(--surface); box-shadow: var(--sh-1); }
-.tk-pick { flex: 1; min-width: 0; padding: 6px var(--sp-2) 6px 2px; text-align: left; }
-.tk-name { display: block; font: var(--t-body); color: var(--ink); }
-.tk-row--root .tk-name { font-weight: 600; }
-.tk-row--done .tk-name { color: var(--ink-3); }
-.tk-row[aria-current="true"] .tk-name { color: var(--ink); font-weight: 600; }
-.tk-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--sp-2); margin-top: 1px; font: var(--t-meta); color: var(--ink-3); }
-.tk-line > span { white-space: nowrap; }
-.tk-counts { display: inline-flex; gap: var(--sp-2); margin-left: auto; }
+/* one part on the map: a mark for how it stands, its name, a few words */
+.nd { display: flex; align-items: flex-start; gap: var(--sp-2); width: 100%; padding: var(--sp-2) var(--sp-3); border-radius: var(--r); background: var(--sunk); text-align: left; box-shadow: inset 0 0 0 1.5px transparent; transition: box-shadow var(--dur-tap) var(--ease), background var(--dur-tap) var(--ease); }
+.nd:hover { box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.nd[aria-pressed="true"] { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.nd-mark { flex: none; display: grid; place-items: center; min-width: 22px; height: 22px; font: var(--t-label); color: var(--ink-3); }
+.nd-av { width: 22px; height: 22px; font-size: 9px; }
+.nd-you { padding: 1px 5px; border-radius: 4px; background: var(--flag); color: var(--flag-ink); font: var(--t-label); font-weight: 600; }
+.nd-text { min-width: 0; }
+.nd-name { display: block; font: var(--t-body); line-height: 1.35; color: var(--ink); }
+.nd-sub { display: block; margin-top: 1px; font: var(--t-meta); color: var(--ink-3); }
+.nd--yours .nd-sub { color: var(--ink-2); font-weight: 600; }
+.nd--done { background: transparent; }
+.nd--done .nd-name { color: var(--ink-3); }
+.nd--head { background: transparent; padding-left: var(--sp-2); }
+.nd--head .nd-name { font-weight: 600; }
+
+/* style: Columns — the main parts side by side in order, their parts stacked under them */
+.mp--cols { display: grid; gap: var(--sp-6); align-items: start; }
+.mp-col { position: relative; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.mp-then { position: absolute; left: calc(-1 * var(--sp-5) - 2px); top: var(--sp-2); font: var(--t-body); color: var(--ink-3); }
+
+/* style: Tree — the task on the left, branches fanning right, joined by lines */
+.mp--tree { overflow-x: auto; padding-bottom: var(--sp-1); }
+.st { display: flex; align-items: center; }
+.st > .nd { width: 272px; flex: none; padding-top: 6px; padding-bottom: 6px; }
+.mp--tree .nd-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-kids { position: relative; display: flex; flex-direction: column; gap: 4px; margin-left: var(--sp-7); }
+.st-kids::before { content: ""; position: absolute; left: calc(-1 * var(--sp-7)); top: 50%; width: var(--sp-5); border-top: var(--line-w) solid var(--line-strong); }
+.st-kid { position: relative; }
+.st-kid::before { content: ""; position: absolute; left: calc(-1 * var(--sp-5)); top: 50%; width: var(--sp-5); border-top: var(--line-w) solid var(--line-strong); }
+.st-kid::after { content: ""; position: absolute; left: calc(-1 * var(--sp-5)); top: -2px; bottom: -2px; border-left: var(--line-w) solid var(--line-strong); }
+.st-kid:first-child::after { top: 50%; }
+.st-kid:last-child::after { bottom: 50%; }
+.st-kid:only-child::after { display: none; }
+
+/* style: Lanes — one row per main part, its parts as chips along the row */
+.mp--lanes { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ln { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+.ln-kids { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ln-kids .nd { width: auto; max-width: 300px; }
 
 /* where it stands, in one sentence — the first thing under the title */
 .stand { display: flex; align-items: center; gap: var(--sp-3); font: var(--t-lead); font-weight: 500; color: var(--ink); }
 .stand .btn { flex: none; min-height: 32px; }
 .task-list { padding-left: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-1); }
 
-/* a parent's summary carries one line from each of its parts — the ones that need you first */
-.parts { display: flex; flex-direction: column; margin-top: var(--sp-2); }
-.parts-h { font: var(--t-meta); color: var(--ink-3); }
-.part { display: block; width: 100%; padding: var(--sp-2) 0; border-bottom: var(--line-w) solid var(--line); text-align: left; }
-.part-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-4); }
-.part-t { font: var(--t-body); color: var(--ink); }
-.part:hover .part-t { text-decoration: underline; text-underline-offset: 3px; }
-.part-s, .part .nrow-state { flex: none; font: var(--t-meta); }
-.part-s { color: var(--ink-3); }
-.part-sum { display: block; margin-top: 2px; font: var(--t-meta); color: var(--ink-3); }
-
 /* conversations and documents, ranked: what a person takes part in first; the rest folds away */
 .things { display: flex; flex-direction: column; }
-.thing { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: var(--sp-3); padding: var(--sp-2) 0; border-bottom: var(--line-w) solid var(--line); }
+.thing { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: var(--sp-3); padding: 6px 0; }
 .thing-kind { padding-top: 3px; font: var(--t-meta); color: var(--ink-3); }
 .thing-title { display: block; text-align: left; font: var(--t-body); color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
 .thing-title:hover { text-decoration-color: var(--ink-3); }
@@ -658,7 +676,7 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .trow-t { flex: 1 1 auto; min-width: 40%; }
 .trow-s { display: inline-flex; align-items: baseline; justify-content: flex-end; gap: var(--sp-3); flex: 0 1 auto; font: var(--t-meta); color: var(--ink-3); text-align: right; }
 .trow-s .peek { flex: none; }
-.tk-page .session { margin-top: var(--sp-2); }
+.tk-part .session { margin-top: var(--sp-2); }
 .task-more { align-self: flex-start; width: auto; padding: var(--sp-2) 0; font: var(--t-meta); color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
 .task-more:hover { color: var(--ink); }
 .task-reply { flex: none; margin-top: var(--sp-2); }

@@ -4,7 +4,7 @@ import { Arrive, ARRIVE_STEPS } from "./Arrive";
 import { CHAT_FORMATS, FormatBar } from "./FormatBar";
 import { Avatar, Event, Msg } from "./Msg";
 import { Judge, JUDGE_STEPS } from "./Judge";
-import { Shift, SHIFT_STEPS } from "./Shift";
+import { MAP_STYLES, type MapStyle, Shift, SHIFT_STEPS } from "./Shift";
 import { Think, THINK_STEPS } from "./Think";
 import { conversations, type Item, Sidebar } from "./Sidebar";
 
@@ -44,6 +44,7 @@ export function App() {
 	const [journey, setJourney] = useState("handoff");
 	const [step, setStep] = useState(0);
 	const [peek, setPeek] = useState(false);
+	const [mapStyle, setMapStyle] = useState<MapStyle>("columns");
 	const steps = journey === "handoff" ? STEPS : journey === "judge" ? JUDGE_STEPS : journey === "think" ? THINK_STEPS : journey === "shift" ? SHIFT_STEPS : ARRIVE_STEPS;
 	const arrive = journey === "arrive";
 
@@ -81,6 +82,19 @@ export function App() {
 					))}
 				</div>
 
+				{journey === "shift" && (
+					<div className="steps">
+						<span className="steps-head">Tree style</span>
+						<div className="switcher">
+							{MAP_STYLES.map((m) => (
+								<button key={m.id} type="button" aria-pressed={mapStyle === m.id} onClick={() => setMapStyle(m.id)}>
+									{m.name}
+								</button>
+							))}
+						</div>
+					</div>
+				)}
+
 				<div className="steps">
 					<span className="steps-head">Walkthrough</span>
 					{steps.map((s) => (
@@ -110,7 +124,7 @@ export function App() {
 				</div>
 			</nav>
 
-			{journey === "judge" ? <><Sidebar key={`j${step}`} initialPicked="c-r1" /><Judge key={step} step={step} /></> : arrive ? <Arrive key={step} step={step} /> : journey === "think" ? <Think key={step} step={step} /> : journey === "shift" ? <Shift key={step} step={step} /> : <>
+			{journey === "judge" ? <><Sidebar key={`j${step}`} initialPicked="c-r1" /><Judge key={step} step={step} /></> : arrive ? <Arrive key={step} step={step} /> : journey === "think" ? <Think key={step} step={step} /> : journey === "shift" ? <Shift key={`${step}-${mapStyle}`} step={step} map={mapStyle} /> : <>
 			<Sidebar key={`h${step}`} initialPicked="x" lists={{ conversations: handoffList }} />
 
 			<section className="thread">

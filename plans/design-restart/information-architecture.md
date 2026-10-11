@@ -117,14 +117,16 @@ like a chat. A document can start empty or from an existing thread.
 ### RUN THE SHIFT — the task screen, second pass 2026-10-11 (awaiting the founder's look)
 Work happens in three stages (founder): **plan** in documents and conversations (Think) →
 **watch it move through the task tree** (this screen) → **check the result** in a review.
-- **The sidebar lists root tasks only.** The tree of the picked root sits inside the task
-  screen, in its own column, and stays put while you click through it. It is navigation.
-- **A tree row:** name · state in words · owner · counts of documents and reviews. What you owe
-  is flagged. A folded branch rolls up its counts and says "2 for you".
-- **The picked part, beside the tree:** title · where it stands · what it is about · its
-  owner's **summary** · for a parent, one line **from each part's summary**, the ones that need
-  you first · **conversations and documents ranked by the owner** — what a person takes part in
-  first, what the agents made while working folded away · sessions · a chat box into its thread.
+- **The sidebar lists root tasks only. No second navigation inside the page** (founder,
+  2026-10-11: "horrible"). The tree is a **section** of the task page.
+- **The tree is a map of chips**, not a list of rows. How it is drawn is under comparison:
+  Columns (parts side by side in order), Tree (branches fanning right), Lanes (one row per main
+  part). A chip: a mark for how it stands, the name, a few words, document/review counts. What
+  you owe is the yellow "You".
+- **Clicking a part changes only what shows under the map:** its title · where it stands · what
+  it is about · its owner's **summary** · **conversations and documents ranked by the owner** —
+  what a person takes part in first, what the agents made while working folded away · sessions ·
+  a chat box into its thread. "‹ The whole task" goes back.
 - **Summaries trickle up.** Every part gets a summary when it finishes or gets stuck; a parent's
   summary is a summary of those. Summarising and ranking is the root agent's job.
 - **Sizes:** a small fix has no tree; a recurring task is a root whose parts are its runs.

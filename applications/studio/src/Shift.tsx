@@ -4,23 +4,29 @@ import { Msg } from "./Msg";
 import { type Item, Sidebar, WORK } from "./Sidebar";
 
 /**
- * RUN THE SHIFT — the task screen. Planning happens before, in documents and conversations;
- * checking happens after, in reviews. This screen is the middle: watching the work move through
- * its tree. The tree sits beside the task and stays put while you click through it — names, a
- * state in words, and how many documents and reviews hang on each part. The task beside it says
- * what it is about, carries its owner's summary (a parent's summary is a summary of its parts'
- * summaries), and ranks its conversations and documents so the ones a person takes part in come
- * before what the agents made while working. A small fix has no tree; a recurring task has one
- * part per run.
+ * RUN THE SHIFT — the task page. Planning happens before, in documents and conversations;
+ * checking happens after, in reviews. This page is the middle: watching the work move through
+ * its tree. The tree is a section of the page — a map of the parts, drawn in one of three ways
+ * under comparison — and never a second navigation. Clicking a part changes only what shows
+ * below the map: its owner's summary, and its conversations and documents ranked so what a
+ * person takes part in comes before what the agents made while working. A small fix has no map;
+ * a recurring task has one part per run.
  */
 export const SHIFT_STEPS = [
-	{ id: 0, name: "A large task: its tree and summary" },
-	{ id: 1, name: "A part that waits on your answer" },
-	{ id: 2, name: "A finished part and what it made" },
-	{ id: 3, name: "A part where an agent is working" },
-	{ id: 4, name: "A small fix: no tree" },
+	{ id: 0, name: "A large task: the map and its summary" },
+	{ id: 1, name: "Click a part: it waits on your answer" },
+	{ id: 2, name: "Click a part: finished, and what it made" },
+	{ id: 3, name: "Click a part: an agent is working there" },
+	{ id: 4, name: "A small fix: no map" },
 	{ id: 5, name: "A recurring task: one part per run" },
 	{ id: 6, name: "Steer it, hold it, stop it" },
+];
+
+export type MapStyle = "columns" | "tree" | "lanes";
+export const MAP_STYLES: { id: MapStyle; name: string }[] = [
+	{ id: "columns", name: "Columns" },
+	{ id: "tree", name: "Tree" },
+	{ id: "lanes", name: "Lanes" },
 ];
 
 type Id =
@@ -347,7 +353,7 @@ const TASKS: Record<Id, Task> = {
 	weekly: {
 		title: "Support themes, weekly",
 		owner: "Growth",
-		kids: ["wnext", "w41", "w40", "w39"],
+		kids: ["w39", "w40", "w41", "wnext"],
 		state: "Every Monday",
 		stand: "Runs every Monday at 07:00. Each run is a part of its own.",
 		about: "Every Monday, read last week's support tickets and say what people struggled with most.",
@@ -448,12 +454,6 @@ const counts = (id: Id, deep: boolean): { docs: number; reviews: number } => {
 };
 /** How many parts inside wait on you — shown on a folded parent, so folding never hides it. */
 const owedIn = (id: Id): number => leaves(id).filter((l) => l !== id && TASKS[l].owed).length;
-/** In a parent's summary, parts that need you come first, then what moves, then what is done. */
-const rank = (id: Id): number => {
-	if (TASKS[id].owed) return 0;
-	if (stateOf(id) === "Running") return 1;
-	return finished(id) ? 3 : 2;
-};
 const parentOf = (id: Id): Id | undefined => (Object.keys(TASKS) as Id[]).find((p) => TASKS[p].kids?.includes(id));
 const rootOf = (id: Id): Id => {
 	const p = parentOf(id);
@@ -474,41 +474,81 @@ const STEERED: Line[] = [
 
 const START: Id[] = ["trials", "checkout", "email", "reminder", "utc", "weekly", "trials"];
 
-function Tree({ id, depth, sel, open, onPick, onFold }: {
-	id: Id; depth: number; sel: Id; open: Set<Id>; onPick: (id: Id) => void; onFold: (id: Id) => void;
-}) {
+const INITIALS: Record<string, string> = { Builder: "BU", Growth: "GR", Designer: "DS" };
+
+/** One part on the map: a mark for how it stands, its name, and a few words. */
+function Node({ id, sel, head, onPick }: { id: Id; sel: Id; head?: boolean; onPick: (id: Id) => void }) {
 	const t = TASKS[id];
-	const folded = Boolean(t.kids) && !open.has(id);
-	const c = counts(id, folded);
+	const state = stateOf(id);
+	const done = finished(id);
+	const running = state === "Running";
+	const c = counts(id, false);
+	const mine = owedIn(id);
+	let words = state;
+	if (t.owed) words = t.owed;
+	else if (running) words = `${t.owner} is on it`;
+	else if (t.kids && mine > 0) words = `${state} · ${mine} for you`;
+	const extra = [c.docs > 0 && `${c.docs} ${c.docs === 1 ? "doc" : "docs"}`, c.reviews > 0 && `${c.reviews} ${c.reviews === 1 ? "review" : "reviews"}`].filter(Boolean).join(" · ");
 	return (
-		<>
-			<div className={["tk-row", depth === 0 && "tk-row--root", finished(id) && "tk-row--done"].filter(Boolean).join(" ")} aria-current={sel === id}>
-				{t.kids ? (
-					<button type="button" className="tree-fold" aria-expanded={!folded} aria-label={folded ? "Unfold" : "Fold"} onClick={() => onFold(id)}>
-						<span className="chev">›</span>
-					</button>
-				) : <span className="tree-fold" />}
-				<button type="button" className="tk-pick" onClick={() => onPick(id)}>
-					<span className="tk-name">{t.title}</span>
-					<span className="tk-line">
-						<span className={t.owed ? "nrow-state nrow-state--yours" : "nrow-state"}>{stateOf(id)}</span>
-						{folded && owedIn(id) > 0 && <span className="nrow-state nrow-state--yours">{owedIn(id)} for you</span>}
-						<span>{t.owner}</span>
-						{(c.docs > 0 || c.reviews > 0) && (
-							<span className="tk-counts">
-								{c.docs > 0 && <span>{c.docs} {c.docs === 1 ? "doc" : "docs"}</span>}
-								{c.reviews > 0 && <span>{c.reviews} {c.reviews === 1 ? "review" : "reviews"}</span>}
-							</span>
-						)}
-					</span>
-				</button>
-			</div>
-			{t.kids && !folded && (
-				<div className="tree-kids">
-					{t.kids.map((k) => <Tree key={k} id={k} depth={depth + 1} sel={sel} open={open} onPick={onPick} onFold={onFold} />)}
+		<button
+			type="button" aria-pressed={sel === id} onClick={() => onPick(id)}
+			className={["nd", head && "nd--head", done && "nd--done", t.owed && "nd--yours"].filter(Boolean).join(" ")}
+		>
+			<span className="nd-mark" aria-hidden="true">
+				{t.owed && <span className="nd-you">You</span>}
+				{!t.owed && running && <span className="avatar nd-av">{INITIALS[t.owner]}</span>}
+				{!(t.owed || running) && done && "✓"}
+				{!(t.owed || running || done) && (t.kids && state !== "Every Monday" ? "◐" : "○")}
+			</span>
+			<span className="nd-text">
+				<span className="nd-name">{t.title}</span>
+				<span className="nd-sub">{words}{extra && ` · ${extra}`}</span>
+			</span>
+		</button>
+	);
+}
+
+/** Tree: the task on the left, its branches fanning out to the right, joined by lines. */
+function Branch({ id, sel, onPick }: { id: Id; sel: Id; onPick: (id: Id) => void }) {
+	const kids = TASKS[id].kids;
+	return (
+		<div className="st">
+			<Node id={id} sel={sel} head={Boolean(kids)} onPick={onPick} />
+			{kids && (
+				<div className="st-kids">
+					{kids.map((k) => <div key={k} className="st-kid"><Branch id={k} sel={sel} onPick={onPick} /></div>)}
 				</div>
 			)}
-		</>
+		</div>
+	);
+}
+
+/** The parts of a task, as a section of its page. Clicking a part changes what shows below, never the map. */
+function PartsMap({ root, style, sel, onPick }: { root: Id; style: MapStyle; sel: Id; onPick: (id: Id) => void }) {
+	const kids = TASKS[root].kids ?? [];
+	if (style === "tree") return <div className="mp mp--tree"><Branch id={root} sel={sel} onPick={onPick} /></div>;
+	if (style === "lanes") {
+		return (
+			<div className="mp mp--lanes">
+				{kids.map((k) => (
+					<div key={k} className="ln">
+						<Node id={k} sel={sel} head onPick={onPick} />
+						<div className="ln-kids">{TASKS[k].kids?.map((g) => <Node key={g} id={g} sel={sel} onPick={onPick} />)}</div>
+					</div>
+				))}
+			</div>
+		);
+	}
+	return (
+		<div className="mp mp--cols" style={{ gridTemplateColumns: `repeat(${kids.length}, minmax(0, 1fr))` }}>
+			{kids.map((k, i) => (
+				<div key={k} className="mp-col">
+					{i > 0 && <span className="mp-then" aria-hidden="true">→</span>}
+					<Node id={k} sel={sel} head onPick={onPick} />
+					{TASKS[k].kids?.map((g) => <Node key={g} id={g} sel={sel} onPick={onPick} />)}
+				</div>
+			))}
+		</div>
 	);
 }
 
@@ -525,7 +565,7 @@ function Things({ items, quiet, onPick }: { items: Thing[]; quiet?: boolean; onP
 							<span className="thing-why">
 								{x.owed && <span className="nrow-state nrow-state--yours">{x.owed}</span>}
 								<span>{x.why}</span>
-								{on && <span>· on <button type="button" className="thing-on" onClick={() => onPick(on)}>{TASKS[on].title}</button></span>}
+								{on && <span>on <button type="button" className="thing-on" onClick={() => onPick(on)}>{TASKS[on].title}</button></span>}
 							</span>
 						</span>
 					</div>
@@ -535,26 +575,23 @@ function Things({ items, quiet, onPick }: { items: Thing[]; quiet?: boolean; onP
 	);
 }
 
-export function Shift({ step }: { step: number }) {
+export function Shift({ step, map }: { step: number; map: MapStyle }) {
 	const [sel, setSel] = useState<Id>(START[step] ?? "trials");
-	const [open, setOpen] = useState<Set<Id>>(new Set<Id>(["trials", "build", "weekly"]));
 	const [peek, setPeek] = useState(false);
 	const [more, setMore] = useState(false);
 	const [menu, setMenu] = useState(step === 6);
 	const [held, setHeld] = useState(false);
 	const root = rootOf(sel);
+	const r = TASKS[root];
 	const t = TASKS[sel];
-	const single = !TASKS[root].kids;
+	const all = leaves(root);
+	const tally = [
+		`${all.filter((l) => TASKS[l].state === "Done").length} of ${all.length} done`,
+		all.some((l) => TASKS[l].owed) && `${all.filter((l) => TASKS[l].owed).length} wait on you`,
+		all.some((l) => TASKS[l].state === "Running") && `${all.filter((l) => TASKS[l].state === "Running").length} running`,
+	].filter(Boolean).join(" · ");
 	const lines = step === 6 && sel === "trials" ? [...(t.thread ?? []), ...STEERED] : t.thread ?? [];
-	const parts = [...(t.kids ?? [])].sort((a, b) => rank(a) - rank(b));
 	const pick = (id: Id) => { setSel(id); setPeek(false); setMore(false); };
-	const fold = (id: Id) =>
-		setOpen((o) => {
-			const n = new Set(o);
-			if (n.has(id)) n.delete(id);
-			else n.add(id);
-			return n;
-		});
 
 	return (
 		<>
@@ -562,7 +599,7 @@ export function Shift({ step }: { step: number }) {
 			<section className="detail">
 				<header className="detail-head">
 					<span className="chip chip--quiet">Task</span>
-					<h2>{TASKS[root].title}</h2>
+					<h2>{r.title}</h2>
 					<span className="doc-state">{held ? "On hold" : stateOf(root)}</span>
 					{!finished(root) && (
 						<span className="doc-act">
@@ -583,90 +620,91 @@ export function Shift({ step }: { step: number }) {
 					)}
 				</header>
 
-				<div className={single ? "tk tk--single" : "tk"}>
-					{!single && (
-						<nav className="tk-tree" aria-label="Parts of this task">
-							<Tree id={root} depth={0} sel={sel} open={open} onPick={pick} onFold={fold} />
-						</nav>
-					)}
-
-					<article className="tk-page" key={sel}>
-						<h1 className="page-title">{t.title}</h1>
+				<div className="detail-scroll">
+					<article className="tk-page">
+						<h1 className="page-title">{r.title}</h1>
 						<p className="stand">
-							{t.owed && !held && <span className="chip chip--flag">{t.owed}</span>}
-							<span>{held ? "On hold. The agents wait until you take it off hold." : t.stand}</span>
-							{t.action && <button type="button" className="btn btn--accent">{t.action}</button>}
+							{r.owed && !held && <span className="chip chip--flag">{r.owed}</span>}
+							<span>{held ? "On hold. The agents wait until you take it off hold." : r.stand}</span>
 						</p>
-						<p className="tk-meta">{t.meta}</p>
+						<p className="tk-meta">{r.meta}</p>
+						<p>{r.about}</p>
 
-						<p>{t.about}</p>
-						{t.doneWhen && (
-							<>
-								<h3>Done when</h3>
-								<ul className="task-list">{t.doneWhen.map((l) => <li key={l}>{l}</li>)}</ul>
-							</>
+						{r.kids && (
+							<section className="tk-map" aria-label="Parts of this task">
+								<h3>Parts <span>{r.state ? "one per run, the next one last" : tally}</span></h3>
+								<PartsMap root={root} style={map} sel={sel} onPick={pick} />
+							</section>
 						)}
 
-						<h3>Summary {t.summary && <span>by {t.owner} · {t.summary.when}</span>}</h3>
-						{t.summary ? <ul className="task-list">{t.summary.lines.map((l) => <li key={l}>{l}</li>)}</ul> : <p className="tk-none">No summary yet. It has not started.</p>}
-						{parts.length > 0 && (
-							<div className="parts">
-								<span className="parts-h">From its parts</span>
-								{parts.map((k) => (
-									<button key={k} type="button" className="part" onClick={() => pick(k)}>
-										<span className="part-top">
-											<span className="part-t">{TASKS[k].title}</span>
-											<span className={TASKS[k].owed ? "nrow-state nrow-state--yours" : "part-s"}>{stateOf(k)}</span>
-										</span>
-										<span className="part-sum">{TASKS[k].summary?.lines[0] ?? TASKS[k].stand}</span>
+						<div className={sel === root ? "tk-part" : "tk-part tk-part--sub"} key={sel}>
+							{sel !== root && (
+								<>
+									<button type="button" className="task-more" onClick={() => pick(root)}>‹ The whole task</button>
+									<h2 className="tk-part-title">{t.title}</h2>
+									<p className="stand">
+										{t.owed && !held && <span className="chip chip--flag">{t.owed}</span>}
+										<span>{t.stand}</span>
+										{t.action && <button type="button" className="btn btn--accent">{t.action}</button>}
+									</p>
+									<p className="tk-meta">{t.meta}</p>
+									<p>{t.about}</p>
+								</>
+							)}
+							{t.doneWhen && (
+								<>
+									<h3>Done when</h3>
+									<ul className="task-list">{t.doneWhen.map((l) => <li key={l}>{l}</li>)}</ul>
+								</>
+							)}
+
+							<h3>Summary {t.summary && <span>by {t.owner} · {t.summary.when}</span>}</h3>
+							{t.summary ? <ul className="task-list">{t.summary.lines.map((l) => <li key={l}>{l}</li>)}</ul> : <p className="tk-none">No summary yet. It has not started.</p>}
+
+							<h3>Conversations and documents <span>ranked by {t.owner}</span></h3>
+							{t.things.length > 0 ? <Things items={t.things} onPick={pick} /> : <p className="tk-none">Nothing here yet.</p>}
+							{t.more && (
+								<>
+									<button type="button" className="task-more" aria-expanded={more} onClick={() => setMore(!more)}>
+										{more ? "Hide" : "Show"} {t.more.items.length} more, {t.more.label}
 									</button>
-								))}
-							</div>
-						)}
+									{more && <Things items={t.more.items} quiet onPick={pick} />}
+								</>
+							)}
 
-						<h3>Conversations and documents <span>ranked by {t.owner}</span></h3>
-						{t.things.length > 0 ? <Things items={t.things} onPick={pick} /> : <p className="tk-none">Nothing here yet.</p>}
-						{t.more && (
-							<>
-								<button type="button" className="task-more" aria-expanded={more} onClick={() => setMore(!more)}>
-									{more ? "Hide" : "Show"} {t.more.items.length} more, {t.more.label}
-								</button>
-								{more && <Things items={t.more.items} quiet onPick={pick} />}
-							</>
-						)}
-
-						{t.runs.length > 0 && (
-							<>
-								<h3>Sessions</h3>
-								<div>
-									{t.runs.map((r) => (
-										<div key={r.n} className="trow">
-											<span className="trow-t">Session {r.n} · {r.when}</span>
-											<span className="trow-s">
-												{r.said}
-												{r.live && !held && <button type="button" className="peek" onClick={() => setPeek(!peek)}>{peek ? "Hide" : "Peek"}</button>}
-											</span>
-										</div>
-									))}
-									{peek && <ul className="session">{SESSION_STEPS.map((l) => <li key={l}>· {l}</li>)}</ul>}
-									{t.earlierRuns && <button type="button" className="task-more">{t.earlierRuns} earlier sessions</button>}
-								</div>
-							</>
-						)}
-
-						{!finished(sel) && (
-							<>
-								<h3>Say something <span>goes into this task's thread</span></h3>
-								{lines.map((l) => <Msg key={l.id} who={l.av} human={l.human} name={l.name} at={l.at}>{l.body}</Msg>)}
-								<div className="composer-box task-reply">
-									<input placeholder={`Tell ${t.owner} something, or @someone…`} aria-label="Reply" />
-									<div className="composer-row">
-										<FormatBar kinds={CHAT_FORMATS} />
-										<button type="button" className="btn btn--accent">Send</button>
+							{t.runs.length > 0 && (
+								<>
+									<h3>Sessions</h3>
+									<div>
+										{t.runs.map((x) => (
+											<div key={x.n} className="trow">
+												<span className="trow-t">Session {x.n} · {x.when}</span>
+												<span className="trow-s">
+													{x.said}
+													{x.live && !held && <button type="button" className="peek" onClick={() => setPeek(!peek)}>{peek ? "Hide" : "Peek"}</button>}
+												</span>
+											</div>
+										))}
+										{peek && <ul className="session">{SESSION_STEPS.map((l) => <li key={l}>· {l}</li>)}</ul>}
+										{t.earlierRuns && <button type="button" className="task-more">{t.earlierRuns} earlier sessions</button>}
 									</div>
-								</div>
-							</>
-						)}
+								</>
+							)}
+
+							{!finished(sel) && (
+								<>
+									<h3>Say something <span>goes into this task's thread</span></h3>
+									{lines.map((l) => <Msg key={l.id} who={l.av} human={l.human} name={l.name} at={l.at}>{l.body}</Msg>)}
+									<div className="composer-box task-reply">
+										<input placeholder={`Tell ${t.owner} something, or @someone…`} aria-label="Reply" />
+										<div className="composer-row">
+											<FormatBar kinds={CHAT_FORMATS} />
+											<button type="button" className="btn btn--accent">Send</button>
+										</div>
+									</div>
+								</>
+							)}
+						</div>
 					</article>
 				</div>
 			</section>

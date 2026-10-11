@@ -687,3 +687,19 @@ really also key aspect of the work of the root agent … essentially the orchest
   run is a part, next run on top.
 - Dropped from the first pass: the facts margin and the separate reviews list (a review is one
   of the ranked conversations).
+
+**Founder on the second pass: "definitely not another navigation bar inside the page, that's
+horrible. the tree is a section. and also this display is ugly, we need something completely
+different."** I had read "the tree sits inside the task screen" as a column beside the task.
+Rebuilt: the page is one column again and the tree is a section of it ("Parts"), drawn as a map
+of chips instead of a list of rows. Three ways to draw it, switchable in the studio rail under
+"Tree style", for the founder to pick from:
+- **Columns** — the main parts side by side in order with arrows between them, their parts
+  stacked underneath (like a build pipeline).
+- **Tree** — the task on the left, branches fanning out to the right, joined by lines.
+- **Lanes** — one row per main part, its parts as chips along the row.
+A chip: a mark (✓ done, ◐ under way, ○ not started, the agent's initials where one is working,
+a yellow "You" where it waits on you), the name, a few words, and document/review counts.
+Clicking a chip changes only what shows under the map; the map does not move. "‹ The whole
+task" goes back. Dropped: the tree column, the "From its parts" list (the map replaces it), the
+hairlines in the ranked list.
