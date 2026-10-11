@@ -808,3 +808,33 @@ This one page is meant to absorb four of the undrawn screens: agents and people,
 "what I follow", connecting folders and GitHub, and setting up a recurring run (an agent
 following "Every Monday at 07:00"). The editors behind "Edit", "Connect…" and "Follow something
 else" are not drawn yet.
+
+**Founder on the People first pass (2026-10-12):**
+- Likes the user page as "the todo and status list of a user/agent": what is assigned to that
+  user or waiting on that user. And "the user settings as the typical sidebar".
+- **No conversation on the user page.** "Loading that there is overkill." A link to jump to it,
+  in the floating box.
+- **"Documents" is the wrong name:** it is really the agent's agents.md, personal skills and
+  memory.
+- **Did not understand "Follows":** where do we configure what we follow, is that the
+  notification part?
+- Team as the entry works; asked whether a user can be in several teams (then a way to pick
+  the team would be needed).
+- Likes having his own page: "a great point to see your tasks, review, … stuff I need to quick
+  access."
+
+**Changed:**
+- The page is only the list: for an agent "On now" (plus "2 more, done today"); for a person
+  "Waiting for …" (reviews and questions) and "Started by …" (tasks they handed off, and how
+  each stands). No conversation; the box has **Open conversation** and says when you last talked.
+- Box sections renamed and made concrete: **Runs on** · **Can reach** · **Starts working when**
+  (an agent: a mention, a hand-off, "Every Monday at 07:00" — with "Add a time or an event") ·
+  **Notifications — tell me when** (on your own page: four switches, plus "You follow 4
+  documents and 3 tasks · See what you follow") · **Instructions, skills and memory** (an
+  agent) or **About** (a person: what agents should know when working with them) · **Looks**.
+  Another person's notifications are not shown.
+- **Where you follow something:** on the thing itself. A task has Follow / Following in its box;
+  a published document has it in its header. Your page lists and switches it.
+- **Your own page** is one click away at the bottom of the sidebar ("You · 4 waiting for you").
+- Several teams: today every user is in exactly one team (`docs/process-layer/teams.md`), so no
+  team picker was built. If that changes, the team name at the top becomes the picker.

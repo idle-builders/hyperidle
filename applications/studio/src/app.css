@@ -738,3 +738,9 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .looks { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 .looks button { min-height: 28px; padding: 0 var(--sp-2); border: var(--line-w) solid var(--line); border-radius: var(--r-sm); font: var(--t-label); color: var(--ink-2); }
 .looks button[aria-checked="true"] { border-color: var(--ink-2); background: var(--sunk); color: var(--ink); }
+/* your own page, one click away at the bottom of the sidebar */
+.nav-you { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-2); padding: var(--sp-2); border-radius: var(--r); text-align: left; }
+.nav-you:hover { background: var(--surface); }
+.nav-you[aria-current="true"] { background: var(--surface); box-shadow: var(--sh-1); }
+.nav-you-name { font: var(--t-strong); font-weight: 600; }
+.nav-you-sub { margin-left: auto; font: var(--t-meta); color: var(--ink-3); }

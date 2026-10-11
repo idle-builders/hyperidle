@@ -715,6 +715,8 @@ function TaskBox({ id, held, onHold, onPick }: { id: Id; held: boolean; onHold: 
 	const [more, setMore] = useState(false);
 	const [peek, setPeek] = useState(false);
 	const [review, setReview] = useState(Boolean(t.review));
+	// You follow what you started; following is how its news reaches you.
+	const [following, setFollowing] = useState(true);
 	const done = finished(id);
 	let state = stateOf(id);
 	if (t.needs) state = NEED_WORDS[t.needs];
@@ -740,12 +742,11 @@ function TaskBox({ id, held, onHold, onPick }: { id: Id; held: boolean; onHold: 
 				<span className="tbox-state">{state}</span>
 			</div>
 
-			{!done && (
-				<div className="tbox-acts">
-					<button type="button" className="btn" onClick={onHold}>{held ? "Take off hold" : "Put on hold"}</button>
-					<button type="button" className="btn">Stop</button>
-				</div>
-			)}
+			<div className="tbox-acts">
+				<button type="button" className="btn" aria-pressed={following} onClick={() => setFollowing(!following)}>{following ? "Following" : "Follow"}</button>
+				{!done && <button type="button" className="btn" onClick={onHold}>{held ? "Take off hold" : "Put on hold"}</button>}
+				{!done && <button type="button" className="btn">Stop</button>}
+			</div>
 
 			<ul className="tbox-facts">
 				{t.meta.split(" · ").map((f) => <li key={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</li>)}

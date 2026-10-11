@@ -1,22 +1,22 @@
 import { useState } from "react";
-import { CHAT_FORMATS, FormatBar } from "./FormatBar";
-import { Avatar, Msg } from "./Msg";
+import { Avatar } from "./Msg";
 import { type Need, NeedIcon } from "./NeedIcon";
 import { Sidebar } from "./Sidebar";
 
 /**
- * PEOPLE — agents and people are the same kind of user, so they share one page. The page holds
- * who they are, what they are on, and your conversation with them; a box floating on the right
- * holds how they are set up: what they run on, what they can reach, what they follow, their
- * documents. There is no separate settings screen: your own page is where your settings live.
- * A team is not a thing of its own, only everyone who has it — so the team page is the list of
- * its people, each with the agents that work for them.
+ * PEOPLE — agents and people are the same kind of user, so they share one page. The page is that
+ * user's to-do and status list: what is assigned to them and what waits on them. A box floating
+ * on the right holds how they are set up — the typical settings sidebar: a link to your
+ * conversation with them, what they run on, what they can reach, when they start working or what
+ * they are told about, and what makes them who they are (instructions, skills, memory). There
+ * is no separate settings screen: your own page is where your settings live, and it is one click
+ * away at the bottom of the sidebar. A team is not a thing of its own, only everyone who has it.
  */
 export const PEOPLE_STEPS = [
 	{ id: 0, name: "The team: people and their agents" },
 	{ id: 1, name: "An agent's page" },
 	{ id: 2, name: "A person's page" },
-	{ id: 3, name: "Your own page: where settings live" },
+	{ id: 3, name: "Your own page: your list and your settings" },
 ];
 
 type UserId = "you" | "maya" | "builder" | "growth" | "designer" | "facilitation";
@@ -26,18 +26,12 @@ interface Work {
 	words: string;
 	mark: "run" | "open" | "done";
 	needs?: Need;
+	/** Whose initials mark a running row, when it is not the user the page is about. */
+	by?: string;
 }
 interface Pair {
 	what: string;
 	why: string;
-}
-interface Line {
-	id: string;
-	av: string;
-	human?: boolean;
-	name: string;
-	at: string;
-	body: React.ReactNode;
 }
 interface User {
 	name: string;
@@ -52,12 +46,19 @@ interface User {
 	onTitle: string;
 	on: Work[];
 	doneToday?: number;
+	/** For a person: the tasks they handed to someone, and how each stands. */
+	started?: Work[];
 	runsOn?: Pair[];
 	reach: Pair[];
-	follows: Pair[];
-	docs: Pair[];
+	/** An agent: what makes it start working. A person: what they are told about, each a switch. */
+	when: Pair[];
+	/** What a person follows, beyond the general rules. */
+	following?: string;
+	/** What makes them who they are: an agent's instructions, skills and memory; a person's "about". */
+	self: Pair[];
 	facts: string[];
-	thread: Line[];
+	/** When you last talked. */
+	talked?: string;
 }
 
 const TEAM = "Northwind";
@@ -81,18 +82,20 @@ const USERS: Record<UserId, User> = {
 			{ what: "GitHub", why: "northwind, your account" },
 			{ what: "Google Drive", why: "the Northwind shared drive" },
 		],
-		follows: [
-			{ what: "A review is raised for you", why: "tells you" },
-			{ what: "Someone mentions you", why: "tells you" },
-			{ what: "A task you started is done or stuck", why: "tells you" },
-			{ what: "4 documents you follow change", why: "tells you" },
+		started: [
+			{ title: "Trials that convert without a call", words: "Growth · 6 of 12 done", mark: "open" },
+			{ title: "Usage-based tier, metering", words: "Builder · running 2h", mark: "run", by: "BU" },
+			{ title: "Explain what happens when a trial ends", words: "Builder · needs review", mark: "open", needs: "review" },
 		],
-		docs: [
-			{ what: "Plan: trials without a call", why: "You wrote it with Growth · 2 weeks ago" },
-			{ what: "Should trials be 10 days?", why: "Draft · today" },
+		when: [
+			{ what: "A review is raised for me", why: "" },
+			{ what: "Someone mentions me", why: "" },
+			{ what: "A task I started is done or stuck", why: "" },
+			{ what: "Something I follow changes", why: "" },
 		],
+		following: "You follow 4 documents and 3 tasks",
+		self: [{ what: "About you", why: "What agents should know when they work with you" }],
 		facts: ["Person", `Team ${TEAM}`, "Here since 3 July"],
-		thread: [],
 	},
 	maya: {
 		name: "Maya Chen", av: "MC", kind: "Person",
@@ -106,17 +109,11 @@ const USERS: Record<UserId, User> = {
 			{ what: "Zendesk", why: "the support desk" },
 			{ what: "Google Drive", why: "the Northwind shared drive" },
 		],
-		follows: [
-			{ what: "A review is raised for her", why: "tells her" },
-			{ what: "Someone mentions her", why: "tells her" },
-			{ what: "Support themes, weekly gets a new run", why: "tells her" },
-		],
-		docs: [{ what: "July support themes", why: "She wrote it · 3 months ago" }],
+		started: [{ title: "Refund wording", words: "Designer · needs review", mark: "open", needs: "review" }],
+		when: [],
+		self: [{ what: "About Maya", why: "What agents should know when they work with her" }],
 		facts: ["Person", `Team ${TEAM}`, "Here since 3 July"],
-		thread: [
-			{ id: "a", av: "MC", human: true, name: "Maya Chen", at: "Friday 13:02", body: "Sent all three, barely touched them. Closed the tickets. Thanks." },
-			{ id: "b", av: "FO", human: true, name: "You", at: "Friday 13:10", body: "Good. Can you own the rollout rule once it is written down?" },
-		],
+		talked: "Friday 13:10",
 	},
 	builder: {
 		name: "Builder", av: "BU", kind: "Agent", owner: "you",
@@ -142,19 +139,17 @@ const USERS: Record<UserId, User> = {
 			{ what: "GitHub", why: "northwind/app · opens pull requests" },
 			{ what: "Zendesk", why: "reads tickets" },
 		],
-		follows: [
-			{ what: "Someone mentions @Builder", why: "joins that thread" },
-			{ what: "A task is handed to it", why: "starts when a session is free" },
+		when: [
+			{ what: "Someone mentions @Builder", why: "it joins that thread" },
+			{ what: "A task is handed to it", why: "it starts when a session is free" },
 		],
-		docs: [
-			{ what: "Who Builder is", why: "Its instructions · you edited it 3 weeks ago" },
+		self: [
+			{ what: "Instructions", why: "Who Builder is and how it works · you edited it 3 weeks ago" },
+			{ what: "Skills · 3", why: "Write a migration · Run the tests · Open a pull request" },
 			{ what: "Memory · 14 notes", why: "Only you and Builder can read these" },
 		],
 		facts: ["Agent · works for you", `Team ${TEAM}`, "Here since 3 July"],
-		thread: [
-			{ id: "a", av: "FO", human: true, name: "You", at: "yesterday 17:40", body: <><strong>@Builder</strong> what is left on the checkout?</> },
-			{ id: "b", av: "BU", name: "Builder", at: "yesterday 17:40", body: "The page is built. One question is open: when we take the card. After that I put the answer in and hand it to Designer." },
-		],
+		talked: "yesterday 17:40",
 	},
 	growth: {
 		name: "Growth", av: "GR", kind: "Agent", owner: "you",
@@ -177,17 +172,18 @@ const USERS: Record<UserId, User> = {
 			{ what: "Zendesk", why: "reads tickets" },
 			{ what: "Google Drive", why: "the Northwind shared drive" },
 		],
-		follows: [
-			{ what: "Every Monday at 07:00", why: "starts a run of Support themes, weekly" },
-			{ what: "Someone mentions @Growth", why: "joins that thread" },
-			{ what: "A task is handed to it", why: "starts when a session is free" },
+		when: [
+			{ what: "Every Monday at 07:00", why: "it starts a run of Support themes, weekly" },
+			{ what: "Someone mentions @Growth", why: "it joins that thread" },
+			{ what: "A task is handed to it", why: "it starts when a session is free" },
 		],
-		docs: [
-			{ what: "Who Growth is", why: "Its instructions · you edited it 2 months ago" },
+		self: [
+			{ what: "Instructions", why: "Who Growth is and how it works · you edited it 2 months ago" },
+			{ what: "Skills · 2", why: "Read the payment numbers · Read the support desk" },
 			{ what: "Memory · 9 notes", why: "Only you and Growth can read these" },
 		],
 		facts: ["Agent · works for you", `Team ${TEAM}`, "Here since 14 July"],
-		thread: [{ id: "a", av: "GR", name: "Growth", at: "14:32", body: "Two parts need a person before the test can start: one answer on the checkout and one review of the layout." }],
+		talked: "today 14:32",
 	},
 	designer: {
 		name: "Designer", av: "DS", kind: "Agent", owner: "maya",
@@ -207,13 +203,16 @@ const USERS: Record<UserId, User> = {
 			{ what: "Folder", why: "~/code/northwind-site · reads and writes" },
 			{ what: "Figma", why: "reads the brand file" },
 		],
-		follows: [
-			{ what: "Someone mentions @Designer", why: "joins that thread" },
-			{ what: "A task is handed to it", why: "starts when a session is free" },
+		when: [
+			{ what: "Someone mentions @Designer", why: "it joins that thread" },
+			{ what: "A task is handed to it", why: "it starts when a session is free" },
 		],
-		docs: [{ what: "Who Designer is", why: "Its instructions · Maya edited it 5 weeks ago" }],
+		self: [
+			{ what: "Instructions", why: "Who Designer is and how it works · Maya edited it 5 weeks ago" },
+			{ what: "Skills · 1", why: "Check a page at two widths" },
+			{ what: "Memory · 6 notes", why: "Only Maya and Designer can read these" },
+		],
 		facts: ["Agent · works for Maya Chen", `Team ${TEAM}`, "Here since 20 July"],
-		thread: [],
 	},
 	facilitation: {
 		name: "Facilitation", av: "FA", kind: "Agent", owner: "team",
@@ -229,13 +228,15 @@ const USERS: Record<UserId, User> = {
 			{ what: "1 session at a time", why: "" },
 		],
 		reach: [{ what: "Nothing outside HyperIdle", why: "it only reads and writes documents here" }],
-		follows: [
-			{ what: "A task finishes with a note on how it went", why: "reads the note" },
-			{ what: "Every Friday at 16:00", why: "proposes changes to How we work" },
+		when: [
+			{ what: "A task finishes with a note on how it went", why: "it reads the note" },
+			{ what: "Every Friday at 16:00", why: "it proposes changes to How we work" },
 		],
-		docs: [{ what: "Who Facilitation is", why: "Its instructions · came with the team" }],
+		self: [
+			{ what: "Instructions", why: "Who Facilitation is and how it works · came with the team" },
+			{ what: "Memory · 21 notes", why: "Anyone in the team can read these" },
+		],
 		facts: ["Agent · works for the whole team", `Team ${TEAM}`, "Here since 3 July"],
-		thread: [],
 	},
 };
 
@@ -306,14 +307,30 @@ function Section({ title, note, items, add }: { title: string; note?: string; it
 	);
 }
 
+function Jobs({ u, items }: { u: User; items: Work[] }) {
+	return (
+		<div className="jobs">
+			{items.map((w) => (
+				<button key={w.title} type="button" className="nd">
+					<span className="nd-mark" aria-hidden="true"><Mark w={w} av={w.by ?? u.av} /></span>
+					<span className="nd-text">
+						<span className="nd-name">{w.title}</span>
+						<span className="nd-sub">{w.words}</span>
+					</span>
+				</button>
+			))}
+		</div>
+	);
+}
+
 function UserPage({ id, onOpen, onTeam }: { id: UserId; onOpen: (id: UserId) => void; onTeam: () => void }) {
 	const u = USERS[id];
 	const [paused, setPaused] = useState(false);
 	const [looks, setLooks] = useState("Light");
-	const mine = id === "you" || u.owner === "you" || u.owner === "team";
+	const [off, setOff] = useState<Set<string>>(new Set());
+	const me = id === "you";
+	const mine = me || u.owner === "you" || u.owner === "team";
 	const owner = u.owner && u.owner !== "team" ? u.owner : null;
-	let follows = "what wakes it";
-	if (u.kind === "Person") follows = id === "you" ? "what you are told about" : "what they are told about";
 	return (
 		<article className="tk-page">
 			<div className="tk-main">
@@ -327,31 +344,13 @@ function UserPage({ id, onOpen, onTeam }: { id: UserId; onOpen: (id: UserId) => 
 				<p>{u.about}</p>
 
 				<h3>{u.onTitle} <span>{u.on.length}</span></h3>
-				<div className="jobs">
-					{u.on.map((w) => (
-						<button key={w.title} type="button" className="nd">
-							<span className="nd-mark" aria-hidden="true"><Mark w={w} av={u.av} /></span>
-							<span className="nd-text">
-								<span className="nd-name">{w.title}</span>
-								<span className="nd-sub">{w.words}</span>
-							</span>
-						</button>
-					))}
-					{u.doneToday && <button type="button" className="tbox-more">{u.doneToday} more, done today</button>}
-				</div>
+				<Jobs u={u} items={u.on} />
+				{u.doneToday && <button type="button" className="tbox-more">{u.doneToday} more, done today</button>}
 
-				{id !== "you" && (
+				{u.started && (
 					<>
-						<h3>Conversation <span>you and {u.name} · also in Conversations</span></h3>
-						{u.thread.length === 0 && <p className="tk-none">Nothing said here yet.</p>}
-						{u.thread.map((l) => <Msg key={l.id} who={l.av} human={l.human} name={l.name} at={l.at}>{l.body}</Msg>)}
-						<div className="composer-box task-reply">
-							<input placeholder={`Tell ${u.name} something…`} aria-label="Message" />
-							<div className="composer-row">
-								<FormatBar kinds={CHAT_FORMATS} />
-								<button type="button" className="btn btn--accent">Send</button>
-							</div>
-						</div>
+						<h3>{me ? "Started by you" : `Started by ${u.name.split(" ")[0]}`} <span>{u.started.length}</span></h3>
+						<Jobs u={u} items={u.started} />
 					</>
 				)}
 			</div>
@@ -361,19 +360,41 @@ function UserPage({ id, onOpen, onTeam }: { id: UserId; onOpen: (id: UserId) => 
 					<span className="tbox-name">{u.name}</span>
 					<span className="tbox-state">{paused ? "Paused" : u.status}</span>
 				</div>
-				{mine && (
+				{(mine || !me) && (
 					<div className="tbox-acts">
-						<button type="button" className="btn">Edit</button>
-						{u.kind === "Agent" && <button type="button" className="btn" onClick={() => setPaused(!paused)}>{paused ? "Let it work" : "Pause"}</button>}
+						{!me && <button type="button" className="btn btn--accent">Open conversation</button>}
+						{mine && <button type="button" className="btn">Edit</button>}
+						{mine && u.kind === "Agent" && <button type="button" className="btn" onClick={() => setPaused(!paused)}>{paused ? "Let it work" : "Pause"}</button>}
 					</div>
 				)}
-				<ul className="tbox-facts">{u.facts.map((f) => <li key={f}>{f}</li>)}</ul>
+				<ul className="tbox-facts">
+					{u.facts.map((f) => <li key={f}>{f}</li>)}
+					{u.talked && <li>You last talked {u.talked}</li>}
+				</ul>
 
 				{u.runsOn && <Section title="Runs on" items={u.runsOn} />}
 				<Section title="Can reach" items={u.reach} add={mine ? "Connect a folder or a service" : undefined} />
-				<Section title="Follows" note={follows} items={u.follows} add={mine ? "Follow something else" : undefined} />
-				<Section title="Documents" items={u.docs} />
-				{id === "you" && (
+
+				{u.kind === "Agent" && <Section title="Starts working when" items={u.when} add={mine ? "Add a time or an event" : undefined} />}
+				{me && (
+					<section className="tbox-sec">
+						<h4>Notifications <span>tell me when</span></h4>
+						{u.when.map((x) => (
+							<button
+								key={x.what} type="button" className="fact-switch" role="switch" aria-checked={!off.has(x.what)}
+								onClick={() => setOff((o) => { const n = new Set(o); if (n.has(x.what)) n.delete(x.what); else n.add(x.what); return n; })}
+							>
+								<span className="fact-knob" />
+								{x.what}
+							</button>
+						))}
+						<p className="pair-why">{u.following}. You follow a document, task or thread from its own page.</p>
+						<button type="button" className="tbox-more">See what you follow</button>
+					</section>
+				)}
+
+				<Section title={u.kind === "Agent" ? "Instructions, skills and memory" : "About"} items={u.self} />
+				{me && (
 					<section className="tbox-sec">
 						<h4>Looks</h4>
 						<div className="looks" role="radiogroup" aria-label="Looks">
@@ -394,7 +415,7 @@ export function People({ step }: { step: number }) {
 	const u = open ? USERS[open] : null;
 	return (
 		<>
-			<Sidebar teamOpen={open === null} />
+			<Sidebar teamOpen={open === null} youOpen={open === "you"} />
 			<section className="detail">
 				<header className="detail-head">
 					<span className="chip chip--quiet">{u ? u.kind : "Team"}</span>

@@ -284,6 +284,7 @@ export function Think({ step }: { step: number }) {
 	const [published, setPublished] = useState(step === AT.published);
 	const [edit, setEdit] = useState(step < AT.published);
 	const [hidden, setHidden] = useState(false);
+	const [following, setFollowing] = useState(true);
 	const [justResolved, setJustResolved] = useState<BlockId | null>(null);
 	const [drag, setDrag] = useState<{ id: BlockId; end: 0 | 1 } | null>(null);
 	/** Pieces added from the format bar, in order, after the last block. */
@@ -542,7 +543,10 @@ export function Think({ step }: { step: number }) {
 								<button type="button" className="btn" onClick={() => setEdit(false)}>Done</button>
 							</>
 						) : (
-							<button type="button" className="btn" onClick={() => setEdit(true)}>✎ Edit</button>
+							<>
+								{published && <button type="button" className="btn" aria-pressed={following} onClick={() => setFollowing(!following)}>{following ? "Following" : "Follow"}</button>}
+								<button type="button" className="btn" onClick={() => setEdit(true)}>✎ Edit</button>
+							</>
 						)}
 						{!published && (
 							<button type="button" className="btn btn--accent" onClick={() => { setPublished(true); setEdit(false); }}>Publish</button>

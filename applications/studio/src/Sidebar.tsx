@@ -212,12 +212,14 @@ interface SidebarProps {
 	published?: string[];
 	/** The team page is showing: its name at the top of the sidebar is the one thing picked. */
 	teamOpen?: boolean;
+	/** Your own page is showing. */
+	youOpen?: boolean;
 }
 
 const withoutDraft = (docs: Doc[], ids: string[]): Doc[] =>
 	docs.map((d) => ({ ...d, note: ids.includes(d.id) ? undefined : d.note, children: d.children && withoutDraft(d.children, ids) }));
 
-export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote, notificationsOpen = false, published = [], teamOpen = false }: SidebarProps) {
+export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote, notificationsOpen = false, published = [], teamOpen = false, youOpen = false }: SidebarProps) {
 	const [notesOpen, setNotesOpen] = useState(notificationsOpen);
 	const [spine, setSpine] = useState<Spine>(initialSpine);
 	const [picked, setPicked] = useState<string | null>(initialPicked);
@@ -288,6 +290,13 @@ export function Sidebar({ initialSpine = "conversations", initialPicked = null, 
 					</>
 				)}
 			</div>
+			{showCounts && (
+				<button type="button" className="nav-you" aria-current={youOpen} title="Your page: what waits for you, and your settings">
+					<span className="avatar avatar--human">FO</span>
+					<span className="nav-you-name">You</span>
+					<span className="nav-you-sub">4 waiting for you</span>
+				</button>
+			)}
 		</nav>
 	);
 }

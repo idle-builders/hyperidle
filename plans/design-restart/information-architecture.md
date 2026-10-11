@@ -145,20 +145,25 @@ Work happens in three stages (founder): **plan** in documents and conversations 
 - Not designed, dropped unless asked for: handing over a batch for the night (hand-off already
   happens from a document or thread) · seeing what runs across all tasks (the Work list).
 
-### PEOPLE — first pass 2026-10-11 (awaiting the founder's look)
+### PEOPLE — second pass 2026-10-12 (awaiting the founder's look)
 An agent and a person are the same kind of user, so they share one page.
-- **The team's name sits at the top of the sidebar** and opens the team page: people, each with
-  the agents that work for them; then the agents that work for the whole team.
-- **The user page** uses the task page's layout. On the page: name · what they are doing now ·
-  who they are · what they are on (an agent's tasks, or what waits for a person) · your
-  conversation with them. In the floating box: state · Edit / Pause · facts · Runs on · Can
-  reach · Follows · Documents.
-- **No settings screen.** Your own page holds what you can reach, what you follow and how the
-  app looks.
-- **Follows is one mechanism:** for an agent it is what wakes it ("Every Monday at 07:00 →
-  starts a run of Support themes, weekly"); for a person it is what they are told about.
-- Not drawn yet: the editors behind Edit, "Connect a folder or a service" and "Follow something
-  else"; adding someone.
+- **Two ways in:** the team's name at the top of the sidebar opens the team page (people, each
+  with the agents that work for them; then the agents that work for the whole team). Your own
+  page is at the bottom of the sidebar ("You · 4 waiting for you").
+- **The user page is that user's to-do and status list** (founder, 2026-10-12): an agent's open
+  tasks; for a person, what waits for them and what they started. No conversation on the page.
+- **The floating box is the settings sidebar:** Open conversation · Edit / Pause · facts · Runs
+  on · Can reach · Starts working when (agents) · Notifications (your own page) · Instructions,
+  skills and memory (agents) or About (people) · Looks (your own page).
+- **No settings screen.** Your own page holds your settings.
+- **Following happens on the thing:** a Follow / Following button on a task and on a published
+  document. Your page lists what you follow and has the switches for what you are told about.
+- **One mechanism underneath, two plain names:** what tells a person something is
+  "Notifications"; what makes an agent start is "Starts working when" (a mention, a hand-off, a
+  time such as every Monday at 07:00).
+- Every user is in exactly one team today, so there is no team picker.
+- Not drawn yet: the forms behind Edit, "Connect a folder or a service" and "Add a time or an
+  event"; adding someone; the list behind "See what you follow".
 
 ## 4. Object vocabulary
 
@@ -291,6 +296,7 @@ the end.
   review" because review or input does not assign the task to anyone. One wording.
 - At the whole task the graph shows only direct parts; is that enough of an overview?
 - A dependency arrow shows only while both of its parts are in view.
+- Can a user be in several teams? Today: no. If yes, the team name at the top becomes a picker.
 
 ## 8. Not yet registered
 
