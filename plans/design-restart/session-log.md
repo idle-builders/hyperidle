@@ -641,3 +641,18 @@ it, hold it, stop it.
 - Reused: thread messages, the session peek, the question card, reference chips, the format bar.
 Screenshots are taken at 1672px wide so the app area is 1440px, as it would be without the
 studio's own control panel.
+
+**Founder thinking the task view through (2026-10-11), before reacting to the first pass:**
+- Tasks come in sizes — large tasks, small fixes, recurring tasks — and that shows as the
+  complexity of the task.
+- Three stages: **plan** (that is what Think and conversation are for) → **task** (monitoring
+  progress through the task tree) → **check the result** (review / conversation).
+- So a large part of the task view is an easy way to understand **where in the task tree the
+  agents and humans currently sit**. The tree should stay visible and stable as you click
+  through it, with a status indication that makes progress easy to read.
+- Planning and documents attach mostly to the root, sometimes to lower tasks: need a smart way
+  to see where planning happened and where documents are attached. Same for sessions and
+  reviews, which happen anywhere in the tree.
+- Per task: the title and the explanation of what the task is about.
+Consequence: the first pass (one long page per task, subtasks one level deep) has the weight in
+the wrong place. The tree is the main thing; the page for one task gets lighter.
