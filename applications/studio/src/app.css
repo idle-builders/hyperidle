@@ -646,6 +646,7 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 /* the graph: the task's parts, branches running left to right, each parent level with its first part */
 .mp { position: relative; padding-right: var(--sp-6); }
 .st { display: flex; align-items: flex-start; }
+.st > .nd { flex: none; width: var(--w); }
 .st-kids { --w: 320px; position: relative; display: flex; flex-direction: column; gap: 14px; margin-left: 36px; }
 .st-kids::before { content: ""; position: absolute; left: -36px; top: 19px; width: 18px; border-top: var(--line-w) solid var(--line-strong); }
 .st-kid { position: relative; }
@@ -660,10 +661,15 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .mp--deep .st-kids { --w: 216px; }
 .mp--deep .st-kids--first { --w: 196px; }
 .st-kids--first::before, .st-kids--first > .st-kid::before, .st-kids--first > .st-kid::after { display: none; }
-.nd-wrap { position: relative; flex: none; width: var(--w); }
-/* open or close a branch: a small round button on the chip's edge, where its parts hang off */
-.nd-fold { position: absolute; z-index: 2; top: 8px; right: 0; transform: translateX(50%); display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border: var(--line-w) solid var(--line-strong); border-radius: 11px; white-space: nowrap; background: var(--canvas); font: var(--t-label); font-weight: 600; color: var(--ink-2); }
-.nd-fold:hover { border-color: var(--ink-3); color: var(--ink); }
+/* a parent says how many subtasks it has until they show; a part that leads to the picked one is marked */
+.nd-kids { flex: none; margin-left: auto; padding-top: 2px; font: var(--t-meta); color: var(--ink-3); white-space: nowrap; }
+.nd--path { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-strong); }
+/* the way back: every part between the task and where you are */
+.crumbs { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-2); font: var(--t-meta); color: var(--ink-3); }
+.crumbs button { font: var(--t-meta); color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; }
+.crumbs button:hover { color: var(--ink); }
+.crumbs button::after { content: "›"; display: inline-block; margin-left: var(--sp-2); color: var(--ink-3); text-decoration: none; }
+.crumbs span { font-weight: 600; color: var(--ink); }
 /* a long row of finished parts, folded into one chip */
 .nd--more { width: var(--w); background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong); }
 .nd--more .nd-name { color: var(--ink-2); }

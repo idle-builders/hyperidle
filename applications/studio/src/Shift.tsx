@@ -7,26 +7,26 @@ import { type Item, Sidebar, WORK } from "./Sidebar";
  * RUN THE SHIFT — the task page. Planning happens before, in documents and conversations;
  * checking happens after, in reviews. This page is the middle: watching the work move through
  * its tree. The page itself holds only the title, the details and the conversation. The tree is
- * a section of it, drawn as a graph of the task's parts: branches run left to right from the
- * top, dashed arrows show what waits for what, deeper branches open on request, and a long row
- * of finished parts folds into one chip — so the graph never needs a scroll area. Everything
- * attached sits in one box floating on the right: quick actions, facts, then questions, reviews
- * and documents in sections of their own, then sessions. Clicking a part changes what the page
- * and the box are about; the graph does not move. A small fix has no graph; a recurring task has
- * one part per run.
+ * a section of it, drawn as a graph that follows where you are: it shows the level above the
+ * picked part, that part among its siblings, and its subtasks — three levels at most, at any
+ * depth. Clicking a part with subtasks shows them; a path line above the graph leads back. Dashed
+ * arrows show what waits for what, and a long row of finished parts folds into one chip, so the
+ * graph never needs a scroll area. Everything attached sits in one box floating on the right:
+ * quick actions, facts, then questions, reviews and documents in sections of their own, then
+ * sessions. A small fix has no graph; a recurring task has one part per run.
  */
 export const SHIFT_STEPS = [
-	{ id: 0, name: "A large task: its graph and summary" },
-	{ id: 1, name: "Open a branch: a part needs input" },
-	{ id: 2, name: "Click a part: finished, and what it made" },
-	{ id: 3, name: "Click a part: an agent is working there" },
+	{ id: 0, name: "A large task: its parts and summary" },
+	{ id: 1, name: "Click a part: its subtasks show" },
+	{ id: 2, name: "Go deeper: a part needs input" },
+	{ id: 3, name: "Deeper still: the graph moves along" },
 	{ id: 4, name: "A small fix: no graph" },
 	{ id: 5, name: "A recurring task: twelve runs, folded" },
 	{ id: 6, name: "Steer it, hold it, stop it" },
 ];
 
 type Id =
-	| "trials" | "understand" | "numbers" | "dropoff" | "build" | "email" | "checkout" | "page" | "card" | "wire" | "layout" | "reminder" | "test" | "writeup"
+	| "trials" | "understand" | "numbers" | "dropoff" | "build" | "email" | "checkout" | "page" | "picker" | "payform" | "receipt" | "card" | "wire" | "layout" | "reminder" | "test" | "writeup"
 	| "utc"
 	| "weekly" | "wnext" | `run${number}`;
 
@@ -115,7 +115,7 @@ const TASKS: Record<Id, Task> = {
 		title: "Trials that convert without a call",
 		owner: "Growth",
 		kids: ["understand", "build", "test", "writeup"],
-		stand: "Four of ten parts are done. One needs input, one needs a review, one is running.",
+		stand: "Six of twelve parts are done. One needs input, one needs a review, one is running.",
 		about: "Can a trial turn into a paid plan without a sales call? Put a self-serve checkout in front of people on day 12 and compare it with what we do today.",
 		doneWhen: [
 			"The test ran for two weeks on new signups.",
@@ -205,7 +205,7 @@ const TASKS: Record<Id, Task> = {
 		title: "Build the day-12 path",
 		owner: "Growth",
 		kids: ["email", "checkout", "layout", "reminder"],
-		stand: "Two of six parts are done. One needs input, one needs a review, one is running.",
+		stand: "Four of eight parts are done. One needs input, one needs a review, one is running.",
 		about: "Everything a person on day 12 sees: the email, the checkout page, the comparison table and the reminder.",
 		summary: {
 			when: "updated 2h ago",
@@ -255,7 +255,7 @@ const TASKS: Record<Id, Task> = {
 		title: "Self-serve checkout at day 12",
 		owner: "Builder",
 		kids: ["page", "card", "wire"],
-		stand: "One of three parts is done. One needs input.",
+		stand: "Three of five parts are done. One needs input.",
 		about: "Let someone on a trial pay by themselves on day 12, without talking to us.",
 		doneWhen: ["A person on day 12 can pick a plan and pay on one page.", "People who already pay see nothing new."],
 		summary: {
@@ -275,13 +275,48 @@ const TASKS: Record<Id, Task> = {
 	page: {
 		title: "Build the checkout page",
 		owner: "Builder",
+		kids: ["picker", "payform", "receipt"],
+		stand: "Done today 09:40. All three parts are finished.",
+		about: "One page where a person on a trial picks a plan and pays.",
+		summary: { when: "written when it finished, 09:40", lines: ["The checkout page is built and works on a test account.", "Plan picker, payment form and receipt are each a part of their own."] },
+		things: [],
+		runs: [{ n: 1, when: "today 08:40", said: "10 min · split the page in three" }],
+		meta: "Builder owns this · finished today 09:40 · 1h in 4 sessions",
+	},
+	picker: {
+		title: "Plan picker",
+		owner: "Builder",
+		state: "Done",
+		stand: "Done today 09:05. It closed by itself.",
+		about: "Show the plans side by side and let the person pick one.",
+		summary: { when: "written when it finished, 09:05", lines: ["Three plans side by side, the one from the trial picked to start with."] },
+		things: [],
+		runs: [{ n: 1, when: "today 08:50", said: "15 min · finished" }],
+		meta: "Builder owns this · finished today 09:05 · 15 min in 1 session",
+	},
+	payform: {
+		after: ["picker"],
+		title: "Payment form",
+		owner: "Builder",
+		state: "Done",
+		stand: "Done today 09:30. It closed by itself.",
+		about: "Take the payment for the picked plan on the same page.",
+		summary: { when: "written when it finished, 09:30", lines: ["Card payment works on a test account. It uses the card on file when there is one."] },
+		things: [],
+		runs: [{ n: 1, when: "today 09:05", said: "25 min · finished" }],
+		meta: "Builder owns this · finished today 09:30 · 25 min in 1 session",
+	},
+	receipt: {
+		after: ["payform"],
+		title: "Receipt line",
+		owner: "Builder",
 		state: "Done",
 		stand: "Done today 09:40. It closed by itself.",
-		about: "One page where a person on a trial picks a plan and pays.",
-		summary: { when: "written when it finished, 09:40", lines: ["The checkout page is built and works on a test account."] },
+		about: "After paying, say what was charged and when the next bill comes.",
+		summary: { when: "written when it finished, 09:40", lines: ["The page ends with the amount charged and the date of the next bill."] },
 		things: [],
-		runs: [{ n: 1, when: "today 08:40", said: "1h · finished" }],
-		meta: "Builder owns this · finished today 09:40 · 1h in 1 session",
+		runs: [{ n: 1, when: "today 09:30", said: "10 min · finished" }],
+		meta: "Builder owns this · finished today 09:40 · 10 min in 1 session",
 	},
 	card: {
 		after: ["page"],
@@ -491,7 +526,7 @@ const STEERED: Line[] = [
 	{ id: "s2", av: "GR", name: "Growth", at: "16:17", body: "Noted. The test covers monthly plans only. I told Builder and put it in the summary." },
 ];
 
-const START: Id[] = ["trials", "card", "email", "reminder", "utc", "weekly", "trials"];
+const START: Id[] = ["trials", "build", "card", "page", "utc", "weekly", "trials"];
 const INITIALS: Record<string, string> = { Builder: "BU", Growth: "GR", Designer: "DS" };
 const NEED_WORDS: Record<Need, string> = { input: "Needs input", review: "Needs review" };
 
@@ -538,58 +573,49 @@ function KindIcon({ kind }: { kind: Thing["kind"] }) {
 
 /** What the graph needs to know to draw itself. */
 interface View {
+	/** The picked part. Its subtasks show to its right. */
 	sel: Id;
-	/** Branches that are open. */
-	open: Set<Id>;
+	/** The parts that lead to it, from the task down. Each shows its subtasks too. */
+	path: Set<Id>;
 	/** Parents whose long row of finished parts has been opened up. */
 	unfolded: Set<Id>;
 	onPick: (id: Id) => void;
-	onToggle: (id: Id) => void;
 	onUnfold: (id: Id) => void;
 }
 
-/** One part on the graph: a mark for how it stands, its name, a few words — and, on a parent, a way to open it. */
+/** One part on the graph: a mark for how it stands, its name, a few words. Clicking a part shows its subtasks. */
 function Node({ id, view }: { id: Id; view: View }) {
 	const t = TASKS[id];
 	const state = stateOf(id);
 	const done = finished(id);
 	const running = state === "Running";
 	const c = counts(id);
-	const isOpen = view.open.has(id);
+	const shown = view.sel === id || view.path.has(id);
 	const inside: Need[] = t.kids ? (["input", "review"] as const).filter((k) => needsIn(id, k) > 0) : [];
 	let words = state;
 	if (t.needs) words = NEED_WORDS[t.needs];
 	else if (running) words = `${t.owner} is on it`;
 	const extra = [c.docs > 0 && `${c.docs} ${c.docs === 1 ? "doc" : "docs"}`, c.reviews > 0 && `${c.reviews} ${c.reviews === 1 ? "review" : "reviews"}`].filter(Boolean).join(" · ");
 	return (
-		<div className="nd-wrap">
-			<button
-				type="button" data-id={id} aria-pressed={view.sel === id} onClick={() => view.onPick(id)}
-				className={["nd", t.kids && "nd--head", done && "nd--done"].filter(Boolean).join(" ")}
-			>
-				<span className="nd-mark" aria-hidden="true">
-					{t.needs && <NeedIcon kind={t.needs} />}
-					{!t.needs && running && <span className="avatar nd-av">{INITIALS[t.owner]}</span>}
-					{!(t.needs || running) && done && "✓"}
-					{!(t.needs || running || done) && (t.kids ? "◐" : "○")}
+		<button
+			type="button" data-id={id} aria-pressed={view.sel === id} onClick={() => view.onPick(id)}
+			className={["nd", t.kids && "nd--head", done && "nd--done", view.path.has(id) && "nd--path"].filter(Boolean).join(" ")}
+		>
+			<span className="nd-mark" aria-hidden="true">
+				{t.needs && <NeedIcon kind={t.needs} />}
+				{!t.needs && running && <span className="avatar nd-av">{INITIALS[t.owner]}</span>}
+				{!(t.needs || running) && done && "✓"}
+				{!(t.needs || running || done) && (t.kids ? "◐" : "○")}
+			</span>
+			<span className="nd-text">
+				<span className="nd-name">{t.title}</span>
+				<span className="nd-sub">
+					{words}{extra && ` · ${extra}`}
+					{inside.map((k) => <span key={k} className="nd-in"><NeedIcon kind={k} />{needsIn(id, k)}</span>)}
 				</span>
-				<span className="nd-text">
-					<span className="nd-name">{t.title}</span>
-					<span className="nd-sub">
-						{words}{extra && ` · ${extra}`}
-						{inside.map((k) => <span key={k} className="nd-in"><NeedIcon kind={k} />{needsIn(id, k)}</span>)}
-					</span>
-				</span>
-			</button>
-			{t.kids && (
-				<button
-					type="button" className="nd-fold" aria-expanded={isOpen} onClick={() => view.onToggle(id)}
-					aria-label={isOpen ? "Close this branch" : `Open its ${t.kids.length} parts`} title={isOpen ? "Close" : `Open its ${t.kids.length} parts`}
-				>
-					{isOpen ? "‹" : `${t.kids.length} ›`}
-				</button>
-			)}
-		</div>
+			</span>
+			{t.kids && !shown && <span className="nd-kids" title={`${t.kids.length} subtasks`}>{t.kids.length} ›</span>}
+		</button>
 	);
 }
 
@@ -599,7 +625,7 @@ function Node({ id, view }: { id: Id; view: View }) {
  */
 function Parts({ parent, view }: { parent: Id; view: View }) {
 	const kids = TASKS[parent].kids ?? [];
-	const done = kids.filter(finished);
+	const done = kids.filter((k) => finished(k) && k !== view.sel && !view.path.has(k));
 	const folded = done.length > 3 && !view.unfolded.has(parent) ? done.slice(0, -1) : [];
 	return (
 		<>
@@ -627,7 +653,7 @@ function Branch({ id, view }: { id: Id; view: View }) {
 	return (
 		<div className="st">
 			<Node id={id} view={view} />
-			{TASKS[id].kids && view.open.has(id) && <div className="st-kids"><Parts parent={id} view={view} /></div>}
+			{TASKS[id].kids && (view.sel === id || view.path.has(id)) && <div className="st-kids"><Parts parent={id} view={view} /></div>}
 		</div>
 	);
 }
@@ -639,21 +665,17 @@ interface Arrow {
 }
 
 /**
- * The graph: the task's parts as a tree, plus a dashed arrow from each part to the part that
- * waits for it. The task itself is not drawn — it is the page. Arrows are measured from where
- * the chips really sit: straight down when nothing is in the way, a curve out to the right when
+ * The graph: up to three levels of the tree around the picked part, plus a dashed arrow from
+ * each part to the part that waits for it. `from` is the part whose subtasks fill the first
+ * column; the task itself is never drawn — it is the page. Arrows are measured from where the
+ * chips really sit: straight down when nothing is in the way, a curve out to the right when
  * something is.
  */
-function Graph({ root, view }: { root: Id; view: View }) {
+function Graph({ from, columns, view }: { from: Id; columns: number; view: View }) {
 	const box = useRef<HTMLDivElement>(null);
 	const [arrows, setArrows] = useState<Arrow[]>([]);
-	const shape = `${[...view.open].join()}|${[...view.unfolded].join()}`;
-	// Three columns show once a second-level branch is open; until then the chips can be wider.
-	const deep = [...view.open].some((id) => {
-		const p = parentOf(id);
-		return p !== undefined && p !== root && rootOf(id) === root && view.open.has(p);
-	});
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `shape` stands for which branches are open; the arrows must be measured again whenever it changes
+	const shape = `${from}|${view.sel}|${[...view.unfolded].join()}`;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `shape` stands for what the graph shows; the arrows must be measured again whenever it changes
 	useLayoutEffect(() => {
 		const el = box.current;
 		if (!el) return;
@@ -687,7 +709,7 @@ function Graph({ root, view }: { root: Id; view: View }) {
 		return () => watch.disconnect();
 	}, [shape]);
 	return (
-		<div className={deep ? "mp mp--deep" : "mp"} ref={box}>
+		<div className={columns > 2 ? "mp mp--deep" : "mp"} ref={box}>
 			<svg className="waits" aria-hidden="true">
 				<defs>
 					<marker id="wait-end" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -696,7 +718,7 @@ function Graph({ root, view }: { root: Id; view: View }) {
 				</defs>
 				{arrows.map((a) => <path key={a.key} d={a.d} className={a.open ? "wait wait--open" : "wait"} markerEnd="url(#wait-end)" />)}
 			</svg>
-			<div className="st-kids st-kids--first"><Parts parent={root} view={view} /></div>
+			<div className="st-kids st-kids--first"><Parts parent={from} view={view} /></div>
 		</div>
 	);
 }
@@ -803,33 +825,37 @@ function TaskBox({ id, held, onHold, onPick }: { id: Id; held: boolean; onHold: 
 	);
 }
 
-/** Open to begin with: first-level branches that are still under way, and whatever leads to the picked part. */
-const openAtStart = (root: Id, sel: Id): Set<Id> => {
-	const open = new Set<Id>((TASKS[root].kids ?? []).filter((k) => TASKS[k].kids && !finished(k)));
-	for (let p = parentOf(sel); p; p = parentOf(p)) open.add(p);
-	return open;
+const depthOf = (id: Id): number => {
+	const p = parentOf(id);
+	return p ? depthOf(p) + 1 : 0;
+};
+/** The parts that lead from the task down to this one, nearest last. Neither end is included. */
+const pathTo = (id: Id): Id[] => {
+	const p = parentOf(id);
+	return p && parentOf(p) ? [...pathTo(p), p] : [];
 };
 
 export function Shift({ step }: { step: number }) {
-	const first = START[step] ?? "trials";
-	const [sel, setSel] = useState<Id>(first);
+	const [sel, setSel] = useState<Id>(START[step] ?? "trials");
 	const [held, setHeld] = useState(step === 6);
-	const [open, setOpen] = useState<Set<Id>>(() => openAtStart(rootOf(first), first));
 	const [unfolded, setUnfolded] = useState<Set<Id>>(new Set());
 	const root = rootOf(sel);
 	const r = TASKS[root];
 	const t = TASKS[sel];
 	const all = leaves(root);
-	const flip = (set: Set<Id>, id: Id): Set<Id> => {
-		const next = new Set(set);
-		if (next.has(id)) next.delete(id);
-		else next.add(id);
-		return next;
-	};
+	const path = pathTo(sel);
+	// Three levels at most: the level above the picked part, its own, and its subtasks.
+	const deepest = depthOf(sel) + (t.kids ? 1 : 0);
+	const first = Math.max(1, deepest - 2);
+	const from = [root, ...path, sel].find((id) => depthOf(id) === first - 1) ?? root;
 	const view: View = {
-		sel, open, unfolded, onPick: setSel,
-		onToggle: (id) => setOpen((o) => flip(o, id)),
-		onUnfold: (id) => setUnfolded((u) => flip(u, id)),
+		sel, path: new Set(path), unfolded, onPick: setSel,
+		onUnfold: (id) => setUnfolded((u) => {
+			const next = new Set(u);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		}),
 	};
 	const tally = [
 		`${all.filter((l) => TASKS[l].state === "Done").length} of ${all.length} done`,
@@ -862,14 +888,20 @@ export function Shift({ step }: { step: number }) {
 							{r.kids && (
 								<section className="tk-map" aria-label="Parts of this task">
 									<h3>Parts <span>{r.state ? `${all.length - 1} runs so far, the next one last` : tally}</span></h3>
-									<Graph root={root} view={view} />
+									{sel !== root && (
+										<nav className="crumbs" aria-label="Where you are in this task">
+											<button type="button" onClick={() => setSel(root)}>The whole task</button>
+											{path.map((id) => <button key={id} type="button" onClick={() => setSel(id)}>{TASKS[id].title}</button>)}
+											<span aria-current="true">{t.title}</span>
+										</nav>
+									)}
+									<Graph from={from} columns={deepest - first + 1} view={view} />
 								</section>
 							)}
 
 							<div className={sel === root ? "tk-part" : "tk-part tk-part--sub"} key={sel}>
 								{sel !== root && (
 									<>
-										<button type="button" className="tbox-more" onClick={() => setSel(root)}>‹ The whole task</button>
 										<h2 className="tk-part-title">{t.title}</h2>
 										<p className="stand">
 											{t.needs && <NeedIcon kind={t.needs} />}

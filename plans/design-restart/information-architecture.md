@@ -123,9 +123,11 @@ Work happens in three stages (founder): **plan** in documents and conversations 
   dashed arrow points from a part to the part that waits for it. A chip: a mark for how it
   stands (✓ done, ◐ under way, ○ not started, the agent's initials where one is working), the
   name, a few words, document/review counts.
-- **The graph must stay easy to read and never scroll on its own** (founder, 2026-10-11). The
-  root is not drawn. Parent chips open and close; deeper levels start closed. A long row of
-  finished parts folds into one chip that opens in place.
+- **The graph follows where you are and never scrolls on its own** (founder, 2026-10-11). The
+  root is not drawn. It shows three levels at most — the level above the picked part, the part
+  among its siblings, its subtasks — at any depth. Clicking a part shows its subtasks; a path
+  line above the graph leads back. A long row of finished parts folds into one chip that opens
+  in place.
 - **Where a person is needed is an icon, never "You"**: a question mark = needs input, an eye =
   needs review. "Review or input doesn't assign the task to me." Parents count them.
 - **The page holds only title, details and conversation.** Details = where it stands, what it

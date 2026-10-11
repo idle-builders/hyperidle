@@ -753,3 +753,22 @@ but **questions, reviews and documents/artifacts each get their own section.**
 - Demo data: "Self-serve checkout at day 12" now has three parts of its own (a third level);
   the weekly task has twelve runs.
 Not solved: a fourth level would not fit beside the box.
+
+**Founder (2026-10-11):** clicking a task that has subtasks should show them directly — no extra
+expand button. The tree can in theory grow many layers deep, so we need to be able to move
+right and left in it; "maybe focused on the current task we can show above and below", to
+avoid a scroll area.
+
+**Built — the graph follows where you are** (like Finder's column view, three columns wide):
+- It shows at most three levels: the level above the picked part, that part among its
+  siblings, and its subtasks. At the task itself it shows only the direct parts.
+- **Click a part → its subtasks show** to its right. Click a subtask → the view moves one step
+  right. No expander buttons. A parent that is not open says how many subtasks it has ("4 ›").
+- **A path line above the graph** ("The whole task › Build the day-12 path › …") moves back
+  left; the last entry is where you are.
+- Parts that lead to the picked one get a light outline; the picked one a dark ring.
+- Still there: dashed dependency arrows, the fold for long rows of finished parts (it never
+  folds away the part you are on), wide chips with one or two columns and narrower with three.
+- Demo data now goes four levels deep ("Build the checkout page" has three parts).
+Tested: 1 → 2 → 3 columns walking down, still 3 at the fourth level, back via the path line;
+the graph fits beside the box and has no scroll area.
