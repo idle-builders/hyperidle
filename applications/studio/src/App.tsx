@@ -2,7 +2,9 @@ import { useState } from "react";
 import { drafts, mentionables, sessionSteps, STEPS, tickets } from "./handoff";
 import { Arrive, ARRIVE_STEPS } from "./Arrive";
 import { CHAT_FORMATS, FormatBar } from "./FormatBar";
+import { Avatar, Event, Msg } from "./Msg";
 import { Judge, JUDGE_STEPS } from "./Judge";
+import { Shift, SHIFT_STEPS } from "./Shift";
 import { Think, THINK_STEPS } from "./Think";
 import { conversations, type Item, Sidebar } from "./Sidebar";
 
@@ -11,36 +13,6 @@ const SKINS = [
 	{ id: "precision", name: "Precision" },
 	{ id: "workshop", name: "Workshop" },
 ];
-
-function Avatar({ who, human }: { who: string; human?: boolean }) {
-	return <span className={human ? "avatar avatar--human" : "avatar"}>{who}</span>;
-}
-
-function Msg({ who, human, name, at, children }: {
-	who: string; human?: boolean; name: string; at: string; children: React.ReactNode;
-}) {
-	return (
-		<article className="msg">
-			<Avatar who={who} human={human} />
-			<div>
-				<div className="msg-who">
-					<span className="msg-name">{name}</span>
-					<span className="meta">{at}</span>
-				</div>
-				<div className="msg-body">{children}</div>
-			</div>
-		</article>
-	);
-}
-
-function Event({ children }: { children: React.ReactNode }) {
-	return (
-		<div className="event">
-			<span>{children}</span>
-			<span className="event-line" />
-		</div>
-	);
-}
 
 /** The work item mints itself and then carries state, so the thread never fills with status. */
 function WorkItem({ step }: { step: number }) {
@@ -72,7 +44,7 @@ export function App() {
 	const [journey, setJourney] = useState("handoff");
 	const [step, setStep] = useState(0);
 	const [peek, setPeek] = useState(false);
-	const steps = journey === "handoff" ? STEPS : journey === "judge" ? JUDGE_STEPS : journey === "think" ? THINK_STEPS : ARRIVE_STEPS;
+	const steps = journey === "handoff" ? STEPS : journey === "judge" ? JUDGE_STEPS : journey === "think" ? THINK_STEPS : journey === "shift" ? SHIFT_STEPS : ARRIVE_STEPS;
 	const arrive = journey === "arrive";
 
 	document.documentElement.dataset.skin = skin;
@@ -100,6 +72,7 @@ export function App() {
 						{ id: "judge", name: "Judge" },
 						{ id: "arrive", name: "Arrive" },
 						{ id: "think", name: "Think" },
+						{ id: "shift", name: "Run the shift" },
 					].map((j) => (
 						<button key={j.id} type="button" aria-pressed={journey === j.id}
 							onClick={() => { setJourney(j.id); setStep(0); setPeek(false); }}>
@@ -137,7 +110,7 @@ export function App() {
 				</div>
 			</nav>
 
-			{journey === "judge" ? <><Sidebar key={`j${step}`} initialPicked="c-r1" /><Judge key={step} step={step} /></> : arrive ? <Arrive key={step} step={step} /> : journey === "think" ? <Think key={step} step={step} /> : <>
+			{journey === "judge" ? <><Sidebar key={`j${step}`} initialPicked="c-r1" /><Judge key={step} step={step} /></> : arrive ? <Arrive key={step} step={step} /> : journey === "think" ? <Think key={step} step={step} /> : journey === "shift" ? <Shift key={step} step={step} /> : <>
 			<Sidebar key={`h${step}`} initialPicked="x" lists={{ conversations: handoffList }} />
 
 			<section className="thread">

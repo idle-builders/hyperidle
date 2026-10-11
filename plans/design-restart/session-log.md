@@ -617,3 +617,27 @@ same red/green tokens.
 **Founder, 2026-10-11: "that looks great. that marks think as finished to me."** THINK is done.
 Left open on purpose: comments on a narrow window; whether the small comment box gets the
 format bar. Next journey: RUN THE SHIFT.
+
+## Session 10 — RUN THE SHIFT, the task page, first pass (2026-10-11)
+
+Founder: go ahead with tasks; older open questions are collected for a complete pass over
+everything at the end.
+
+Grounded in how tasks work in the product (`docs/process-layer/tasks-and-sessions.md`): a task
+nests into subtasks, an agent owns it, it runs in several sessions, the agent keeps notes on it,
+it has a thread, and it is reviewed only when a review was asked for.
+
+Built the task page (journey "Run the shift", 6 steps): a running task · a task with subtasks ·
+a subtask waiting on your answer · waiting on your review · done with no review asked · steer
+it, hold it, stop it.
+- **Down the middle, top to bottom:** title · one sentence on where it stands (with "Your
+  answer" / "Your review" in the flag colour only when you owe something) · what it is for and
+  "Done when" · subtasks · the agent's notes · sessions · reviews · its thread with the chat box.
+- **In the margin, plain label over value:** owner · part of · review before it is done (a
+  switch) · made from · follows · references · started · worked.
+- **Rows** for subtasks, sessions and reviews: what it is on the left, how it stands in words on
+  the right. Done subtasks grey. A subtask opens as its own task page with a way back.
+- **"⋯" menu:** Put on hold, Stop this task; each says what will happen.
+- Reused: thread messages, the session peek, the question card, reference chips, the format bar.
+Screenshots are taken at 1672px wide so the app area is 1440px, as it would be without the
+studio's own control panel.

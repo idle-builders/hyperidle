@@ -114,6 +114,21 @@ like a chat. A document can start empty or from an existing thread.
   for a block, @ to ask someone". View: an Edit button; no handles, no caret. Drafts open in edit,
   published documents in view. Commenting works in both.
 
+### RUN THE SHIFT — the task page, first pass 2026-10-11 (awaiting the founder's look)
+The detail region when a task is picked in Work. A task is the agent's; to a person it is
+something to look at and steer.
+- **Middle column, in this order:** title · where it stands, in one sentence · what it is for and
+  "Done when" · subtasks · notes kept by the agent · sessions · reviews · its thread and chat box.
+- **Margin, plain label over value:** owner · part of · review before it is done (switch) · made
+  from · follows · references · started · worked.
+- **What you owe is the only flagged thing:** "Your answer" or "Your review" beside the standing
+  sentence. Everything else is words.
+- **A subtask is a task:** same page, with "‹ Part of …" to go back. The Work list keeps the
+  parent picked.
+- **Steering** is a message in the task's thread. **Hold** and **Stop** sit behind "⋯" and each
+  says what will happen.
+- Still to design in this journey: handing over a batch for the night · seeing what runs.
+
 ## 4. Object vocabulary
 
 Objects that appear inside surfaces. Designed once, reused everywhere.
@@ -229,6 +244,18 @@ Objects that appear inside surfaces. Designed once, reused everywhere.
 - Whether the thread should auto-scroll to the newest content.
 
 ---
+
+## 7b. Collected for the final pass
+
+The founder (2026-10-11): older open questions wait for one complete pass over everything at
+the end.
+- Should a stuck agent also show as "Your answer" in Conversations, or is a notification enough?
+- Someone else's review in your thread: in full, or folded to one line?
+- Should a thread jump to the newest message when opened?
+- Comments on a narrow window, where the margin has no room.
+- Does the small comment box in the margin get the format bar?
+- Bold and italic in the format bar?
+- The header repeats the title that the page already shows (documents and tasks).
 
 ## 8. Not yet registered
 
