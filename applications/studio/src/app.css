@@ -601,44 +601,69 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .lnk-url { margin-left: var(--sp-2); padding: 2px var(--sp-2); border: var(--line-w) solid var(--line-strong); border-radius: var(--r-sm); font: var(--t-meta); color: var(--ink-3); }
 .picker--inline { max-width: 420px; margin: var(--sp-1) 0 0; }
 
-/* ---------- RUN THE SHIFT — the task page: the task down the middle, its facts in the margin ---------- */
-.task { width: 100%; max-width: 1040px; margin: 0 auto; padding: var(--sp-5) var(--sp-7) var(--sp-9); display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: var(--sp-8); align-items: start; }
-.task-main { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; font: var(--t-lead); color: var(--ink); }
-.task-main h3 { display: flex; align-items: baseline; gap: var(--sp-3); margin-top: var(--sp-5); font: 600 1.0625rem/1.35 var(--font-ui); }
-.task-main h3 span { font: var(--t-meta); color: var(--ink-3); }
-.task-up { align-self: flex-start; font: var(--t-meta); color: var(--ink-3); }
-.task-up:hover { color: var(--ink); }
+/* ---------- RUN THE SHIFT — the task screen: the tree stays put on the left, the picked part beside it ---------- */
+.tk { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px minmax(0, 1fr); }
+.tk--single { grid-template-columns: minmax(0, 1fr); }
+.tk-tree { min-height: 0; overflow-y: auto; padding: var(--sp-4) var(--sp-3) var(--sp-6); border-right: var(--line-w) solid var(--line); }
+.tk-page { min-height: 0; overflow-y: auto; padding: var(--sp-6) var(--sp-7) var(--sp-9); display: flex; flex-direction: column; gap: var(--sp-3); font: var(--t-lead); color: var(--ink); }
+.tk-page > * { width: 100%; max-width: 720px; }
+.tk--single .tk-page > * { margin-left: auto; margin-right: auto; }
+.tk-page h3 { display: flex; align-items: baseline; gap: var(--sp-3); margin-top: var(--sp-5); font: 600 1.0625rem/1.35 var(--font-ui); }
+.tk-page h3 span { font: var(--t-meta); color: var(--ink-3); }
+.tk-meta { margin-top: calc(-1 * var(--sp-2)); font: var(--t-meta); color: var(--ink-3); }
+.tk-none { font: var(--t-body); color: var(--ink-3); }
+
+/* a tree row: the name, then its state in words, who has it, and how many documents and reviews hang on it */
+.tk-row { display: flex; align-items: flex-start; border-radius: var(--r-sm); }
+.tk-row .tree-fold { margin-top: 7px; }
+.tk-row:hover { background: var(--surface); }
+.tk-row[aria-current="true"] { background: var(--surface); box-shadow: var(--sh-1); }
+.tk-pick { flex: 1; min-width: 0; padding: 6px var(--sp-2) 6px 2px; text-align: left; }
+.tk-name { display: block; font: var(--t-body); color: var(--ink); }
+.tk-row--root .tk-name { font-weight: 600; }
+.tk-row--done .tk-name { color: var(--ink-3); }
+.tk-row[aria-current="true"] .tk-name { color: var(--ink); font-weight: 600; }
+.tk-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--sp-2); margin-top: 1px; font: var(--t-meta); color: var(--ink-3); }
+.tk-line > span { white-space: nowrap; }
+.tk-counts { display: inline-flex; gap: var(--sp-2); margin-left: auto; }
+
 /* where it stands, in one sentence — the first thing under the title */
 .stand { display: flex; align-items: center; gap: var(--sp-3); font: var(--t-lead); font-weight: 500; color: var(--ink); }
 .stand .btn { flex: none; min-height: 32px; }
 .task-list { padding-left: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-1); }
-/* one row per subtask, session or review: what it is on the left, how it stands in words on the right */
+
+/* a parent's summary carries one line from each of its parts — the ones that need you first */
+.parts { display: flex; flex-direction: column; margin-top: var(--sp-2); }
+.parts-h { font: var(--t-meta); color: var(--ink-3); }
+.part { display: block; width: 100%; padding: var(--sp-2) 0; border-bottom: var(--line-w) solid var(--line); text-align: left; }
+.part-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-4); }
+.part-t { font: var(--t-body); color: var(--ink); }
+.part:hover .part-t { text-decoration: underline; text-underline-offset: 3px; }
+.part-s, .part .nrow-state { flex: none; font: var(--t-meta); }
+.part-s { color: var(--ink-3); }
+.part-sum { display: block; margin-top: 2px; font: var(--t-meta); color: var(--ink-3); }
+
+/* conversations and documents, ranked: what a person takes part in first; the rest folds away */
+.things { display: flex; flex-direction: column; }
+.thing { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: var(--sp-3); padding: var(--sp-2) 0; border-bottom: var(--line-w) solid var(--line); }
+.thing-kind { padding-top: 3px; font: var(--t-meta); color: var(--ink-3); }
+.thing-title { display: block; text-align: left; font: var(--t-body); color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.thing-title:hover { text-decoration-color: var(--ink-3); }
+.thing-why { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); margin-top: 2px; font: var(--t-meta); color: var(--ink-3); }
+.thing-on { font: var(--t-meta); color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; }
+.things--quiet .thing-title { color: var(--ink-2); }
+
+/* one row per session: what it is on the left, how it went in words on the right */
 .trow { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-4); width: 100%; padding: var(--sp-2) 0; border-bottom: var(--line-w) solid var(--line); text-align: left; font: var(--t-body); color: var(--ink); }
 .trow-t { flex: 1 1 auto; min-width: 40%; }
 .trow-s { display: inline-flex; align-items: baseline; justify-content: flex-end; gap: var(--sp-3); flex: 0 1 auto; font: var(--t-meta); color: var(--ink-3); text-align: right; }
 .trow-s .peek { flex: none; }
-.trow--done .trow-t { color: var(--ink-3); }
-button.trow:hover .trow-t { text-decoration: underline; text-underline-offset: 3px; }
-.task-main .session { margin-top: var(--sp-2); }
-.task-more { align-self: flex-start; padding: var(--sp-2) 0; font: var(--t-meta); color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
+.tk-page .session { margin-top: var(--sp-2); }
+.task-more { align-self: flex-start; width: auto; padding: var(--sp-2) 0; font: var(--t-meta); color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
 .task-more:hover { color: var(--ink); }
-.task-reply { margin-top: var(--sp-2); }
+.task-reply { flex: none; margin-top: var(--sp-2); }
 .task-reply input { min-height: 40px; padding: 0 var(--sp-4); border: 0; background: transparent; font: var(--t-body); }
 .task-reply input:focus { outline: none; }
-
-/* the facts: plain label over value, no boxes */
-.facts { display: flex; flex-direction: column; gap: var(--sp-4); margin: 0; padding-top: var(--sp-9); font: var(--t-body); }
-.facts dt { font: var(--t-meta); color: var(--ink-3); }
-.facts dd { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); margin: 2px 0 0; color: var(--ink); }
-.facts .avatar { width: 22px; height: 22px; font-size: 9px; }
-.fact-link { text-align: left; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
-.fact-link:hover { text-decoration-color: var(--ink-3); }
-.fact-refs { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
-.fact-switch { display: inline-flex; align-items: center; gap: var(--sp-2); text-align: left; }
-.fact-knob { position: relative; flex: none; width: 28px; height: 16px; border-radius: 8px; background: var(--line-strong); transition: background var(--dur-tap) var(--ease); }
-.fact-knob::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); transition: transform var(--dur-tap) var(--ease); }
-.fact-switch[aria-checked="true"] .fact-knob { background: var(--ink-2); }
-.fact-switch[aria-checked="true"] .fact-knob::after { transform: translateX(12px); }
 
 /* the "more" menu: each choice says what will happen */
 .doc-act { position: relative; }

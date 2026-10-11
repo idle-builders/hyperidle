@@ -114,20 +114,24 @@ like a chat. A document can start empty or from an existing thread.
   for a block, @ to ask someone". View: an Edit button; no handles, no caret. Drafts open in edit,
   published documents in view. Commenting works in both.
 
-### RUN THE SHIFT — the task page, first pass 2026-10-11 (awaiting the founder's look)
-The detail region when a task is picked in Work. A task is the agent's; to a person it is
-something to look at and steer.
-- **Middle column, in this order:** title · where it stands, in one sentence · what it is for and
-  "Done when" · subtasks · notes kept by the agent · sessions · reviews · its thread and chat box.
-- **Margin, plain label over value:** owner · part of · review before it is done (switch) · made
-  from · follows · references · started · worked.
-- **What you owe is the only flagged thing:** "Your answer" or "Your review" beside the standing
-  sentence. Everything else is words.
-- **A subtask is a task:** same page, with "‹ Part of …" to go back. The Work list keeps the
-  parent picked.
+### RUN THE SHIFT — the task screen, second pass 2026-10-11 (awaiting the founder's look)
+Work happens in three stages (founder): **plan** in documents and conversations (Think) →
+**watch it move through the task tree** (this screen) → **check the result** in a review.
+- **The sidebar lists root tasks only.** The tree of the picked root sits inside the task
+  screen, in its own column, and stays put while you click through it. It is navigation.
+- **A tree row:** name · state in words · owner · counts of documents and reviews. What you owe
+  is flagged. A folded branch rolls up its counts and says "2 for you".
+- **The picked part, beside the tree:** title · where it stands · what it is about · its
+  owner's **summary** · for a parent, one line **from each part's summary**, the ones that need
+  you first · **conversations and documents ranked by the owner** — what a person takes part in
+  first, what the agents made while working folded away · sessions · a chat box into its thread.
+- **Summaries trickle up.** Every part gets a summary when it finishes or gets stuck; a parent's
+  summary is a summary of those. Summarising and ranking is the root agent's job.
+- **Sizes:** a small fix has no tree; a recurring task is a root whose parts are its runs.
 - **Steering** is a message in the task's thread. **Hold** and **Stop** sit behind "⋯" and each
   says what will happen.
-- Still to design in this journey: handing over a batch for the night · seeing what runs.
+- Still to design in this journey: handing over a batch for the night · seeing what runs
+  across all tasks.
 
 ## 4. Object vocabulary
 

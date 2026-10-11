@@ -656,3 +656,34 @@ studio's own control panel.
 - Per task: the title and the explanation of what the task is about.
 Consequence: the first pass (one long page per task, subtasks one level deep) has the weight in
 the wrong place. The tree is the main thing; the page for one task gets lighter.
+
+**Founder's answers (2026-10-11):**
+1. The tree sits inside the task screen. The sidebar shows root tasks.
+2. A recurring task is the root; each run is a subtask.
+3. Planning does not happen on the task screen; it happens in a conversation or a document. So
+   attached conversations and documents are a key part of the task — and so is **ranking** them:
+   which ones are the relevant ones where the human also takes part, and which are things the
+   agent just produced. "When agents work for longer a lot of stuff gets created and this
+   prioritization of content becomes very important."
+4. The tree is mostly task names with a state indication and a count of reviews and
+   documents/artifacts. The detail is what you see when you click a task. The tree is navigation
+   within a root task.
+Plus: **summaries.** Each subtask has its own summary when it finishes or gets stuck, and that
+has to trickle up as a summary of summaries to the root. "This summarizing and prioritizing are
+really also key aspect of the work of the root agent … essentially the orchestrator."
+
+**Task screen, second pass built** (7 steps):
+- **Tree** in its own column inside the task screen, scrolling on its own, unchanged while you
+  click through. A row: name · state in words · owner · "2 docs" / "1 review". "Your answer" /
+  "Your review" in the flag colour. Done parts grey. A folded branch rolls up its counts and
+  shows "2 for you" so folding never hides what waits on you.
+- **The picked part beside it:** title · where it stands · one small facts line · what it is
+  about (+ "Done when") · **Summary** by its owner ("written when it finished / got stuck /
+  updated") · for a parent, **From its parts**: one line from each part's own summary, the ones
+  that need you first · **Conversations and documents, ranked by the owner**: what you take part
+  in first, each saying why it matters and which part it hangs on; the rest folded under "Show 6
+  more, made by the agents while working" · sessions · a chat box into the task's thread.
+- **Small fix:** no tree, just the page. **Recurring task:** the root says "Every Monday"; each
+  run is a part, next run on top.
+- Dropped from the first pass: the facts margin and the separate reviews list (a review is one
+  of the ranked conversations).
