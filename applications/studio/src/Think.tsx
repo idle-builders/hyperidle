@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { DOC_FORMATS, type Format, FormatBar } from "./FormatBar";
+import { mentionables } from "./handoff";
 import { Sidebar } from "./Sidebar";
 
 /**
@@ -6,18 +8,22 @@ import { Sidebar } from "./Sidebar";
  * waiting there is faded, and its text carries only a faint dashed underline, so reading is never
  * disturbed. Open it and its text is highlighted, with two ends you can drag to change what the
  * comment covers. Anyone — person or agent — proposes a change the same way: inside a comment,
- * as removed and added lines with Apply. Edit mode shows a caret, block handles and an "Editing"
- * mark; view mode shows none of them. Sessions belong to threads, never to the document.
+ * as removed and added lines with Apply. Edit mode shows a caret, block handles, an "Editing"
+ * mark and the format bar floating at the bottom; view mode shows none of them. Sessions belong to
+ * threads, never to the document.
  */
 export const THINK_STEPS = [
 	{ id: 0, name: "Edit mode: write" },
-	{ id: 1, name: "Comment on a block" },
-	{ id: 2, name: "Drag to narrow the region" },
-	{ id: 3, name: "Reply proposes a change" },
-	{ id: 4, name: "Change applied" },
-	{ id: 5, name: "Hand off from the doc" },
-	{ id: 6, name: "Published, view mode" },
+	{ id: 1, name: "Add a table from the format bar" },
+	{ id: 2, name: "Comment on a block" },
+	{ id: 3, name: "Drag to narrow the region" },
+	{ id: 4, name: "Reply proposes a change" },
+	{ id: 5, name: "Change applied" },
+	{ id: 6, name: "Hand off from the doc" },
+	{ id: 7, name: "Published, view mode" },
 ];
+/** The walkthrough's steps by name, so the story below reads without counting. */
+const AT = { add: 1, comment: 2, narrow: 3, propose: 4, applied: 5, handoff: 6, published: 7 };
 
 type BlockId = "intro" | "know" | "decision";
 /** none · writing the first comment · open · closed (waiting in the margin) · resolved (off the page) */
@@ -50,7 +56,7 @@ interface Thread {
 
 const INTRO = ["Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose."];
 const KNOW = ["Trials run 14 days, card up front.", "Since the warning email, 27% more trials convert.", "Most cancellations happen on day 13."];
-const KNOW_ADDED = "61% of people who pay decide by day 9; 1 in 5 decide on days 11–14.";
+const KNOW_NEW = "Most cancellations happen on day 13, and 1 in 5 people who pay decide on days 11–14.";
 const DECISION = ["Try 10 days for new signups for two weeks, and watch refund requests."];
 
 const count = (lines: string[]) => lines.reduce((n, l) => n + l.split(" ").length, 0);
@@ -104,8 +110,8 @@ const ASK: Msg = {
 };
 const answer = (state: Change["state"]): Msg => ({
 	id: "answer", who: "Growth", av: "GR", agent: true, when: "10:44",
-	plain: "About 1 in 5. The numbers are worth a line in the list.",
-	change: { from: KNOW[2], to: `${KNOW[2]}\n${KNOW_ADDED}`, state, by: state === "open" ? undefined : "You" },
+	plain: "About 1 in 5. This line should say so.",
+	change: { from: KNOW[2], to: KNOW_NEW, state, by: state === "open" ? undefined : "You" },
 });
 const HAND: Msg = {
 	id: "hand", who: "You", av: "FO", when: "11:05", plain: "@Builder set new signups to a 10-day trial from Monday, for two weeks.",
@@ -275,27 +281,29 @@ function Block({ edit, active, heading, children, side, under }: {
 }
 
 export function Think({ step }: { step: number }) {
-	const [published, setPublished] = useState(step === 6);
-	const [edit, setEdit] = useState(step < 6);
+	const [published, setPublished] = useState(step === AT.published);
+	const [edit, setEdit] = useState(step < AT.published);
 	const [hidden, setHidden] = useState(false);
 	const [justResolved, setJustResolved] = useState<BlockId | null>(null);
 	const [drag, setDrag] = useState<{ id: BlockId; end: 0 | 1 } | null>(null);
-	const applied = [...KNOW, KNOW_ADDED];
+	/** Pieces added from the format bar, in order, after the last block. */
+	const [added, setAdded] = useState<{ id: number; kind: Format; who?: string }[]>(step === AT.add ? [{ id: 0, kind: "table" }] : []);
+	const applied = [KNOW[0], KNOW[1], KNOW_NEW];
 	const [doc, setDoc] = useState<Record<BlockId, string[]>>({
 		intro: INTRO,
-		know: step >= 4 ? applied : KNOW,
-		decision: step >= 5 ? DECISION : [],
+		know: step >= AT.applied ? applied : KNOW,
+		decision: step >= AT.handoff ? DECISION : [],
 	});
 	const [threads, setThreads] = useState<Record<BlockId, Thread>>({
 		intro: { state: "none", msgs: [], region: null },
-		know: step === 1 ? { state: "compose", msgs: [], region: whole(KNOW) }
-			: step === 2 ? { state: "compose", msgs: [], region: span(KNOW, 2) }
-			: step === 3 ? { state: "open", msgs: [ASK, answer("open")], region: span(KNOW, 2) }
-			: step === 4 ? { state: "open", msgs: [ASK, answer("applied")], region: span(applied, 2, 3) }
-			: step >= 5 ? { state: "closed", msgs: [ASK, answer("applied")], region: span(applied, 2, 3) }
+		know: step === AT.comment ? { state: "compose", msgs: [], region: whole(KNOW) }
+			: step === AT.narrow ? { state: "compose", msgs: [], region: span(KNOW, 2) }
+			: step === AT.propose ? { state: "open", msgs: [ASK, answer("open")], region: span(KNOW, 2) }
+			: step === AT.applied ? { state: "open", msgs: [ASK, answer("applied")], region: span(applied, 2) }
+			: step >= AT.handoff ? { state: "closed", msgs: [ASK, answer("applied")], region: span(applied, 2) }
 			: { state: "none", msgs: [], region: null },
-		decision: step === 5 ? { state: "open", msgs: [HAND, TAKE], region: whole(DECISION) }
-			: step === 6 ? { state: "closed", msgs: [HAND, TAKE], region: whole(DECISION) }
+		decision: step === AT.handoff ? { state: "open", msgs: [HAND, TAKE], region: whole(DECISION) }
+			: step === AT.published ? { state: "closed", msgs: [HAND, TAKE], region: whole(DECISION) }
 			: { state: "none", msgs: [], region: null },
 	});
 
@@ -471,9 +479,48 @@ export function Think({ step }: { step: number }) {
 		};
 	};
 
+	/** A piece just added from the format bar: its shape, with placeholder words to type over. */
+	const piece = (a: { id: number; kind: Format; who?: string }, last: boolean): React.ReactNode => {
+		const caret = edit && last && <span className="caret" />;
+		if (a.kind === "heading") return <h3 className="page-empty">Heading{caret}</h3>;
+		if (a.kind === "list") return <ul><li className="page-empty">List item{caret}</li></ul>;
+		if (a.kind === "checklist") return <ul className="todo"><li className="page-empty"><span className="todo-box" />To-do{caret}</li></ul>;
+		if (a.kind === "quote") return <blockquote className="quote page-empty">Quote{caret}</blockquote>;
+		if (a.kind === "code") return <pre className="code page-empty">Code{caret}</pre>;
+		if (a.kind === "link") return <p><span className="lnk">Link text</span>{caret} <span className="lnk-url">Paste or type a link…</span></p>;
+		if (a.kind === "table") {
+			return (
+				<table className="tbl">
+					<thead><tr><th>Column{caret}</th><th>Column</th><th>Column</th></tr></thead>
+					<tbody><tr><td /><td /><td /></tr><tr><td /><td /><td /></tr></tbody>
+				</table>
+			);
+		}
+		if (a.who) return <p><b className="mention">@{a.who}</b>{caret}</p>;
+		return (
+			<>
+				<p><b className="mention">@</b>{caret}</p>
+				<div className="picker picker--inline">
+					<div className="picker-head"><span>Mention</span><span>agents and people, same list</span></div>
+					{mentionables.map((m) => (
+						<button key={m.id} type="button" className="picker-row" onClick={() => setAdded((all) => all.map((x) => (x.id === a.id ? { ...x, who: m.name } : x)))}>
+							<Av m={{ av: m.initials, agent: m.id !== "maya" }} />
+							<span>
+								<span className="picker-name">{m.name}</span>
+								<span className="picker-what">{m.what}</span>
+							</span>
+							<span className="picker-load">{m.load}</span>
+						</button>
+					))}
+				</div>
+			</>
+		);
+	};
+
 	const intro = words("intro");
 	const know = words("know");
 	const decision = words("decision");
+	const writingAtEnd = edit && added.length === 0;
 
 	return (
 		<>
@@ -518,7 +565,7 @@ export function Think({ step }: { step: number }) {
 
 						<Block edit={edit} heading><h3>Decision</h3></Block>
 						<Block
-							edit={edit} active
+							edit={edit} active={added.length === 0}
 							{...margin("decision", (
 								<button type="button" className="cm-task">
 									<span className="cm-task-k">Task</span>
@@ -527,15 +574,25 @@ export function Think({ step }: { step: number }) {
 								</button>
 							))}
 						>
-							{doc.decision.length === 0 && <p className="page-empty">Not yet{edit && <span className="caret" />}</p>}
+							{doc.decision.length === 0 && <p className="page-empty">Not yet{writingAtEnd && <span className="caret" />}</p>}
 							{decision.map((p, i) => (
-								<p key={doc.decision[i]}>{p}{edit && i === decision.length - 1 && <span className="caret" />}</p>
+								<p key={doc.decision[i]}>{p}{writingAtEnd && i === decision.length - 1 && <span className="caret" />}</p>
 							))}
 						</Block>
+
+						{added.map((a, i) => (
+							<Block key={a.id} edit={edit} active={i === added.length - 1}>{piece(a, i === added.length - 1)}</Block>
+						))}
 
 						{edit && <p className="blk-empty">Type / for a block, @ to ask someone</p>}
 					</article>
 				</div>
+				{edit && (
+					<FormatBar
+						floating kinds={DOC_FORMATS} active={added[added.length - 1]?.kind ?? null}
+						onAdd={(kind) => setAdded((all) => [...all, { id: all.length, kind }])}
+					/>
+				)}
 			</section>
 		</>
 	);

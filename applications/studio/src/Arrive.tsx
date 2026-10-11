@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CHAT_FORMATS, FormatBar } from "./FormatBar";
 import { conversations, Sidebar } from "./Sidebar";
 
 /**
@@ -183,8 +184,13 @@ function FirstConversation() {
 				</div>
 			</div>
 			<div className="composer">
-				<input placeholder="Say what you are working on, or @someone…" aria-label="Message" />
-				<button type="button" className="btn btn--accent">Send</button>
+				<div className="composer-box">
+					<input placeholder="Say what you are working on, or @someone…" aria-label="Message" />
+					<div className="composer-row">
+						<FormatBar kinds={CHAT_FORMATS} />
+						<button type="button" className="btn btn--accent">Send</button>
+					</div>
+				</div>
 			</div>
 		</section>
 	);

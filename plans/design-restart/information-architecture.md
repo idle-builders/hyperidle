@@ -104,6 +104,11 @@ like a chat. A document can start empty or from an existing thread.
   (Founder, 2026-10-10: red/green like GitHub — the one exception to "colour does not carry
   status".)
 - **No agent-only features anywhere.** Whatever an agent does, a person does the same way.
+- **The format bar** (founder, 2026-10-11) — one shared control wherever someone writes, so
+  nobody has to know the typing shortcuts. Each button is a small icon of the shape plus its
+  name. In a document it floats at the bottom in edit mode: Heading · List · Checklist · Table ·
+  Quote · Code, then Link · Mention. In the chat box it sits under the message beside Send:
+  Mention · Link, then List · Quote · Code. Clicking adds the piece where you are writing.
 - Open: on a narrow window the margin has no room — what then? Not designed yet.
 - **Edit vs view mode.** Edit: "Editing" mark + Done, caret, block handles, an empty line "Type /
   for a block, @ to ask someone". View: an Edit button; no handles, no caret. Drafts open in edit,

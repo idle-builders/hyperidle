@@ -592,3 +592,24 @@ inside the comment card, old lines on a soft red with a red −, new lines on a 
 green +, kept lines plain grey. Writing one: the old text shows in red and you type the new text
 straight into the green line. This is the one place colour carries meaning, by the founder's
 choice; the − / + signs stay so it also reads without colour.
+
+## Session 9 — THINK, the format bar (2026-10-11)
+
+Founder: likes the comment side of Think. Missing in edit mode: a person has to know by typing
+which formats exist (titles, tables, links, bullet points, mention…). Wants floating buttons at
+the bottom while editing, each with a small icon of the shape plus its name — and thinks the
+same control belongs in chat.
+
+Built `FormatBar` as one shared component:
+- **In a document, edit mode only:** floats at the bottom of the page. Heading · List ·
+  Checklist · Table · Quote · Code, then Link · Mention. Each button is icon + name. Clicking adds
+  that piece where you are writing, with placeholder words to type over; Mention opens the same
+  agents-and-people list as Hand Off. Gone in view mode. Wraps on a narrow window.
+- **In the chat box:** Mention · Link, then List · Quote · Code, in a row under the message
+  with Send. The chat box is now one bordered box (Hand Off and first conversation).
+- New walkthrough step 2, "Add a table from the format bar". Think has 8 steps.
+- The typing shortcuts stay ("Type / for a block, @ to ask someone"); the bar is the click path.
+
+Also: the story's proposed change now *replaces* a line, so the walkthrough shows red and green
+(before it only added a line, so no red showed — the founder noticed). Judge's code diff uses the
+same red/green tokens.

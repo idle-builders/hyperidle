@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { drafts, mentionables, sessionSteps, STEPS, tickets } from "./handoff";
 import { Arrive, ARRIVE_STEPS } from "./Arrive";
+import { CHAT_FORMATS, FormatBar } from "./FormatBar";
 import { Judge, JUDGE_STEPS } from "./Judge";
 import { Think, THINK_STEPS } from "./Think";
 import { conversations, type Item, Sidebar } from "./Sidebar";
@@ -336,10 +337,13 @@ export function App() {
 							</div>
 						</div>
 					) : (
-						<>
+						<div className="composer-box">
 							<input placeholder="Reply, or @someone…" aria-label="Reply" />
-							<button type="button" className="btn btn--accent">Send</button>
-						</>
+							<div className="composer-row">
+								<FormatBar kinds={CHAT_FORMATS} />
+								<button type="button" className="btn btn--accent">Send</button>
+							</div>
+						</div>
 					)}
 				</div>
 			</section>

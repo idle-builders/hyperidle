@@ -188,8 +188,8 @@ kbd { font: var(--t-data); border: var(--line-w) solid var(--line-strong); borde
 .code-line { display: grid; grid-template-columns: 48px 16px minmax(0, 1fr); font: var(--t-data); }
 .code-line:hover { background: var(--sunk); }
 .code-n { text-align: right; padding-right: var(--sp-2); color: var(--ink-3); }
-.code-line--add { background: color-mix(in srgb, var(--live) 10%, transparent); }
-.code-line--del { background: color-mix(in srgb, var(--wait) 10%, transparent); }
+.code-line--add { background: var(--diff-in); }
+.code-line--del { background: var(--diff-out); }
 .code-txt { white-space: pre; overflow-x: auto; }
 
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-3); }
@@ -316,7 +316,7 @@ kbd { font: var(--t-data); border: var(--line-w) solid var(--line-strong); borde
 
 
 
-.detail { display: flex; flex-direction: column; min-height: 0; }
+.detail { position: relative; display: flex; flex-direction: column; min-height: 0; }
 .detail-head { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4) var(--sp-6); border-bottom: var(--line-w) solid var(--line); }
 .detail-head h2 { font: var(--t-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
 .detail-head > .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 0; }
@@ -567,3 +567,36 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .chg-l--in:focus-within { box-shadow: inset 2px 0 0 var(--diff-in-ink); }
 .fld-link { align-self: flex-start; font: var(--t-label); color: var(--ink-2); }
 .fld-link:hover { color: var(--ink); text-decoration: underline; }
+
+/* ---------- the format bar — one control wherever someone writes ---------- */
+.fmt { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-width: 0; }
+.fmt-item { display: inline-flex; align-items: center; }
+.fmt-b { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 var(--sp-2); border-radius: var(--r-sm); font: var(--t-label); color: var(--ink-2); white-space: nowrap; transition: background var(--dur-tap) var(--ease), color var(--dur-tap) var(--ease); }
+.fmt-b:hover, .fmt-b[aria-pressed="true"] { background: var(--sunk); color: var(--ink); }
+.fmt-sep { width: 1px; height: 18px; margin: 0 var(--sp-2); background: var(--line-strong); }
+/* in a document it floats over the bottom of the page while you edit; the two groups are parted by
+   a gap, not a line, so nothing is left stranded when the bar wraps on a narrow window */
+.fmt--floating .fmt-sep { width: var(--sp-3); margin: 0; background: transparent; }
+.fmt--floating { position: absolute; left: 50%; bottom: var(--sp-5); z-index: 5; transform: translateX(-50%); width: max-content; max-width: calc(100% - 2 * var(--sp-6)); justify-content: center; padding: var(--sp-1); border: var(--line-w) solid var(--line); border-radius: var(--r); background: var(--surface); box-shadow: var(--sh-2); }
+
+/* the chat box: the message on top, the format bar and Send under it */
+.composer-box { flex: 1; min-width: 0; display: flex; flex-direction: column; border: var(--line-w) solid var(--line-strong); border-radius: var(--r); background: var(--surface); }
+.composer-box:focus-within { border-color: var(--ink-3); }
+.composer .composer-box input { min-height: 40px; border: 0; background: transparent; }
+.composer .composer-box input:focus { outline: none; }
+.composer-row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-1) var(--sp-2) var(--sp-2); }
+.composer-row .btn { margin-left: auto; min-height: 32px; }
+
+/* pieces the format bar adds to a document */
+.tbl { width: 100%; border-collapse: collapse; font: var(--t-body); }
+.tbl th, .tbl td { height: 38px; padding: 0 var(--sp-3); border: var(--line-w) solid var(--line-strong); text-align: left; }
+.tbl th { background: var(--sunk); font-weight: 600; color: var(--ink-3); }
+.quote { padding-left: var(--sp-4); border-left: 3px solid var(--line-strong); }
+.code { padding: var(--sp-3) var(--sp-4); border-radius: var(--r-sm); background: var(--sunk); font: var(--t-data); }
+.todo { list-style: none; padding-left: 0; }
+.blk ul.todo { padding-left: 0; }
+.todo li { display: flex; align-items: center; gap: var(--sp-2); }
+.todo-box { flex: none; width: 16px; height: 16px; border: 1.5px solid var(--ink-3); border-radius: 4px; }
+.lnk { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.lnk-url { margin-left: var(--sp-2); padding: 2px var(--sp-2); border: var(--line-w) solid var(--line-strong); border-radius: var(--r-sm); font: var(--t-meta); color: var(--ink-3); }
+.picker--inline { max-width: 420px; margin: var(--sp-1) 0 0; }
