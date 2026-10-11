@@ -210,12 +210,14 @@ interface SidebarProps {
 	notificationsOpen?: boolean;
 	/** Documents published during the walkthrough; the tree stops calling them drafts. */
 	published?: string[];
+	/** The team page is showing: its name at the top of the sidebar is the one thing picked. */
+	teamOpen?: boolean;
 }
 
 const withoutDraft = (docs: Doc[], ids: string[]): Doc[] =>
 	docs.map((d) => ({ ...d, note: ids.includes(d.id) ? undefined : d.note, children: d.children && withoutDraft(d.children, ids) }));
 
-export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote, notificationsOpen = false, published = [] }: SidebarProps) {
+export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote, notificationsOpen = false, published = [], teamOpen = false }: SidebarProps) {
 	const [notesOpen, setNotesOpen] = useState(notificationsOpen);
 	const [spine, setSpine] = useState<Spine>(initialSpine);
 	const [picked, setPicked] = useState<string | null>(initialPicked);
@@ -242,7 +244,7 @@ export function Sidebar({ initialSpine = "conversations", initialPicked = null, 
 		<nav className="nav nav--rel">
 			<div className="nav-top">
 				<div className="nav-brand">
-					<span className="wordmark">HyperIdle</span>
+					<button type="button" className="wordmark" aria-current={teamOpen} title="The team: everyone in it">Northwind</button>
 					{showCounts && (
 						<button type="button" className="bell" aria-label="Notifications, 3 new" aria-expanded={notesOpen} onClick={() => setNotesOpen(!notesOpen)}>
 							<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" /></svg>

@@ -779,3 +779,32 @@ were not designed and are dropped unless the founder asks: "handing over a batch
 (handing off already happens from a document or a thread, as designed in Think and Hand Off) and
 "seeing what runs across all tasks" (the Work list in the sidebar). All five journeys now have
 a design.
+
+## Session 11 — PEOPLE, first pass (2026-10-11)
+
+Founder: "lets get into agent and people."
+
+Grounded in what is settled about users (the one-user direction, Sep 2026, and
+`docs/agent-layer/agent-model.md`): an agent and a person are the same kind of user; a team is
+an attribute on a user and a filter, not an object; an agent works for one person or for the
+team; who an agent is, is a document; connections, folders, the thing it runs on and what it
+follows are attributes of the user; there is no settings screen.
+
+Built (journey "People", 4 steps), reusing the task page's layout — title + details +
+conversation on the page, a floating box on the right:
+- **Team page.** The team's name now sits at the top of the sidebar (where "HyperIdle" was) and
+  opens it. People are listed with the agents that work for them underneath; one group "Works
+  for the whole team". Each row: who, what they do, what they are doing right now. "Add someone".
+- **One page for an agent, a person, and you.** Name · what they are doing now · who they are ·
+  "On now" (an agent's open tasks) or "Waiting for …" (a person's reviews and questions), drawn
+  with the same chips and icons as the task graph · your conversation with them and a chat box.
+- **The box:** state · Edit, and Pause for an agent that is yours or the team's · facts ·
+  **Runs on** (agents) · **Can reach** (folders and services, with "Connect a folder or a
+  service") · **Follows** (what wakes an agent, or what a person is told about; with "Follow
+  something else") · **Documents** (an agent's "Who Builder is" and its memory; a person's own).
+- **Your own page is where your settings live:** what you can reach, what you follow, how the
+  app looks. No settings screen.
+This one page is meant to absorb four of the undrawn screens: agents and people, settings and
+"what I follow", connecting folders and GitHub, and setting up a recurring run (an agent
+following "Every Monday at 07:00"). The editors behind "Edit", "Connect…" and "Follow something
+else" are not drawn yet.

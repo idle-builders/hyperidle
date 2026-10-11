@@ -45,7 +45,9 @@ code { font: var(--t-data); background: var(--sunk); padding: 0 var(--sp-1); bor
 .frame { display: grid; grid-template-columns: var(--w-rail) var(--w-queue) minmax(0, 1fr); height: 100vh; }
 
 .rail { border-right: var(--line-w) solid var(--line); background: var(--sunk); display: flex; flex-direction: column; padding: var(--sp-4); gap: var(--sp-5); }
-.wordmark { font: var(--t-strong); font-weight: 650; letter-spacing: -0.01em; padding: 0 var(--sp-2); }
+.wordmark { font: var(--t-strong); font-weight: 650; letter-spacing: -0.01em; padding: 2px var(--sp-2); border-radius: var(--r-sm); }
+.wordmark:hover { background: var(--surface); }
+.wordmark[aria-current="true"] { background: var(--surface); box-shadow: var(--sh-1); }
 .spines { display: flex; flex-direction: column; gap: 2px; }
 .spine { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: 34px; padding: 0 var(--sp-3); border-radius: var(--r-sm); font: var(--t-strong); color: var(--ink-2); }
 .spine:hover { background: var(--surface); }
@@ -711,3 +713,28 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .ses { display: flex; flex-direction: column; font: var(--t-meta); }
 .ses-t { color: var(--ink); }
 .ses-s { color: var(--ink-3); }
+
+/* ---------- PEOPLE — one page for an agent, a person and yourself; the team is the list of them ---------- */
+.tk-page--one { grid-template-columns: minmax(0, 1fr); max-width: 860px; }
+.who-title { display: flex; align-items: center; gap: var(--sp-3); }
+.who-title .avatar { width: 40px; height: 40px; font-size: 0.9375rem; border-radius: var(--r); }
+/* a person, and under them the agents that work for them */
+.crew { display: flex; flex-direction: column; margin-top: var(--sp-4); max-width: none; }
+.crew-agents { display: flex; flex-direction: column; margin-left: var(--sp-4); padding-left: var(--sp-4); border-left: var(--line-w) solid var(--line-strong); }
+.crew-add { margin-top: var(--sp-5); }
+.who { display: grid; grid-template-columns: auto minmax(0, 15rem) minmax(0, 1fr); align-items: center; gap: var(--sp-3); width: 100%; padding: var(--sp-2); border-radius: var(--r); text-align: left; }
+.who:hover { background: var(--sunk); }
+.who-text { min-width: 0; }
+.who-name { display: block; font: var(--t-strong); font-weight: 600; color: var(--ink); }
+.who-what { display: block; font: var(--t-meta); color: var(--ink-3); }
+.who-now { font: var(--t-meta); color: var(--ink-2); }
+.crew > .who .who-name { font-size: 1rem; }
+/* what someone is on: the same chips as on a task's graph, in a plain list */
+.jobs { display: flex; flex-direction: column; gap: var(--sp-2); max-width: 560px; }
+/* a fact in the box: what it is, then a few words about it */
+.pair { display: flex; flex-direction: column; }
+.pair-what { font: var(--t-body); line-height: 1.35; color: var(--ink); }
+.pair-why { font: var(--t-meta); color: var(--ink-3); }
+.looks { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.looks button { min-height: 28px; padding: 0 var(--sp-2); border: var(--line-w) solid var(--line); border-radius: var(--r-sm); font: var(--t-label); color: var(--ink-2); }
+.looks button[aria-checked="true"] { border-color: var(--ink-2); background: var(--sunk); color: var(--ink); }

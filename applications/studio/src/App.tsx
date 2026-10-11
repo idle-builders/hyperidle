@@ -4,6 +4,7 @@ import { Arrive, ARRIVE_STEPS } from "./Arrive";
 import { CHAT_FORMATS, FormatBar } from "./FormatBar";
 import { Avatar, Event, Msg } from "./Msg";
 import { Judge, JUDGE_STEPS } from "./Judge";
+import { People, PEOPLE_STEPS } from "./People";
 import { Shift, SHIFT_STEPS } from "./Shift";
 import { Think, THINK_STEPS } from "./Think";
 import { conversations, type Item, Sidebar } from "./Sidebar";
@@ -44,7 +45,7 @@ export function App() {
 	const [journey, setJourney] = useState("handoff");
 	const [step, setStep] = useState(0);
 	const [peek, setPeek] = useState(false);
-	const steps = journey === "handoff" ? STEPS : journey === "judge" ? JUDGE_STEPS : journey === "think" ? THINK_STEPS : journey === "shift" ? SHIFT_STEPS : ARRIVE_STEPS;
+	const steps = journey === "handoff" ? STEPS : journey === "judge" ? JUDGE_STEPS : journey === "think" ? THINK_STEPS : journey === "shift" ? SHIFT_STEPS : journey === "people" ? PEOPLE_STEPS : ARRIVE_STEPS;
 	const arrive = journey === "arrive";
 
 	document.documentElement.dataset.skin = skin;
@@ -73,6 +74,7 @@ export function App() {
 						{ id: "arrive", name: "Arrive" },
 						{ id: "think", name: "Think" },
 						{ id: "shift", name: "Run the shift" },
+						{ id: "people", name: "People" },
 					].map((j) => (
 						<button key={j.id} type="button" aria-pressed={journey === j.id}
 							onClick={() => { setJourney(j.id); setStep(0); setPeek(false); }}>
@@ -110,7 +112,7 @@ export function App() {
 				</div>
 			</nav>
 
-			{journey === "judge" ? <><Sidebar key={`j${step}`} initialPicked="c-r1" /><Judge key={step} step={step} /></> : arrive ? <Arrive key={step} step={step} /> : journey === "think" ? <Think key={step} step={step} /> : journey === "shift" ? <Shift key={step} step={step} /> : <>
+			{journey === "judge" ? <><Sidebar key={`j${step}`} initialPicked="c-r1" /><Judge key={step} step={step} /></> : arrive ? <Arrive key={step} step={step} /> : journey === "think" ? <Think key={step} step={step} /> : journey === "shift" ? <Shift key={step} step={step} /> : journey === "people" ? <People key={step} step={step} /> : <>
 			<Sidebar key={`h${step}`} initialPicked="x" lists={{ conversations: handoffList }} />
 
 			<section className="thread">

@@ -145,6 +145,21 @@ Work happens in three stages (founder): **plan** in documents and conversations 
 - Not designed, dropped unless asked for: handing over a batch for the night (hand-off already
   happens from a document or thread) · seeing what runs across all tasks (the Work list).
 
+### PEOPLE — first pass 2026-10-11 (awaiting the founder's look)
+An agent and a person are the same kind of user, so they share one page.
+- **The team's name sits at the top of the sidebar** and opens the team page: people, each with
+  the agents that work for them; then the agents that work for the whole team.
+- **The user page** uses the task page's layout. On the page: name · what they are doing now ·
+  who they are · what they are on (an agent's tasks, or what waits for a person) · your
+  conversation with them. In the floating box: state · Edit / Pause · facts · Runs on · Can
+  reach · Follows · Documents.
+- **No settings screen.** Your own page holds what you can reach, what you follow and how the
+  app looks.
+- **Follows is one mechanism:** for an agent it is what wakes it ("Every Monday at 07:00 →
+  starts a run of Support themes, weekly"); for a person it is what they are told about.
+- Not drawn yet: the editors behind Edit, "Connect a folder or a service" and "Follow something
+  else"; adding someone.
+
 ## 4. Object vocabulary
 
 Objects that appear inside surfaces. Designed once, reused everywhere.
@@ -279,7 +294,7 @@ the end.
 
 ## 8. Not yet registered
 
-All five journeys have a design. Screens nobody has drawn yet:
-agents and people (the team, and one agent's or person's page) · settings · "what I follow" ·
-setting up a recurring task or trigger · connecting folders and GitHub after first start ·
-failure, empty and loading states · the "this session cost X" line.
+All five journeys have a design, and People has a first pass. Still undrawn:
+editing a user (who an agent is, what it runs on) · connecting a folder or a service · following
+something (including a schedule) · adding someone · failure, empty and loading states · the
+"this session cost X" line.
