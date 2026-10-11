@@ -28,7 +28,8 @@ spots.** So the agent's pins are the main way a review shows where to look.
 - **ARRIVE**: designed and approved — one sidebar, find or ask, notifications, name your team.
 - **THINK**: designed and approved — comments in the margin, draggable comment region, changes
   proposed inside a comment, the format bar. Details in `information-architecture.md`.
-- **RUN THE SHIFT**: not started.
+- **RUN THE SHIFT**: first version accepted — the task page: a graph of its parts that follows
+  where you are, a floating box for what is attached, title + details + conversation on the page.
 
 ---
 

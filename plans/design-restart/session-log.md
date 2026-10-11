@@ -772,3 +772,10 @@ avoid a scroll area.
 - Demo data now goes four levels deep ("Build the checkout page" has three parts).
 Tested: 1 → 2 → 3 columns walking down, still 3 at the fourth level, back via the path line;
 the graph fits beside the box and has no scroll area.
+
+**Founder, 2026-10-11: "I like it for a start. I guess that's run the shift."** RUN THE SHIFT is
+done for a first version with the task page. The two other parts I had listed for this journey
+were not designed and are dropped unless the founder asks: "handing over a batch for the night"
+(handing off already happens from a document or a thread, as designed in Think and Hand Off) and
+"seeing what runs across all tasks" (the Work list in the sidebar). All five journeys now have
+a design.

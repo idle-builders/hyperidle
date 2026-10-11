@@ -114,7 +114,7 @@ like a chat. A document can start empty or from an existing thread.
   for a block, @ to ask someone". View: an Edit button; no handles, no caret. Drafts open in edit,
   published documents in view. Commenting works in both.
 
-### RUN THE SHIFT — the task screen, second pass 2026-10-11 (awaiting the founder's look)
+### RUN THE SHIFT — the task page, first version accepted 2026-10-11
 Work happens in three stages (founder): **plan** in documents and conversations (Think) →
 **watch it move through the task tree** (this screen) → **check the result** in a review.
 - **The sidebar lists root tasks only. No second navigation inside the page** (founder,
@@ -142,8 +142,8 @@ Work happens in three stages (founder): **plan** in documents and conversations 
 - **Sizes:** a small fix has no tree; a recurring task is a root whose parts are its runs.
 - **Steering** is a message in the task's thread. **Hold** and **Stop** sit behind "⋯" and each
   says what will happen.
-- Still to design in this journey: handing over a batch for the night · seeing what runs
-  across all tasks.
+- Not designed, dropped unless asked for: handing over a batch for the night (hand-off already
+  happens from a document or thread) · seeing what runs across all tasks (the Work list).
 
 ## 4. Object vocabulary
 
@@ -272,10 +272,14 @@ the end.
 - Does the small comment box in the margin get the format bar?
 - Bold and italic in the format bar?
 - The header repeats the title that the page already shows (documents and tasks).
+- The Work list in the sidebar still says "Waiting on your review"; the task page says "Needs
+  review" because review or input does not assign the task to anyone. One wording.
+- At the whole task the graph shows only direct parts; is that enough of an overview?
+- A dependency arrow shows only while both of its parts are in view.
 
 ## 8. Not yet registered
 
-RUN THE SHIFT (the task page, handing a batch of work over, seeing what runs) · routines and
-triggers · agents, people and team settings · "what I follow" · connecting folders and GitHub
-after first start · comments on a narrow window · failure, empty and loading states · the
-"this session cost X" line.
+All five journeys have a design. Screens nobody has drawn yet:
+agents and people (the team, and one agent's or person's page) · settings · "what I follow" ·
+setting up a recurring task or trigger · connecting folders and GitHub after first start ·
+failure, empty and loading states · the "this session cost X" line.
