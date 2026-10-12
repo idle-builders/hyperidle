@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { DOC_FORMATS, FormatBar } from "./FormatBar";
 import { Avatar } from "./Msg";
 import { type Need, NeedIcon } from "./NeedIcon";
 import { type Row as Pair, ReachDialog, StartDialog, type Subject, UserDialog } from "./Setup";
@@ -8,26 +9,31 @@ import { Sidebar } from "./Sidebar";
  * PEOPLE — agents and people are the same kind of user, so they share one page. The page is that
  * user's to-do and status list: what is assigned to them and what waits on them. A box floating
  * on the right holds how they are set up — the typical settings sidebar: a link to your
- * conversation with them, what they run on, what they can reach, when they start working or what
- * they are told about, and what makes them who they are (instructions, skills, memory). There
+ * conversation with them, what they run on, where they work, what they can reach, when they start
+ * working or what they are told about, and what makes them who they are (instructions, skills,
+ * memory). There
  * is no separate settings screen: your own page is where your settings live, and it is one click
  * away at the bottom of the sidebar. A team is not a thing of its own, only everyone who has it.
- * Changing any of it happens in a small dialog over the page; a new agent is finished on its page.
+ * Changing any of it happens in a small dialog over the page. Instructions are a document: a new
+ * agent is made in a dialog, and its instructions are then written as a document.
  */
 export const PEOPLE_STEPS = [
 	{ id: 0, name: "The team: people and their agents" },
 	{ id: 1, name: "An agent's page" },
 	{ id: 2, name: "A person's page" },
 	{ id: 3, name: "Your own page: your list and your settings" },
-	{ id: 4, name: "Dialog: connect a folder or a service" },
-	{ id: 5, name: "Dialog: add a time or an event" },
-	{ id: 6, name: "Dialog: edit a user" },
-	{ id: 7, name: "Dialog: add someone" },
-	{ id: 8, name: "The new agent, finished on its page" },
+	{ id: 4, name: "Dialog: where an agent works" },
+	{ id: 5, name: "Dialog: what an agent can reach" },
+	{ id: 6, name: "Dialog: reasons to start working" },
+	{ id: 7, name: "Dialog: what you are told about" },
+	{ id: 8, name: "Dialog: edit a user" },
+	{ id: 9, name: "Dialog: add someone" },
+	{ id: 10, name: "The new agent: its instructions come next" },
+	{ id: 11, name: "Its instructions, written as a document" },
 ];
 
 type UserId = "you" | "maya" | "builder" | "growth" | "designer" | "facilitation" | "researcher";
-type DialogId = "reach" | "start" | "edit";
+type DialogId = "folder" | "service" | "start" | "edit";
 
 interface Work {
 	title: string;
@@ -53,6 +59,9 @@ interface User {
 	/** For a person: the tasks they handed to someone, and how each stands. */
 	started?: Work[];
 	runsOn?: Pair[];
+	/** The folders they work in. */
+	worksIn: Pair[];
+	/** The services they can reach. */
 	reach: Pair[];
 	/** An agent: what makes it start working. A person: what they are told about, each a switch. */
 	when: Pair[];
@@ -65,6 +74,8 @@ interface User {
 	talked?: string;
 	/** Not in the team until someone adds it. */
 	fresh?: boolean;
+	/** Its instructions are not written yet. */
+	unwritten?: boolean;
 }
 
 const TEAM = "Northwind";
@@ -83,9 +94,14 @@ const USERS: Record<UserId, User> = {
 			{ title: "When do we take the card?", words: "Question · from Builder · 6h ago", mark: "open", needs: "input" },
 			{ title: "Rollout rule, written down: will you own it?", words: "Question · from Maya · 11h ago", mark: "open", needs: "input" },
 		],
+		worksIn: [
+			{ what: "~/code/northwind", why: "on this computer · Builder works here" },
+			{ what: "~/code/northwind-site", why: "on this computer" },
+		],
 		reach: [
-			{ what: "This computer", why: "the folder ~/code/northwind" },
 			{ what: "GitHub", why: "northwind, your account" },
+			{ what: "Zendesk", why: "the support desk" },
+			{ what: "Stripe", why: "payments" },
 			{ what: "Google Drive", why: "the Northwind shared drive" },
 		],
 		started: [
@@ -111,6 +127,7 @@ const USERS: Record<UserId, User> = {
 		about: "Answers customers and owns everything that goes out to them. Designer works for her.",
 		onTitle: "Waiting for Maya",
 		on: [{ title: "Refund wording · Final", words: "Review · from Designer · open 2h", mark: "open", needs: "review" }],
+		worksIn: [{ what: "~/code/northwind-site", why: "on her computer · Designer works here" }],
 		reach: [
 			{ what: "Zendesk", why: "the support desk" },
 			{ what: "Google Drive", why: "the Northwind shared drive" },
@@ -140,14 +157,14 @@ const USERS: Record<UserId, User> = {
 			{ what: "Model", why: "the default" },
 			{ what: "2 sessions at a time", why: "" },
 		],
+		worksIn: [{ what: "~/code/northwind", why: "reads and changes" }],
 		reach: [
-			{ what: "Folder", why: "~/code/northwind · reads and writes" },
 			{ what: "GitHub", why: "northwind/app · opens pull requests" },
 			{ what: "Zendesk", why: "reads tickets" },
 		],
 		when: [
-			{ what: "Someone mentions @Builder", why: "it joins that thread" },
-			{ what: "A task is handed to it", why: "it starts when a session is free" },
+			{ what: "Someone mentions @Builder", why: "it joins that thread", fixed: true },
+			{ what: "A task is handed to it", why: "it starts when a session is free", fixed: true },
 		],
 		self: [
 			{ what: "Instructions", why: "Who Builder is and how it works · you edited it 3 weeks ago" },
@@ -173,6 +190,7 @@ const USERS: Record<UserId, User> = {
 			{ what: "Model", why: "the default" },
 			{ what: "1 session at a time", why: "" },
 		],
+		worksIn: [],
 		reach: [
 			{ what: "Stripe", why: "reads payments" },
 			{ what: "Zendesk", why: "reads tickets" },
@@ -180,8 +198,8 @@ const USERS: Record<UserId, User> = {
 		],
 		when: [
 			{ what: "Every Monday at 07:00", why: "it starts a run of Support themes, weekly" },
-			{ what: "Someone mentions @Growth", why: "it joins that thread" },
-			{ what: "A task is handed to it", why: "it starts when a session is free" },
+			{ what: "Someone mentions @Growth", why: "it joins that thread", fixed: true },
+			{ what: "A task is handed to it", why: "it starts when a session is free", fixed: true },
 		],
 		self: [
 			{ what: "Instructions", why: "Who Growth is and how it works · you edited it 2 months ago" },
@@ -205,13 +223,11 @@ const USERS: Record<UserId, User> = {
 			{ what: "Model", why: "the default" },
 			{ what: "1 session at a time", why: "" },
 		],
-		reach: [
-			{ what: "Folder", why: "~/code/northwind-site · reads and writes" },
-			{ what: "Figma", why: "reads the brand file" },
-		],
+		worksIn: [{ what: "~/code/northwind-site", why: "reads and changes" }],
+		reach: [{ what: "Figma", why: "reads the brand file" }],
 		when: [
-			{ what: "Someone mentions @Designer", why: "it joins that thread" },
-			{ what: "A task is handed to it", why: "it starts when a session is free" },
+			{ what: "Someone mentions @Designer", why: "it joins that thread", fixed: true },
+			{ what: "A task is handed to it", why: "it starts when a session is free", fixed: true },
 		],
 		self: [
 			{ what: "Instructions", why: "Who Designer is and how it works · Maya edited it 5 weeks ago" },
@@ -233,7 +249,8 @@ const USERS: Record<UserId, User> = {
 			{ what: "Model", why: "the default" },
 			{ what: "1 session at a time", why: "" },
 		],
-		reach: [{ what: "Nothing outside HyperIdle", why: "it only reads and writes documents here" }],
+		worksIn: [],
+		reach: [],
 		when: [
 			{ what: "A task finishes with a note on how it went", why: "it reads the note" },
 			{ what: "Every Friday at 16:00", why: "it proposes changes to How we work" },
@@ -248,7 +265,7 @@ const USERS: Record<UserId, User> = {
 		name: "Researcher", av: "RE", kind: "Agent", owner: "you", fresh: true,
 		what: "Reads what competitors ship and writes it down.",
 		status: "Idle",
-		stand: "New. Nothing is handed to it yet.",
+		stand: "New. It has no instructions yet.",
 		about: "Watches what the three closest competitors ship and says what it means for pricing.",
 		onTitle: "On now",
 		on: [],
@@ -257,19 +274,22 @@ const USERS: Record<UserId, User> = {
 			{ what: "Model", why: "the default" },
 			{ what: "1 session at a time", why: "" },
 		],
+		worksIn: [],
 		reach: [],
 		when: [
-			{ what: "Someone mentions @Researcher", why: "it joins that thread" },
-			{ what: "A task is handed to it", why: "it starts when a session is free" },
+			{ what: "Someone mentions @Researcher", why: "it joins that thread", fixed: true },
+			{ what: "A task is handed to it", why: "it starts when a session is free", fixed: true },
 		],
-		self: [{ what: "Instructions", why: "Who Researcher is and how it works · you wrote it just now" }],
+		self: [{ what: "Instructions", why: "Not written yet" }],
+		unwritten: true,
 		facts: ["Agent · works for you", `Team ${TEAM}`, "Here since today"],
 	},
 };
 
 const PEOPLE: UserId[] = ["you", "maya"];
-const START: (UserId | null)[] = [null, "builder", "maya", "you", "builder", "growth", "builder", null, "researcher"];
-const DIALOG: (DialogId | "add" | null)[] = [null, null, null, null, "reach", "start", "edit", "add", null];
+const START: (UserId | null)[] = [null, "builder", "maya", "you", "builder", "builder", "growth", "you", "builder", null, "researcher", "researcher"];
+const DIALOG: (DialogId | "add" | null)[] = [null, null, null, null, "folder", "service", "start", "start", "edit", "add", null, null];
+const FILE_STEP = 11;
 
 /** The same marks as on a task's graph: an icon where a person is needed, initials where an agent is working. */
 function Mark({ w, av }: { w: Work; av: string }) {
@@ -353,9 +373,10 @@ function Jobs({ u, items }: { u: User; items: Work[] }) {
 	);
 }
 
-function UserPage({ id, initialDialog, onOpen, onTeam }: { id: UserId; initialDialog: DialogId | null; onOpen: (id: UserId) => void; onTeam: () => void }) {
+function UserPage({ id, initialDialog, onOpen, onTeam, onFile }: { id: UserId; initialDialog: DialogId | null; onOpen: (id: UserId) => void; onTeam: () => void; onFile: () => void }) {
 	const u = USERS[id];
 	const [dialog, setDialog] = useState(initialDialog);
+	const [worksIn, setWorksIn] = useState(u.worksIn);
 	const [reach, setReach] = useState(u.reach);
 	const [when, setWhen] = useState(u.when);
 	const [paused, setPaused] = useState(false);
@@ -382,6 +403,12 @@ function UserPage({ id, initialDialog, onOpen, onTeam }: { id: UserId; initialDi
 				<h1 className="page-title who-title"><Avatar who={u.av} human={u.kind === "Person"} />{u.name}</h1>
 				<p className="stand"><span>{paused ? "Paused. It takes no new work until you let it." : u.stand}</span></p>
 				<p>{u.about}</p>
+				{u.unwritten && (
+					<div className="hint">
+						<span>{u.name} has no instructions yet. They are a document: who it is and how it should work.</span>
+						<span className="hint-acts"><button type="button" className="btn btn--accent" onClick={onFile}>Write its instructions</button></span>
+					</div>
+				)}
 
 				<h3>{u.onTitle} <span>{u.on.length}</span></h3>
 				{u.on.length === 0 && <p className="tbox-none">Nothing yet. Hand it a task, or mention @{u.name} in a thread.</p>}
@@ -414,7 +441,11 @@ function UserPage({ id, initialDialog, onOpen, onTeam }: { id: UserId; initialDi
 				</ul>
 
 				{u.runsOn && <Section title="Runs on" items={u.runsOn} />}
-				<Section title="Can reach" items={reach} none="Nothing outside HyperIdle yet." add={mine ? "Connect a folder or a service" : undefined} onAdd={() => setDialog("reach")} />
+				<Section
+					title="Works in" items={worksIn} none={u.kind === "Agent" ? "No folder. It works inside HyperIdle and with what it can reach." : "No folder yet."}
+					add={mine ? "Add a folder" : undefined} onAdd={() => setDialog("folder")}
+				/>
+				<Section title="Can reach" items={reach} none="No service yet." add={mine ? "Connect a service" : undefined} onAdd={() => setDialog("service")} />
 
 				{u.kind === "Agent" && <Section title="Starts working when" items={when} add={mine ? "Add a time or an event" : undefined} onAdd={() => setDialog("start")} />}
 				{me && (
@@ -429,7 +460,7 @@ function UserPage({ id, initialDialog, onOpen, onTeam }: { id: UserId; initialDi
 								{x.what}
 							</button>
 						))}
-						<button type="button" className="tbox-more" onClick={() => setDialog("start")}>Add an event</button>
+						<button type="button" className="tbox-more" onClick={() => setDialog("start")}>Change what you are told about</button>
 						<p className="pair-why">{u.following}. You follow a document, task or thread from its own page.</p>
 						<button type="button" className="tbox-more">See what you follow</button>
 					</section>
@@ -446,9 +477,55 @@ function UserPage({ id, initialDialog, onOpen, onTeam }: { id: UserId; initialDi
 				)}
 			</aside>
 
-			{dialog === "reach" && <ReachDialog who={subject} onClose={close} onDone={(added) => { if (added) setReach([...reach, added]); close(); }} />}
-			{dialog === "start" && <StartDialog who={subject} onClose={close} onDone={(added) => { setWhen([added, ...when]); close(); }} />}
+			{dialog === "folder" && <ReachDialog who={subject} kind="folder" given={worksIn.map((x) => x.what)} onClose={close} onDone={(added) => { setWorksIn([...worksIn, added]); close(); }} />}
+			{dialog === "service" && <ReachDialog who={subject} kind="service" given={reach.map((x) => x.what)} onClose={close} onDone={(added) => { setReach([...reach, added]); close(); }} />}
+			{dialog === "start" && (
+				<StartDialog
+					who={subject} rows={when} onClose={close}
+					onDone={(added) => { setWhen([...when, ...added.filter((a) => !when.some((w) => w.what === a.what && w.why === a.why))]); close(); }}
+				/>
+			)}
 			{dialog === "edit" && <UserDialog user={subject} program={u.runsOn?.[0].what} onClose={close} onDone={close} />}
+		</article>
+	);
+}
+
+/** An agent's instructions are a document, written where every document is written. */
+function Blk({ heading, children }: { heading?: boolean; children: React.ReactNode }) {
+	return (
+		<div className={heading ? "blk blk--h blk--edit" : "blk blk--edit"}>
+			<div className="blk-row">{children}</div>
+		</div>
+	);
+}
+
+function AgentFile({ id, onUser, onTeam }: { id: UserId; onUser: () => void; onTeam: () => void }) {
+	const u = USERS[id];
+	return (
+		<article className="page">
+			<nav className="crumbs" aria-label="Where you are">
+				<button type="button" onClick={onTeam}>{TEAM}</button>
+				<button type="button" onClick={onUser}>{u.name}</button>
+				<span aria-current="true">Instructions</span>
+			</nav>
+			<h1 className="page-title">Who {u.name} is and how it works</h1>
+			<Blk><p>You watch what our three closest competitors ship, and say what it means for our pricing.</p></Blk>
+			<Blk heading><h3>What you do</h3></Blk>
+			<Blk>
+				<ul>
+					<li>Once a week, read their changelogs, pricing pages and release posts.</li>
+					<li>Write what changed into “Competitors”, newest first.</li>
+					<li>Say in one line what each change means for us.</li>
+				</ul>
+			</Blk>
+			<Blk heading><h3>How you work</h3></Blk>
+			<Blk>
+				<ul>
+					<li>Ask me before you contact anyone outside the team.</li>
+					<li>If you are not sure something is true, say so and say where you read it.<span className="caret" /></li>
+				</ul>
+			</Blk>
+			<p className="blk-empty">Type / for a block, @ to ask someone</p>
 		</article>
 	);
 }
@@ -457,21 +534,40 @@ export function People({ step }: { step: number }) {
 	const [open, setOpen] = useState<UserId | null>(START[step] ?? null);
 	const [adding, setAdding] = useState(DIALOG[step] === "add");
 	const [added, setAdded] = useState(START[step] === "researcher");
+	const [file, setFile] = useState(step === FILE_STEP);
 	const first = DIALOG[step] ?? null;
 	const u = open ? USERS[open] : null;
+	const go = (id: UserId | null) => { setOpen(id); setFile(false); };
 	return (
 		<>
 			<Sidebar teamOpen={open === null} youOpen={open === "you"} />
 			<section className="detail">
-				<header className="detail-head">
-					<span className="chip chip--quiet">{u ? u.kind : "Team"}</span>
-					<h2>{u ? u.name : TEAM}</h2>
-					<span className="doc-state">{u ? u.what : "Everyone in it"}</span>
-				</header>
+				{u && file ? (
+					<header className="detail-head">
+						<span className="chip chip--quiet">Document</span>
+						<h2>{u.name}: instructions</h2>
+						<span className="doc-state">Draft · {u.name} reads this every time it starts</span>
+						<span className="doc-act">
+							<span className="doc-mode">✎ Editing</span>
+							<button type="button" className="btn" onClick={() => setFile(false)}>Done</button>
+						</span>
+					</header>
+				) : (
+					<header className="detail-head">
+						<span className="chip chip--quiet">{u ? u.kind : "Team"}</span>
+						<h2>{u ? u.name : TEAM}</h2>
+						<span className="doc-state">{u ? u.what : "Everyone in it"}</span>
+					</header>
+				)}
 				<div className="detail-scroll">
-					{open
-						? <UserPage key={open} id={open} initialDialog={first !== "add" && open === START[step] ? first : null} onOpen={setOpen} onTeam={() => setOpen(null)} />
-						: <TeamPage added={added} onOpen={setOpen} onAdd={() => setAdding(true)} />}
+					{open && file && <AgentFile id={open} onUser={() => setFile(false)} onTeam={() => go(null)} />}
+					{open && !file && (
+						<UserPage
+							key={open} id={open} initialDialog={first !== "add" && open === START[step] ? first : null}
+							onOpen={go} onTeam={() => go(null)} onFile={() => setFile(true)}
+						/>
+					)}
+					{!open && <TeamPage added={added} onOpen={go} onAdd={() => setAdding(true)} />}
 					{adding && (
 						<UserDialog
 							onClose={() => setAdding(false)}
@@ -479,6 +575,7 @@ export function People({ step }: { step: number }) {
 						/>
 					)}
 				</div>
+				{file && <FormatBar floating kinds={DOC_FORMATS} />}
 			</section>
 		</>
 	);

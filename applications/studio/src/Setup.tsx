@@ -3,9 +3,11 @@ import { Seg } from "./Seg";
 
 /**
  * SETTING UP A USER — the small forms behind the buttons on a user's page. Each is a dialog over
- * the page it changes: a few fields, and the result shows up in the box behind it. Adding someone
- * and editing someone are the same form. The one long piece of writing, an agent's instructions,
- * is a document and opens where documents are edited — so none of this needs a page of its own.
+ * the page it changes: the list it adds to on top, a few fields below, and the result shows up in
+ * the box behind it. Where someone works (folders) and what they can reach (services) are two
+ * lists. What starts an agent, and what a person is told about, is a list of reasons. Adding
+ * someone and editing someone are the same form. Instructions are a document: the dialog makes
+ * the agent, the writing happens where documents are edited.
  */
 export interface Subject {
 	name: string;
@@ -20,6 +22,8 @@ export interface Subject {
 export interface Row {
 	what: string;
 	why: string;
+	/** Built in: it cannot be switched off. */
+	fixed?: boolean;
 }
 
 function Dialog({ title, sub, done, aside, onClose, onDone, children }: {
@@ -85,80 +89,86 @@ function Pick({ name, options, value, onChange }: { name: string; options: { wha
 	);
 }
 
-/* ---------- what someone can reach: folders and services ---------- */
+/* ---------- where someone works (folders) and what they can reach (services) ---------- */
 
-const THINGS = [
-	{ name: "~/code/northwind", how: "Folder on this computer", folder: true, on: true, users: "Builder" },
-	{ name: "GitHub", how: "Signed in on this computer", folder: false, on: true, users: "Builder" },
-	{ name: "Zendesk", how: "Key saved 3 weeks ago", folder: false, on: true, users: "Builder, Growth" },
-	{ name: "Stripe", how: "Signed in on this computer", folder: false, on: false, users: "Growth" },
-	{ name: "Northwind shared drive", how: "Google Drive folder", folder: true, on: false, users: "Growth" },
+const FOLDERS = [
+	{ name: "~/code/northwind", how: "On this computer · a git repository", users: "Builder" },
+	{ name: "~/code/northwind-site", how: "On this computer · a git repository", users: "nobody yet" },
 ];
-const NEW_KINDS = ["A folder", "A service"] as const;
+const SERVICES = [
+	{ name: "GitHub", how: "Signed in on this computer", users: "Builder" },
+	{ name: "Zendesk", how: "Key saved 3 weeks ago", users: "Builder, Growth" },
+	{ name: "Stripe", how: "Signed in on this computer", users: "Growth" },
+	{ name: "Google Drive", how: "Signed in on this computer", users: "Growth" },
+];
 const MAY = ["Read and change", "Only read"] as const;
-const SIGN_IN = ["A key", "A server address"] as const;
+const SIGN_IN = ["A key", "An MCP server"] as const;
 const YOUR_AGENTS = ["Builder", "Growth", "Facilitation"];
 
-export function ReachDialog({ who, onClose, onDone }: { who: Subject; onClose: () => void; onDone: (added?: Row) => void }) {
+export function ReachDialog({ who, kind, given, onClose, onDone }: {
+	who: Subject;
+	kind: "folder" | "service";
+	/** What this user has already. */
+	given: string[];
+	onClose: () => void;
+	onDone: (added: Row) => void;
+}) {
 	const agent = who.kind === "Agent";
-	const [fresh, setFresh] = useState<(typeof NEW_KINDS)[number] | null>(agent ? null : "A folder");
+	const folder = kind === "folder";
 	const [may, setMay] = useState<(typeof MAY)[number]>("Read and change");
 	const [signIn, setSignIn] = useState<(typeof SIGN_IN)[number]>("A key");
-	const added: Row | undefined =
-		fresh === "A folder" ? { what: "Folder", why: `~/code/northwind-site · ${may === "Only read" ? "only reads" : "reads and writes"}` }
-		: fresh === "A service" ? { what: "Linear", why: signIn === "A key" ? "key saved just now" : "through its own server" }
-		: undefined;
+	const added: Row = folder
+		? { what: "~/code/northwind-billing", why: may === "Only read" ? "only reads" : "reads and changes" }
+		: { what: "Linear", why: signIn === "A key" ? "key saved just now" : "through its MCP server" };
+	const title = folder
+		? (agent ? `Where ${who.name} works` : "Where you and your agents work")
+		: (agent ? `What ${who.name} can reach` : "What you and your agents can reach");
+	const sub = folder
+		? (agent ? `${who.name} works in the folders ticked here. A folder is added once, then ticked for whoever works in it.` : "Add a folder once. Then tick, on an agent's page, whether it works there.")
+		: (agent ? `${who.name} reaches only the services ticked here. A service is connected once, then ticked for whoever gets it.` : "Connect a service once. Then tick, on an agent's page, whether it gets it.");
 	return (
-		<Dialog
-			title={agent ? `What ${who.name} can reach` : "What you and your agents can reach"}
-			sub={agent ? `${who.name} reaches only what is ticked here. You connect a folder or a service once, then tick who gets it.` : "Connect a folder or a service once. Then tick, on an agent's page, which of them it gets."}
-			done="Save" onClose={onClose} onDone={() => onDone(added)}
-		>
+		<Dialog title={title} sub={sub} done="Save" onClose={onClose} onDone={() => onDone(added)}>
 			<div className="reach">
-				{THINGS.map((t) => (
+				{(folder ? FOLDERS : SERVICES).map((t) => (
 					<div key={t.name} className="reach-row">
-						{agent && <input type="checkbox" defaultChecked={t.on} aria-label={t.name} />}
+						{agent && <input type="checkbox" defaultChecked={given.includes(t.name)} aria-label={t.name} />}
 						<span className="reach-name">{t.name}</span>
 						<span className="reach-how">{t.how}</span>
 						{agent
-							? t.folder && (
-								<select className="in in--small" aria-label={`What ${who.name} may do in ${t.name}`} defaultValue={t.on ? MAY[0] : MAY[1]}>
+							? folder && (
+								<select className="in in--small" aria-label={`What ${who.name} may do in ${t.name}`}>
 									{MAY.map((m) => <option key={m}>{m}</option>)}
 								</select>
 							)
-							: <span className="reach-users">Given to {t.users}</span>}
+							: <span className="reach-side">Given to {t.users}</span>}
 					</div>
 				))}
 			</div>
 
 			<div className="dlg-part">
-				<div className="dlg-part-h">
-					<span>Connect something new</span>
-					<Seg label="What to connect" options={NEW_KINDS} value={fresh} onChange={setFresh} />
-				</div>
-				{fresh === "A folder" && (
+				<div className="dlg-part-h">{folder ? "Add a folder" : "Connect a service"}</div>
+				{folder ? (
 					<>
 						<Field label="Where" hint="A folder on this computer, or the address of a git repository. This one is a git repository on the branch main, so every task works on a branch of its own.">
 							<div className="in-row">
-								<input className="in" defaultValue="~/code/northwind-site" aria-label="Where" />
+								<input className="in" defaultValue="~/code/northwind-billing" aria-label="Where" />
 								<button type="button" className="btn">Choose…</button>
 							</div>
 						</Field>
-						<Field label="Agents may"><Seg label="Agents may" options={MAY} value={may} onChange={setMay} /></Field>
+						<Field label={agent ? `${who.name} may` : "Agents may"}><Seg label="May" options={MAY} value={may} onChange={setMay} /></Field>
 					</>
-				)}
-				{fresh === "A service" && (
+				) : (
 					<>
 						<Field label="Service"><input className="in" defaultValue="Linear" aria-label="Service" /></Field>
 						<Field label="Sign in with"><Seg label="Sign in with" options={SIGN_IN} value={signIn} onChange={setSignIn} /></Field>
 						{signIn === "A key"
 							? <Field key="key" label="Key" hint="Kept encrypted. Nobody sees it again, not even you."><input className="in" type="password" defaultValue="0000000000000000000000" aria-label="Key" /></Field>
-							: <Field key="address" label="Address" hint="The address of an MCP server. If it asks for a key, add one."><input className="in" defaultValue="https://mcp.linear.app/mcp" aria-label="Address" /></Field>}
+							: <Field key="address" label="Address" hint="Where the MCP server is. If it asks for a key, add one."><input className="in" defaultValue="https://mcp.linear.app/mcp" aria-label="Address" /></Field>}
 						<p className="dlg-note">Already signed in to a service on this computer, like GitHub above? Then it is in the list by itself, with nothing to type.</p>
 					</>
 				)}
-				{fresh && !agent && (
-					<Field label="Who gets it">
+				{!agent && (
+					<Field label={folder ? "Who works in it" : "Who gets it"}>
 						<div className="ticks">
 							{YOUR_AGENTS.map((a) => <label key={a} className="pick"><input type="checkbox" defaultChecked={a === "Builder"} /><span>{a}</span></label>)}
 						</div>
@@ -169,9 +179,8 @@ export function ReachDialog({ who, onClose, onDone }: { who: Subject; onClose: (
 	);
 }
 
-/* ---------- when someone starts working, or is told ---------- */
+/* ---------- the reasons someone starts working, or is told ---------- */
 
-const WHEN_KINDS = ["At a time", "When something happens"] as const;
 const EVENTS = [
 	{ about: "A task", does: ["is created", "changes"] },
 	{ about: "A thread", does: ["starts", "gets a message"] },
@@ -179,59 +188,86 @@ const EVENTS = [
 	{ about: "Someone", does: ["joins the team"] },
 ];
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const JOB = "Pricing page check";
+const flip = (all: string[], x: string): string[] => (all.includes(x) ? all.filter((y) => y !== x) : [...all, x]);
 
-export function StartDialog({ who, onClose, onDone }: { who: Subject; onClose: () => void; onDone: (added: Row) => void }) {
+export function StartDialog({ who, rows, onClose, onDone }: { who: Subject; rows: Row[]; onClose: () => void; onDone: (added: Row[]) => void }) {
 	const agent = who.kind === "Agent";
-	const [kind, setKind] = useState<(typeof WHEN_KINDS)[number]>(agent ? "At a time" : "When something happens");
-	const [event, setEvent] = useState(agent ? "A document changes" : "Someone joins the team");
-	const timed = kind === "At a time";
-	const name = timed ? "Churn check, weekly" : "Pricing page check";
-	const added: Row = !agent ? { what: event, why: "" }
-		: timed ? { what: "Every Thursday at 08:00", why: `it starts a run of ${name}` }
-		: { what: event, why: `it starts ${name}` };
+	const [off, setOff] = useState<string[]>([]);
+	const [days, setDays] = useState(agent ? ["Thursday"] : []);
+	const [events, setEvents] = useState([agent ? "A document changes" : "Someone joins the team"]);
+	const why = agent ? `it starts a run of ${JOB}` : "";
+	const added: Row[] = [...days.map((d) => ({ what: `Every ${d} at 08:00`, why })), ...events.map((e) => ({ what: e, why }))];
 	return (
 		<Dialog
-			title={agent ? `When should ${who.name} start working?` : "When should you be told?"}
-			sub={agent ? "At a time, or when something happens in the team. It works the same way for every agent and every person." : "You get a notification under the bell. The same form starts an agent; for a person it only tells them."}
-			done="Add" onClose={onClose} onDone={() => onDone(added)}
+			title={agent ? `When ${who.name} starts working` : "What you are told about"}
+			sub={agent ? "A list of reasons. Any one of them starts it." : "A set of reasons. Each one sends you a notification under the bell."}
+			done={agent ? "Add" : "Save"} onClose={onClose} onDone={() => onDone(added)}
 		>
-			<Field label="When" hint={timed ? "Next time: Thursday 15 October at 08:00, your time." : `Anywhere in Northwind that ${agent ? who.name : "you"} can see.`}>
-				{agent && <Seg label="When" options={WHEN_KINDS} value={kind} onChange={setKind} />}
-				{timed ? (
-					<div className="in-row in-row--words">
-						<span>Every</span>
-						<select className="in" aria-label="How often" defaultValue="week">{["day", "week", "month"].map((x) => <option key={x}>{x}</option>)}</select>
-						<span>on</span>
-						<select className="in" aria-label="Day" defaultValue="Thursday">{DAYS.map((x) => <option key={x}>{x}</option>)}</select>
-						<span>at</span>
-						<input className="in in--time" defaultValue="08:00" aria-label="Time" />
+			<div className="reach">
+				{rows.map((r) => (
+					<div key={r.what + r.why} className="reach-row">
+						<span className="reach-name">{r.what}</span>
+						{r.why && <span className="reach-how">{r.why}</span>}
+						{r.fixed
+							? <span className="reach-side">always</span>
+							: (
+								<button type="button" className="fact-switch" role="switch" aria-checked={!off.includes(r.what + r.why)} aria-label={r.what} onClick={() => setOff(flip(off, r.what + r.why))}>
+									<span className="fact-knob" />
+								</button>
+							)}
 					</div>
-				) : (
+				))}
+			</div>
+
+			<div className="dlg-part">
+				<div className="dlg-part-h">{agent ? "Add reasons" : "More reasons"}</div>
+				<Field
+					label={agent ? "Start when" : "Tell me when"}
+					hint={`${agent ? "Any one of these starts it. " : ""}Things that happen count anywhere in Northwind that ${agent ? who.name : "you"} can see.`}
+				>
+					{agent && (
+						<>
+							<span className="field-sub">At a time</span>
+							{days.map((d, i) => (
+								// biome-ignore lint/suspicious/noArrayIndexKey: the same day may be listed twice
+								<div key={i} className="in-row in-row--words">
+									<span>Every</span>
+									<select className="in" aria-label="How often" defaultValue="week">{["day", "week", "month"].map((x) => <option key={x}>{x}</option>)}</select>
+									<span>on</span>
+									<select className="in" aria-label="Day" value={d} onChange={(e) => setDays(days.map((x, j) => (j === i ? e.target.value : x)))}>{DAYS.map((x) => <option key={x}>{x}</option>)}</select>
+									<span>at</span>
+									<input className="in in--time" defaultValue="08:00" aria-label="Time" />
+									<button type="button" className="in-x" aria-label="Remove this time" onClick={() => setDays(days.filter((_, j) => j !== i))}>✕</button>
+								</div>
+							))}
+							<button type="button" className="dlg-quiet" onClick={() => setDays([...days, DAYS[(3 + 4 * days.length) % 7]])}>Add a time</button>
+							<span className="field-sub">When something happens</span>
+						</>
+					)}
 					<div className="events">
 						{EVENTS.map((e) => (
 							<div key={e.about} className="events-row">
 								<span>{e.about}</span>
 								<span className="chips">
-									{e.does.map((d) => <button key={d} type="button" aria-pressed={event === `${e.about} ${d}`} onClick={() => setEvent(`${e.about} ${d}`)}>{d}</button>)}
+									{e.does.map((d) => <button key={d} type="button" aria-pressed={events.includes(`${e.about} ${d}`)} onClick={() => setEvents(flip(events, `${e.about} ${d}`))}>{d}</button>)}
 								</span>
 							</div>
 						))}
 					</div>
+				</Field>
+				{agent && (
+					<>
+						<Field label="Name"><input className="in" defaultValue={JOB} aria-label="Name" /></Field>
+						<Field label="What to do" hint={`${who.name} reads this every time one of the reasons starts it. Every run shows up as a part of the task “${JOB}”, so you follow it like any other work.`}>
+							<textarea
+								className="in in--text" aria-label="What to do"
+								defaultValue="Check that the numbers on the pricing page still match the document “Pricing”, and tell me if they do not. If a different document changed, stop."
+							/>
+						</Field>
+					</>
 				)}
-			</Field>
-			{agent && (
-				<>
-					<Field label="Name"><input className="in" key={name} defaultValue={name} aria-label="Name" /></Field>
-					<Field label="What to do" hint={`${who.name} reads this every time it starts. Every run shows up as a part of the task “${name}”, so you follow it like any other work.`}>
-						<textarea
-							className="in in--text" aria-label="What to do" key={kind}
-							defaultValue={timed
-								? "Look at who cancelled last week and why. Write the three biggest reasons into “Why people leave”, and tell me if one of them is new."
-								: "If the document is “Pricing”, check that the numbers on the pricing page still match it. Tell me if they do not. For any other document, stop."}
-						/>
-					</Field>
-				</>
-			)}
+			</div>
 		</Dialog>
 	);
 }
@@ -260,7 +296,7 @@ export function UserDialog({ user, program = "Claude Code", onClose, onDone }: {
 			done={user ? "Save" : "Add"}
 			aside={user
 				? !user.me && <button type="button" className="dlg-quiet">Remove {user.name} from the team</button>
-				: agent ? "Folders, services and start times come next, on its page." : "Sam gets a link to join Northwind."}
+				: agent ? "Its instructions are a document. You write them next." : "Sam gets a link to join Northwind."}
 			onClose={onClose} onDone={() => onDone(!user && agent)}
 		>
 			{!user && <Field label="Add"><Seg label="Add" options={ADD_KINDS} value={kind} onChange={setKind} /></Field>}
@@ -286,16 +322,9 @@ export function UserDialog({ user, program = "Claude Code", onClose, onDone }: {
 					)}
 				</>
 			)}
-			{user ? (
+			{user && (
 				<Field label={agent ? "Instructions" : "About you"} hint={`Opens as a document${agent ? ", like its skills and memory" : ""}. ${user.edited ?? ""}`}>
 					<button type="button" className="doc-link">{agent ? `Who ${user.name} is and how it works` : "What agents should know when they work with you"}</button>
-				</Field>
-			) : agent && (
-				<Field label="Instructions" hint="In your own words. It becomes a document you can rewrite any time.">
-					<textarea
-						className="in in--text" aria-label="Instructions"
-						defaultValue="You watch what our three closest competitors ship. Once a week, write what changed into “Competitors” and say what it means for our pricing. Ask me before you contact anyone."
-					/>
 				</Field>
 			)}
 		</Dialog>

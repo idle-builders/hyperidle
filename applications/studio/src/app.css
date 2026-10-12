@@ -759,7 +759,7 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .dlg-note { font: var(--t-meta); color: var(--ink-3); }
 /* a second half of a dialog, under a line of its own */
 .dlg-part { display: flex; flex-direction: column; gap: var(--sp-4); padding-top: var(--sp-4); border-top: var(--line-w) solid var(--line); }
-.dlg-part-h { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); font: var(--t-strong); font-weight: 600; }
+.dlg-part-h { font: var(--t-strong); font-weight: 600; }
 
 /* a field: what it is on the left, the control and a word of help on the right */
 .field { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: var(--sp-4); align-items: baseline; }
@@ -767,6 +767,8 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .field-c { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); min-width: 0; }
 .field-h { font: var(--t-meta); color: var(--ink-3); }
 .field-fixed { font: var(--t-body); color: var(--ink-2); }
+.field-sub { font: var(--t-label); color: var(--ink-3); }
+.field-sub:not(:first-child) { margin-top: var(--sp-2); }
 .in { width: 100%; min-height: 34px; padding: 0 var(--sp-3); border: var(--line-w) solid var(--line-strong); border-radius: var(--r-sm); background: var(--canvas); font: var(--t-body); color: var(--ink); }
 .in:focus { outline: none; border-color: var(--ink-3); background: var(--surface); }
 select.in { width: auto; padding: 0 var(--sp-2); }
@@ -776,6 +778,8 @@ select.in { width: auto; padding: 0 var(--sp-2); }
 .in-row { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
 .in-row .btn { flex: none; min-height: 34px; }
 .in-row--words { font: var(--t-body); color: var(--ink-2); }
+.in-x { flex: none; width: 24px; height: 24px; border-radius: var(--r-sm); font: var(--t-meta); color: var(--ink-3); }
+.in-x:hover { background: var(--sunk); color: var(--ink); }
 
 /* one of a few, all visible */
 .seg { display: flex; padding: 2px; border-radius: var(--r-sm); background: var(--sunk); flex: none; }
@@ -794,12 +798,14 @@ select.in { width: auto; padding: 0 var(--sp-2); }
 
 /* everything connected so far, one line each */
 .reach { display: flex; flex-direction: column; }
-.reach-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0 var(--sp-3); min-height: 44px; padding: var(--sp-1) 0; border-top: var(--line-w) solid var(--line); }
+.reach-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; min-height: 44px; padding: var(--sp-1) 0; border-top: var(--line-w) solid var(--line); }
 .reach-row:first-child { border-top: 0; }
-.reach-row input { grid-row: 1 / span 2; }
+.reach-row input { grid-row: 1 / span 2; margin-right: var(--sp-3); }
 .reach-name { grid-column: 2; font: var(--t-strong); }
 .reach-how { grid-column: 2; grid-row: 2; font: var(--t-meta); color: var(--ink-3); }
-.reach-row > :last-child:not(.reach-how) { grid-column: 3; grid-row: 1 / span 2; }
-.reach-users { font: var(--t-meta); color: var(--ink-2); }
+.reach-row > :last-child:not(.reach-how, .reach-name) { grid-column: 3; grid-row: 1 / span 2; margin-left: var(--sp-3); }
+.reach-side { font: var(--t-meta); color: var(--ink-2); }
 .doc-link { font: var(--t-body); text-align: left; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
 .doc-link:hover { text-decoration-color: var(--ink-3); }
+/* what is still missing on a new agent's page */
+.tk-main > .hint { margin-left: 0; }

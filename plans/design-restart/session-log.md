@@ -903,3 +903,27 @@ for cannot change after it is added.
 right); `Seg` (one of a few, all visible) now also used by find-or-ask; `.chips` (one of a few,
 as small buttons) now also used by Looks. Overlays leave the studio walkthrough clickable.
 
+**Founder on the dialogs (2026-10-12):** "generally like the dialogs, some details need fixing."
+- "What it can reach (MCPs) and where it works (folder) is probably a bit different."
+- "An agent can probably have more than one reason to start working, a list of triggers. Same
+  goes for the user, which probably wants to be able to listen to a set of notification reasons."
+- "The instructions for the agent is a document, so I guess you create the agent first and then
+  edit the agent file as a document."
+
+**Changed:**
+- **Two lists, two dialogs.** The box has **Works in** (folders, "Add a folder") and **Can
+  reach** (services, "Connect a service"). "Where X works": the folders, ticked, each "Read and
+  change / Only read", and a new folder below. "What X can reach": the services, ticked, and a
+  new service below, signed in with a key or an MCP server. On your own page both lists say who
+  each thing is given to.
+- **Reasons are a list.** "When X starts working" shows every reason it has: built-in ones
+  (a mention, a hand-off) say "always", the others have a switch. Below, "Add reasons": several
+  times ("Add a time") and several things that can happen, picked together; any one of them
+  starts it. Then a name and what to do. For yourself it is "What you are told about": your
+  reasons as switches, and "More reasons" to pick a set from.
+- **Instructions are written as a document.** "Add someone" no longer asks for instructions. The
+  new agent's page says it has none yet, with "Write its instructions"; that opens the document
+  in edit mode with the format bar, like any other document.
+- Kept: the short "What to do" text on a reason. It is saved as a document, but it is a few
+  lines and the reason is useless without it. Open question for the founder.
+

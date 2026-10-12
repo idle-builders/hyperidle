@@ -32,8 +32,9 @@ spots.** So the agent's pins are the main way a review shows where to look.
   where you are, a floating box for what is attached, title + details + conversation on the page.
 - **PEOPLE**: accepted for now — a team page, and one page for an agent, a person and yourself.
   Your own page holds your settings; there is no settings screen.
-- **SETTING UP A USER**: built, awaiting the founder — four dialogs over the user page (what
-  someone can reach · when they start working · edit · add someone). No form has its own page.
+- **SETTING UP A USER**: second pass, awaiting the founder — dialogs over the user page (where
+  someone works · what they can reach · the reasons they start or are told · edit · add
+  someone). No form has its own page; an agent's instructions are written as a document.
 
 ---
 
