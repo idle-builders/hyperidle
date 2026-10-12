@@ -936,3 +936,40 @@ in edit mode ("Growth reads this every time one of its reasons starts it"); Done
 agent's page, where the new reasons are in the list. Same pattern as a new agent's instructions.
 **Rule:** anything an agent is told at length is a document, never a text box in a dialog.
 
+## Session 13 — PLUGINS, first pass (2026-10-12)
+
+The founder: "lets continue to the plugin."
+
+**What a plugin is, from the product** (`docs/architecture/plugins.md`): a ready-made pack of
+agents, skills, reasons to start and services (MCP servers). It has no world of its own: what it
+adds are ordinary agents and documents, editable like anything else. A fresh install has only you
+and one assistant; every other ready-made agent arrives through a plugin. Some plugins come with
+the app; others are added from a git address, a folder or a zip file. A plugin is installed for
+one team or for every team. It can be switched off (what it added is paused) or removed (its
+agents leave, its documents are archived). Editing something a plugin added makes it yours: a
+newer version leaves it alone, and you can put the plugin's version back.
+
+**Built** (`Plugins.tsx`; a "Plugins" walkthrough of five steps):
+1. **The team page has a box**, like every other page: facts, **Lives on** (a shared server),
+   and **Plugins** — each one with how it stands, and "Add a plugin". People stay the list in
+   the main column.
+2. **A plugin's page** in the same layout as a task or a user. Main column: how it stands
+   ("On. It added 4 agents, 6 skills and 2 reasons to start."), then what it added, kind by
+   kind: agents (each opens its own page), skills, reasons to start, services. Box: Switch off /
+   Remove (or Install), version, where it came from, who it is for, and **Changed by the team**
+   — what someone edited, each with "Put the plugin's version back".
+3. **Not installed yet**: the same page says what installing would add, with one Install button.
+4. **Add a plugin** dialog: from a git address, a folder or a zip file; for this team or every
+   team. Add lands on the new plugin's page.
+5. **Switched off**: the same page, "Off. What it added is paused, not gone."
+- An agent's page says "Came with the plugin Roles" and links to it.
+
+**Decisions I made, for the founder to check:**
+- Plugins live in the team's box, not in the sidebar and not on a screen of their own.
+- No store to browse: the list is what is installed plus what comes with the app.
+- "Lives on" is placed in the team's box as a fact only. Moving a team between this computer
+  and a shared server is not designed.
+
+**Open:** a plugin's agents belong to the team in the product, but the People story has Builder
+working for you. Either "works for" can change after an agent is added, or the story is wrong.
+

@@ -711,7 +711,6 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .ses-s { color: var(--ink-3); }
 
 /* ---------- PEOPLE — one page for an agent, a person and yourself; the team is the list of them ---------- */
-.tk-page--one { grid-template-columns: minmax(0, 1fr); max-width: 860px; }
 .who-title { display: flex; align-items: center; gap: var(--sp-3); }
 .who-title .avatar { width: 40px; height: 40px; font-size: 0.9375rem; border-radius: var(--r); }
 /* a person, and under them the agents that work for them */
@@ -725,12 +724,24 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .who-what { display: block; font: var(--t-meta); color: var(--ink-3); }
 .who-now { font: var(--t-meta); color: var(--ink-2); }
 .crew > .who .who-name { font-size: 1rem; }
+.who:disabled { cursor: default; }
+.who:disabled:hover { background: none; }
+/* a row that is not a user: a skill, a reason to start, a service */
+.who--plain { grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); align-items: baseline; padding: var(--sp-1) var(--sp-2); }
+.who--plain:hover { background: none; }
+/* what a plugin adds, kind by kind */
+.adds { display: flex; flex-direction: column; margin: 0 calc(-1 * var(--sp-2)); }
+.tk-main > .adds { max-width: none; }
 /* what someone is on: the same chips as on a task's graph, in a plain list */
 .jobs { display: flex; flex-direction: column; gap: var(--sp-2); max-width: 560px; }
 /* a fact in the box: what it is, then a few words about it */
 .pair { display: flex; flex-direction: column; }
 .pair-what { font: var(--t-body); line-height: 1.35; color: var(--ink); }
 .pair-why { font: var(--t-meta); color: var(--ink-3); }
+/* a fact that opens a page of its own */
+.pair--go { text-align: left; }
+.pair--go .pair-what { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.pair--go:hover .pair-what { text-decoration-color: var(--ink-3); }
 /* one of a few, as small buttons */
 .chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 .chips button { min-height: 28px; padding: 0 var(--sp-2); border: var(--line-w) solid var(--line); border-radius: var(--r-sm); font: var(--t-label); color: var(--ink-2); }

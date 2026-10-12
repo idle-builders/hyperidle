@@ -27,7 +27,7 @@ export interface Row {
 	fixed?: boolean;
 }
 
-function Dialog({ title, sub, done, aside, onClose, onDone, children }: {
+export function Dialog({ title, sub, done, aside, onClose, onDone, children }: {
 	title: string;
 	sub: string;
 	done: string;
@@ -36,7 +36,7 @@ function Dialog({ title, sub, done, aside, onClose, onDone, children }: {
 	onClose: () => void;
 	onDone: () => void;
 	children: React.ReactNode;
-}) {
+}): React.ReactElement {
 	useEffect(() => {
 		const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
 		document.addEventListener("keydown", esc);
@@ -63,7 +63,7 @@ function Dialog({ title, sub, done, aside, onClose, onDone, children }: {
 	);
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }): React.ReactElement {
 	return (
 		<div className="field">
 			<span className="field-l">{label}</span>

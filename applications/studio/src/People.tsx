@@ -2,6 +2,7 @@ import { Fragment, useState } from "react";
 import { DOC_FORMATS, FormatBar } from "./FormatBar";
 import { Avatar } from "./Msg";
 import { type Need, NeedIcon } from "./NeedIcon";
+import { PLUGIN_ORDER, PLUGIN_STATES, PLUGINS, PluginDialog, type PluginId, PluginPage, type PluginState, pluginLine } from "./Plugins";
 import { JOB, type Row as Pair, ReachDialog, StartDialog, type Subject, UserDialog } from "./Setup";
 import { Sidebar } from "./Sidebar";
 
@@ -16,26 +17,45 @@ import { Sidebar } from "./Sidebar";
  * away at the bottom of the sidebar. A team is not a thing of its own, only everyone who has it.
  * Changing any of it happens in a small dialog over the page. Anything long is a document: a new
  * agent, or a new reason for it to start, is made in a dialog, and its instructions are then
- * written as a document.
+ * written as a document. The team page has a box of its own for how the team is set up: where it
+ * lives, and its plugins.
  */
-export const PEOPLE_STEPS = [
-	{ id: 0, name: "The team: people and their agents" },
-	{ id: 1, name: "An agent's page" },
-	{ id: 2, name: "A person's page" },
-	{ id: 3, name: "Your own page: your list and your settings" },
-	{ id: 4, name: "Dialog: where an agent works" },
-	{ id: 5, name: "Dialog: what an agent can reach" },
-	{ id: 6, name: "Dialog: reasons to start working" },
-	{ id: 7, name: "What to do then, written as a document" },
-	{ id: 8, name: "Dialog: what you are told about" },
-	{ id: 9, name: "Dialog: edit a user" },
-	{ id: 10, name: "Dialog: add someone" },
-	{ id: 11, name: "The new agent: its instructions come next" },
-	{ id: 12, name: "Its instructions, written as a document" },
-];
-
 type UserId = "you" | "maya" | "builder" | "growth" | "designer" | "facilitation" | "researcher";
 type DialogId = "folder" | "service" | "start" | "edit";
+
+/** Where a walkthrough step opens. Nothing set is the team page. */
+interface View {
+	open?: UserId;
+	dialog?: DialogId | "add" | "plugin";
+	/** A document: an agent's instructions, or what one of its reasons makes it do. */
+	file?: string;
+	plugin?: PluginId;
+	plugins?: Partial<Record<PluginId, PluginState>>;
+}
+const INSTRUCTIONS = "Instructions";
+
+export const PEOPLE_STEPS: { id: number; name: string; view: View }[] = [
+	{ id: 0, name: "The team: people and their agents", view: {} },
+	{ id: 1, name: "An agent's page", view: { open: "builder" } },
+	{ id: 2, name: "A person's page", view: { open: "maya" } },
+	{ id: 3, name: "Your own page: your list and your settings", view: { open: "you" } },
+	{ id: 4, name: "Dialog: where an agent works", view: { open: "builder", dialog: "folder" } },
+	{ id: 5, name: "Dialog: what an agent can reach", view: { open: "builder", dialog: "service" } },
+	{ id: 6, name: "Dialog: reasons to start working", view: { open: "growth", dialog: "start" } },
+	{ id: 7, name: "What to do then, written as a document", view: { open: "growth", file: JOB } },
+	{ id: 8, name: "Dialog: what you are told about", view: { open: "you", dialog: "start" } },
+	{ id: 9, name: "Dialog: edit a user", view: { open: "builder", dialog: "edit" } },
+	{ id: 10, name: "Dialog: add someone", view: { dialog: "add" } },
+	{ id: 11, name: "The new agent: its instructions come next", view: { open: "researcher" } },
+	{ id: 12, name: "Its instructions, written as a document", view: { open: "researcher", file: INSTRUCTIONS } },
+];
+export const PLUGIN_STEPS: { id: number; name: string; view: View }[] = [
+	{ id: 0, name: "The team page: where it lives, and its plugins", view: {} },
+	{ id: 1, name: "A plugin that is on: what it added", view: { plugin: "roles" } },
+	{ id: 2, name: "A plugin not installed yet: what it would add", view: { plugin: "care" } },
+	{ id: 3, name: "Dialog: add a plugin from elsewhere", view: { dialog: "plugin" } },
+	{ id: 4, name: "A plugin switched off", view: { plugin: "notes", plugins: { notes: "off" } } },
+];
 
 interface Work {
 	title: string;
@@ -78,6 +98,8 @@ interface User {
 	fresh?: boolean;
 	/** Its instructions are not written yet. */
 	unwritten?: boolean;
+	/** The plugin it came with. */
+	plugin?: PluginId;
 }
 
 const TEAM = "Northwind";
@@ -141,7 +163,7 @@ const USERS: Record<UserId, User> = {
 		talked: "Friday 13:10",
 	},
 	builder: {
-		name: "Builder", av: "BU", kind: "Agent", owner: "you",
+		name: "Builder", av: "BU", kind: "Agent", owner: "you", plugin: "roles",
 		what: "Builds and ships.",
 		status: "Working",
 		stand: "Working on “Reminder email three days before”, 12 minutes in.",
@@ -177,7 +199,7 @@ const USERS: Record<UserId, User> = {
 		talked: "yesterday 17:40",
 	},
 	growth: {
-		name: "Growth", av: "GR", kind: "Agent", owner: "you",
+		name: "Growth", av: "GR", kind: "Agent", owner: "you", plugin: "roles",
 		what: "Trials and pricing: numbers and experiments.",
 		status: "Idle",
 		stand: "Idle. Its next run is “Support themes, weekly” on Monday at 07:00.",
@@ -212,7 +234,7 @@ const USERS: Record<UserId, User> = {
 		talked: "today 14:32",
 	},
 	designer: {
-		name: "Designer", av: "DS", kind: "Agent", owner: "maya",
+		name: "Designer", av: "DS", kind: "Agent", owner: "maya", plugin: "roles",
 		what: "Pages and copy.",
 		status: "Idle",
 		stand: "Idle. Its last task waits for a review.",
@@ -239,7 +261,7 @@ const USERS: Record<UserId, User> = {
 		facts: ["Agent · works for Maya Chen", `Team ${TEAM}`, "Here since 20 July"],
 	},
 	facilitation: {
-		name: "Facilitation", av: "FA", kind: "Agent", owner: "team",
+		name: "Facilitation", av: "FA", kind: "Agent", owner: "team", plugin: "roles",
 		what: "Keeps how we work written down.",
 		status: "Idle",
 		stand: "Idle. One draft of its waits to be published.",
@@ -258,7 +280,7 @@ const USERS: Record<UserId, User> = {
 			{ what: "Every Friday at 16:00", why: "it proposes changes to How we work" },
 		],
 		self: [
-			{ what: "Instructions", why: "Who Facilitation is and how it works · came with the team" },
+			{ what: "Instructions", why: "Who Facilitation is and how it works · came with the plugin" },
 			{ what: "Memory · 21 notes", why: "Anyone in the team can read these" },
 		],
 		facts: ["Agent · works for the whole team", `Team ${TEAM}`, "Here since 3 July"],
@@ -289,15 +311,12 @@ const USERS: Record<UserId, User> = {
 };
 
 const PEOPLE: UserId[] = ["you", "maya"];
-const START: (UserId | null)[] = [null, "builder", "maya", "you", "builder", "builder", "growth", "growth", "you", "builder", null, "researcher", "researcher"];
-const DIALOG: (DialogId | "add" | null)[] = [null, null, null, null, "folder", "service", "start", null, "start", "edit", "add", null, null];
 
 /** A document that tells an agent what to do: who it is, or what one of its reasons starts. */
 interface Doc {
 	lead: string;
 	parts: { title: string; lines: string[] }[];
 }
-const INSTRUCTIONS = "Instructions";
 const DOCS: Record<string, Doc> = {
 	[INSTRUCTIONS]: {
 		lead: "You watch what our three closest competitors ship, and say what it means for our pricing.",
@@ -314,8 +333,7 @@ const DOCS: Record<string, Doc> = {
 		],
 	},
 };
-/** The step that opens on a document, and the reasons that came with it. */
-const FILE: Record<number, string> = { 7: JOB, 12: INSTRUCTIONS };
+/** The reasons that come with the step that opens on what they make the agent do. */
 const JOB_REASONS: Pair[] = [
 	{ what: "Every Thursday at 08:00", why: `it starts a run of ${JOB}` },
 	{ what: "A document changes", why: `it starts a run of ${JOB}` },
@@ -343,12 +361,19 @@ function Row({ id, onOpen }: { id: UserId; onOpen: (id: UserId) => void }) {
 	);
 }
 
-function TeamPage({ added, onOpen, onAdd }: { added: boolean; onOpen: (id: UserId) => void; onAdd: () => void }) {
+function TeamPage({ added, plugins, onOpen, onAdd, onPlugin, onAddPlugin }: {
+	added: boolean;
+	plugins: Record<PluginId, PluginState>;
+	onOpen: (id: UserId) => void;
+	onAdd: () => void;
+	onPlugin: (id: PluginId) => void;
+	onAddPlugin: () => void;
+}) {
 	const here = (Object.keys(USERS) as UserId[]).filter((id) => added || !USERS[id].fresh);
 	const worksFor = (owner: UserId | "team"): UserId[] => here.filter((id) => USERS[id].owner === owner);
 	const agents = here.filter((id) => USERS[id].kind === "Agent").length;
 	return (
-		<article className="tk-page tk-page--one">
+		<article className="tk-page">
 			<div className="tk-main">
 				<h1 className="page-title">{TEAM}</h1>
 				<p className="stand"><span>{PEOPLE.length} people and {agents} agents.</span></p>
@@ -367,6 +392,34 @@ function TeamPage({ added, onOpen, onAdd }: { added: boolean; onOpen: (id: UserI
 
 				<div className="crew-add"><button type="button" className="btn" onClick={onAdd}>Add someone</button></div>
 			</div>
+
+			<aside className="tbox" aria-label="How the team is set up">
+				<div className="tbox-head">
+					<span className="tbox-name">{TEAM}</span>
+					<span className="tbox-state">Team</span>
+				</div>
+				<ul className="tbox-facts">
+					<li>{PEOPLE.length} people and {agents} agents</li>
+					<li>Here since 3 July</li>
+				</ul>
+				<section className="tbox-sec">
+					<h4>Lives on</h4>
+					<div className="pair">
+						<span className="pair-what">A shared server</span>
+						<span className="pair-why">hyperidle.northwind.example · everyone sees the same work</span>
+					</div>
+				</section>
+				<section className="tbox-sec">
+					<h4>Plugins <span>ready-made agents and skills</span></h4>
+					{PLUGIN_ORDER.filter((id) => plugins[id] !== "gone").map((id) => (
+						<button key={id} type="button" className="pair pair--go" onClick={() => onPlugin(id)}>
+							<span className="pair-what">{PLUGINS[id].name}</span>
+							<span className="pair-why">{pluginLine(id, plugins[id])}</span>
+						</button>
+					))}
+					<button type="button" className="tbox-more" onClick={onAddPlugin}>Add a plugin</button>
+				</section>
+			</aside>
 		</article>
 	);
 }
@@ -403,7 +456,7 @@ function Jobs({ u, items }: { u: User; items: Work[] }) {
 	);
 }
 
-function UserPage({ id, initialDialog, more, onOpen, onTeam, onFile, onJob }: {
+function UserPage({ id, initialDialog, more, onOpen, onTeam, onFile, onJob, onPlugin }: {
 	id: UserId;
 	initialDialog: DialogId | null;
 	/** Reasons added since the page was first opened. */
@@ -413,6 +466,7 @@ function UserPage({ id, initialDialog, more, onOpen, onTeam, onFile, onJob }: {
 	onFile: () => void;
 	/** New reasons for an agent: they are kept, and what to do is written next. */
 	onJob: (added: Pair[]) => void;
+	onPlugin: (id: PluginId) => void;
 }) {
 	const u = USERS[id];
 	const [dialog, setDialog] = useState(initialDialog);
@@ -477,6 +531,7 @@ function UserPage({ id, initialDialog, more, onOpen, onTeam, onFile, onJob }: {
 				)}
 				<ul className="tbox-facts">
 					{u.facts.map((f) => <li key={f}>{f}</li>)}
+					{u.plugin && <li><button type="button" className="tbox-link" onClick={() => u.plugin && onPlugin(u.plugin)}>Came with the plugin {PLUGINS[u.plugin].name}</button></li>}
 					{u.talked && <li>You last talked {u.talked}</li>}
 				</ul>
 
@@ -567,20 +622,24 @@ function FilePage({ id, name, onUser, onTeam }: { id: UserId; name: string; onUs
 	);
 }
 
-export function People({ step }: { step: number }) {
-	const [open, setOpen] = useState<UserId | null>(START[step] ?? null);
-	const [adding, setAdding] = useState(DIALOG[step] === "add");
-	const [added, setAdded] = useState(START[step] === "researcher");
-	const [file, setFile] = useState<string | null>(FILE[step] ?? null);
-	const [more, setMore] = useState(FILE[step] === JOB ? JOB_REASONS : []);
+export function People({ view }: { view: View }): React.ReactElement {
+	const [open, setOpen] = useState<UserId | null>(view.open ?? null);
+	const [adding, setAdding] = useState<"someone" | "plugin" | null>(view.dialog === "add" ? "someone" : view.dialog === "plugin" ? "plugin" : null);
+	const [added, setAdded] = useState(view.open === "researcher");
+	const [file, setFile] = useState<string | null>(view.file ?? null);
+	const [more, setMore] = useState(view.file === JOB ? JOB_REASONS : []);
 	const [wrote, setWrote] = useState(false);
-	const first = wrote ? null : (DIALOG[step] ?? null);
+	const [plugin, setPlugin] = useState<PluginId | null>(view.plugin ?? null);
+	const [plugins, setPlugins] = useState<Record<PluginId, PluginState>>({ ...PLUGIN_STATES, ...view.plugins });
+	const first = !wrote && view.dialog !== "add" && view.dialog !== "plugin" ? (view.dialog ?? null) : null;
 	const u = open ? USERS[open] : null;
-	const go = (id: UserId | null) => { setOpen(id); setFile(null); setMore([]); };
+	const go = (id: UserId | null) => { setOpen(id); setPlugin(null); setFile(null); setMore([]); };
+	const show = (id: PluginId) => { setPlugin(id); setOpen(null); setFile(null); };
 	const write = (name: string) => { setFile(name); setWrote(true); };
+	const set = (id: PluginId, state: PluginState) => setPlugins({ ...plugins, [id]: state });
 	return (
 		<>
-			<Sidebar teamOpen={open === null} youOpen={open === "you"} />
+			<Sidebar teamOpen={open === null && plugin === null} youOpen={open === "you"} />
 			<section className="detail">
 				{u && file ? (
 					<header className="detail-head">
@@ -594,27 +653,36 @@ export function People({ step }: { step: number }) {
 					</header>
 				) : (
 					<header className="detail-head">
-						<span className="chip chip--quiet">{u ? u.kind : "Team"}</span>
-						<h2>{u ? u.name : TEAM}</h2>
-						<span className="doc-state">{u ? u.what : "Everyone in it"}</span>
+						<span className="chip chip--quiet">{plugin ? "Plugin" : u ? u.kind : "Team"}</span>
+						<h2>{plugin ? PLUGINS[plugin].name : u ? u.name : TEAM}</h2>
+						<span className="doc-state">{plugin ? PLUGINS[plugin].what : u ? u.what : "Everyone in it"}</span>
 					</header>
 				)}
 				<div className="detail-scroll">
 					{open && file && <FilePage id={open} name={file} onUser={() => setFile(null)} onTeam={() => go(null)} />}
 					{open && !file && (
 						<UserPage
-							key={open} id={open} initialDialog={first !== "add" && open === START[step] ? first : null} more={more}
+							key={open} id={open} initialDialog={open === view.open ? first : null} more={more}
 							onOpen={go} onTeam={() => go(null)} onFile={() => write(INSTRUCTIONS)}
-							onJob={(added) => { setMore([...more, ...added]); write(JOB); }}
+							onJob={(reasons) => { setMore([...more, ...reasons]); write(JOB); }} onPlugin={show}
 						/>
 					)}
-					{!open && <TeamPage added={added} onOpen={go} onAdd={() => setAdding(true)} />}
-					{adding && (
+					{plugin && (
+						<PluginPage
+							key={plugin} id={plugin} state={plugins[plugin]} team={TEAM} onTeam={() => go(null)}
+							onOpen={(user) => { if (user in USERS) go(user as UserId); }}
+							onState={(state) => set(plugin, state)}
+							onRemove={() => { set(plugin, PLUGINS[plugin].from.startsWith("Comes with") ? "new" : "gone"); go(null); }}
+						/>
+					)}
+					{!(open || plugin) && <TeamPage added={added} plugins={plugins} onOpen={go} onAdd={() => setAdding("someone")} onPlugin={show} onAddPlugin={() => setAdding("plugin")} />}
+					{adding === "someone" && (
 						<UserDialog
-							onClose={() => setAdding(false)}
-							onDone={(agent) => { setAdding(false); if (agent) { setAdded(true); setOpen("researcher"); } }}
+							onClose={() => setAdding(null)}
+							onDone={(agent) => { setAdding(null); if (agent) { setAdded(true); go("researcher"); } }}
 						/>
 					)}
+					{adding === "plugin" && <PluginDialog team={TEAM} onClose={() => setAdding(null)} onDone={() => { setAdding(null); setPlugins({ ...plugins, notes: "on" }); show("notes"); }} />}
 				</div>
 				{file && <FormatBar floating kinds={DOC_FORMATS} />}
 			</section>

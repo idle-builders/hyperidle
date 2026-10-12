@@ -176,6 +176,19 @@ An agent and a person are the same kind of user, so they share one page.
   edit mode with the format bar.
 - Not drawn yet: the list behind "See what you follow".
 
+### PLUGINS — first pass 2026-10-12, awaiting the founder
+A plugin is a ready-made pack: agents, skills, reasons to start and services. What it adds are
+ordinary agents and documents, yours to change.
+- **Plugins live in the team's box.** The team page has a floating box like every other page:
+  facts, where the team lives, and its plugins. No sidebar entry, no screen of its own.
+- **A plugin has a page** in the task-page layout: how it stands, then what it added, kind by
+  kind, each agent opening its own page. The box has Switch off / Remove (or Install), where it
+  came from, who it is for, and what the team changed since, each with "Put the plugin's
+  version back".
+- **No store.** The list is what is installed plus what comes with the app. Anything else is
+  added from a git address, a folder or a zip file, in a dialog.
+- An agent's page says which plugin it came with.
+
 ## 4. Object vocabulary
 
 Objects that appear inside surfaces. Designed once, reused everywhere.
@@ -309,12 +322,16 @@ the end.
 - A dependency arrow shows only while both of its parts are in view.
 - Can a user be in several teams? Today: no. If yes, the team name at the top becomes a picker.
 - Adding a person: the design sends a link by email; the product has no invite yet.
+- A plugin's agents belong to the team in the product; the People story has Builder working for
+  you. Can "works for" change after an agent is added?
 - A service is ticked per agent in the design; today a person's services reach all their agents.
 
 ## 8. Not yet registered
 
-All five journeys, People and the four set-up dialogs have a design. Still undrawn:
-- **Plugins** — not placed in the layout and not drawn.
-- **Where the app runs and model keys** — not placed.
+All five journeys, People, the set-up dialogs and Plugins have a design. Still undrawn:
+- **Where the app runs** — placed as a fact in the team's box ("Lives on"); moving a team
+  between this computer and a shared server is not designed.
+- **The programs on this computer** (found, signed in, switched off, look again) and any key one
+  of them needs — not placed.
 - The list behind "See what you follow".
 - Failure, empty and loading states · the "this session cost X" line.
