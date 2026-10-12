@@ -9,7 +9,7 @@ import { Dialog, Field, type Row } from "./Setup";
  * change, so a plugin's page is mostly a list of links to them. Plugins are part of how the team
  * is set up: they are listed in the box on the team page, next to where the team lives.
  */
-export type PluginId = "roles" | "notes" | "care";
+export type PluginId = "habits" | "notes" | "roles";
 /** "gone" is not listed anywhere: it was never added, or it was removed. */
 export type PluginState = "on" | "off" | "new" | "gone";
 
@@ -32,24 +32,15 @@ interface Plugin {
 }
 
 export const PLUGINS: Record<PluginId, Plugin> = {
-	roles: {
-		name: "Roles",
-		what: "A ready-made team of four agents.",
-		about: "Four agents, each with instructions and skills, so a team has someone to hand work to on the first day.",
+	habits: {
+		name: "Team habits",
+		what: "An agent that keeps how the team works written down.",
+		about: "One agent that reads how finished tasks went and proposes changes to how the team works.",
 		version: "1.2.0", from: "Comes with HyperIdle", scope: "For Northwind", installed: "Installed 3 July by you",
-		agents: [
-			{ user: "builder", av: "BU", name: "Builder", what: "Builds and ships.", comes: "Instructions and 3 skills" },
-			{ user: "growth", av: "GR", name: "Growth", what: "Trials and pricing: numbers and experiments.", comes: "Instructions and 2 skills" },
-			{ user: "designer", av: "DS", name: "Designer", what: "Pages and copy.", comes: "Instructions and 1 skill" },
-			{ user: "facilitation", av: "FA", name: "Facilitation", what: "Keeps how we work written down.", comes: "Instructions and 2 reasons to start" },
-		],
+		agents: [{ user: "facilitation", av: "FA", name: "Facilitation", what: "Keeps how we work written down.", comes: "Instructions, 2 skills and 2 reasons to start" }],
 		skills: [
-			{ what: "Write a migration", why: "Builder" },
-			{ what: "Run the tests", why: "Builder" },
-			{ what: "Open a pull request", why: "Builder" },
-			{ what: "Read the payment numbers", why: "Growth" },
-			{ what: "Read the support desk", why: "Growth" },
-			{ what: "Check a page at two widths", why: "Designer" },
+			{ what: "Read how a task went", why: "Facilitation" },
+			{ what: "Propose a change to How we work", why: "Facilitation" },
 		],
 		reasons: [
 			{ what: "A task finishes with a note on how it went", why: "Facilitation reads the note" },
@@ -57,9 +48,8 @@ export const PLUGINS: Record<PluginId, Plugin> = {
 		],
 		services: [],
 		changed: [
-			{ what: "Builder's instructions", why: "You edited them 3 weeks ago" },
-			{ what: "Growth's instructions", why: "You edited them 2 months ago" },
-			{ what: "Designer's instructions", why: "Maya edited them 5 weeks ago" },
+			{ what: "Facilitation's instructions", why: "Maya edited them 2 weeks ago" },
+			{ what: "Propose a change to How we work", why: "You edited this skill last week" },
 		],
 	},
 	notes: {
@@ -76,29 +66,33 @@ export const PLUGINS: Record<PluginId, Plugin> = {
 		services: [{ what: "GitHub releases", why: "An MCP server that comes with the plugin · reads releases and merged pull requests" }],
 		changed: [],
 	},
-	care: {
-		name: "Document care",
-		what: "A Librarian that keeps the team's documents current.",
-		about: "One agent that looks after the documents: it archives what nobody uses, sorts new drafts, and writes down what a finished task taught.",
-		version: "1.0.0", from: "Comes with HyperIdle", scope: "For every team", installed: "Installed just now by you",
-		agents: [{ av: "LI", name: "Librarian", what: "Looks after the team's documents.", comes: "Instructions, 3 skills and 3 reasons to start" }],
+	roles: {
+		name: "Roles",
+		what: "A ready-made team of four agents.",
+		about: "Four agents, each with instructions and skills, so a team has someone to hand work to on the first day.",
+		version: "1.0.0", from: "Comes with HyperIdle", scope: "For Northwind", installed: "Installed just now by you",
+		agents: [
+			{ av: "PM", name: "Product manager", what: "Turns what customers ask for into tasks.", comes: "Instructions and 2 skills" },
+			{ av: "QA", name: "QA", what: "Tries to break what was built before a customer does.", comes: "Instructions and 2 skills" },
+			{ av: "OP", name: "Ops", what: "Keeps the servers and the deploys healthy.", comes: "Instructions and 1 skill" },
+			{ av: "SU", name: "Support", what: "Answers customers from what the team wrote down.", comes: "Instructions and 1 skill" },
+		],
 		skills: [
-			{ what: "Archive what nobody uses", why: "Librarian" },
-			{ what: "Sort new drafts", why: "Librarian" },
-			{ what: "Write down what a task taught", why: "Librarian" },
+			{ what: "Write a task from a request", why: "Product manager" },
+			{ what: "Sort a week of requests", why: "Product manager" },
+			{ what: "Write a test plan", why: "QA" },
+			{ what: "Try a page like a customer", why: "QA" },
+			{ what: "Check a deploy", why: "Ops" },
+			{ what: "Answer a customer", why: "Support" },
 		],
-		reasons: [
-			{ what: "Every Sunday at 03:00", why: "Librarian archives documents nobody opened for 90 days" },
-			{ what: "Every Sunday at 04:00", why: "Librarian keeps or archives the drafts that wait" },
-			{ what: "A task changes", why: "Librarian writes down what it taught, if the task is done" },
-		],
+		reasons: [],
 		services: [],
 		changed: [],
 	},
 };
 
-export const PLUGIN_ORDER: PluginId[] = ["roles", "notes", "care"];
-export const PLUGIN_STATES: Record<PluginId, PluginState> = { roles: "on", notes: "gone", care: "new" };
+export const PLUGIN_ORDER: PluginId[] = ["habits", "notes", "roles"];
+export const PLUGIN_STATES: Record<PluginId, PluginState> = { habits: "on", notes: "gone", roles: "new" };
 const STATE_WORDS: Record<PluginState, string> = { on: "On", off: "Off", new: "Not installed", gone: "Removed" };
 
 const count = (n: number, one: string, many = `${one}s`): string | null => (n === 0 ? null : `${n} ${n === 1 ? one : many}`);
@@ -155,7 +149,7 @@ export function PluginPage({ id, state, team, onTeam, onOpen, onState, onRemove 
 				<p className="stand">
 					<span>{state === "on" ? `On. It added ${adds(p)}.` : state === "off" ? "Off. What it added is paused, not gone." : `Not installed. Installing adds ${adds(p)}.`}</span>
 				</p>
-				<p>{p.about} Everything it adds is an ordinary part of the team, and yours to change.</p>
+				<p>{p.about} Its agents work for the whole team. Everything it adds is an ordinary part of the team, and yours to change.</p>
 
 				<h3>Agents <span>{p.agents.length}</span></h3>
 				<div className="adds">
@@ -208,10 +202,12 @@ export function PluginPage({ id, state, team, onTeam, onOpen, onState, onRemove 
 						<p className="pair-why">A newer version of the plugin leaves these alone.</p>
 					</section>
 				)}
-				<section className="tbox-sec">
-					<h4>Off, or removed</h4>
-					<p className="pair-why">Switching it off pauses its agents and reasons to start. Removing it takes its agents out of the team and archives its documents.</p>
-				</section>
+				{here && (
+					<section className="tbox-sec">
+						<h4>Off, or removed</h4>
+						<p className="pair-why">Switching it off pauses its agents and reasons to start. Removing it takes its agents out of the team and archives its documents.</p>
+					</section>
+				)}
 			</aside>
 		</article>
 	);

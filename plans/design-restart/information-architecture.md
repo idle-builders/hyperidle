@@ -176,7 +176,7 @@ An agent and a person are the same kind of user, so they share one page.
   edit mode with the format bar.
 - Not drawn yet: the list behind "See what you follow".
 
-### PLUGINS — first pass 2026-10-12, awaiting the founder
+### PLUGINS — accepted 2026-10-12
 A plugin is a ready-made pack: agents, skills, reasons to start and services. What it adds are
 ordinary agents and documents, yours to change.
 - **Plugins live in the team's box.** The team page has a floating box like every other page:
@@ -188,6 +188,8 @@ ordinary agents and documents, yours to change.
 - **No store.** The list is what is installed plus what comes with the app. Anything else is
   added from a git address, a folder or a zip file, in a dialog.
 - An agent's page says which plugin it came with.
+- **A plugin's agents work for the whole team** (founder, 2026-10-12: the system defines this).
+  The design states it and never asks.
 
 ## 4. Object vocabulary
 
@@ -322,8 +324,6 @@ the end.
 - A dependency arrow shows only while both of its parts are in view.
 - Can a user be in several teams? Today: no. If yes, the team name at the top becomes a picker.
 - Adding a person: the design sends a link by email; the product has no invite yet.
-- A plugin's agents belong to the team in the product; the People story has Builder working for
-  you. Can "works for" change after an agent is added?
 - A service is ticked per agent in the design; today a person's services reach all their agents.
 
 ## 8. Not yet registered

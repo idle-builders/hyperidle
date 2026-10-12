@@ -51,8 +51,8 @@ export const PEOPLE_STEPS: { id: number; name: string; view: View }[] = [
 ];
 export const PLUGIN_STEPS: { id: number; name: string; view: View }[] = [
 	{ id: 0, name: "The team page: where it lives, and its plugins", view: {} },
-	{ id: 1, name: "A plugin that is on: what it added", view: { plugin: "roles" } },
-	{ id: 2, name: "A plugin not installed yet: what it would add", view: { plugin: "care" } },
+	{ id: 1, name: "A plugin that is on: what it added", view: { plugin: "habits" } },
+	{ id: 2, name: "A plugin not installed yet: what it would add", view: { plugin: "roles" } },
 	{ id: 3, name: "Dialog: add a plugin from elsewhere", view: { dialog: "plugin" } },
 	{ id: 4, name: "A plugin switched off", view: { plugin: "notes", plugins: { notes: "off" } } },
 ];
@@ -163,7 +163,7 @@ const USERS: Record<UserId, User> = {
 		talked: "Friday 13:10",
 	},
 	builder: {
-		name: "Builder", av: "BU", kind: "Agent", owner: "you", plugin: "roles",
+		name: "Builder", av: "BU", kind: "Agent", owner: "you",
 		what: "Builds and ships.",
 		status: "Working",
 		stand: "Working on “Reminder email three days before”, 12 minutes in.",
@@ -199,7 +199,7 @@ const USERS: Record<UserId, User> = {
 		talked: "yesterday 17:40",
 	},
 	growth: {
-		name: "Growth", av: "GR", kind: "Agent", owner: "you", plugin: "roles",
+		name: "Growth", av: "GR", kind: "Agent", owner: "you",
 		what: "Trials and pricing: numbers and experiments.",
 		status: "Idle",
 		stand: "Idle. Its next run is “Support themes, weekly” on Monday at 07:00.",
@@ -234,7 +234,7 @@ const USERS: Record<UserId, User> = {
 		talked: "today 14:32",
 	},
 	designer: {
-		name: "Designer", av: "DS", kind: "Agent", owner: "maya", plugin: "roles",
+		name: "Designer", av: "DS", kind: "Agent", owner: "maya",
 		what: "Pages and copy.",
 		status: "Idle",
 		stand: "Idle. Its last task waits for a review.",
@@ -261,7 +261,7 @@ const USERS: Record<UserId, User> = {
 		facts: ["Agent · works for Maya Chen", `Team ${TEAM}`, "Here since 20 July"],
 	},
 	facilitation: {
-		name: "Facilitation", av: "FA", kind: "Agent", owner: "team", plugin: "roles",
+		name: "Facilitation", av: "FA", kind: "Agent", owner: "team", plugin: "habits",
 		what: "Keeps how we work written down.",
 		status: "Idle",
 		stand: "Idle. One draft of its waits to be published.",
@@ -280,7 +280,8 @@ const USERS: Record<UserId, User> = {
 			{ what: "Every Friday at 16:00", why: "it proposes changes to How we work" },
 		],
 		self: [
-			{ what: "Instructions", why: "Who Facilitation is and how it works · came with the plugin" },
+			{ what: "Instructions", why: "Who Facilitation is and how it works · Maya edited it 2 weeks ago" },
+			{ what: "Skills · 2", why: "Read how a task went · Propose a change to How we work" },
 			{ what: "Memory · 21 notes", why: "Anyone in the team can read these" },
 		],
 		facts: ["Agent · works for the whole team", `Team ${TEAM}`, "Here since 3 July"],

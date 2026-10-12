@@ -973,3 +973,13 @@ newer version leaves it alone, and you can put the plugin's version back.
 **Open:** a plugin's agents belong to the team in the product, but the People story has Builder
 working for you. Either "works for" can change after an agent is added, or the story is wrong.
 
+**Founder (2026-10-12): "yeah looks good. I think plugin agents are assigned to a team, but thats
+a mechanic defined by the system already."** PLUGINS is accepted. A plugin's agents work for the
+whole team; the system decides that, the design does not ask.
+
+**Changed:** the walkthrough's story now follows that rule. Builder, Growth and Designer work
+for a person, so they no longer claim to come from a plugin. The plugin that is on is "Team
+habits" (it brought Facilitation, which works for the whole team). "Roles" is the one that comes
+with the app and is not installed: four agents it would add. A plugin's page says "Its agents
+work for the whole team."
+

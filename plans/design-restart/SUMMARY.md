@@ -35,8 +35,8 @@ spots.** So the agent's pins are the main way a review shows where to look.
 - **SETTING UP A USER**: second pass, awaiting the founder — dialogs over the user page (where
   someone works · what they can reach · the reasons they start or are told · edit · add
   someone). No form has its own page; an agent's instructions are written as a document.
-- **PLUGINS**: first pass, awaiting the founder — listed in a box on the team page; each plugin
-  has a page showing what it added; added from elsewhere in a dialog.
+- **PLUGINS**: accepted — listed in a box on the team page; each plugin has a page showing what
+  it added; added from elsewhere in a dialog. A plugin's agents work for the whole team.
 
 ---
 
