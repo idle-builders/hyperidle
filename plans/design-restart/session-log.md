@@ -927,3 +927,12 @@ as small buttons) now also used by Looks. Overlays leave the studio walkthrough 
 - Kept: the short "What to do" text on a reason. It is saved as a document, but it is a few
   lines and the reason is useless without it. Open question for the founder.
 
+**Founder (2026-10-12), on "What to do" in a reason:** "the skills and instructions in triggers
+can get pretty long so lets just stick to documents."
+
+**Changed:** the reasons dialog no longer has a text box for what to do. It asks when and for a
+name; "What to do" says "A document with this name. You write it next." Add opens that document
+in edit mode ("Growth reads this every time one of its reasons starts it"); Done goes back to the
+agent's page, where the new reasons are in the list. Same pattern as a new agent's instructions.
+**Rule:** anything an agent is told at length is a document, never a text box in a dialog.
+

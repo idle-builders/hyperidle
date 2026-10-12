@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { DOC_FORMATS, FormatBar } from "./FormatBar";
 import { Avatar } from "./Msg";
 import { type Need, NeedIcon } from "./NeedIcon";
-import { type Row as Pair, ReachDialog, StartDialog, type Subject, UserDialog } from "./Setup";
+import { JOB, type Row as Pair, ReachDialog, StartDialog, type Subject, UserDialog } from "./Setup";
 import { Sidebar } from "./Sidebar";
 
 /**
@@ -14,8 +14,9 @@ import { Sidebar } from "./Sidebar";
  * memory). There
  * is no separate settings screen: your own page is where your settings live, and it is one click
  * away at the bottom of the sidebar. A team is not a thing of its own, only everyone who has it.
- * Changing any of it happens in a small dialog over the page. Instructions are a document: a new
- * agent is made in a dialog, and its instructions are then written as a document.
+ * Changing any of it happens in a small dialog over the page. Anything long is a document: a new
+ * agent, or a new reason for it to start, is made in a dialog, and its instructions are then
+ * written as a document.
  */
 export const PEOPLE_STEPS = [
 	{ id: 0, name: "The team: people and their agents" },
@@ -25,11 +26,12 @@ export const PEOPLE_STEPS = [
 	{ id: 4, name: "Dialog: where an agent works" },
 	{ id: 5, name: "Dialog: what an agent can reach" },
 	{ id: 6, name: "Dialog: reasons to start working" },
-	{ id: 7, name: "Dialog: what you are told about" },
-	{ id: 8, name: "Dialog: edit a user" },
-	{ id: 9, name: "Dialog: add someone" },
-	{ id: 10, name: "The new agent: its instructions come next" },
-	{ id: 11, name: "Its instructions, written as a document" },
+	{ id: 7, name: "What to do then, written as a document" },
+	{ id: 8, name: "Dialog: what you are told about" },
+	{ id: 9, name: "Dialog: edit a user" },
+	{ id: 10, name: "Dialog: add someone" },
+	{ id: 11, name: "The new agent: its instructions come next" },
+	{ id: 12, name: "Its instructions, written as a document" },
 ];
 
 type UserId = "you" | "maya" | "builder" | "growth" | "designer" | "facilitation" | "researcher";
@@ -287,9 +289,37 @@ const USERS: Record<UserId, User> = {
 };
 
 const PEOPLE: UserId[] = ["you", "maya"];
-const START: (UserId | null)[] = [null, "builder", "maya", "you", "builder", "builder", "growth", "you", "builder", null, "researcher", "researcher"];
-const DIALOG: (DialogId | "add" | null)[] = [null, null, null, null, "folder", "service", "start", "start", "edit", "add", null, null];
-const FILE_STEP = 11;
+const START: (UserId | null)[] = [null, "builder", "maya", "you", "builder", "builder", "growth", "growth", "you", "builder", null, "researcher", "researcher"];
+const DIALOG: (DialogId | "add" | null)[] = [null, null, null, null, "folder", "service", "start", null, "start", "edit", "add", null, null];
+
+/** A document that tells an agent what to do: who it is, or what one of its reasons starts. */
+interface Doc {
+	lead: string;
+	parts: { title: string; lines: string[] }[];
+}
+const INSTRUCTIONS = "Instructions";
+const DOCS: Record<string, Doc> = {
+	[INSTRUCTIONS]: {
+		lead: "You watch what our three closest competitors ship, and say what it means for our pricing.",
+		parts: [
+			{ title: "What you do", lines: ["Once a week, read their changelogs, pricing pages and release posts.", "Write what changed into “Competitors”, newest first.", "Say in one line what each change means for us."] },
+			{ title: "How you work", lines: ["Ask me before you contact anyone outside the team.", "If you are not sure something is true, say so and say where you read it."] },
+		],
+	},
+	[JOB]: {
+		lead: "Check that the numbers on the pricing page still match the document “Pricing”.",
+		parts: [
+			{ title: "What to check", lines: ["Every price and every plan name.", "How long a trial is, and what happens when it ends.", "The date the page says its prices are from."] },
+			{ title: "What to do then", lines: ["If something does not match, tell me which number and on which page.", "If nothing is wrong, say so in one line.", "If a different document changed, stop."] },
+		],
+	},
+};
+/** The step that opens on a document, and the reasons that came with it. */
+const FILE: Record<number, string> = { 7: JOB, 12: INSTRUCTIONS };
+const JOB_REASONS: Pair[] = [
+	{ what: "Every Thursday at 08:00", why: `it starts a run of ${JOB}` },
+	{ what: "A document changes", why: `it starts a run of ${JOB}` },
+];
 
 /** The same marks as on a task's graph: an icon where a person is needed, initials where an agent is working. */
 function Mark({ w, av }: { w: Work; av: string }) {
@@ -373,12 +403,22 @@ function Jobs({ u, items }: { u: User; items: Work[] }) {
 	);
 }
 
-function UserPage({ id, initialDialog, onOpen, onTeam, onFile }: { id: UserId; initialDialog: DialogId | null; onOpen: (id: UserId) => void; onTeam: () => void; onFile: () => void }) {
+function UserPage({ id, initialDialog, more, onOpen, onTeam, onFile, onJob }: {
+	id: UserId;
+	initialDialog: DialogId | null;
+	/** Reasons added since the page was first opened. */
+	more: Pair[];
+	onOpen: (id: UserId) => void;
+	onTeam: () => void;
+	onFile: () => void;
+	/** New reasons for an agent: they are kept, and what to do is written next. */
+	onJob: (added: Pair[]) => void;
+}) {
 	const u = USERS[id];
 	const [dialog, setDialog] = useState(initialDialog);
 	const [worksIn, setWorksIn] = useState(u.worksIn);
 	const [reach, setReach] = useState(u.reach);
-	const [when, setWhen] = useState(u.when);
+	const [when, setWhen] = useState([...u.when, ...more]);
 	const [paused, setPaused] = useState(false);
 	const [looks, setLooks] = useState("Light");
 	const [off, setOff] = useState<Set<string>>(new Set());
@@ -482,7 +522,12 @@ function UserPage({ id, initialDialog, onOpen, onTeam, onFile }: { id: UserId; i
 			{dialog === "start" && (
 				<StartDialog
 					who={subject} rows={when} onClose={close}
-					onDone={(added) => { setWhen([...when, ...added.filter((a) => !when.some((w) => w.what === a.what && w.why === a.why))]); close(); }}
+					onDone={(added) => {
+						const fresh = added.filter((a) => !when.some((w) => w.what === a.what && w.why === a.why));
+						if (u.kind === "Agent") onJob(fresh);
+						else setWhen([...when, ...fresh]);
+						close();
+					}}
 				/>
 			)}
 			{dialog === "edit" && <UserDialog user={subject} program={u.runsOn?.[0].what} onClose={close} onDone={close} />}
@@ -490,41 +535,33 @@ function UserPage({ id, initialDialog, onOpen, onTeam, onFile }: { id: UserId; i
 	);
 }
 
-/** An agent's instructions are a document, written where every document is written. */
-function Blk({ heading, children }: { heading?: boolean; children: React.ReactNode }) {
-	return (
-		<div className={heading ? "blk blk--h blk--edit" : "blk blk--edit"}>
-			<div className="blk-row">{children}</div>
-		</div>
-	);
-}
-
-function AgentFile({ id, onUser, onTeam }: { id: UserId; onUser: () => void; onTeam: () => void }) {
+/** What an agent is told is a document, written where every document is written. */
+function FilePage({ id, name, onUser, onTeam }: { id: UserId; name: string; onUser: () => void; onTeam: () => void }) {
 	const u = USERS[id];
+	const doc = DOCS[name];
 	return (
 		<article className="page">
 			<nav className="crumbs" aria-label="Where you are">
 				<button type="button" onClick={onTeam}>{TEAM}</button>
 				<button type="button" onClick={onUser}>{u.name}</button>
-				<span aria-current="true">Instructions</span>
+				<span aria-current="true">{name}</span>
 			</nav>
-			<h1 className="page-title">Who {u.name} is and how it works</h1>
-			<Blk><p>You watch what our three closest competitors ship, and say what it means for our pricing.</p></Blk>
-			<Blk heading><h3>What you do</h3></Blk>
-			<Blk>
-				<ul>
-					<li>Once a week, read their changelogs, pricing pages and release posts.</li>
-					<li>Write what changed into “Competitors”, newest first.</li>
-					<li>Say in one line what each change means for us.</li>
-				</ul>
-			</Blk>
-			<Blk heading><h3>How you work</h3></Blk>
-			<Blk>
-				<ul>
-					<li>Ask me before you contact anyone outside the team.</li>
-					<li>If you are not sure something is true, say so and say where you read it.<span className="caret" /></li>
-				</ul>
-			</Blk>
+			<h1 className="page-title">{name === INSTRUCTIONS ? `Who ${u.name} is and how it works` : name}</h1>
+			<div className="blk blk--edit"><div className="blk-row"><p>{doc.lead}</p></div></div>
+			{doc.parts.map((part, i) => (
+				<Fragment key={part.title}>
+					<div className="blk blk--h blk--edit"><div className="blk-row"><h3>{part.title}</h3></div></div>
+					<div className="blk blk--edit">
+						<div className="blk-row">
+							<ul>
+								{part.lines.map((line, j) => (
+									<li key={line}>{line}{i === doc.parts.length - 1 && j === part.lines.length - 1 && <span className="caret" />}</li>
+								))}
+							</ul>
+						</div>
+					</div>
+				</Fragment>
+			))}
 			<p className="blk-empty">Type / for a block, @ to ask someone</p>
 		</article>
 	);
@@ -534,10 +571,13 @@ export function People({ step }: { step: number }) {
 	const [open, setOpen] = useState<UserId | null>(START[step] ?? null);
 	const [adding, setAdding] = useState(DIALOG[step] === "add");
 	const [added, setAdded] = useState(START[step] === "researcher");
-	const [file, setFile] = useState(step === FILE_STEP);
-	const first = DIALOG[step] ?? null;
+	const [file, setFile] = useState<string | null>(FILE[step] ?? null);
+	const [more, setMore] = useState(FILE[step] === JOB ? JOB_REASONS : []);
+	const [wrote, setWrote] = useState(false);
+	const first = wrote ? null : (DIALOG[step] ?? null);
 	const u = open ? USERS[open] : null;
-	const go = (id: UserId | null) => { setOpen(id); setFile(false); };
+	const go = (id: UserId | null) => { setOpen(id); setFile(null); setMore([]); };
+	const write = (name: string) => { setFile(name); setWrote(true); };
 	return (
 		<>
 			<Sidebar teamOpen={open === null} youOpen={open === "you"} />
@@ -545,11 +585,11 @@ export function People({ step }: { step: number }) {
 				{u && file ? (
 					<header className="detail-head">
 						<span className="chip chip--quiet">Document</span>
-						<h2>{u.name}: instructions</h2>
-						<span className="doc-state">Draft · {u.name} reads this every time it starts</span>
+						<h2>{file === INSTRUCTIONS ? `${u.name}: instructions` : file}</h2>
+						<span className="doc-state">Draft · {u.name} reads this every time {file === INSTRUCTIONS ? "it starts" : "one of its reasons starts it"}</span>
 						<span className="doc-act">
 							<span className="doc-mode">✎ Editing</span>
-							<button type="button" className="btn" onClick={() => setFile(false)}>Done</button>
+							<button type="button" className="btn" onClick={() => setFile(null)}>Done</button>
 						</span>
 					</header>
 				) : (
@@ -560,11 +600,12 @@ export function People({ step }: { step: number }) {
 					</header>
 				)}
 				<div className="detail-scroll">
-					{open && file && <AgentFile id={open} onUser={() => setFile(false)} onTeam={() => go(null)} />}
+					{open && file && <FilePage id={open} name={file} onUser={() => setFile(null)} onTeam={() => go(null)} />}
 					{open && !file && (
 						<UserPage
-							key={open} id={open} initialDialog={first !== "add" && open === START[step] ? first : null}
-							onOpen={go} onTeam={() => go(null)} onFile={() => setFile(true)}
+							key={open} id={open} initialDialog={first !== "add" && open === START[step] ? first : null} more={more}
+							onOpen={go} onTeam={() => go(null)} onFile={() => write(INSTRUCTIONS)}
+							onJob={(added) => { setMore([...more, ...added]); write(JOB); }}
 						/>
 					)}
 					{!open && <TeamPage added={added} onOpen={go} onAdd={() => setAdding(true)} />}

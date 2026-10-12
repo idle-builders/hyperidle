@@ -774,7 +774,6 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 select.in { width: auto; padding: 0 var(--sp-2); }
 .in--small { min-height: 28px; font: var(--t-meta); color: var(--ink-2); }
 .in--time { width: 4.75em; }
-.in--text { resize: none; field-sizing: content; min-height: 84px; padding: var(--sp-2) var(--sp-3); line-height: 1.5; }
 .in-row { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
 .in-row .btn { flex: none; min-height: 34px; }
 .in-row--words { font: var(--t-body); color: var(--ink-2); }

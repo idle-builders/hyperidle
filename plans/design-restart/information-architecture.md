@@ -170,8 +170,10 @@ An agent and a person are the same kind of user, so they share one page.
   services (MCPs) have a list and a dialog each. Added once, ticked per agent.
 - **Reasons are a list** (founder, 2026-10-12): an agent has several reasons to start, a person
   a set of reasons to be told. The dialog shows the list and adds several at once.
-- **Instructions are a document** (founder, 2026-10-12): the dialog makes the agent; its
-  instructions are then written as a document, in edit mode with the format bar.
+- **Anything an agent is told at length is a document** (founder, 2026-10-12), never a text box
+  in a dialog: an agent's instructions, its skills, and what one of its reasons makes it do. The
+  dialog makes the agent or the reason and asks for a name; the document is written next, in
+  edit mode with the format bar.
 - Not drawn yet: the list behind "See what you follow".
 
 ## 4. Object vocabulary
@@ -308,8 +310,6 @@ the end.
 - Can a user be in several teams? Today: no. If yes, the team name at the top becomes a picker.
 - Adding a person: the design sends a link by email; the product has no invite yet.
 - A service is ticked per agent in the design; today a person's services reach all their agents.
-- Does the short "What to do" on a reason stay a text field in the dialog, or is it written as
-  a document like an agent's instructions?
 
 ## 8. Not yet registered
 

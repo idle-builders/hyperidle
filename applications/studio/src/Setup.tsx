@@ -6,8 +6,9 @@ import { Seg } from "./Seg";
  * the page it changes: the list it adds to on top, a few fields below, and the result shows up in
  * the box behind it. Where someone works (folders) and what they can reach (services) are two
  * lists. What starts an agent, and what a person is told about, is a list of reasons. Adding
- * someone and editing someone are the same form. Instructions are a document: the dialog makes
- * the agent, the writing happens where documents are edited.
+ * someone and editing someone are the same form. Anything long is a document: an agent's
+ * instructions and what a reason makes it do are written where documents are edited, after the
+ * dialog has made the agent or the reason.
  */
 export interface Subject {
 	name: string;
@@ -188,7 +189,7 @@ const EVENTS = [
 	{ about: "Someone", does: ["joins the team"] },
 ];
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const JOB = "Pricing page check";
+export const JOB = "Pricing page check";
 const flip = (all: string[], x: string): string[] => (all.includes(x) ? all.filter((y) => y !== x) : [...all, x]);
 
 export function StartDialog({ who, rows, onClose, onDone }: { who: Subject; rows: Row[]; onClose: () => void; onDone: (added: Row[]) => void }) {
@@ -259,11 +260,8 @@ export function StartDialog({ who, rows, onClose, onDone }: { who: Subject; rows
 				{agent && (
 					<>
 						<Field label="Name"><input className="in" defaultValue={JOB} aria-label="Name" /></Field>
-						<Field label="What to do" hint={`${who.name} reads this every time one of the reasons starts it. Every run shows up as a part of the task “${JOB}”, so you follow it like any other work.`}>
-							<textarea
-								className="in in--text" aria-label="What to do"
-								defaultValue="Check that the numbers on the pricing page still match the document “Pricing”, and tell me if they do not. If a different document changed, stop."
-							/>
+						<Field label="What to do" hint={`${who.name} reads it every time one of the reasons starts it. Every run shows up as a part of the task “${JOB}”, so you follow it like any other work.`}>
+							<span className="field-fixed">A document with this name. You write it next.</span>
 						</Field>
 					</>
 				)}
