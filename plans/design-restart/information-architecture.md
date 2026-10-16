@@ -310,21 +310,24 @@ Objects that appear inside surfaces. Designed once, reused everywhere.
 ## 7b. Collected for the final pass
 
 The founder (2026-10-11): older open questions wait for one complete pass over everything at
-the end.
-- Should a stuck agent also show as "Your answer" in Conversations, or is a notification enough?
-- Someone else's review in your thread: in full, or folded to one line?
-- Should a thread jump to the newest message when opened?
-- Comments on a narrow window, where the margin has no room.
-- Does the small comment box in the margin get the format bar?
-- Bold and italic in the format bar?
-- The header repeats the title that the page already shows (documents and tasks).
-- The Work list in the sidebar still says "Waiting on your review"; the task page says "Needs
-  review" because review or input does not assign the task to anyone. One wording.
-- At the whole task the graph shows only direct parts; is that enough of an overview?
-- A dependency arrow shows only while both of its parts are in view.
-- Can a user be in several teams? Today: no. If yes, the team name at the top becomes a picker.
-- Adding a person: the design sends a link by email; the product has no invite yet.
-- A service is ticked per agent in the design; today a person's services reach all their agents.
+the end. Answered 2026-10-16; what they settled:
+- **Status words:** Stuck (an agent cannot go on without an answer) · Needs input · Needs
+  review. Never "Your answer", "Your review" or "Needs you".
+- Someone else's review shows in full in the thread, whoever owes it.
+- A thread opens at its newest message.
+- Desktop first. A narrow window or a phone is its own design, later.
+- The small comment box has no format bar. The format bar has bold and italic.
+- A wait between two parts always shows, even when one end is out of view.
+- A title exists once: on the page. The bar above holds the kind, the state and the actions.
+- A user can be in several teams: a switch beside the team name at the top of the sidebar.
+
+Still open:
+- At the whole task the graph shows only the task's own parts; their subtasks appear when you
+  click a part. The founder: "the root contains all subtasks" — explained with a picture, to
+  decide whether the whole task should show every level at once.
+- What "services" are, and whether they are ticked per agent (design) or reach all of a
+  person's agents (product today).
+- Inviting a person (later).
 
 ## 8. Not yet registered
 

@@ -488,6 +488,8 @@ export function Think({ step }: { step: number }) {
 		if (a.kind === "checklist") return <ul className="todo"><li className="page-empty"><span className="todo-box" />To-do{caret}</li></ul>;
 		if (a.kind === "quote") return <blockquote className="quote page-empty">Quote{caret}</blockquote>;
 		if (a.kind === "code") return <pre className="code page-empty">Code{caret}</pre>;
+		if (a.kind === "bold") return <p><b className="page-empty">Bold words</b>{caret}</p>;
+		if (a.kind === "italic") return <p><i className="page-empty">Italic words</i>{caret}</p>;
 		if (a.kind === "link") return <p><span className="lnk">Link text</span>{caret} <span className="lnk-url">Paste or type a link…</span></p>;
 		if (a.kind === "table") {
 			return (
@@ -529,7 +531,6 @@ export function Think({ step }: { step: number }) {
 			<section className="detail">
 				<header className="detail-head">
 					<span className="chip chip--quiet">Document</span>
-					<h2>Should trials be 10 days?</h2>
 					<span className="doc-state">{published ? "Published · 4 followers told" : "Draft"}</span>
 					<span className="doc-act">
 						{(anyComments || hidden) && (

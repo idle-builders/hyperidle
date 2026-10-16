@@ -983,3 +983,38 @@ habits" (it brought Facilitation, which works for the whole team). "Roles" is th
 with the app and is not installed: four agents it would add. A plugin's page says "Its agents
 work for the whole team."
 
+## Session 14 — the collected questions answered (2026-10-16)
+
+The founder answered the questions collected for the final pass:
+- **A stuck agent shows as "Stuck".** "Your answer is generally a very poor indicator."
+- **Someone else's review is shown in full** in the thread, whoever did it. (Already so.)
+- **A thread opens at its newest message.**
+- **Narrow windows:** not designed; desktop first, mobile is its own design later.
+- **The small comment box gets no format bar.** (Already so.)
+- **The format bar gets bold and italic.**
+- **At the whole task, "only direct parts":** the founder asked what that means — "the root
+  contains all subtasks". To explain with a picture.
+- **A wait whose other end is out of view must still show:** "we always need to show there is
+  more."
+- **A title exists once.**
+- **One wording: "Needs review".**
+- **A user can be in several teams.**
+- **Inviting a person:** later.
+- **Services ticked per agent:** the founder asked what "services" means. To explain.
+
+**Changed:**
+- Status words everywhere: **Stuck** (an agent cannot go on without an answer), **Needs input**
+  (a question for a person), **Needs review**. "Your answer", "Your review", "Waiting on your
+  review", "Needs you" and "1 yours" are gone. A review someone else owes says "Needs review by
+  Maya".
+- A thread scrolls to its newest message when it opens.
+- The format bar has **Bold** and **Italic**, in documents and in the chat box.
+- A part whose wait reaches out of view says so on its chip, with the same dashed arrow:
+  "after Find where people drop off before paying", or "… comes after". The story now has one
+  such wait across branches (the day-12 email waits for the drop-off finding).
+- **The title lives once, on the page.** The bar above a document, task, user, team or plugin
+  page holds only its kind, its state and its actions. A thread, which has no page title, keeps
+  its title in the bar.
+- **Several teams:** a small switch beside the team name at the top of the sidebar opens "Your
+  teams" (each with its people and agents and how much waits), and "Start a team".
+

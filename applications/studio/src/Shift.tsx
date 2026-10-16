@@ -224,6 +224,7 @@ const TASKS: Record<Id, Task> = {
 		meta: "Growth owns this · started 5 days ago · 25 min in 3 sessions",
 	},
 	email: {
+		after: ["dropoff"],
 		title: "Draft the day-12 checkout email",
 		owner: "Designer",
 		state: "Done",
@@ -558,9 +559,23 @@ interface View {
 	unfolded: Set<Id>;
 	onPick: (id: Id) => void;
 	onUnfold: (id: Id) => void;
+	/** The parts drawn right now, once the graph has measured them. */
+	seen?: Set<Id>;
+}
+
+/** A dashed arrow in small, the same mark the graph draws between two parts. */
+function Wait() {
+	return (
+		<svg className="nd-wait" viewBox="0 0 18 8" aria-hidden="true">
+			<path d="M1 4h12" strokeDasharray="2 3" />
+			<path d="M12 1l4 3-4 3" />
+		</svg>
+	);
 }
 
 /** One part on the graph: a mark for how it stands, its name, a few words. Clicking a part shows its subtasks. */
+const ALL = (): Id[] => Object.keys(TASKS) as Id[];
+
 function Node({ id, view }: { id: Id; view: View }) {
 	const t = TASKS[id];
 	const state = stateOf(id);
@@ -573,6 +588,10 @@ function Node({ id, view }: { id: Id; view: View }) {
 	if (t.needs) words = NEED_WORDS[t.needs];
 	else if (running) words = `${t.owner} is on it`;
 	const extra = [c.docs > 0 && `${c.docs} ${c.docs === 1 ? "doc" : "docs"}`, c.reviews > 0 && `${c.reviews} ${c.reviews === 1 ? "review" : "reviews"}`].filter(Boolean).join(" · ");
+	// A wait whose other end is out of view still shows, so the graph never hides that there is more.
+	const away = (x: Id) => Boolean(view.seen && !view.seen.has(x));
+	const waitsFor = (t.after ?? []).filter(away);
+	const waitedOn = ALL().filter((o) => TASKS[o].after?.includes(id) && away(o));
 	return (
 		<button
 			type="button" data-id={id} aria-pressed={view.sel === id} onClick={() => view.onPick(id)}
@@ -590,6 +609,8 @@ function Node({ id, view }: { id: Id; view: View }) {
 					{words}{extra && ` · ${extra}`}
 					{inside.map((k) => <span key={k} className="nd-in"><NeedIcon kind={k} />{needsIn(id, k)}</span>)}
 				</span>
+				{waitsFor.map((d) => <span key={d} className="nd-away"><Wait />after {TASKS[d].title}</span>)}
+				{waitedOn.map((o) => <span key={o} className="nd-away"><Wait />{TASKS[o].title} comes after</span>)}
 			</span>
 			{t.kids && !shown && <span className="nd-kids" title={`${t.kids.length} subtasks`}>{t.kids.length} ›</span>}
 		</button>
@@ -651,6 +672,7 @@ interface Arrow {
 function Graph({ from, columns, view }: { from: Id; columns: number; view: View }) {
 	const box = useRef<HTMLDivElement>(null);
 	const [arrows, setArrows] = useState<Arrow[]>([]);
+	const [seen, setSeen] = useState("");
 	const shape = `${from}|${view.sel}|${[...view.unfolded].join()}`;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `shape` stands for what the graph shows; the arrows must be measured again whenever it changes
 	useLayoutEffect(() => {
@@ -671,6 +693,7 @@ function Graph({ from, columns, view }: { from: Id; columns: number; view: View 
 					const inTheWay = chips.some((o) => o !== from && o !== to && Math.abs(o.l - from.l) < 4 && o.t > from.t && o.t < to.t);
 					let d = `M${from.r + 3} ${from.t + 20}C${from.r + 40} ${from.t + 20} ${to.l - 40} ${to.t + 20} ${to.l - 7} ${to.t + 20}`;
 					if (sameColumn && !inTheWay) d = `M${from.l + 23} ${from.b + 2}V${to.t - 4}`;
+					else if (from.l > to.r) d = `M${from.l - 3} ${from.t + 20}C${from.l - 40} ${from.t + 20} ${to.r + 40} ${to.t + 20} ${to.r + 7} ${to.t + 20}`;
 					else if (sameColumn) {
 						const out = Math.max(from.r, to.r) + 22;
 						d = `M${from.r + 3} ${from.t + 20}C${out} ${from.t + 20} ${out} ${to.t + 20} ${to.r + 7} ${to.t + 20}`;
@@ -679,6 +702,7 @@ function Graph({ from, columns, view }: { from: Id; columns: number; view: View 
 				}
 			}
 			setArrows(next);
+			setSeen(chips.map((c) => c.id).sort().join(","));
 		};
 		draw();
 		const watch = new ResizeObserver(draw);
@@ -695,7 +719,7 @@ function Graph({ from, columns, view }: { from: Id; columns: number; view: View 
 				</defs>
 				{arrows.map((a) => <path key={a.key} d={a.d} className={a.open ? "wait wait--open" : "wait"} markerEnd="url(#wait-end)" />)}
 			</svg>
-			<div className="st-kids st-kids--first"><Parts parent={from} view={view} /></div>
+			<div className="st-kids st-kids--first"><Parts parent={from} view={seen ? { ...view, seen: new Set(seen.split(",") as Id[]) } : view} /></div>
 		</div>
 	);
 }
@@ -849,7 +873,6 @@ export function Shift({ step }: { step: number }) {
 			<section className="detail">
 				<header className="detail-head">
 					<span className="chip chip--quiet">Task</span>
-					<h2>{r.title}</h2>
 					<span className="doc-state">{held ? "On hold" : stateOf(root)}</span>
 				</header>
 

@@ -438,6 +438,20 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 /* notifications — what happened in things you follow */
 .nav--rel { position: relative; }
 .nav-brand { display: flex; align-items: center; justify-content: space-between; }
+/* the team you are looking at, and a switch to your other teams */
+.team { display: inline-flex; align-items: center; gap: 1px; }
+.team-switch { width: 22px; height: 26px; display: grid; place-items: center; border-radius: var(--r-sm); color: var(--ink-3); }
+.team-switch:hover, .team-switch[aria-expanded="true"] { background: var(--surface); color: var(--ink); }
+.team-switch svg { width: 12px; height: 12px; }
+.teams { position: absolute; top: 50px; left: var(--sp-3); right: var(--sp-3); z-index: 40; border: var(--line-w) solid var(--line-strong); border-radius: var(--r); background: var(--surface); box-shadow: var(--sh-3); overflow: hidden; }
+.teams-h { padding: var(--sp-2) var(--sp-3); font: var(--t-label); color: var(--ink-3); border-bottom: var(--line-w) solid var(--line); }
+.teams-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2); width: 100%; padding: var(--sp-2) var(--sp-3); text-align: left; }
+.teams-row:hover { background: var(--sunk); }
+.teams-mark { font: var(--t-label); color: var(--ink-2); }
+.teams-name { display: block; font: var(--t-strong); }
+.teams-who { display: block; font: var(--t-meta); color: var(--ink-3); }
+.teams-n { font: var(--t-meta); color: var(--ink-2); }
+.teams-new { display: block; width: 100%; padding: var(--sp-2) var(--sp-3); border-top: var(--line-w) solid var(--line); font: var(--t-meta); color: var(--ink-2); text-align: left; text-decoration: underline; text-underline-offset: 3px; }
 .bell { position: relative; width: 30px; height: 30px; display: grid; place-items: center; border-radius: var(--r-sm); color: var(--ink-2); }
 .bell:hover, .bell[aria-expanded="true"] { background: var(--surface); }
 .bell svg { width: 16px; height: 16px; }
@@ -634,6 +648,9 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .nd-name { display: block; font: var(--t-body); line-height: 1.35; color: var(--ink); }
 .nd-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-2); margin-top: 1px; font: var(--t-meta); color: var(--ink-3); }
 .nd-in { display: inline-flex; align-items: center; gap: 3px; }
+/* a wait whose other end is out of view */
+.nd-away { display: flex; align-items: center; gap: var(--sp-1); margin-top: 2px; font: var(--t-meta); color: var(--ink-2); }
+.nd-wait { flex: none; width: 18px; height: 8px; fill: none; stroke: var(--ink-3); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .nd-in .need { width: 16px; height: 16px; border-radius: 4px; }
 .nd-in .need svg { width: 11px; height: 11px; }
 .nd--done { background: transparent; }

@@ -199,11 +199,11 @@ function Focused() {
 		<section className="detail">
 			<header className="detail-head">
 				<span className="chip chip--quiet">Document</span>
-				<h2>How we price</h2>
 				<span className="meta">You are editing</span>
 			</header>
 			<div className="detail-scroll">
 				<div className="doc">
+					<h1 className="page-title">💷 How we price</h1>
 					<h3>Trials</h3>
 					<p>Every plan starts with a 14-day trial. We ask for a card up front and say, before the trial ends, exactly when the first bill comes and how much it is.</p>
 					<p>We do not extend trials by hand. If someone needs more time, …<span className="caret" /></p>

@@ -25,10 +25,10 @@ const MENTION: Item = { id: "m1", title: "Refund wording", state: "Mentioned you
 export function conversations(withMention: boolean): Item[] {
 	return [
 		...(withMention ? [MENTION] : []),
-		{ id: "c-r1", title: "Trial-end explainer", state: "Your review", who: "Builder · 2 flags", age: "8h", yours: true },
-		{ id: "c-r2", title: "Comparison table, stacked layout", state: "Your review", who: "Designer · 1 flag", age: "5h", yours: true },
-		{ id: "c-q", title: "Name for the charge after a trial", state: "Your answer", who: "Builder asks", age: "6h", yours: true },
-		{ id: "c-infra", title: "Rollout rule, written down", state: "Your answer", who: "Maya asks you to own it", age: "11h", yours: true },
+		{ id: "c-r1", title: "Trial-end explainer", state: "Needs review", who: "Builder · 2 flags", age: "8h", yours: true },
+		{ id: "c-r2", title: "Comparison table, stacked layout", state: "Needs review", who: "Designer · 1 flag", age: "5h", yours: true },
+		{ id: "c-q", title: "Name for the charge after a trial", state: "Stuck", who: "Builder asks", age: "6h", yours: true },
+		{ id: "c-infra", title: "Rollout rule, written down", state: "Needs input", who: "Maya asks you to own it", age: "11h", yours: true },
 		{ id: "c-trial", title: "Trial-end confusion, three tickets", state: "New reply", who: "Maya", age: "13:02", fresh: true },
 		{ id: "c-pricing", title: "Pricing page, Q4 pass", state: "Growth:", who: "two options drafted", age: "yesterday" },
 		{ id: "c-onb", title: "Onboarding emails", state: "You:", who: "park until October", age: "Mon" },
@@ -40,8 +40,8 @@ export function conversations(withMention: boolean): Item[] {
 export const WORK: Item[] = [
 	{ id: "w-d1", title: "Proration math covered end to end", state: "Done", who: "Builder", age: "03:40", fresh: true },
 	{ id: "w-d2", title: "Trial dates normalised to UTC", state: "Done", who: "Builder", age: "05:55", fresh: true },
-	{ id: "w-t1", title: "Explain what happens when a trial ends", state: "Waiting on your review", who: "Builder", age: "8h" },
-	{ id: "w-t2", title: "Comparison table, stacked layout", state: "Waiting on your review", who: "Designer", age: "5h" },
+	{ id: "w-t1", title: "Explain what happens when a trial ends", state: "Needs review", who: "Builder", age: "8h" },
+	{ id: "w-t2", title: "Comparison table, stacked layout", state: "Needs review", who: "Designer", age: "5h" },
 	{ id: "w-f2", title: "Usage-based tier, metering", state: "Running · 2h", who: "Builder", age: "2h" },
 	{ id: "w-f1", title: "Trials that convert without a call", state: "3 of 7 done", who: "Growth", age: "week 2" },
 ];
@@ -214,13 +214,22 @@ interface SidebarProps {
 	teamOpen?: boolean;
 	/** Your own page is showing. */
 	youOpen?: boolean;
+	/** The list of your teams is open. */
+	teamsOpen?: boolean;
 }
+
+/** Someone can be in several teams; the sidebar shows one at a time. */
+const TEAMS = [
+	{ name: "Northwind", who: "2 people and 4 agents", waiting: "4 waiting" },
+	{ name: "Lumen", who: "1 person and 1 agent", waiting: "1 waiting" },
+];
 
 const withoutDraft = (docs: Doc[], ids: string[]): Doc[] =>
 	docs.map((d) => ({ ...d, note: ids.includes(d.id) ? undefined : d.note, children: d.children && withoutDraft(d.children, ids) }));
 
-export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote, notificationsOpen = false, published = [], teamOpen = false, youOpen = false }: SidebarProps) {
+export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote, notificationsOpen = false, published = [], teamOpen = false, youOpen = false, teamsOpen = false }: SidebarProps) {
 	const [notesOpen, setNotesOpen] = useState(notificationsOpen);
+	const [teams, setTeams] = useState(teamsOpen);
 	const [spine, setSpine] = useState<Spine>(initialSpine);
 	const [picked, setPicked] = useState<string | null>(initialPicked);
 	const [open, setOpen] = useState<Set<string>>(new Set(["t-product", "k-price", "t-eng"]));
@@ -246,7 +255,12 @@ export function Sidebar({ initialSpine = "conversations", initialPicked = null, 
 		<nav className="nav nav--rel">
 			<div className="nav-top">
 				<div className="nav-brand">
-					<button type="button" className="wordmark" aria-current={teamOpen} title="The team: everyone in it">Northwind</button>
+					<span className="team">
+						<button type="button" className="wordmark" aria-current={teamOpen} title="The team: everyone in it">Northwind</button>
+						<button type="button" className="team-switch" aria-label="Switch team" aria-expanded={teams} onClick={() => setTeams(!teams)}>
+							<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+						</button>
+					</span>
 					{showCounts && (
 						<button type="button" className="bell" aria-label="Notifications, 3 new" aria-expanded={notesOpen} onClick={() => setNotesOpen(!notesOpen)}>
 							<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" /></svg>
@@ -271,6 +285,22 @@ export function Sidebar({ initialSpine = "conversations", initialPicked = null, 
 			<hr className="nav-sep" />
 
 			{notesOpen && <Notifications onClose={() => setNotesOpen(false)} />}
+			{teams && (
+				<div className="teams" role="menu" aria-label="Your teams">
+					<div className="teams-h">Your teams</div>
+					{TEAMS.map((t, i) => (
+						<button key={t.name} type="button" role="menuitem" className="teams-row" aria-current={i === 0} onClick={() => setTeams(false)}>
+							<span className="teams-mark" aria-hidden="true">{i === 0 && "✓"}</span>
+							<span>
+								<span className="teams-name">{t.name}</span>
+								<span className="teams-who">{t.who}</span>
+							</span>
+							<span className="teams-n">{t.waiting}</span>
+						</button>
+					))}
+					<button type="button" role="menuitem" className="teams-new">Start a team</button>
+				</div>
+			)}
 			<div className="nav-list">
 				{items === null ? (
 					<p className="nav-empty">Nothing here yet.</p>

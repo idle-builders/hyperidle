@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { drafts, mentionables, sessionSteps, STEPS, tickets } from "./handoff";
 import { Arrive, ARRIVE_STEPS } from "./Arrive";
 import { CHAT_FORMATS, FormatBar } from "./FormatBar";
@@ -20,8 +20,8 @@ function WorkItem({ step }: { step: number }) {
 	const state =
 		step <= 2 ? { dot: "", txt: "Queued" }
 		: step === 3 ? { dot: " dot--live", txt: "Running" }
-		: step === 4 ? { dot: " dot--wait", txt: "Needs you" }
-		: step === 5 ? { dot: " dot--wait", txt: "2 reviews · 1 yours" }
+		: step === 4 ? { dot: " dot--wait", txt: "Stuck" }
+		: step === 5 ? { dot: " dot--wait", txt: "Needs review · 2 reviews" }
 		: { dot: " dot--done", txt: "Done" };
 	return (
 		<button type="button" className="workitem">
@@ -45,6 +45,11 @@ export function App() {
 	const [journey, setJourney] = useState("handoff");
 	const [step, setStep] = useState(0);
 	const [peek, setPeek] = useState(false);
+	const thread = useRef<HTMLDivElement>(null);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: each step is a thread opened anew, and a thread opens at its newest message
+	useLayoutEffect(() => {
+		if (thread.current) thread.current.scrollTop = thread.current.scrollHeight;
+	}, [journey, step]);
 	const steps = journey === "handoff" ? STEPS : journey === "judge" ? JUDGE_STEPS : journey === "think" ? THINK_STEPS : journey === "shift" ? SHIFT_STEPS : journey === "people" ? PEOPLE_STEPS : journey === "plugins" ? PLUGIN_STEPS : ARRIVE_STEPS;
 	const arrive = journey === "arrive";
 
@@ -53,11 +58,11 @@ export function App() {
 
 	// The interruption's own thread moves through the list as the loop turns.
 	const live: Item =
-		step === 0 ? { id: "x", title: "Trial-end confusion, three tickets", state: "Your answer", who: "Maya asks", age: "now", yours: true }
+		step === 0 ? { id: "x", title: "Trial-end confusion, three tickets", state: "Needs input", who: "Maya asks", age: "now", yours: true }
 		: step <= 2 ? { id: "x", title: "Trial-end confusion, three tickets", state: "Handed to Builder", who: "you", age: "now" }
 		: step === 3 ? { id: "x", title: "Trial-end confusion, three tickets", state: "Builder working · 12m", who: "5 steps", age: "12m" }
-		: step === 4 ? { id: "x", title: "Trial-end confusion, three tickets", state: "Your answer", who: "Builder asks", age: "4h", yours: true }
-		: step === 5 ? { id: "x", title: "Trial-end confusion, three tickets", state: "Your review", who: "Builder · 1 of 2 reviews", age: "4h", yours: true }
+		: step === 4 ? { id: "x", title: "Trial-end confusion, three tickets", state: "Stuck", who: "Builder asks", age: "4h", yours: true }
+		: step === 5 ? { id: "x", title: "Trial-end confusion, three tickets", state: "Needs review", who: "Builder · 1 of 2 reviews", age: "4h", yours: true }
 		: { id: "x", title: "Trial-end confusion, three tickets", state: "Maya:", who: "Sent all three, closed the tickets.", age: "13:02", fresh: true };
 	const others = conversations(false).filter((i) => i.id !== "c-trial" && i.id !== "c-r1" && i.id !== "c-q");
 	const handoffList = [live, ...others].sort((a, b) => Number(Boolean(b.yours)) - Number(Boolean(a.yours)) || Number(Boolean(b.fresh)) - Number(Boolean(a.fresh)));
@@ -122,7 +127,7 @@ export function App() {
 					<h2>Trial-end confusion, three tickets</h2>
 				</header>
 
-				<div className="thread-scroll">
+				<div className="thread-scroll" ref={thread}>
 					<Msg who="MC" human name="Maya Chen" at="08:12">
 						Three support tickets this week asking the same thing — people finish the trial and
 						cannot tell what they will actually pay.
@@ -174,7 +179,7 @@ export function App() {
 							because it goes in front of every trial user.
 							<div className="card">
 								<div className="card-head">
-									<span className="chip chip--flag">Needs you</span>
+									<span className="chip chip--flag">Needs input</span>
 									<span className="meta">Seen by every trial user</span>
 								</div>
 								<p className="card-q">What do we call the charge after a trial ends?</p>
@@ -207,7 +212,7 @@ export function App() {
 										<span className="chip chip--quiet">Review</span>
 										<span className="review-what">Trial-end explainer</span>
 										<span className="review-owner">
-											<span className="chip chip--flag">Needs you</span>
+											<span className="chip chip--flag">Needs review</span>
 										</span>
 									</div>
 									<div className="review-body">
@@ -255,7 +260,7 @@ export function App() {
 									</div>
 									<div className="review-foot">
 										<span className="chip chip--quiet">Not sent</span>
-										<span className="review-note">Waiting on Maya, not on you</span>
+										<span className="review-note">Needs review by Maya</span>
 									</div>
 								</div>
 							</div>

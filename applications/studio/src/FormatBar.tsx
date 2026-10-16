@@ -3,10 +3,10 @@
  * the bottom of a document in edit mode, and inside the chat box. Every button shows the shape
  * and says its name, so nobody has to know the typing shortcuts.
  */
-export type Format = "heading" | "list" | "checklist" | "table" | "quote" | "code" | "link" | "mention";
+export type Format = "heading" | "list" | "checklist" | "table" | "quote" | "code" | "bold" | "italic" | "link" | "mention";
 
-export const DOC_FORMATS: Format[] = ["heading", "list", "checklist", "table", "quote", "code", "link", "mention"];
-export const CHAT_FORMATS: Format[] = ["mention", "link", "list", "quote", "code"];
+export const DOC_FORMATS: Format[] = ["heading", "list", "checklist", "table", "quote", "code", "bold", "italic", "link", "mention"];
+export const CHAT_FORMATS: Format[] = ["mention", "link", "bold", "italic", "list", "quote", "code"];
 
 const NAMES: Record<Format, string> = {
 	heading: "Heading",
@@ -15,12 +15,14 @@ const NAMES: Record<Format, string> = {
 	table: "Table",
 	quote: "Quote",
 	code: "Code",
+	bold: "Bold",
+	italic: "Italic",
 	link: "Link",
 	mention: "Mention",
 };
 
-/** Link and mention go inside a line of text; the rest are blocks of their own. */
-const INLINE: Format[] = ["link", "mention"];
+/** Bold, italic, link and mention go inside a line of text; the rest are blocks of their own. */
+const INLINE: Format[] = ["bold", "italic", "link", "mention"];
 
 const SHAPES: Record<Format, React.ReactNode> = {
 	heading: <path d="M3.5 3v10M12.5 3v10M3.5 8h9" />,
@@ -48,6 +50,8 @@ const SHAPES: Record<Format, React.ReactNode> = {
 	),
 	quote: <path d="M3 3v10M6.5 5h7.5M6.5 8h7.5M6.5 11h4.5" />,
 	code: <path d="M5.5 4.5L2 8l3.5 3.5M10.5 4.5L14 8l-3.5 3.5" />,
+	bold: <path d="M4.5 2.75h4.25a2.6 2.6 0 0 1 0 5.2H4.5zM4.5 7.95h5a2.65 2.65 0 0 1 0 5.3h-5z" strokeWidth="1.9" />,
+	italic: <path d="M7 2.75h5.5M3.5 13.25H9M9.75 2.75l-3.5 10.5" />,
 	link: (
 		<path d="M6.9 9.1a2.6 2.6 0 0 0 3.7 0l2.1-2.1a2.6 2.6 0 0 0-3.7-3.7l-.7.7M9.1 6.9a2.6 2.6 0 0 0-3.7 0L3.3 9a2.6 2.6 0 0 0 3.7 3.7l.7-.7" />
 	),

@@ -31,6 +31,8 @@ interface View {
 	file?: string;
 	plugin?: PluginId;
 	plugins?: Partial<Record<PluginId, PluginState>>;
+	/** The list of your teams, open at the top of the sidebar. */
+	teams?: boolean;
 }
 const INSTRUCTIONS = "Instructions";
 
@@ -48,6 +50,7 @@ export const PEOPLE_STEPS: { id: number; name: string; view: View }[] = [
 	{ id: 10, name: "Dialog: add someone", view: { dialog: "add" } },
 	{ id: 11, name: "The new agent: its instructions come next", view: { open: "researcher" } },
 	{ id: 12, name: "Its instructions, written as a document", view: { open: "researcher", file: INSTRUCTIONS } },
+	{ id: 13, name: "Several teams: switch at the top", view: { teams: true } },
 ];
 export const PLUGIN_STEPS: { id: number; name: string; view: View }[] = [
 	{ id: 0, name: "The team page: where it lives, and its plugins", view: {} },
@@ -141,7 +144,7 @@ const USERS: Record<UserId, User> = {
 		],
 		following: "You follow 4 documents and 3 tasks",
 		self: [{ what: "About you", why: "What agents should know when they work with you" }],
-		facts: ["Person", `Team ${TEAM}`, "Here since 3 July"],
+		facts: ["Person", `Teams ${TEAM} and Lumen`, "Here since 3 July"],
 	},
 	maya: {
 		name: "Maya Chen", av: "MC", kind: "Person",
@@ -640,12 +643,11 @@ export function People({ view }: { view: View }): React.ReactElement {
 	const set = (id: PluginId, state: PluginState) => setPlugins({ ...plugins, [id]: state });
 	return (
 		<>
-			<Sidebar teamOpen={open === null && plugin === null} youOpen={open === "you"} />
+			<Sidebar teamOpen={open === null && plugin === null} youOpen={open === "you"} teamsOpen={view.teams} />
 			<section className="detail">
 				{u && file ? (
 					<header className="detail-head">
 						<span className="chip chip--quiet">Document</span>
-						<h2>{file === INSTRUCTIONS ? `${u.name}: instructions` : file}</h2>
 						<span className="doc-state">Draft · {u.name} reads this every time {file === INSTRUCTIONS ? "it starts" : "one of its reasons starts it"}</span>
 						<span className="doc-act">
 							<span className="doc-mode">✎ Editing</span>
@@ -655,7 +657,6 @@ export function People({ view }: { view: View }): React.ReactElement {
 				) : (
 					<header className="detail-head">
 						<span className="chip chip--quiet">{plugin ? "Plugin" : u ? u.kind : "Team"}</span>
-						<h2>{plugin ? PLUGINS[plugin].name : u ? u.name : TEAM}</h2>
 						<span className="doc-state">{plugin ? PLUGINS[plugin].what : u ? u.what : "Everyone in it"}</span>
 					</header>
 				)}
