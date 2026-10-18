@@ -1054,3 +1054,25 @@ went one way; a review (open loop) or a state it can check itself (closed loop) 
   page before they are charged" (not checked); rejecting it marks it "did not hold"; round 2
   starts from that.
 
+**Founder, 2026-10-18 (later):** "for now we only have single organization support so that top
+corner thing can be removed. teams are more like product teams or sales team or what not. And an
+option inside work to jump between teams. also you always see chats and knowledge across all
+teams. in knowledge team is more like a space. a team is cross sectional to i.e a function or so,
+sometimes a team might also be a function."
+
+**Changed:**
+- **Nothing names the organisation.** The top of the sidebar is find-or-ask with the bell beside
+  it. The organisation page is gone.
+- **Work jumps between teams:** at the top of the Work list, "All teams ▾" (or the team picked)
+  opens a short list — All teams, Product, Support, each with its number of tasks. With a team
+  picked, "The team ›" opens that team's page.
+- **Conversations are across all teams**, unchanged.
+- **Knowledge: each team is a space.** The tree starts with one space per team (Product, Support),
+  marked with a team sign instead of a changeable icon; documents sit inside.
+- **A team's page:** its people, each with the agents that work for them in this team, then the
+  agents that work for every team. "Add someone to Product". The box: facts and the team's
+  plugins (added for this team, or for every team). A page's crumbs start at its team.
+- "Lives on" moved to your own page, under "This app" — one organisation, so where the app lives
+  is a setting of the app, not of a team.
+- First start names your first team again ("e.g. Product").
+

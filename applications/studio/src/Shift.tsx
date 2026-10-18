@@ -559,7 +559,7 @@ const rootOf = (id: Id): Id => {
 const ROWS: Partial<Record<Id, string>> = { trials: "w-f1", utc: "w-d2", weekly: "w-wk" };
 const LIST: Item[] = [
 	...WORK.map((i) => (i.id === "w-f1" ? { ...i, state: stateOf("trials") } : i)),
-	{ id: "w-wk", title: "Support themes, weekly", state: "Every Monday", who: "Growth", age: "Mon 07:00" },
+	{ id: "w-wk", title: "Support themes, weekly", state: "Every Monday", who: "Growth", age: "Mon 07:00", team: "Product" },
 ];
 
 const STEERED: Line[] = [

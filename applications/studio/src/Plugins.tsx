@@ -2,12 +2,13 @@ import { useState } from "react";
 import { Avatar } from "./Msg";
 import { Seg } from "./Seg";
 import { Dialog, Field, type Row } from "./Setup";
+import type { TeamName } from "./teams";
 
 /**
  * PLUGINS — a plugin is a ready-made pack: agents, skills, reasons to start and services. It has
  * no world of its own. What it adds are ordinary agents and documents in the team, yours to
- * change, so a plugin's page is mostly a list of links to them. Plugins are part of how the team
- * is set up: they are listed in the box on the team page, next to where the team lives.
+ * change, so a plugin's page is mostly a list of links to them. A plugin is added for one team or
+ * for every team, and listed in the box on the page of each team it is for.
  */
 export type PluginId = "habits" | "notes" | "roles";
 /** "gone" is not listed anywhere: it was never added, or it was removed. */
@@ -19,8 +20,8 @@ interface Plugin {
 	about: string;
 	version: string;
 	from: string;
-	/** Who gets it: this team, or every team on the server. */
-	scope: string;
+	/** The team it is added for; none is every team. Its agents join that team. */
+	team?: TeamName;
 	installed: string;
 	/** `user` is set where the agent has a page in this walkthrough; `comes` is what the plugin gives it. */
 	agents: { user?: string; av: string; name: string; what: string; comes: string }[];
@@ -36,7 +37,7 @@ export const PLUGINS: Record<PluginId, Plugin> = {
 		name: "Team habits",
 		what: "An agent that keeps how the team works written down.",
 		about: "One agent that reads how finished tasks went and proposes changes to how the team works.",
-		version: "1.2.0", from: "Comes with HyperIdle", scope: "For every team", installed: "Installed 3 July by you",
+		version: "1.2.0", from: "Comes with HyperIdle", installed: "Installed 3 July by you",
 		agents: [{ user: "facilitation", av: "FA", name: "Facilitation", what: "Keeps how we work written down.", comes: "Instructions, 2 skills and 2 reasons to start" }],
 		skills: [
 			{ what: "Read how a task went", why: "Facilitation" },
@@ -56,7 +57,7 @@ export const PLUGINS: Record<PluginId, Plugin> = {
 		name: "Release notes",
 		what: "Writes the weekly release note from what shipped.",
 		about: "One agent that collects what was merged during the week and writes the release note for customers. It reads GitHub through a server of its own.",
-		version: "0.4.1", from: "From github.com/northwind/release-notes", scope: "For the Product team", installed: "Installed today by you",
+		version: "0.4.1", from: "From github.com/northwind/release-notes", team: "Product", installed: "Installed today by you",
 		agents: [{ av: "WR", name: "Release writer", what: "Writes what shipped, for customers.", comes: "Instructions, 2 skills and 1 reason to start" }],
 		skills: [
 			{ what: "Collect what shipped this week", why: "Release writer" },
@@ -70,7 +71,7 @@ export const PLUGINS: Record<PluginId, Plugin> = {
 		name: "Roles",
 		what: "A ready-made team of four agents.",
 		about: "Four agents, each with instructions and skills, so a team has someone to hand work to on the first day.",
-		version: "1.0.0", from: "Comes with HyperIdle", scope: "For the Product team", installed: "Installed just now by you",
+		version: "1.0.0", from: "Comes with HyperIdle", team: "Product", installed: "Installed just now by you",
 		agents: [
 			{ av: "PM", name: "Product manager", what: "Turns what customers ask for into tasks.", comes: "Instructions and 2 skills" },
 			{ av: "QA", name: "QA", what: "Tries to break what was built before a customer does.", comes: "Instructions and 2 skills" },
@@ -125,11 +126,12 @@ function Items({ title, items }: { title: string; items: Row[] }) {
 	);
 }
 
-export function PluginPage({ id, state, org, onOrg, onOpen, onState, onRemove }: {
+export function PluginPage({ id, state, team, onTeam, onOpen, onState, onRemove }: {
 	id: PluginId;
 	state: PluginState;
-	org: string;
-	onOrg: () => void;
+	/** The team whose page it was opened from. */
+	team: TeamName;
+	onTeam: () => void;
 	/** Open the page of an agent the plugin added. */
 	onOpen: (user: string) => void;
 	onState: (state: PluginState) => void;
@@ -142,7 +144,7 @@ export function PluginPage({ id, state, org, onOrg, onOpen, onState, onRemove }:
 		<article className="tk-page">
 			<div className="tk-main">
 				<nav className="crumbs" aria-label="Where you are">
-					<button type="button" onClick={onOrg}>{org}</button>
+					<button type="button" onClick={onTeam}>{team}</button>
 					<span aria-current="true">{p.name}</span>
 				</nav>
 				<h1 className="page-title">{p.name}</h1>
@@ -185,7 +187,7 @@ export function PluginPage({ id, state, org, onOrg, onOpen, onState, onRemove }:
 				<ul className="tbox-facts">
 					<li>Plugin · version {p.version}</li>
 					<li>{p.from}</li>
-					<li>{p.scope}</li>
+					<li>{p.team ? `For the ${p.team} team` : "For every team"}</li>
 					{here && <li>{p.installed}</li>}
 				</ul>
 

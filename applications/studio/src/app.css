@@ -45,9 +45,6 @@ code { font: var(--t-data); background: var(--sunk); padding: 0 var(--sp-1); bor
 .frame { display: grid; grid-template-columns: var(--w-rail) var(--w-queue) minmax(0, 1fr); height: 100vh; }
 
 .rail { border-right: var(--line-w) solid var(--line); background: var(--sunk); display: flex; flex-direction: column; padding: var(--sp-4); gap: var(--sp-5); }
-.wordmark { font: var(--t-strong); font-weight: 650; letter-spacing: -0.01em; padding: 2px var(--sp-2); border-radius: var(--r-sm); }
-.wordmark:hover { background: var(--surface); }
-.wordmark[aria-current="true"] { background: var(--surface); box-shadow: var(--sh-1); }
 .spines { display: flex; flex-direction: column; gap: 2px; }
 .spine { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: 34px; padding: 0 var(--sp-3); border-radius: var(--r-sm); font: var(--t-strong); color: var(--ink-2); }
 .spine:hover { background: var(--surface); }
@@ -437,7 +434,24 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 
 /* notifications — what happened in things you follow */
 .nav--rel { position: relative; }
-.nav-brand { display: flex; align-items: center; justify-content: space-between; }
+/* find or ask, with the bell beside it */
+.nav-find { display: flex; align-items: center; gap: var(--sp-2); }
+.nav-find .find-btn { flex: 1; min-width: 0; }
+/* Work, narrowed to one team */
+.team-pick { position: relative; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4) var(--sp-1); }
+.team-btn { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 28px; padding: 0 var(--sp-2); border-radius: var(--r-sm); font: var(--t-strong); color: var(--ink); }
+.team-btn:hover, .team-btn[aria-expanded="true"] { background: var(--surface); }
+.team-btn svg { width: 12px; height: 12px; color: var(--ink-3); }
+.team-link { font: var(--t-meta); color: var(--ink-2); padding: 2px var(--sp-2); border-radius: var(--r-sm); }
+.team-link:hover, .team-link[aria-current="true"] { background: var(--surface); color: var(--ink); }
+.team-menu { position: absolute; top: calc(100% + 2px); left: var(--sp-3); right: var(--sp-3); z-index: 30; border: var(--line-w) solid var(--line-strong); border-radius: var(--r); background: var(--surface); box-shadow: var(--sh-3); overflow: hidden; }
+.team-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2); width: 100%; padding: var(--sp-2) var(--sp-3); text-align: left; }
+.team-row:hover { background: var(--sunk); }
+.team-mark { font: var(--t-label); color: var(--ink-2); }
+.team-name { font: var(--t-strong); }
+.team-n { font: var(--t-meta); color: var(--ink-3); }
+/* a team's space at the top of the knowledge tree */
+.tree-row--space .tree-name { font-weight: 600; color: var(--ink); }
 .bell { position: relative; width: 30px; height: 30px; display: grid; place-items: center; border-radius: var(--r-sm); color: var(--ink-2); }
 .bell:hover, .bell[aria-expanded="true"] { background: var(--surface); }
 .bell svg { width: 16px; height: 16px; }

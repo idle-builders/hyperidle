@@ -147,8 +147,8 @@ Work happens in three stages (founder): **plan** in documents and conversations 
 
 ### PEOPLE — accepted for now 2026-10-12
 An agent and a person are the same kind of user, so they share one page.
-- **Two ways in:** the organisation's name at the top of the sidebar opens its page (its teams,
-  each with its people and the agents that work for them; then the agents that work for everyone). Your own
+- **Ways in:** a team's page opens from Work ("The team ›" once a team is picked): its people,
+  each with the agents that work for them, then the agents that work for every team. Your own
   page is at the bottom of the sidebar ("You · 4 waiting for you").
 - **The user page is that user's to-do and status list** (founder, 2026-10-12): an agent's open
   tasks; for a person, what waits for them and what they started. No conversation on the page.
@@ -329,9 +329,11 @@ the end. Answered 2026-10-16; what they settled:
 - The small comment box has no format bar. The format bar has bold and italic.
 - A wait between two parts always shows, even when one end is out of view.
 - A title exists once: on the page. The bar above holds the kind, the state and the actions.
-- A user can be in several teams. Teams are groups inside one organisation (like teams in a
-  company), not separate workspaces: the name at the top of the sidebar is the organisation, and
-  its page lists the teams. No switcher (founder, 2026-10-18).
+- A user can be in several teams. **One organisation only, and nothing names it.** A team is a
+  group inside it — a product team, a function such as sales, or a group across functions
+  (founder, 2026-10-18). Work has a switch to jump between teams; conversations are always across
+  all teams; in knowledge each team is a space. A team's page (people, agents, its plugins) opens
+  from Work.
 
 Still open:
 - At the whole task the graph shows only the task's own parts; their subtasks appear when you
