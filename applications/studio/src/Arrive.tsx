@@ -144,8 +144,8 @@ function FirstStart() {
 					<div className="found-row found-row--off"><span>–</span><b>Cursor</b><span>not installed</span></div>
 				</div>
 				<label className="first-field">
-					<span>Name your team</span>
-					<input placeholder="e.g. Northwind" aria-label="Team name" />
+					<span>Name your organisation</span>
+					<input placeholder="e.g. Northwind" aria-label="Organisation name" />
 				</label>
 				<p className="first-note">Folders, GitHub and teammates can come later, when you need them.</p>
 				<button type="button" className="btn btn--accent first-go">Start talking</button>

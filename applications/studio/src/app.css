@@ -438,20 +438,6 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 /* notifications — what happened in things you follow */
 .nav--rel { position: relative; }
 .nav-brand { display: flex; align-items: center; justify-content: space-between; }
-/* the team you are looking at, and a switch to your other teams */
-.team { display: inline-flex; align-items: center; gap: 1px; }
-.team-switch { width: 22px; height: 26px; display: grid; place-items: center; border-radius: var(--r-sm); color: var(--ink-3); }
-.team-switch:hover, .team-switch[aria-expanded="true"] { background: var(--surface); color: var(--ink); }
-.team-switch svg { width: 12px; height: 12px; }
-.teams { position: absolute; top: 50px; left: var(--sp-3); right: var(--sp-3); z-index: 40; border: var(--line-w) solid var(--line-strong); border-radius: var(--r); background: var(--surface); box-shadow: var(--sh-3); overflow: hidden; }
-.teams-h { padding: var(--sp-2) var(--sp-3); font: var(--t-label); color: var(--ink-3); border-bottom: var(--line-w) solid var(--line); }
-.teams-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2); width: 100%; padding: var(--sp-2) var(--sp-3); text-align: left; }
-.teams-row:hover { background: var(--sunk); }
-.teams-mark { font: var(--t-label); color: var(--ink-2); }
-.teams-name { display: block; font: var(--t-strong); }
-.teams-who { display: block; font: var(--t-meta); color: var(--ink-3); }
-.teams-n { font: var(--t-meta); color: var(--ink-2); }
-.teams-new { display: block; width: 100%; padding: var(--sp-2) var(--sp-3); border-top: var(--line-w) solid var(--line); font: var(--t-meta); color: var(--ink-2); text-align: left; text-decoration: underline; text-underline-offset: 3px; }
 .bell { position: relative; width: 30px; height: 30px; display: grid; place-items: center; border-radius: var(--r-sm); color: var(--ink-2); }
 .bell:hover, .bell[aria-expanded="true"] { background: var(--surface); }
 .bell svg { width: 16px; height: 16px; }
@@ -733,7 +719,10 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 /* a person, and under them the agents that work for them */
 .crew { display: flex; flex-direction: column; margin-top: var(--sp-4); max-width: none; }
 .crew-agents { display: flex; flex-direction: column; margin-left: var(--sp-4); padding-left: var(--sp-4); border-left: var(--line-w) solid var(--line-strong); }
-.crew-add { margin-top: var(--sp-5); }
+.crew-add { display: flex; gap: var(--sp-2); margin-top: var(--sp-5); }
+/* a team: a group inside the organisation, with its people and their agents */
+.crew-team { display: flex; flex-direction: column; max-width: none; }
+.crew-team > h3 span { font: var(--t-meta); color: var(--ink-3); }
 .who { display: grid; grid-template-columns: auto minmax(0, 15rem) minmax(0, 1fr); align-items: center; gap: var(--sp-3); width: 100%; padding: var(--sp-2); border-radius: var(--r); text-align: left; }
 .who:hover { background: var(--sunk); }
 .who-text { min-width: 0; }
@@ -836,3 +825,17 @@ select.in { width: auto; padding: 0 var(--sp-2); }
 .doc-link:hover { text-decoration-color: var(--ink-3); }
 /* what is still missing on a new agent's page */
 .tk-main > .hint { margin-left: 0; }
+
+/* ---------- THE LOOP — why the work went where it went, and how it closes ---------- */
+.loop { display: flex; flex-direction: column; gap: var(--sp-2); }
+.loop-row { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: var(--sp-2); align-items: start; }
+.loop-mark { display: grid; place-items: center; height: 1.6em; font: var(--t-label); color: var(--ink-2); }
+.loop-mark .need { width: 20px; height: 20px; }
+.loop-text { display: flex; flex-direction: column; min-width: 0; }
+.loop-what { font: var(--t-body); color: var(--ink); }
+.loop-why { font: var(--t-meta); color: var(--ink-3); }
+.loop-why b { font-weight: 600; color: var(--ink-2); }
+/* in a review: what checked itself, and what the work rests on, side by side */
+.rev-loop { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-6); padding: var(--sp-4) 0; border-top: var(--line-w) solid var(--line); border-bottom: var(--line-w) solid var(--line); }
+.rev-loop h3 { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: var(--sp-3); font: var(--t-strong); font-weight: 600; }
+.rev-loop h3 span { font: var(--t-meta); color: var(--ink-3); font-weight: 400; }

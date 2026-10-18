@@ -147,8 +147,8 @@ Work happens in three stages (founder): **plan** in documents and conversations 
 
 ### PEOPLE — accepted for now 2026-10-12
 An agent and a person are the same kind of user, so they share one page.
-- **Two ways in:** the team's name at the top of the sidebar opens the team page (people, each
-  with the agents that work for them; then the agents that work for the whole team). Your own
+- **Two ways in:** the organisation's name at the top of the sidebar opens its page (its teams,
+  each with its people and the agents that work for them; then the agents that work for everyone). Your own
   page is at the bottom of the sidebar ("You · 4 waiting for you").
 - **The user page is that user's to-do and status list** (founder, 2026-10-12): an agent's open
   tasks; for a person, what waits for them and what they started. No conversation on the page.
@@ -175,6 +175,16 @@ An agent and a person are the same kind of user, so they share one page.
   dialog makes the agent or the reason and asks for a name; the document is written next, in
   edit mode with the format bar.
 - Not drawn yet: the list behind "See what you follow".
+
+### THE LOOP — on tasks and in reviews, first pass 2026-10-18
+Task (goal) → decisions and assumptions → outcome and how the loop closes (founder's model).
+- **Decisions and assumptions**: a decision says who made it and where; one that waits for an
+  answer is the question. An assumption held (✓, how it was checked), is not checked yet (○, what
+  will check it) or did not hold (✗, what showed it).
+- **Done when**: each line closes by itself (a check, with its evidence) or with a review (a
+  person). Colour stays out of it: marks and words only.
+- Task page order below the tree: decisions and assumptions → done when → summary →
+  conversation. In a review, both lists sit between what the agent said and the work.
 
 ### PLUGINS — accepted 2026-10-12
 A plugin is a ready-made pack: agents, skills, reasons to start and services. What it adds are
@@ -319,7 +329,9 @@ the end. Answered 2026-10-16; what they settled:
 - The small comment box has no format bar. The format bar has bold and italic.
 - A wait between two parts always shows, even when one end is out of view.
 - A title exists once: on the page. The bar above holds the kind, the state and the actions.
-- A user can be in several teams: a switch beside the team name at the top of the sidebar.
+- A user can be in several teams. Teams are groups inside one organisation (like teams in a
+  company), not separate workspaces: the name at the top of the sidebar is the organisation, and
+  its page lists the teams. No switcher (founder, 2026-10-18).
 
 Still open:
 - At the whole task the graph shows only the task's own parts; their subtasks appear when you

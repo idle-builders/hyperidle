@@ -273,7 +273,7 @@ export function StartDialog({ who, rows, onClose, onDone }: { who: Subject; rows
 /* ---------- a user: adding one and editing one are the same form ---------- */
 
 const ADD_KINDS = ["An agent", "A person"] as const;
-const OWNERS = ["You", "The whole team"] as const;
+const OWNERS = ["You", "Product", "Support"] as const;
 const PROGRAMS = [
 	{ what: "Claude Code", why: "signed in on this computer" },
 	{ what: "Codex", why: "signed in on this computer" },
@@ -303,7 +303,7 @@ export function UserDialog({ user, program = "Claude Code", onClose, onDone }: {
 			<Field label={what}><input className="in" key={kind} defaultValue={user ? user.what : agent ? "Reads what competitors ship and writes it down." : "Sales."} aria-label={what} /></Field>
 			{agent && (
 				<>
-					<Field label="Works for" hint={user ? undefined : "The whole team: anyone can hand it work and change how it is set up."}>
+					<Field label="Works for" hint={user ? undefined : "A team: anyone in it can hand it work and change how it is set up."}>
 						{user ? <span className="field-fixed">You</span> : <Seg label="Works for" options={OWNERS} value={owner} onChange={setOwner} />}
 					</Field>
 					<Field label="Runs on"><Pick name="program" options={PROGRAMS} value={runs} onChange={setRuns} /></Field>

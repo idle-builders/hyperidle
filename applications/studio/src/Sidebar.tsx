@@ -210,26 +210,17 @@ interface SidebarProps {
 	notificationsOpen?: boolean;
 	/** Documents published during the walkthrough; the tree stops calling them drafts. */
 	published?: string[];
-	/** The team page is showing: its name at the top of the sidebar is the one thing picked. */
-	teamOpen?: boolean;
+	/** The organisation's page is showing: its name at the top of the sidebar is the one thing picked. */
+	orgOpen?: boolean;
 	/** Your own page is showing. */
 	youOpen?: boolean;
-	/** The list of your teams is open. */
-	teamsOpen?: boolean;
 }
-
-/** Someone can be in several teams; the sidebar shows one at a time. */
-const TEAMS = [
-	{ name: "Northwind", who: "2 people and 4 agents", waiting: "4 waiting" },
-	{ name: "Lumen", who: "1 person and 1 agent", waiting: "1 waiting" },
-];
 
 const withoutDraft = (docs: Doc[], ids: string[]): Doc[] =>
 	docs.map((d) => ({ ...d, note: ids.includes(d.id) ? undefined : d.note, children: d.children && withoutDraft(d.children, ids) }));
 
-export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote, notificationsOpen = false, published = [], teamOpen = false, youOpen = false, teamsOpen = false }: SidebarProps) {
+export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote, notificationsOpen = false, published = [], orgOpen = false, youOpen = false }: SidebarProps) {
 	const [notesOpen, setNotesOpen] = useState(notificationsOpen);
-	const [teams, setTeams] = useState(teamsOpen);
 	const [spine, setSpine] = useState<Spine>(initialSpine);
 	const [picked, setPicked] = useState<string | null>(initialPicked);
 	const [open, setOpen] = useState<Set<string>>(new Set(["t-product", "k-price", "t-eng"]));
@@ -255,12 +246,7 @@ export function Sidebar({ initialSpine = "conversations", initialPicked = null, 
 		<nav className="nav nav--rel">
 			<div className="nav-top">
 				<div className="nav-brand">
-					<span className="team">
-						<button type="button" className="wordmark" aria-current={teamOpen} title="The team: everyone in it">Northwind</button>
-						<button type="button" className="team-switch" aria-label="Switch team" aria-expanded={teams} onClick={() => setTeams(!teams)}>
-							<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-						</button>
-					</span>
+					<button type="button" className="wordmark" aria-current={orgOpen} title="Northwind: its teams, people and agents">Northwind</button>
 					{showCounts && (
 						<button type="button" className="bell" aria-label="Notifications, 3 new" aria-expanded={notesOpen} onClick={() => setNotesOpen(!notesOpen)}>
 							<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" /></svg>
@@ -285,22 +271,6 @@ export function Sidebar({ initialSpine = "conversations", initialPicked = null, 
 			<hr className="nav-sep" />
 
 			{notesOpen && <Notifications onClose={() => setNotesOpen(false)} />}
-			{teams && (
-				<div className="teams" role="menu" aria-label="Your teams">
-					<div className="teams-h">Your teams</div>
-					{TEAMS.map((t, i) => (
-						<button key={t.name} type="button" role="menuitem" className="teams-row" aria-current={i === 0} onClick={() => setTeams(false)}>
-							<span className="teams-mark" aria-hidden="true">{i === 0 && "✓"}</span>
-							<span>
-								<span className="teams-name">{t.name}</span>
-								<span className="teams-who">{t.who}</span>
-							</span>
-							<span className="teams-n">{t.waiting}</span>
-						</button>
-					))}
-					<button type="button" role="menuitem" className="teams-new">Start a team</button>
-				</div>
-			)}
 			<div className="nav-list">
 				{items === null ? (
 					<p className="nav-empty">Nothing here yet.</p>

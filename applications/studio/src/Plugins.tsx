@@ -36,7 +36,7 @@ export const PLUGINS: Record<PluginId, Plugin> = {
 		name: "Team habits",
 		what: "An agent that keeps how the team works written down.",
 		about: "One agent that reads how finished tasks went and proposes changes to how the team works.",
-		version: "1.2.0", from: "Comes with HyperIdle", scope: "For Northwind", installed: "Installed 3 July by you",
+		version: "1.2.0", from: "Comes with HyperIdle", scope: "For every team", installed: "Installed 3 July by you",
 		agents: [{ user: "facilitation", av: "FA", name: "Facilitation", what: "Keeps how we work written down.", comes: "Instructions, 2 skills and 2 reasons to start" }],
 		skills: [
 			{ what: "Read how a task went", why: "Facilitation" },
@@ -56,7 +56,7 @@ export const PLUGINS: Record<PluginId, Plugin> = {
 		name: "Release notes",
 		what: "Writes the weekly release note from what shipped.",
 		about: "One agent that collects what was merged during the week and writes the release note for customers. It reads GitHub through a server of its own.",
-		version: "0.4.1", from: "From github.com/northwind/release-notes", scope: "For Northwind", installed: "Installed today by you",
+		version: "0.4.1", from: "From github.com/northwind/release-notes", scope: "For the Product team", installed: "Installed today by you",
 		agents: [{ av: "WR", name: "Release writer", what: "Writes what shipped, for customers.", comes: "Instructions, 2 skills and 1 reason to start" }],
 		skills: [
 			{ what: "Collect what shipped this week", why: "Release writer" },
@@ -70,7 +70,7 @@ export const PLUGINS: Record<PluginId, Plugin> = {
 		name: "Roles",
 		what: "A ready-made team of four agents.",
 		about: "Four agents, each with instructions and skills, so a team has someone to hand work to on the first day.",
-		version: "1.0.0", from: "Comes with HyperIdle", scope: "For Northwind", installed: "Installed just now by you",
+		version: "1.0.0", from: "Comes with HyperIdle", scope: "For the Product team", installed: "Installed just now by you",
 		agents: [
 			{ av: "PM", name: "Product manager", what: "Turns what customers ask for into tasks.", comes: "Instructions and 2 skills" },
 			{ av: "QA", name: "QA", what: "Tries to break what was built before a customer does.", comes: "Instructions and 2 skills" },
@@ -125,11 +125,11 @@ function Items({ title, items }: { title: string; items: Row[] }) {
 	);
 }
 
-export function PluginPage({ id, state, team, onTeam, onOpen, onState, onRemove }: {
+export function PluginPage({ id, state, org, onOrg, onOpen, onState, onRemove }: {
 	id: PluginId;
 	state: PluginState;
-	team: string;
-	onTeam: () => void;
+	org: string;
+	onOrg: () => void;
 	/** Open the page of an agent the plugin added. */
 	onOpen: (user: string) => void;
 	onState: (state: PluginState) => void;
@@ -142,14 +142,14 @@ export function PluginPage({ id, state, team, onTeam, onOpen, onState, onRemove 
 		<article className="tk-page">
 			<div className="tk-main">
 				<nav className="crumbs" aria-label="Where you are">
-					<button type="button" onClick={onTeam}>{team}</button>
+					<button type="button" onClick={onOrg}>{org}</button>
 					<span aria-current="true">{p.name}</span>
 				</nav>
 				<h1 className="page-title">{p.name}</h1>
 				<p className="stand">
 					<span>{state === "on" ? `On. It added ${adds(p)}.` : state === "off" ? "Off. What it added is paused, not gone." : `Not installed. Installing adds ${adds(p)}.`}</span>
 				</p>
-				<p>{p.about} Its agents work for the whole team. Everything it adds is an ordinary part of the team, and yours to change.</p>
+				<p>{p.about} Its agents join the team it is added for. Everything it adds is ordinary, and yours to change.</p>
 
 				<h3>Agents <span>{p.agents.length}</span></h3>
 				<div className="adds">
@@ -215,9 +215,9 @@ export function PluginPage({ id, state, team, onTeam, onOpen, onState, onRemove 
 
 const SOURCES = ["A git address", "A folder", "A zip file"] as const;
 
-export function PluginDialog({ team, onClose, onDone }: { team: string; onClose: () => void; onDone: () => void }): React.ReactElement {
+export function PluginDialog({ teams, onClose, onDone }: { teams: string[]; onClose: () => void; onDone: () => void }): React.ReactElement {
 	const [from, setFrom] = useState<(typeof SOURCES)[number]>("A git address");
-	const [scope, setScope] = useState(team);
+	const [scope, setScope] = useState(teams[0]);
 	return (
 		<Dialog
 			title="Add a plugin"
@@ -234,8 +234,8 @@ export function PluginDialog({ team, onClose, onDone }: { team: string; onClose:
 					{from !== "A git address" && <button type="button" className="btn">Choose…</button>}
 				</div>
 			</Field>
-			<Field label="For" hint="Every team: added once, for everyone on this server.">
-				<Seg label="For" options={[team, "Every team"]} value={scope} onChange={setScope} />
+			<Field label="For" hint="A plugin's agents join the team it is added for. Every team: added once, for the whole organisation.">
+				<Seg label="For" options={[...teams, "Every team"]} value={scope} onChange={setScope} />
 			</Field>
 		</Dialog>
 	);

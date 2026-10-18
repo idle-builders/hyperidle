@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { devices, diff, numbers } from "./judge-data";
+import { type Close, Closes, type Reason, Reasons } from "./Loop";
 
 /**
  * JUDGE — you are checking, not reading. Dozens of these a day.
  * The artifact gets the width of the region (expand when it needs more), pins mark
- * the spots, and every pin has a row in an index so you never hunt for a comment again.
+ * the spots, and every pin has a row in an index so you never hunt for a comment again. Above the
+ * work, the loop: what already checked itself (so your attention goes to the rest), and the
+ * decisions and assumptions it rests on (so you can judge why it went this way).
  */
 export const JUDGE_STEPS = [
 	{ id: 0, name: "Opened — agent's pointers" },
@@ -26,6 +29,44 @@ interface QA {
 	q: string;
 	a?: string;
 	state: "open" | "answered" | "done";
+}
+
+/** Round 1: the fix rests on people reading the page before they are charged. Rejecting it says that did not hold. */
+function loopFor(step: number): { closes: Close[]; reasons: Reason[] } {
+	return {
+		closes: [
+			{ what: "Proration on a mid-cycle upgrade is right.", by: "check", state: "met", how: "38 tests pass, 3 new ones cover it" },
+			{ what: "The page says the date and the amount before the trial runs out.", by: "check", state: "met", how: "checked at all four widths" },
+			{ what: "A customer understands what they will pay.", by: "review", state: step === 3 ? "met" : "open", how: step === 3 ? "you approved it" : "you review it · this is what needs your eyes" },
+		],
+		reasons: [
+			{ kind: "Assumption", what: "People read the trial-end page before they are charged.", state: step === 4 ? "broke" : "open", why: step === 4 ? "you rejected it: most people never open the page before the charge" : "the whole fix rests on it" },
+			{ kind: "Decision", what: "Say the amount, not only the date.", state: "made", why: "by Builder · pin A" },
+			{ kind: "Decision", what: "Round half-up at the boundary, like the invoice engine.", state: "made", why: "by Builder · pin B · it changes behaviour" },
+		],
+	};
+}
+
+const ROUND2: { closes: Close[]; reasons: Reason[] } = {
+	closes: [
+		{ what: "A warning email goes out three days before the trial ends.", by: "check", state: "met", how: "sent to a test account three days before its trial ended" },
+		{ what: "The email says the date and the amount.", by: "check", state: "met", how: "read back from the test inbox" },
+		{ what: "A customer understands what they will pay.", by: "review", state: "open", how: "you review it" },
+	],
+	reasons: [
+		{ kind: "Assumption", what: "People read the trial-end page before they are charged.", state: "broke", why: "you rejected round 1 for it; the warning moved into the email" },
+		{ kind: "Assumption", what: "People open an email about money three days before.", state: "open", why: "opens are counted from today" },
+		{ kind: "Decision", what: "Leave the trial-end page as it was.", state: "made", why: "by Builder · it was right, only not enough" },
+	],
+};
+
+function Loop({ closes, reasons }: { closes: Close[]; reasons: Reason[] }) {
+	return (
+		<div className="rev-loop">
+			<div><Closes title="How this closes" items={closes} /></div>
+			<div><Reasons items={reasons} /></div>
+		</div>
+	);
 }
 
 function qaFor(step: number): QA[] {
@@ -149,6 +190,8 @@ function Round2({ approved }: { approved: boolean }) {
 							<li>Same: the trial-end page and the proration fix</li>
 						</ul>
 					</div>
+
+					<Loop closes={approved ? ROUND2.closes.map((c) => (c.by === "review" ? { ...c, state: "met" as const, how: "you approved it" } : c)) : ROUND2.closes} reasons={ROUND2.reasons} />
 
 					<div className="art">
 						<div className="art-bar">
@@ -345,6 +388,8 @@ function Round1({ step }: { step: number }) {
 						Page says the date and the amount before the trial runs out. Proration bug fixed on the
 						way. Two things I flagged for you.
 					</p>
+
+					<Loop {...loopFor(step)} />
 
 					<div className="art">
 						<div className="art-bar">

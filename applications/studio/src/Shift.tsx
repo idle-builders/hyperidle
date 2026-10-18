@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { CHAT_FORMATS, FormatBar } from "./FormatBar";
+import { type Close, Closes, type Reason, Reasons } from "./Loop";
 import { Msg } from "./Msg";
 import { NEED_WORDS, type Need, NeedIcon } from "./NeedIcon";
 import { type Item, Sidebar, WORK } from "./Sidebar";
@@ -14,7 +15,9 @@ import { type Item, Sidebar, WORK } from "./Sidebar";
  * arrows show what waits for what, and a long row of finished parts folds into one chip, so the
  * graph never needs a scroll area. Everything attached sits in one box floating on the right:
  * quick actions, facts, then questions, reviews and documents in sections of their own, then
- * sessions. A small fix has no graph; a recurring task has one part per run.
+ * sessions. A small fix has no graph; a recurring task has one part per run. Below the tree, a
+ * task reads as a loop: the decisions and assumptions that sent it one way, then what "done"
+ * means and whether each line of it checks itself or needs a person.
  */
 export const SHIFT_STEPS = [
 	{ id: 0, name: "A large task: its parts and summary" },
@@ -69,7 +72,10 @@ interface Task {
 	from?: string;
 	stand: string;
 	about: string;
-	doneWhen?: string[];
+	/** Why the work went the way it did: what was decided, and what it rests on. */
+	reasons?: Reason[];
+	/** What "done" means, and how each line of it is checked. */
+	closes?: Close[];
 	/** Written by the owner when the task finishes or gets stuck, and kept up while it runs. */
 	summary?: { when: string; lines: string[] };
 	/** Ranked by the owner: what a person takes part in first. */
@@ -116,10 +122,17 @@ const TASKS: Record<Id, Task> = {
 		kids: ["understand", "build", "test", "writeup"],
 		stand: "Six of twelve parts are done. One needs input, one needs a review, one is running.",
 		about: "Can a trial turn into a paid plan without a sales call? Put a self-serve checkout in front of people on day 12 and compare it with what we do today.",
-		doneWhen: [
-			"The test ran for two weeks on new signups.",
-			"We know how many paid without a call, next to last quarter.",
-			"What we learned is written down in How we price.",
+		reasons: [
+			{ kind: "Decision", what: "Try a self-serve checkout on day 12 instead of a sales call.", state: "made", why: "by you, in Plan: trials without a call" },
+			{ kind: "Assumption", what: "Most people who leave before paying stop at the card form.", state: "held", why: "checked by Find where people drop off before paying: 171 of 284 stopped there" },
+			{ kind: "Assumption", what: "By day 12 people have used the product enough to decide.", state: "open", why: "the two-week test will show it" },
+			{ kind: "Assumption", what: "People who pay on their own stay as long as those who had a call.", state: "open", why: "two weeks cannot show it; Growth checks again after three months" },
+			{ kind: "Decision", what: "The test covers monthly plans only.", state: "made", why: "by Growth, after you said yearly plans still need a call" },
+		],
+		closes: [
+			{ what: "The test ran for two weeks on new signups.", by: "check", state: "open", how: "the test counts its own days · not started" },
+			{ what: "We know how many paid without a call, next to last quarter.", by: "check", state: "open", how: "Growth puts both numbers side by side when the test ends" },
+			{ what: "What we learned is written down in How we price.", by: "review", state: "open", how: "you review the change to How we price" },
 		],
 		summary: {
 			when: "updated 2h ago",
@@ -257,7 +270,15 @@ const TASKS: Record<Id, Task> = {
 		kids: ["page", "card", "wire"],
 		stand: "Three of five parts are done. One needs input.",
 		about: "Let someone on a trial pay by themselves on day 12, without talking to us.",
-		doneWhen: ["A person on day 12 can pick a plan and pay on one page.", "People who already pay see nothing new."],
+		reasons: [
+			{ kind: "Decision", what: "One page for picking a plan and paying, not two.", state: "made", why: "by Builder · fewer steps where people leave" },
+			{ kind: "Decision", what: "When the card is taken.", state: "open", waits: true, why: "Builder asked you 6h ago, on Decide when the card is taken" },
+			{ kind: "Assumption", what: "The card already on file can be charged without asking again.", state: "held", why: "checked on a test account: the charge went through" },
+		],
+		closes: [
+			{ what: "A person on day 12 can pick a plan and pay on one page.", by: "check", state: "met", how: "Builder paid on a test account · 09:40" },
+			{ what: "People who already pay see nothing new.", by: "check", state: "open", how: "Builder checks it on a paying test account once the card question is answered" },
+		],
 		summary: {
 			when: "written when it got stuck, 6h ago",
 			lines: [
@@ -326,6 +347,11 @@ const TASKS: Record<Id, Task> = {
 		needs: "input",
 		stand: "Builder stopped and asked a question 6 hours ago.",
 		about: "Taking the card on day 12 instead of at the start changes what every new trial user sees.",
+		reasons: [
+			{ kind: "Decision", what: "When the card is taken: at the start, or on day 12.", state: "open", waits: true, why: "Builder asked you 6h ago · it is seen by every trial user, so it is not Builder's to pick" },
+			{ kind: "Assumption", what: "Asking for the card on day 12 does not scare people off.", state: "open", why: "the two-week test will show it" },
+		],
+		closes: [{ what: "The answer is in the checkout.", by: "check", state: "open", how: "Put the answer into the checkout comes after this" }],
 		summary: {
 			when: "written when it got stuck, 6h ago",
 			lines: ["Stuck on one question: when do we take the card?", "Today we take it when the trial starts."],
@@ -378,6 +404,14 @@ const TASKS: Record<Id, Task> = {
 		needs: "review",
 		stand: "The work is finished. It closes once it is reviewed.",
 		about: "The table that compares the plans, stacked so it reads on a phone.",
+		reasons: [
+			{ kind: "Decision", what: "Stack the plans into one column below 600 px wide.", state: "made", why: "by Designer" },
+			{ kind: "Assumption", what: "People compare the plans by price first.", state: "open", why: "Designer put the price on top and flagged it in the review" },
+		],
+		closes: [
+			{ what: "The table reads at phone width.", by: "check", state: "met", how: "Designer checked it at 375 and 1280 px; both are in the review" },
+			{ what: "The plans read in the right order.", by: "review", state: "open", how: "you review it · one spot flagged" },
+		],
 		summary: {
 			when: "written when it finished, 5h ago",
 			lines: [
@@ -435,6 +469,13 @@ const TASKS: Record<Id, Task> = {
 		state: "Done",
 		stand: "Done at 05:55. It closed by itself; nobody asked for a review.",
 		about: "Trial end dates were stored in local time, so some trials ended a day early or a day late. Store and compare them in UTC.",
+		reasons: [
+			{ kind: "Assumption", what: "Every stored trial date was in the server's time zone.", state: "held", why: "checked: Builder read all 412 trial rows" },
+		],
+		closes: [
+			{ what: "Trial end dates are stored and compared in UTC.", by: "check", state: "met", how: "38 tests pass, 4 of them new for dates around midnight" },
+			{ what: "Nobody is charged on the wrong day.", by: "check", state: "met", how: "41 wrong end dates corrected; none had been charged yet" },
+		],
 		summary: {
 			when: "written when it finished, 05:55",
 			lines: [
@@ -911,12 +952,8 @@ export function Shift({ step }: { step: number }) {
 										<p>{t.about}</p>
 									</>
 								)}
-								{t.doneWhen && (
-									<>
-										<h3>Done when</h3>
-										<ul className="task-list">{t.doneWhen.map((l) => <li key={l}>{l}</li>)}</ul>
-									</>
-								)}
+								{t.reasons && <Reasons items={t.reasons} />}
+								{t.closes && <Closes items={t.closes} />}
 
 								<h3>Summary {t.summary && <span>by {t.owner} · {t.summary.when}</span>}</h3>
 								{t.summary ? <ul className="task-list">{t.summary.lines.map((l) => <li key={l}>{l}</li>)}</ul> : <p className="tk-none">No summary yet. It has not started.</p>}

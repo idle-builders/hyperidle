@@ -1018,3 +1018,39 @@ The founder answered the questions collected for the final pass:
 - **Several teams:** a small switch beside the team name at the top of the sidebar opens "Your
   teams" (each with its people and agents and how much waits), and "Start a team".
 
+## Session 15 — teams inside an organisation; the loop on tasks and reviews (2026-10-18)
+
+**Founder on teams:** "not sure I like the slack like approach of teams, slack like teams are
+different organizations. to me a team is more like in teams in ms teams those are groups within
+an organization. so the switcher at the top not sure that makes sense."
+
+**Changed:** the switcher is gone. The name at the top of the sidebar is the **organisation**
+(Northwind). Its page lists its **teams** (Product, Support), each with its people and the agents
+that work for them; a person in two teams shows in both. Agents that work for everyone come last.
+"Add someone" and "Start a team" at the bottom. The box keeps where it lives and the plugins; a
+plugin is added for one team or for every team, and its agents join that team. A person's page
+says "Teams Product and Support"; an agent's says its one team. First start names the
+organisation.
+
+**Founder on assumptions:** for tasks and reviews, give space to assumptions. "When agents work
+themselves checking their assumptions is quite valuable." The model from another project:
+**Task (goal) ⟶ Decision / Assumption ⟶ Outcome & loop closure (review / checkable state)** —
+the control loop of an agent, made easy to judge afterwards: decisions and assumptions are why it
+went one way; a review (open loop) or a state it can check itself (closed loop) closes the loop.
+
+**Built** (`Loop.tsx`, used by the task page and the review):
+- **Decisions and assumptions**, a list. A decision says who made it and where; one that waits
+  for an answer carries the question mark (a question is a decision someone has to make). An
+  assumption says whether it held (✓, and how it was checked), is not checked yet (○, and what
+  will check it) or did not hold (✗, and what showed it).
+- **Done when**, each line saying how it closes: **checks itself** (a test, a number, a page at two
+  widths — with the evidence) or **a person reviews** (the eye while it waits).
+- On the task page, below the tree, in loop order: decisions and assumptions → done when →
+  summary → conversation. The root task, the checkout part, the card question, the stacked layout
+  and the small fix each have their own.
+- In the review, between what the agent said and the work: **How this closes** beside
+  **Decisions and assumptions**, so the reviewer sees what already checked itself and what the
+  work rests on. The story shows the loop closing: round 1 rests on "People read the trial-end
+  page before they are charged" (not checked); rejecting it marks it "did not hold"; round 2
+  starts from that.
+
