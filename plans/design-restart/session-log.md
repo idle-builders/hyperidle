@@ -1076,3 +1076,20 @@ sometimes a team might also be a function."
   is a setting of the app, not of a team.
 - First start names your first team again ("e.g. Product").
 
+## Session 16 — three open points decided (2026-10-20)
+
+The founder: "Hard for me to judge right now — make it where the UX is best and what fits the
+rest." Decided:
+- **The whole task shows two levels at once:** its parts and their subtasks, so the page opens on
+  the full picture of where agents and people are. Deeper levels still open by clicking ("3 ›"),
+  and picking a part narrows the graph to it as before. Fits: the task page is the overview; the
+  graph never needs a scroll area, it only grows the page.
+- **Folders and services go to every agent of yours by default**; you untick one on an agent's
+  page to keep it away from that agent. Fits: one rule for both lists ("connect once, tick per
+  agent"), and trust by default — unticking is for focus, since an agent works best with only
+  what it needs.
+- **"Review before it is done" is no longer a switch.** It is a line of "Done when": a task asks
+  for a person by having a line that a person reviews. The task's box has "Ask for a review",
+  which adds that line; once there, the button goes. A finished task says "Was reviewed before it
+  closed" or "Closed by itself". Fits the loop: how a task closes is written in one place.
+

@@ -9,9 +9,9 @@ import { type Item, Sidebar, WORK } from "./Sidebar";
  * RUN THE SHIFT — the task page. Planning happens before, in documents and conversations;
  * checking happens after, in reviews. This page is the middle: watching the work move through
  * its tree. The page itself holds only the title, the details and the conversation. The tree is
- * a section of it, drawn as a graph that follows where you are: it shows the level above the
- * picked part, that part among its siblings, and its subtasks — three levels at most, at any
- * depth. Clicking a part with subtasks shows them; a path line above the graph leads back. Dashed
+ * a section of it, drawn as a graph that follows where you are. The whole task shows its parts
+ * and their subtasks at once; a picked part shows the level above it, the part among its
+ * siblings, and its subtasks — three levels at most, at any depth. Clicking a part with subtasks shows them; a path line above the graph leads back. Dashed
  * arrows show what waits for what, and a long row of finished parts folds into one chip, so the
  * graph never needs a scroll area. Everything attached sits in one box floating on the right:
  * quick actions, facts, then questions, reviews and documents in sections of their own, then
@@ -66,8 +66,6 @@ interface Task {
 	needs?: Need;
 	/** Parts that must be done before this one starts. */
 	after?: Id[];
-	/** Someone asked to look at it before it counts as done. */
-	review?: boolean;
 	/** Where it came from, when that is a conversation elsewhere. */
 	from?: string;
 	stand: string;
@@ -278,6 +276,7 @@ const TASKS: Record<Id, Task> = {
 		closes: [
 			{ what: "A person on day 12 can pick a plan and pay on one page.", by: "check", state: "met", how: "Builder paid on a test account · 09:40" },
 			{ what: "People who already pay see nothing new.", by: "check", state: "open", how: "Builder checks it on a paying test account once the card question is answered" },
+			{ what: "The checkout is right for trial users.", by: "review", state: "open", how: "you asked to look at it before it counts as done" },
 		],
 		summary: {
 			when: "written when it got stuck, 6h ago",
@@ -291,7 +290,6 @@ const TASKS: Record<Id, Task> = {
 		more: { label: "made by Builder while working", items: [{ kind: "Document", title: "How billing takes cards today", why: "Reading notes" }] },
 		runs: [{ n: 1, when: "yesterday 21:15", said: "48 min · read how billing takes cards today, split the work in three" }],
 		meta: "Builder owns this · started yesterday 21:15 · 1h 53m in 3 sessions",
-		review: true,
 	},
 	page: {
 		title: "Build the checkout page",
@@ -423,7 +421,6 @@ const TASKS: Record<Id, Task> = {
 		things: [{ kind: "Review", title: "Comparison table, stacked layout · Final", why: "Two widths to look at, one spot flagged", needs: "review" }],
 		runs: [{ n: 1, when: "today 09:30", said: "1h 40m · finished, asked for a review" }],
 		meta: "Designer owns this · started today 09:30 · 1h 40m in 1 session",
-		review: true,
 	},
 	reminder: {
 		after: ["email"],
@@ -458,10 +455,10 @@ const TASKS: Record<Id, Task> = {
 		state: "Not started",
 		stand: "Not started. It comes after the test.",
 		about: "What happened, in numbers, and what we change in How we price.",
+		closes: [{ what: "What we learned is written into How we price.", by: "review", state: "open", how: "you review the change" }],
 		things: [],
 		runs: [],
 		meta: "Growth owns this · not started",
-		review: true,
 	},
 	utc: {
 		title: "Trial dates normalised to UTC",
@@ -596,6 +593,8 @@ interface View {
 	sel: Id;
 	/** The parts that lead to it, from the task down. Each shows its subtasks too. */
 	path: Set<Id>;
+	/** Parts whose subtasks show without being picked: the task's own parts, while the whole task is shown. */
+	open: Set<Id>;
 	/** Parents whose long row of finished parts has been opened up. */
 	unfolded: Set<Id>;
 	onPick: (id: Id) => void;
@@ -623,7 +622,7 @@ function Node({ id, view }: { id: Id; view: View }) {
 	const done = finished(id);
 	const running = state === "Running";
 	const c = counts(id);
-	const shown = view.sel === id || view.path.has(id);
+	const shown = view.sel === id || view.path.has(id) || view.open.has(id);
 	const inside: Need[] = t.kids ? (["input", "review"] as const).filter((k) => needsIn(id, k) > 0) : [];
 	let words = state;
 	if (t.needs) words = NEED_WORDS[t.needs];
@@ -692,7 +691,7 @@ function Branch({ id, view }: { id: Id; view: View }) {
 	return (
 		<div className="st">
 			<Node id={id} view={view} />
-			{TASKS[id].kids && (view.sel === id || view.path.has(id)) && <div className="st-kids"><Parts parent={id} view={view} /></div>}
+			{TASKS[id].kids && (view.sel === id || view.path.has(id) || view.open.has(id)) && <div className="st-kids"><Parts parent={id} view={view} /></div>}
 		</div>
 	);
 }
@@ -775,19 +774,25 @@ const SECTIONS: { kind: Thing["kind"]; title: string }[] = [
  * The floating box: quick actions, the facts, then what is attached — questions, reviews and
  * documents each in a section of their own, ranked so what a person takes part in comes first.
  */
-function TaskBox({ id, held, onHold, onPick }: { id: Id; held: boolean; onHold: () => void; onPick: (id: Id) => void }) {
+function TaskBox({ id, held, reviewed, onHold, onAsk, onPick }: {
+	id: Id;
+	held: boolean;
+	/** A person reviews it before it counts as done: a line of its "done when". */
+	reviewed: boolean;
+	onHold: () => void;
+	onAsk: () => void;
+	onPick: (id: Id) => void;
+}) {
 	const t = TASKS[id];
 	const [more, setMore] = useState(false);
 	const [peek, setPeek] = useState(false);
-	const [review, setReview] = useState(Boolean(t.review));
 	// You follow what you started; following is how its news reaches you.
 	const [following, setFollowing] = useState(true);
 	const done = finished(id);
 	let state = stateOf(id);
 	if (t.needs) state = NEED_WORDS[t.needs];
 	if (held) state = "On hold";
-	let closing = review ? "Was reviewed before it closed" : "Closed without a review";
-	if (!done) closing = "";
+	const closing = reviewed ? "Was reviewed before it closed" : "Closed by itself";
 	const row = (x: Thing, quiet?: boolean) => {
 		const on = x.on;
 		return (
@@ -811,20 +816,13 @@ function TaskBox({ id, held, onHold, onPick }: { id: Id; held: boolean; onHold: 
 				<button type="button" className="btn" aria-pressed={following} onClick={() => setFollowing(!following)}>{following ? "Following" : "Follow"}</button>
 				{!done && <button type="button" className="btn" onClick={onHold}>{held ? "Take off hold" : "Put on hold"}</button>}
 				{!done && <button type="button" className="btn">Stop</button>}
+				{!(done || reviewed) && <button type="button" className="btn" onClick={onAsk}>Ask for a review</button>}
 			</div>
 
 			<ul className="tbox-facts">
 				{t.meta.split(" · ").map((f) => <li key={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</li>)}
 				{t.from && <li>Came from <button type="button" className="tbox-link">{t.from}</button></li>}
-				<li>
-					{closing}
-					{!done && (
-						<button type="button" className="fact-switch" role="switch" aria-checked={review} onClick={() => setReview(!review)}>
-							<span className="fact-knob" />
-							Review before it is done
-						</button>
-					)}
-				</li>
+				{done && <li>{closing}</li>}
 			</ul>
 
 			{SECTIONS.map(({ kind, title }) => {
@@ -878,21 +876,26 @@ const pathTo = (id: Id): Id[] => {
 	return p && parentOf(p) ? [...pathTo(p), p] : [];
 };
 
+/** What "Ask for a review" adds to a task's "done when". */
+const ASKED: Close = { what: "A person looked at it before it counts as done.", by: "review", state: "open", how: "you asked for this review" };
+
 export function Shift({ step }: { step: number }) {
 	const [sel, setSel] = useState<Id>(START[step] ?? "trials");
 	const [held, setHeld] = useState(step === 6);
 	const [unfolded, setUnfolded] = useState<Set<Id>>(new Set());
+	const [asked, setAsked] = useState<Set<Id>>(new Set());
 	const root = rootOf(sel);
 	const r = TASKS[root];
 	const t = TASKS[sel];
 	const all = leaves(root);
 	const path = pathTo(sel);
 	// Three levels at most: the level above the picked part, its own, and its subtasks.
-	const deepest = depthOf(sel) + (t.kids ? 1 : 0);
+	const open = new Set(sel === root ? (r.kids ?? []).filter((k) => TASKS[k].kids) : []);
+	const deepest = depthOf(sel) + (t.kids ? 1 : 0) + (open.size > 0 ? 1 : 0);
 	const first = Math.max(1, deepest - 2);
 	const from = [root, ...path, sel].find((id) => depthOf(id) === first - 1) ?? root;
 	const view: View = {
-		sel, path: new Set(path), unfolded, onPick: setSel,
+		sel, path: new Set(path), open, unfolded, onPick: setSel,
 		onUnfold: (id) => setUnfolded((u) => {
 			const next = new Set(u);
 			if (next.has(id)) next.delete(id);
@@ -907,6 +910,7 @@ export function Shift({ step }: { step: number }) {
 		all.some((l) => TASKS[l].state === "Running") && `${all.filter((l) => TASKS[l].state === "Running").length} running`,
 	].filter(Boolean).join(" · ");
 	const lines = step === 6 && sel === "trials" ? [...(t.thread ?? []), ...STEERED] : t.thread ?? [];
+	const closes: Close[] = [...(t.closes ?? []), ...(asked.has(sel) ? [ASKED] : [])];
 
 	return (
 		<>
@@ -953,7 +957,7 @@ export function Shift({ step }: { step: number }) {
 									</>
 								)}
 								{t.reasons && <Reasons items={t.reasons} />}
-								{t.closes && <Closes items={t.closes} />}
+								{closes.length > 0 && <Closes items={closes} />}
 
 								<h3>Summary {t.summary && <span>by {t.owner} · {t.summary.when}</span>}</h3>
 								{t.summary ? <ul className="task-list">{t.summary.lines.map((l) => <li key={l}>{l}</li>)}</ul> : <p className="tk-none">No summary yet. It has not started.</p>}
@@ -971,7 +975,10 @@ export function Shift({ step }: { step: number }) {
 							</div>
 						</div>
 
-						<TaskBox key={sel} id={sel} held={held} onHold={() => setHeld(!held)} onPick={setSel} />
+						<TaskBox
+							key={sel} id={sel} held={held} reviewed={closes.some((c) => c.by === "review")}
+							onHold={() => setHeld(!held)} onAsk={() => setAsked(new Set([...asked, sel]))} onPick={setSel}
+						/>
 					</article>
 				</div>
 			</section>

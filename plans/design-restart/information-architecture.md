@@ -335,12 +335,14 @@ the end. Answered 2026-10-16; what they settled:
   all teams; in knowledge each team is a space. A team's page (people, agents, its plugins) opens
   from Work.
 
+- The whole task shows its parts and their subtasks at once; deeper levels open by clicking
+  (decided 2026-10-20).
+- A folder or a service you connect goes to every agent of yours; untick it on an agent's page
+  to keep it away from that one (decided 2026-10-20).
+- Asking for a review is a line of "done when", added with "Ask for a review" in the task's box;
+  there is no review switch (decided 2026-10-20).
+
 Still open:
-- At the whole task the graph shows only the task's own parts; their subtasks appear when you
-  click a part. The founder: "the root contains all subtasks" — explained with a picture, to
-  decide whether the whole task should show every level at once.
-- What "services" are, and whether they are ticked per agent (design) or reach all of a
-  person's agents (product today).
 - Inviting a person (later).
 
 ## 8. Not yet registered

@@ -125,8 +125,8 @@ export function ReachDialog({ who, kind, given, onClose, onDone }: {
 		? (agent ? `Where ${who.name} works` : "Where you and your agents work")
 		: (agent ? `What ${who.name} can reach` : "What you and your agents can reach");
 	const sub = folder
-		? (agent ? `${who.name} works in the folders ticked here. A folder is added once, then ticked for whoever works in it.` : "Add a folder once. Then tick, on an agent's page, whether it works there.")
-		: (agent ? `${who.name} reaches only the services ticked here. A service is connected once, then ticked for whoever gets it.` : "Connect a service once. Then tick, on an agent's page, whether it gets it.");
+		? (agent ? `${who.name} works in the folders ticked here. A folder is added once; every agent of yours gets it unless you untick it.` : "Add a folder once. Every agent of yours gets it; untick it on an agent's page to keep it away from that one.")
+		: (agent ? `${who.name} reaches only the services ticked here. A service is connected once; every agent of yours gets it unless you untick it.` : "Connect a service once. Every agent of yours gets it; untick it on an agent's page to keep it away from that one.");
 	return (
 		<Dialog title={title} sub={sub} done="Save" onClose={onClose} onDone={() => onDone(added)}>
 			<div className="reach">
@@ -169,9 +169,9 @@ export function ReachDialog({ who, kind, given, onClose, onDone }: {
 					</>
 				)}
 				{!agent && (
-					<Field label={folder ? "Who works in it" : "Who gets it"}>
+					<Field label={folder ? "Who works in it" : "Who gets it"} hint="All of your agents, unless you untick one. An agent works best with only what it needs.">
 						<div className="ticks">
-							{YOUR_AGENTS.map((a) => <label key={a} className="pick"><input type="checkbox" defaultChecked={a === "Builder"} /><span>{a}</span></label>)}
+							{YOUR_AGENTS.map((a) => <label key={a} className="pick"><input type="checkbox" defaultChecked /><span>{a}</span></label>)}
 						</div>
 					</Field>
 				)}
