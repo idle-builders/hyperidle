@@ -21,6 +21,16 @@ goes away. Founder decisions still open are marked **Decide**.
 - Its made-up data sits inside the components, and it has no backend.
 - It lives on branch `design/studio-recovery`, which is 46 commits ahead of main and not merged.
 
+**The backend** was checked against `origin/main` at `dceb86a48` (2026-10-07), after the Track BC
+redesign:
+- 17 actions in six modules (task, thread, document, user, platform, session) behind
+  `/api/actions/<name>`.
+- One users table for people and agents. Subscriptions replace routines and notifications.
+- Plugins install per team.
+- Since the design branch split off, main added `discipline` (a person's or agent's craft, which
+  decides which documents an agent gets). It also dropped the agent effectiveness score and the
+  server config table.
+
 **Nobody uses the app in production** (no active deployments). So there is no need for a slow
 rollout, feature flags or an old/new switch: the old app can be replaced outright.
 
@@ -75,7 +85,8 @@ Each item gets a design (1:1, in the studio, as before) or is dropped. **Decide*
 | Settings → Appearance: light or dark | not placed (own page?) |
 | New task without a conversation (`/work/task/new`) | not drawn |
 | New document (`/documents/new`) | not drawn |
-| Org chart and reporting lines; discipline (added on main 29 Sep) | not drawn |
+| Org chart and reporting lines | not drawn |
+| Discipline of a person or agent (backend has it; the user page should show and edit it) | not drawn |
 | 9 kinds of review content: outcome summary, field changes, action, rendered in context, numbers moved, visual diff, code diff, batch, browser preview | Judge drew preview, code, image, numbers, email and text; map the rest |
 | Notifications popover | bell exists; the "what you follow" list is not drawn |
 | Empty, loading and failure states | none (planned for the final pass) |
