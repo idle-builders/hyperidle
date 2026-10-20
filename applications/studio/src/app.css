@@ -874,3 +874,10 @@ select.in { width: auto; padding: 0 var(--sp-2); }
 .first-other { font: var(--t-meta); color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
 .first-other:hover { text-decoration-color: var(--ink-3); }
 .page-title--empty { color: var(--ink-3); }
+/* who a document is for: every agent, or the agents of one discipline */
+.for { position: relative; flex: none; }
+.for-btn { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 26px; padding: 0 var(--sp-2); border-radius: var(--r-sm); font: var(--t-meta); color: var(--ink-2); }
+.for-btn:hover, .for-btn[aria-expanded="true"] { background: var(--sunk); color: var(--ink); }
+.for-btn svg { width: 12px; height: 12px; }
+.for-menu { left: 0; right: auto; width: 340px; }
+.for-note { padding: var(--sp-2) var(--sp-3); border-top: var(--line-w) solid var(--line); font: var(--t-meta); color: var(--ink-3); }

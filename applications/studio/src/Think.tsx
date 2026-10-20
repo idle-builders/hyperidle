@@ -12,6 +12,34 @@ import { Sidebar } from "./Sidebar";
  * mark and the format bar floating at the bottom; view mode shows none of them. Sessions belong to
  * threads, never to the document.
  */
+/** Who a document is for: every agent, or only agents of one discipline. People read every document. */
+const FOR = ["Everyone", "Design", "Engineering", "Growth", "Product", "Research", "Support"];
+
+function ForPick({ open: initial }: { open: boolean }) {
+	const [open, setOpen] = useState(initial);
+	const [value, setValue] = useState("Growth");
+	return (
+		<span className="for">
+			<button type="button" className="for-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
+				For {value === "Everyone" ? "everyone" : value}
+				<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+			</button>
+			{open && (
+				<div className="team-menu for-menu" role="menu" aria-label="Who this document is for">
+					{FOR.map((f) => (
+						<button key={f} type="button" role="menuitem" className="team-row" aria-current={value === f} onClick={() => { setValue(f); setOpen(false); }}>
+							<span className="team-mark" aria-hidden="true">{value === f && "✓"}</span>
+							<span className="team-name">{f}</span>
+							<span className="team-n">{f === "Everyone" ? "every agent gets it" : `agents marked ${f}`}</span>
+						</button>
+					))}
+					<p className="for-note">Which agents get it as they work. People can read every document either way.</p>
+				</div>
+			)}
+		</span>
+	);
+}
+
 export const THINK_STEPS = [
 	{ id: 0, name: "Edit mode: write" },
 	{ id: 1, name: "Add a table from the format bar" },
@@ -21,6 +49,7 @@ export const THINK_STEPS = [
 	{ id: 5, name: "Change applied" },
 	{ id: 6, name: "Hand off from the doc" },
 	{ id: 7, name: "Published, view mode" },
+	{ id: 8, name: "Who it is for: agents of one discipline" },
 ];
 /** The walkthrough's steps by name, so the story below reads without counting. */
 const AT = { add: 1, comment: 2, narrow: 3, propose: 4, applied: 5, handoff: 6, published: 7 };
@@ -532,6 +561,7 @@ export function Think({ step }: { step: number }) {
 				<header className="detail-head">
 					<span className="chip chip--quiet">Document</span>
 					<span className="doc-state">{published ? "Published · 4 followers told" : "Draft"}</span>
+					<ForPick open={step === 8} />
 					<span className="doc-act">
 						{(anyComments || hidden) && (
 							<button type="button" className="tool doc-cm" onClick={() => setHidden(!hidden)}>

@@ -1131,3 +1131,6 @@ All eight drawn at once, each as a walkthrough step:
 - **Agent programs on your page**: found, signed in or not, and Look again.
 - Removed per the map: "See what you follow" on your page; the notifications footer now points to
   "Change what you are told about".
+- Founder: "all looks fine". The open question (how a document is marked for a discipline) was
+  drawn as suggested (Think 9): "For Growth ▾" in the document's header; a menu of Everyone and
+  the disciplines in use, saying which agents get it; people read every document either way.
