@@ -1102,3 +1102,7 @@ build the new app next to the old one inside core-ui, wire it to real data scree
 then switch in one change that deletes the old app. Lists what the old app does that the design
 does not (to design or drop), and which backend changes are needed before the switch and which
 can follow. Founder decisions open in the plan, marked **Decide**.
+- Founder, same day: **one branch, complete replacement, no side by side** — "kill everything
+  old, proper purge and place the new in fresh". Plan rewritten: one branch off main merges the
+  design branch, purges all of `layers/core-ui` (API client included) and the old design lint and
+  docs, places the new app fresh in the same package, one pull request at the end.
