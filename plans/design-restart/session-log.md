@@ -1106,3 +1106,7 @@ can follow. Founder decisions open in the plan, marked **Decide**.
   old, proper purge and place the new in fresh". Plan rewritten: one branch off main merges the
   design branch, purges all of `layers/core-ui` (API client included) and the old design lint and
   docs, places the new app fresh in the same package, one pull request at the end.
+- Founder decisions: plain CSS with tokens; the studio is deleted at the end; backend changes go
+  in the same branch, which is iterated on until the new app is complete and works. For the gaps:
+  "critically challenge what is needed for the journey or what can be removed" — drew
+  `journey-map.md`, mapping every action on every screen to the screen it leads to.

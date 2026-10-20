@@ -1,7 +1,7 @@
 # Cutover plan: from the shipping app to the new design
 
 Written 2026-10-20. How the design in `applications/studio` becomes the real app, and the old one
-goes away. Founder decisions still open are marked **Decide**.
+goes away.
 
 ---
 
@@ -56,35 +56,25 @@ is placed in fresh. Founder: "kill everything old, proper purge and place the ne
 
 ## 3. Steps, in order, all in one branch
 
-### Step 0: decisions before the branch starts
-- **Decide:** styling.
-  - Recommended: plain CSS with tokens, as in the studio.
-  - A token check fails on any raw value outside `tokens.css` and on any reference to a token
-    that does not exist.
-  - The alternative is Tailwind on the Paper tokens.
-- **Decide:** the studio app is deleted at the end of the branch, since its code moves into
-  core-ui (recommended). New design work is then done in the real app.
-- **Decide:** for each gap in step 1, design it or drop it.
-- **Decide:** whether the backend changes in step 2 go in this branch too (recommended, since the
-  new screens need them), or land on main first as their own pull requests.
+### Step 0: decisions (founder, 2026-10-20)
+- **Styling:** plain CSS with tokens, as in the studio. Tailwind and DaisyUI go. A token check
+  fails on any raw value outside `tokens.css` and on any reference to a token that does not exist.
+- **The studio app is deleted** at the end of the branch; its code moves into core-ui.
+- **Backend changes go in the same branch.** The branch is iterated on until the new app is
+  complete and works.
+- **The gaps:** decided from the journey map (`journey-map.md`). Every action on every screen is
+  mapped to the screen it leads to; what is needed for a journey is designed, the rest is removed.
 
 ### Step 1: design the gaps (studio, 1:1, before the purge)
-What the old app does and the new design does not. Each gets a design or is dropped.
-
-| Old app has | New design today |
-|---|---|
-| First start (`/setup`): find agent programs, sign in, local or shared | only "name your team" |
-| Settings → Harnesses: agent programs on this computer, and their keys | not drawn |
-| Settings → Backend, Worker: this computer or a shared server | only a "Lives on" fact |
-| Settings → Appearance: light or dark | not placed (own page?) |
-| New task without a conversation (`/work/task/new`) | not drawn |
-| New document (`/documents/new`) | not drawn |
-| Org chart and reporting lines | not drawn |
-| Discipline of a person or agent (backend has it; the user page should show and edit it) | not drawn |
-| 9 kinds of review content: outcome summary, field changes, action, rendered in context, numbers moved, visual diff, code diff, batch, browser preview | Judge drew preview, code, image, numbers, email and text; map the rest |
-| Notifications popover | bell exists; the "what you follow" list is not drawn |
-| Empty, loading and failure states | none (planned for the final pass) |
-| — | "This session cost": the backend only counts tokens, not money; show tokens or drop |
+`journey-map.md` maps every action on every screen to the screen it leads to. Its outcome, pending
+the founder's look:
+- **8 small designs:** new document, new conversation, the first start when nothing is found,
+  joining a server at first start, the agent programs on your page, stopping a task, discipline,
+  and empty and failed lines.
+- **9 removals:** the new-task form, the org chart, keys for agent programs, the server and worker
+  settings, the what-you-follow list, open beside, a page for a knowledge space, the cost line,
+  and confirm dialogs.
+- **Mapped:** the 9 kinds of review content onto the 6 parts Judge drew.
 
 ### Step 2: backend changes the new screens need
 **Needed in the branch.** Without these, the screens would show things that do not exist:
