@@ -17,6 +17,8 @@ export interface Subject {
 	/** The page is your own. */
 	me: boolean;
 	sessions?: number;
+	/** Their craft, such as Engineering. */
+	discipline?: string;
 	/** When the document that says who they are was last touched. */
 	edited?: string;
 }
@@ -280,6 +282,8 @@ const PROGRAMS = [
 	{ what: "Cursor", why: "not installed", off: true },
 ];
 const MODELS = ["The default", "Faster and cheaper", "Slower and stronger"];
+/** The disciplines already in use, offered as you type. */
+const DISCIPLINES = ["Design", "Engineering", "Growth", "Product", "Research", "Support"];
 
 export function UserDialog({ user, program = "Claude Code", onClose, onDone }: { user?: Subject; program?: string; onClose: () => void; onDone: (addedAgent: boolean) => void }) {
 	const [kind, setKind] = useState<(typeof ADD_KINDS)[number]>(user?.kind === "Person" ? "A person" : "An agent");
@@ -301,6 +305,10 @@ export function UserDialog({ user, program = "Claude Code", onClose, onDone }: {
 			<Field label="Name"><input className="in" key={kind} defaultValue={user ? (user.me ? "Finn Olsen" : user.name) : agent ? "Researcher" : "Sam Okafor"} aria-label="Name" /></Field>
 			{!(user || agent) && <Field label="Email"><input className="in" defaultValue="sam@northwind.example" aria-label="Email" /></Field>}
 			<Field label={what}><input className="in" key={kind} defaultValue={user ? user.what : agent ? "Reads what competitors ship and writes it down." : "Sales."} aria-label={what} /></Field>
+			<Field label="Discipline" hint={agent ? "Its craft. It gets the documents marked with the same discipline, and no others marked with a different one." : "Your craft, such as Design or Support."}>
+				<input className="in" key={kind} list="disciplines" defaultValue={user ? user.discipline : agent ? "Research" : "Sales"} aria-label="Discipline" />
+				<datalist id="disciplines">{DISCIPLINES.map((d) => <option key={d} value={d} />)}</datalist>
+			</Field>
 			{agent && (
 				<>
 					<Field label="Works for" hint={user ? undefined : "A team: anyone in it can hand it work and change how it is set up."}>

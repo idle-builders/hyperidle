@@ -68,7 +68,7 @@ export function App() {
 	const handoffList = [live, ...others].sort((a, b) => Number(Boolean(b.yours)) - Number(Boolean(a.yours)) || Number(Boolean(b.fresh)) - Number(Boolean(a.fresh)));
 
 	return (
-		<div className={arrive && step === 0 ? "frame frame--first" : "frame"}>
+		<div className={arrive && [0, 9, 10].includes(step) ? "frame frame--first" : "frame"}>
 			<nav className="rail rail--studio">
 				<span className="studio-h">Studio controls</span>
 

@@ -853,3 +853,24 @@ select.in { width: auto; padding: 0 var(--sp-2); }
 .rev-loop { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-6); padding: var(--sp-4) 0; border-top: var(--line-w) solid var(--line); border-bottom: var(--line-w) solid var(--line); }
 .rev-loop h3 { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: var(--sp-3); font: var(--t-strong); font-weight: 600; }
 .rev-loop h3 span { font: var(--t-meta); color: var(--ink-3); font-weight: 400; }
+
+/* starting something new: a conversation from the top of the list, a document from any row of the tree */
+.nav-add { display: flex; align-items: center; gap: var(--sp-2); width: calc(100% - 2 * var(--sp-3)); margin: var(--sp-3) var(--sp-3) var(--sp-1); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); font: var(--t-label); color: var(--ink-2); text-align: left; }
+.nav-add:hover { background: var(--surface); color: var(--ink); }
+.nav-add span { width: 16px; text-align: center; font-size: 1rem; line-height: 1; color: var(--ink-3); }
+.tree-add { flex: none; width: 20px; height: 20px; border-radius: var(--r-sm); font: 500 1rem/1 var(--font-ui); color: var(--ink-3); opacity: 0; }
+.tree-row:hover .tree-add, .tree-row[aria-current="true"] .tree-add, .tree-add:focus-visible { opacity: 1; }
+.tree-add:hover { background: var(--sunk); color: var(--ink); }
+/* a fact about something that is not there */
+.pair--off .pair-what { color: var(--ink-3); }
+/* a page or list that could not be loaded: one quiet line, and a way to try again */
+.failed { display: flex; align-items: baseline; gap: var(--sp-3); font: var(--t-body); color: var(--ink-2); }
+.failed .tbox-more { margin: 0; }
+.failed-why { display: block; font: var(--t-meta); color: var(--ink-3); }
+/* first start: what to do when no agent program is ready */
+.found-fix { font: var(--t-meta); color: var(--ink-2); }
+.found-fix code { font: var(--t-data); background: var(--sunk); padding: 1px var(--sp-1); border-radius: var(--r-sm); }
+.first-acts { display: flex; align-items: center; gap: var(--sp-3); }
+.first-other { font: var(--t-meta); color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.first-other:hover { text-decoration-color: var(--ink-3); }
+.page-title--empty { color: var(--ink-3); }

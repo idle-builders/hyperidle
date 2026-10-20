@@ -1110,3 +1110,24 @@ can follow. Founder decisions open in the plan, marked **Decide**.
   in the same branch, which is iterated on until the new app is complete and works. For the gaps:
   "critically challenge what is needed for the journey or what can be removed" — drew
   `journey-map.md`, mapping every action on every screen to the screen it leads to.
+
+## Session 18 — the small designs from the journey map (2026-10-20)
+
+All eight drawn at once, each as a walkthrough step:
+- **First start, no agent program ready** (Arrive 10): each program says what is missing and how
+  to fix it (install link, `codex login`); Look again; Start talking is off until one is signed in.
+- **First start, join a team on a server** (Arrive 11): address and key; the agent programs still
+  run on this computer. Both first-start screens link to each other.
+- **New conversation** (Arrive 12): "+ New conversation" at the top of the Conversations list; an
+  empty thread whose first line @mentions who is in it; the first line becomes its title.
+- **New document** (Arrive 13): a "+" on every tree row (on hover) makes an untitled draft inside
+  it, picked and open in edit mode.
+- **Empty and failed** (Arrive 14): an empty list says what fills it; a page that did not load is
+  one line with Try again.
+- **Stop a task** (Run the shift 8): no confirm. Every part not done says Stopped; the box has
+  only Start again; the list row says Stopped.
+- **Discipline**: a fact in the user's box ("gets the documents marked Engineering") and a field
+  in the Edit dialog, suggesting the disciplines in use.
+- **Agent programs on your page**: found, signed in or not, and Look again.
+- Removed per the map: "See what you follow" on your page; the notifications footer now points to
+  "Change what you are told about".

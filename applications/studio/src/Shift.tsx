@@ -27,6 +27,7 @@ export const SHIFT_STEPS = [
 	{ id: 4, name: "A small fix: no graph" },
 	{ id: 5, name: "A recurring task: twelve runs, folded" },
 	{ id: 6, name: "Steer it, hold it, stop it" },
+	{ id: 7, name: "Stopped: start it again" },
 ];
 
 type Id =
@@ -564,7 +565,7 @@ const STEERED: Line[] = [
 	{ id: "s2", av: "GR", name: "Growth", at: "16:17", body: "Noted. The test covers monthly plans only. I told Builder and put it in the summary." },
 ];
 
-const START: Id[] = ["trials", "build", "card", "page", "utc", "weekly", "trials"];
+const START: Id[] = ["trials", "build", "card", "page", "utc", "weekly", "trials", "trials"];
 const INITIALS: Record<string, string> = { Builder: "BU", Growth: "GR", Designer: "DS" };
 
 function KindIcon({ kind }: { kind: Thing["kind"] }) {
@@ -601,6 +602,8 @@ interface View {
 	onUnfold: (id: Id) => void;
 	/** The parts drawn right now, once the graph has measured them. */
 	seen?: Set<Id>;
+	/** The task was stopped: every part not done stops where it was. */
+	stopped?: boolean;
 }
 
 /** A dashed arrow in small, the same mark the graph draws between two parts. */
@@ -620,12 +623,15 @@ function Node({ id, view }: { id: Id; view: View }) {
 	const t = TASKS[id];
 	const state = stateOf(id);
 	const done = finished(id);
-	const running = state === "Running";
+	const stopped = Boolean(view.stopped && !done);
+	const running = state === "Running" && !stopped;
+	const need = stopped ? undefined : t.needs;
 	const c = counts(id);
 	const shown = view.sel === id || view.path.has(id) || view.open.has(id);
-	const inside: Need[] = t.kids ? (["input", "review"] as const).filter((k) => needsIn(id, k) > 0) : [];
+	const inside: Need[] = t.kids && !stopped ? (["input", "review"] as const).filter((k) => needsIn(id, k) > 0) : [];
 	let words = state;
-	if (t.needs) words = NEED_WORDS[t.needs];
+	if (stopped) words = "Stopped";
+	else if (need) words = NEED_WORDS[need];
 	else if (running) words = `${t.owner} is on it`;
 	const extra = [c.docs > 0 && `${c.docs} ${c.docs === 1 ? "doc" : "docs"}`, c.reviews > 0 && `${c.reviews} ${c.reviews === 1 ? "review" : "reviews"}`].filter(Boolean).join(" · ");
 	// A wait whose other end is out of view still shows, so the graph never hides that there is more.
@@ -638,10 +644,11 @@ function Node({ id, view }: { id: Id; view: View }) {
 			className={["nd", t.kids && "nd--head", done && "nd--done", view.path.has(id) && "nd--path"].filter(Boolean).join(" ")}
 		>
 			<span className="nd-mark" aria-hidden="true">
-				{t.needs && <NeedIcon kind={t.needs} />}
-				{!t.needs && running && <span className="avatar nd-av">{INITIALS[t.owner]}</span>}
-				{!(t.needs || running) && done && "✓"}
-				{!(t.needs || running || done) && (t.kids ? "◐" : "○")}
+				{need && <NeedIcon kind={need} />}
+				{!need && running && <span className="avatar nd-av">{INITIALS[t.owner]}</span>}
+				{!(need || running) && done && "✓"}
+				{stopped && "■"}
+				{!(need || running || done || stopped) && (t.kids ? "◐" : "○")}
 			</span>
 			<span className="nd-text">
 				<span className="nd-name">{t.title}</span>
@@ -774,12 +781,15 @@ const SECTIONS: { kind: Thing["kind"]; title: string }[] = [
  * The floating box: quick actions, the facts, then what is attached — questions, reviews and
  * documents each in a section of their own, ranked so what a person takes part in comes first.
  */
-function TaskBox({ id, held, reviewed, onHold, onAsk, onPick }: {
+function TaskBox({ id, held, stopped, reviewed, onHold, onStop, onAsk, onPick }: {
 	id: Id;
 	held: boolean;
+	stopped: boolean;
 	/** A person reviews it before it counts as done: a line of its "done when". */
 	reviewed: boolean;
 	onHold: () => void;
+	/** Stop, or start again: no confirm, because starting again picks up where it stopped. */
+	onStop: () => void;
 	onAsk: () => void;
 	onPick: (id: Id) => void;
 }) {
@@ -792,6 +802,7 @@ function TaskBox({ id, held, reviewed, onHold, onAsk, onPick }: {
 	let state = stateOf(id);
 	if (t.needs) state = NEED_WORDS[t.needs];
 	if (held) state = "On hold";
+	if (stopped && !done) state = "Stopped";
 	const closing = reviewed ? "Was reviewed before it closed" : "Closed by itself";
 	const row = (x: Thing, quiet?: boolean) => {
 		const on = x.on;
@@ -814,13 +825,15 @@ function TaskBox({ id, held, reviewed, onHold, onAsk, onPick }: {
 
 			<div className="tbox-acts">
 				<button type="button" className="btn" aria-pressed={following} onClick={() => setFollowing(!following)}>{following ? "Following" : "Follow"}</button>
-				{!done && <button type="button" className="btn" onClick={onHold}>{held ? "Take off hold" : "Put on hold"}</button>}
-				{!done && <button type="button" className="btn">Stop</button>}
-				{!(done || reviewed) && <button type="button" className="btn" onClick={onAsk}>Ask for a review</button>}
+				{!done && stopped && <button type="button" className="btn btn--accent" onClick={onStop}>Start again</button>}
+				{!(done || stopped) && <button type="button" className="btn" onClick={onHold}>{held ? "Take off hold" : "Put on hold"}</button>}
+				{!(done || stopped) && <button type="button" className="btn" onClick={onStop}>Stop</button>}
+				{!(done || reviewed || stopped) && <button type="button" className="btn" onClick={onAsk}>Ask for a review</button>}
 			</div>
 
 			<ul className="tbox-facts">
 				{t.meta.split(" · ").map((f) => <li key={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</li>)}
+				{stopped && !done && <li>Stopped by you just now</li>}
 				{t.from && <li>Came from <button type="button" className="tbox-link">{t.from}</button></li>}
 				{done && <li>{closing}</li>}
 			</ul>
@@ -854,7 +867,7 @@ function TaskBox({ id, held, reviewed, onHold, onAsk, onPick }: {
 							<span className="ses-t">Session {x.n} · {x.when}</span>
 							<span className="ses-s">
 								{x.said}
-								{x.live && !held && <> · <button type="button" className="peek" onClick={() => setPeek(!peek)}>{peek ? "Hide" : "Peek"}</button></>}
+								{x.live && !held && !stopped && <> · <button type="button" className="peek" onClick={() => setPeek(!peek)}>{peek ? "Hide" : "Peek"}</button></>}
 							</span>
 						</div>
 					))}
@@ -882,6 +895,7 @@ const ASKED: Close = { what: "A person looked at it before it counts as done.", 
 export function Shift({ step }: { step: number }) {
 	const [sel, setSel] = useState<Id>(START[step] ?? "trials");
 	const [held, setHeld] = useState(step === 6);
+	const [stopped, setStopped] = useState(step === 7);
 	const [unfolded, setUnfolded] = useState<Set<Id>>(new Set());
 	const [asked, setAsked] = useState<Set<Id>>(new Set());
 	const root = rootOf(sel);
@@ -895,7 +909,7 @@ export function Shift({ step }: { step: number }) {
 	const first = Math.max(1, deepest - 2);
 	const from = [root, ...path, sel].find((id) => depthOf(id) === first - 1) ?? root;
 	const view: View = {
-		sel, path: new Set(path), open, unfolded, onPick: setSel,
+		sel, path: new Set(path), open, unfolded, onPick: setSel, stopped,
 		onUnfold: (id) => setUnfolded((u) => {
 			const next = new Set(u);
 			if (next.has(id)) next.delete(id);
@@ -903,7 +917,7 @@ export function Shift({ step }: { step: number }) {
 			return next;
 		}),
 	};
-	const tally = [
+	const tally = stopped ? `${all.filter((l) => TASKS[l].state === "Done").length} of ${all.length} done · stopped` : [
 		`${all.filter((l) => TASKS[l].state === "Done").length} of ${all.length} done`,
 		needsIn(root, "input") > 0 && `${needsIn(root, "input")} needs input`,
 		needsIn(root, "review") > 0 && `${needsIn(root, "review")} needs review`,
@@ -914,11 +928,11 @@ export function Shift({ step }: { step: number }) {
 
 	return (
 		<>
-			<Sidebar key={root} initialSpine="work" initialPicked={ROWS[root] ?? null} lists={{ work: LIST }} />
+			<Sidebar key={root} initialSpine="work" initialPicked={ROWS[root] ?? null} lists={{ work: stopped ? LIST.map((i) => (i.id === ROWS[root] ? { ...i, state: "Stopped" } : i)) : LIST }} />
 			<section className="detail">
 				<header className="detail-head">
 					<span className="chip chip--quiet">Task</span>
-					<span className="doc-state">{held ? "On hold" : stateOf(root)}</span>
+					<span className="doc-state">{stopped ? "Stopped" : held ? "On hold" : stateOf(root)}</span>
 				</header>
 
 				<div className="detail-scroll">
@@ -926,8 +940,8 @@ export function Shift({ step }: { step: number }) {
 						<div className="tk-main">
 							<h1 className="page-title">{r.title}</h1>
 							<p className="stand">
-								{r.needs && !held && <NeedIcon kind={r.needs} />}
-								<span>{held ? "On hold. The agents finish what they are doing, then wait." : r.stand}</span>
+								{r.needs && !(held || stopped) && <NeedIcon kind={r.needs} />}
+								<span>{stopped ? "Stopped. The agents stopped where they were; nothing they did is undone. Start again, and they pick up from there." : held ? "On hold. The agents finish what they are doing, then wait." : r.stand}</span>
 							</p>
 							<p>{r.about}</p>
 
@@ -976,8 +990,8 @@ export function Shift({ step }: { step: number }) {
 						</div>
 
 						<TaskBox
-							key={sel} id={sel} held={held} reviewed={closes.some((c) => c.by === "review")}
-							onHold={() => setHeld(!held)} onAsk={() => setAsked(new Set([...asked, sel]))} onPick={setSel}
+							key={sel} id={sel} held={held} stopped={stopped} reviewed={closes.some((c) => c.by === "review")}
+							onHold={() => setHeld(!held)} onStop={() => { setStopped(!stopped); setHeld(false); }} onAsk={() => setAsked(new Set([...asked, sel]))} onPick={setSel}
 						/>
 					</article>
 				</div>

@@ -126,10 +126,12 @@ function DocIcon() {
 }
 
 /** Every node is a document with its own icon; the page outline is only the default. */
-function Tree({ docs, open, toggle, picked, onPick, icons, onIcon, picking, setPicking }: {
+function Tree({ docs, open, toggle, picked, onPick, icons, onIcon, picking, setPicking, onAdd }: {
 	docs: Doc[]; open: Set<string>; toggle: (id: string) => void; picked: string | null; onPick: (id: string) => void;
 	icons: Record<string, string>; onIcon: (id: string, icon: string) => void;
 	picking: string | null; setPicking: (id: string | null) => void;
+	/** A new document inside this one, or at the top of this space. */
+	onAdd: (parent: string) => void;
 }) {
 	return (
 		<>
@@ -154,6 +156,7 @@ function Tree({ docs, open, toggle, picked, onPick, icons, onIcon, picking, setP
 							{d.note && <span className="tree-note">{d.note}</span>}
 							{d.space && <span className="tree-note">space</span>}
 							{d.children && !open.has(d.id) && <span className="tree-count">{d.children.length}</span>}
+							<button type="button" className="tree-add" aria-label={`New document in ${d.title}`} title={`New document in ${d.title}`} onClick={() => onAdd(d.id)}>+</button>
 						</div>
 						{picking === d.id && (
 							<div className="icon-pick" role="dialog" aria-label="Pick an icon">
@@ -167,7 +170,7 @@ function Tree({ docs, open, toggle, picked, onPick, icons, onIcon, picking, setP
 						{d.children && open.has(d.id) && (
 							<div className="tree-kids">
 								<Tree docs={d.children} open={open} toggle={toggle} picked={picked} onPick={onPick}
-									icons={icons} onIcon={onIcon} picking={picking} setPicking={setPicking} />
+									icons={icons} onIcon={onIcon} picking={picking} setPicking={setPicking} onAdd={onAdd} />
 							</div>
 						)}
 					</div>
@@ -214,7 +217,7 @@ function Notifications({ onClose }: { onClose: () => void }) {
 			))}
 			<footer className="notes-f">
 				<span>You get these for what you follow.</span>
-				<button type="button" className="notes-act">What I follow</button>
+				<button type="button" className="notes-act">Change what you are told about</button>
 			</footer>
 		</div>
 	);
@@ -240,12 +243,33 @@ interface SidebarProps {
 	/** That team's page is showing. */
 	teamOpen?: TeamName | null;
 	onTeam?: (team: TeamName) => void;
+	/** A new document was just made inside this one; it is picked, untitled and a draft. */
+	newDocIn?: string | null;
+	/** A new conversation was just started; it sits at the top, picked. */
+	newConversation?: boolean;
+	/** The detail pane follows what you start here. */
+	onNewDoc?: (parent: string) => void;
+	onNewConversation?: () => void;
 }
+
+const UNTITLED: Doc = { id: "k-new", title: "Untitled", icon: "", note: "draft" };
+const STARTED: Item = { id: "c-new", title: "New conversation", state: "Not sent yet", who: "you", age: "now" };
+
+/** The tree with an untitled draft placed inside `parent`. */
+const withNew = (docs: Doc[], parent: string): Doc[] =>
+	docs.map((d) => (d.id === parent ? { ...d, children: [UNTITLED, ...(d.children ?? [])] } : { ...d, children: d.children && withNew(d.children, parent) }));
+
+/** What an empty list says, so it never reads as broken. */
+const EMPTY: Record<Spine, string> = {
+	conversations: "No conversations yet. Start one, or @mention someone anywhere.",
+	work: "No tasks here yet. Hand something to an agent in a conversation and it shows up here.",
+	knowledge: "No documents yet.",
+};
 
 const withoutDraft = (docs: Doc[], ids: string[]): Doc[] =>
 	docs.map((d) => ({ ...d, note: ids.includes(d.id) ? undefined : d.note, children: d.children && withoutDraft(d.children, ids) }));
 
-export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote, notificationsOpen = false, published = [], youOpen = false, initialTeam = null, teamMenuOpen = false, teamOpen = null, onTeam }: SidebarProps) {
+export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote, notificationsOpen = false, published = [], youOpen = false, initialTeam = null, teamMenuOpen = false, teamOpen = null, onTeam, newDocIn = null, newConversation = false, onNewDoc, onNewConversation }: SidebarProps) {
 	const [notesOpen, setNotesOpen] = useState(notificationsOpen);
 	const [spine, setSpine] = useState<Spine>(initialSpine);
 	const [picked, setPicked] = useState<string | null>(initialPicked);
@@ -254,6 +278,19 @@ export function Sidebar({ initialSpine = "conversations", initialPicked = null, 
 	const [menu, setMenu] = useState(teamMenuOpen);
 	const [icons, setIcons] = useState<Record<string, string>>({});
 	const [picking, setPicking] = useState<string | null>(null);
+	const [docIn, setDocIn] = useState(newDocIn);
+	const [started, setStarted] = useState(newConversation);
+	const addDoc = (parent: string) => {
+		setDocIn(parent);
+		setOpen((prev) => new Set([...prev, parent]));
+		setPicked(UNTITLED.id);
+		onNewDoc?.(parent);
+	};
+	const startConversation = () => {
+		setStarted(true);
+		setPicked(STARTED.id);
+		onNewConversation?.();
+	};
 
 	const resolved: Record<Spine, Item[] | null> = {
 		conversations: lists.conversations === undefined ? conversations(false) : lists.conversations,
@@ -268,8 +305,10 @@ export function Sidebar({ initialSpine = "conversations", initialPicked = null, 
 		return next;
 	});
 
+	if (started) resolved.conversations = [STARTED, ...(resolved.conversations ?? [])];
 	const all = resolved[spine];
 	const items = all && spine === "work" && team ? all.filter((i) => i.team === team) : all;
+	const tree = docIn ? withNew(TREE, docIn) : TREE;
 
 	return (
 		<nav className="nav nav--rel">
@@ -300,8 +339,13 @@ export function Sidebar({ initialSpine = "conversations", initialPicked = null, 
 
 			{notesOpen && <Notifications onClose={() => setNotesOpen(false)} />}
 			<div className="nav-list">
+				{spine === "conversations" && (
+					<button type="button" className="nav-add" onClick={startConversation}>
+						<span aria-hidden="true">+</span>New conversation
+					</button>
+				)}
 				{items === null ? (
-					<p className="nav-empty">Nothing here yet.</p>
+					<p className="nav-empty">{EMPTY[spine]}</p>
 				) : (
 					<>
 						{spine === "conversations" && conversationsNote}
@@ -326,12 +370,13 @@ export function Sidebar({ initialSpine = "conversations", initialPicked = null, 
 							</div>
 						)}
 						<List items={items} picked={picked} onPick={setPicked} />
+						{items.length === 0 && spine !== "knowledge" && <p className="nav-empty">{EMPTY[spine]}</p>}
 						{spine === "knowledge" && (
 							<section className="tree-wrap" aria-label="All documents">
 								<div className="tree">
-									<Tree docs={published.length ? withoutDraft(TREE, published) : TREE} open={open} toggle={toggle} picked={picked} onPick={setPicked}
+									<Tree docs={published.length ? withoutDraft(tree, published) : tree} open={open} toggle={toggle} picked={picked} onPick={setPicked}
 										icons={icons} onIcon={(id, ic) => setIcons((p) => ({ ...p, [id]: ic }))}
-										picking={picking} setPicking={setPicking} />
+										picking={picking} setPicking={setPicking} onAdd={addDoc} />
 								</div>
 							</section>
 						)}

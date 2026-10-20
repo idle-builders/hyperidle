@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { CHAT_FORMATS, FormatBar } from "./FormatBar";
+import { CHAT_FORMATS, DOC_FORMATS, FormatBar } from "./FormatBar";
+import { mentionables } from "./handoff";
+import { Avatar } from "./Msg";
 import { Seg } from "./Seg";
 import { conversations, Sidebar } from "./Sidebar";
 
@@ -19,6 +21,11 @@ export const ARRIVE_STEPS = [
 	{ id: 6, name: "Ask (Tab to switch)" },
 	{ id: 7, name: "Something new while you focus" },
 	{ id: 8, name: "Notifications" },
+	{ id: 9, name: "First start: no agent program ready" },
+	{ id: 10, name: "First start: join a team on a server" },
+	{ id: 11, name: "Start a new conversation" },
+	{ id: 12, name: "Start a new document" },
+	{ id: 13, name: "An empty list, a page that did not load" },
 ];
 
 interface Hit {
@@ -131,24 +138,91 @@ function Palette({ initialMode }: { initialMode: "find" | "ask" }) {
 	);
 }
 
-function FirstStart() {
+/** The agent programs found on this computer. Each signs itself in; HyperIdle only looks. */
+const FOUND = {
+	ready: [
+		{ ok: true, name: "Claude Code", how: "signed in · 6 connectors" },
+		{ ok: true, name: "Codex", how: "signed in" },
+		{ ok: false, name: "Cursor", how: "not installed" },
+	],
+	none: [
+		{ ok: false, name: "Claude Code", how: "not installed", fix: <>Install it from <a href="#ref">claude.com/code ↗</a></> },
+		{ ok: false, name: "Codex", how: "installed · not signed in", fix: <>Sign in: run <code>codex login</code> in a terminal</> },
+		{ ok: false, name: "Cursor", how: "not installed" },
+	],
+};
+
+function Found({ rows }: { rows: { ok: boolean; name: string; how: string; fix?: React.ReactNode }[] }) {
+	return (
+		<div className="found">
+			<span className="found-h">Found on this computer</span>
+			{rows.map((x) => (
+				<div key={x.name} className={x.ok ? "found-row" : "found-row found-row--off"}>
+					<span className={x.ok ? "found-ok" : undefined}>{x.ok ? "✓" : "–"}</span>
+					<b>{x.name}</b>
+					<span>{x.how}</span>
+					{x.fix && <span />}
+					{x.fix && <span className="found-fix" style={{ gridColumn: "2 / -1" }}>{x.fix}</span>}
+				</div>
+			))}
+		</div>
+	);
+}
+
+/**
+ * First start: agents already on this computer can start right away. With none ready, it says how
+ * to get one and looks again. A team that already runs on a server is joined instead of named.
+ */
+function FirstStart({ variant }: { variant: "ready" | "none" | "join" }) {
+	const [looked, setLooked] = useState(false);
+	if (variant === "join") {
+		return (
+			<div className="first">
+				<div className="first-card">
+					<h1>HyperIdle</h1>
+					<p className="first-lead">Join a team that already runs on a server.</p>
+					<label className="first-field">
+						<span>Server address</span>
+						<input defaultValue="hyperidle.northwind.example" aria-label="Server address" />
+					</label>
+					<label className="first-field">
+						<span>Key</span>
+						<input type="password" defaultValue="••••••••••••••••" aria-label="Key" />
+					</label>
+					<p className="first-note">Whoever runs the server gives you a key. Your agents keep running on this computer, with the programs below.</p>
+					<Found rows={FOUND.ready} />
+					<div className="first-acts">
+						<button type="button" className="btn btn--accent">Join</button>
+						<button type="button" className="first-other">Start a new team on this computer instead</button>
+					</div>
+				</div>
+			</div>
+		);
+	}
+	const none = variant === "none";
 	return (
 		<div className="first">
 			<div className="first-card">
 				<h1>HyperIdle</h1>
-				<p className="first-lead">Agents already on this computer can start right away.</p>
-				<div className="found">
-					<span className="found-h">Found on this computer</span>
-					<div className="found-row"><span className="found-ok">✓</span><b>Claude Code</b><span>signed in · 6 connectors</span></div>
-					<div className="found-row"><span className="found-ok">✓</span><b>Codex</b><span>signed in</span></div>
-					<div className="found-row found-row--off"><span>–</span><b>Cursor</b><span>not installed</span></div>
-				</div>
+				<p className="first-lead">{none ? "Agents work through a program on this computer. None is ready yet." : "Agents already on this computer can start right away."}</p>
+				<Found rows={none ? FOUND.none : FOUND.ready} />
+				{none && (
+					<p className="first-note">{looked ? "Looked again just now: still none ready." : "Install one, or sign in to one, then look again. Any one of them is enough."}</p>
+				)}
 				<label className="first-field">
 					<span>Name your team</span>
 					<input placeholder="e.g. Product" aria-label="Team name" />
 				</label>
-				<p className="first-note">Folders, GitHub and teammates can come later, when you need them.</p>
-				<button type="button" className="btn btn--accent first-go">Start talking</button>
+				{!none && <p className="first-note">Folders, GitHub and teammates can come later, when you need them.</p>}
+				<div className="first-acts">
+					{none ? (
+						<>
+							<button type="button" className="btn btn--accent" onClick={() => setLooked(true)}>Look again</button>
+							<button type="button" className="btn" disabled title="Needs one agent program that is signed in">Start talking</button>
+						</>
+					) : <button type="button" className="btn btn--accent">Start talking</button>}
+				</div>
+				<button type="button" className="first-other" style={{ alignSelf: "flex-start" }}>Join a team on a server instead</button>
 			</div>
 		</div>
 	);
@@ -212,6 +286,99 @@ function Focused() {
 		</section>
 	);
 }
+/** A conversation you start yourself: empty until you say what it is about and who is in it. */
+function NewConversation() {
+	return (
+		<section className="thread">
+			<header className="thread-head">
+				<span className="chip chip--quiet">Thread</span>
+				<h2>New conversation</h2>
+				<span className="meta">not sent yet</span>
+			</header>
+			<div className="thread-scroll">
+				<p className="opened-note">Say what it is about and @mention who should be in it, people and agents alike. Its first line becomes its title; you can change it later.</p>
+			</div>
+			<div className="composer">
+				<div style={{ flex: 1 }}>
+					<div className="picker" role="listbox" aria-label="Bring in">
+						<div className="picker-head">
+							<span>Bring in</span>
+							<span>agents and people, same list</span>
+						</div>
+						{mentionables.filter((m) => m.id !== "growth").map((m, i) => (
+							<button key={m.id} type="button" role="option" className="picker-row" aria-selected={i === 2}>
+								<Avatar who={m.initials} human={m.id === "maya"} />
+								<span>
+									<span className="picker-name">{m.name}</span>
+									<span className="picker-what">{m.what}</span>
+								</span>
+								<span className="picker-load">{m.load}</span>
+							</button>
+						))}
+						<div className="picker-foot">
+							<span><kbd>↑↓</kbd> choose</span>
+							<span><kbd>↵</kbd> bring in</span>
+							<span><kbd>esc</kbd> close</span>
+						</div>
+					</div>
+					<div className="composer-box">
+						<input defaultValue="Can we answer refund questions from the help centre? @ma" aria-label="Message" />
+						<div className="composer-row">
+							<FormatBar kinds={CHAT_FORMATS} />
+							<button type="button" className="btn btn--accent">Send</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+	);
+}
+
+/** A document starts untitled, in edit mode, where its "+" was pressed in the tree. */
+function NewDocument() {
+	return (
+		<section className="detail">
+			<header className="detail-head">
+				<span className="chip chip--quiet">Document</span>
+				<span className="doc-state">Draft</span>
+				<span className="doc-act">
+					<span className="doc-mode">✎ Editing</span>
+					<button type="button" className="btn">Done</button>
+					<button type="button" className="btn btn--accent">Publish</button>
+				</span>
+			</header>
+			<div className="detail-scroll">
+				<article className="page">
+					<h1 className="page-title page-title--empty">Untitled<span className="caret" /></h1>
+					<p className="blk-empty">Type / for a block, @ to ask someone</p>
+				</article>
+			</div>
+			<FormatBar floating kinds={DOC_FORMATS} />
+		</section>
+	);
+}
+
+/** A page that did not load says so in one line, and offers to try again. */
+function Failed() {
+	const [tried, setTried] = useState(false);
+	return (
+		<section className="detail">
+			<header className="detail-head">
+				<span className="chip chip--quiet">Task</span>
+			</header>
+			<div className="detail-scroll">
+				<div className="failed">
+					<span>
+						This task did not load.
+						<span className="failed-why">{tried ? "Tried again just now. The server still does not answer." : "The server did not answer."}</span>
+					</span>
+					<button type="button" className="tbox-more" onClick={() => setTried(true)}>Try again</button>
+				</div>
+			</div>
+		</section>
+	);
+}
+
 function Placeholder({ kind, title, meta, note }: { kind: string; title: string; meta: string; note: string }) {
 	return (
 		<section className="detail">
@@ -228,13 +395,16 @@ function Placeholder({ kind, title, meta, note }: { kind: string; title: string;
 }
 
 export function Arrive({ step }: { step: number }) {
-	if (step === 0) return <FirstStart />;
+	if (step === 0) return <FirstStart variant="ready" />;
+	if (step === 9) return <FirstStart variant="none" />;
+	if (step === 10) return <FirstStart variant="join" />;
 
 	const focused = step === 7;
-	const spine = step === 3 ? "work" : step === 4 || step === 7 ? "knowledge" : "conversations";
+	const spine = step === 3 || step === 13 ? "work" : step === 4 || step === 7 || step === 12 ? "knowledge" : "conversations";
 	const picked = step === 1 ? "g" : step === 2 ? "c-r1" : step === 3 ? "w-f1" : step === 4 || step === 7 ? "k-price" : null;
 	const lists = step === 1
 		? { conversations: [{ id: "g", title: "Getting started", state: "New", who: "Builder", age: "now", fresh: true }], work: null, knowledge: null }
+		: step === 13 ? { work: [] }
 		: { conversations: conversations(focused) };
 
 	let detail = <Placeholder kind="Thread" title="Trial-end explainer" meta="Review · Builder · final" note="A review is a thread. It opens here as designed in Judge; the list stays put, so the next one is one click away." />;
@@ -242,10 +412,14 @@ export function Arrive({ step }: { step: number }) {
 	else if (step === 3) detail = <Placeholder kind="Task" title="Trials that convert without a call" meta="Growth owns this · 3 of 7 subtasks done" note="The task opens here with its subtasks. Its thread and any reviews live in Conversations." />;
 	else if (step === 4) detail = <Placeholder kind="Document" title="How we price" meta="Published · Growth edited the Trials section 2 days ago" note="The document opens here. Click any icon in the tree to change it." />;
 	else if (step === 7) detail = <Focused />;
+	else if (step === 11) detail = <NewConversation />;
+	else if (step === 12) detail = <NewDocument />;
+	else if (step === 13) detail = <Failed />;
 
 	return (
 		<>
-			<Sidebar initialSpine={spine} initialPicked={picked} lists={lists} showCounts={step > 1} notificationsOpen={step === 8}
+			<Sidebar initialSpine={spine} initialPicked={step === 11 ? "c-new" : step === 12 ? "k-new" : picked} lists={lists} showCounts={step > 1} notificationsOpen={step === 8}
+				newConversation={step === 11} newDocIn={step === 12 ? "s-product" : null}
 				conversationsNote={focused ? <p className="nav-new">1 new since you started · it waits here</p> : undefined} />
 			{detail}
 			{(step === 5 || step === 6) && <Palette initialMode={step === 5 ? "find" : "ask"} />}

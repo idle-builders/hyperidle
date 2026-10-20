@@ -102,6 +102,8 @@ interface User {
 	/** What makes them who they are: an agent's instructions, skills and memory; a person's "about". */
 	self: Pair[];
 	facts: string[];
+	/** Their craft. An agent gets the documents marked with the same discipline. */
+	discipline?: string;
 	/** When you last talked. */
 	talked?: string;
 	/** Not in the team until someone adds it. */
@@ -115,6 +117,7 @@ interface User {
 
 const USERS: Record<UserId, User> = {
 	you: {
+		discipline: "Product",
 		name: "You", av: "FO", kind: "Person",
 		what: "Founder. Product and pricing.",
 		status: "Here",
@@ -153,6 +156,7 @@ const USERS: Record<UserId, User> = {
 		facts: ["Person", "Teams Product and Support", "Here since 3 July"],
 	},
 	maya: {
+		discipline: "Support",
 		name: "Maya Chen", av: "MC", kind: "Person",
 		what: "Support and ops.",
 		status: "Away",
@@ -172,6 +176,7 @@ const USERS: Record<UserId, User> = {
 		talked: "Friday 13:10",
 	},
 	builder: {
+		discipline: "Engineering",
 		name: "Builder", av: "BU", kind: "Agent", owner: "you", team: "Product",
 		what: "Builds and ships.",
 		status: "Working",
@@ -208,6 +213,7 @@ const USERS: Record<UserId, User> = {
 		talked: "yesterday 17:40",
 	},
 	growth: {
+		discipline: "Growth",
 		name: "Growth", av: "GR", kind: "Agent", owner: "you", team: "Product",
 		what: "Trials and pricing: numbers and experiments.",
 		status: "Idle",
@@ -243,6 +249,7 @@ const USERS: Record<UserId, User> = {
 		talked: "today 14:32",
 	},
 	designer: {
+		discipline: "Design",
 		name: "Designer", av: "DS", kind: "Agent", owner: "maya", team: "Support",
 		what: "Pages and copy.",
 		status: "Idle",
@@ -296,6 +303,7 @@ const USERS: Record<UserId, User> = {
 		facts: ["Agent · works for everyone in Northwind", "In every team", "Here since 3 July"],
 	},
 	researcher: {
+		discipline: "Research",
 		name: "Researcher", av: "RE", kind: "Agent", owner: "you", fresh: true, team: "Product",
 		what: "Reads what competitors ship and writes it down.",
 		status: "Idle",
@@ -495,6 +503,7 @@ function UserPage({ id, initialDialog, more, onOpen, onTeam, onFile, onJob, onPl
 	const subject: Subject = {
 		name: u.name, kind: u.kind, what: u.what, me,
 		sessions: Number.parseInt(u.runsOn?.[2].what ?? "1", 10),
+		discipline: u.discipline,
 		edited: edited && `${edited[0].toUpperCase()}${edited.slice(1)}.`,
 	};
 	const close = () => setDialog(null);
@@ -544,6 +553,7 @@ function UserPage({ id, initialDialog, more, onOpen, onTeam, onFile, onJob, onPl
 				)}
 				<ul className="tbox-facts">
 					{u.facts.map((f) => <li key={f}>{f}</li>)}
+					{u.discipline && <li>Discipline {u.discipline}{u.kind === "Agent" && ` · gets the documents marked ${u.discipline}`}</li>}
 					{u.plugin && <li><button type="button" className="tbox-link" onClick={() => u.plugin && onPlugin(u.plugin)}>Came with the plugin {PLUGINS[u.plugin].name}</button></li>}
 					{u.talked && <li>You last talked {u.talked}</li>}
 				</ul>
@@ -570,7 +580,6 @@ function UserPage({ id, initialDialog, more, onOpen, onTeam, onFile, onJob, onPl
 						))}
 						<button type="button" className="tbox-more" onClick={() => setDialog("start")}>Change what you are told about</button>
 						<p className="pair-why">{u.following}. You follow a document, task or thread from its own page.</p>
-						<button type="button" className="tbox-more">See what you follow</button>
 					</section>
 				)}
 
@@ -584,6 +593,7 @@ function UserPage({ id, initialDialog, more, onOpen, onTeam, onFile, onJob, onPl
 						</div>
 					</section>
 				)}
+				{me && <Programs />}
 				{me && (
 					<section className="tbox-sec">
 						<h4>Looks</h4>
@@ -609,6 +619,30 @@ function UserPage({ id, initialDialog, more, onOpen, onTeam, onFile, onJob, onPl
 			)}
 			{dialog === "edit" && <UserDialog user={subject} program={u.runsOn?.[0].what} onClose={close} onDone={close} />}
 		</article>
+	);
+}
+
+const PROGRAMS_HERE = [
+	{ name: "Claude Code", how: "signed in · 6 connectors · Builder and Growth run on it" },
+	{ name: "Codex", how: "signed in" },
+	{ name: "Cursor", how: "not installed", off: true },
+];
+
+/** The agent programs this computer has. Each signs itself in; HyperIdle only finds them. */
+function Programs() {
+	const [looked, setLooked] = useState(false);
+	return (
+		<section className="tbox-sec">
+			<h4>Agent programs <span>on this computer</span></h4>
+			{PROGRAMS_HERE.map((x) => (
+				<div key={x.name} className={x.off ? "pair pair--off" : "pair"}>
+					<span className="pair-what">{x.name}</span>
+					<span className="pair-why">{x.how}</span>
+				</div>
+			))}
+			<p className="pair-why">Each one signs in on its own. Install or sign in to one, then look again.</p>
+			<button type="button" className="tbox-more" onClick={() => setLooked(true)}>{looked ? "Looked just now · nothing new" : "Look again"}</button>
+		</section>
 	);
 }
 
