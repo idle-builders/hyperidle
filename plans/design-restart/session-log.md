@@ -1093,3 +1093,12 @@ rest." Decided:
   which adds that line; once there, the button goes. A finished task says "Was reviewed before it
   closed" or "Closed by itself". Fits the loop: how a task closes is written in one place.
 
+
+## Session 17 — cutover plan (2026-10-20)
+
+The founder: most of it is designed; how do we make this the real app? Surveyed the shipping UI
+(`layers/core-ui`) and the backend against the design, and wrote `cutover-plan.md`:
+build the new app next to the old one inside core-ui, wire it to real data screen by screen,
+then switch in one change that deletes the old app. Lists what the old app does that the design
+does not (to design or drop), and which backend changes are needed before the switch and which
+can follow. Founder decisions open in the plan, marked **Decide**.
