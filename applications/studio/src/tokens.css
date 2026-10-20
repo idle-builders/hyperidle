@@ -1,0 +1,154 @@
+/* ============================================================
+   PRODUCT LANGUAGE CANDIDATES — three skins, each light + dark.
+   Chosen by looking, on the same screen. Set data-skin + data-mode
+   on <html>.
+
+   THE ONLY FILE ALLOWED TO CONTAIN A RAW VALUE.
+   ============================================================ */
+
+@font-face { font-family: "Space Grotesk"; font-weight: 400; font-display: swap;
+	src: url("./fonts/space-grotesk-400.woff2") format("woff2"); }
+@font-face { font-family: "Space Grotesk"; font-weight: 500; font-display: swap;
+	src: url("./fonts/space-grotesk-500.woff2") format("woff2"); }
+@font-face { font-family: "Space Grotesk"; font-weight: 700; font-display: swap;
+	src: url("./fonts/space-grotesk-700.woff2") format("woff2"); }
+@font-face { font-family: "Space Mono"; font-weight: 400; font-display: swap;
+	src: url("./fonts/space-mono-400.woff2") format("woff2"); }
+
+:root {
+	/* ---- invariants across all three skins ---- */
+	--sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px; --sp-5: 20px;
+	--sp-6: 28px; --sp-7: 40px; --sp-8: 56px; --sp-9: 80px;
+
+	--r-lg: 12px;
+
+	--w-rail: 232px;
+	--w-queue: 348px;
+	--w-measure: 72ch;
+
+	--font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+	--dur-tap: 120ms;
+	--ease: cubic-bezier(0.2, 0, 0, 1);
+	--scrim: rgb(20 18 15 / 0.28);
+	--sh-3: 0 24px 60px rgb(20 18 15 / 0.22), 0 2px 6px rgb(20 18 15 / 0.08);
+
+	/* Type scale is shared; each skin only swaps the family.
+	   Nothing is uppercase by default — that was the landing-page tic. */
+	--t-title:   600 1.25rem/1.3   var(--font-ui);
+	--t-section: 600 0.9375rem/1.35 var(--font-ui);
+	--t-lead:    400 1rem/1.6      var(--font-ui);
+	--t-body:    400 0.9375rem/1.6 var(--font-ui);
+	--t-strong:  550 0.9375rem/1.45 var(--font-ui);
+	--t-label:   500 0.75rem/1.35  var(--font-ui);
+	--t-meta:    400 0.75rem/1.35  var(--font-ui);
+	--t-metric:  600 1.75rem/1     var(--font-ui);
+	--t-data:    400 0.8125rem/1.4 var(--font-mono);
+}
+
+/* ============================================================
+   A — PAPER.  Warm, document-forward, soft. Keeps the site's
+   yellow, but only as the "this one is yours" flag; interactive
+   colour is a deep green so it can carry text weight.
+   ============================================================ */
+:root[data-skin="paper"] {
+	--font-ui: "Space Grotesk", system-ui, -apple-system, sans-serif;
+	--r: 8px;
+	--r-sm: 6px;
+	--line-w: 1px;
+}
+:root[data-skin="paper"][data-mode="light"] {
+	--canvas: #faf8f4; --surface: #ffffff; --sunk: #f2efe9;
+	--ink: #1b1a17; --ink-2: #4b4741; --ink-3: #7a746b;
+	--line: #e5e0d7; --line-strong: #d3ccbf;
+	--accent: #2f6d4f; --accent-ink: #ffffff; --accent-soft: #e7f1ea;
+	--flag: #fcee0a; --flag-ink: #1b1a17;
+	--live: #2f6d4f; --wait: #a8560f;
+	--mark: #ebd7a0; --mark-line: #cfb36a;
+	--diff-out: #fbe6e2; --diff-out-ink: #b3392b; --diff-in: #e1f0e3; --diff-in-ink: #2f6d4f;
+	--sh-1: 0 1px 2px rgb(28 26 23 / 0.06);
+	--sh-2: 0 2px 4px rgb(28 26 23 / 0.06), 0 8px 20px rgb(28 26 23 / 0.07);
+}
+:root[data-skin="paper"][data-mode="dark"] {
+	--canvas: #141310; --surface: #1d1b16; --sunk: #100f0c;
+	--ink: #f5f1e8; --ink-2: #c9c3b6; --ink-3: #918b7f;
+	--line: #2e2b24; --line-strong: #423d33;
+	--accent: #6fbc92; --accent-ink: #10231a; --accent-soft: #1b2a22;
+	--flag: #fcee0a; --flag-ink: #1b1a17;
+	--live: #6fbc92; --wait: #e0954f;
+	--mark: #514528; --mark-line: #8a7440;
+	--diff-out: #3b201c; --diff-out-ink: #f0897c; --diff-in: #1c2f24; --diff-in-ink: #6fbc92;
+	--sh-1: 0 1px 2px rgb(0 0 0 / 0.3);
+	--sh-2: 0 4px 14px rgb(0 0 0 / 0.36), 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+/* ============================================================
+   B — PRECISION.  Cool neutrals, hairlines, no shadows at all;
+   depth comes from surface steps. Denser. The modern
+   productivity archetype.
+   ============================================================ */
+:root[data-skin="precision"] {
+	--font-ui: system-ui, -apple-system, "Segoe UI", sans-serif;
+	--r: 6px;
+	--r-sm: 4px;
+	--line-w: 1px;
+	--sh-1: none;
+	--sh-2: none;
+}
+:root[data-skin="precision"][data-mode="light"] {
+	--canvas: #f7f8f9; --surface: #ffffff; --sunk: #eef0f3;
+	--ink: #14171a; --ink-2: #444b53; --ink-3: #6b757f;
+	--line: #e1e5ea; --line-strong: #ccd3db;
+	--accent: #2563eb; --accent-ink: #ffffff; --accent-soft: #e8efff;
+	--flag: #e8efff; --flag-ink: #1d4ed8;
+	--live: #0f7b52; --wait: #b45309;
+	--mark: #fae39a; --mark-line: #dcba45;
+	--diff-out: #ffebe9; --diff-out-ink: #cf222e; --diff-in: #dafbe1; --diff-in-ink: #1a7f37;
+}
+:root[data-skin="precision"][data-mode="dark"] {
+	--canvas: #0e1114; --surface: #161a1f; --sunk: #0a0c0f;
+	--ink: #e9edf2; --ink-2: #aab4c0; --ink-3: #78838f;
+	--line: #232a32; --line-strong: #333c46;
+	--accent: #5b8cff; --accent-ink: #06122b; --accent-soft: #17253f;
+	--flag: #17253f; --flag-ink: #9dbcff;
+	--live: #3ec98c; --wait: #e0a44f;
+	--mark: #51461d; --mark-line: #9c8434;
+	--diff-out: #3a2024; --diff-out-ink: #ff7b72; --diff-in: #16301f; --diff-in-ink: #3fb950;
+}
+
+/* ============================================================
+   C — WORKSHOP.  The chosen language. Light is primary; dark is
+   the 11pm shift. Warm neutrals throughout so the amber accent
+   sits naturally rather than fighting a cool grey.
+   Surfaces separate by lightness; lines stay quiet.
+   ============================================================ */
+:root[data-skin="workshop"] {
+	--font-ui: system-ui, -apple-system, "Segoe UI", sans-serif;
+	--r: 10px;
+	--r-sm: 7px;
+	--line-w: 1px;
+}
+:root[data-skin="workshop"][data-mode="light"] {
+	--canvas: #f7f6f3; --surface: #ffffff; --sunk: #edebe6;
+	--ink: #191714; --ink-2: #4a4640; --ink-3: #7b756c;
+	--line: #e7e3dc; --line-strong: #d2ccc1;
+	--accent: #a85f12; --accent-ink: #ffffff; --accent-soft: #fbf0e0;
+	--flag: #f7d9a6; --flag-ink: #5e3606;
+	--live: #1f7a52; --wait: #a85f12;
+	--mark: #d0deea; --mark-line: #94adc2;
+	--diff-out: #fbe7e3; --diff-out-ink: #b23a2a; --diff-in: #e2f1e6; --diff-in-ink: #1f7a52;
+	/* light-tuned: shallow, warm-tinted, never muddy */
+	--sh-1: 0 1px 2px rgb(25 23 20 / 0.07);
+	--sh-2: 0 2px 4px rgb(25 23 20 / 0.06), 0 8px 18px rgb(25 23 20 / 0.08);
+}
+:root[data-skin="workshop"][data-mode="dark"] {
+	--canvas: #12110f; --surface: #1b1a17; --sunk: #0c0b0a;
+	--ink: #eae7e1; --ink-2: #b0aba2; --ink-3: #7f7a71;
+	--line: #272521; --line-strong: #383530;
+	--accent: #e0a458; --accent-ink: #1a1410; --accent-soft: #2a2115;
+	--flag: #33270f; --flag-ink: #f3c98a;
+	--live: #74c79a; --wait: #e0a458;
+	--mark: #2b3b48; --mark-line: #4f6b82;
+	--diff-out: #3a1e1a; --diff-out-ink: #f08a7c; --diff-in: #1a2e23; --diff-in-ink: #74c79a;
+	--sh-1: 0 1px 2px rgb(0 0 0 / 0.28);
+	--sh-2: 0 4px 12px rgb(0 0 0 / 0.34), 0 1px 2px rgb(0 0 0 / 0.3);
+}
