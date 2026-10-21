@@ -99,6 +99,8 @@ export const reviewPayloadSchema = z.object({
 	title: z.string().min(1).max(512),
 	reasoning: z.array(z.string().max(1024)).max(16),
 	producedItemId: z.string().optional(),
+	/** The person who reviews it; absent ⇒ anyone in the thread but its sender. */
+	reviewer: z.string().min(1).optional(),
 	artifacts: z.array(reviewCanvasArtifactSchema).optional(),
 	// server-stamped from ctx.caller.taskId — never accepted from the caller; SendMessageInputSchema.review omits it so a smuggled taskId is stripped by validation
 	taskId: z.string().optional(),
@@ -293,7 +295,8 @@ export const sendMessage: ActionDeclaration<SendMessageInput, SendMessageOutput>
 	name: "send_message",
 	sentence:
 		"Send a message. Name a thread, or name recipients to start one; leave both out to answer in " +
-		"the conversation you were called from. Send text, a review, a question, a verdict on a " +
+		"the conversation you were called from. Send text, a review (name its reviewer when one " +
+		"person owns it), a question, a verdict on a " +
 		"review (approve, or reject with the reason), or an answer to a question (one of its " +
 		"options, or your own words). " +
 		"Give a message id to replace what you already sent.",

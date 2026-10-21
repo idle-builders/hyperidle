@@ -34,6 +34,7 @@ import {
 	type ReviewVerdictOutcome,
 	type ReviewVerdictRecorderFn,
 	resolvesMessageInvariants,
+	reviewPayloadSchema,
 	type SearchDocumentsInput,
 	type SearchThreadsInput,
 	type SendMessageInput,
@@ -184,6 +185,15 @@ function toIdentity(user: User): Identity {
  * A missing/invisible document has no entry in the returned map and the
  * ladder's own fallback ("Deleted document") takes over.
  */
+/** A review's named reviewer, when it has one. */
+function reviewerOf(m: { readonly type: string; readonly payload: string }): {
+	readonly reviewer?: string;
+} {
+	if (m.type !== "review") return {};
+	const parsed = reviewPayloadSchema.safeParse(JSON.parse(m.payload));
+	return parsed.success && parsed.data.reviewer ? { reviewer: parsed.data.reviewer } : {};
+}
+
 /** A message's one-line preview, and whether it mentions `viewer`. */
 function readPreview(
 	rawPayload: string,
@@ -464,7 +474,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				id,
 				computeThreadNeed(
 					ctx.actor,
-					msgs.map((m) => ({ ...m, senderIsAgent: agents.has(m.senderId) })),
+					msgs.map((m) => ({
+						type: m.type,
+						senderId: m.senderId,
+						senderIsAgent: agents.has(m.senderId),
+						...reviewerOf(m),
+					})),
 				),
 			]),
 		);

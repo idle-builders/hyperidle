@@ -12,10 +12,12 @@ const personQuestion = { type: "questionnaire", senderId: "maya", senderIsAgent:
 const review = { type: "review", senderId: "agent", senderIsAgent: true };
 const myQuestion = { type: "questionnaire", senderId: ME, senderIsAgent: false };
 const myReview = { type: "review", senderId: ME, senderIsAgent: false };
+const reviewForMe = { ...review, reviewer: ME };
+const reviewForMaya = { ...review, reviewer: "maya" };
 
 const rows: {
 	label: string;
-	open: (typeof agentQuestion)[];
+	open: { type: string; senderId: string; senderIsAgent: boolean; reviewer?: string }[];
 	expected: ReturnType<typeof computeThreadNeed>;
 }[] = [
 	{ label: "nothing open → null", open: [], expected: null },
@@ -24,6 +26,12 @@ const rows: {
 	{ label: "an open review → review", open: [review], expected: "review" },
 	{ label: "what you asked yourself waits on others → null", open: [myQuestion], expected: null },
 	{ label: "a review you raised waits on others → null", open: [myReview], expected: null },
+	{
+		label: "a review naming you as its reviewer → review",
+		open: [reviewForMe],
+		expected: "review",
+	},
+	{ label: "a review someone else reviews → null", open: [reviewForMaya], expected: null },
 	{
 		label: "stuck wins over input and review",
 		open: [review, personQuestion, agentQuestion],

@@ -958,6 +958,7 @@ describe("search_threads", () => {
 		await mineWith("st-review-1", "st-agent-1");
 		await mineWith("st-asked-1", "st-agent-1");
 		await mineWith("st-mention-1", "st-outsider-1");
+		await mineWith("st-theirs-1", "st-agent-1");
 		await seedThreadRow(db, "st-not-mine-1", {
 			hostKind: "user",
 			hostId: "st-outsider-1",
@@ -1007,13 +1008,29 @@ describe("search_threads", () => {
 			{ threadId: "st-mention-1", text: "@Founder can you read this?" },
 			"st-outsider-1",
 		);
+		await call(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{
+				threadId: "st-theirs-1",
+				review: { title: "theirs", reasoning: ["z"], reviewer: "st-outsider-1" },
+			},
+			"st-agent-1",
+		);
 
 		const res = await call<
 			Array<{ id: string; need: string | null; lastSenderId: string | null; mentionsYou: boolean }>
 		>(actions, db, eventBus, "search_threads", { mine: true });
 		expect(res.status).toBe(200);
 		const byId = new Map(res.body.data?.map((r) => [r.id, r]));
-		expect([...byId.keys()].sort()).toEqual(["st-asked-1", "st-mention-1", "st-review-1"]);
+		expect([...byId.keys()].sort()).toEqual([
+			"st-asked-1",
+			"st-mention-1",
+			"st-review-1",
+			"st-theirs-1",
+		]);
 		expect(byId.get("st-review-1")).toMatchObject({
 			need: "review",
 			lastSenderId: FOUNDER_ID,
@@ -1025,6 +1042,7 @@ describe("search_threads", () => {
 			lastSenderId: "st-outsider-1",
 			mentionsYou: true,
 		});
+		expect(byId.get("st-theirs-1")).toMatchObject({ need: null });
 	});
 
 	test("an empty input ({}) takes the same mine branch as {mine:true} — the sentence's own promise", async ({

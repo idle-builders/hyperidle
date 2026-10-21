@@ -770,6 +770,7 @@ function questionsAndReviews(clock: DemoClock): MessageSpec[] {
 					"Two short paragraphs: a full refund within 14 days of a payment, the unused days after that.",
 					"Flagged: the second paragraph says “days you have not used”; the receipt says “unused time”.",
 				],
+				reviewer: MAYA_ID,
 				taskId: TASK_REFUNDS,
 			},
 			createdAt: clock.hoursAgo(2),
