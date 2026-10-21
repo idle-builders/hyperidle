@@ -760,7 +760,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			payload: plain("Merged. Extension flow is live in staging; QA has the funnel instrumented."),
 			createdAt: clock.daysAgo(28),
 		},
-		// ── Resolved review: search ranking, changes requested ─────────────
+		// ── Resolved review: search ranking, rejected with a reason ────────
 		{
 			id: MSG_SEARCH_REVIEW,
 			threadId: THREAD_SEARCH_REVIEW,
