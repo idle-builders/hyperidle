@@ -164,6 +164,10 @@ here, core-ui is empty except for its package file.
   document or thread; a document's icon; stop and start again; a comment on a range of text with
   a proposed change and Apply; review rounds; ticking folders and services per agent; "came with
   the plugin" and where a plugin came from.
+- Found while wiring Conversations (2026-10-21), designed but not stored yet: a few words under
+  each option of a question, and the question's exposure ("seen by every trial user"); a
+  review's content beyond text lines (the preview, code, numbers, email parts — lands with the
+  review page); outside links such as Zendesk tickets as reference chips; "Builder joined".
 
 **Each screen counts as done when:**
 - it shows real data from a seeded database
