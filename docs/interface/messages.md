@@ -6,9 +6,9 @@ A thread has a host kind, a title, a participants list, a pinned flag, and a sof
 
 Messages are append-only. Redaction sets the payload to a redacted marker; the row stays. `client_key` provides idempotency — submitting the same key twice is a no-op.
 
-Message types: `plain`, `review`, `questionnaire`, `verdict`.
+Message types: `plain`, `review`, `questionnaire`, `verdict`, `answer`.
 
-Verdicts: `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`.
+A review is resolved by a verdict — `approve` or `reject`, and a reject says why. A questionnaire is resolved by an answer — one of its options, or the sender's own words. See [thread.md](../objects/thread.md#verdicts-and-answers).
 
 Who may post: any member of the thread. Agents post via the `send_message` action on a session.
 

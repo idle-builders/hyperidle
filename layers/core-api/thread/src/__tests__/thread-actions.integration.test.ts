@@ -14,10 +14,11 @@
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import type { SendMessageInput, ThreadView } from "@hyperidle/domain-model";
+import type { ReviewVerdictOutcome, SendMessageInput, ThreadView } from "@hyperidle/domain-model";
 import type { ObjectChangeEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
+import { vi } from "vitest";
 import type { Action } from "../action-types.js";
 import { createThreadActions } from "../thread-actions.js";
 import {
@@ -305,7 +306,10 @@ describe("send_message — verdict trio and races", () => {
 				db,
 				eventBus,
 				"send_message",
-				{ threadId, verdict: { decision: "reject", resolvesMessageId: reviewMessageId } },
+				{
+					threadId,
+					verdict: { decision: "reject", resolvesMessageId: reviewMessageId, note: "Not yet." },
+				},
 				"sm-human-vt4",
 			),
 		]);
@@ -318,6 +322,133 @@ describe("send_message — verdict trio and races", () => {
 		);
 		expect(oks).toHaveLength(1);
 		expect(races).toHaveLength(1);
+	});
+});
+
+describe("send_message — answering a question, approving or rejecting a review", () => {
+	/** An agent asks in a task thread from its session; the founder is the other member. */
+	async function seedAsk(db: HyperIdleDb, suffix: string) {
+		const reviewVerdictRecorder = vi.fn(
+			async (): Promise<ReviewVerdictOutcome> => ({ status: "queued" }),
+		);
+		const linkReviewToSession = vi.fn(async () => {});
+		const actions = createThreadActions(threadDeps({ reviewVerdictRecorder, linkReviewToSession }));
+		const eventBus = new EventBus();
+		const teamId = `sm-ans-${suffix}`;
+		const agentId = `sm-agent-ans-${suffix}`;
+		await seedTeam(db, teamId);
+		await seedAgent(db, agentId, teamId);
+		const threadId = await seedTaskWithThread(db, `sm-ans-task-${suffix}`, teamId);
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify([agentId, FOUNDER_ID]) })
+			.where(eq(threads.id, threadId));
+		const ask = async (body: Record<string, unknown>): Promise<string> => {
+			const result = await actionFor<Record<string, unknown>, { message: { id: string } }>(
+				actions,
+				"send_message",
+			).run(
+				ctxFor(db, agentId, {
+					eventBus,
+					caller: { sessionId: `sess-${suffix}`, taskId: `sm-ans-task-${suffix}`, threadId },
+				}),
+				{ threadId, ...body },
+			);
+			if (!result.ok) throw new Error(JSON.stringify(result.problems));
+			return result.data.message.id;
+		};
+		const reply = (body: Record<string, unknown>) =>
+			call(actions, db, eventBus, "send_message", { threadId, ...body });
+		const resolvedAt = async (id: string) =>
+			(await db.select().from(messages).where(eq(messages.id, id)))[0]?.resolvedAt ?? null;
+		return { ask, reply, resolvedAt, reviewVerdictRecorder, linkReviewToSession };
+	}
+
+	const billing = {
+		title: "Billing",
+		question: "Monthly or yearly?",
+		options: ["Monthly", "Yearly"],
+	};
+
+	test("picking one of the question's options resolves it and hands the pick to the agent's session", async ({
+		db,
+	}) => {
+		const { ask, reply, resolvedAt, reviewVerdictRecorder, linkReviewToSession } = await seedAsk(
+			db,
+			"1",
+		);
+		const questionId = await ask({ questionnaire: billing });
+		expect(linkReviewToSession).toHaveBeenCalledWith("sess-1", questionId);
+
+		const answered = await reply({ answer: { resolvesMessageId: questionId, option: "Yearly" } });
+
+		expect(answered.status).toBe(200);
+		expect(await resolvedAt(questionId)).not.toBeNull();
+		expect(reviewVerdictRecorder).toHaveBeenCalledWith(
+			expect.objectContaining({
+				reviewMessageId: questionId,
+				decision: "answer",
+				answer: { option: "Yearly" },
+			}),
+		);
+	});
+
+	test("naming an option the question does not have is refused and leaves it open", async ({
+		db,
+	}) => {
+		const { ask, reply, resolvedAt } = await seedAsk(db, "2");
+		const questionId = await ask({ questionnaire: billing });
+
+		const answered = await reply({ answer: { resolvesMessageId: questionId, option: "Weekly" } });
+
+		expect(answered.status).toBe(422);
+		expect(answered.body.problems?.[0]?.code).toBe("answer_unknown_option");
+		expect(await resolvedAt(questionId)).toBeNull();
+	});
+
+	test("a reject with no reason is refused and leaves the review open", async ({ db }) => {
+		const { ask, reply, resolvedAt } = await seedAsk(db, "3");
+		const reviewId = await ask({ review: { title: "Ship it?", reasoning: ["tests pass"] } });
+
+		const rejected = await reply({ verdict: { decision: "reject", resolvesMessageId: reviewId } });
+
+		expect(rejected.status).toBe(422);
+		expect(rejected.body.problems?.[0]?.code).toBe("reject_needs_reason");
+		expect(await resolvedAt(reviewId)).toBeNull();
+	});
+
+	test("a reject with a reason resolves the review and hands the reason to the agent's session", async ({
+		db,
+	}) => {
+		const { ask, reply, resolvedAt, reviewVerdictRecorder } = await seedAsk(db, "4");
+		const reviewId = await ask({ review: { title: "Ship it?", reasoning: ["tests pass"] } });
+
+		const rejected = await reply({
+			verdict: { decision: "reject", resolvesMessageId: reviewId, note: "Wrong table." },
+		});
+
+		expect(rejected.status).toBe(200);
+		expect(await resolvedAt(reviewId)).not.toBeNull();
+		expect(reviewVerdictRecorder).toHaveBeenCalledWith(
+			expect.objectContaining({
+				reviewMessageId: reviewId,
+				decision: "decline",
+				note: "Wrong table.",
+			}),
+		);
+	});
+
+	test("a verdict cannot resolve a question", async ({ db }) => {
+		const { ask, reply, resolvedAt } = await seedAsk(db, "5");
+		const questionId = await ask({ questionnaire: billing });
+
+		const verdict = await reply({
+			verdict: { decision: "approve", resolvesMessageId: questionId },
+		});
+
+		expect(verdict.status).toBe(422);
+		expect(verdict.body.problems?.[0]?.code).toBe("verdict_not_review");
+		expect(await resolvedAt(questionId)).toBeNull();
 	});
 });
 

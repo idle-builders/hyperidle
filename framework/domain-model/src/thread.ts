@@ -8,16 +8,11 @@ export type BlockHostKind = "task" | "document" | "agent" | "user";
 export const HOST_KINDS = ["document", "agent", "user", "team", "factory"] as const;
 export type HostKind = (typeof HOST_KINDS)[number];
 
-export const MESSAGE_TYPES = ["plain", "review", "questionnaire", "verdict"] as const;
+export const MESSAGE_TYPES = ["plain", "review", "questionnaire", "verdict", "answer"] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
 
-export const VERDICT_DECISIONS = [
-	"approve",
-	"approve-with-comments",
-	"request-changes",
-	"edit",
-	"reject",
-] as const;
+/** A review is approved or rejected; asking for a change is a comment, not a verdict. */
+export const VERDICT_DECISIONS = ["approve", "reject"] as const;
 export type VerdictDecision = (typeof VERDICT_DECISIONS)[number];
 
 export const REVIEW_CANVAS_KINDS = [
@@ -128,7 +123,7 @@ export interface RedactedPayload {
 /**
  * Type guard separating the redacted-payload variant from the type-specific
  * payload variants (PlainPayload | ReviewPayload | QuestionnairePayload |
- * VerdictPayload). Use after narrowing on `message.type` to access the
+ * VerdictPayload | AnswerPayload). Use after narrowing on `message.type` to access the
  * type-specific payload without unsafe `as` casts.
  */
 export function isRedactedPayload(payload: unknown): payload is RedactedPayload {
@@ -193,25 +188,13 @@ export function isBlocking(
 
 // ── Verdict vocabulary (display mapping) ────────────────────────
 
-/**
- * Single source of truth for the verdict label vocabulary used by
- * RichMessageCard, CommentRow, and any other consumer that needs the
- * uppercase label form. Mapping: approve / approve-with-comments →
- * APPROVED; reject → REJECTED; request-changes → CHANGES REQUESTED;
- * edit → EDITED.
- *
- */
+/** The uppercase label every surface shows for a verdict decision. */
 export function verdictDecisionLabel(decision: VerdictDecision): string {
 	switch (decision) {
 		case "approve":
-		case "approve-with-comments":
 			return "APPROVED";
 		case "reject":
 			return "REJECTED";
-		case "request-changes":
-			return "CHANGES REQUESTED";
-		case "edit":
-			return "EDITED";
 	}
 }
 

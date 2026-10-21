@@ -26,7 +26,7 @@ Open the task. If state is `blocked`, read the thread — the agent should have 
 
 Open the task thread and reply. The agent will see your message on its next turn. For a mid-session redirect, you can also send while the session is active — your message queues and delivers when the current turn ends.
 
-If the work has gone far enough the wrong way, give a **Reject** or **Request changes** verdict on its next review, or kill the task and start over with a clearer goal.
+If the work has gone far enough the wrong way, **Reject** its next review and say why, or kill the task and start over with a clearer goal.
 
 ### Stale-save conflict
 

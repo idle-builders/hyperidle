@@ -311,10 +311,23 @@ export const AGENT_WORK_INTENT_KINDS = [
 export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
 
 /**
- * What a resume needs, baked when the verdict is recorded.
+ * What the person said back to the agent's review or question — the part of a
+ * resume the agent reads.
+ */
+export interface SessionResumeReply {
+	/** Approve or decline a review, or answer a question. A decline resumes too, carrying the reason back. */
+	readonly decision: "approve" | "decline" | "answer";
+	/** The person's words with a verdict. On a decline, why. */
+	readonly note?: string;
+	/** On an answer: the option the person picked, or their own words. */
+	readonly answer?: { readonly option: string } | { readonly text: string };
+}
+
+/**
+ * What a resume needs, baked when the verdict or answer is recorded.
  *
  */
-export interface BakedSessionResumeRequest {
+export interface BakedSessionResumeRequest extends SessionResumeReply {
 	/** The HyperIdle session to bring back. */
 	readonly sessionId: string;
 	/**
@@ -323,8 +336,6 @@ export interface BakedSessionResumeRequest {
 	 * that to the human rather than silently doing nothing.
 	 */
 	readonly harnessSessionId?: string | null;
-	/** What the human decided. A decline resumes too, carrying the reasoning back. */
-	readonly decision: "approve" | "decline";
 	/**
 	 * The working directory the original session ran in.
 	 */
@@ -362,21 +373,22 @@ export type ReviewVerdictOutcome =
 	| { readonly status: "not_resumable"; readonly reason: string };
 
 /**
- * Records a human's verdict on a review an agent filed, and queues the resume
- * that carries it back to the agent.
+ * Records a person's verdict on a review, or answer to a question, that an
+ * agent's session filed, and queues the resume that carries it back to the agent.
  *
  * Injected into the core-api thread route the same way `AgentWorkIntentRecorderFn`
  * is, and for the same reason: `review_sessions` belongs to the agent-orchestration
  * layer, and a core-api route may not read it.
  */
-export type ReviewVerdictRecorderFn = (input: {
-	/** The review message the verdict resolved. */
-	readonly reviewMessageId: string;
-	readonly decision: "approve" | "decline";
-	/** The human who decided. */
-	readonly decidedBy: string;
-	/** The thread the review lives in — where a failure has to be reported. */
-	readonly threadId: string;
-	/** The asking agent's runnable-config snapshot, baked by the caller (core state). */
-	readonly agentConfig?: BakedAgentRunnableConfig;
-}) => Promise<ReviewVerdictOutcome>;
+export type ReviewVerdictRecorderFn = (
+	input: SessionResumeReply & {
+		/** The review or questionnaire message the reply resolved. */
+		readonly reviewMessageId: string;
+		/** The person who replied. */
+		readonly decidedBy: string;
+		/** The thread the review lives in — where a failure has to be reported. */
+		readonly threadId: string;
+		/** The asking agent's runnable-config snapshot, baked by the caller (core state). */
+		readonly agentConfig?: BakedAgentRunnableConfig;
+	},
+) => Promise<ReviewVerdictOutcome>;

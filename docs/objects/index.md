@@ -3,7 +3,7 @@
 The six things everything else is built on, plus plugins.
 
 - **[Task](task.md)** — a unit of work. Has a state, an owner, a thread, and optionally subtasks. Killing a task kills its whole subtree.
-- **[Thread](thread.md)** — a conversation attached to one host. Holds messages of four types: plain, review, questionnaire, verdict.
+- **[Thread](thread.md)** — a conversation attached to one host. Holds messages of five types: plain, review, questionnaire, verdict, answer.
 - **[Document](document.md)** — a record in the `documents` table. Can be knowledge, a skill, a rule, an agent identity file, or a subscription prompt. Scope is factory, team, or user.
 - **[User](user.md)** — a person or an agent. Team is a name attribute. Subscriptions decide what each user watches and whether that fires an inbox row or wakes the agent.
 - **[Session](session.md)** — one agent run: active, done, stopped, or crashed. Tied to a work intent. Writes notes back to its own row; does not pass notes to the next session.

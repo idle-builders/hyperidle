@@ -10,6 +10,8 @@ import {
 	agentsToWake,
 	canReadThread,
 	canWriteThread,
+	resolvesMessageInvariants,
+	type SendMessageInput,
 	sendMessageInvariants,
 } from "../actions/thread.js";
 
@@ -78,6 +80,140 @@ describe("sendMessageInvariants", () => {
 
 	it("a well-formed plain send to an existing thread has no problems", () => {
 		expect(sendMessageInvariants({ threadId: "t1", text: "hi" }, noCaller)).toEqual([]);
+	});
+});
+
+describe("sendMessageInvariants — what a verdict and an answer must carry", () => {
+	const onThread = { threadId: "t1" } as const;
+	const cases: ReadonlyArray<{
+		readonly name: string;
+		readonly input: SendMessageInput;
+		readonly problem: string | null;
+	}> = [
+		{
+			name: "a reject with no note says nothing about why",
+			input: { ...onThread, verdict: { decision: "reject", resolvesMessageId: "m1" } },
+			problem: "reject_needs_reason",
+		},
+		{
+			name: "a reject whose note is only spaces says nothing about why",
+			input: { ...onThread, verdict: { decision: "reject", resolvesMessageId: "m1", note: "  " } },
+			problem: "reject_needs_reason",
+		},
+		{
+			name: "a reject with a reason is fine",
+			input: {
+				...onThread,
+				verdict: { decision: "reject", resolvesMessageId: "m1", note: "Wrong table." },
+			},
+			problem: null,
+		},
+		{
+			name: "an approve needs no note",
+			input: { ...onThread, verdict: { decision: "approve", resolvesMessageId: "m1" } },
+			problem: null,
+		},
+		{
+			name: "an answer with neither an option nor text answers nothing",
+			input: { ...onThread, answer: { resolvesMessageId: "q1" } },
+			problem: "answer_needs_one",
+		},
+		{
+			name: "an answer with both an option and text is two answers",
+			input: { ...onThread, answer: { resolvesMessageId: "q1", option: "Yes", text: "Maybe" } },
+			problem: "answer_needs_one",
+		},
+		{
+			name: "a written answer that is only spaces is empty",
+			input: { ...onThread, answer: { resolvesMessageId: "q1", text: "   " } },
+			problem: "answer_empty",
+		},
+		{
+			name: "a written answer is fine",
+			input: { ...onThread, answer: { resolvesMessageId: "q1", text: "Monthly, for now." } },
+			problem: null,
+		},
+		{
+			name: "a picked option is fine",
+			input: { ...onThread, answer: { resolvesMessageId: "q1", option: "Yes" } },
+			problem: null,
+		},
+		{
+			name: "an answer cannot open a new thread",
+			input: { recipients: ["u1"], answer: { resolvesMessageId: "q1", option: "Yes" } },
+			problem: "answer_on_new_thread",
+		},
+		{
+			name: "an answer and text together are two bodies",
+			input: { ...onThread, text: "hi", answer: { resolvesMessageId: "q1", option: "Yes" } },
+			problem: "two_bodies",
+		},
+	];
+
+	it.each(cases)("$name", ({ input, problem }) => {
+		const codes = sendMessageInvariants(input, { hasCallingThread: false }).map((p) => p.code);
+		expect(codes).toEqual(problem === null ? [] : [problem]);
+	});
+});
+
+describe("resolvesMessageInvariants — what a verdict or an answer may resolve", () => {
+	const review = { type: "review", payload: { title: "Ship it?", reasoning: [] } } as const;
+	const questionnaire = {
+		type: "questionnaire",
+		payload: { title: "Billing", question: "Monthly or yearly?", options: ["Monthly", "Yearly"] },
+	} as const;
+	const approve = { verdict: { decision: "approve", resolvesMessageId: "m1" } } as const;
+	const cases: ReadonlyArray<{
+		readonly name: string;
+		readonly input: SendMessageInput;
+		readonly target: { readonly type: string; readonly payload: unknown };
+		readonly problem: string | null;
+	}> = [
+		{ name: "a verdict resolves a review", input: approve, target: review, problem: null },
+		{
+			name: "a verdict cannot resolve a question",
+			input: approve,
+			target: questionnaire,
+			problem: "verdict_not_review",
+		},
+		{
+			name: "an answer picking one of the question's options resolves it",
+			input: { answer: { resolvesMessageId: "q1", option: "Yearly" } },
+			target: questionnaire,
+			problem: null,
+		},
+		{
+			name: "an answer naming an option the question does not have is refused",
+			input: { answer: { resolvesMessageId: "q1", option: "Weekly" } },
+			target: questionnaire,
+			problem: "answer_unknown_option",
+		},
+		{
+			name: "a written answer resolves a question",
+			input: { answer: { resolvesMessageId: "q1", text: "Monthly until March." } },
+			target: questionnaire,
+			problem: null,
+		},
+		{
+			name: "an answer cannot resolve a review",
+			input: { answer: { resolvesMessageId: "m1", text: "Sure." } },
+			target: review,
+			problem: "answer_not_questionnaire",
+		},
+		{
+			name: "an answer cannot pick an option on a redacted question",
+			input: { answer: { resolvesMessageId: "q1", option: "Yearly" } },
+			target: {
+				type: "questionnaire",
+				payload: { redacted: true, redactedBy: "u1", redactedAt: "2026-01-01", reason: "x" },
+			},
+			problem: "answer_unknown_option",
+		},
+	];
+
+	it.each(cases)("$name", ({ input, target, problem }) => {
+		const codes = resolvesMessageInvariants(input, target).map((p) => p.code);
+		expect(codes).toEqual(problem === null ? [] : [problem]);
 	});
 });
 

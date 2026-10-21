@@ -54,6 +54,7 @@ import { ensureSandboxGitRepo, type Filesystem, localTrustedPath } from "./mount
 import { sessionAwaitsVerdict } from "./review-sessions.js";
 import { fetchPreviousSessionNotes } from "./session-store.js";
 import { transitionRun } from "./transition-run.js";
+import { buildVerdictMessage } from "./verdict-message.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];
 type SessionContext = Extract<TransitionSpec, { target: "session" }>["context"];
@@ -1190,25 +1191,6 @@ async function admitSession(
  * Registers itself in the `sessionRunRegistry` at harness-start so a
  * PATCH/handoff can cooperatively abort it, and deregisters at teardown.
  */
-/**
- * What the human's verdict says to the agent when its session reopens.
- *
- * @lore: verdict wording — load-bearing; "Approved. Go ahead." hit 3/6; naming the mechanism hit 8/8; tune this; never route around a model that objects to it
- */
-function buildVerdictMessage(resume: BakedSessionResumeRequest): string {
-	if (resume.decision === "approve") {
-		return (
-			"A human read the review you submitted and approved it. Go ahead with what you proposed, " +
-			"then carry on with your work and decide when you are done."
-		);
-	}
-	return (
-		"A human read the review you submitted and declined it. What was declined is the approach you " +
-		"proposed, not the task itself — keep working toward the same goal another way, and submit " +
-		"another review if you want to make a different case."
-	);
-}
-
 /**
  * What the agent is being asked to do, for a session that has a task.
  *

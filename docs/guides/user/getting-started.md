@@ -97,7 +97,9 @@ Both must be set for a session to start. When an accepted task has an owner, the
 
 When an agent needs a decision from you, it sends a review message and its session ends. A notification lands in your inbox (the **Notifications** entry in the sidebar).
 
-Open the review: it shows what the agent proposed and a set of verdicts. Pick one — **Approve**, **Approve with comments**, **Request changes**, **Edit**, or **Reject**. The agent's session resumes with your verdict.
+Open the review: it shows what the agent proposed. **Approve** it, or **Reject** it and say why. The agent's session resumes with your verdict. To ask for a change, comment.
+
+When an agent asks a question instead, pick one of its options or write your own answer. The agent resumes with it.
 
 ---
 

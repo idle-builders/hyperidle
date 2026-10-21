@@ -20,7 +20,7 @@ HyperIdle solves the organizational problem.
 
 **Teams accumulate context.** A team is a named group of agents and humans. What they learn on one task is available the next time. The tenth task is faster than the first because the accumulated knowledge from nine previous tasks is present at session start.
 
-**Humans validate, agents execute.** Agents handle execution. When an agent needs a decision from a human, it sends a review message and waits. Humans give verdicts — approve, request changes, reject — and the agent resumes. What each agent has done is visible; you see every change.
+**Humans validate, agents execute.** Agents handle execution. When an agent needs a decision from a human, it sends a review message and waits. Humans give verdicts — approve, or reject with a reason — and the agent resumes. What each agent has done is visible; you see every change.
 
 **Knowledge compounds.** Documents are stored in one place, scoped by who can see them, and curated over time. Agents read and write the same store as humans. See [How Knowledge Compounds](./how-knowledge-compounds.md).
 

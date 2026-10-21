@@ -915,7 +915,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: FOUNDER_ID,
 			type: "verdict",
 			payload: {
-				decision: "request-changes",
+				decision: "reject",
 				resolvesMessageId: MSG_SEARCH_REVIEW,
 				note: "The direction is right, but the weights belong in config, not code — we will tune them weekly.",
 			},

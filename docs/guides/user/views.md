@@ -25,17 +25,14 @@ When an agent works on a task, it runs a session. A session chip appears in the 
 
 When an agent needs a human decision, it sends a review message. The conversation shows a compact marker with an **Open review** button.
 
-The **review page** shows what the agent proposed and five verdicts:
+The **review page** shows what the agent proposed and two verdicts:
 
 | Verdict | Effect |
 |---|---|
-| **Approve** | Agent resumes with approval |
-| **Approve with comments** | Agent resumes, feedback attached |
-| **Request changes** | Agent resumes with your notes |
-| **Edit** | You adjust the proposal; agent resumes |
-| **Reject** | Proposal dropped; agent resumes with rejection |
+| **Approve** | Agent resumes and goes ahead, with your note if you add one |
+| **Reject** | You say why; agent resumes with your reason and tries another way |
 
-One verdict resolves the whole review. The agent gets your verdict as context and continues from where it stopped.
+To ask for a change without deciding yet, leave a comment. One verdict resolves the whole review. The agent gets your verdict as context and continues from where it stopped.
 
 After a verdict, the conversation shows a one-line echo — "Approved by …" — with an **Inspect review** action.
 

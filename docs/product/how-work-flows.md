@@ -42,13 +42,12 @@ When an agent needs a human decision, it sends a **review message** into the tas
 
 | Verdict | Effect |
 |---|---|
-| **Approve** | Agent resumes with approval |
-| **Approve with comments** | Agent resumes, feedback attached |
-| **Request changes** | Agent resumes with your notes |
-| **Edit** | You adjust the proposal; agent resumes |
-| **Reject** | Proposal dropped; agent resumes with rejection |
+| **Approve** | Agent resumes and goes ahead, with your note if you add one |
+| **Reject** | You say why; agent resumes with your reason and tries another way |
 
-One verdict resolves the whole review. The agent gets your verdict as context and continues.
+One verdict resolves the whole review. The agent gets your verdict as context and continues. To ask for a change, comment.
+
+When an agent needs an answer rather than a decision, it asks a **question** with options. You pick one of the options, or write your own answer, and the agent resumes with it.
 
 There are nine review canvas kinds — code diffs, visual diffs, rendered previews, field change sets, and more — each matched to what the agent was proposing.
 

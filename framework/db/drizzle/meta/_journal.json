@@ -687,6 +687,13 @@
 			"when": 1790764081807,
 			"tag": "0098_done_when_and_reasons",
 			"breakpoints": true
+		},
+		{
+			"idx": 99,
+			"version": "7",
+			"when": 1790850481807,
+			"tag": "0099_verdicts_approve_or_reject",
+			"breakpoints": true
 		}
 	]
 }

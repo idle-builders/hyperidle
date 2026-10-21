@@ -90,7 +90,9 @@ const gateLinkInputSchema = z.object({
 
 const gateVerdictInputSchema = z.object({
 	reviewMessageId: z.string().min(1),
-	decision: z.enum(["approve", "decline"]),
+	decision: z.enum(["approve", "decline", "answer"]),
+	note: z.string().optional(),
+	answer: z.union([z.object({ option: z.string() }), z.object({ text: z.string() })]).optional(),
 	decidedBy: z.string().min(1),
 	threadId: z.string().min(1),
 	// Carried opaque, like `bakedRequest` on the intent schema above. Declared
@@ -155,6 +157,8 @@ export function createAgentOrchestrationIntakeRoutes(
 			{
 				reviewMessageId: body.reviewMessageId,
 				decision: body.decision,
+				...(body.note !== undefined ? { note: body.note } : {}),
+				...(body.answer !== undefined ? { answer: body.answer } : {}),
 				decidedBy: body.decidedBy,
 				threadId: body.threadId,
 				...(body.agentConfig ? { agentConfig: body.agentConfig as BakedAgentRunnableConfig } : {}),

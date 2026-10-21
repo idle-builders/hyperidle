@@ -243,7 +243,7 @@ const RunConfigViewSchema = z.object({
 
 // derived trust signal, not a stored column
 const ReviewTrackRecordSchema = z.object({
-	/** (approve + approve-with-comments) / total. 0 when no verdicts. */
+	/** approve / total. 0 when no verdicts. */
 	approvalRate: z.number(),
 	totalVerdicts: z.number().int(),
 	/** Newest first, capped at 10. */

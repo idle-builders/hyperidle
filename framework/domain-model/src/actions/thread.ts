@@ -116,6 +116,7 @@ export type QuestionnairePayload = z.infer<typeof questionnairePayloadSchema>;
 
 // ── verdict ──────────────────────────────────────────────────────────────
 
+// Resolves a review. A reject must say why in `note` — a pure invariant below.
 export const verdictPayloadSchema = z.object({
 	decision: z.enum(VERDICT_DECISIONS),
 	resolvesMessageId: z.string(),
@@ -123,10 +124,27 @@ export const verdictPayloadSchema = z.object({
 });
 export type VerdictPayload = z.infer<typeof verdictPayloadSchema>;
 
+// ── answer ───────────────────────────────────────────────────────────────
+
+// Resolves a questionnaire: exactly one of `option` (one of its options,
+// verbatim) or `text` (the person's own words) — a pure invariant below.
+export const answerPayloadSchema = z.object({
+	resolvesMessageId: z.string(),
+	option: z.string().optional(),
+	text: z.string().max(2048).optional(),
+});
+export type AnswerPayload = z.infer<typeof answerPayloadSchema>;
+
 export function parseMessagePayload(
 	type: (typeof MESSAGE_TYPES)[number],
 	payload: unknown,
-): PlainPayload | ReviewPayload | QuestionnairePayload | VerdictPayload | RedactedPayload {
+):
+	| PlainPayload
+	| ReviewPayload
+	| QuestionnairePayload
+	| VerdictPayload
+	| AnswerPayload
+	| RedactedPayload {
 	switch (type) {
 		case "plain":
 			return z.union([plainReadPayloadSchema, redactedPayloadSchema]).parse(payload);
@@ -136,6 +154,8 @@ export function parseMessagePayload(
 			return z.union([questionnairePayloadSchema, redactedPayloadSchema]).parse(payload);
 		case "verdict":
 			return z.union([verdictPayloadSchema, redactedPayloadSchema]).parse(payload);
+		case "answer":
+			return z.union([answerPayloadSchema, redactedPayloadSchema]).parse(payload);
 	}
 }
 
@@ -160,7 +180,7 @@ export const MessageSchema = z.object({
 	threadId: z.string(),
 	senderId: z.string(),
 	type: z.enum(MESSAGE_TYPES),
-	payload: z.unknown(), // one of the four payload shapes, or the redacted variant
+	payload: z.unknown(), // one of the five payload shapes, or the redacted variant
 	clientKey: z.string(),
 	blockId: z.string().nullable(),
 	resolvedAt: z.string().nullable(),
@@ -243,7 +263,7 @@ export const SendMessageInputSchema = z
 			.max(128)
 			.regex(/^[A-Za-z0-9_\-:.]+$/)
 			.optional(),
-		// exactly one of the four bodies below — a pure invariant, not a schema rule
+		// exactly one of the five bodies below — a pure invariant, not a schema rule
 		text: z.string().max(16_384).optional(),
 		refs: z.array(inlineRefSchema).optional(), // plain only
 		blockId: z.string().max(128).optional(), // plain only
@@ -254,6 +274,7 @@ export const SendMessageInputSchema = z
 		review: reviewPayloadSchema.omit({ taskId: true }).optional(),
 		questionnaire: questionnairePayloadSchema.optional(),
 		verdict: verdictPayloadSchema.optional(),
+		answer: answerPayloadSchema.optional(),
 	})
 	.strict();
 export type SendMessageInput = z.infer<typeof SendMessageInputSchema>;
@@ -268,7 +289,9 @@ export const sendMessage: ActionDeclaration<SendMessageInput, SendMessageOutput>
 	name: "send_message",
 	sentence:
 		"Send a message. Name a thread, or name recipients to start one; leave both out to answer in " +
-		"the conversation you were called from. Send text, a review, a question or a verdict. " +
+		"the conversation you were called from. Send text, a review, a question, a verdict on a " +
+		"review (approve, or reject with the reason), or an answer to a question (one of its " +
+		"options, or your own words). " +
 		"Give a message id to replace what you already sent.",
 	input: SendMessageInputSchema,
 	output: SendMessageOutputSchema,
@@ -335,17 +358,18 @@ export function sendMessageInvariants(
 		input.review !== undefined,
 		input.questionnaire !== undefined,
 		input.verdict !== undefined,
+		input.answer !== undefined,
 	].filter(Boolean).length;
 	if (bodies === 0) {
 		problems.push({
 			code: "no_body",
-			message: "Send text, a review, a question or a verdict.",
+			message: "Send text, a review, a question, a verdict or an answer.",
 			path: "text",
 		});
 	} else if (bodies > 1) {
 		problems.push({
 			code: "two_bodies",
-			message: "Send exactly one of text, a review, a question or a verdict.",
+			message: "Send exactly one of text, a review, a question, a verdict or an answer.",
 			path: "text",
 		});
 	}
@@ -383,8 +407,83 @@ export function sendMessageInvariants(
 			path: "verdict",
 		});
 	}
+	if (input.verdict?.decision === "reject" && (input.verdict.note ?? "").trim() === "") {
+		problems.push({
+			code: "reject_needs_reason",
+			message: "Say why you reject it — the agent needs the reason to try another way.",
+			path: "verdict.note",
+		});
+	}
+
+	if (input.answer !== undefined) {
+		if (hasRecipients) {
+			problems.push({
+				code: "answer_on_new_thread",
+				message: "An answer cannot open a new thread.",
+				path: "answer",
+			});
+		}
+		const { option, text } = input.answer;
+		if ((option === undefined) === (text === undefined)) {
+			problems.push({
+				code: "answer_needs_one",
+				message: "Answer with one of the options or in your own words — exactly one of the two.",
+				path: "answer",
+			});
+		} else if (text !== undefined && text.trim() === "") {
+			problems.push({
+				code: "answer_empty",
+				message: "Your answer is empty.",
+				path: "answer.text",
+			});
+		}
+	}
 
 	return problems;
+}
+
+/**
+ * What a verdict or an answer may resolve, given the message it names: a
+ * verdict resolves a review, an answer resolves a questionnaire, and a picked
+ * option must be one the questionnaire offers.
+ */
+export function resolvesMessageInvariants(
+	input: Pick<SendMessageInput, "verdict" | "answer">,
+	target: { readonly type: string; readonly payload: unknown },
+): Problem[] {
+	if (input.verdict !== undefined && target.type !== "review") {
+		return [
+			{
+				code: "verdict_not_review",
+				message: "A verdict resolves a review. Answer a question with one of its options.",
+				path: "verdict.resolvesMessageId",
+			},
+		];
+	}
+	if (input.answer === undefined) return [];
+	if (target.type !== "questionnaire") {
+		return [
+			{
+				code: "answer_not_questionnaire",
+				message: "An answer resolves a question. Give a review a verdict.",
+				path: "answer.resolvesMessageId",
+			},
+		];
+	}
+	const { option } = input.answer;
+	if (option === undefined) return [];
+	const asked = questionnairePayloadSchema.safeParse(target.payload);
+	const options = asked.success ? asked.data.options : [];
+	if (!options.includes(option)) {
+		return [
+			{
+				code: "answer_unknown_option",
+				message: `"${option}" is not one of the options. Pick one of them, or answer in your own words.`,
+				path: "answer.option",
+			},
+		];
+	}
+	return [];
 }
 
 export function adjustThreadInvariants(input: AdjustThreadInput): Problem[] {

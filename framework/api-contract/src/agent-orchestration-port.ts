@@ -51,7 +51,10 @@ export type AgentOrchestrationReviewVerdictOutcome =
 
 export interface AgentOrchestrationReviewVerdictInput {
 	readonly reviewMessageId: string;
-	readonly decision: "approve" | "decline";
+	/** Mirrors `SessionResumeReply` (`@hyperidle/domain-model`). */
+	readonly decision: "approve" | "decline" | "answer";
+	readonly note?: string;
+	readonly answer?: { readonly option: string } | { readonly text: string };
 	readonly decidedBy: string;
 	readonly threadId: string;
 	/**

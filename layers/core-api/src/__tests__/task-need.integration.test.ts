@@ -9,6 +9,8 @@ import type {
 	ActionResult,
 	EditTaskInput,
 	SearchTasksInput,
+	SendMessageInput,
+	SendMessageOutput,
 	TaskListItem,
 	TaskView,
 } from "@hyperidle/domain-model";
@@ -20,6 +22,7 @@ import { buildCoreActions } from "../actions/compose.js";
 
 const ACTOR = "need-test-human";
 const TEAM_ID = "need-test-team";
+const AGENT = "need-test-agent";
 
 function makeCtx(db: HyperIdleDb, eventBus: EventBus): ActionContext {
 	return { actor: ACTOR, db, eventBus, now: new Date().toISOString() };
@@ -35,6 +38,10 @@ function makeRunners(agentOrchestration: AgentOrchestrationPort) {
 		ctx: ActionContext,
 		input: EditTaskInput,
 	) => Promise<ActionResult<TaskView>>;
+	const sendMessage = actions.find((a) => a.declaration.name === "send_message")!.run as (
+		ctx: ActionContext,
+		input: SendMessageInput,
+	) => Promise<ActionResult<SendMessageOutput>>;
 	const searchTasks = actions.find((a) => a.declaration.name === "search_tasks")!.run as (
 		ctx: ActionContext,
 		input: SearchTasksInput,
@@ -43,7 +50,7 @@ function makeRunners(agentOrchestration: AgentOrchestrationPort) {
 		ctx: ActionContext,
 		input: { id: string },
 	) => Promise<ActionResult<TaskView>>;
-	return { editTask, searchTasks, openTask };
+	return { editTask, searchTasks, openTask, sendMessage };
 }
 
 async function seedActor(db: HyperIdleDb): Promise<void> {
@@ -132,6 +139,53 @@ describe("task need computation — search_tasks and open_task", () => {
 		expect(clearedSearch.ok).toBe(true);
 		if (!clearedSearch.ok) return;
 		expect(clearedSearch.data[0]?.need).toBeNull();
+	});
+
+	test("an agent's question sent through send_message makes need:input; the person picking an option clears it", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedActor(db);
+		await db.insert(users).values({
+			id: AGENT,
+			name: AGENT,
+			role: "builder",
+			status: "active",
+			kind: "ai",
+			teamId: TEAM_ID,
+			createdAt: new Date().toISOString(),
+		});
+		const { editTask, searchTasks, sendMessage } = makeRunners(agentOrchestration);
+		const created = await editTask(makeCtx(db, eventBus), { title: "Ask me", teamId: TEAM_ID });
+		if (!created.ok) throw new Error(JSON.stringify(created.problems));
+		const { task, threadId } = created.data;
+		const needOf = async () => {
+			const found = await searchTasks(makeCtx(db, eventBus), { ids: [task.id] });
+			return found.ok ? found.data[0]?.need : "search failed";
+		};
+
+		const asked = await sendMessage(
+			{ ...makeCtx(db, eventBus), actor: AGENT },
+			{
+				threadId,
+				questionnaire: {
+					title: "Billing",
+					question: "Monthly or yearly?",
+					options: ["Monthly", "Yearly"],
+				},
+			},
+		);
+		if (!asked.ok) throw new Error(JSON.stringify(asked.problems));
+		expect(await needOf()).toBe("input");
+
+		const answered = await sendMessage(makeCtx(db, eventBus), {
+			threadId,
+			answer: { resolvesMessageId: asked.data.message.id, option: "Yearly" },
+		});
+
+		expect(answered.ok).toBe(true);
+		expect(await needOf()).toBeNull();
 	});
 
 	test("review message → need:review", async ({ db, eventBus, agentOrchestration }) => {

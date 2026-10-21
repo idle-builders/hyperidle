@@ -33,12 +33,13 @@ Host is immutable after creation.
 
 ## Message types (closed)
 
-`MESSAGE_TYPES` (`thread.ts`): `plain | review | questionnaire | verdict`.
+`MESSAGE_TYPES` (`thread.ts`): `plain | review | questionnaire | verdict | answer`.
 
 - **plain** — text, optional inline refs (entity refs, mention refs, canvas refs), optional `blockId` anchor.
 - **review** — agent submits evidence for a human to decide on; has a `title`, `reasoning`, optional `artifacts` (canvas payloads).
-- **questionnaire** — agent asks a constrained question; has a `title`, `question`, `options`.
-- **verdict** — human answers a review or questionnaire; carries `decision` and `resolvesMessageId`.
+- **questionnaire** — agent asks a constrained question; has a `title`, `question`, `options` (up to 16).
+- **verdict** — a human approves or rejects a review; carries `decision`, `resolvesMessageId` and an optional `note`.
+- **answer** — answers a questionnaire; carries `resolvesMessageId` and exactly one of `option` (one of the questionnaire's options, word for word) or `text` (the sender's own words).
 
 Messages are append-only. Payload is immutable after persistence. Soft-delete via `deletedAt`. Redaction replaces payload with `{ redacted: true, redactedBy, redactedAt, reason }`.
 
@@ -50,17 +51,18 @@ A plain message may carry `refs: InlineRef[]`. `InlineRef` is a discriminated un
 - `MentionRef` — kind `mention`; carries `identityId`, `displayName`, `sourceText`.
 - `CanvasArtifactRef` — kind `artifact`; points to a `ReviewCanvasArtifact` id inside a review message payload, not a stored artifacts-table row.
 
-## Verdict grammar
+## Verdicts and answers
 
-Five decisions: `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`. Declared in `VERDICT_DECISIONS` (`thread.ts`).
+A review is resolved by a verdict; a questionnaire is resolved by an answer. Nothing else resolves either. Resolving sets `resolvedAt` on the resolved message.
 
-A verdict message carries `decision` + `resolvesMessageId` pointing at the review or questionnaire it terminates. Resolving sets `resolvedAt` on that message.
+- **Verdict** — two decisions, `approve` and `reject` (`VERDICT_DECISIONS`, `thread.ts`). A `reject` must carry a non-empty `note` saying why; `send_message` refuses one without (`reject_needs_reason`). There is no "request changes" verdict — to ask for a change, comment. Only a human gives a verdict, and never on their own review.
+- **Answer** — names one of the questionnaire's options (`answer_unknown_option` if it is not one of them) or gives non-empty text of its own. Humans and agents answer the same way.
 
-Display labels: approve / approve-with-comments → APPROVED; reject → REJECTED; request-changes → CHANGES REQUESTED; edit → EDITED.
+Display labels: approve → APPROVED; reject → REJECTED (`verdictDecisionLabel`).
 
 ## The review flow
 
-An agent asks for a human decision by sending a review message (`send_message({ review: ... })`). That session ends. The `review_sessions` table records the link between review message and session. When a human sends a verdict, the verdict handler (`thread-actions.ts`) calls `recordVerdictAndQueueResume` which queues a `session_resume` work intent. The agent's session is resumed with the verdict as input.
+An agent asks for a human decision by sending a review or a questionnaire (`send_message({ review: ... })` / `send_message({ questionnaire: ... })`). That session ends. The `review_sessions` table records the link between the asking message and the session. When the verdict or answer arrives, `send_message` (`thread-actions.ts`) calls the review-verdict recorder, which queues a `session_resume` work intent. The session resumes with a message that says what came back — approved (with the note), rejected (with the reason), or the option picked or words written (`verdict-message.ts`).
 
 No interception exists. The agent elects to ask; nothing blocks a tool call pending approval.
 

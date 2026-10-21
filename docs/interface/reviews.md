@@ -2,7 +2,7 @@
 
 ## How a review works
 
-An agent sends a message of type `review` when it needs a human decision. The session ends. The human opens the review page (`/reviews/:reviewId`), reads the canvas, and casts a verdict. The agent's session resumes on approval.
+An agent sends a message of type `review` when it needs a human decision. The session ends. The human opens the review page (`/reviews/:reviewId`), reads the canvas, and casts a verdict. The agent's session resumes with it.
 
 No review is auto-approved.
 
@@ -34,4 +34,4 @@ Every canvas shows a source link (`sourceHref`). `isSafeSourceHref` validates th
 
 ## Verdicts
 
-One verdict per review subject. The verdict UI is buttons only. Verdict decisions: `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`. On approval the review's associated session resumes.
+One verdict per review subject: **Approve** or **Reject**. A reject must say why — the reason goes back to the agent. To ask for a change, comment instead of giving a verdict. Either verdict resumes the review's associated session.

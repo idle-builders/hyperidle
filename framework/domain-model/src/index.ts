@@ -143,6 +143,7 @@ export {
 	parseMessagePayload,
 	plainPayloadSchema,
 	questionnairePayloadSchema,
+	resolvesMessageInvariants,
 	reviewPayloadSchema,
 	SearchThreadsInputSchema,
 	SendMessageInputSchema,
@@ -345,5 +346,6 @@ export type {
 	ReviewVerdictOutcome,
 	ReviewVerdictRecorderFn,
 	SessionDocumentLike,
+	SessionResumeReply,
 } from "./work-intent.js";
 export { bakeAgentRunnableConfig, toBakedContextDocuments } from "./work-intent.js";

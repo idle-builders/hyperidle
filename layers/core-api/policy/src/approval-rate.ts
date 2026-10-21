@@ -15,7 +15,7 @@ export interface ApprovalRateResult {
 	}>;
 }
 
-// Compute approval rate: attribution is by thread initiatorId; approval = "approve" or "approve-with-comments".
+// Compute approval rate: attribution is by thread initiatorId; approval = "approve".
 export async function computeApprovalRate(
 	db: HyperIdleDb,
 	agentId: string,
@@ -37,7 +37,7 @@ export async function computeApprovalRate(
 	let approvalCount = 0;
 	for (const row of allRows) {
 		const payload = JSON.parse(row.payload) as { decision: string };
-		if (payload.decision === "approve" || payload.decision === "approve-with-comments") {
+		if (payload.decision === "approve") {
 			approvalCount++;
 		}
 	}

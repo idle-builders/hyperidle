@@ -18,7 +18,7 @@ export interface AgentVerdictEntry {
 
 /** Review track record — derived trust signal computed from verdict messages in a sliding window. */
 export interface AgentReviewTrackRecord {
-	/** Approval rate: (approve + approve-with-comments) / total. 0 when no verdicts. */
+	/** Approval rate: approve / total. 0 when no verdicts. */
 	readonly approvalRate: number;
 	/** Total verdict count in the sliding window. */
 	readonly totalVerdicts: number;

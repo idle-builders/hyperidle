@@ -26,15 +26,18 @@ import {
 	IdentitySchema,
 	type Message,
 	MessageSchema,
+	type MessageType,
 	type OpenThreadInput,
 	openThread as openThreadDeclaration,
 	type Problem,
 	type ReviewVerdictOutcome,
 	type ReviewVerdictRecorderFn,
+	resolvesMessageInvariants,
 	type SearchDocumentsInput,
 	type SearchThreadsInput,
 	type SendMessageInput,
 	type SendMessageOutput,
+	type SessionResumeReply,
 	searchThreads as searchThreadsDeclaration,
 	sendMessage as sendMessageDeclaration,
 	sendMessageInvariants,
@@ -789,30 +792,31 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			}
 		}
 
-		if (input.verdict !== undefined) {
-			resolvesMessageRow = await store.findMessage(ctx.db, {
-				id: input.verdict.resolvesMessageId,
-			});
+		const resolvesMessageId = (input.verdict ?? input.answer)?.resolvesMessageId;
+		if (resolvesMessageId !== undefined) {
+			resolvesMessageRow = await store.findMessage(ctx.db, { id: resolvesMessageId });
 			if (!resolvesMessageRow) {
 				return {
 					ok: false,
 					problems: [
-						{ code: "not_found", message: "The message this verdict resolves was not found." },
+						{ code: "not_found", message: "The message this reply resolves was not found." },
 					],
 				};
 			}
-			const sender = await deps.users.getUserById(ctx.db, ctx.actor);
-			if (sender?.kind !== "human") {
-				return {
-					ok: false,
-					problems: [{ code: "verdict_not_human", message: "Only a human may give a verdict." }],
-				};
-			}
-			if (resolvesMessageRow.senderId === ctx.actor) {
-				return {
-					ok: false,
-					problems: [{ code: "verdict_self", message: "You cannot verdict your own review." }],
-				};
+			if (input.verdict !== undefined) {
+				const sender = await deps.users.getUserById(ctx.db, ctx.actor);
+				if (sender?.kind !== "human") {
+					return {
+						ok: false,
+						problems: [{ code: "verdict_not_human", message: "Only a human may give a verdict." }],
+					};
+				}
+				if (resolvesMessageRow.senderId === ctx.actor) {
+					return {
+						ok: false,
+						problems: [{ code: "verdict_self", message: "You cannot verdict your own review." }],
+					};
+				}
 			}
 			if (resolvesMessageRow.threadId !== effectiveThreadId) {
 				return {
@@ -820,11 +824,16 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					problems: [
 						{
 							code: "verdict_foreign_review",
-							message: "That review lives in a different thread.",
+							message: "That message lives in a different thread.",
 						},
 					],
 				};
 			}
+			const resolveProblems = resolvesMessageInvariants(input, {
+				type: resolvesMessageRow.type,
+				payload: JSON.parse(resolvesMessageRow.payload),
+			});
+			if (resolveProblems.length > 0) return { ok: false, problems: resolveProblems };
 		}
 
 		// -- 5. inside one transaction -----------------------------------------
@@ -982,7 +991,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					await store.insertMessage(tx as HyperIdleDb, values);
 				}
 
-				if (input.verdict !== undefined && resolvesMessageRow) {
+				if (resolvesMessageRow) {
 					const updated = await store.resolveMessageIfUnresolved(
 						tx as HyperIdleDb,
 						resolvesMessageRow.id,
@@ -1095,21 +1104,21 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				isAgent,
 			});
 		}
-		const woke =
-			input.verdict !== undefined && resolvesMessageRow
-				? [...new Set([...woken, resolvesMessageRow.senderId])]
-				: woken;
+		const woke = resolvesMessageRow ? [...new Set([...woken, resolvesMessageRow.senderId])] : woken;
 
 		// Every row this call appended is one object event;
 		// `pushRows` already carries them all: the message,
 		// the create (if any) and the resolve/reopen (if any).
 		emitObjectEvents(ctx.eventBus, pushRows, woke);
 
-		if (body.type === "review" && ctx.caller?.sessionId) {
+		// A question ends the asking session the same way a review does, so it is
+		// linked the same way — the answer is what brings that session back.
+		if ((body.type === "review" || body.type === "questionnaire") && ctx.caller?.sessionId) {
 			await deps.linkReviewToSession(ctx.caller.sessionId, messageId);
 		}
 
-		if (input.verdict !== undefined && resolvesMessageRow) {
+		const reply = replyOf(input);
+		if (reply !== undefined && resolvesMessageRow) {
 			let verdictOutcome: ReviewVerdictOutcome;
 			try {
 				// The agent that asked is the review's own sender. Its runnable
@@ -1120,12 +1129,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					? await deps.agents.getAgentIdentity(ctx, askingAgent.id)
 					: null;
 				verdictOutcome = await deps.reviewVerdictRecorder({
+					...reply,
 					reviewMessageId: resolvesMessageRow.id,
-					decision:
-						input.verdict.decision === "approve" ||
-						input.verdict.decision === "approve-with-comments"
-							? "approve"
-							: "decline",
 					decidedBy: ctx.actor,
 					threadId: effectiveThreadId,
 					...(askingAgent ? { agentConfig: bakeAgentRunnableConfig(askingAgent, persona) } : {}),
@@ -1141,7 +1146,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					{ actor: ctx.actor, db: ctx.db, eventBus: ctx.eventBus, now: ctx.now },
 					{
 						threadId: effectiveThreadId,
-						text: `This action was approved but could not be carried out: ${verdictOutcome.reason}. The agent has not been told, and the action has not run.`,
+						text:
+							reply.decision === "answer"
+								? `This answer could not reach the agent: ${verdictOutcome.reason}. The agent has not been told.`
+								: `This action was approved but could not be carried out: ${verdictOutcome.reason}. The agent has not been told, and the action has not run.`,
 					},
 				);
 			}
@@ -1378,9 +1386,26 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 	];
 }
 
-/** The one non-null body out of the four `send_message` may carry. */
+/** What a verdict or an answer tells the agent whose review or question it resolves. */
+function replyOf(input: SendMessageInput): SessionResumeReply | undefined {
+	if (input.verdict !== undefined) {
+		const { decision, note } = input.verdict;
+		return {
+			decision: decision === "approve" ? "approve" : "decline",
+			...(note !== undefined ? { note } : {}),
+		};
+	}
+	if (input.answer !== undefined) {
+		const { option, text } = input.answer;
+		const answer = option !== undefined ? { option } : text !== undefined ? { text } : undefined;
+		return { decision: "answer", ...(answer !== undefined ? { answer } : {}) };
+	}
+	return undefined;
+}
+
+/** The one non-null body out of the five `send_message` may carry. */
 function messageBodyOf(input: SendMessageInput): {
-	type: "plain" | "review" | "questionnaire" | "verdict";
+	type: MessageType;
 	payload: Record<string, unknown>;
 	blockId?: string;
 } {
@@ -1403,5 +1428,7 @@ function messageBodyOf(input: SendMessageInput): {
 			type: "questionnaire",
 			payload: input.questionnaire as unknown as Record<string, unknown>,
 		};
-	return { type: "verdict", payload: input.verdict as unknown as Record<string, unknown> };
+	if (input.verdict !== undefined)
+		return { type: "verdict", payload: input.verdict as unknown as Record<string, unknown> };
+	return { type: "answer", payload: input.answer as unknown as Record<string, unknown> };
 }
