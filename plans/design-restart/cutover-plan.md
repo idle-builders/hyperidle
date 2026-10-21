@@ -65,7 +65,12 @@ working through the backend changes.
   words (`need`, `openBelow`, live `task:<id>` / `tasks` topics); answer a question by option,
   verdict is approve or reject with a reason; a person in several teams, an agent in one, all
   knowledge readable by everyone.
-- [ ] Step 4 screens, wired to real data — next.
+- [ ] Step 4 screens, wired to real data:
+  - [x] the frame: the sidebar on real data and live, a URL per screen, the `call` / `useAction`
+    client, Playwright back against the real server on a fresh demo world. A thread row says what
+    it waits on from you (`need`: stuck, input or review), who spoke last, and whether you were
+    named. A review opens at its thread's address with `?review=<message id>`.
+  - [ ] Conversations — next.
 - [ ] Step 5 finish.
 
 
