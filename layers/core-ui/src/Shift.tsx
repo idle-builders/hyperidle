@@ -3,7 +3,6 @@ import { CHAT_FORMATS, FormatBar } from "./FormatBar";
 import { type Close, Closes, type Reason, Reasons } from "./Loop";
 import { Msg } from "./Msg";
 import { NEED_WORDS, type Need, NeedIcon } from "./NeedIcon";
-import { type Item, Sidebar, WORK } from "./Sidebar";
 
 /**
  * RUN THE SHIFT — the task page. Planning happens before, in documents and conversations;
@@ -19,17 +18,6 @@ import { type Item, Sidebar, WORK } from "./Sidebar";
  * task reads as a loop: the decisions and assumptions that sent it one way, then what "done"
  * means and whether each line of it checks itself or needs a person.
  */
-export const SHIFT_STEPS = [
-	{ id: 0, name: "A large task: its parts and summary" },
-	{ id: 1, name: "Click a part: its subtasks show" },
-	{ id: 2, name: "Go deeper: a part needs input" },
-	{ id: 3, name: "Deeper still: the graph moves along" },
-	{ id: 4, name: "A small fix: no graph" },
-	{ id: 5, name: "A recurring task: twelve runs, folded" },
-	{ id: 6, name: "Steer it, hold it, stop it" },
-	{ id: 7, name: "Stopped: start it again" },
-];
-
 type Id =
 	| "trials"
 	| "understand"
@@ -897,20 +885,6 @@ const rootOf = (id: Id): Id => {
 	return p ? rootOf(p) : id;
 };
 
-/** The Work list shows root tasks only. */
-const ROWS: Partial<Record<Id, string>> = { trials: "w-f1", utc: "w-d2", weekly: "w-wk" };
-const LIST: Item[] = [
-	...WORK.map((i) => (i.id === "w-f1" ? { ...i, state: stateOf("trials") } : i)),
-	{
-		id: "w-wk",
-		title: "Support themes, weekly",
-		state: "Every Monday",
-		who: "Growth",
-		age: "Mon 07:00",
-		team: "Product",
-	},
-];
-
 const STEERED: Line[] = [
 	{
 		id: "s1",
@@ -1489,139 +1463,122 @@ export function Shift({ step }: { step: number }) {
 	const closes: Close[] = [...(t.closes ?? []), ...(asked.has(sel) ? [ASKED] : [])];
 
 	return (
-		<>
-			<Sidebar
-				key={root}
-				initialSpine="work"
-				initialPicked={ROWS[root] ?? null}
-				lists={{
-					work: stopped
-						? LIST.map((i) => (i.id === ROWS[root] ? { ...i, state: "Stopped" } : i))
-						: LIST,
-				}}
-			/>
-			<section className="detail">
-				<header className="detail-head">
-					<span className="chip chip--quiet">Task</span>
-					<span className="doc-state">
-						{stopped ? "Stopped" : held ? "On hold" : stateOf(root)}
-					</span>
-				</header>
+		<section className="detail">
+			<header className="detail-head">
+				<span className="chip chip--quiet">Task</span>
+				<span className="doc-state">{stopped ? "Stopped" : held ? "On hold" : stateOf(root)}</span>
+			</header>
 
-				<div className="detail-scroll">
-					<article className="tk-page">
-						<div className="tk-main">
-							<h1 className="page-title">{r.title}</h1>
-							<p className="stand">
-								{r.needs && !(held || stopped) && <NeedIcon kind={r.needs} />}
-								<span>
-									{stopped
-										? "Stopped. The agents stopped where they were; nothing they did is undone. Start again, and they pick up from there."
-										: held
-											? "On hold. The agents finish what they are doing, then wait."
-											: r.stand}
-								</span>
-							</p>
-							<p>{r.about}</p>
+			<div className="detail-scroll">
+				<article className="tk-page">
+					<div className="tk-main">
+						<h1 className="page-title">{r.title}</h1>
+						<p className="stand">
+							{r.needs && !(held || stopped) && <NeedIcon kind={r.needs} />}
+							<span>
+								{stopped
+									? "Stopped. The agents stopped where they were; nothing they did is undone. Start again, and they pick up from there."
+									: held
+										? "On hold. The agents finish what they are doing, then wait."
+										: r.stand}
+							</span>
+						</p>
+						<p>{r.about}</p>
 
-							{r.kids && (
-								<section className="tk-map" aria-label="Parts of this task">
-									<h3>
-										Parts{" "}
-										<span>
-											{r.state ? `${all.length - 1} runs so far, the next one last` : tally}
-										</span>
-									</h3>
-									{sel !== root && (
-										<nav className="crumbs" aria-label="Where you are in this task">
-											<button type="button" onClick={() => setSel(root)}>
-												The whole task
+						{r.kids && (
+							<section className="tk-map" aria-label="Parts of this task">
+								<h3>
+									Parts{" "}
+									<span>
+										{r.state ? `${all.length - 1} runs so far, the next one last` : tally}
+									</span>
+								</h3>
+								{sel !== root && (
+									<nav className="crumbs" aria-label="Where you are in this task">
+										<button type="button" onClick={() => setSel(root)}>
+											The whole task
+										</button>
+										{path.map((id) => (
+											<button key={id} type="button" onClick={() => setSel(id)}>
+												{TASKS[id].title}
 											</button>
-											{path.map((id) => (
-												<button key={id} type="button" onClick={() => setSel(id)}>
-													{TASKS[id].title}
-												</button>
-											))}
-											<span aria-current="true">{t.title}</span>
-										</nav>
-									)}
-									<Graph from={from} columns={deepest - first + 1} view={view} />
-								</section>
+										))}
+										<span aria-current="true">{t.title}</span>
+									</nav>
+								)}
+								<Graph from={from} columns={deepest - first + 1} view={view} />
+							</section>
+						)}
+
+						<div className={sel === root ? "tk-part" : "tk-part tk-part--sub"} key={sel}>
+							{sel !== root && (
+								<>
+									<h2 className="tk-part-title">{t.title}</h2>
+									<p className="stand">
+										{t.needs && <NeedIcon kind={t.needs} />}
+										<span>{t.stand}</span>
+									</p>
+									<p>{t.about}</p>
+								</>
+							)}
+							{t.reasons && <Reasons items={t.reasons} />}
+							{closes.length > 0 && <Closes items={closes} />}
+
+							<h3>
+								Summary{" "}
+								{t.summary && (
+									<span>
+										by {t.owner} · {t.summary.when}
+									</span>
+								)}
+							</h3>
+							{t.summary ? (
+								<ul className="task-list">
+									{t.summary.lines.map((l) => (
+										<li key={l}>{l}</li>
+									))}
+								</ul>
+							) : (
+								<p className="tk-none">No summary yet. It has not started.</p>
 							)}
 
-							<div className={sel === root ? "tk-part" : "tk-part tk-part--sub"} key={sel}>
-								{sel !== root && (
-									<>
-										<h2 className="tk-part-title">{t.title}</h2>
-										<p className="stand">
-											{t.needs && <NeedIcon kind={t.needs} />}
-											<span>{t.stand}</span>
-										</p>
-										<p>{t.about}</p>
-									</>
-								)}
-								{t.reasons && <Reasons items={t.reasons} />}
-								{closes.length > 0 && <Closes items={closes} />}
-
-								<h3>
-									Summary{" "}
-									{t.summary && (
-										<span>
-											by {t.owner} · {t.summary.when}
-										</span>
-									)}
-								</h3>
-								{t.summary ? (
-									<ul className="task-list">
-										{t.summary.lines.map((l) => (
-											<li key={l}>{l}</li>
-										))}
-									</ul>
-								) : (
-									<p className="tk-none">No summary yet. It has not started.</p>
-								)}
-
-								<h3>
-									Conversation <span>also in Conversations</span>
-								</h3>
-								{lines.length === 0 && <p className="tk-none">Nothing said here yet.</p>}
-								{lines.map((l) => (
-									<Msg key={l.id} who={l.av} human={l.human} name={l.name} at={l.at}>
-										{l.body}
-									</Msg>
-								))}
-								<div className="composer-box task-reply">
-									<input
-										placeholder={`Tell ${t.owner} something, or @someone…`}
-										aria-label="Reply"
-									/>
-									<div className="composer-row">
-										<FormatBar kinds={CHAT_FORMATS} />
-										<button type="button" className="btn btn--accent">
-											Send
-										</button>
-									</div>
+							<h3>
+								Conversation <span>also in Conversations</span>
+							</h3>
+							{lines.length === 0 && <p className="tk-none">Nothing said here yet.</p>}
+							{lines.map((l) => (
+								<Msg key={l.id} who={l.av} human={l.human} name={l.name} at={l.at}>
+									{l.body}
+								</Msg>
+							))}
+							<div className="composer-box task-reply">
+								<input placeholder={`Tell ${t.owner} something, or @someone…`} aria-label="Reply" />
+								<div className="composer-row">
+									<FormatBar kinds={CHAT_FORMATS} />
+									<button type="button" className="btn btn--accent">
+										Send
+									</button>
 								</div>
 							</div>
 						</div>
+					</div>
 
-						<TaskBox
-							key={sel}
-							id={sel}
-							held={held}
-							stopped={stopped}
-							reviewed={closes.some((c) => c.by === "review")}
-							onHold={() => setHeld(!held)}
-							onStop={() => {
-								setStopped(!stopped);
-								setHeld(false);
-							}}
-							onAsk={() => setAsked(new Set([...asked, sel]))}
-							onPick={setSel}
-						/>
-					</article>
-				</div>
-			</section>
-		</>
+					<TaskBox
+						key={sel}
+						id={sel}
+						held={held}
+						stopped={stopped}
+						reviewed={closes.some((c) => c.by === "review")}
+						onHold={() => setHeld(!held)}
+						onStop={() => {
+							setStopped(!stopped);
+							setHeld(false);
+						}}
+						onAsk={() => setAsked(new Set([...asked, sel]))}
+						onPick={setSel}
+					/>
+				</article>
+			</div>
+		</section>
 	);
 }

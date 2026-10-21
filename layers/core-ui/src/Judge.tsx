@@ -9,16 +9,6 @@ import { type Close, Closes, type Reason, Reasons } from "./Loop";
  * work, the loop: what already checked itself (so your attention goes to the rest), and the
  * decisions and assumptions it rests on (so you can judge why it went this way).
  */
-export const JUDGE_STEPS = [
-	{ id: 0, name: "Opened — agent's pointers" },
-	{ id: 1, name: "You ask on a spot" },
-	{ id: 2, name: "Answers came back" },
-	{ id: 3, name: "Approved, one still open" },
-	{ id: 4, name: "Rejected, reason sent back" },
-	{ id: 5, name: "Round 2 came back" },
-	{ id: 6, name: "Round 2 approved" },
-];
-
 const SEEDED_REASON =
 	"Wrong direction. Customers need the warning in the email, not only on this page — most never open the page before the charge.";
 

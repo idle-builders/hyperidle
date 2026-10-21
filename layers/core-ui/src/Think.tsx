@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DOC_FORMATS, type Format, FormatBar } from "./FormatBar";
 import { mentionables } from "./handoff";
-import { Sidebar } from "./Sidebar";
 
 /**
  * THINK — a document stays a document; conversation is a layer on top, in the margin. A comment
@@ -65,17 +64,6 @@ function ForPick({ open: initial }: { open: boolean }) {
 	);
 }
 
-export const THINK_STEPS = [
-	{ id: 0, name: "Edit mode: write" },
-	{ id: 1, name: "Add a table from the format bar" },
-	{ id: 2, name: "Comment on a block" },
-	{ id: 3, name: "Drag to narrow the region" },
-	{ id: 4, name: "Reply proposes a change" },
-	{ id: 5, name: "Change applied" },
-	{ id: 6, name: "Hand off from the doc" },
-	{ id: 7, name: "Published, view mode" },
-	{ id: 8, name: "Who it is for: agents of one discipline" },
-];
 /** The walkthrough's steps by name, so the story below reads without counting. */
 const AT = { add: 1, comment: 2, narrow: 3, propose: 4, applied: 5, handoff: 6, published: 7 };
 
@@ -922,128 +910,121 @@ export function Think({ step }: { step: number }) {
 	const writingAtEnd = edit && added.length === 0;
 
 	return (
-		<>
-			<Sidebar
-				initialSpine="knowledge"
-				initialPicked="t-10days"
-				published={published ? ["t-10days"] : []}
-			/>
-			<section className="detail">
-				<header className="detail-head">
-					<span className="chip chip--quiet">Document</span>
-					<span className="doc-state">{published ? "Published · 4 followers told" : "Draft"}</span>
-					<ForPick open={step === 8} />
-					<span className="doc-act">
-						{(anyComments || hidden) && (
-							<button type="button" className="tool doc-cm" onClick={() => setHidden(!hidden)}>
-								<Bubble />
-								{hidden ? "Show comments" : "Hide comments"}
+		<section className="detail">
+			<header className="detail-head">
+				<span className="chip chip--quiet">Document</span>
+				<span className="doc-state">{published ? "Published · 4 followers told" : "Draft"}</span>
+				<ForPick open={step === 8} />
+				<span className="doc-act">
+					{(anyComments || hidden) && (
+						<button type="button" className="tool doc-cm" onClick={() => setHidden(!hidden)}>
+							<Bubble />
+							{hidden ? "Show comments" : "Hide comments"}
+						</button>
+					)}
+					{edit ? (
+						<>
+							<span className="doc-mode">✎ Editing</span>
+							<button type="button" className="btn" onClick={() => setEdit(false)}>
+								Done
 							</button>
-						)}
-						{edit ? (
-							<>
-								<span className="doc-mode">✎ Editing</span>
-								<button type="button" className="btn" onClick={() => setEdit(false)}>
-									Done
+						</>
+					) : (
+						<>
+							{published && (
+								<button
+									type="button"
+									className="btn"
+									aria-pressed={following}
+									onClick={() => setFollowing(!following)}
+								>
+									{following ? "Following" : "Follow"}
 								</button>
-							</>
-						) : (
-							<>
-								{published && (
-									<button
-										type="button"
-										className="btn"
-										aria-pressed={following}
-										onClick={() => setFollowing(!following)}
-									>
-										{following ? "Following" : "Follow"}
-									</button>
-								)}
-								<button type="button" className="btn" onClick={() => setEdit(true)}>
-									✎ Edit
-								</button>
-							</>
-						)}
-						{!published && (
-							<button
-								type="button"
-								className="btn btn--accent"
-								onClick={() => {
-									setPublished(true);
-									setEdit(false);
-								}}
-							>
-								Publish
-							</button>
-						)}
-					</span>
-				</header>
-
-				<div className="detail-scroll">
-					<article className={drag ? "page page--dragging" : "page"} ref={pageRef}>
-						<h1 className="page-title">🤔 Should trials be 10 days?</h1>
-
-						<Block edit={edit} {...margin("intro")}>
-							{intro.map((p, i) => (
-								<p key={doc.intro[i]}>{p}</p>
-							))}
-						</Block>
-
-						<Block edit={edit} heading>
-							<h3>What we know</h3>
-						</Block>
-						<Block edit={edit} {...margin("know")}>
-							<ul>
-								{know.map((item, i) => (
-									<li key={doc.know[i]}>{item}</li>
-								))}
-							</ul>
-						</Block>
-
-						<Block edit={edit} heading>
-							<h3>Decision</h3>
-						</Block>
-						<Block
-							edit={edit}
-							active={added.length === 0}
-							{...margin(
-								"decision",
-								<button type="button" className="cm-task">
-									<span className="cm-task-k">Task</span>
-									<span className="cm-task-t">10-day trial for new signups</span>
-									<span className="cm-task-s">Builder · Queued</span>
-								</button>,
 							)}
+							<button type="button" className="btn" onClick={() => setEdit(true)}>
+								✎ Edit
+							</button>
+						</>
+					)}
+					{!published && (
+						<button
+							type="button"
+							className="btn btn--accent"
+							onClick={() => {
+								setPublished(true);
+								setEdit(false);
+							}}
 						>
-							{doc.decision.length === 0 && (
-								<p className="page-empty">Not yet{writingAtEnd && <span className="caret" />}</p>
-							)}
-							{decision.map((p, i) => (
-								<p key={doc.decision[i]}>
-									{p}
-									{writingAtEnd && i === decision.length - 1 && <span className="caret" />}
-								</p>
-							))}
-						</Block>
+							Publish
+						</button>
+					)}
+				</span>
+			</header>
 
-						{added.map((a, i) => (
-							<Block key={a.id} edit={edit} active={i === added.length - 1}>
-								{piece(a, i === added.length - 1)}
-							</Block>
+			<div className="detail-scroll">
+				<article className={drag ? "page page--dragging" : "page"} ref={pageRef}>
+					<h1 className="page-title">🤔 Should trials be 10 days?</h1>
+
+					<Block edit={edit} {...margin("intro")}>
+						{intro.map((p, i) => (
+							<p key={doc.intro[i]}>{p}</p>
 						))}
+					</Block>
 
-						{edit && <p className="blk-empty">Type / for a block, @ to ask someone</p>}
-					</article>
-				</div>
-				{edit && (
-					<FormatBar
-						floating
-						kinds={DOC_FORMATS}
-						active={added[added.length - 1]?.kind ?? null}
-						onAdd={(kind) => setAdded((all) => [...all, { id: all.length, kind }])}
-					/>
-				)}
-			</section>
-		</>
+					<Block edit={edit} heading>
+						<h3>What we know</h3>
+					</Block>
+					<Block edit={edit} {...margin("know")}>
+						<ul>
+							{know.map((item, i) => (
+								<li key={doc.know[i]}>{item}</li>
+							))}
+						</ul>
+					</Block>
+
+					<Block edit={edit} heading>
+						<h3>Decision</h3>
+					</Block>
+					<Block
+						edit={edit}
+						active={added.length === 0}
+						{...margin(
+							"decision",
+							<button type="button" className="cm-task">
+								<span className="cm-task-k">Task</span>
+								<span className="cm-task-t">10-day trial for new signups</span>
+								<span className="cm-task-s">Builder · Queued</span>
+							</button>,
+						)}
+					>
+						{doc.decision.length === 0 && (
+							<p className="page-empty">Not yet{writingAtEnd && <span className="caret" />}</p>
+						)}
+						{decision.map((p, i) => (
+							<p key={doc.decision[i]}>
+								{p}
+								{writingAtEnd && i === decision.length - 1 && <span className="caret" />}
+							</p>
+						))}
+					</Block>
+
+					{added.map((a, i) => (
+						<Block key={a.id} edit={edit} active={i === added.length - 1}>
+							{piece(a, i === added.length - 1)}
+						</Block>
+					))}
+
+					{edit && <p className="blk-empty">Type / for a block, @ to ask someone</p>}
+				</article>
+			</div>
+			{edit && (
+				<FormatBar
+					floating
+					kinds={DOC_FORMATS}
+					active={added[added.length - 1]?.kind ?? null}
+					onAdd={(kind) => setAdded((all) => [...all, { id: all.length, kind }])}
+				/>
+			)}
+		</section>
 	);
 }

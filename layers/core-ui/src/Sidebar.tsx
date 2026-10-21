@@ -1,237 +1,33 @@
-import { type ReactNode, useState } from "react";
-import { TEAMS, type TeamName } from "./teams";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
+import { call } from "./api";
+import { listen } from "./live";
+import {
+	conversationItems,
+	type Doc,
+	type Inbox,
+	type Item,
+	initials,
+	knowledgeItems,
+	knowledgeTree,
+	namesOf,
+	noteWhat,
+	age as relative,
+	teamsOf,
+	workItems,
+} from "./sidebar-lists";
+import { useAction } from "./useAction";
 
 /**
- * The one sidebar every journey shares: find-or-ask, the three spines stacked, a separator, then
- * the chosen spine's list — one evenly spaced run in priority order, status in words on each row.
+ * The one sidebar on every screen: find-or-ask, the three spines stacked, a separator, then the
+ * chosen spine's list — one evenly spaced run in priority order, status in words on each row.
  * There is one organisation, so nothing names it. Work can be narrowed to one team; conversations
- * are across all teams, and in knowledge each team is a space of its own.
+ * are across all teams, and in knowledge each team is a space of its own. Clicking a row goes to
+ * its address, so back, forward and reload keep the place.
  */
-export type Spine = "conversations" | "work" | "knowledge";
-
-/**
- * `state` is the status in words. `yours` = you owe something (the only use of the flag colour);
- * `fresh` = something new you have not seen. Lists are already in priority order.
- */
-export interface Item {
-	id: string;
-	title: string;
-	state: string;
-	who: string;
-	age: string;
-	yours?: boolean;
-	fresh?: boolean;
-	/** The team a task belongs to, so Work can be narrowed to one. */
-	team?: TeamName;
-}
-
-const MENTION: Item = {
-	id: "m1",
-	title: "Refund wording",
-	state: "Mentioned you",
-	who: "Maya",
-	age: "now",
-	yours: true,
-};
-
-export function conversations(withMention: boolean): Item[] {
-	return [
-		...(withMention ? [MENTION] : []),
-		{
-			id: "c-r1",
-			title: "Trial-end explainer",
-			state: "Needs review",
-			who: "Builder · 2 flags",
-			age: "8h",
-			yours: true,
-		},
-		{
-			id: "c-r2",
-			title: "Comparison table, stacked layout",
-			state: "Needs review",
-			who: "Designer · 1 flag",
-			age: "5h",
-			yours: true,
-		},
-		{
-			id: "c-q",
-			title: "Name for the charge after a trial",
-			state: "Stuck",
-			who: "Builder asks",
-			age: "6h",
-			yours: true,
-		},
-		{
-			id: "c-infra",
-			title: "Rollout rule, written down",
-			state: "Needs input",
-			who: "Maya asks you to own it",
-			age: "11h",
-			yours: true,
-		},
-		{
-			id: "c-trial",
-			title: "Trial-end confusion, three tickets",
-			state: "New reply",
-			who: "Maya",
-			age: "13:02",
-			fresh: true,
-		},
-		{
-			id: "c-pricing",
-			title: "Pricing page, Q4 pass",
-			state: "Growth:",
-			who: "two options drafted",
-			age: "yesterday",
-		},
-		{
-			id: "c-onb",
-			title: "Onboarding emails",
-			state: "You:",
-			who: "park until October",
-			age: "Mon",
-		},
-		{
-			id: "c-hiring",
-			title: "Support hire, second round",
-			state: "Maya:",
-			who: "two candidates left",
-			age: "Fri",
-		},
-	];
-}
-
-/** Work is only tasks. The agent owns them, so nothing here is flagged as yours — the review is in Conversations. */
-export const WORK: Item[] = [
-	{
-		id: "w-d1",
-		title: "Proration math covered end to end",
-		state: "Done",
-		who: "Builder",
-		age: "03:40",
-		fresh: true,
-		team: "Product",
-	},
-	{
-		id: "w-d2",
-		title: "Trial dates normalised to UTC",
-		state: "Done",
-		who: "Builder",
-		age: "05:55",
-		fresh: true,
-		team: "Product",
-	},
-	{
-		id: "w-t1",
-		title: "Explain what happens when a trial ends",
-		state: "Needs review",
-		who: "Builder",
-		age: "8h",
-		team: "Product",
-	},
-	{
-		id: "w-t2",
-		title: "Comparison table, stacked layout",
-		state: "Needs review",
-		who: "Designer",
-		age: "5h",
-		team: "Support",
-	},
-	{
-		id: "w-r1",
-		title: "Refund wording",
-		state: "Needs review",
-		who: "Designer",
-		age: "2h",
-		team: "Support",
-	},
-	{
-		id: "w-f2",
-		title: "Usage-based tier, metering",
-		state: "Running · 2h",
-		who: "Builder",
-		age: "2h",
-		team: "Product",
-	},
-	{
-		id: "w-f1",
-		title: "Trials that convert without a call",
-		state: "6 of 12 done",
-		who: "Growth",
-		age: "week 2",
-		team: "Product",
-	},
-];
-
-export const KNOWLEDGE_PRIORITY: Item[] = [
-	{
-		id: "k-deploy",
-		title: "Deploy rule",
-		state: "Publish?",
-		who: "draft by Facilitation",
-		age: "4h",
-		yours: true,
-	},
-	{
-		id: "k-price",
-		title: "How we price",
-		state: "Edited by Growth",
-		who: "Trials section",
-		age: "2d",
-		fresh: true,
-	},
-];
-
-interface Doc {
-	id: string;
-	title: string;
-	icon: string;
-	note?: string;
-	children?: Doc[];
-	/** A team's space: the top of the tree has one per team. */
-	space?: boolean;
-}
-
-const TREE: Doc[] = [
-	{
-		id: "s-product",
-		title: "Product",
-		icon: "",
-		space: true,
-		children: [
-			{
-				id: "k-price",
-				title: "How we price",
-				icon: "💷",
-				children: [
-					{ id: "t-trials", title: "Trials", icon: "⏳" },
-					{ id: "t-tiers", title: "Tiers and metering", icon: "📊" },
-					{ id: "t-10days", title: "Should trials be 10 days?", icon: "🤔", note: "draft" },
-				],
-			},
-			{ id: "t-clean", title: "What a clean feature looks like", icon: "✨" },
-			{
-				id: "t-eng",
-				title: "Engineering",
-				icon: "🛠️",
-				children: [
-					{ id: "k-deploy", title: "Deploy rule", icon: "🚀", note: "draft" },
-					{ id: "t-trace", title: "Tracing the codebase", icon: "🧭" },
-				],
-			},
-		],
-	},
-	{
-		id: "s-support",
-		title: "Support",
-		icon: "",
-		space: true,
-		children: [
-			{ id: "t-themes", title: "July support themes", icon: "💬" },
-			{ id: "t-refunds", title: "Refund wording", icon: "", note: "draft" },
-		],
-	},
-];
+type Spine = "conversations" | "work" | "knowledge";
+const SPINES: readonly Spine[] = ["conversations", "work", "knowledge"];
+const isSpine = (s: string | undefined): s is Spine => SPINES.includes(s as Spine);
 
 /** A team's mark in the tree: two heads, where a document has its page. */
 function TeamIcon() {
@@ -267,15 +63,7 @@ const ICON_CHOICES = [
 	"📚",
 ];
 
-export function Row({
-	item,
-	current,
-	onPick,
-}: {
-	item: Item;
-	current?: boolean;
-	onPick: () => void;
-}) {
+function Row({ item, current, onPick }: { item: Item; current?: boolean; onPick: () => void }) {
 	const tone = item.yours ? " nrow-state--yours" : item.fresh ? " nrow-state--fresh" : "";
 	return (
 		<button type="button" className="nrow" aria-current={current} onClick={onPick}>
@@ -293,24 +81,6 @@ export function Row({
 	);
 }
 
-function List({
-	items,
-	picked,
-	onPick,
-}: {
-	items: Item[];
-	picked: string | null;
-	onPick: (id: string) => void;
-}) {
-	return (
-		<>
-			{items.map((i) => (
-				<Row key={i.id} item={i} current={picked === i.id} onPick={() => onPick(i.id)} />
-			))}
-		</>
-	);
-}
-
 function DocIcon() {
 	return (
 		<svg className="doc-ic" viewBox="0 0 14 14" aria-hidden="true">
@@ -325,19 +95,7 @@ function DocIcon() {
 	);
 }
 
-/** Every node is a document with its own icon; the page outline is only the default. */
-function Tree({
-	docs,
-	open,
-	toggle,
-	picked,
-	onPick,
-	icons,
-	onIcon,
-	picking,
-	setPicking,
-	onAdd,
-}: {
+interface TreeProps {
 	docs: Doc[];
 	open: Set<string>;
 	toggle: (id: string) => void;
@@ -347,13 +105,15 @@ function Tree({
 	onIcon: (id: string, icon: string) => void;
 	picking: string | null;
 	setPicking: (id: string | null) => void;
-	/** A new document inside this one, or at the top of this space. */
-	onAdd: (parent: string) => void;
-}) {
+}
+
+/** Every node is a document with its own icon; the page outline is only the default. */
+function Tree(props: TreeProps) {
+	const { docs, open, toggle, picked, onPick, icons, picking, setPicking, onIcon } = props;
 	return (
 		<>
 			{docs.map((d) => {
-				const icon = icons[d.id] ?? d.icon;
+				const icon = icons[d.id] ?? "";
 				return (
 					<div key={d.id}>
 						<div
@@ -387,7 +147,11 @@ function Tree({
 									{icon ? <span className="emoji">{icon}</span> : <DocIcon />}
 								</button>
 							)}
-							<button type="button" className="tree-title" onClick={() => onPick(d.id)}>
+							<button
+								type="button"
+								className="tree-title"
+								onClick={() => (d.space ? toggle(d.id) : onPick(d.id))}
+							>
 								<span className="tree-name">{d.title}</span>
 							</button>
 							{d.note && <span className="tree-note">{d.note}</span>}
@@ -400,7 +164,6 @@ function Tree({
 								className="tree-add"
 								aria-label={`New document in ${d.title}`}
 								title={`New document in ${d.title}`}
-								onClick={() => onAdd(d.id)}
 							>
 								+
 							</button>
@@ -424,18 +187,7 @@ function Tree({
 						)}
 						{d.children && open.has(d.id) && (
 							<div className="tree-kids">
-								<Tree
-									docs={d.children}
-									open={open}
-									toggle={toggle}
-									picked={picked}
-									onPick={onPick}
-									icons={icons}
-									onIcon={onIcon}
-									picking={picking}
-									setPicking={setPicking}
-									onAdd={onAdd}
-								/>
+								<Tree {...props} docs={d.children} />
 							</div>
 						)}
 					</div>
@@ -445,67 +197,83 @@ function Tree({
 	);
 }
 
+/** Where a notification's row leads: the thread, task, document or person it is about. */
+const ROUTE_OF = { thread: "conversations", task: "work", document: "knowledge", user: "people" };
+
 /** What happened in things you follow. Each opens the thread, task or document it is about. */
-interface Note {
-	id: string;
-	title: string;
-	what: string;
-	age: string;
-	unread?: boolean;
-}
+function Notifications({
+	you,
+	inbox,
+	names,
+	onClose,
+	onChanged,
+}: {
+	you: string;
+	inbox: Inbox;
+	names: ReadonlyMap<string, string>;
+	onClose: () => void;
+	onChanged: () => void;
+}) {
+	const navigate = useNavigate();
+	const [titles, setTitles] = useState<ReadonlyMap<string, string>>(new Map());
+	const about = (object: string): string[] => [
+		...new Set(inbox.filter((r) => r.change.object === object).map((r) => r.change.objectId)),
+	];
+	// Compared by value, so a re-render with the same rows does not ask again.
+	const wanted = JSON.stringify([about("task"), about("document"), about("thread")]);
+	useEffect(() => {
+		const [tasks, docs, threads] = JSON.parse(wanted) as [string[], string[], string[]];
+		void Promise.all([
+			tasks.length ? call("search_tasks", { ids: tasks }) : null,
+			docs.length ? call("search_documents", { ids: docs }) : null,
+			threads.length ? call("search_threads", { ids: threads }) : null,
+		]).then(([t, d, th]) => {
+			const pairs: [string, string][] = [
+				...(t?.ok ? t.data.map((x): [string, string] => [x.id, x.title]) : []),
+				...(d?.ok ? d.data.map((x): [string, string] => [x.id, x.title]) : []),
+				...(th?.ok ? th.data.map((x): [string, string] => [x.id, x.computedTitle]) : []),
+			];
+			setTitles(new Map(pairs));
+		});
+	}, [wanted]);
 
-const NOTES: Note[] = [
-	{
-		id: "n1",
-		title: "Usage-based tier, metering",
-		what: "Builder is stuck · needs a decision on rounding",
-		age: "20m",
-		unread: true,
-	},
-	{
-		id: "n2",
-		title: "Proration math covered end to end",
-		what: "Task done · Builder",
-		age: "5h",
-		unread: true,
-	},
-	{
-		id: "n3",
-		title: "How we price",
-		what: "Growth edited the Trials section · you follow this",
-		age: "2d",
-		unread: true,
-	},
-	{ id: "n4", title: "July support themes", what: "Published · Ops", age: "3d" },
-	{
-		id: "n5",
-		title: "Comparison table, stacked layout",
-		what: "Designer raised a review",
-		age: "5h",
-	},
-];
+	const unread = inbox.filter((r) => r.readAt === null).map((r) => r.change.id);
+	const markRead = async (ids: string[]) => {
+		if (ids.length > 0) await call("edit_user", { id: you, inbox: { read: ids } });
+		onChanged();
+	};
 
-function Notifications({ onClose }: { onClose: () => void }) {
 	return (
 		<div className="notes" role="dialog" aria-label="Notifications">
 			<header className="notes-h">
 				<span>Notifications</span>
-				<button type="button" className="notes-act">
+				<button type="button" className="notes-act" onClick={() => void markRead(unread)}>
 					Mark all read
 				</button>
 				<button type="button" className="notes-x" aria-label="Close" onClick={onClose}>
 					✕
 				</button>
 			</header>
-			{NOTES.map((n) => (
-				<button key={n.id} type="button" className="note">
+			{inbox.map(({ change, readAt }) => (
+				<button
+					key={change.id}
+					type="button"
+					className="note"
+					onClick={() => {
+						void markRead(readAt === null ? [change.id] : []);
+						onClose();
+						navigate(`/${ROUTE_OF[change.object]}/${change.objectId}`);
+					}}
+				>
 					<span className="nrow-top">
-						<span className={n.unread ? "nrow-title nrow-title--strong" : "nrow-title"}>
-							{n.title}
+						<span className={readAt === null ? "nrow-title nrow-title--strong" : "nrow-title"}>
+							{titles.get(change.objectId) ?? names.get(change.objectId) ?? ""}
 						</span>
-						<span className="nrow-age">{n.age}</span>
+						<span className="nrow-age">{relative(change.at)}</span>
 					</span>
-					<span className={n.unread ? "note-what note-what--new" : "note-what"}>{n.what}</span>
+					<span className={readAt === null ? "note-what note-what--new" : "note-what"}>
+						{noteWhat(change, names)}
+					</span>
 				</button>
 			))}
 			<footer className="notes-f">
@@ -518,52 +286,6 @@ function Notifications({ onClose }: { onClose: () => void }) {
 	);
 }
 
-interface SidebarProps {
-	initialSpine?: Spine;
-	initialPicked?: string | null;
-	/** A list per spine; `null` shows the honest empty state. Defaults to the populated world. */
-	lists?: Partial<Record<Spine, Item[] | null>>;
-	showCounts?: boolean;
-	/** Shown above the Conversations list, e.g. a quiet "1 new since you started". */
-	conversationsNote?: ReactNode;
-	notificationsOpen?: boolean;
-	/** Documents published during the walkthrough; the tree stops calling them drafts. */
-	published?: string[];
-	/** Your own page is showing. */
-	youOpen?: boolean;
-	/** Work narrowed to one team; none is all teams. */
-	initialTeam?: TeamName | null;
-	/** The list of teams to jump between is open. */
-	teamMenuOpen?: boolean;
-	/** That team's page is showing. */
-	teamOpen?: TeamName | null;
-	onTeam?: (team: TeamName) => void;
-	/** A new document was just made inside this one; it is picked, untitled and a draft. */
-	newDocIn?: string | null;
-	/** A new conversation was just started; it sits at the top, picked. */
-	newConversation?: boolean;
-	/** The detail pane follows what you start here. */
-	onNewDoc?: (parent: string) => void;
-	onNewConversation?: () => void;
-}
-
-const UNTITLED: Doc = { id: "k-new", title: "Untitled", icon: "", note: "draft" };
-const STARTED: Item = {
-	id: "c-new",
-	title: "New conversation",
-	state: "Not sent yet",
-	who: "you",
-	age: "now",
-};
-
-/** The tree with an untitled draft placed inside `parent`. */
-const withNew = (docs: Doc[], parent: string): Doc[] =>
-	docs.map((d) =>
-		d.id === parent
-			? { ...d, children: [UNTITLED, ...(d.children ?? [])] }
-			: { ...d, children: d.children && withNew(d.children, parent) },
-	);
-
 /** What an empty list says, so it never reads as broken. */
 const EMPTY: Record<Spine, string> = {
 	conversations: "No conversations yet. Start one, or @mention someone anywhere.",
@@ -571,60 +293,74 @@ const EMPTY: Record<Spine, string> = {
 	knowledge: "No documents yet.",
 };
 
-const withoutDraft = (docs: Doc[], ids: string[]): Doc[] =>
-	docs.map((d) => ({
-		...d,
-		note: ids.includes(d.id) ? undefined : d.note,
-		children: d.children && withoutDraft(d.children, ids),
-	}));
+const NO_INBOX: Inbox = [];
 
-export function Sidebar({
-	initialSpine = "conversations",
-	initialPicked = null,
-	lists = {},
-	showCounts = true,
-	conversationsNote,
-	notificationsOpen = false,
-	published = [],
-	youOpen = false,
-	initialTeam = null,
-	teamMenuOpen = false,
-	teamOpen = null,
-	onTeam,
-	newDocIn = null,
-	newConversation = false,
-	onNewDoc,
-	onNewConversation,
-}: SidebarProps) {
-	const [notesOpen, setNotesOpen] = useState(notificationsOpen);
-	const [spine, setSpine] = useState<Spine>(initialSpine);
-	const [picked, setPicked] = useState<string | null>(initialPicked);
-	const [open, setOpen] = useState<Set<string>>(new Set(["s-product", "k-price", "s-support"]));
-	const [team, setTeam] = useState<TeamName | null>(initialTeam);
-	const [menu, setMenu] = useState(teamMenuOpen);
+export function Sidebar() {
+	const navigate = useNavigate();
+	const { pathname } = useLocation();
+	const [, section = "", rawId = ""] = pathname.split("/");
+	const here = decodeURIComponent(rawId);
+	const routeSpine: Spine | null = isSpine(section) ? section : section === "teams" ? "work" : null;
+
+	const me = useAction("open_user", {});
+	const you = me.data?.user?.id ?? "";
+	const users = useAction("search_users", {});
+	const threads = useAction("search_threads", {}, ["conversations"]);
+	const tasks = useAction("search_tasks", {}, ["tasks"]);
+	const docs = useAction(
+		"search_documents",
+		{ inTree: true, scopeKind: "team", slot: "ordinary" },
+		["documents"],
+	);
+	useEffect(() => (you ? listen([`user:${you}`], me.reload) : undefined), [you, me.reload]);
+
+	const [notesOpen, setNotesOpen] = useState(false);
+	const [spine, setSpine] = useState<Spine>(routeSpine ?? "conversations");
+	const [teamId, setTeamId] = useState<string | null>(null);
+	const [menu, setMenu] = useState(false);
+	const [open, setOpen] = useState<Set<string>>(new Set());
 	const [icons, setIcons] = useState<Record<string, string>>({});
 	const [picking, setPicking] = useState<string | null>(null);
-	const [docIn, setDocIn] = useState(newDocIn);
-	const [started, setStarted] = useState(newConversation);
-	const addDoc = (parent: string) => {
-		setDocIn(parent);
-		setOpen((prev) => new Set([...prev, parent]));
-		setPicked(UNTITLED.id);
-		onNewDoc?.(parent);
-	};
-	const startConversation = () => {
-		setStarted(true);
-		setPicked(STARTED.id);
-		onNewConversation?.();
-	};
 
-	const resolved: Record<Spine, Item[] | null> = {
-		conversations: lists.conversations === undefined ? conversations(false) : lists.conversations,
-		work: lists.work === undefined ? WORK : lists.work,
-		knowledge: lists.knowledge === undefined ? KNOWLEDGE_PRIORITY : lists.knowledge,
+	const names = namesOf(users.data ?? []);
+	const teams = teamsOf(users.data ?? []);
+	const inbox: Inbox = me.data?.inbox ?? NO_INBOX;
+	const newestFirst = [...inbox].sort((a, b) => b.change.at.localeCompare(a.change.at));
+
+	// The address decides the spine shown, and a team's page picks that team in Work.
+	useEffect(() => {
+		if (routeSpine) setSpine(routeSpine);
+	}, [routeSpine]);
+	const teamHere = section === "teams" ? teams.find((t) => t.name === here) : undefined;
+	const teamHereId = teamHere?.id;
+	useEffect(() => {
+		if (teamHereId) setTeamId(teamHereId);
+	}, [teamHereId]);
+	// Every team's space starts unfolded, and so does the way down to the open document.
+	const docRows = docs.data;
+	useEffect(() => {
+		if (!docRows) return;
+		const parents = new Map(
+			docRows.map((d) => [d.id, d.parentKind === "document" ? d.parentId : null]),
+		);
+		const path: string[] = [];
+		for (let p = parents.get(here) ?? null; p; p = parents.get(p) ?? null) path.push(p);
+		const spaces = docRows.map((d) => d.scopeId ?? "");
+		setOpen((prev) => new Set([...prev, ...spaces, ...path]));
+	}, [docRows, here]);
+
+	const lists: Record<Spine, Item[] | null> = {
+		conversations: threads.data && conversationItems(threads.data, you, names, inbox),
+		work: tasks.data && workItems(tasks.data, names, inbox),
+		knowledge: docs.data && knowledgeItems(docs.data, you, names, teams, inbox),
 	};
-	const needs = (t: Spine) =>
-		t === "work" ? 0 : (resolved[t] ?? []).filter((i) => i.yours).length;
+	const needs = (t: Spine) => (t === "work" ? 0 : (lists[t] ?? []).filter((i) => i.yours).length);
+	const waiting = needs("conversations") + needs("knowledge");
+	const unread = inbox.filter((r) => r.readAt === null).length;
+	const all = lists[spine];
+	const items = all && spine === "work" && teamId ? all.filter((i) => i.team === teamId) : all;
+	const team = teams.find((t) => t.id === teamId) ?? null;
+	const picked = section === spine ? here : null;
 
 	const toggle = (id: string) =>
 		setOpen((prev) => {
@@ -634,11 +370,6 @@ export function Sidebar({
 			return next;
 		});
 
-	if (started) resolved.conversations = [STARTED, ...(resolved.conversations ?? [])];
-	const all = resolved[spine];
-	const items = all && spine === "work" && team ? all.filter((i) => i.team === team) : all;
-	const tree = docIn ? withNew(TREE, docIn) : TREE;
-
 	return (
 		<nav className="nav nav--rel">
 			<div className="nav-top">
@@ -647,32 +378,30 @@ export function Sidebar({
 						<span>Find or ask…</span>
 						<kbd>⌘K</kbd>
 					</button>
-					{showCounts && (
-						<button
-							type="button"
-							className="bell"
-							aria-label="Notifications, 3 new"
-							aria-expanded={notesOpen}
-							onClick={() => setNotesOpen(!notesOpen)}
-						>
-							<svg viewBox="0 0 16 16" aria-hidden="true">
-								<path
-									d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth="1.3"
-									strokeLinejoin="round"
-									strokeLinecap="round"
-								/>
-							</svg>
-							<span className="bell-n">3</span>
-						</button>
-					)}
+					<button
+						type="button"
+						className="bell"
+						aria-label={`Notifications, ${unread} new`}
+						aria-expanded={notesOpen}
+						onClick={() => setNotesOpen(!notesOpen)}
+					>
+						<svg viewBox="0 0 16 16" aria-hidden="true">
+							<path
+								d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3"
+								fill="none"
+								stroke="currentColor"
+								strokeWidth="1.3"
+								strokeLinejoin="round"
+								strokeLinecap="round"
+							/>
+						</svg>
+						{unread > 0 && <span className="bell-n">{unread}</span>}
+					</button>
 				</div>
 			</div>
 
 			<div className="spines nav-spines">
-				{(["conversations", "work", "knowledge"] as Spine[]).map((t) => (
+				{SPINES.map((t) => (
 					<button
 						key={t}
 						type="button"
@@ -681,120 +410,128 @@ export function Sidebar({
 						onClick={() => setSpine(t)}
 					>
 						<span>{t[0].toUpperCase() + t.slice(1)}</span>
-						{showCounts && needs(t) > 0 && (
-							<span className="spine-count spine-count--flag">{needs(t)}</span>
-						)}
+						{needs(t) > 0 && <span className="spine-count spine-count--flag">{needs(t)}</span>}
 					</button>
 				))}
 			</div>
 			<hr className="nav-sep" />
 
-			{notesOpen && <Notifications onClose={() => setNotesOpen(false)} />}
+			{notesOpen && (
+				<Notifications
+					you={you}
+					inbox={newestFirst}
+					names={names}
+					onClose={() => setNotesOpen(false)}
+					onChanged={me.reload}
+				/>
+			)}
 			<div className="nav-list">
 				{spine === "conversations" && (
-					<button type="button" className="nav-add" onClick={startConversation}>
+					<button type="button" className="nav-add">
 						<span aria-hidden="true">+</span>New conversation
 					</button>
 				)}
-				{items === null ? (
-					<p className="nav-empty">{EMPTY[spine]}</p>
-				) : (
-					<>
-						{spine === "conversations" && conversationsNote}
-						{spine === "work" && (
-							<div className="team-pick">
-								<button
-									type="button"
-									className="team-btn"
-									aria-expanded={menu}
-									onClick={() => setMenu(!menu)}
-								>
-									{team ?? "All teams"}
-									<svg viewBox="0 0 12 12" aria-hidden="true">
-										<path
-											d="M3 4.5l3 3 3-3"
-											fill="none"
-											stroke="currentColor"
-											strokeWidth="1.4"
-											strokeLinecap="round"
-											strokeLinejoin="round"
-										/>
-									</svg>
-								</button>
-								{team && (
+				{spine === "work" && (
+					<div className="team-pick">
+						<button
+							type="button"
+							className="team-btn"
+							aria-expanded={menu}
+							onClick={() => setMenu(!menu)}
+						>
+							{team?.name ?? "All teams"}
+							<svg viewBox="0 0 12 12" aria-hidden="true">
+								<path
+									d="M3 4.5l3 3 3-3"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="1.4"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								/>
+							</svg>
+						</button>
+						{team && (
+							<button
+								type="button"
+								className="team-link"
+								aria-current={section === "teams" && here === team.name}
+								onClick={() => navigate(`/teams/${encodeURIComponent(team.name)}`)}
+							>
+								The team ›
+							</button>
+						)}
+						{menu && (
+							<div className="team-menu" role="menu" aria-label="Work of one team">
+								{[null, ...teams].map((t) => (
 									<button
+										key={t?.id ?? "all"}
 										type="button"
-										className="team-link"
-										aria-current={teamOpen === team}
-										onClick={() => onTeam?.(team)}
+										role="menuitem"
+										className="team-row"
+										aria-current={teamId === (t?.id ?? null)}
+										onClick={() => {
+											setTeamId(t?.id ?? null);
+											setMenu(false);
+										}}
 									>
-										The team ›
+										<span className="team-mark" aria-hidden="true">
+											{teamId === (t?.id ?? null) && "✓"}
+										</span>
+										<span className="team-name">{t?.name ?? "All teams"}</span>
+										<span className="team-n">
+											{(all ?? []).filter((i) => t === null || i.team === t.id).length} tasks
+										</span>
 									</button>
-								)}
-								{menu && (
-									<div className="team-menu" role="menu" aria-label="Work of one team">
-										{[null, ...TEAMS.map((t) => t.name)].map((t) => (
-											<button
-												key={t ?? "all"}
-												type="button"
-												role="menuitem"
-												className="team-row"
-												aria-current={team === t}
-												onClick={() => {
-													setTeam(t);
-													setMenu(false);
-												}}
-											>
-												<span className="team-mark" aria-hidden="true">
-													{team === t && "✓"}
-												</span>
-												<span className="team-name">{t ?? "All teams"}</span>
-												<span className="team-n">
-													{(all ?? []).filter((i) => t === null || i.team === t).length} tasks
-												</span>
-											</button>
-										))}
-									</div>
-								)}
+								))}
 							</div>
 						)}
-						<List items={items} picked={picked} onPick={setPicked} />
-						{items.length === 0 && spine !== "knowledge" && (
-							<p className="nav-empty">{EMPTY[spine]}</p>
-						)}
-						{spine === "knowledge" && (
-							<section className="tree-wrap" aria-label="All documents">
-								<div className="tree">
-									<Tree
-										docs={published.length ? withoutDraft(tree, published) : tree}
-										open={open}
-										toggle={toggle}
-										picked={picked}
-										onPick={setPicked}
-										icons={icons}
-										onIcon={(id, ic) => setIcons((p) => ({ ...p, [id]: ic }))}
-										picking={picking}
-										setPicking={setPicking}
-										onAdd={addDoc}
-									/>
-								</div>
-							</section>
-						)}
-					</>
+					</div>
+				)}
+				{items?.map((i) => (
+					<Row
+						key={i.id}
+						item={i}
+						current={picked === i.id}
+						onPick={() => navigate(`/${spine}/${encodeURIComponent(i.id)}`)}
+					/>
+				))}
+				{items?.length === 0 && spine !== "knowledge" && (
+					<p className="nav-empty">{EMPTY[spine]}</p>
+				)}
+				{spine === "knowledge" && docs.data && (
+					<section className="tree-wrap" aria-label="All documents">
+						<div className="tree">
+							{docs.data.length === 0 ? (
+								<p className="nav-empty">{EMPTY.knowledge}</p>
+							) : (
+								<Tree
+									docs={knowledgeTree(docs.data, teams)}
+									open={open}
+									toggle={toggle}
+									picked={picked}
+									onPick={(id) => navigate(`/knowledge/${encodeURIComponent(id)}`)}
+									icons={icons}
+									onIcon={(id, ic) => setIcons((p) => ({ ...p, [id]: ic }))}
+									picking={picking}
+									setPicking={setPicking}
+								/>
+							)}
+						</div>
+					</section>
 				)}
 			</div>
-			{showCounts && (
-				<button
-					type="button"
-					className="nav-you"
-					aria-current={youOpen}
-					title="Your page: what waits for you, and your settings"
-				>
-					<span className="avatar avatar--human">FO</span>
-					<span className="nav-you-name">You</span>
-					<span className="nav-you-sub">4 waiting for you</span>
-				</button>
-			)}
+			<button
+				type="button"
+				className="nav-you"
+				aria-current={section === "people" && here === "me"}
+				title="Your page: what waits for you, and your settings"
+				onClick={() => navigate("/people/me")}
+			>
+				<span className="avatar avatar--human">{initials(me.data?.user?.name ?? "")}</span>
+				<span className="nav-you-name">You</span>
+				<span className="nav-you-sub">{waiting} waiting for you</span>
+			</button>
 		</nav>
 	);
 }

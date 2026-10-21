@@ -126,18 +126,10 @@ code {
 /* ---------- frame ---------- */
 .frame {
 	display: grid;
-	grid-template-columns: var(--w-rail) var(--w-queue) minmax(0, 1fr);
+	grid-template-columns: var(--w-queue) minmax(0, 1fr);
 	height: 100vh;
 }
 
-.rail {
-	border-right: var(--line-w) solid var(--line);
-	background: var(--sunk);
-	display: flex;
-	flex-direction: column;
-	padding: var(--sp-4);
-	gap: var(--sp-5);
-}
 .spines {
 	display: flex;
 	flex-direction: column;
@@ -166,31 +158,6 @@ code {
 	font: var(--t-meta);
 	color: var(--ink-3);
 }
-.rail-foot {
-	margin-top: auto;
-	display: flex;
-	flex-direction: column;
-	gap: var(--sp-2);
-}
-.switcher {
-	display: flex;
-	gap: var(--sp-1);
-}
-.switcher button {
-	flex: 1;
-	min-height: 30px;
-	border-radius: var(--r-sm);
-	font: var(--t-label);
-	border: var(--line-w) solid var(--line);
-	background: var(--surface);
-	color: var(--ink-2);
-}
-.switcher button[aria-pressed="true"] {
-	background: var(--accent);
-	color: var(--accent-ink);
-	border-color: transparent;
-}
-
 /* ---------- thread ---------- */
 .thread {
 	display: flex;
@@ -330,41 +297,6 @@ code {
 }
 
 /* ---------- HAND OFF ---------- */
-
-/* studio-only control, not product chrome */
-.steps {
-	display: flex;
-	flex-direction: column;
-	gap: var(--sp-1);
-}
-.steps-head {
-	font: var(--t-label);
-	color: var(--ink-3);
-}
-.step {
-	display: flex;
-	align-items: center;
-	gap: var(--sp-2);
-	text-align: left;
-	min-height: 26px;
-	padding: 0 var(--sp-2);
-	border-radius: var(--r-sm);
-	font: var(--t-meta);
-	color: var(--ink-3);
-}
-.step:hover {
-	background: var(--surface);
-}
-.step[aria-current="true"] {
-	background: var(--accent-soft);
-	color: var(--accent);
-	font-weight: 600;
-}
-.step-n {
-	width: 14px;
-	text-align: right;
-	font: var(--t-data);
-}
 
 /* the mention picker — the whole twenty seconds lives here */
 .picker {
@@ -1331,16 +1263,7 @@ kbd {
 
 /* ---------- ARRIVE — one navigation column, not two ---------- */
 .frame--first {
-	grid-template-columns: var(--w-rail) minmax(0, 1fr);
-}
-.rail--studio {
-	background: var(--canvas);
-	border-right: var(--line-w) dashed var(--line-strong);
-}
-.studio-h {
-	font: var(--t-label);
-	color: var(--ink-3);
-	padding: 0 var(--sp-2);
+	grid-template-columns: minmax(0, 1fr);
 }
 
 .nav {
@@ -2200,12 +2123,6 @@ kbd {
 }
 
 /* ---------- THINK — a document, with conversation as a layer on top ---------- */
-.switcher {
-	flex-wrap: wrap;
-}
-.switcher button {
-	flex: 1 0 30%;
-}
 .doc-act {
 	margin-left: auto;
 	display: flex;
@@ -3588,11 +3505,6 @@ kbd {
 	align-items: flex-start;
 	padding: 8vh var(--sp-6) var(--sp-6);
 	background: var(--scrim);
-}
-/* studio-only: an overlay leaves the walkthrough clickable */
-.pal-back,
-.dlg-back {
-	left: var(--w-rail);
 }
 .dlg-scrim {
 	position: absolute;

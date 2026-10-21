@@ -3,7 +3,6 @@ import { CHAT_FORMATS, DOC_FORMATS, FormatBar } from "./FormatBar";
 import { mentionables } from "./handoff";
 import { Avatar } from "./Msg";
 import { Seg } from "./Seg";
-import { conversations, Sidebar } from "./Sidebar";
 
 /**
  * ARRIVE — first start, and every morning after.
@@ -11,23 +10,6 @@ import { conversations, Sidebar } from "./Sidebar";
  * Each list is one priority-ordered run of evenly spaced rows. Status is words on the row saying
  * what is going on; only what is yours gets the flag colour. Find or ask is an overlay.
  */
-export const ARRIVE_STEPS = [
-	{ id: 0, name: "First start" },
-	{ id: 1, name: "First conversation" },
-	{ id: 2, name: "Conversations, in priority order" },
-	{ id: 3, name: "Work, in priority order" },
-	{ id: 4, name: "Knowledge, a tree" },
-	{ id: 5, name: "Find (⌘K)" },
-	{ id: 6, name: "Ask (Tab to switch)" },
-	{ id: 7, name: "Something new while you focus" },
-	{ id: 8, name: "Notifications" },
-	{ id: 9, name: "First start: no agent program ready" },
-	{ id: 10, name: "First start: join a team on a server" },
-	{ id: 11, name: "Start a new conversation" },
-	{ id: 12, name: "Start a new document" },
-	{ id: 13, name: "An empty list, a page that did not load" },
-];
-
 interface Hit {
 	id: string;
 	spine: "Thread" | "Task" | "Document";
@@ -601,43 +583,6 @@ export function Arrive({ step }: { step: number }) {
 	if (step === 9) return <FirstStart variant="none" />;
 	if (step === 10) return <FirstStart variant="join" />;
 
-	const focused = step === 7;
-	const spine =
-		step === 3 || step === 13
-			? "work"
-			: step === 4 || step === 7 || step === 12
-				? "knowledge"
-				: "conversations";
-	const picked =
-		step === 1
-			? "g"
-			: step === 2
-				? "c-r1"
-				: step === 3
-					? "w-f1"
-					: step === 4 || step === 7
-						? "k-price"
-						: null;
-	const lists =
-		step === 1
-			? {
-					conversations: [
-						{
-							id: "g",
-							title: "Getting started",
-							state: "New",
-							who: "Builder",
-							age: "now",
-							fresh: true,
-						},
-					],
-					work: null,
-					knowledge: null,
-				}
-			: step === 13
-				? { work: [] }
-				: { conversations: conversations(focused) };
-
 	let detail = (
 		<Placeholder
 			kind="Thread"
@@ -672,18 +617,6 @@ export function Arrive({ step }: { step: number }) {
 
 	return (
 		<>
-			<Sidebar
-				initialSpine={spine}
-				initialPicked={step === 11 ? "c-new" : step === 12 ? "k-new" : picked}
-				lists={lists}
-				showCounts={step > 1}
-				notificationsOpen={step === 8}
-				newConversation={step === 11}
-				newDocIn={step === 12 ? "s-product" : null}
-				conversationsNote={
-					focused ? <p className="nav-new">1 new since you started · it waits here</p> : undefined
-				}
-			/>
 			{detail}
 			{(step === 5 || step === 6) && <Palette initialMode={step === 5 ? "find" : "ask"} />}
 		</>

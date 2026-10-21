@@ -1,14 +1,3 @@
-/** HAND OFF — the loop, written from the interview. */
-export const STEPS = [
-	{ id: 0, name: "Interruption arrives" },
-	{ id: 1, name: "The twenty seconds" },
-	{ id: 2, name: "Joined & committed" },
-	{ id: 3, name: "Session running" },
-	{ id: 4, name: "Needs your judgement" },
-	{ id: 5, name: "Result returns" },
-	{ id: 6, name: "Done" },
-];
-
 /** Agents and people are the same kind of addressable thing. */
 export const mentionables = [
 	{

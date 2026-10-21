@@ -9,9 +9,11 @@ export default defineConfig({
 			allow: ["../.."],
 		},
 		proxy: {
+			// The server's address; the e2e run starts its own on another port.
 			"/api": {
-				target: "http://localhost:3001",
+				target: process.env.HYPERIDLE_API_URL ?? "http://localhost:3001",
 				changeOrigin: true,
+				ws: true,
 			},
 		},
 	},

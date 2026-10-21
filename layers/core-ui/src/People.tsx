@@ -13,7 +13,6 @@ import {
 	pluginLine,
 } from "./Plugins";
 import { JOB, type Row as Pair, ReachDialog, StartDialog, type Subject, UserDialog } from "./Setup";
-import { Sidebar } from "./Sidebar";
 import { TEAMS, type TeamName } from "./teams";
 
 /**
@@ -33,13 +32,9 @@ import { TEAMS, type TeamName } from "./teams";
 type UserId = "you" | "maya" | "builder" | "growth" | "designer" | "facilitation" | "researcher";
 type DialogId = "folder" | "service" | "start" | "edit";
 
-/** Where a walkthrough step opens. Nothing set is the Product team's page, opened from Work. */
+/** Where the page opens. Nothing set is the Product team's page, opened from Work. */
 interface View {
 	team?: TeamName;
-	/** The list of teams to jump between, open in Work. */
-	menu?: boolean;
-	/** The sidebar shows Knowledge, where each team is a space. */
-	knowledge?: boolean;
 	open?: UserId;
 	dialog?: DialogId | "add" | "plugin";
 	/** A document: an agent's instructions, or what one of its reasons makes it do. */
@@ -49,34 +44,14 @@ interface View {
 }
 const INSTRUCTIONS = "Instructions";
 
-export const PEOPLE_STEPS: { id: number; name: string; view: View }[] = [
-	{ id: 0, name: "A team, opened from Work: its people and agents", view: {} },
-	{ id: 1, name: "Work: jump between teams", view: { menu: true } },
-	{ id: 2, name: "Knowledge: each team is a space", view: { knowledge: true } },
-	{ id: 3, name: "An agent's page", view: { open: "builder" } },
-	{ id: 4, name: "A person's page", view: { open: "maya" } },
-	{ id: 5, name: "Your own page: your list and your settings", view: { open: "you" } },
-	{ id: 6, name: "Dialog: where an agent works", view: { open: "builder", dialog: "folder" } },
-	{ id: 7, name: "Dialog: what an agent can reach", view: { open: "builder", dialog: "service" } },
-	{ id: 8, name: "Dialog: reasons to start working", view: { open: "growth", dialog: "start" } },
-	{ id: 9, name: "What to do then, written as a document", view: { open: "growth", file: JOB } },
-	{ id: 10, name: "Dialog: what you are told about", view: { open: "you", dialog: "start" } },
-	{ id: 11, name: "Dialog: edit a user", view: { open: "builder", dialog: "edit" } },
-	{ id: 12, name: "Dialog: add someone", view: { dialog: "add" } },
-	{ id: 13, name: "The new agent: its instructions come next", view: { open: "researcher" } },
-	{
-		id: 14,
-		name: "Its instructions, written as a document",
-		view: { open: "researcher", file: INSTRUCTIONS },
-	},
-];
-export const PLUGIN_STEPS: { id: number; name: string; view: View }[] = [
-	{ id: 0, name: "A team's page: its people, agents and plugins", view: {} },
-	{ id: 1, name: "A plugin that is on: what it added", view: { plugin: "habits" } },
-	{ id: 2, name: "A plugin not installed yet: what it would add", view: { plugin: "roles" } },
-	{ id: 3, name: "Dialog: add a plugin from elsewhere", view: { dialog: "plugin" } },
-	{ id: 4, name: "A plugin switched off", view: { plugin: "notes", plugins: { notes: "off" } } },
-];
+/** The page a route names: `me` is your own; a name this page does not know opens the Product team. */
+export function viewFor(route: { user?: string; team?: string; plugin?: string }): View {
+	const user = route.user === "me" ? "you" : route.user;
+	if (user && user in USERS) return { open: user as UserId };
+	if (route.plugin && route.plugin in PLUGINS) return { plugin: route.plugin as PluginId };
+	const team = TEAMS.find((t) => t.name === route.team);
+	return team ? { team: team.name } : {};
+}
 
 interface Work {
 	title: string;
@@ -1088,114 +1063,102 @@ export function People({ view }: { view: View }): React.ReactElement {
 	};
 	const set = (id: PluginId, state: PluginState) => setPlugins({ ...plugins, [id]: state });
 	return (
-		<>
-			<Sidebar
-				initialSpine={
-					view.knowledge ? "knowledge" : view.open || view.plugin ? "conversations" : "work"
-				}
-				initialTeam={view.open || view.plugin ? null : team}
-				teamMenuOpen={view.menu}
-				teamOpen={open === null && plugin === null ? team : null}
-				onTeam={goTeam}
-				youOpen={open === "you"}
-			/>
-			<section className="detail">
-				{u && file ? (
-					<header className="detail-head">
-						<span className="chip chip--quiet">Document</span>
-						<span className="doc-state">
-							Draft · {u.name} reads this every time{" "}
-							{file === INSTRUCTIONS ? "it starts" : "one of its reasons starts it"}
-						</span>
-						<span className="doc-act">
-							<span className="doc-mode">✎ Editing</span>
-							<button type="button" className="btn" onClick={() => setFile(null)}>
-								Done
-							</button>
-						</span>
-					</header>
-				) : (
-					<header className="detail-head">
-						<span className="chip chip--quiet">{plugin ? "Plugin" : u ? u.kind : "Team"}</span>
-						<span className="doc-state">
-							{plugin ? PLUGINS[plugin].what : u ? u.what : "Its people and agents"}
-						</span>
-					</header>
+		<section className="detail">
+			{u && file ? (
+				<header className="detail-head">
+					<span className="chip chip--quiet">Document</span>
+					<span className="doc-state">
+						Draft · {u.name} reads this every time{" "}
+						{file === INSTRUCTIONS ? "it starts" : "one of its reasons starts it"}
+					</span>
+					<span className="doc-act">
+						<span className="doc-mode">✎ Editing</span>
+						<button type="button" className="btn" onClick={() => setFile(null)}>
+							Done
+						</button>
+					</span>
+				</header>
+			) : (
+				<header className="detail-head">
+					<span className="chip chip--quiet">{plugin ? "Plugin" : u ? u.kind : "Team"}</span>
+					<span className="doc-state">
+						{plugin ? PLUGINS[plugin].what : u ? u.what : "Its people and agents"}
+					</span>
+				</header>
+			)}
+			<div className="detail-scroll">
+				{open && file && (
+					<FilePage id={open} name={file} onUser={() => setFile(null)} onTeam={goTeam} />
 				)}
-				<div className="detail-scroll">
-					{open && file && (
-						<FilePage id={open} name={file} onUser={() => setFile(null)} onTeam={goTeam} />
-					)}
-					{open && !file && (
-						<UserPage
-							key={open}
-							id={open}
-							initialDialog={open === view.open ? first : null}
-							more={more}
-							onOpen={go}
-							onTeam={goTeam}
-							onFile={() => write(INSTRUCTIONS)}
-							onJob={(reasons) => {
-								setMore([...more, ...reasons]);
-								write(JOB);
-							}}
-							onPlugin={show}
-						/>
-					)}
-					{plugin && (
-						<PluginPage
-							key={plugin}
-							id={plugin}
-							state={plugins[plugin]}
-							team={team}
-							onTeam={() => go(null)}
-							onOpen={(user) => {
-								if (user in USERS) go(user as UserId);
-							}}
-							onState={(state) => set(plugin, state)}
-							onRemove={() => {
-								set(plugin, PLUGINS[plugin].from.startsWith("Comes with") ? "new" : "gone");
-								go(null);
-							}}
-						/>
-					)}
-					{!(open || plugin) && (
-						<TeamPage
-							team={team}
-							added={added}
-							plugins={plugins}
-							onOpen={go}
-							onAdd={() => setAdding("someone")}
-							onPlugin={show}
-							onAddPlugin={() => setAdding("plugin")}
-						/>
-					)}
-					{adding === "someone" && (
-						<UserDialog
-							onClose={() => setAdding(null)}
-							onDone={(agent) => {
-								setAdding(null);
-								if (agent) {
-									setAdded(true);
-									go("researcher");
-								}
-							}}
-						/>
-					)}
-					{adding === "plugin" && (
-						<PluginDialog
-							teams={TEAMS.map((t) => t.name)}
-							onClose={() => setAdding(null)}
-							onDone={() => {
-								setAdding(null);
-								setPlugins({ ...plugins, notes: "on" });
-								show("notes");
-							}}
-						/>
-					)}
-				</div>
-				{file && <FormatBar floating kinds={DOC_FORMATS} />}
-			</section>
-		</>
+				{open && !file && (
+					<UserPage
+						key={open}
+						id={open}
+						initialDialog={open === view.open ? first : null}
+						more={more}
+						onOpen={go}
+						onTeam={goTeam}
+						onFile={() => write(INSTRUCTIONS)}
+						onJob={(reasons) => {
+							setMore([...more, ...reasons]);
+							write(JOB);
+						}}
+						onPlugin={show}
+					/>
+				)}
+				{plugin && (
+					<PluginPage
+						key={plugin}
+						id={plugin}
+						state={plugins[plugin]}
+						team={team}
+						onTeam={() => go(null)}
+						onOpen={(user) => {
+							if (user in USERS) go(user as UserId);
+						}}
+						onState={(state) => set(plugin, state)}
+						onRemove={() => {
+							set(plugin, PLUGINS[plugin].from.startsWith("Comes with") ? "new" : "gone");
+							go(null);
+						}}
+					/>
+				)}
+				{!(open || plugin) && (
+					<TeamPage
+						team={team}
+						added={added}
+						plugins={plugins}
+						onOpen={go}
+						onAdd={() => setAdding("someone")}
+						onPlugin={show}
+						onAddPlugin={() => setAdding("plugin")}
+					/>
+				)}
+				{adding === "someone" && (
+					<UserDialog
+						onClose={() => setAdding(null)}
+						onDone={(agent) => {
+							setAdding(null);
+							if (agent) {
+								setAdded(true);
+								go("researcher");
+							}
+						}}
+					/>
+				)}
+				{adding === "plugin" && (
+					<PluginDialog
+						teams={TEAMS.map((t) => t.name)}
+						onClose={() => setAdding(null)}
+						onDone={() => {
+							setAdding(null);
+							setPlugins({ ...plugins, notes: "on" });
+							show("notes");
+						}}
+					/>
+				)}
+			</div>
+			{file && <FormatBar floating kinds={DOC_FORMATS} />}
+		</section>
 	);
 }

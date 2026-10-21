@@ -204,7 +204,7 @@ const LEGACY_EVENTS: readonly string[] = [
 
 /**
  * Actions declared in `framework/domain-model/src/actions/` that are not yet
- * wired to a `call(...)` site in the UI (core-ui is a static preview in the
+ * wired to a `call(...)` or `useAction(...)` site in the UI (core-ui is a static preview in the
  * design-restart branch; wiring to live data happens screen by screen in
  * subsequent commits). Only shrinks: once an action gains a UI call site,
  * its entry must be removed in the same PR. A wired action left here is a finding.
@@ -214,17 +214,11 @@ const UNIMPLEMENTED_UI_ACTIONS: readonly string[] = [
 	"edit_document",
 	"edit_plugin",
 	"edit_task",
-	"edit_user",
 	"open_document",
 	"open_task",
 	"open_thread",
-	"open_user",
-	"search_documents",
 	"search_plugins",
 	"search_sessions",
-	"search_tasks",
-	"search_threads",
-	"search_users",
 	"send_message",
 	"stop_session",
 	"watch_session",
@@ -338,9 +332,9 @@ function scanEventTypes(readFile: (path: string) => string): readonly string[] {
 	return [...block[1].matchAll(/["'`]([a-z_.]+)["'`]/g)].map((m) => m[1] ?? "");
 }
 
-/** A `call("<name>"` reference, the UI's one way of reaching an action. */
+/** A `call("<name>"` or `useAction("<name>"` reference — the UI's two ways of reaching an action. */
 function buildCallSiteMatcher(name: string): RegExp {
-	return new RegExp(`call\\(\\s*["'\`]${name}["'\`]`);
+	return new RegExp(`(?:\\bcall|\\buseAction)\\(\\s*["'\`]${name}["'\`]`);
 }
 
 export function actionsProjected(input: ActionsProjectedInput): Rule {
