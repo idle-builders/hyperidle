@@ -371,7 +371,7 @@ export function Sidebar() {
 		});
 
 	return (
-		<nav className="nav nav--rel">
+		<nav className="nav nav--rel" aria-label="Sidebar">
 			<div className="nav-top">
 				<div className="nav-find">
 					<button type="button" className="find-btn">
