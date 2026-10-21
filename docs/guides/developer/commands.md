@@ -7,7 +7,7 @@ Every useful root `npm` script, grouped by task. Onboarding path: [getting-start
 | Command | Purpose |
 |---------|---------|
 | `npm install` | Install dependencies |
-| `npm run setup` | Initialize the database (`tools/setup/src/setup-cli.ts`); flags: `--profile <laptop\|vps\|cloud>`, `--db-path`, `--db-url`, `--demo` (seed the lived-in Acme demo world — opt-in only) |
+| `npm run setup` | Initialize the database (`tools/setup/src/setup-cli.ts`); flags: `--profile <laptop\|vps\|cloud>`, `--db-path`, `--db-url`, `--demo` (seed the Northwind demo world — opt-in only) |
 | `npm run dev` | Dev server with hot reload (API + frontend). Runs **no agents** — see [getting-started.md](getting-started.md). |
 | `npm run dev:desktop` | Web dev server + Electron desktop shell |
 
@@ -78,7 +78,7 @@ Migrations are hand-written — there is no generator. A new migration is a hand
 | Command | Purpose |
 |---------|---------|
 | `npm run db:migrate` | Apply migrations via drizzle-kit against `DATABASE_URL` (Postgres only — never touches PGlite) |
-| `npm run db:bootstrap:pg -- --demo` | Seed the Acme demo world against `DATABASE_URL` |
+| `npm run db:bootstrap:pg -- --demo` | Seed the Northwind demo world against `DATABASE_URL` |
 | `npm run db:seed:pg` | Factory bootstrap against `DATABASE_URL` (server does this at boot) |
 
 Laptop PGlite migrations run via `npm run setup`, not `db:migrate`.

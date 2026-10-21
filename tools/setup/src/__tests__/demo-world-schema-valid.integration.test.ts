@@ -4,9 +4,6 @@
  * Verifies: every seeded task parses against TaskSchema, every message payload
  * parses against its type's schema, every document has valid status/scopeKind,
  * and at least one changes row exists per object kind.
- *
- * RED on current code: root-task outcomeVerdict uses old vocabulary
- * (validated/partial/refuted) and no changes rows are seeded.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -98,13 +95,13 @@ describe("demo world schema validation", () => {
 
 		const msgRows = await rows<{ id: string; type: string; payload: string }>(
 			db,
-			"SELECT id, type, payload FROM messages WHERE type IN ('review','plain','questionnaire','verdict')",
+			"SELECT id, type, payload FROM messages WHERE type IN ('review','plain','questionnaire','verdict','answer')",
 		);
 		expect(msgRows.length).toBeGreaterThan(0);
 
 		const failures: string[] = [];
 		for (const row of msgRows) {
-			const type = row.type as "plain" | "review" | "questionnaire" | "verdict";
+			const type = row.type as "plain" | "review" | "questionnaire" | "verdict" | "answer";
 			try {
 				const p = JSON.parse(row.payload) as unknown;
 				parseMessagePayload(type, p);

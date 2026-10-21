@@ -1,0 +1,36 @@
+{
+	"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+	"name": "team-habits",
+	"version": "1.2.0",
+	"description": "An agent that keeps how the team works written down.",
+	"extensions": {
+		"io.hyperidle": {
+			"installScope": "factory",
+			"agents": [
+				{
+					"id": "facilitation",
+					"name": "Facilitation",
+					"discipline": "facilitation",
+					"agentCategory": "team",
+					"identity": "instructions.md"
+				}
+			],
+			"subscriptions": [
+				{
+					"id": "task-finished",
+					"name": "A task finishes with a note on how it went",
+					"agentId": "facilitation",
+					"event": "task.changed",
+					"prompt": "If this change did not finish the task, or the task has no note on how it went, stop.\n\nRead the note. If it says something about how the team works — what went well, what went badly — write it down in your memory."
+				},
+				{
+					"id": "friday-proposal",
+					"name": "Every Friday at 16:00",
+					"agentId": "facilitation",
+					"schedule": "0 16 * * 5",
+					"prompt": "Read what you wrote down this week. If two or more notes point the same way, propose a change to How we work as a draft document, and say which tasks it comes from."
+				}
+			]
+		}
+	}
+}

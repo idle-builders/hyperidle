@@ -1,157 +1,243 @@
 /**
- * AX1 — demo world activity: ~35 sessions (terminal history + two live).
- * @lore Built-in subscriptions (retro, knowledge decay, knowledge promotion) are owned by the plugin,
- * not seeded here — a demo install without the plugin shows none; installing it produces exactly one of each.
- * @lore The demo inbox seeds unread rows for the founder — changes created by PM_ID while the founder was away.
+ * The sessions behind the work: one row per time an agent worked on a task,
+ * with what it did. Two are running now — Builder's reminder email and the
+ * metering — which fills Builder's two slots.
  */
 
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
-	ASSISTANT_ID,
 	BUILDER_ID,
+	DESIGNER_ID,
 	GROWTH_ID,
-	PM_ID,
-	QA_ID,
-	SESSION_ACTIVE_ASSISTANT,
-	SESSION_ACTIVE_COPY,
-	TASK_MOBILE_RESEARCH,
-	TASK_ONBOARD_AUDIT,
-	TASK_PRICING_COPY,
-	TASK_PRICING_RESEARCH,
-	TASK_PRICING_TIERS,
-	TASK_SEARCH_EVAL,
-	TASK_SEARCH_PROFILE,
-	TASK_SEARCH_RANKING,
-	TASK_TRIAL_BANNER,
-	TASK_TRIAL_EMAIL,
-	TASK_TRIAL_FLOW,
-	TASK_TRIAL_HEURISTIC,
-	TASK_TRIAL_MEASURE,
+	TASK_BUILD,
+	TASK_CARD,
+	TASK_CHECKOUT,
+	TASK_DROPOFF,
+	TASK_EMAIL,
+	TASK_EXPLAIN,
+	TASK_LAYOUT,
+	TASK_METERING,
+	TASK_NUMBERS,
+	TASK_PAGE,
+	TASK_PAYFORM,
+	TASK_PICKER,
+	TASK_PRORATION,
+	TASK_RECEIPT,
+	TASK_REFUNDS,
+	TASK_REMINDER,
+	TASK_TRIALS,
+	TASK_UNDERSTAND,
+	TASK_UTC,
+	TASK_WEEKLY,
+	weeklyRunId,
 } from "./ids.js";
 import type { DemoClock } from "./time.js";
 
-interface DoneTaskRef {
+interface SessionSpec {
 	readonly taskId: string;
 	readonly agentId: string;
-	/** Days ago the task finished — sessions cluster just before it. */
-	readonly finishedDaysAgo: number;
-	readonly count: number;
+	readonly startedAt: string;
+	/** Minutes it ran; a running session has none. */
+	readonly minutes?: number;
+	readonly notes: string;
 }
-
-const SESSION_NOTES: readonly string[] = [
-	"Implemented the core path and covered it with tests. Remaining: edge cases at the boundary.",
-	"Spent the first half reproducing the issue, the second half fixing it. Root cause was an ordering assumption.",
-	"Draft complete and self-reviewed against the done condition. Left one open question in the task notes.",
-	"Worked through the spec step by step; the done condition is met in staging. Watching for regressions.",
-	"Hit a snag with the fixture data halfway through, resolved it, and documented the gotcha as knowledge.",
-	"Finished ahead of the estimate. Used the spare context to clean up two adjacent rough edges.",
-];
 
 export async function seedActivity(db: HyperIdleDb, clock: DemoClock): Promise<void> {
-	await seedSessions(db, clock);
-}
-
-async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
-	// ── Terminal sessions clustered around finished tasks ─────────────────
-	const doneTasks: readonly DoneTaskRef[] = [
-		{ taskId: TASK_PRICING_RESEARCH, agentId: PM_ID, finishedDaysAgo: 16, count: 3 },
-		{ taskId: TASK_PRICING_TIERS, agentId: PM_ID, finishedDaysAgo: 13, count: 2 },
-		{ taskId: TASK_ONBOARD_AUDIT, agentId: PM_ID, finishedDaysAgo: 6, count: 2 },
-		{ taskId: TASK_TRIAL_BANNER, agentId: BUILDER_ID, finishedDaysAgo: 33, count: 2 },
-		{ taskId: TASK_TRIAL_FLOW, agentId: BUILDER_ID, finishedDaysAgo: 29, count: 3 },
-		{ taskId: TASK_TRIAL_EMAIL, agentId: GROWTH_ID, finishedDaysAgo: 27, count: 2 },
-		{ taskId: TASK_TRIAL_HEURISTIC, agentId: PM_ID, finishedDaysAgo: 30, count: 1 },
-		{ taskId: TASK_TRIAL_MEASURE, agentId: QA_ID, finishedDaysAgo: 15, count: 2 },
-		{ taskId: TASK_SEARCH_PROFILE, agentId: BUILDER_ID, finishedDaysAgo: 30, count: 2 },
-		{ taskId: TASK_SEARCH_RANKING, agentId: BUILDER_ID, finishedDaysAgo: 24, count: 3 },
-		{ taskId: TASK_SEARCH_EVAL, agentId: QA_ID, finishedDaysAgo: 21, count: 2 },
-		{ taskId: TASK_MOBILE_RESEARCH, agentId: PM_ID, finishedDaysAgo: 12, count: 2 },
+	const specs: SessionSpec[] = [
+		// Growth checks on the trials task every couple of days and rewrites its summary.
+		...[13, 11, 8, 5, 2].map((days) => ({
+			taskId: TASK_TRIALS,
+			agentId: GROWTH_ID,
+			startedAt: clock.at(days, "14:00"),
+			minutes: 80,
+			notes: "Checked on the parts, wrote the summary.",
+		})),
+		{
+			taskId: TASK_TRIALS,
+			agentId: GROWTH_ID,
+			startedAt: clock.at(0, "14:10"),
+			minutes: 22,
+			notes: "Checked on the parts, wrote the summary.",
+		},
+		{
+			taskId: TASK_NUMBERS,
+			agentId: GROWTH_ID,
+			startedAt: clock.at(10, "10:20"),
+			minutes: 40,
+			notes: "Pulled last quarter's trials and conversions. Finished.",
+		},
+		{
+			taskId: TASK_DROPOFF,
+			agentId: GROWTH_ID,
+			startedAt: clock.at(9, "13:20"),
+			minutes: 80,
+			notes: "Followed the people who did not pay to where they stopped. Finished.",
+		},
+		{
+			taskId: TASK_UNDERSTAND,
+			agentId: GROWTH_ID,
+			startedAt: clock.at(9, "14:45"),
+			minutes: 15,
+			notes: "Read both parts, wrote the summary.",
+		},
+		...[
+			[4, "15:00"],
+			[2, "15:00"],
+			[0, "14:05"],
+		].map(([days, at]) => ({
+			taskId: TASK_BUILD,
+			agentId: GROWTH_ID,
+			startedAt: clock.at(Number(days), String(at)),
+			minutes: 5,
+			notes: "Read the parts, wrote the summary.",
+		})),
+		{
+			taskId: TASK_EMAIL,
+			agentId: DESIGNER_ID,
+			startedAt: clock.at(4, "10:50"),
+			minutes: 50,
+			notes: "Wrote two drafts.",
+		},
+		{
+			taskId: TASK_EMAIL,
+			agentId: DESIGNER_ID,
+			startedAt: clock.at(3, "11:25"),
+			minutes: 35,
+			notes: "Picked the subject line, finished the email.",
+		},
+		{
+			taskId: TASK_CHECKOUT,
+			agentId: BUILDER_ID,
+			startedAt: clock.at(1, "21:15"),
+			minutes: 48,
+			notes: "Read how billing takes cards today, split the work in three.",
+		},
+		{
+			taskId: TASK_PAGE,
+			agentId: BUILDER_ID,
+			startedAt: clock.at(0, "08:40"),
+			minutes: 10,
+			notes: "Split the page in three.",
+		},
+		{
+			taskId: TASK_PICKER,
+			agentId: BUILDER_ID,
+			startedAt: clock.at(0, "08:50"),
+			minutes: 15,
+			notes: "Finished.",
+		},
+		{
+			taskId: TASK_PAYFORM,
+			agentId: BUILDER_ID,
+			startedAt: clock.at(0, "09:05"),
+			minutes: 25,
+			notes: "Finished.",
+		},
+		{
+			taskId: TASK_RECEIPT,
+			agentId: BUILDER_ID,
+			startedAt: clock.at(0, "09:30"),
+			minutes: 10,
+			notes: "Finished.",
+		},
+		{
+			taskId: TASK_CARD,
+			agentId: BUILDER_ID,
+			startedAt: clock.at(0, "09:40"),
+			minutes: 5,
+			notes: "Stopped to ask.",
+		},
+		{
+			taskId: TASK_LAYOUT,
+			agentId: DESIGNER_ID,
+			startedAt: clock.at(0, "09:30"),
+			minutes: 100,
+			notes: "Finished, asked for a review.",
+		},
+		{
+			taskId: TASK_REMINDER,
+			agentId: BUILDER_ID,
+			startedAt: clock.at(0, "16:05"),
+			notes:
+				"Read the Trials document for the wording we use. Wrote the email text. Asked billing for the date and amount of the first bill. Started putting both into the email.",
+		},
+		{
+			taskId: TASK_UTC,
+			agentId: BUILDER_ID,
+			startedAt: clock.at(0, "05:10"),
+			minutes: 45,
+			notes: "Finished.",
+		},
+		{
+			taskId: TASK_PRORATION,
+			agentId: BUILDER_ID,
+			startedAt: clock.at(0, "01:30"),
+			minutes: 130,
+			notes: "Covered proration from the upgrade to the invoice. Finished.",
+		},
+		{
+			taskId: TASK_EXPLAIN,
+			agentId: BUILDER_ID,
+			startedAt: clock.at(1, "08:14"),
+			minutes: 260,
+			notes:
+				"Read 14 support tickets tagged trial-end. Traced entitlement dates through billing. Found the proration bug on mid-cycle upgrade. Wrote the fix and 3 cases. Drafted the explainer copy.",
+		},
+		{
+			taskId: TASK_EXPLAIN,
+			agentId: BUILDER_ID,
+			startedAt: clock.at(0, "06:30"),
+			minutes: 105,
+			notes: "Moved the warning into the email, sent it to a test account, raised round 2.",
+		},
+		{
+			taskId: TASK_METERING,
+			agentId: BUILDER_ID,
+			startedAt: clock.hoursAgo(2),
+			notes: "Putting the metered usage on the invoice.",
+		},
+		{
+			taskId: TASK_REFUNDS,
+			agentId: DESIGNER_ID,
+			startedAt: clock.hoursAgo(3),
+			minutes: 55,
+			notes: "Wrote the wording, asked Maya for a review.",
+		},
+		// Each Monday's run reads the tickets; a short session afterwards updates the summary.
+		...Array.from({ length: 12 }, (_, i) => ({
+			taskId: weeklyRunId(i),
+			agentId: GROWTH_ID,
+			startedAt: clock.at(clock.daysSinceMonday + 7 * (11 - i), "07:00"),
+			minutes: 18,
+			notes: "Read the week's tickets and wrote the themes down. Finished.",
+		})),
+		{
+			taskId: TASK_WEEKLY,
+			agentId: GROWTH_ID,
+			startedAt: clock.at(clock.daysSinceMonday, "07:18"),
+			minutes: 2,
+			notes: "Read the run, wrote the summary.",
+		},
 	];
 
-	let noteIndex = 0;
-	for (const ref of doneTasks) {
-		for (let i = 0; i < ref.count; i++) {
-			const startedDaysAgo = ref.finishedDaysAgo + (ref.count - i);
-			const crashed = ref.taskId === TASK_SEARCH_RANKING && i === 0;
-			const stopped = ref.taskId === TASK_TRIAL_EMAIL && i === 0;
-			const durationHours = 1 + ((i + ref.finishedDaysAgo) % 3);
-			const startedAt = clock.daysAgoAt(startedDaysAgo, 9 + (i % 4) * 2);
-			const endedAt = new Date(
-				new Date(startedAt).getTime() + durationHours * 3_600_000,
-			).toISOString();
-			await db
-				.insert(sessions)
-				.values({
-					id: `demo-session-${ref.taskId}-${i + 1}`,
-					taskId: ref.taskId,
-					agentId: ref.agentId,
-					modelTier: i === 0 ? "reasoning" : "workhorse",
-					startedAt,
-					endedAt,
-					state: "done",
-					outcome: crashed ? "crashed" : stopped ? "stopped" : "completed",
-					notes: crashed
-						? "Session crashed mid-run during the ranking change; recovered context from the task notes in the next session."
-						: SESSION_NOTES[noteIndex++ % SESSION_NOTES.length],
-				})
-				.onConflictDoNothing();
-		}
-	}
-
-	// ── Live session: one on a task ────────────────────────────────────────
-	await db
-		.insert(sessions)
-		.values({
-			id: SESSION_ACTIVE_COPY,
-			taskId: TASK_PRICING_COPY,
-			agentId: GROWTH_ID,
-			modelTier: "workhorse",
-			startedAt: clock.hoursAgo(2),
-			endedAt: null,
-			state: "active",
-			notes: "Working through the FAQ copy and the tier descriptions.",
-		})
-		.onConflictDoNothing();
-
-	// Review-found defect: this used to be seeded "active" forever, which
-	// permanently occupied the assistant's one concurrency slot and required
-	// bumping that slot count to 2 just to make room for it — a fake session
-	// forcing a fake ceiling. Seeded terminal instead (ended an hour ago), so
-	// the demo shows honest concurrency: a single slot, and the assistant is
-	// actually free to answer.
-	await db
-		.insert(sessions)
-		.values({
-			id: SESSION_ACTIVE_ASSISTANT,
-			taskId: null,
-			agentId: ASSISTANT_ID,
-			modelTier: "fast",
-			startedAt: clock.hoursAgo(1.25),
-			endedAt: clock.hoursAgo(1),
-			state: "done",
-			outcome: "completed",
-			notes: "Prepared the morning summary.",
-		})
-		.onConflictDoNothing();
-
-	// ── Assistant turn history (task-free sessions) ───────────────────────
-	for (let i = 0; i < 6; i++) {
-		const startedAt = clock.daysAgoAt(35 - i * 6, 8);
+	for (const [i, spec] of specs.entries()) {
+		const running = spec.minutes === undefined;
 		await db
 			.insert(sessions)
 			.values({
-				id: `demo-session-assistant-turn-${i + 1}`,
-				taskId: null,
-				agentId: ASSISTANT_ID,
-				modelTier: "reasoning",
-				startedAt,
-				endedAt: new Date(new Date(startedAt).getTime() + 45 * 60_000).toISOString(),
-				state: "done",
-				outcome: "completed",
-				notes:
-					i === 0
-						? "Monthly reflection with the founder; focus list updated."
-						: "Morning check-in: summarized waiting reviews and overnight activity.",
+				id: `demo-session-${i + 1}`,
+				taskId: spec.taskId,
+				agentId: spec.agentId,
+				modelTier: "workhorse",
+				startedAt: spec.startedAt,
+				endedAt: running
+					? null
+					: new Date(
+							new Date(spec.startedAt).getTime() + (spec.minutes ?? 0) * 60_000,
+						).toISOString(),
+				state: running ? "active" : "done",
+				outcome: running ? null : "completed",
+				notes: spec.notes,
 			})
 			.onConflictDoNothing();
 	}

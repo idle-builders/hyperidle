@@ -46,7 +46,7 @@ Companion commands:
 
 | Command | What it does |
 |---|---|
-| `npm run db:bootstrap:pg -- --demo` | Seeds the Acme demo world — only needed if you want demo data |
+| `npm run db:bootstrap:pg -- --demo` | Seeds the Northwind demo world — only needed if you want demo data |
 | `npm run db:seed:pg` | Factory bootstrap (the `system:propagation` actor) — not needed for normal deploys, server does it at boot |
 
 ## VPS (Docker Compose)

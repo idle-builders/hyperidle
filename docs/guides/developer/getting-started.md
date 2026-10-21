@@ -19,7 +19,7 @@ npm run dev            # server (3001) + web (5173)
 
 Open [http://localhost:5173](http://localhost:5173).
 
-`npm run setup` flags: `--db-path <dir>` (PGlite data directory, default `./hyperidle-pg`), `--demo` (seed the lived-in Acme world — opt-in only, never seeded by default).
+`npm run setup` flags: `--db-path <dir>` (PGlite data directory, default `./hyperidle-pg`), `--demo` (seed the Northwind demo world — opt-in only, never seeded by default).
 
 ### First run — what the welcome screen asks
 
@@ -48,7 +48,7 @@ No env setup is needed unless you set your own key.
 
 ### Demo data
 
-`npm run setup -- --demo` fills a fresh database with a lived-in Acme world — six weeks of history for a small team of two humans and five agents. Postgres: `npm run db:bootstrap:pg -- --demo`.
+`npm run setup -- --demo` fills a fresh database with the Northwind demo world — the same story as the design’s made-up data in `layers/core-ui`: two people, four agents, the trials task and its parts, the hand-off and its reviews, and the knowledge tree. Postgres: `npm run db:bootstrap:pg -- --demo`.
 
 ## Database
 

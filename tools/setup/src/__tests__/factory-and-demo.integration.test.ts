@@ -131,7 +131,7 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 		expect(founder[0]?.kind).toBe("human");
 	});
 
-	test("the founder is in Product and Support, Maya in Support, every agent in one team", async ({
+	test("Finn is in Product and Support, Maya in Support, each owned agent in one team", async ({
 		db,
 	}) => {
 		await runFactoryBootstrap(db);
@@ -148,13 +148,18 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 		expect(await teamsOf("demo-founder")).toEqual(["Product", "Support"]);
 		expect(await teamsOf("demo-human-maya")).toEqual(["Support"]);
 
-		const agentTeamCounts = await queryRows<{ id: string; teams: string }>(
+		// An owned agent is in one of its owner's teams; the plugin's agent for everyone is in none.
+		const agentTeams = await queryRows<{ name: string; teams: string | null }>(
 			db,
-			`SELECT u.id, COUNT(ut.team_id) AS teams FROM users u
-			   LEFT JOIN user_teams ut ON ut.user_id = u.id
-			  WHERE u.kind = 'ai' AND u.role <> 'system' GROUP BY u.id`,
+			`SELECT u.name, string_agg(t.name, ',') AS teams FROM users u
+			   LEFT JOIN user_teams ut ON ut.user_id = u.id LEFT JOIN teams t ON t.id = ut.team_id
+			  WHERE u.kind = 'ai' AND u.role <> 'system' GROUP BY u.name ORDER BY u.name`,
 		);
-		expect(agentTeamCounts.length).toBeGreaterThan(0);
-		expect(agentTeamCounts.filter((r) => Number(r.teams) !== 1)).toEqual([]);
+		expect(agentTeams).toEqual([
+			{ name: "Builder", teams: "Product" },
+			{ name: "Designer", teams: "Support" },
+			{ name: "Facilitation", teams: null },
+			{ name: "Growth", teams: "Product" },
+		]);
 	});
 });
