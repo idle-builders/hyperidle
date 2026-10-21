@@ -128,9 +128,9 @@ describe("headCollapsePredicate", () => {
 });
 
 describe("closed enums", () => {
-	it("MESSAGE_TYPES is exactly {plain, review, questionnaire, verdict}", () => {
+	it("MESSAGE_TYPES is exactly {plain, review, questionnaire, verdict, answer}", () => {
 		expect(new Set(MESSAGE_TYPES)).toEqual(
-			new Set(["plain", "review", "questionnaire", "verdict"]),
+			new Set(["plain", "review", "questionnaire", "verdict", "answer"]),
 		);
 	});
 
