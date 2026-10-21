@@ -575,6 +575,8 @@ export const documents = pgTable(
 		updatedAt: text("updated_at").notNull(),
 		// @lore: discipline — who a document is for; clusters a context bundle only, never hides it in the document view. `agent_file` never carries one.
 		discipline: text("discipline"),
+		/** One emoji, shown in the tree and before the title. */
+		icon: text("icon"),
 	},
 	(table) => [
 		index("doc_scope_idx").on(table.scopeKind, table.scopeId),

@@ -8,6 +8,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { Anchor, Flag, Pin, ReviewPart, Spot } from "@hyperidle/domain-model";
+import { TEN_DAYS_BODY } from "./documents.js";
 import {
 	BUILDER_ID,
 	DOC_DEPLOY_RULE,
@@ -134,10 +135,14 @@ const PIN_REFUNDS: Anchor = {
 	spot: { kind: "figure", label: "Refund requests" },
 };
 
+const DAY_13 = "Most cancellations happen on day 13.";
+
+/** Finn's comment on one line of "Should trials be 10 days?"; Growth proposes what it should say. */
 const PIN_DAY_13: Anchor = {
 	id: "day-13",
-	part: "what-we-know",
-	label: "Most cancellations happen on day 13.",
+	part: DOC_TEN_DAYS,
+	label: DAY_13,
+	spot: rangeOf(TEN_DAYS_BODY, DAY_13),
 };
 
 /** The characters of `body` that `words` covers. */
@@ -475,7 +480,13 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			threadId: THREAD_TEN_DAYS,
 			senderId: GROWTH_ID,
 			type: "plain",
-			payload: plain("About 1 in 5. This line should say so.", { anchor: PIN_DAY_13 }),
+			payload: plain("About 1 in 5. This line should say so.", {
+				anchor: PIN_DAY_13,
+				change: {
+					from: DAY_13,
+					to: "Most cancellations happen on day 13, and 1 in 5 people who pay decide on days 11–14.",
+				},
+			}),
 			createdAt: clock.at(0, "10:44"),
 		},
 	];

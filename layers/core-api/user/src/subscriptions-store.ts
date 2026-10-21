@@ -19,6 +19,8 @@ export interface SubscriptionsFilter {
 	readonly ids?: readonly string[];
 	readonly userId?: string;
 	readonly event?: string;
+	/** Only the subscriptions that follow this one object. */
+	readonly objectId?: string;
 	readonly paused?: boolean;
 }
 
@@ -31,6 +33,7 @@ export function listSubscriptions(
 	if (filter.ids !== undefined) preds.push(inArray(subscriptions.id, Array.from(filter.ids)));
 	if (filter.userId !== undefined) preds.push(eq(subscriptions.userId, filter.userId));
 	if (filter.event !== undefined) preds.push(eq(subscriptions.event, filter.event));
+	if (filter.objectId !== undefined) preds.push(eq(subscriptions.objectId, filter.objectId));
 	if (filter.paused !== undefined) preds.push(eq(subscriptions.paused, filter.paused));
 	return db
 		.select()

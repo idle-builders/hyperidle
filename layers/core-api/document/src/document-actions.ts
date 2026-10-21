@@ -92,6 +92,8 @@ export interface DocumentActionsDeps {
 	 * edit's transaction when `body` changed. The subscriptions item deletes it.
 	 */
 	readonly onBodyChanged: (exec: WriteExecutor, documentId: string) => Promise<void>;
+	/** Who follows the document — the user module owns subscriptions. */
+	readonly followersOf: (exec: WriteExecutor, documentId: string) => Promise<readonly string[]>;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
 }
 
@@ -232,11 +234,12 @@ export async function assembleDocumentView(
 	row: DbDocumentRow,
 ): Promise<DocumentView> {
 	const viewer = await resolveViewer(ctx, deps);
-	const [ancestorRows, childRows, siblingRows, scopeName] = await Promise.all([
+	const [ancestorRows, childRows, siblingRows, scopeName, followers] = await Promise.all([
 		listAncestors(ctx.db, row.id),
 		searchDocumentRows(ctx.db, { parent: { kind: "document", id: row.id } }, viewer),
 		siblingsOf(ctx, viewer, row),
 		resolveScopeName(deps, ctx.db, row.scopeKind, row.scopeId),
+		deps.followersOf(ctx.db, row.id),
 	]);
 	return {
 		document: toDocumentRow(row),
@@ -244,6 +247,7 @@ export async function assembleDocumentView(
 		children: childRows.map(toDocumentRow),
 		siblings: siblingRows.map(toDocumentRow),
 		scopeName,
+		followers: new Set(followers.filter((id) => id !== ctx.actor)).size,
 	};
 }
 
@@ -566,6 +570,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		// Explicit only — never inherited from a parent folder (founder ruling).
 		const effectiveDiscipline =
 			input.discipline !== undefined ? input.discipline : (prev?.discipline ?? null);
+		const effectiveIcon = input.icon !== undefined ? input.icon : (prev?.icon ?? null);
 		const bodyChanged = isCreate || (input.body !== undefined && input.body !== prev?.body);
 		// A parent is only actively (re-)established at create, or when the
 		// caller names one — an edit that omits `parent` never moves the
@@ -723,6 +728,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 					scopeKind: effectiveScopeKind,
 					scopeId: effectiveScopeId,
 					discipline: effectiveDiscipline,
+					icon: effectiveIcon,
 					parentKind: effectiveParent?.kind ?? null,
 					parentId: effectiveParent?.id ?? null,
 					position,

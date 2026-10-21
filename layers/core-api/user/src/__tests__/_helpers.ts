@@ -66,6 +66,7 @@ export function realDocumentActions(): readonly Action[] {
 			return false;
 		},
 		onBodyChanged: async () => undefined,
+		followersOf: async () => [],
 	};
 	return createDocumentActions(deps) as readonly Action[];
 }

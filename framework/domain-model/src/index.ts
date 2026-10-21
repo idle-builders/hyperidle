@@ -117,6 +117,7 @@ export type {
 	OpenThreadInput,
 	PlainPayload,
 	PlainReadPayload,
+	ProposedChange,
 	QuestionnairePayload,
 	ReviewPayload,
 	SearchThreadsInput,
@@ -143,6 +144,7 @@ export {
 	openThread,
 	parseMessagePayload,
 	plainPayloadSchema,
+	proposedChangeSchema,
 	questionnairePayloadSchema,
 	resolvesMessageInvariants,
 	reviewPayloadSchema,
@@ -251,7 +253,7 @@ export {
 export type { ModelProvider } from "./model-provider.js";
 export { MODEL_PROVIDERS } from "./model-provider.js";
 export type { Anchor, Flag, Pin, ReviewPart, Spot } from "./review.js";
-export { pinProblems } from "./review.js";
+export { documentAnchorProblems, pinProblems } from "./review.js";
 export type {
 	ActivityEntry,
 	AnswerDeltaData,

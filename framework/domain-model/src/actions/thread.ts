@@ -53,11 +53,29 @@ export const threadParticipantsSchema = z.array(z.string().min(1));
 // production writes it); it stays on the READ side so historical rows still
 // render, via `plainReadPayloadSchema` below.
 
+/**
+ * A change proposed inside a comment on a document: the text the comment covers as it was, and
+ * as it should become. Anyone may apply or dismiss it, once; `settled` says who did, and when.
+ */
+export const proposedChangeSchema = z.object({
+	from: z.string().max(16_384),
+	to: z.string().max(16_384),
+	settled: z
+		.object({
+			state: z.enum(["applied", "dismissed"]),
+			by: z.string().min(1),
+			at: z.string().min(1),
+		})
+		.optional(),
+});
+export type ProposedChange = z.infer<typeof proposedChangeSchema>;
+
 export const plainPayloadSchema = z.object({
 	text: z.string().max(16_384),
 	refs: z.array(inlineRefSchema).optional(),
-	/** A comment on a review's part, or on a block of the thread's document. */
+	/** A comment on a review's part, or on a stretch of the text of the thread's document. */
 	anchor: anchorSchema.optional(),
+	change: proposedChangeSchema.optional(),
 });
 export type PlainPayload = z.infer<typeof plainPayloadSchema>;
 
@@ -256,6 +274,8 @@ export const SendMessageInputSchema = z
 		text: z.string().max(16_384).optional(),
 		refs: z.array(inlineRefSchema).optional(), // plain only
 		anchor: anchorSchema.optional(), // plain only
+		/** A change to the document text the anchor covers; plain only. */
+		change: proposedChangeSchema.omit({ settled: true }).optional(),
 		// `taskId` is server-stamped from `ctx.caller.taskId`, never caller
 		// input — omitted here so a smuggled `taskId` in the request body is
 		// stripped by validation rather than stored.
@@ -295,6 +315,15 @@ export const AdjustThreadInputSchema = z
 		resolved: z.boolean().optional(), // true ⇒ resolvedAt = now; false ⇒ reopen
 		pinned: z.boolean().optional(),
 		deleted: z.boolean().optional(), // true ⇒ deletedAt = now; false ⇒ restore
+		/** One message in it: resolve or reopen the comment it starts, apply or dismiss its change. */
+		message: z
+			.object({
+				id: z.string().min(1),
+				resolved: z.boolean().optional(),
+				change: z.enum(["applied", "dismissed"]).optional(),
+			})
+			.strict()
+			.optional(),
 	})
 	.strict();
 export type AdjustThreadInput = z.infer<typeof AdjustThreadInputSchema>;
@@ -303,7 +332,8 @@ export const adjustThread: ActionDeclaration<AdjustThreadInput, ThreadView> = {
 	name: "adjust_thread",
 	sentence:
 		"Adjust a conversation, new or existing: its title, who is in it, whether it is " +
-		"resolved, pinned, or deleted.",
+		"resolved, pinned, or deleted; resolve or reopen a comment in it, or apply or dismiss the " +
+		"change a message proposes.",
 	input: AdjustThreadInputSchema,
 	output: ThreadViewSchema, // same shape open_thread returns
 };
@@ -364,12 +394,29 @@ export function sendMessageInvariants(
 	}
 
 	const hasText = input.text !== undefined;
-	if (!hasText && (input.refs !== undefined || input.anchor !== undefined)) {
+	if (
+		!hasText &&
+		(input.refs !== undefined || input.anchor !== undefined || input.change !== undefined)
+	) {
 		problems.push({
 			code: "plain_fields_on_non_plain",
-			message: "refs and anchor only apply to a text message.",
+			message: "refs, anchor and change only apply to a text message.",
 			path: "text",
 		});
+	}
+	if (input.change !== undefined) {
+		if (input.anchor === undefined || input.anchor.review !== undefined)
+			problems.push({
+				code: "change_needs_document_anchor",
+				message: "A change is proposed on a stretch of a document's text: anchor it there.",
+				path: "change",
+			});
+		else if (input.change.from === input.change.to)
+			problems.push({
+				code: "change_same",
+				message: "The proposed text is the same as the text it would replace.",
+				path: "change.to",
+			});
 	}
 	if (input.review !== undefined)
 		problems.push(
@@ -485,6 +532,7 @@ export function adjustThreadInvariants(input: AdjustThreadInput): Problem[] {
 		input.resolved !== undefined ||
 		input.pinned !== undefined ||
 		input.deleted !== undefined ||
+		input.message !== undefined ||
 		input.host !== undefined;
 	if (input.id !== undefined && !touchesAnyOtherField) {
 		problems.push({
@@ -498,6 +546,24 @@ export function adjustThreadInvariants(input: AdjustThreadInput): Problem[] {
 			code: "adjust_host_on_existing",
 			message: "Host may only be set when creating a thread.",
 			path: "host",
+		});
+	}
+	if (input.message !== undefined && input.id === undefined) {
+		problems.push({
+			code: "adjust_message_needs_thread",
+			message: "Name the thread the message is in.",
+			path: "message",
+		});
+	}
+	if (
+		input.message !== undefined &&
+		input.message.resolved === undefined &&
+		input.message.change === undefined
+	) {
+		problems.push({
+			code: "adjust_message_empty",
+			message: "Resolve or reopen the comment, or apply or dismiss its change.",
+			path: "message",
 		});
 	}
 	if (input.members !== undefined && input.members.length === 0) {

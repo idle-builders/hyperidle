@@ -5,7 +5,7 @@
  * conversation (see conversations.ts).
  */
 
-import { documents, type HyperIdleDb } from "@hyperidle/db";
+import { documents, type HyperIdleDb, subscriptions } from "@hyperidle/db";
 import {
 	BUILDER_ID,
 	DESIGNER_ID,
@@ -30,6 +30,7 @@ interface DocSpec {
 	readonly body: string;
 	readonly draft?: boolean;
 	readonly discipline?: string;
+	readonly icon?: string;
 	readonly createdBy: string;
 	readonly createdDaysAgo: number;
 	/** The last edit, when someone changed it after writing it. */
@@ -38,6 +39,12 @@ interface DocSpec {
 
 const DOC_ENGINEERING = "demo-doc-engineering";
 
+export const TEN_DAYS_BODY =
+	"Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose.\n\n## What we know\n\n- Trials run 14 days, card up front.\n- Since the warning email, 27% more trials convert.\n- Most cancellations happen on day 13.\n\n## Decision\n\nNot yet.";
+
+/** Who follows "Should trials be 10 days?" besides Finn, who wrote it: they are told when it is published. */
+const TEN_DAYS_FOLLOWERS = [FOUNDER_ID, MAYA_ID, BUILDER_ID, GROWTH_ID, DESIGNER_ID];
+
 export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 	const specs: readonly DocSpec[] = [
 		// ── Product ──────────────────────────────────────────────────────────
@@ -45,6 +52,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: DOC_HOW_WE_PRICE,
 			team: PRODUCT_TEAM_ID,
 			title: "How we price",
+			icon: "💷",
 			body: "How we set our prices and what people pay. Each part is a document of its own: Trials, and Tiers and metering.",
 			createdBy: FOUNDER_ID,
 			createdDaysAgo: 90,
@@ -55,6 +63,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			team: PRODUCT_TEAM_ID,
 			parentId: DOC_HOW_WE_PRICE,
 			title: "Trials",
+			icon: "⏳",
 			body: "Every plan starts with a 14-day trial. We ask for a card up front and say, before the trial ends, exactly when the first bill comes and how much it is.\n\nWe do not extend trials by hand.",
 			createdBy: FOUNDER_ID,
 			createdDaysAgo: 90,
@@ -65,6 +74,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			team: PRODUCT_TEAM_ID,
 			parentId: DOC_HOW_WE_PRICE,
 			title: "Tiers and metering",
+			icon: "📊",
 			body: "Three plans, side by side on the pricing page. The Team plan is £24 a month.\n\nA usage-based tier is being built: we meter what a team uses and bill it with the month.",
 			createdBy: FOUNDER_ID,
 			createdDaysAgo: 88,
@@ -74,7 +84,8 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			team: PRODUCT_TEAM_ID,
 			parentId: DOC_HOW_WE_PRICE,
 			title: "Should trials be 10 days?",
-			body: "Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose.\n\n## What we know\n\n- Trials run 14 days, card up front.\n- Since the warning email, 27% more trials convert.\n- Most cancellations happen on day 13.\n\n## Decision\n\nNot yet.",
+			icon: "🤔",
+			body: TEN_DAYS_BODY,
 			draft: true,
 			discipline: "Growth",
 			createdBy: FOUNDER_ID,
@@ -92,6 +103,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: DOC_ENGINEERING,
 			team: PRODUCT_TEAM_ID,
 			title: "Engineering",
+			icon: "🛠️",
 			body: "How we build and ship.",
 			createdBy: FOUNDER_ID,
 			createdDaysAgo: 85,
@@ -156,10 +168,27 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 				position,
 				version: doc.edited ? 2 : 1,
 				discipline: doc.discipline ?? null,
+				icon: doc.icon ?? null,
 				updatedBy: doc.edited?.by ?? doc.createdBy,
 				createdAt,
 				updatedAt: doc.edited?.at ?? createdAt,
 			})
 			.onConflictDoNothing();
 	}
+
+	for (const userId of TEN_DAYS_FOLLOWERS)
+		await db
+			.insert(subscriptions)
+			.values({
+				id: `demo-sub-follow-ten-days-${userId}`,
+				userId,
+				event: "document.changed",
+				objectId: DOC_TEN_DAYS,
+				schedule: null,
+				paused: false,
+				nextRunAt: null,
+				createdAt: clock.daysAgo(1),
+				updatedAt: clock.daysAgo(1),
+			})
+			.onConflictDoNothing();
 }

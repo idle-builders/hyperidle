@@ -14,7 +14,12 @@
 
 import { type HyperIdleDb, messages, threads, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import type { ReviewVerdictOutcome, SendMessageInput, ThreadView } from "@hyperidle/domain-model";
+import type {
+	DocumentRow,
+	ReviewVerdictOutcome,
+	SendMessageInput,
+	ThreadView,
+} from "@hyperidle/domain-model";
 import type { ObjectChangeEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
@@ -1348,5 +1353,130 @@ describe("send_message / adjust_thread — object events fire from the change ro
 		expect(createdEvent?.change.objectId).toBe(threadId);
 		expect(changedEvent?.change.objectId).toBe(threadId);
 		expect(changedEvent?.change.after).toMatchObject({ pinned: true });
+	});
+});
+
+describe("comments on a document's text, and the changes they propose", () => {
+	const BODY = "Trials run 14 days.\n\n- Most cancellations happen on day 13.";
+	const doc: DocumentRow = {
+		id: "doc-c-1",
+		title: "Should trials be 10 days?",
+		body: BODY,
+		format: "markdown",
+		status: "proposed",
+		slot: "ordinary",
+		scopeKind: "team",
+		scopeId: "cm-team",
+		parentKind: null,
+		parentId: null,
+		position: 0,
+		version: 1,
+		updatedBy: FOUNDER_ID,
+		createdAt: "2026-01-01T00:00:00.000Z",
+		updatedAt: "2026-01-01T00:00:00.000Z",
+		readCount: 0,
+		lastReadAt: null,
+		sessionUseCount: 0,
+		lastUsedAt: null,
+		discipline: null,
+		icon: null,
+		as: "document",
+	};
+	const start = BODY.indexOf("day 13");
+	const pin = {
+		id: "c1",
+		part: "doc-c-1",
+		label: "day 13",
+		spot: { kind: "range", start, end: start + 6 },
+	} as const;
+
+	async function seedDocThread(db: HyperIdleDb) {
+		const actions = createThreadActions(
+			threadDeps({ searchDocuments: async () => ({ ok: true, data: [doc] }) }),
+		);
+		const eventBus = new EventBus();
+		await seedTeam(db, "cm-team");
+		await seedHuman(db, "cm-other", "cm-team");
+		await seedThreadRow(db, "cm-thread", {
+			hostKind: "document",
+			hostId: doc.id,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+		});
+		const as = (actor: string) => (name: string, body: Record<string, unknown>) =>
+			call<{ message: { id: string } }>(actions, db, eventBus, name, body, actor);
+		const stored = async (id: string) => {
+			const [row] = await db.select().from(messages).where(eq(messages.id, id));
+			return { resolvedAt: row?.resolvedAt ?? null, payload: JSON.parse(row?.payload ?? "{}") };
+		};
+		return { you: as(FOUNDER_ID), other: as("cm-other"), stored };
+	}
+
+	test("a comment points at a stretch of the document's text; one past its end is refused", async ({
+		db,
+	}) => {
+		const { you, stored } = await seedDocThread(db);
+
+		const fits = await you("send_message", { threadId: "cm-thread", text: "Why?", anchor: pin });
+		const past = await you("send_message", {
+			threadId: "cm-thread",
+			text: "And here?",
+			anchor: { ...pin, spot: { kind: "range", start, end: 999 } },
+		});
+
+		expect(past.body.problems?.map((p) => p.code)).toEqual(["pin_range_outside"]);
+		const id = fits.body.data?.message.id ?? "";
+		expect((await stored(id)).payload.anchor).toEqual(pin);
+	});
+
+	test("a proposed change is applied once, by anyone, and says who applied it", async ({ db }) => {
+		const { you, other, stored } = await seedDocThread(db);
+		const sent = await you("send_message", {
+			threadId: "cm-thread",
+			text: "",
+			anchor: pin,
+			change: { from: "day 13", to: "day 13, and 1 in 5 decide on days 11–14" },
+		});
+		const id = sent.body.data?.message.id ?? "";
+
+		const applied = await other("adjust_thread", {
+			id: "cm-thread",
+			message: { id, change: "applied" },
+		});
+		const again = await you("adjust_thread", {
+			id: "cm-thread",
+			message: { id, change: "dismissed" },
+		});
+
+		expect(applied.status).toBe(200);
+		expect(again.body.problems?.map((p) => p.code)).toEqual(["change_settled"]);
+		const { payload } = await stored(id);
+		expect(payload.change.settled).toMatchObject({ state: "applied", by: "cm-other" });
+		expect(payload.change.to).toBe("day 13, and 1 in 5 decide on days 11–14");
+	});
+
+	test("a message with no change has nothing to apply", async ({ db }) => {
+		const { you } = await seedDocThread(db);
+		const sent = await you("send_message", { threadId: "cm-thread", text: "Hm", anchor: pin });
+
+		const applied = await you("adjust_thread", {
+			id: "cm-thread",
+			message: { id: sent.body.data?.message.id ?? "", change: "applied" },
+		});
+
+		expect(applied.body.problems?.map((p) => p.code)).toEqual(["no_change"]);
+	});
+
+	test("resolving a comment marks its first message, and undo clears it", async ({ db }) => {
+		const { you, stored } = await seedDocThread(db);
+		const sent = await you("send_message", { threadId: "cm-thread", text: "Why?", anchor: pin });
+		const id = sent.body.data?.message.id ?? "";
+
+		await you("adjust_thread", { id: "cm-thread", message: { id, resolved: true } });
+		const resolved = (await stored(id)).resolvedAt;
+		await you("adjust_thread", { id: "cm-thread", message: { id, resolved: false } });
+
+		expect(resolved).not.toBeNull();
+		expect((await stored(id)).resolvedAt).toBeNull();
 	});
 });

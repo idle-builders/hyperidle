@@ -36,6 +36,7 @@ function makeRow(overrides: Partial<DocumentRow> = {}): DocumentRow {
 		sessionUseCount: 0,
 		lastUsedAt: null,
 		discipline: null,
+		icon: null,
 		as: "document",
 		...overrides,
 	};
@@ -54,7 +55,14 @@ describe("createAgentIdentityPort", () => {
 				editInputs.push(input);
 				return {
 					ok: true,
-					data: { document: makeRow(), ancestors: [], children: [], siblings: [], scopeName: "" },
+					data: {
+						document: makeRow(),
+						ancestors: [],
+						children: [],
+						siblings: [],
+						scopeName: "",
+						followers: 0,
+					},
 				};
 			},
 		});
@@ -114,7 +122,14 @@ describe("createAgentIdentityPort", () => {
 				const row = makeRow({ id, status: "archived" });
 				return {
 					ok: true,
-					data: { document: row, ancestors: [], children: [], siblings: [], scopeName: "" },
+					data: {
+						document: row,
+						ancestors: [],
+						children: [],
+						siblings: [],
+						scopeName: "",
+						followers: 0,
+					},
 				};
 			},
 		});

@@ -56,7 +56,8 @@ export type Flag = z.infer<typeof flagSchema>;
 
 /**
  * Where a message in a thread points: a pin on a part of the review `review` names, or, with no
- * review, on a block of the document the thread is about.
+ * review, on a stretch of the text of the document the thread is about — `part` is that
+ * document's id and `spot` a range of characters of its body.
  */
 export const anchorSchema = pinSchema.extend({ review: z.string().min(1).optional() });
 export type Anchor = z.infer<typeof anchorSchema>;
@@ -269,4 +270,36 @@ export function reviewInvariants(review: {
 			),
 		);
 	return problems;
+}
+
+/** Whether a comment on a document points at a stretch of that document's text. */
+export function documentAnchorProblems(
+	anchor: Pin,
+	doc: { readonly id: string; readonly body: string },
+): Problem[] {
+	if (anchor.part !== doc.id)
+		return [
+			problem(
+				"anchor_part_not_document",
+				"A comment on a document points at that document.",
+				"anchor.part",
+			),
+		];
+	const spot = anchor.spot;
+	if (spot?.kind !== "range")
+		return [
+			problem(
+				"anchor_needs_range",
+				"A comment on a document points at a stretch of its text.",
+				"anchor.spot",
+			),
+		];
+	if (spot.start < spot.end && spot.end <= doc.body.length) return [];
+	return [
+		problem(
+			"pin_range_outside",
+			"The range must start before it ends, inside the text.",
+			"anchor.spot",
+		),
+	];
 }

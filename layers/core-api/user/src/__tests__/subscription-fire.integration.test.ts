@@ -129,6 +129,7 @@ function realDocumentActions(): readonly Action[] {
 		},
 		systemParentExists: async () => false,
 		onBodyChanged: async () => undefined,
+		followersOf: async () => [],
 	};
 	return createDocumentActions(deps) as readonly Action[];
 }

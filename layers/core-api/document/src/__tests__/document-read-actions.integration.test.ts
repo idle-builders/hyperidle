@@ -53,6 +53,7 @@ function readOnlyDeps(): DocumentActionsDeps {
 		onBodyChanged: async () => {
 			throw new Error("the read half never calls onBodyChanged");
 		},
+		followersOf: async () => [],
 	};
 }
 

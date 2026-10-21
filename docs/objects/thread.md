@@ -35,13 +35,20 @@ Host is immutable after creation.
 
 `MESSAGE_TYPES` (`thread.ts`): `plain | review | questionnaire | verdict | answer`.
 
-- **plain** — text, optional inline refs (entity refs, mention refs), optional `anchor`: where a comment points — a pin on a part of a review, or on a block of the thread's document.
+- **plain** — text, optional inline refs (entity refs, mention refs), optional `anchor`: where a comment points — a pin on a part of a review, or on a stretch of the text of the thread's document (see [Comments on a document](#comments-on-a-document)), and optional `change`: a change to that text it proposes.
 - **review** — something produced, put to a person to judge; has a `title`, `reasoning`, and optionally `stage`, `parts`, `flags`, `previousReviewId` and `changed` (see below).
 - **questionnaire** — agent asks a constrained question; has a `title`, `question`, `options` (up to 16).
 - **verdict** — a human approves or rejects a review; carries `decision`, `resolvesMessageId` and an optional `note`.
 - **answer** — answers a questionnaire; carries `resolvesMessageId` and exactly one of `option` (one of the questionnaire's options, word for word) or `text` (the sender's own words).
 
 Messages are append-only. Payload is immutable after persistence. Soft-delete via `deletedAt`. Redaction replaces payload with `{ redacted: true, redactedBy, redactedAt, reason }`.
+
+## Comments on a document
+
+A comment on a document is a plain message in the document's thread (host kind `document`) whose `anchor` has no `review`: `part` is the document's id and `spot` a `range` — characters `start` up to `end` of its body, as they were when it was sent. `label` holds the covered words, so the page can find them again after the text around them changes. The server refuses such an anchor on a thread that is not a document's (`anchor_needs_review`), or a range outside the body (`pin_range_outside`). A reply repeats the pin, so each pin is its own little comment; the newest message's range is what it covers now.
+
+- **A proposed change** — `change: { from, to }`: the covered text as it was, and as it should become. Anyone proposes one, on a document anchor only (`change_needs_document_anchor`). Applying it puts `to` into the body through `edit_document`; `adjust_thread` with `message: { id, change: "applied" | "dismissed" }` then records who settled it (`change.settled: { state, by, at }`). It settles once (`change_settled`).
+- **Resolve** — `adjust_thread` with `message: { id, resolved: true }` on the comment's first message sets its `resolvedAt`; `resolved: false` reopens it.
 
 ## Inline refs
 

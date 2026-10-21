@@ -238,7 +238,55 @@ describe("resolvesMessageInvariants — what a verdict or an answer may resolve"
 	});
 });
 
+describe("a change proposed in a comment", () => {
+	const noCaller = { hasCallingThread: false };
+	const onText = {
+		id: "c1",
+		part: "doc-1",
+		label: "day 13",
+		spot: { kind: "range", start: 4, end: 10 },
+	} as const;
+
+	it.each([
+		[
+			"with no anchor",
+			{ text: "", change: { from: "a", to: "b" } },
+			["change_needs_document_anchor"],
+		],
+		[
+			"on a review's part",
+			{ text: "", anchor: { ...onText, review: "r1" }, change: { from: "a", to: "b" } },
+			["change_needs_document_anchor"],
+		],
+		[
+			"that changes nothing",
+			{ text: "", anchor: onText, change: { from: "a", to: "a" } },
+			["change_same"],
+		],
+		[
+			"on a stretch of a document's text",
+			{ text: "", anchor: onText, change: { from: "a", to: "b" } },
+			[],
+		],
+	] as const)("%s", (_, body, codes) => {
+		const problems = sendMessageInvariants(
+			{ threadId: "t1", ...body } as SendMessageInput,
+			noCaller,
+		);
+		expect(problems.map((p) => p.code)).toEqual(codes);
+	});
+});
+
 describe("adjustThreadInvariants", () => {
+	it.each([
+		["with no thread", { message: { id: "m1", resolved: true } }, ["adjust_message_needs_thread"]],
+		["that says nothing", { id: "t1", message: { id: "m1" } }, ["adjust_message_empty"]],
+		["resolving a comment", { id: "t1", message: { id: "m1", resolved: true } }, []],
+		["applying its change", { id: "t1", message: { id: "m1", change: "applied" } }, []],
+	] as const)("a message adjusted %s", (_, input, codes) => {
+		expect(adjustThreadInvariants(input).map((p) => p.code)).toEqual(codes);
+	});
+
 	it("adjust_empty: an id with nothing else to change", () => {
 		const problems = adjustThreadInvariants({ id: "t1" });
 		expect(problems.map((p) => p.code)).toContain("adjust_empty");

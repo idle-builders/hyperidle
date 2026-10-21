@@ -35,6 +35,7 @@ import {
 	getTeam,
 	insertSubscription,
 	insertUserIfAbsent,
+	listSubscriptions,
 	listUsers,
 	nextCronMatch,
 	parseCron,
@@ -180,6 +181,10 @@ const systemParentExists: DocumentActionsDeps["systemParentExists"] = async (exe
 	return (await getSubscription(exec, id)) !== undefined;
 };
 
+// document's followersOf port — who follows one document, read from the user module's subscriptions.
+const followersOf: DocumentActionsDeps["followersOf"] = async (exec, documentId) =>
+	(await listSubscriptions(exec, { objectId: documentId })).map((s) => s.userId);
+
 // document's deps. wsPush is optional — absent in test compositions that don't need WS pushes.
 function buildDocumentActionsDeps(
 	taskActions: readonly Action[],
@@ -195,6 +200,7 @@ function buildDocumentActionsDeps(
 		org: { getTeam: (exec, q) => getTeam(exec, q) },
 		openParent: buildOpenParent(taskActions, threadActions),
 		systemParentExists,
+		followersOf,
 		// bound to the settings package's contribution tracker — a
 		// document's `body` changing detaches it from the plugin that seeded it.
 		onBodyChanged: (exec, documentId) =>
@@ -434,6 +440,7 @@ function buildStandaloneDocumentActions(): readonly Action[] {
 			);
 		},
 		systemParentExists,
+		followersOf,
 		onBodyChanged: (exec, documentId) =>
 			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
 	}) as readonly Action[];

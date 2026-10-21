@@ -722,6 +722,13 @@
 			"when": 1791196081807,
 			"tag": "0103_review_parts_and_anchors",
 			"breakpoints": true
+		},
+		{
+			"idx": 104,
+			"version": "7",
+			"when": 1791282481807,
+			"tag": "0104_document_icon",
+			"breakpoints": true
 		}
 	]
 }

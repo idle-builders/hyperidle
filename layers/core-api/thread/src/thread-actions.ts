@@ -22,6 +22,7 @@ import {
 	canWriteThread,
 	computeThreadNeed,
 	type DocumentRow,
+	documentAnchorProblems,
 	type HostKind,
 	type Identity,
 	IdentitySchema,
@@ -32,6 +33,7 @@ import {
 	openThread as openThreadDeclaration,
 	type Problem,
 	pinProblems,
+	proposedChangeSchema,
 	type ReviewVerdictOutcome,
 	type ReviewVerdictRecorderFn,
 	resolvesMessageInvariants,
@@ -854,6 +856,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 
 		const reviewProblems = await reviewLinkProblems(ctx, input, threadId);
 		if (reviewProblems.length > 0) return { ok: false, problems: reviewProblems };
+		const textProblems = await documentTextProblems(ctx, input, threadRow);
+		if (textProblems.length > 0) return { ok: false, problems: textProblems };
 
 		const resolvesMessageId = (input.verdict ?? input.answer)?.resolvesMessageId;
 		if (resolvesMessageId !== undefined) {
@@ -1270,6 +1274,90 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		};
 	}
 
+	/**
+	 * A comment with no review points at the text of the document the thread is about, so the
+	 * thread must be a document's and the stretch must lie inside that document's text.
+	 */
+	async function documentTextProblems(
+		ctx: ActionContext,
+		input: SendMessageInput,
+		threadRow: { readonly hostKind: string; readonly hostId: string } | undefined,
+	): Promise<Problem[]> {
+		const anchor = input.anchor;
+		if (anchor === undefined || anchor.review !== undefined) return [];
+		const found =
+			threadRow?.hostKind === "document"
+				? await deps.searchDocuments(ctx, { ids: [threadRow.hostId] })
+				: undefined;
+		const doc = found?.ok ? found.data[0] : undefined;
+		if (!doc)
+			return [
+				{
+					code: "anchor_needs_review",
+					message:
+						"A comment points at a part of a review, or at the text of the document this conversation is about.",
+					path: "anchor",
+				},
+			];
+		return documentAnchorProblems(anchor, doc);
+	}
+
+	/**
+	 * What `adjust_thread` does to one message: resolve or reopen the comment it starts, or settle
+	 * the change it proposes — once, by anyone who can write the thread.
+	 */
+	async function adjustMessage(
+		ctx: ActionContext,
+		threadId: string,
+		input: NonNullable<AdjustThreadInput["message"]>,
+	): Promise<
+		| {
+				readonly ok: true;
+				readonly patch: Partial<NewMessage>;
+				readonly after: Record<string, unknown>;
+		  }
+		| { readonly ok: false; readonly problems: Problem[] }
+	> {
+		const row = await store.findMessage(ctx.db, { id: input.id });
+		if (!row || row.threadId !== threadId)
+			return {
+				ok: false,
+				problems: [{ code: "not_found", message: `Message ${input.id} not found in this thread` }],
+			};
+		const patch: Partial<NewMessage> = {};
+		const after: Record<string, unknown> = { messageId: row.id };
+		if (input.change !== undefined) {
+			const payload = JSON.parse(row.payload) as Record<string, unknown>;
+			const change = proposedChangeSchema.safeParse(payload.change);
+			if (row.type !== "plain" || !change.success)
+				return {
+					ok: false,
+					problems: [
+						{ code: "no_change", message: "That message proposes no change.", path: "message" },
+					],
+				};
+			if (change.data.settled)
+				return {
+					ok: false,
+					problems: [
+						{
+							code: "change_settled",
+							message: "This change was already applied or dismissed.",
+							path: "message.change",
+						},
+					],
+				};
+			const settled = { state: input.change, by: ctx.actor, at: ctx.now };
+			patch.payload = JSON.stringify({ ...payload, change: { ...change.data, settled } });
+			after.change = settled;
+		}
+		if (input.resolved !== undefined) {
+			patch.resolvedAt = input.resolved ? ctx.now : null;
+			after.resolvedAt = patch.resolvedAt;
+		}
+		return { ok: true, patch, after };
+	}
+
 	// -----------------------------------------------------------------------
 	// adjust_thread
 	// -----------------------------------------------------------------------
@@ -1359,6 +1447,9 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		const before: Record<string, unknown> = {};
 		const after: Record<string, unknown> = {};
 		const patch: Partial<NewThread> = {};
+		const message = input.message ? await adjustMessage(ctx, input.id, input.message) : undefined;
+		if (message && !message.ok) return { ok: false, problems: message.problems };
+		if (message?.ok) after.message = message.after;
 		if (input.title !== undefined && input.title !== row.title) {
 			before.title = row.title;
 			after.title = input.title;
@@ -1401,7 +1492,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			const changeBefore = { id: input.id, ...before };
 			const changeAfter = { id: input.id, ...after };
 			await ctx.db.transaction(async (tx) => {
-				await store.updateThread(tx as HyperIdleDb, input.id as string, patch);
+				if (Object.keys(patch).length > 0)
+					await store.updateThread(tx as HyperIdleDb, input.id as string, patch);
+				if (message?.ok && input.message)
+					await store.updateMessage(tx as HyperIdleDb, input.message.id, message.patch);
 				await deps.changes.appendChange(tx, {
 					id: changeId,
 					object: "thread",
@@ -1516,6 +1610,7 @@ function messageBodyOf(input: SendMessageInput): {
 				text: input.text,
 				...(input.refs !== undefined ? { refs: input.refs } : {}),
 				...(input.anchor !== undefined ? { anchor: input.anchor } : {}),
+				...(input.change !== undefined ? { change: input.change } : {}),
 			},
 		};
 	}

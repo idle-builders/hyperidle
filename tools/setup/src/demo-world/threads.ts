@@ -5,7 +5,7 @@
  */
 
 import { type HyperIdleDb, messages, threads } from "@hyperidle/db";
-import type { Anchor } from "@hyperidle/domain-model";
+import type { Anchor, ProposedChange } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 
 export interface ThreadSpec {
@@ -34,8 +34,10 @@ export function plain(
 	extra: {
 		readonly mentions?: readonly { readonly id: string; readonly name: string }[];
 		readonly documents?: readonly string[];
-		/** A comment on a review's part, or on a block of the thread's document. */
+		/** A comment on a review's part, or on a stretch of the thread's document's text. */
 		readonly anchor?: Anchor;
+		/** A change to the text the anchor covers. */
+		readonly change?: ProposedChange;
 	} = {},
 ): Record<string, unknown> {
 	const refs = [
@@ -51,6 +53,7 @@ export function plain(
 		text,
 		...(refs.length > 0 ? { refs } : {}),
 		...(extra.anchor ? { anchor: extra.anchor } : {}),
+		...(extra.change ? { change: extra.change } : {}),
 	};
 }
 

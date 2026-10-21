@@ -4,7 +4,13 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { type Pin, pinProblems, type ReviewPart, reviewInvariants } from "../review.js";
+import {
+	documentAnchorProblems,
+	type Pin,
+	pinProblems,
+	type ReviewPart,
+	reviewInvariants,
+} from "../review.js";
 
 const PARTS: readonly ReviewPart[] = [
 	{
@@ -243,5 +249,31 @@ describe("a review's parts and flags", () => {
 		expect(
 			reviewInvariants({ parts: [...PARTS], changed: ["New: the email"], previousReviewId: "r1" }),
 		).toEqual([]);
+	});
+});
+
+describe("a comment on a document points at a stretch of its text", () => {
+	const doc = { id: "doc-1", body: "Most cancellations happen on day 13." };
+	const pin = { id: "c1", part: "doc-1", label: "day 13" };
+	it.each([
+		["inside the text", { ...pin, spot: { kind: "range", start: 29, end: 35 } }, []],
+		[
+			"on another document",
+			{ ...pin, part: "doc-2", spot: { kind: "range", start: 0, end: 4 } },
+			["anchor_part_not_document"],
+		],
+		["with no stretch of text", pin, ["anchor_needs_range"]],
+		[
+			"at something that is not text",
+			{ ...pin, spot: { kind: "figure", label: "x" } },
+			["anchor_needs_range"],
+		],
+		[
+			"past the end",
+			{ ...pin, spot: { kind: "range", start: 29, end: 99 } },
+			["pin_range_outside"],
+		],
+	] as const)("%s", (_, anchor, codes) => {
+		expect(documentAnchorProblems(anchor, doc).map((p) => p.code)).toEqual(codes);
 	});
 });

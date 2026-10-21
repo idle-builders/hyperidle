@@ -38,6 +38,7 @@ function makeRow(overrides: Partial<DocumentRow> = {}): DocumentRow {
 		sessionUseCount: 0,
 		lastUsedAt: null,
 		discipline: null,
+		icon: null,
 		as: "document",
 		...overrides,
 	};

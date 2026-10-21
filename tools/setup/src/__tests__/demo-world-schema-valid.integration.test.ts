@@ -10,6 +10,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	DOCUMENT_STATUSES,
+	documentAnchorProblems,
 	parseMessagePayload,
 	pinProblems,
 	plainPayloadSchema,
@@ -155,6 +156,21 @@ describe("demo world schema validation", () => {
 			for (const p of pinProblems(anchor, on?.payload.parts ?? []))
 				failures.push(`comment ${id}: ${p.code}`);
 		}
+		const docs = new Map(
+			(await rows<{ id: string; body: string }>(db, "SELECT id, body FROM documents")).map((d) => [
+				d.id,
+				d,
+			]),
+		);
+		const onText = msgRows.flatMap((m) => {
+			const anchor =
+				m.type === "plain" ? plainPayloadSchema.parse(JSON.parse(m.payload)).anchor : undefined;
+			return anchor && !anchor.review ? [{ id: m.id, anchor }] : [];
+		});
+		expect(onText.length).toBeGreaterThan(0);
+		for (const { id, anchor } of onText)
+			for (const p of documentAnchorProblems(anchor, docs.get(anchor.part) ?? { id: "", body: "" }))
+				failures.push(`comment ${id}: ${p.code}`);
 		expect(failures, failures.join("\n")).toEqual([]);
 	});
 

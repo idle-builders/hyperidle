@@ -67,7 +67,8 @@ A comment on a part is a plain message in the review's thread with an `anchor`: 
 `review`, the review message's id. Each pin is its own little thread — a reply repeats the pin,
 `id` and all; a reply to a flag takes the flag's pin. The server refuses an anchor whose review is
 not in the same thread (`anchor_review_unknown`) or whose pin does not fit the part. An anchor
-without `review` points at a block of the document the thread is about.
+without `review` points at a stretch of the text of the document the thread is about (see
+[thread.md](../objects/thread.md#comments-on-a-document)).
 
 A comment is open until someone other than its asker replies (then answered). A flag is open until
 someone replies to it or the review is approved (then settled). Open questions never block Approve;

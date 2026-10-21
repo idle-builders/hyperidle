@@ -8,7 +8,7 @@
  * a recorder. The cascade over a narrowed scope's descendants (§6.6) is out
  * of scope here — B6b.
  */
-import { changes, documents } from "@hyperidle/db";
+import { changes, documents, subscriptions } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { DocumentView, EditDocumentInput, OpenDocumentInput } from "@hyperidle/domain-model";
 import type { ObjectChangeEvent } from "@hyperidle/event-bus";
@@ -1031,5 +1031,61 @@ describe("edit_document — an agent_file must be bound to its agent", () => {
 			parent: { kind: "agent", id: "agent-af-2" },
 		});
 		expect(result.ok).toBe(true);
+	});
+});
+
+describe("edit_document — the icon, and who follows", () => {
+	test("an icon is set and read back, then cleared; each change is recorded", async ({ db }) => {
+		await seedUser(db, "writer-icon-1");
+		const edit = editAction(writeDeps());
+		const ctx = ctxFor(db, "writer-icon-1");
+		await edit.run(ctx, { id: "doc-icon-1", title: "Trials", body: "" });
+
+		const set = await edit.run(ctx, { id: "doc-icon-1", icon: "⏳" });
+		const cleared = await edit.run(ctx, { id: "doc-icon-1", icon: null });
+
+		expect(set.ok && set.data.document.icon).toBe("⏳");
+		expect(cleared.ok && cleared.data.document.icon).toBeNull();
+		const rows = await readChanges(db, "doc-icon-1");
+		expect(rows.map((r) => JSON.parse(r.after ?? "{}").icon)).toEqual([null, "⏳", null]);
+	});
+
+	test("a document says how many others follow it", async ({ db }) => {
+		for (const id of ["reader-f-1", "follower-f-1", "follower-f-2", "other-f-1"])
+			await seedUser(db, id);
+		await db.insert(documents).values(
+			docValues({
+				id: "doc-f-1",
+				title: "Deploy rule",
+				body: "",
+				format: "markdown",
+				status: "active",
+				updatedBy: "reader-f-1",
+			}),
+		);
+		const follow = (userId: string, objectId: string) => ({
+			id: `sub-${userId}-${objectId}`,
+			userId,
+			event: "document.changed",
+			objectId,
+			createdAt: "2026-01-01T00:00:00.000Z",
+			updatedAt: "2026-01-01T00:00:00.000Z",
+		});
+		await db
+			.insert(subscriptions)
+			.values([
+				follow("follower-f-1", "doc-f-1"),
+				follow("follower-f-2", "doc-f-1"),
+				follow("reader-f-1", "doc-f-1"),
+				follow("other-f-1", "doc-other"),
+			]);
+		const open = actionFor<OpenDocumentInput, DocumentView>(
+			createDocumentActions(writeDeps()),
+			"open_document",
+		);
+
+		const view = await open.run(ctxFor(db, "reader-f-1"), { id: "doc-f-1" });
+
+		expect(view.ok && view.data.followers).toBe(2);
 	});
 });

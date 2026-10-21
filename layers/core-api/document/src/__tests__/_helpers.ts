@@ -7,6 +7,7 @@ import {
 	changes,
 	documents,
 	type HyperIdleDb,
+	subscriptions,
 	tasks,
 	teams,
 	threads,
@@ -178,6 +179,13 @@ export function writeDeps(opts: DepsOptions = {}): DocumentActionsDeps {
 			(async () => {
 				// no-op stub: tests that don't assert on body-changed side effects
 			}),
+		followersOf: async (exec: WriteExecutor, documentId: string) =>
+			(
+				await exec
+					.select({ userId: subscriptions.userId })
+					.from(subscriptions)
+					.where(eq(subscriptions.objectId, documentId))
+			).map((r) => r.userId),
 		...(opts.wsPush ? { wsPush: opts.wsPush } : {}),
 	};
 }

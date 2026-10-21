@@ -100,6 +100,7 @@ function realDocumentActions(): readonly Action[] {
 		},
 		onBodyChanged: (exec, documentId) =>
 			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
+		followersOf: async () => [],
 	};
 	return createDocumentActions(deps) as readonly Action[];
 }
