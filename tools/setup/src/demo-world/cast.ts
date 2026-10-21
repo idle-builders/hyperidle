@@ -21,7 +21,7 @@ import {
 	userTeams,
 } from "@hyperidle/db";
 import { type HarnessType, OBJECT_EVENTS } from "@hyperidle/domain-model";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import {
 	BUILDER_ID,
 	DESIGNER_ID,
@@ -284,6 +284,13 @@ async function seedTeamHabits(db: HyperIdleDb, clock: DemoClock): Promise<void> 
 		now: clock.daysAgo(98),
 	});
 	await setRunConfig(db, FACILITATION_ID, "claude-code", 1);
+	// The install counts the next Friday from its own date, long past; the
+	// Fridays since then have run, so the next one is still to come.
+	const daysToFriday = (4 - clock.daysSinceMonday + 7) % 7 || 7;
+	await db
+		.update(subscriptions)
+		.set({ nextRunAt: clock.at(-daysToFriday, "16:00") })
+		.where(and(eq(subscriptions.userId, FACILITATION_ID), isNotNull(subscriptions.schedule)));
 
 	for (const edit of PLUGIN_EDITS) {
 		const contribution = view.contributions.find(

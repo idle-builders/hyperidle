@@ -1,29 +1,18 @@
 /**
  * What makes each owned agent who it is: its instructions, its skills and its
- * memory. Instructions are the agent's `agent_file` document. An agent holds one
- * document per named slot, so its skills are team documents marked with its
- * discipline — the way a skill reaches every agent of that craft. Memory is
- * private notes scoped to the agent.
+ * memory, all scoped to the agent. Instructions are its `agent_file` document.
+ * An agent holds one document per named slot, so its skills are not parented to
+ * it: a skill scoped to the agent reaches its sessions all the same. Memory is
+ * its private notes.
  */
 
 import { documents, type HyperIdleDb } from "@hyperidle/db";
-import {
-	BUILDER_ID,
-	DESIGNER_ID,
-	FACILITATION_ID,
-	FOUNDER_ID,
-	GROWTH_ID,
-	MAYA_ID,
-	PRODUCT_TEAM_ID,
-	SUPPORT_TEAM_ID,
-} from "./ids.js";
+import { BUILDER_ID, DESIGNER_ID, FACILITATION_ID, FOUNDER_ID, GROWTH_ID, MAYA_ID } from "./ids.js";
 import type { DemoClock } from "./time.js";
 
 interface AgentFiles {
 	readonly agentId: string;
 	readonly name: string;
-	readonly team: string;
-	readonly discipline: string;
 	readonly instructions: string;
 	readonly editedBy: string;
 	readonly editedDaysAgo: number;
@@ -35,8 +24,6 @@ const OWNED: readonly AgentFiles[] = [
 	{
 		agentId: BUILDER_ID,
 		name: "Builder",
-		team: PRODUCT_TEAM_ID,
-		discipline: "Engineering",
 		instructions: `# Builder
 
 You build and ship. You write and change code, prove it works, and say what you did.
@@ -82,8 +69,6 @@ You build and ship. You write and change code, prove it works, and say what you 
 	{
 		agentId: GROWTH_ID,
 		name: "Growth",
-		team: PRODUCT_TEAM_ID,
-		discipline: "Growth",
 		instructions: `# Growth
 
 You look at how trials turn into paid plans, run experiments on pricing, and keep the numbers written down.
@@ -120,8 +105,6 @@ You look at how trials turn into paid plans, run experiments on pricing, and kee
 	{
 		agentId: DESIGNER_ID,
 		name: "Designer",
-		team: SUPPORT_TEAM_ID,
-		discipline: "Design",
 		instructions: `# Designer
 
 You lay out pages and write the words on them.
@@ -201,14 +184,13 @@ export async function seedAgentFiles(db: HyperIdleDb, clock: DemoClock): Promise
 				.insert(documents)
 				.values({
 					id: `demo-doc-skill-${agent.agentId}-${i}`,
-					scopeKind: "team",
-					scopeId: agent.team,
+					scopeKind: "user",
+					scopeId: agent.agentId,
 					title: skill.title,
 					body: skill.body,
 					format: "markdown",
 					status: "active",
 					slot: "skill",
-					discipline: agent.discipline,
 					updatedBy: agent.editedBy,
 					createdAt: clock.daysAgo(80),
 					updatedAt: clock.daysAgo(80),

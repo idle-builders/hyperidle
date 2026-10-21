@@ -555,7 +555,7 @@ function weeklyTree(clock: DemoClock): { tasks: TaskSpec[]; mondays: string[] } 
 				owner: GROWTH_ID,
 				title: `Week of ${weekLabel(next)}`,
 				about: `Read the support tickets from the week of ${weekLabel(next)} and say what people struggled with most.`,
-				state: "accepted",
+				state: "proposed",
 				createdAt: clock.at(clock.daysSinceMonday, "07:20"),
 				updatedAt: clock.at(clock.daysSinceMonday, "07:20"),
 			},

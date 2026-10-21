@@ -191,7 +191,7 @@ describe("the demo world tells the design's story", () => {
 			db,
 			`SELECT state FROM tasks WHERE parent_task_id = '${TASK_WEEKLY}' ORDER BY position`,
 		);
-		expect(runs.map((r) => r.state)).toEqual([...Array(12).fill("done"), "accepted"]);
+		expect(runs.map((r) => r.state)).toEqual([...Array(12).fill("done"), "proposed"]);
 		const monday = await rows<{ schedule: string; paused: boolean }>(
 			db,
 			"SELECT s.schedule, s.paused FROM subscriptions s JOIN users u ON u.id = s.user_id WHERE u.name = 'Growth'",

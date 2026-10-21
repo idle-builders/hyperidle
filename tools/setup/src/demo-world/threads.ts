@@ -78,10 +78,7 @@ export async function seedThreads(
 }
 
 /** Messages into threads that already exist; each thread's last activity follows its newest. */
-async function seedMessages(
-	db: HyperIdleDb,
-	messageSpecs: readonly MessageSpec[],
-): Promise<void> {
+async function seedMessages(db: HyperIdleDb, messageSpecs: readonly MessageSpec[]): Promise<void> {
 	for (const message of messageSpecs) {
 		const blockId = message.payload.blockId;
 		await db

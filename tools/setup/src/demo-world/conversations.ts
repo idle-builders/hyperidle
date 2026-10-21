@@ -165,10 +165,10 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 				],
 				taskId: TASK_EXPLAIN,
 			},
-			createdAt: clock.at(1, "12:48"),
+			createdAt: clock.at(1, "12:49"),
 			resolvedAt: clock.at(1, "15:20"),
 		},
-		trialEnd("06", BUILDER_ID, clock.at(1, "12:49"), {
+		trialEnd("06", BUILDER_ID, clock.at(1, "12:50"), {
 			type: "review",
 			payload: {
 				title: "Three replies to customers",
