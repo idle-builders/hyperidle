@@ -6,7 +6,7 @@
  * against the real server + real PGlite DB (no mocks).
  */
 
-import { type HyperIdleDb, messages, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, messages, teams, users, userTeams } from "@hyperidle/db";
 import type { ThreadView } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
@@ -45,7 +45,6 @@ async function seedBase(db: HyperIdleDb, teamId: string): Promise<void> {
 			name: "Founder",
 			role: "founder",
 			status: "active",
-			teamId,
 			createdAt: now,
 		},
 		{
@@ -53,11 +52,12 @@ async function seedBase(db: HyperIdleDb, teamId: string): Promise<void> {
 			kind: "human",
 			name: "Recipient",
 			role: "member",
-			teamId,
 			status: "active",
 			createdAt: now,
 		},
 	]);
+	await db.insert(userTeams).values({ userId: FOUNDER_ID, teamId });
+	await db.insert(userTeams).values({ userId: RECIPIENT_ID, teamId });
 }
 
 /** The structural slice of `Hono` every helper below needs — `app.request`. */

@@ -489,7 +489,7 @@ describe("documentAs — the read-side derivation", () => {
 describe("canReadDocument — the shared visibility predicate", () => {
 	it("an artifact (task-parented) is readable regardless of scope", () => {
 		expect(
-			canReadDocument([], "some-other-team", {
+			canReadDocument([], {
 				parentKind: "task",
 				scopeKind: "user",
 				scopeId: "someone-else",
@@ -500,7 +500,7 @@ describe("canReadDocument — the shared visibility predicate", () => {
 
 	it("a memory owned by one of the viewer's subjects is readable", () => {
 		expect(
-			canReadDocument(["u1"], null, {
+			canReadDocument(["u1"], {
 				parentKind: null,
 				scopeKind: "user",
 				scopeId: "u1",
@@ -511,7 +511,7 @@ describe("canReadDocument — the shared visibility predicate", () => {
 
 	it("a private tree document (user scope, in tree) owned by one of the viewer's subjects is readable — same subjects rule as a memory", () => {
 		expect(
-			canReadDocument(["u1"], null, {
+			canReadDocument(["u1"], {
 				parentKind: "document",
 				scopeKind: "user",
 				scopeId: "u1",
@@ -522,7 +522,7 @@ describe("canReadDocument — the shared visibility predicate", () => {
 
 	it("a private tree document (user scope, in tree) not owned by any of the viewer's subjects is not readable", () => {
 		expect(
-			canReadDocument(["u1"], null, {
+			canReadDocument(["u1"], {
 				parentKind: "document",
 				scopeKind: "user",
 				scopeId: "u2",
@@ -533,7 +533,7 @@ describe("canReadDocument — the shared visibility predicate", () => {
 
 	it("a memory not owned by any of the viewer's subjects is not readable", () => {
 		expect(
-			canReadDocument(["u1"], null, {
+			canReadDocument(["u1"], {
 				parentKind: null,
 				scopeKind: "user",
 				scopeId: "u2",
@@ -544,7 +544,7 @@ describe("canReadDocument — the shared visibility predicate", () => {
 
 	it("a user-scoped row with a named slot is exempt from the memory filter", () => {
 		expect(
-			canReadDocument(["u1"], null, {
+			canReadDocument(["u1"], {
 				parentKind: null,
 				scopeKind: "user",
 				scopeId: "u2",
@@ -553,42 +553,20 @@ describe("canReadDocument — the shared visibility predicate", () => {
 		).toBe(true);
 	});
 
-	it("a team-scoped row matching the viewer's team is readable", () => {
+	it("a team-scoped row is readable to everyone — every team's knowledge is everyone's", () => {
 		expect(
-			canReadDocument([], "team-1", {
-				parentKind: null,
-				scopeKind: "team",
-				scopeId: "team-1",
-				slot: "ordinary",
-			}),
-		).toBe(true);
-	});
-
-	it("a team-scoped row for a different team is not readable", () => {
-		expect(
-			canReadDocument([], "team-1", {
+			canReadDocument(["u1"], {
 				parentKind: null,
 				scopeKind: "team",
 				scopeId: "team-2",
 				slot: "ordinary",
 			}),
-		).toBe(false);
-	});
-
-	it("a team-scoped row with a NULL scopeId is not readable to a team-less viewer — agrees with the SQL twin, which never matches a NULL scopeId", () => {
-		expect(
-			canReadDocument([], null, {
-				parentKind: null,
-				scopeKind: "team",
-				scopeId: null,
-				slot: "ordinary",
-			}),
-		).toBe(false);
+		).toBe(true);
 	});
 
 	it("a factory-scoped row is always readable", () => {
 		expect(
-			canReadDocument([], null, {
+			canReadDocument([], {
 				parentKind: null,
 				scopeKind: "factory",
 				scopeId: null,

@@ -143,7 +143,7 @@ interface SubscriptionSessionContextData {
 		name: string;
 		role: string;
 	};
-	/** The subscriber's effective team, or null for a factory-wide agent. */
+	/** The subscriber's team, or null for a factory-wide agent. */
 	team: {
 		id: string;
 		name: string;

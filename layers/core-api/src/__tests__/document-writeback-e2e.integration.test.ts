@@ -23,7 +23,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { listChanges } from "@hyperidle/changes";
-import { documents, type HyperIdleDb, sessions, teams, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, sessions, teams, users, userTeams } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { createWritebackProcessor, startWatcher } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
@@ -54,9 +54,9 @@ async function seedAgent(db: HyperIdleDb): Promise<void> {
 		name: "Writeback Agent",
 		role: "builder",
 		status: "active",
-		teamId: TEAM_ID,
 		createdAt: NOW,
 	});
+	await db.insert(userTeams).values({ userId: AGENT_ID, teamId: TEAM_ID });
 }
 
 const writeback = createWritebackProcessor();

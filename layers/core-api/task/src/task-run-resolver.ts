@@ -42,7 +42,11 @@ function parseReasons(json: string): readonly Reason[] {
 }
 
 export interface TaskRunResolverDeps {
-	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+	/** The agent with its one team — `null` only for a factory-wide agent. */
+	requireRunnableAgent(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<User & { readonly teamId: string | null }>;
 	/** Required — a required port turns missing wiring into a compile error. */
 	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
 	getTeamById?(db: HyperIdleDb, id: string): Promise<Team | undefined>;

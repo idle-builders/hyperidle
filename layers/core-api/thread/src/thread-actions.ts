@@ -57,12 +57,18 @@ import { resolveThreadTitles } from "./title-ladder.js";
  * The thread module's outward-facing deps — every one a sibling Service, the
  * seam, or the websocket hub.
  */
+/** A user row with every team they are in — one for an agent. */
+type UserWithTeams = User & { readonly teamIds: readonly string[] };
+
+/** A runnable agent with its one team, `null` only for a factory-wide agent. */
+export type RunnableAgentRow = UserWithTeams & { readonly teamId: string | null };
+
 export interface ThreadActionsDeps {
 	readonly changes: {
 		appendChange(exec: WriteExecutor, row: NewChange): Promise<unknown>;
 	};
 	readonly users: {
-		getUserById(exec: WriteExecutor, id: string): Promise<User | undefined>;
+		getUserById(exec: WriteExecutor, id: string): Promise<UserWithTeams | undefined>;
 		listByIds(exec: WriteExecutor, ids: readonly string[]): Promise<readonly User[]>;
 		/**
 		 * The one human an agent answers to when it has no thread and named no
@@ -70,10 +76,8 @@ export interface ThreadActionsDeps {
 		 * (createdAt, id).
 		 */
 		soleHumanForAgent(exec: WriteExecutor, agentId: string): Promise<User | undefined>;
-		/** Team-scoped read `resolveMentionsForMessage` needs — a nested Service may not import `@hyperidle/user` directly; team-wide mentions require all team members. */
-		listByTeamIds(exec: WriteExecutor, teamIds: readonly string[]): Promise<readonly User[]>;
-		/** Agents owned by a user (`users.ownerUserId`) — addressable by @mention even with no team, so `resolveMentionsForMessage` always finds them. */
-		listOwnedBy(exec: WriteExecutor, ownerId: string): Promise<readonly User[]>;
+		/** Everyone — `resolveMentionsForMessage`'s pool; a nested Service may not import `@hyperidle/user` directly. */
+		listEveryone(exec: WriteExecutor): Promise<readonly User[]>;
 	};
 	/** The ONE door onto `document` — thread never imports `@hyperidle/document`, never opens a document, and never calls this inside its own open transaction (a runner call inside `ctx.db.transaction` hangs PGlite). */
 	readonly searchDocuments: (
@@ -82,7 +86,7 @@ export interface ThreadActionsDeps {
 	) => Promise<ActionResult<DocumentRow[]>>;
 	readonly org: { getTeam(exec: WriteExecutor, q: { id: string }): Promise<Team | undefined> };
 	readonly agents: {
-		requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+		requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<RunnableAgentRow>;
 		/** Via `searchDocuments` — needs the full ctx, not just `db`. */
 		getAgentIdentity(ctx: ActionContext, agentId: string): Promise<string | null>;
 	};
@@ -921,7 +925,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 
 				// join the sender on a host-scoped thread it is not yet a member of.
 				const hostKind = (creatingThread?.hostKind ?? threadRow?.hostKind) as HostKind;
-				const hostId = (creatingThread?.hostId ?? threadRow?.hostId) as string;
 				if (
 					!finalMembers.includes(ctx.actor) &&
 					canWriteThread(ctx.actor, { hostKind, members: finalMembers })
@@ -942,12 +945,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						(body.payload as { refs?: never[] }).refs ?? [],
 						finalMembers,
 						ctx.actor,
-						hostKind === "team" ? hostId : null,
-						{
-							listByIds: (d, ids) => deps.users.listByIds(d, ids),
-							listByTeamIds: (d, ids) => deps.users.listByTeamIds(d, ids),
-							listOwnedBy: (d, ownerId) => deps.users.listOwnedBy(d, ownerId),
-						},
+						{ listEveryone: (d) => deps.users.listEveryone(d) },
 					);
 					// @lore: wake reads every resolved mention (including existing member) — membership only grows for NEW ones.
 					mentionedIds.push(...resolvedMentionedIds);
@@ -1133,7 +1131,14 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					reviewMessageId: resolvesMessageRow.id,
 					decidedBy: ctx.actor,
 					threadId: effectiveThreadId,
-					...(askingAgent ? { agentConfig: bakeAgentRunnableConfig(askingAgent, persona) } : {}),
+					...(askingAgent
+						? {
+								agentConfig: bakeAgentRunnableConfig(
+									{ ...askingAgent, teamId: askingAgent.teamIds[0] ?? null },
+									persona,
+								),
+							}
+						: {}),
 				});
 			} catch (gateErr) {
 				verdictOutcome = {

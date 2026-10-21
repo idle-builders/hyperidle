@@ -6,6 +6,7 @@ import {
 	teams,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
@@ -27,7 +28,6 @@ async function seedBoundaryFixture(db: HyperIdleDb): Promise<void> {
 			name: "Agent",
 			role: "builder",
 			status: "active",
-			teamId: "team-boundary",
 			createdAt: now,
 		},
 		{
@@ -39,6 +39,7 @@ async function seedBoundaryFixture(db: HyperIdleDb): Promise<void> {
 			createdAt: now,
 		},
 	]);
+	await db.insert(userTeams).values({ userId: "agent-boundary", teamId: "team-boundary" });
 	await db.insert(threads).values({
 		id: "thr-bet-boundary",
 		hostKind: "team",

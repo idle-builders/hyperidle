@@ -4,7 +4,7 @@
  * returning `{ applied }` (never throws), get/list compose filters, and a
  * read passed a live `tx` sees that tx's own uncommitted write.
  */
-import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import * as work from "../task-service.js";
@@ -20,9 +20,9 @@ async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {
 		name: "Agent One",
 		role: "builder",
 		status: "idle",
-		teamId: "team-1",
 		createdAt: new Date().toISOString(),
 	});
+	await db.insert(userTeams).values({ userId: "agent-1", teamId: "team-1" });
 }
 
 async function seedTaskThread(db: HyperIdleDb, id: string): Promise<void> {

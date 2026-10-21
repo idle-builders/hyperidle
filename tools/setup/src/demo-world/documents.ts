@@ -22,6 +22,7 @@ import {
 	GROWTH_ID,
 	MAYA_ID,
 	PM_ID,
+	PRODUCT_TEAM_ID,
 	QA_ID,
 	ROOT_TASK_MOBILE,
 	ROOT_TASK_SEARCH,
@@ -30,7 +31,6 @@ import {
 	TASK_SEARCH_RANKING,
 	TASK_TRIAL_FLOW,
 	TASK_TRIAL_MEASURE,
-	TEAM_ID,
 } from "./ids.js";
 import type { DemoClock } from "./time.js";
 
@@ -221,7 +221,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-pulse-brief",
 			scopeKind: "team",
-			scopeId: TEAM_ID,
+			scopeId: PRODUCT_TEAM_ID,
 			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Pulse — product brief",
@@ -235,7 +235,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-render-boundary",
 			scopeKind: "team",
-			scopeId: TEAM_ID,
+			scopeId: PRODUCT_TEAM_ID,
 			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Decision: client-side rendering boundary",
@@ -248,7 +248,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-brand-voice",
 			scopeKind: "team",
-			scopeId: TEAM_ID,
+			scopeId: PRODUCT_TEAM_ID,
 			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Brand voice: plain, warm, precise",
@@ -261,7 +261,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: DOC_PRICING_TIERS,
 			scopeKind: "team",
-			scopeId: TEAM_ID,
+			scopeId: PRODUCT_TEAM_ID,
 			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Decision: two-tier pricing structure",
@@ -275,7 +275,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-annual-discount",
 			scopeKind: "team",
-			scopeId: TEAM_ID,
+			scopeId: PRODUCT_TEAM_ID,
 			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Annual discount policy — needs founder sign-off",
@@ -288,7 +288,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-rounding",
 			scopeKind: "team",
-			scopeId: TEAM_ID,
+			scopeId: PRODUCT_TEAM_ID,
 			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Decision: trial-day rounding rule",
@@ -592,7 +592,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-old-pricing",
 			scopeKind: "team",
-			scopeId: TEAM_ID,
+			scopeId: PRODUCT_TEAM_ID,
 			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Three-tier pricing structure (superseded)",
@@ -631,7 +631,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: "demo-doc-legacy-roadmap",
 			scopeKind: "team",
-			scopeId: TEAM_ID,
+			scopeId: PRODUCT_TEAM_ID,
 			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Archived: launch-quarter roadmap",
@@ -725,7 +725,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		// task that generated it. Kind is derived at render from the blocks. A document
 		// whose body is a single fenced html block renders live in the sandbox frame.
 		//
-		// @lore nested-knowledge-items: scope is `team`/`TEAM_ID`, not the
+		// @lore nested-knowledge-items: scope is `team`/`PRODUCT_TEAM_ID`, not the
 		// `task`-scope-kind + free-text `topic` these rows carried when #547
 		// wrote them — `SCOPE_KINDS` is reduced to factory|team|user (§2) and
 		// `topic`/`kind`/`layer` are deleted from the schema entirely. Task
@@ -735,7 +735,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: DOC_PRICING_PAGE,
 			scopeKind: "team",
-			scopeId: TEAM_ID,
+			scopeId: PRODUCT_TEAM_ID,
 			title: "Pricing page — two-tier rebuild",
 			body: '```html\n<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>Pulse Pricing</title>\n<style>\n*{box-sizing:border-box;margin:0;padding:0}\nbody{font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;background:#fafafa;color:#111;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 20px}\nh1{font-size:2rem;font-weight:800;letter-spacing:-0.03em;margin-bottom:8px}\n.sub{color:#555;font-size:1rem;margin-bottom:40px}\n.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;width:100%;max-width:700px}\n.plan{background:#fff;border:3px solid #111;padding:28px 24px;display:flex;flex-direction:column;gap:12px}\n.plan.featured{background:#111;color:#fff}\n.plan-name{font-size:0.75rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase}\n.plan-price{font-size:2.5rem;font-weight:800;letter-spacing:-0.04em}\n.plan-price span{font-size:1rem;font-weight:400;opacity:0.6}\n.plan-desc{font-size:0.875rem;opacity:0.7;line-height:1.5}\n.divider{border:none;border-top:1px solid currentColor;opacity:0.15}\n.features{list-style:none;display:flex;flex-direction:column;gap:8px;font-size:0.875rem}\n.features li::before{content:\'+ \';font-weight:700}\n.cta{margin-top:auto;padding-top:20px}\n.btn{display:block;text-align:center;padding:12px 20px;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.05em;text-decoration:none;border:3px solid currentColor;cursor:pointer;transition:background 0.1s,color 0.1s}\n.plan:not(.featured) .btn:hover{background:#111;color:#fff}\n.plan.featured .btn{background:#fff;color:#111}\n.plan.featured .btn:hover{background:#f0f0f0}\n.table-wrap{margin-top:48px;width:100%;max-width:700px;overflow-x:auto}\ntable{width:100%;border-collapse:collapse;font-size:0.875rem}\nth,td{padding:10px 14px;text-align:left;border-bottom:1px solid #e5e5e5}\nth{font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:#555}\ntd:not(:first-child){text-align:center}\n.check{font-weight:700;color:#111}\n.dash{color:#bbb}\n</style>\n</head>\n<body>\n<h1>Simple pricing. No surprises.</h1>\n<p class="sub">Start free. Upgrade when your team needs more.</p>\n<div class="plans">\n  <div class="plan">\n    <div class="plan-name">Starter</div>\n    <div class="plan-price">$29<span>/mo</span></div>\n    <p class="plan-desc">For solo founders and small teams exploring customer feedback.</p>\n    <hr class="divider">\n    <ul class="features">\n      <li>5 dashboards</li>\n      <li>3 team seats</li>\n      <li>Weekly exports</li>\n      <li>Email support</li>\n    </ul>\n    <div class="cta"><a class="btn" href="#">Start free trial</a></div>\n  </div>\n  <div class="plan featured">\n    <div class="plan-name">Team</div>\n    <div class="plan-price">$99<span>/mo</span></div>\n    <p class="plan-desc">For growing teams that need unlimited access and faster exports.</p>\n    <hr class="divider">\n    <ul class="features">\n      <li>Unlimited dashboards</li>\n      <li>Unlimited seats</li>\n      <li>Continuous exports</li>\n      <li>Priority support</li>\n    </ul>\n    <div class="cta"><a class="btn" href="#">Start free trial</a></div>\n  </div>\n</div>\n<div class="table-wrap">\n  <table>\n    <thead>\n      <tr><th>Feature</th><th>Starter</th><th>Team</th></tr>\n    </thead>\n    <tbody>\n      <tr><td>Dashboards</td><td class="dash">5</td><td class="check">Unlimited</td></tr>\n      <tr><td>Team seats</td><td class="dash">3</td><td class="check">Unlimited</td></tr>\n      <tr><td>Export frequency</td><td class="dash">Weekly</td><td class="check">Continuous</td></tr>\n      <tr><td>Priority support</td><td class="dash">—</td><td class="check">✓</td></tr>\n      <tr><td>Annual billing discount</td><td class="check">✓</td><td class="check">✓</td></tr>\n    </tbody>\n  </table>\n</div>\n</body>\n</html>\n```',
 			status: "active",
@@ -748,7 +748,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: DOC_TRIAL_FLOW,
 			scopeKind: "team",
-			scopeId: TEAM_ID,
+			scopeId: PRODUCT_TEAM_ID,
 			title: "Trial extension flow — implementation",
 			body: "```typescript\n// Trial extension entitlement — UTC end-to-end.\n// One-click, one-time, exactly seven calendar days.\n\nexport async function grantTrialExtension(\n  accountId: string,\n  db: Db,\n): Promise<{ granted: boolean; expiresAt: Date }> {\n  const account = await db.query.accounts.findFirst({\n    where: eq(accounts.id, accountId),\n  });\n  if (!account) throw new Error(`account not found: ${accountId}`);\n  if (account.trialExtendedAt !== null) {\n    // One-time only — second attempt declines gracefully.\n    return { granted: false, expiresAt: new Date(account.trialExpiresAt) };\n  }\n  // Round UP to whole UTC days so users experience days, not timestamps.\n  const base = new Date(account.trialExpiresAt);\n  const extended = new Date(\n    Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + 7),\n  );\n  await db\n    .update(accounts)\n    .set({ trialExpiresAt: extended.toISOString(), trialExtendedAt: new Date().toISOString() })\n    .where(eq(accounts.id, accountId));\n  return { granted: true, expiresAt: extended };\n}\n```",
 			status: "active",
@@ -761,7 +761,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: DOC_TRIAL_METRICS,
 			scopeKind: "team",
-			scopeId: TEAM_ID,
+			scopeId: PRODUCT_TEAM_ID,
 			title: "Trial extension metrics dashboard",
 			body: "# Trial extension metrics — week 2\n\n**Extensions taken:** 27% of expiring trials (hypothesis: 20%).\n\n**Of those, converting:** 31%.\n\n**Support-granted extensions:** −92% vs the same period before the flow shipped.\n\n## Daily trend\n\nExtension grants are still climbing. No plateau visible at day 14.\n\n## What this means\n\nThe one-time limit kept the offer honest — support load stayed near zero while voluntary conversions grew. The reason-dropdown had zero completions: cut in the next iteration.",
 			status: "active",
@@ -774,7 +774,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 		{
 			id: DOC_SEARCH_RANKING,
 			scopeKind: "team",
-			scopeId: TEAM_ID,
+			scopeId: PRODUCT_TEAM_ID,
 			title: "Search re-ranking — implementation",
 			body: "```typescript\n// Search re-ranking weights — live in config, not code.\n// Tune weekly via the weights config; no deploy needed.\n\nexport interface RankWeights {\n  recency: number;   // default: 0.45\n  titleMatch: number; // default: 0.35\n  bodyMatch: number; // default: 0.20\n}\n\nexport function scoreDocument(\n  doc: { title: string; body: string; updatedAt: Date },\n  query: string,\n  weights: RankWeights,\n): number {\n  const recencyScore = Math.exp(\n    -((Date.now() - doc.updatedAt.getTime()) / (7 * 24 * 60 * 60 * 1000)),\n  );\n  const titleScore = titleMatchScore(doc.title, query);\n  const bodyScore = bodyMatchScore(doc.body, query);\n  return (\n    weights.recency * recencyScore +\n    weights.titleMatch * titleScore +\n    weights.bodyMatch * bodyScore\n  );\n}\n```",
 			status: "active",

@@ -51,7 +51,7 @@ export const ChangeRowSchema = z.object({
 });
 export type ChangeRow = z.infer<typeof ChangeRowSchema>;
 
-// team is the effective team (own, else the owner's); edges are outgoing org_edges — the org chart needs one call.
+// teams are every team the user is in — a person may be in several, an agent in one; edges are outgoing org_edges — the org chart needs one call.
 
 export const UserRowSchema = z.object({
 	id: z.string(),
@@ -71,7 +71,7 @@ export const UserRowSchema = z.object({
 	 * own doc for the shared rule.
 	 */
 	discipline: z.string().nullable(),
-	team: z.object({ id: z.string(), name: z.string() }).nullable(),
+	teams: z.array(z.object({ id: z.string(), name: z.string() })),
 	edges: z.array(
 		z.object({
 			id: z.string(),
@@ -93,7 +93,7 @@ export const SearchUsersInputSchema = z
 	.object({
 		ids: z.array(z.string()).optional(),
 		kind: z.enum(USER_KINDS).optional(),
-		/** Matches the effective team, not only an own one. */
+		/** Everyone in this team. */
 		teamId: z.string().optional(),
 		/** Case-insensitive contains. */
 		name: z.string().min(1).optional(),
@@ -261,7 +261,7 @@ export const UserViewSchema = z.object({
 	runConfig: RunConfigViewSchema.nullable(),
 	/** Agent-parented identity / skill / rule documents. */
 	documentIds: z.array(z.object({ slot: z.enum(DOCUMENT_SLOTS), id: z.string() })),
-	/** Agent: folders given to it. Person: their team's folders. */
+	/** Agent: folders given to it. Person: the folders of every team they are in. */
 	folders: z.array(FolderViewSchema),
 	subscriptions: z.array(SubscriptionViewSchema),
 	/** Self only. */
@@ -295,8 +295,6 @@ export const openUser: ActionDeclaration<OpenUserInput, UserView> = {
 	output: UserViewSchema,
 };
 
-const EditUserTeamRefSchema = z.object({ name: z.string().min(1) }).strict();
-
 const EditUserRunConfigSchema = z
 	.object({
 		harnessType: z.enum(HARNESS_TYPES).optional(),
@@ -320,11 +318,13 @@ const EditUserEdgesSchema = z
 
 const EditUserFoldersSchema = z
 	.object({
-		/** `POST /filesystems` body, minus `teamId` — implied by the caller. */
+		/** `POST /filesystems` body, with the team named rather than given by id. */
 		add: z
 			.array(
 				z
 					.object({
+						/** One of this user's teams, by name — needed only when they are in several. */
+						team: z.string().min(1).optional(),
 						kind: z.enum(["code", "doc_set"]),
 						resourceRef: FolderResourceRefSchema,
 						writeback: z.enum(["git", "file", "none"]),
@@ -409,8 +409,8 @@ export const EditUserInputSchema = z
 		avatarUrl: z.string().nullable().optional(),
 		status: z.enum(USER_STATUSES).optional(),
 		health: z.string().nullable().optional(),
-		/** Found by name (oldest), or created. */
-		team: EditUserTeamRefSchema.optional(),
+		/** Every team this user is in, by name — each found (oldest) or created. Replaces the whole list. */
+		teams: z.array(z.string().min(1)).optional(),
 		/** Create-only, agents. */
 		ownerUserId: z.string().min(1).optional(),
 		/** Create-only, agents; default: owned → "individual", else "team". */
@@ -431,8 +431,9 @@ export type EditUserInput = z.infer<typeof EditUserInputSchema>;
 export const editUser: ActionDeclaration<EditUserInput, UserView> = {
 	name: "edit_user",
 	sentence:
-		"Write a user, new or existing: no id creates — a person, or an agent with an owner or a " +
-		"team. Name, role, team (by name — created if it does not exist), status, who they report " +
+		"Write a user, new or existing: no id creates — a person, or an agent, owned by a person " +
+		"or not. Name, role, teams (by name — created if they do not exist; a person may be in " +
+		"several, an agent in exactly one), status, who they report " +
 		"to, harness and model, folders given or taken, connections added or removed, subscriptions " +
 		"added, changed, paused or removed, inbox rows marked read.",
 	input: EditUserInputSchema,
@@ -447,7 +448,59 @@ export const USER_ACTIONS = {
 
 // Pure invariants — DB-dependent problems (not_found, unknown_actor, etc.) belong in edit_user.run, not here.
 
-/** `kind_required`, `name_required`, `belonging_required`, `owned_agent_has_no_team`,
+const BELONGING_REQUIRED: Problem = {
+	code: "belonging_required",
+	message: "Every user is in at least one team — name one.",
+	path: "teams",
+};
+
+const AGENT_ONE_TEAM: Problem = {
+	code: "agent_one_team",
+	message: "An agent is in exactly one team.",
+	path: "teams",
+};
+
+/** Who a team-membership check is about, once `edit_user.run` has read what the input alone cannot say. */
+export interface TeamMembershipSubject {
+	readonly kind: string;
+	/** The teams the user is in after this edit. */
+	readonly teams: readonly string[];
+	/** An owned agent's owner's teams; `null` for a person or an agent no one owns. */
+	readonly ownerTeams: readonly string[] | null;
+	/** A person's owned agents' teams — each must stay one of theirs. */
+	readonly ownedAgentTeams: readonly string[];
+}
+
+/** `belonging_required`, `agent_one_team`, `agent_team_not_owners` — every user is in at
+ * least one team, an agent in exactly one, and an owned agent only in one of its owner's. */
+export function teamMembershipProblems(subject: TeamMembershipSubject): Problem[] {
+	const teams = new Set(subject.teams);
+	if (teams.size === 0) return [BELONGING_REQUIRED];
+	if (subject.kind === "ai" && teams.size > 1) return [AGENT_ONE_TEAM];
+	const ownerTeams = subject.ownerTeams;
+	if (ownerTeams !== null && ![...teams].every((t) => ownerTeams.includes(t))) {
+		return [
+			{
+				code: "agent_team_not_owners",
+				message: "An owned agent is in one of its owner's teams.",
+				path: "teams",
+			},
+		];
+	}
+	if (subject.ownedAgentTeams.some((t) => !teams.has(t))) {
+		return [
+			{
+				code: "agent_team_not_owners",
+				message:
+					"One of this person's agents is in a team they would leave — move the agent first.",
+				path: "teams",
+			},
+		];
+	}
+	return [];
+}
+
+/** `kind_required`, `name_required`, `belonging_required`, `agent_one_team`,
  * `person_has_no_owner`, `agent_fields_for_agents` — only meaningful on a create (no `id`). */
 function createUserInvariants(input: EditUserInput): Problem[] {
 	const problems: Problem[] = [];
@@ -461,20 +514,8 @@ function createUserInvariants(input: EditUserInput): Problem[] {
 	if (input.name === undefined || input.name.trim().length === 0) {
 		problems.push({ code: "name_required", message: "A user needs a name.", path: "name" });
 	}
-	if (input.team === undefined && input.ownerUserId === undefined) {
-		problems.push({
-			code: "belonging_required",
-			message: "Every user is in a team, or owned by one who is — name one.",
-			path: "team",
-		});
-	}
-	if (input.ownerUserId !== undefined && input.team !== undefined) {
-		problems.push({
-			code: "owned_agent_has_no_team",
-			message: "An owned agent takes its owner's team — do not name one of its own.",
-			path: "team",
-		});
-	}
+	if (input.teams === undefined || input.teams.length === 0) problems.push(BELONGING_REQUIRED);
+	if (input.kind === "ai" && new Set(input.teams).size > 1) problems.push(AGENT_ONE_TEAM);
 	if (input.kind === "human" && input.ownerUserId !== undefined) {
 		problems.push({
 			code: "person_has_no_owner",
@@ -504,6 +545,7 @@ function editExistingUserInvariants(input: EditUserInput): Problem[] {
 	if (input.name !== undefined && input.name.trim().length === 0) {
 		problems.push({ code: "name_required", message: "A user needs a name.", path: "name" });
 	}
+	if (input.teams !== undefined && input.teams.length === 0) problems.push(BELONGING_REQUIRED);
 	if (input.kind !== undefined) {
 		problems.push({
 			code: "kind_is_create_only",

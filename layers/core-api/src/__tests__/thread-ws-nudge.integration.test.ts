@@ -14,7 +14,7 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { type HyperIdleDb, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, threads, users, userTeams } from "@hyperidle/db";
 import type {
 	ActionResult,
 	AdjustThreadInput,
@@ -98,9 +98,9 @@ async function seedHuman(db: HyperIdleDb, id: string, teamId: string): Promise<v
 		name: id,
 		role: "member",
 		status: "active",
-		teamId,
 		createdAt: now,
 	});
+	await db.insert(userTeams).values({ userId: id, teamId });
 }
 
 async function seedThreadRow(

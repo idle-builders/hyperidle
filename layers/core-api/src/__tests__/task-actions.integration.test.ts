@@ -16,6 +16,7 @@ import {
 	teams,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import type { EventBus, ObjectChangeEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
@@ -156,10 +157,10 @@ async function seedAgent(db: HyperIdleDb, agentId: string, teamId?: string): Pro
 		kind: "ai",
 		name: agentId,
 		role: "builder",
-		teamId,
 		status: "active",
 		createdAt: now,
 	});
+	if (teamId) await db.insert(userTeams).values({ userId: agentId, teamId });
 }
 
 async function readTask(db: HyperIdleDb, id: string): Promise<TaskRow | undefined> {

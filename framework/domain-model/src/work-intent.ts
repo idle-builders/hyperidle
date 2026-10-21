@@ -226,7 +226,7 @@ export type BakedContextBundle =
 			/** The change that woke this subscription, or null for a schedule tick. */
 			readonly change: ChangeRow | null;
 			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-			/** The subscriber's effective team, or null for a factory-wide agent. */
+			/** The subscriber's team, or null for a factory-wide agent. */
 			readonly team: { readonly id: string; readonly name: string } | null;
 			readonly documents: readonly BakedContextDocument[];
 	  }

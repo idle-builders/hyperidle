@@ -1,4 +1,4 @@
-import type { HyperIdleDb, User } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { AgentWorkIntentRecorderFn, ChangeRow, Problem } from "@hyperidle/domain-model";
 import { OBJECT_EVENTS } from "@hyperidle/domain-model";
@@ -8,7 +8,7 @@ import { AgentNotRunnableError } from "./runnable-agent.js";
 import type { SubscriptionWakeDeps } from "./subscription-wake.js";
 import { resolveSubscriptionWakeRequest } from "./subscription-wake.js";
 import { insertInboxRow, listSubscriptions } from "./subscriptions-store.js";
-import { findUser } from "./user-store.js";
+import { findUser, type UserWithTeams } from "./user-store.js";
 
 const logger = createLogger({ pkg: "user.subscription-fire" });
 
@@ -58,24 +58,9 @@ function actionContextFor(
 	return { actor, db, eventBus, now, internal: true };
 }
 
-/** Own team, else the owner's, else "every team" (a factory-wide user). */
-async function teamsOf(db: HyperIdleDb, user: User): Promise<ReadonlySet<string> | "all"> {
-	if (user.teamId) return new Set([user.teamId]);
-	if (user.ownerUserId) {
-		const owner = await findUser(db, { id: user.ownerUserId });
-		if (owner?.teamId) return new Set([owner.teamId]);
-	}
-	return "all";
-}
-
-/** The changed row's own effective team — own, else its owner's, else `null`. */
-async function effectiveTeamIdOf(db: HyperIdleDb, user: User): Promise<string | null> {
-	if (user.teamId) return user.teamId;
-	if (user.ownerUserId) {
-		const owner = await findUser(db, { id: user.ownerUserId });
-		if (owner?.teamId) return owner.teamId;
-	}
-	return null;
+/** A user's teams, or "every team" for a factory-wide user in none. */
+function teamsOf(user: UserWithTeams): ReadonlySet<string> | "all" {
+	return user.teamIds.length > 0 ? new Set(user.teamIds) : "all";
 }
 
 /**
@@ -85,7 +70,7 @@ async function effectiveTeamIdOf(db: HyperIdleDb, user: User): Promise<string | 
 async function reaches(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	subscriber: User,
+	subscriber: UserWithTeams,
 	change: ChangeRow,
 	deps: Pick<SubscriptionFireDeps, "searchTasks" | "searchThreads" | "searchDocuments">,
 ): Promise<boolean> {
@@ -97,7 +82,7 @@ async function reaches(
 		const row = result.ok ? result.data[0] : undefined;
 		if (!row) return false;
 		if (row.ownerAgentId === subscriber.id) return true;
-		const teams = await teamsOf(db, subscriber);
+		const teams = teamsOf(subscriber);
 		return teams === "all" || teams.has(row.teamId);
 	}
 	if (change.object === "thread") {
@@ -116,17 +101,16 @@ async function reaches(
 	const row = await findUser(db, { id: change.objectId });
 	if (!row) return false;
 	if (row.id === subscriber.id || row.ownerUserId === subscriber.id) return true;
-	const rowTeamId = await effectiveTeamIdOf(db, row);
-	if (rowTeamId === null) return false;
-	const teams = await teamsOf(db, subscriber);
-	return teams === "all" || teams.has(rowTeamId);
+	if (row.teamIds.length === 0) return false;
+	const teams = teamsOf(subscriber);
+	return teams === "all" || row.teamIds.some((teamId) => teams.has(teamId));
 }
 
 async function wakeAgent(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	sub: { readonly id: string; readonly event: string | null; readonly schedule: string | null },
-	agent: User,
+	agent: UserWithTeams,
 	change: ChangeRow,
 	deps: SubscriptionFireDeps,
 ): Promise<void> {
@@ -171,7 +155,7 @@ async function wakeAgent(
 
 async function notifyPerson(
 	db: HyperIdleDb,
-	person: User,
+	person: UserWithTeams,
 	change: ChangeRow,
 	wsPush: SubscriptionFireDeps["wsPush"],
 ): Promise<void> {

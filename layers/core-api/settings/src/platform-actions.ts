@@ -113,7 +113,8 @@ export interface NewPlatformSubscription {
  */
 export interface PlatformActionsDeps {
 	readonly agents: {
-		insertIfAbsent(exec: WriteExecutor, values: NewUser): Promise<void>;
+		/** A team install's agents are in that team; a factory install's in none. */
+		insertIfAbsent(exec: WriteExecutor, values: NewUser, teamId: string | null): Promise<void>;
 		setStatus(
 			exec: WriteExecutor,
 			ids: readonly string[],
@@ -153,7 +154,8 @@ export interface PlatformActionsDeps {
 	 * null when there is none. Absent when no adapter pool is wired. */
 	readonly firstAvailableHarness?: (db: HyperIdleDb) => Promise<HarnessPick | null>;
 	/** The team a viewer judges availability by: their own, else their owner's. */
-	readonly viewerTeamId: (db: HyperIdleDb, actorId: string) => Promise<string | null>;
+	/** Every team the viewer is in. */
+	readonly viewerTeamIds: (db: HyperIdleDb, actorId: string) => Promise<readonly string[]>;
 	/** Whether a team exists, asked of the module that owns teams. */
 	readonly teams: {
 		exists(exec: WriteExecutor, teamId: string): Promise<boolean>;
@@ -609,19 +611,22 @@ async function installRun(
 	await ctx.db.transaction(async (tx) => {
 		for (const agentSpec of agents) {
 			const dbId = agentItemId(plugin.name, agentSpec.id, scopeKind, scopeId);
-			await deps.agents.insertIfAbsent(tx, {
-				id: dbId,
-				kind: "ai",
-				name: agentSpec.name,
-				// A plugin agent spec declares a discipline, never a role —
-				// `role` is RBAC only (founder | member | agent | system).
-				role: "agent",
-				discipline: agentSpec.discipline,
-				status: "active",
-				agentCategory: agentSpec.agentCategory,
-				teamId: scopeKind === "team" ? scopeId : null,
-				createdAt: installTs,
-			});
+			await deps.agents.insertIfAbsent(
+				tx,
+				{
+					id: dbId,
+					kind: "ai",
+					name: agentSpec.name,
+					// A plugin agent spec declares a discipline, never a role —
+					// `role` is RBAC only (founder | member | agent | system).
+					role: "agent",
+					discipline: agentSpec.discipline,
+					status: "active",
+					agentCategory: agentSpec.agentCategory,
+					createdAt: installTs,
+				},
+				scopeKind === "team" ? scopeId : null,
+			);
 		}
 
 		for (const subscriptionSpec of subscriptions) {
@@ -818,26 +823,24 @@ function matchesSearchFilter(
 
 /**
  * The bundled plugins still to install for this viewer. A factory install
- * covers everyone; a team plugin is covered by the viewer's own team's
- * install only, so another team's install leaves it available here. A viewer
- * with no team (own or owner's) can only install factory-wide, so only
- * factory plugins are offered to them. A removed install is a tombstone
+ * covers everyone; a team plugin is covered only once every team the viewer is
+ * in has it, so another team's install leaves it available here. A viewer
+ * in no team can only install factory-wide, so only factory plugins are
+ * offered to them. A removed install is a tombstone
  * `listInstalledPlugins` never returns — the plugin is available again.
  */
 function availableBundledPlugins(
 	bundledPluginsDir: string | undefined,
 	installed: readonly InstalledPlugin[],
-	viewerTeamId: string | null,
+	viewerTeamIds: readonly string[],
 ): AvailablePluginView[] {
+	const installedFor = (name: string, teamId: string): boolean =>
+		installed.some((p) => p.name === name && p.scope.kind === "team" && p.scope.teamId === teamId);
 	const covered = (name: string, installScope: "team" | "factory"): boolean =>
-		installed.some(
-			(p) =>
-				p.name === name &&
-				(p.scope.kind === "factory" ||
-					(installScope === "team" && p.scope.teamId === viewerTeamId)),
-		);
+		installed.some((p) => p.name === name && p.scope.kind === "factory") ||
+		(installScope === "team" && viewerTeamIds.every((teamId) => installedFor(name, teamId)));
 	return listBundledPlugins(bundledPluginsDir)
-		.filter(({ manifest }) => manifest.installScope === "factory" || viewerTeamId !== null)
+		.filter(({ manifest }) => manifest.installScope === "factory" || viewerTeamIds.length > 0)
 		.filter(({ manifest }) => !covered(manifest.name, manifest.installScope))
 		.map(({ manifest }) => ({
 			id: manifest.name,
@@ -868,7 +871,7 @@ export function createPlatformActions(deps: PlatformActionsDeps): readonly Actio
 		const available = availableBundledPlugins(
 			deps.bundledPluginsDir,
 			installed,
-			await deps.viewerTeamId(ctx.db, ctx.actor),
+			await deps.viewerTeamIds(ctx.db, ctx.actor),
 		).filter((p) => matchesSearchFilter(p, input));
 		const filtered = installed.filter((p) => matchesSearchFilter(p, input));
 		if (filtered.length === 0) return { ok: true, data: available };

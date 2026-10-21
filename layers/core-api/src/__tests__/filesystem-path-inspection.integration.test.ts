@@ -139,7 +139,7 @@ describe("filesystem path inspection and registration", () => {
 		const res = await app.request("/api/actions/edit_user", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({ kind: "human", name, team: { name: `${name} Team` } }),
+			body: JSON.stringify({ kind: "human", name, teams: [`${name} Team`] }),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { ok: true; data: { user: { id: string } | null } };

@@ -1,6 +1,6 @@
 /**
  * The demo world's team agents arrive the way a person's would: the demo
- * installs the bundled `role-personas` plugin for the Acme team through the
+ * installs the bundled `role-personas` plugin for the Product team through the
  * real install path, and every agent the demo world talks about is one the
  * installer made.
  */
@@ -17,8 +17,9 @@ import {
 	GROWTH_ID,
 	OPS_ID,
 	PM_ID,
+	PRODUCT_TEAM_ID,
 	QA_ID,
-	TEAM_ID,
+	SUPPORT_TEAM_ID,
 } from "../demo-world/ids.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 
@@ -27,7 +28,7 @@ async function rows<T extends Record<string, unknown>>(db: HyperIdleDb, q: strin
 	return (result as { rows: T[] }).rows;
 }
 
-const INSTALL_ID = `role-personas@${TEAM_ID}`;
+const INSTALL_ID = `role-personas@${PRODUCT_TEAM_ID}`;
 const PLUGIN_AGENTS = [
 	BUILDER_ID,
 	DESIGNER_ID,
@@ -39,7 +40,7 @@ const PLUGIN_AGENTS = [
 ].sort();
 
 describe("the demo installs the role-personas plugin for its team", () => {
-	test("one team install of role-personas, enabled, for the Acme team", async ({ db }) => {
+	test("one team install of role-personas, enabled, for the Product team", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
@@ -50,11 +51,11 @@ describe("the demo installs the role-personas plugin for its team", () => {
 			state: string;
 		}>(db, "SELECT id, scope_kind, scope_team_id, state FROM plugins WHERE name = 'role-personas'");
 		expect(installs).toEqual([
-			{ id: INSTALL_ID, scope_kind: "team", scope_team_id: TEAM_ID, state: "enabled" },
+			{ id: INSTALL_ID, scope_kind: "team", scope_team_id: PRODUCT_TEAM_ID, state: "enabled" },
 		]);
 	});
 
-	test("the seven agents the installer recorded are the demo world's agents, on the demo team", async ({
+	test("the seven agents the installer recorded are the demo world's agents, each in one team — Designer in Support", async ({
 		db,
 	}) => {
 		await runFactoryBootstrap(db);
@@ -67,12 +68,18 @@ describe("the demo installs the role-personas plugin for its team", () => {
 		);
 		expect(recorded.map((r) => r.entity_id)).toEqual(PLUGIN_AGENTS);
 
-		const onTeam = await rows<{ id: string }>(
+		const memberships = await rows<{ id: string; team_id: string }>(
 			db,
-			`SELECT id FROM users
-			  WHERE kind = 'ai' AND status = 'active' AND team_id = '${TEAM_ID}' ORDER BY id`,
+			`SELECT u.id, ut.team_id FROM users u JOIN user_teams ut ON ut.user_id = u.id
+			  WHERE u.kind = 'ai' AND u.status = 'active' AND u.id IN (${PLUGIN_AGENTS.map((a) => `'${a}'`).join(", ")})
+			  ORDER BY u.id`,
 		);
-		expect(onTeam.map((r) => r.id)).toEqual(PLUGIN_AGENTS);
+		expect(memberships).toEqual(
+			PLUGIN_AGENTS.map((id) => ({
+				id,
+				team_id: id === DESIGNER_ID ? SUPPORT_TEAM_ID : PRODUCT_TEAM_ID,
+			})),
+		);
 	});
 
 	test("the demo team's agents are the plugin's seven plus the founder's assistant, nothing hand-made", async ({

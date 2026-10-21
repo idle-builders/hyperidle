@@ -1,4 +1,4 @@
-import type { HyperIdleDb, User } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	type BakedContextBundle,
 	type BakedWorkIntentRequest,
@@ -10,7 +10,6 @@ import {
 import type { ActionContext, SearchDocumentsRunFn } from "./action-types.js";
 import { requireRunnableAgent } from "./runnable-agent.js";
 import { getTeam } from "./team-lookup.js";
-import { findUser } from "./user-store.js";
 
 /** Injected, cross-Service capabilities this resolver cannot own directly. */
 export interface SubscriptionWakeDeps {
@@ -59,23 +58,14 @@ async function readSubscriptionPrompt(
 	return result.ok ? (result.data[0]?.body ?? null) : null;
 }
 
-/** The subscriber's effective team — own, else its owner's, else `null` (a factory-wide agent). */
-async function effectiveTeam(
+/** The agent's one team, or `null` for a factory-wide agent. */
+async function teamOf(
 	db: HyperIdleDb,
-	agent: User,
+	teamId: string | null,
 ): Promise<{ readonly id: string; readonly name: string } | null> {
-	if (agent.teamId) {
-		const row = await getTeam(db, { id: agent.teamId });
-		return row ? { id: row.id, name: row.name } : null;
-	}
-	if (agent.ownerUserId) {
-		const owner = await findUser(db, { id: agent.ownerUserId });
-		if (owner?.teamId) {
-			const row = await getTeam(db, { id: owner.teamId });
-			return row ? { id: row.id, name: row.name } : null;
-		}
-	}
-	return null;
+	if (teamId === null) return null;
+	const row = await getTeam(db, { id: teamId });
+	return row ? { id: row.id, name: row.name } : null;
 }
 
 export interface ResolveSubscriptionWakeInput {
@@ -105,8 +95,8 @@ export async function resolveSubscriptionWakeRequest(
 	deps: SubscriptionWakeDeps,
 ): Promise<BakedWorkIntentRequest> {
 	const agent = await requireRunnableAgent(ctx.db, input.agentId);
-	const team = await effectiveTeam(ctx.db, agent);
-	const teamId = team?.id ?? agent.teamId ?? undefined;
+	const team = await teamOf(ctx.db, agent.teamId);
+	const teamId = agent.teamId ?? undefined;
 	const userId = agent.ownerUserId ?? undefined;
 
 	const agentPersona = await readAgentIdentity(ctx, deps.searchDocuments, agent.id);

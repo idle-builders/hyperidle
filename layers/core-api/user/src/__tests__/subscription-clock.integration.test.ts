@@ -4,7 +4,7 @@
  * `subscription-fire.integration.test.ts`), a real tick loop — not a
  * hand-called `tick()`, the actual `setInterval` this module starts.
  */
-import { type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { type SubscriptionClockDeps, startSubscriptionClock } from "../subscription-clock.js";
@@ -23,9 +23,9 @@ async function seedAgent(db: HyperIdleDb, id: string, teamId: string): Promise<v
 		name: id,
 		role: "builder",
 		status: "active",
-		teamId,
 		createdAt: TS,
 	});
+	await db.insert(userTeams).values({ userId: id, teamId });
 }
 
 function buildDeps(overrides: Partial<SubscriptionClockDeps> = {}): SubscriptionClockDeps {

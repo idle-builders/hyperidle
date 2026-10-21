@@ -211,9 +211,10 @@ export function documentAs(row: {
 
 // @lore: canReadDocument — shared with ws-subscribe-authorizer.ts; socket and read visibility must match; non-ordinary slot skips user-privacy check
 
+/** Everyone reads every team's documents; only a private, ordinary-slot user document is
+ * limited to its own user (and whoever owns that user). */
 export function canReadDocument(
 	subjects: readonly string[],
-	viewerTeamId: string | null,
 	row: {
 		readonly parentKind: string | null;
 		readonly scopeKind: string;
@@ -222,19 +223,11 @@ export function canReadDocument(
 	},
 ): boolean {
 	if (row.parentKind === "task" || row.parentKind === "thread") return true;
-	const notPrivateOrOwned =
+	return (
 		row.scopeKind !== "user" ||
 		row.slot !== "ordinary" ||
-		(row.scopeId !== null && subjects.includes(row.scopeId));
-	// Compared on a non-null `scopeId` — a `team`-scoped row with a NULL
-	// `scopeId` (a reconcile gap the migration can leave behind)
-	// must not read as "matches a team-less viewer" just because both sides
-	// are `null`. The SQL twin (`document-store.ts`'s `visibilityPredicate`)
-	// already gets this right via `eq(scopeId, viewerTeamId)`, which SQL NULL
-	// semantics turn false whenever either side is NULL.
-	const notTeamOrMatchesViewer =
-		row.scopeKind !== "team" || (row.scopeId !== null && row.scopeId === viewerTeamId);
-	return notPrivateOrOwned && notTeamOrMatchesViewer;
+		(row.scopeId !== null && subjects.includes(row.scopeId))
+	);
 }
 
 // Pure invariants — run in the browser and again on the server. DB-dependent invariants run inside edit_document.run.

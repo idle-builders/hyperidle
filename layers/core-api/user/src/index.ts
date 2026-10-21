@@ -16,6 +16,7 @@ export { insertUserIfAbsent, setAgentsStatus } from "./factory-writers.js";
 export type { UpsertOrgEdgeInput } from "./org-edges.js";
 export { deleteOrgEdge, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
 // -- runnable-agent invariant (the shared runnable check) --
+export type { RunnableAgent } from "./runnable-agent.js";
 export { AgentNotRunnableError, requireRunnableAgent } from "./runnable-agent.js";
 // -- subscription clock (the schedule half — cron due rows) --
 export type {
@@ -67,8 +68,15 @@ export { createUpgradeTokenStore } from "./upgrade-token-store.js";
 export type { UserActionsDeps } from "./user-actions.js";
 export { createUserActions } from "./user-actions.js";
 // -- user store (single owner of `users` row read/write) --
-export type { UserFilter } from "./user-store.js";
-export { findUser, getOrCreateUser, insertUser, listUsers, updateUser } from "./user-store.js";
+export type { UserFilter, UserWithTeams } from "./user-store.js";
+export {
+	findUser,
+	getOrCreateUser,
+	insertUser,
+	listUsers,
+	setUserTeams,
+	updateUser,
+} from "./user-store.js";
 // -- run-config validation --
 export type {
 	AgentConfigValidationError,

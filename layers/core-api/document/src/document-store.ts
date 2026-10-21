@@ -313,7 +313,7 @@ export async function resolveParentChain(
 }
 
 // ---------------------------------------------------------------------------
-// search_documents — the one query. `viewer` is already-resolved context (`subjects`, `viewerTeamId`) —
+// search_documents — the one query. `viewer` is already-resolved context (`subjects`) —
 // the caller resolves it once per call through `deps.users.listOwnedBy`, exactly as `thread` already does.
 // ---------------------------------------------------------------------------
 
@@ -340,27 +340,20 @@ export interface DocumentSearchFilter {
 
 export interface DocumentSearchViewer {
 	readonly subjects: readonly string[];
-	readonly viewerTeamId: string | null;
 }
 
 /**
- * `parent_kind IN ('task','thread') OR ( (scope_kind<>'user' OR slot<>
- * 'ordinary' OR scope_id = ANY(:subjects)) AND (scope_kind<>'team' OR
- * scope_id = :viewerTeamId) )`. The subject is `scope_id`, never `updated_by`.
+ * `parent_kind IN ('task','thread') OR scope_kind<>'user' OR slot<>'ordinary'
+ * OR scope_id = ANY(:subjects)` — `canReadDocument`'s SQL twin. Every team's
+ * documents are everyone's. The subject is `scope_id`, never `updated_by`.
  */
-function visibilityPredicate(subjects: readonly string[], viewerTeamId: string | null): SQL {
-	const isArtifact = inArray(documents.parentKind, ["task", "thread"]);
-	const notPrivateOrOwned = or(
+function visibilityPredicate(subjects: readonly string[]): SQL {
+	return or(
+		inArray(documents.parentKind, ["task", "thread"]),
 		ne(documents.scopeKind, "user"),
 		ne(documents.slot, "ordinary"),
 		subjects.length > 0 ? inArray(documents.scopeId, [...subjects]) : sql`false`,
 	) as SQL;
-	const notTeamOrMatchesViewer = (
-		viewerTeamId !== null
-			? or(ne(documents.scopeKind, "team"), eq(documents.scopeId, viewerTeamId))
-			: ne(documents.scopeKind, "team")
-	) as SQL;
-	return or(isArtifact, and(notPrivateOrOwned, notTeamOrMatchesViewer)) as SQL;
 }
 
 /**
@@ -403,9 +396,7 @@ export function searchDocumentRows(
 	input: DocumentSearchFilter,
 	viewer: DocumentSearchViewer,
 ): Promise<DocumentRow[]> {
-	const conditions: (SQL | undefined)[] = [
-		visibilityPredicate(viewer.subjects, viewer.viewerTeamId),
-	];
+	const conditions: (SQL | undefined)[] = [visibilityPredicate(viewer.subjects)];
 
 	if (input.inTree === true) {
 		conditions.push(or(isNull(documents.parentKind), eq(documents.parentKind, "document")) as SQL);

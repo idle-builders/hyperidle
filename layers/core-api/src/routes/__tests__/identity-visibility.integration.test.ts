@@ -12,7 +12,7 @@
  * status code.
  */
 
-import { documents, type HyperIdleDb, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -219,6 +219,8 @@ describe("agent identity through the document action mechanism", () => {
 				createdAt: now,
 			},
 		]);
+		await db.insert(teams).values({ id: "t-identity", name: "Identity", createdAt: now });
+		await db.insert(userTeams).values({ userId: CREATOR, teamId: "t-identity" });
 	}
 
 	test("a created agent's identity document gets the exact doc_af_<agentId> id, and a non-owner can open it", async ({
@@ -236,6 +238,7 @@ describe("agent identity through the document action mechanism", () => {
 				role: "builder",
 				identity: "You are Atlas.",
 				ownerUserId: CREATOR,
+				teams: ["Identity"],
 			}),
 		});
 		expect(createRes.status).toBe(200);
@@ -279,6 +282,7 @@ describe("agent identity through the document action mechanism", () => {
 				role: "builder",
 				identity: "You are Ranger.",
 				ownerUserId: CREATOR,
+				teams: ["Identity"],
 			}),
 		});
 		const created = (

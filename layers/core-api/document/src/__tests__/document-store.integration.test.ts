@@ -27,7 +27,7 @@ import { docValues } from "./_helpers.js";
 /** No `scope: 'user'`/`'team'` rows are visible-by-default fixtures use — every
  * capability test that isn't specifically about visibility uses this viewer
  * against `factory`-scoped rows, where visibility never excludes anything. */
-const ANY_VIEWER: DocumentSearchViewer = { subjects: ["viewer-1"], viewerTeamId: null };
+const ANY_VIEWER: DocumentSearchViewer = { subjects: ["viewer-1"] };
 
 describe("search_documents — the one query", () => {
 	test("inTree excludes a task-parented row and another person's private memory — exact ids, exact length", async ({
@@ -144,7 +144,6 @@ describe("search_documents — the one query", () => {
 			{ scopeKind: "team" },
 			{
 				subjects: ["viewer-1"],
-				viewerTeamId: "team-1",
 			},
 		);
 
@@ -248,7 +247,6 @@ describe("search_documents — the one query", () => {
 				{ as: "artifact" },
 				{
 					subjects: ["writer-1"],
-					viewerTeamId: null,
 				},
 			);
 
@@ -271,7 +269,6 @@ describe("search_documents — the one query", () => {
 				{ as: "memory" },
 				{
 					subjects: ["writer-1"],
-					viewerTeamId: null,
 				},
 			);
 
@@ -297,11 +294,7 @@ describe("search_documents — the one query", () => {
 				docValues({ id: "as-memory-4", scopeKind: "user", scopeId: "writer-1", slot: "ordinary" }),
 			);
 
-			const rows = await searchDocumentRows(
-				db,
-				{ as: "memory" },
-				{ subjects: ["writer-1"], viewerTeamId: null },
-			);
+			const rows = await searchDocumentRows(db, { as: "memory" }, { subjects: ["writer-1"] });
 
 			expect(rows.map((r) => r.id)).not.toContain(artifactShapedLikeMemory.id);
 			expect(rows.map((r) => r.id)).toEqual([memory.id]);
@@ -325,18 +318,14 @@ describe("search_documents — the one query", () => {
 				docValues({ id: "as-memory-5", scopeKind: "user", scopeId: "writer-1", slot: "ordinary" }),
 			);
 
-			const asMemory = await searchDocumentRows(
-				db,
-				{ as: "memory" },
-				{ subjects: ["writer-1"], viewerTeamId: null },
-			);
+			const asMemory = await searchDocumentRows(db, { as: "memory" }, { subjects: ["writer-1"] });
 			expect(asMemory.map((r) => r.id)).not.toContain(publicShapedLikeMemory.id);
 			expect(asMemory.map((r) => r.id)).toEqual([memory.id]);
 
 			const asDocument = await searchDocumentRows(
 				db,
 				{ as: "document" },
-				{ subjects: ["writer-1"], viewerTeamId: null },
+				{ subjects: ["writer-1"] },
 			);
 			expect(asDocument.map((r) => r.id)).toContain(publicShapedLikeMemory.id);
 		});
@@ -360,15 +349,11 @@ describe("search_documents — the one query", () => {
 			const asDocument = await searchDocumentRows(
 				db,
 				{ as: "document" },
-				{ subjects: ["writer-1"], viewerTeamId: null },
+				{ subjects: ["writer-1"] },
 			);
 			expect(asDocument.map((r) => r.id)).toContain(privateInTree.id);
 
-			const asMemory = await searchDocumentRows(
-				db,
-				{ as: "memory" },
-				{ subjects: ["writer-1"], viewerTeamId: null },
-			);
+			const asMemory = await searchDocumentRows(db, { as: "memory" }, { subjects: ["writer-1"] });
 			expect(asMemory.map((r) => r.id)).not.toContain(privateInTree.id);
 		});
 
@@ -391,7 +376,6 @@ describe("search_documents — the one query", () => {
 				{ as: "document" },
 				{
 					subjects: ["writer-1"],
-					viewerTeamId: null,
 				},
 			);
 
@@ -505,7 +489,7 @@ describe("search_documents — the one query", () => {
 				docValues({ id: "vis-writer", scopeKind: "user", scopeId: "writer-1", slot: "ordinary" }),
 			);
 
-			const rows = await searchDocumentRows(db, {}, { subjects: ["writer-1"], viewerTeamId: null });
+			const rows = await searchDocumentRows(db, {}, { subjects: ["writer-1"] });
 
 			expect(rows.map((r) => r.id)).toContain(memory.id);
 		});
@@ -526,7 +510,6 @@ describe("search_documents — the one query", () => {
 				{},
 				{
 					subjects: ["owner-1", "agent-1"],
-					viewerTeamId: null,
 				},
 			);
 
@@ -539,16 +522,12 @@ describe("search_documents — the one query", () => {
 				docValues({ id: "vis-stranger", scopeKind: "user", scopeId: "writer-1", slot: "ordinary" }),
 			);
 
-			const rows = await searchDocumentRows(
-				db,
-				{},
-				{ subjects: ["stranger-1"], viewerTeamId: null },
-			);
+			const rows = await searchDocumentRows(db, {}, { subjects: ["stranger-1"] });
 
 			expect(rows.map((r) => r.id)).not.toContain(memory.id);
 		});
 
-		test("a team-scoped document is excluded for a viewer outside that team, included for a member", async ({
+		test("a team-scoped document is readable by everyone, whatever team they are in", async ({
 			db,
 		}) => {
 			const teamDoc = await insertDocument(
@@ -556,22 +535,11 @@ describe("search_documents — the one query", () => {
 				docValues({ id: "vis-team-doc", scopeKind: "team", scopeId: "team-1" }),
 			);
 
-			const outsiderRows = await searchDocumentRows(
-				db,
-				{},
-				{ subjects: ["u-outsider"], viewerTeamId: "team-2" },
-			);
-			expect(outsiderRows.map((r) => r.id)).not.toContain(teamDoc.id);
-
-			const memberRows = await searchDocumentRows(
-				db,
-				{},
-				{ subjects: ["u-member"], viewerTeamId: "team-1" },
-			);
-			expect(memberRows.map((r) => r.id)).toContain(teamDoc.id);
+			const rows = await searchDocumentRows(db, {}, { subjects: ["u-outsider"] });
+			expect(rows.map((r) => r.id)).toContain(teamDoc.id);
 		});
 
-		test("an artifact is never private — visible to a viewer on a different team with no matching subject", async ({
+		test("an artifact is never private — visible to a viewer with no matching subject", async ({
 			db,
 		}) => {
 			const artifact = await insertDocument(
@@ -588,7 +556,7 @@ describe("search_documents — the one query", () => {
 			const rows = await searchDocumentRows(
 				db,
 				{ parent: { kind: "task", id: "task-shared" } },
-				{ subjects: ["nobody"], viewerTeamId: "team-mine" },
+				{ subjects: ["nobody"] },
 			);
 
 			expect(rows.map((r) => r.id)).toContain(artifact.id);

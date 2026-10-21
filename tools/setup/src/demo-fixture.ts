@@ -1,7 +1,7 @@
 /**
  * Demo fixture — test and setup-cli demo mode ONLY.
  *
- * @lore AF17: This file is the ONLY place the "Acme" demo world lives.
+ * @lore AF17: This file is the ONLY place the demo world lives.
  * It must NEVER be imported from production paths:
  *   - tools/setup/src/seed-pg-cli.ts
  *   - tools/setup/src/factory-bootstrap-runner.ts
@@ -29,16 +29,16 @@
  * demo data on a production boot path) but is enforced by which CLIs choose
  * to call this file, not by a static import guard.
  *
- * Use neutral fictional name "Acme" — no real-product collision.
+ * Teams are named plainly ("Product", "Support") — no real-product collision.
  * Rows this file inserts itself use "demo-*" ids; the team's agents carry the
  * ids the plugin installer gives them.
  */
 
 import { fileURLToPath } from "node:url";
 import { installBundledPlugin } from "@hyperidle/core-api";
-import { type HyperIdleDb, subscriptions, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, subscriptions, teams, users, userTeams } from "@hyperidle/db";
 import { OBJECT_EVENTS } from "@hyperidle/domain-model";
-import { PM_ID, ROLE_PERSONAS_PLUGIN } from "./demo-world/ids.js";
+import { PM_ID, PRODUCT_TEAM_ID, ROLE_PERSONAS_PLUGIN, SUPPORT_TEAM_ID } from "./demo-world/ids.js";
 import { seedDemoWorldContent } from "./demo-world/index.js";
 import { createDemoClock } from "./demo-world/time.js";
 
@@ -48,8 +48,9 @@ const BUNDLED_PLUGINS_DIR = fileURLToPath(new URL("../../../plugins", import.met
 /**
  * Seed a demo world for onboarding / development mode.
  *
- * Creates: team "Acme", two humans, the founder's assistant, the role-personas
- * plugin installed for the team (its seven agents), seven root tasks across
+ * Creates: teams "Product" and "Support", two humans (the founder in both,
+ * Maya in Support), the founder's assistant, the role-personas plugin
+ * installed for Product (its seven agents, Designer moved to Support), seven root tasks across
  * every lifecycle with nested subtasks to three levels deep, fifteen threads
  * with ~100 messages, a ~50-document corpus, ~35 sessions, a paused schedule
  * subscription, and changes rows — a world that reads as six weeks of use
@@ -58,23 +59,22 @@ const BUNDLED_PLUGINS_DIR = fileURLToPath(new URL("../../../plugins", import.met
  * Idempotent: onConflictDoNothing throughout, fixed `demo-*` ids, and the
  * plugin install re-runs as an in-place reinstall.
  *
- * @returns { teamId, founderId } — the demo team id and founder user id.
+ * @returns { teamId, founderId } — the Product team id and founder user id.
  */
 export async function seedDemoWorld(
 	db: HyperIdleDb,
 ): Promise<{ teamId: string; founderId: string }> {
 	const clock = createDemoClock();
-	const teamId = "demo-team-acme";
+	const teamId = PRODUCT_TEAM_ID;
 	const founderId = "demo-founder";
 
-	// Demo team (domain entity — the "Acme" workspace), founded six weeks ago.
+	// The two demo teams, founded six weeks ago.
 	await db
 		.insert(teams)
-		.values({
-			id: teamId,
-			name: "Acme",
-			createdAt: clock.daysAgo(44),
-		})
+		.values([
+			{ id: PRODUCT_TEAM_ID, name: "Product", createdAt: clock.daysAgo(44) },
+			{ id: SUPPORT_TEAM_ID, name: "Support", createdAt: clock.daysAgo(44) },
+		])
 		.onConflictDoNothing();
 
 	// Human founder — demo mode only. FIRST human by created_at: local-mode
@@ -87,7 +87,6 @@ export async function seedDemoWorld(
 			name: "Founder",
 			role: "founder",
 			status: "active",
-			teamId: teamId,
 			createdAt: clock.daysAgo(45),
 		})
 		.onConflictDoNothing();
@@ -109,9 +108,18 @@ export async function seedDemoWorld(
 			createdAt: clock.daysAgo(44),
 		})
 		.onConflictDoNothing();
+	// The founder is in both teams; their assistant in one of them.
+	await db
+		.insert(userTeams)
+		.values([
+			{ userId: founderId, teamId: PRODUCT_TEAM_ID },
+			{ userId: founderId, teamId: SUPPORT_TEAM_ID },
+			{ userId: `ast-${founderId}`, teamId: PRODUCT_TEAM_ID },
+		])
+		.onConflictDoNothing();
 
-	// The team's agents: the bundled role-personas plugin, installed for the
-	// team through the same install a person's Settings › Plugins click runs,
+	// The team's agents: the bundled role-personas plugin, installed for
+	// Product through the same install a person's Settings › Plugins click runs,
 	// on the day the team started using agents.
 	await installBundledPlugin(db, {
 		name: ROLE_PERSONAS_PLUGIN,

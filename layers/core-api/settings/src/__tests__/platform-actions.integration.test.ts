@@ -21,6 +21,7 @@ import {
 	subscriptions,
 	teams,
 	users,
+	userTeams,
 	type WriteExecutor,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
@@ -65,7 +66,9 @@ function realDocumentActions(): readonly Action[] {
 		users: {
 			getUserById: async (exec, id) => {
 				const [row] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
-				return row;
+				if (!row) return undefined;
+				const memberships = await exec.select().from(userTeams).where(eq(userTeams.userId, id));
+				return { ...row, teamIds: memberships.map((m) => m.teamId) };
 			},
 			listOwnedBy: async (exec, ownerId) =>
 				exec.select().from(users).where(eq(users.ownerUserId, ownerId)),
@@ -118,8 +121,15 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 	const documentActions = realDocumentActions();
 	return {
 		agents: {
-			insertIfAbsent: async (exec, values) => {
-				await exec.insert(users).values(values).onConflictDoNothing();
+			insertIfAbsent: async (exec, values, teamId) => {
+				const inserted = await exec
+					.insert(users)
+					.values(values)
+					.onConflictDoNothing()
+					.returning({ id: users.id });
+				if (inserted.length > 0 && teamId !== null) {
+					await exec.insert(userTeams).values({ userId: values.id, teamId });
+				}
 			},
 			setStatus: async (exec, ids, status) => {
 				if (ids.length === 0) return;
@@ -183,7 +193,7 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 			read: async () => ({ harnessType: null }),
 			write: async () => {},
 		},
-		viewerTeamId: async () => null,
+		viewerTeamIds: async () => [],
 		teams: {
 			exists: async (exec, teamId) => {
 				const [row] = await exec

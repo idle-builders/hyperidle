@@ -2,7 +2,7 @@
  * Review fix B1 — `edit_user` without an id used to never read `input.folders`
  * (nor `input.connections`) at all: the welcome screen's first call created
  * the person and the team but silently dropped the picked folder
- * (`SetupFlow.tsx` sends `edit_user({kind:"human", name, team, folders:{add:
+ * (`SetupFlow.tsx` sends `edit_user({kind:"human", name, teams, folders:{add:
  * [...]}})` — the same body origin/main's
  * `SetupFlow.tsx:350` POSTed to `/api/filesystems`). This file proves create
  * now honours `folders`/`connections` the same way an edit does: a server
@@ -178,7 +178,7 @@ describe("edit_user — create honours folders and connections (B1)", () => {
 		const result = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Ada",
-			team: { name: "Welcome Team" },
+			teams: ["Welcome Team"],
 			folders: {
 				add: [
 					{
@@ -192,7 +192,7 @@ describe("edit_user — create honours folders and connections (B1)", () => {
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 		const personId = result.data.user?.id as string;
-		const teamId = result.data.user?.team?.id as string;
+		const teamId = result.data.user?.teams[0]?.id as string;
 
 		// The create's own response already carries the folder — no dropped field.
 		expect(result.data.folders).toHaveLength(1);
@@ -217,7 +217,7 @@ describe("edit_user — create honours folders and connections (B1)", () => {
 		const owner = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Owner",
-			team: { name: "Connections Team" },
+			teams: ["Connections Team"],
 		});
 		expect(owner.ok).toBe(true);
 		if (!owner.ok) return;
@@ -227,6 +227,7 @@ describe("edit_user — create honours folders and connections (B1)", () => {
 			kind: "ai",
 			name: "Assistant",
 			ownerUserId: ownerId,
+			teams: ["Connections Team"],
 			identity: "You help.",
 			connections: { add: [{ authSource: "mcp", serverUrl: "https://example.com/mcp" }] },
 		});
@@ -256,7 +257,7 @@ describe("edit_user — a failed folder step on create never leaves a half-made 
 		const result = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Grace",
-			team: { name: "Grace's Team" },
+			teams: ["Grace's Team"],
 			folders: {
 				add: [
 					{
@@ -274,7 +275,7 @@ describe("edit_user — a failed folder step on create never leaves a half-made 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 		expect(result.data.user?.name).toBe("Grace");
-		expect(result.data.user?.team?.name).toBe("Grace's Team");
+		expect(result.data.user?.teams[0]?.name).toBe("Grace's Team");
 		expect(result.data.folders).toHaveLength(0);
 
 		const personId = result.data.user?.id as string;
@@ -296,7 +297,7 @@ describe("edit_user — the welcome screen's first person is the founder", () =>
 		const result = await editUser(ctxFor(db, "u-nobody"), {
 			kind: "human",
 			name: "Ada",
-			team: { name: "Welcome Team" },
+			teams: ["Welcome Team"],
 		});
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;

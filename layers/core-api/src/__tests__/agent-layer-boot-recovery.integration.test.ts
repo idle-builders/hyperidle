@@ -15,6 +15,7 @@ import {
 	teams,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
@@ -72,9 +73,9 @@ describe("agent-layer boot recovery", () => {
 			name: "Agent",
 			role: "builder",
 			status: "active",
-			teamId: "boot-team",
 			createdAt: nowIso,
 		});
+		await db.insert(userTeams).values({ userId: "boot-agent", teamId: "boot-team" });
 		await db.insert(threads).values({
 			id: `thr-${"boot-bet"}`,
 			hostKind: "team",

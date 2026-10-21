@@ -56,5 +56,6 @@ export {
 	threads,
 	type User,
 	users,
+	userTeams,
 } from "./schema.js";
 export type { WriteExecutor } from "./write-executor.js";

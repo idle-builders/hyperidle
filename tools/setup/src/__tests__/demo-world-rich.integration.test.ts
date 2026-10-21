@@ -410,15 +410,15 @@ describe("lived-in demo world", () => {
 
 		const teamRow = await rows<{ id: string }>(
 			db,
-			"SELECT id FROM teams WHERE id = 'demo-team-acme'",
+			"SELECT id FROM teams WHERE id = 'demo-team-product'",
 		);
-		expect(teamRow[0]?.id).toBe("demo-team-acme");
+		expect(teamRow[0]?.id).toBe("demo-team-product");
 
 		// Root tasks (parentTaskId IS NULL) should exist for the demo team.
 		const rootTaskCount = await count(
 			db,
 			"tasks",
-			"WHERE parent_task_id IS NULL AND team_id = 'demo-team-acme'",
+			"WHERE parent_task_id IS NULL AND team_id = 'demo-team-product'",
 		);
 		expect(rootTaskCount).toBeGreaterThan(0);
 

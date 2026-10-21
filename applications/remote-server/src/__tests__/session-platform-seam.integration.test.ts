@@ -31,7 +31,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, vi } from "vitest";
@@ -190,10 +190,10 @@ async function seedHuman(db: HyperIdleDb, id: string, teamId?: string): Promise<
 			name: id,
 			role: "founder",
 			status: "active",
-			...(teamId ? { teamId } : {}),
 			createdAt: now,
 		})
 		.onConflictDoNothing();
+	if (teamId) await db.insert(userTeams).values({ userId: id, teamId }).onConflictDoNothing();
 }
 
 async function seedAgent(db: HyperIdleDb, id: string, ownerUserId: string): Promise<void> {

@@ -1,4 +1,4 @@
-import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -25,7 +25,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			name: "Test Agent",
 			role: "builder",
 			status: "active",
-			teamId: "prod-1",
 			createdAt: new Date().toISOString(),
 		},
 		// A synthetic sender for verdict-typed messages emitted by the legacy
@@ -39,6 +38,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			createdAt: new Date().toISOString(),
 		},
 	]);
+	await db.insert(userTeams).values({ userId: "agent-1", teamId: "prod-1" });
 }
 
 async function seedTaskData(db: HyperIdleDb): Promise<void> {

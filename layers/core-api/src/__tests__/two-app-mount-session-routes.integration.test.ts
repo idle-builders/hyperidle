@@ -14,7 +14,7 @@
  */
 
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
-import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
 import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -41,18 +41,18 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		role: "builder",
 		status: "active",
 		kind: "ai",
-		teamId: "prod-1",
 		createdAt: NOW,
 	});
+	await db.insert(userTeams).values({ userId: "agent-1", teamId: "prod-1" });
 	await db.insert(users).values({
 		id: "human-1",
 		name: "Human",
 		role: "founder",
 		status: "active",
 		kind: "human",
-		teamId: "prod-1",
 		createdAt: NOW,
 	});
+	await db.insert(userTeams).values({ userId: "human-1", teamId: "prod-1" });
 	await db.insert(threads).values({
 		id: `thr-${"bet-1"}`,
 		hostKind: "team",

@@ -12,7 +12,7 @@
  * layer that composes those modules together.
  */
 
-import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, messages, threads, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { ReviewVerdictOutcome, SendMessageInput, ThreadView } from "@hyperidle/domain-model";
 import type { ObjectChangeEvent } from "@hyperidle/event-bus";
@@ -689,7 +689,7 @@ describe("open_thread — computedTitle reads real ownership", () => {
 		await seedHuman(db, "tw-owner-1", "tw-1");
 		await seedHuman(db, "tw-other-1", "tw-1");
 		const now = new Date().toISOString();
-		// An owned agent (`users_belonging_ck`): ownerUserId set => teamId must be null.
+		// An owned agent, in one of its owner's teams.
 		await db.insert(users).values({
 			id: "tw-agent-1",
 			kind: "ai",
@@ -699,6 +699,7 @@ describe("open_thread — computedTitle reads real ownership", () => {
 			ownerUserId: "tw-owner-1",
 			createdAt: now,
 		});
+		await db.insert(userTeams).values({ userId: "tw-agent-1", teamId: "tw-1" });
 
 		// Production shape: a direct thread between a human and their own agent
 		// is hosted by the AGENT party (thread-actions.ts's single-agent

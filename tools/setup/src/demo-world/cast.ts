@@ -1,14 +1,15 @@
 /**
- * AX1 — demo world cast: the Acme team.
+ * AX1 — demo world cast: the Product and Support teams.
  *
  * Two humans, the founder's assistant, and the seven agents the role-personas
- * plugin brought to the team. The founder is the FIRST human by `created_at` —
+ * plugin brought to Product (Designer since moved to Support). The founder is the FIRST human by `created_at` —
  * local-mode auth resolves the first human user, so the founder is who lands
  * in the app.
  */
 
-import { agentRunConfig, type HyperIdleDb, orgEdges, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, orgEdges, users, userTeams } from "@hyperidle/db";
 import type { HarnessType } from "@hyperidle/domain-model";
+import { eq } from "drizzle-orm";
 import {
 	ASSISTANT_ID,
 	BUILDER_ID,
@@ -19,8 +20,9 @@ import {
 	MAYA_ID,
 	OPS_ID,
 	PM_ID,
+	PRODUCT_TEAM_ID,
 	QA_ID,
-	TEAM_ID,
+	SUPPORT_TEAM_ID,
 } from "./ids.js";
 import type { DemoClock } from "./time.js";
 
@@ -37,10 +39,19 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 			role: "member",
 			discipline: "operations",
 			status: "active",
-			teamId: TEAM_ID,
 			createdAt: clock.daysAgo(31),
 		})
 		.onConflictDoNothing();
+	await db
+		.insert(userTeams)
+		.values({ userId: MAYA_ID, teamId: SUPPORT_TEAM_ID })
+		.onConflictDoNothing();
+
+	// Designer came with the plugin into Product and works for Support now.
+	await db
+		.update(userTeams)
+		.set({ teamId: SUPPORT_TEAM_ID })
+		.where(eq(userTeams.userId, DESIGNER_ID));
 
 	// The team's agents came with the role-personas plugin, which gives them no
 	// harness outside a running server. Spread them across all four installable
@@ -64,16 +75,20 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 			});
 	}
 
-	// Org edges back to the team (the setup flow's team-creation adds these
-	// for real teams; the demo team was inserted directly).
-	for (const humanId of [FOUNDER_ID, MAYA_ID]) {
+	// Org edges back to each person's teams (the setup flow's team-creation adds
+	// these for real teams; the demo teams were inserted directly).
+	for (const [humanId, teamId] of [
+		[FOUNDER_ID, PRODUCT_TEAM_ID],
+		[FOUNDER_ID, SUPPORT_TEAM_ID],
+		[MAYA_ID, SUPPORT_TEAM_ID],
+	] as const) {
 		await db
 			.insert(orgEdges)
 			.values({
-				id: `demo-org-edge-${humanId}`,
+				id: `demo-org-edge-${humanId}-${teamId}`,
 				fromUserId: humanId,
 				mechanism: "team",
-				target: TEAM_ID,
+				target: teamId,
 				createdAt: clock.daysAgo(30),
 			})
 			.onConflictDoNothing();

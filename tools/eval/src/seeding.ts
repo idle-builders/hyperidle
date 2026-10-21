@@ -24,6 +24,7 @@ import {
 	teams,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import type { AgentCategory, ScopeKind, TaskState } from "@hyperidle/domain-model";
 import { evalHarnessModel, evalHarnessType } from "./eval-harness.js";
@@ -112,10 +113,10 @@ export async function seedAgent(
 		name: opts.name,
 		role: opts.role,
 		status: "active",
-		teamId: opts.teamId,
 		agentCategory: opts.agentCategory ?? "team",
 		createdAt: now,
 	});
+	await db.insert(userTeams).values({ userId: agentId, teamId: opts.teamId });
 	// @lore AU26 G1 (architecture §D-L): the run config moved off `users` into
 	// `agent_run_config`. `tools/eval` writes it directly for now; increment
 	// D2b routes every `tools/eval/src` table access through the owning

@@ -69,7 +69,7 @@ describe("a fresh install", () => {
 		const person = await call<UserView>(app, "edit_user", {
 			kind: "human",
 			name: "Ada",
-			team: { name: "My Team" },
+			teams: ["My Team"],
 		});
 		const personId = person.user?.id;
 		expect(personId).toBeDefined();
@@ -80,6 +80,7 @@ describe("a fresh install", () => {
 			role: "assistant",
 			agentCategory: "individual",
 			ownerUserId: personId,
+			teams: ["My Team"],
 			runConfig: PICKED_HARNESS,
 			subscriptions: { add: OBJECT_EVENTS.map((event) => ({ event })) },
 		});

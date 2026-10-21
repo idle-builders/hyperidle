@@ -25,12 +25,12 @@ import {
 	MSG_SEARCH_REVIEW,
 	MSG_TRIAL_REVIEW,
 	PM_ID,
+	PRODUCT_TEAM_ID,
 	PROPAGATION_ID,
 	QA_ID,
 	TASK_PRICING_PAGE,
 	TASK_SEARCH_RANKING,
 	TASK_TRIAL_FLOW,
-	TEAM_ID,
 	THREAD_ASSISTANT,
 	THREAD_DM_FOUNDER_BUILDER,
 	THREAD_DM_MAYA_GROWTH,
@@ -91,7 +91,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			// @lore BC3: no thread is hosted by a task any more — a task's
 			// conversation is team-hosted (architecture.md §3.9, §4 step 7, §5 B12).
 			hostKind: "team",
-			hostId: TEAM_ID,
+			hostId: PRODUCT_TEAM_ID,
 			initiatorId: DESIGNER_ID,
 			participants: [DESIGNER_ID, FOUNDER_ID, PM_ID],
 			createdAt: clock.daysAgo(3),
@@ -99,7 +99,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		{
 			id: THREAD_PRICING_BLOCKED,
 			hostKind: "team",
-			hostId: TEAM_ID,
+			hostId: PRODUCT_TEAM_ID,
 			initiatorId: BUILDER_ID,
 			participants: [BUILDER_ID, FOUNDER_ID],
 			createdAt: clock.daysAgo(2),
@@ -107,7 +107,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		{
 			id: THREAD_TRIAL_REVIEW,
 			hostKind: "team",
-			hostId: TEAM_ID,
+			hostId: PRODUCT_TEAM_ID,
 			initiatorId: BUILDER_ID,
 			participants: [BUILDER_ID, FOUNDER_ID],
 			createdAt: clock.daysAgo(30),
@@ -115,7 +115,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		{
 			id: THREAD_SEARCH_REVIEW,
 			hostKind: "team",
-			hostId: TEAM_ID,
+			hostId: PRODUCT_TEAM_ID,
 			initiatorId: BUILDER_ID,
 			participants: [BUILDER_ID, FOUNDER_ID],
 			createdAt: clock.daysAgo(25),
@@ -148,7 +148,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		{
 			id: THREAD_TASK_PRICING,
 			hostKind: "team",
-			hostId: TEAM_ID,
+			hostId: PRODUCT_TEAM_ID,
 			initiatorId: PM_ID,
 			participants: [PM_ID, FOUNDER_ID, BUILDER_ID, DESIGNER_ID],
 			createdAt: clock.daysAgo(21),
@@ -156,7 +156,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		{
 			id: THREAD_TASK_TRIAL_RETRO,
 			hostKind: "team",
-			hostId: TEAM_ID,
+			hostId: PRODUCT_TEAM_ID,
 			initiatorId: PM_ID,
 			participants: [PM_ID, FOUNDER_ID, MAYA_ID],
 			createdAt: clock.daysAgo(14),
@@ -164,7 +164,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		{
 			id: THREAD_TASK_MOBILE_KILL,
 			hostKind: "team",
-			hostId: TEAM_ID,
+			hostId: PRODUCT_TEAM_ID,
 			initiatorId: PM_ID,
 			participants: [PM_ID, FOUNDER_ID],
 			createdAt: clock.daysAgo(9),
@@ -172,7 +172,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		{
 			id: THREAD_TEAM_FEED,
 			hostKind: "team",
-			hostId: TEAM_ID,
+			hostId: PRODUCT_TEAM_ID,
 			initiatorId: PROPAGATION_ID,
 			participants: [FOUNDER_ID, MAYA_ID, PM_ID, BUILDER_ID, DESIGNER_ID, QA_ID, GROWTH_ID],
 			createdAt: clock.daysAgo(14),
@@ -196,7 +196,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		{
 			id: THREAD_TASK_ONBOARD,
 			hostKind: "team",
-			hostId: TEAM_ID,
+			hostId: PRODUCT_TEAM_ID,
 			initiatorId: GROWTH_ID,
 			participants: [GROWTH_ID, FOUNDER_ID],
 			createdAt: clock.daysAgo(2),

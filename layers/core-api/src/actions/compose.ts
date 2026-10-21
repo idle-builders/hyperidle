@@ -60,8 +60,8 @@ async function soleHumanForAgent(exec: WriteExecutor, agentId: string): Promise<
 	const byCreated = (a: User, b: User): number =>
 		a.createdAt === b.createdAt ? a.id.localeCompare(b.id) : a.createdAt.localeCompare(b.createdAt);
 	const agent = await findUser(exec, { id: agentId });
-	if (agent?.teamId) {
-		const teamHumans = await listUsers(exec, { kind: "human", teamIds: [agent.teamId] });
+	if (agent && agent.teamIds.length > 0) {
+		const teamHumans = await listUsers(exec, { kind: "human", teamIds: [...agent.teamIds] });
 		if (teamHumans.length > 0) return [...teamHumans].sort(byCreated)[0];
 	}
 	const anyHumans = await listUsers(exec, { kind: "human" });
@@ -82,8 +82,7 @@ function buildThreadActionsDeps(
 		users: {
 			getUserById: (exec, id) => findUser(exec, { id }),
 			listByIds: (exec, ids) => listUsers(exec, { ids: [...ids] }),
-			listByTeamIds: (exec, teamIds) => listUsers(exec, { teamIds: [...teamIds] }),
-			listOwnedBy: (exec, ownerId) => listUsers(exec, { ownerUserId: ownerId }),
+			listEveryone: (exec) => listUsers(exec),
 			soleHumanForAgent,
 		},
 		searchDocuments,
@@ -226,17 +225,10 @@ function buildPlatformActionsDeps(
 		...(adapterPool
 			? { firstAvailableHarness: (db: HyperIdleDb) => firstAvailableHarness(db, adapterPool) }
 			: {}),
-		// effective team: agent's own if set, else owner's — a new plugin's sole agent has no team, must reach owner's team to offer team plugins
 		teams: { exists: async (exec, teamId) => (await getTeam(exec, { id: teamId })) !== undefined },
-		viewerTeamId: async (exec, actorId) => {
-			const viewer = await findUser(exec, { id: actorId });
-			if (!viewer) return null;
-			if (viewer.teamId) return viewer.teamId;
-			if (!viewer.ownerUserId) return null;
-			return (await findUser(exec, { id: viewer.ownerUserId }))?.teamId ?? null;
-		},
+		viewerTeamIds: async (exec, actorId) => (await findUser(exec, { id: actorId }))?.teamIds ?? [],
 		agents: {
-			insertIfAbsent: (exec, values) => insertUserIfAbsent(exec, values),
+			insertIfAbsent: (exec, values, teamId) => insertUserIfAbsent(exec, values, teamId),
 			setStatus: (exec, ids, status) => setAgentsStatus(exec, ids, status),
 			list: (exec, ids) => listUsers(exec, { ids: [...ids] }),
 		},

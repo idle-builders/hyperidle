@@ -10,6 +10,7 @@ import type { ActionResult } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import type { Action, ActionContext } from "../action-types.js";
 import { getSubscription } from "../subscriptions-store.js";
+import { findUser } from "../user-store.js";
 
 export const NOW = "2026-01-01T00:00:00.000Z";
 
@@ -38,10 +39,7 @@ export function realDocumentActions(): readonly Action[] {
 			},
 		},
 		users: {
-			getUserById: async (exec, id) => {
-				const [row] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
-				return row;
-			},
+			getUserById: (exec, id) => findUser(exec as HyperIdleDb, { id }),
 			listOwnedBy: async (exec, ownerId) =>
 				exec.select().from(users).where(eq(users.ownerUserId, ownerId)),
 		},

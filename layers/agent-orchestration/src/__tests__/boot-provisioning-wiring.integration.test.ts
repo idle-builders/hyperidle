@@ -16,6 +16,7 @@ import {
 	serviceConnections,
 	teams,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import {
 	describe,
@@ -53,7 +54,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			name: "Owner",
 			role: "founder",
 			status: "active",
-			teamId: TEAM_ID,
 			createdAt: OWNER_CREATED_AT,
 		},
 		{
@@ -62,7 +62,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			name: "Other Human",
 			role: "member",
 			status: "active",
-			teamId: TEAM_ID,
 			createdAt: OTHER_CREATED_AT,
 		},
 		{
@@ -71,10 +70,12 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			name: "Target Agent",
 			role: "builder",
 			status: "active",
-			teamId: TEAM_ID,
 			createdAt: OWNER_CREATED_AT,
 		},
 	]);
+	await db.insert(userTeams).values({ userId: OWNER_ID, teamId: TEAM_ID });
+	await db.insert(userTeams).values({ userId: OTHER_HUMAN_ID, teamId: TEAM_ID });
+	await db.insert(userTeams).values({ userId: AGENT_ID, teamId: TEAM_ID });
 	await db.insert(serviceConnections).values([
 		{
 			id: "sc-provisioning-wiring-owner",

@@ -10,12 +10,7 @@ import type {
 import { EventBus } from "@hyperidle/event-bus";
 import { getPluginMcpContributions } from "@hyperidle/settings";
 import { findThread } from "@hyperidle/thread";
-import {
-	createUpgradeTokenStore,
-	findUser,
-	listUsers,
-	type UpgradeTokenStore,
-} from "@hyperidle/user";
+import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/user";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import type { ActionContext } from "./actions/action.js";
@@ -139,7 +134,6 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 								getForSubscribe: async (execDb, id) => (await getDocument(execDb, id)) ?? undefined,
 							},
 							users: {
-								getUserById: (execDb, id) => findUser(execDb, { id }),
 								listOwnedBy: (execDb, ownerId) => listUsers(execDb, { ownerUserId: ownerId }),
 							},
 						}),

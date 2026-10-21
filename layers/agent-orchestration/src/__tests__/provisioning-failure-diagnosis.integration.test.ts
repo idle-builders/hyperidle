@@ -9,7 +9,14 @@
  * exists.
  */
 
-import { agentSessionRequests, type HyperIdleDb, sessions, teams, users } from "@hyperidle/db";
+import {
+	agentSessionRequests,
+	type HyperIdleDb,
+	sessions,
+	teams,
+	users,
+	userTeams,
+} from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
@@ -42,9 +49,9 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		name: "Provisioning Diag Agent",
 		role: "builder",
 		status: "active",
-		teamId: TEAM_ID,
 		createdAt: NOW,
 	});
+	await db.insert(userTeams).values({ userId: AGENT_ID, teamId: TEAM_ID });
 	await db.insert(agentSessionRequests).values({
 		id: REQUEST_ID,
 		sourceKind: "subscription",

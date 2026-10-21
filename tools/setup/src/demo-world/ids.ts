@@ -9,16 +9,19 @@
 import { teamPluginAgentId } from "@hyperidle/core-api";
 
 // ── Cast ────────────────────────────────────────────────────────────────────
-export const TEAM_ID = "demo-team-acme";
+// Two teams in the one organisation. The founder is in both, Maya in Support;
+// each agent is in one — the plugin's agents in Product, Designer moved to Support.
+export const PRODUCT_TEAM_ID = "demo-team-product";
+export const SUPPORT_TEAM_ID = "demo-team-support";
 export const FOUNDER_ID = "demo-founder";
 export const MAYA_ID = "demo-human-maya";
 export const ASSISTANT_ID = "ast-demo-founder";
 
 // The team's agents are the bundled `role-personas` plugin's, installed for the
-// demo team by `seedDemoWorld`; each id is the one the installer gives it.
+// Product team by `seedDemoWorld`; each id is the one the installer gives it.
 export const ROLE_PERSONAS_PLUGIN = "role-personas";
 const personaAgent = (agentId: string): string =>
-	teamPluginAgentId(ROLE_PERSONAS_PLUGIN, agentId, TEAM_ID);
+	teamPluginAgentId(ROLE_PERSONAS_PLUGIN, agentId, PRODUCT_TEAM_ID);
 export const BUILDER_ID = personaAgent("builder");
 export const PM_ID = personaAgent("product-manager");
 export const DESIGNER_ID = personaAgent("designer");

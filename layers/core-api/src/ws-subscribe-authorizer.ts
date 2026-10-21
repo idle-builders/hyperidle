@@ -27,12 +27,8 @@ interface RealtimeDocumentReader {
 	getForSubscribe(db: HyperIdleDb, id: string): Promise<RealtimeDocumentRow | undefined>;
 }
 
-/** Port for subject/viewerTeamId resolution — the actor plus every agent they own, and the actor's team. */
+/** Port for subject resolution — the actor plus every agent they own. */
 interface RealtimeUserReader {
-	getUserById(
-		db: HyperIdleDb,
-		id: string,
-	): Promise<{ readonly teamId: string | null; readonly ownerUserId: string | null } | undefined>;
 	listOwnedBy(db: HyperIdleDb, ownerId: string): Promise<readonly { readonly id: string }[]>;
 }
 
@@ -68,21 +64,12 @@ export function createDbSubscribeAuthorizer(
 			return false;
 		}
 	}
-	/** Same `:subjects`/`:viewerTeamId` resolution `document-actions.ts`'s `resolveViewer` does — uses `canReadDocument` so the socket and the read can never diverge. */
+	/** Same `:subjects` resolution `document-actions.ts`'s `resolveViewer` does — uses `canReadDocument` so the socket and the read can never diverge. */
 	async function senderCanReadDocument(senderId: string, documentId: string): Promise<boolean> {
 		const row = await deps.document.getForSubscribe(db, documentId);
 		if (!row) return false;
-		const [actorUser, owned] = await Promise.all([
-			deps.users.getUserById(db, senderId),
-			deps.users.listOwnedBy(db, senderId),
-		]);
-		const subjects = [senderId, ...owned.map((u) => u.id)];
-		let viewerTeamId = actorUser?.teamId ?? null;
-		if (viewerTeamId === null && actorUser?.ownerUserId) {
-			const owner = await deps.users.getUserById(db, actorUser.ownerUserId);
-			viewerTeamId = owner?.teamId ?? null;
-		}
-		return canReadDocument(subjects, viewerTeamId, row);
+		const owned = await deps.users.listOwnedBy(db, senderId);
+		return canReadDocument([senderId, ...owned.map((u) => u.id)], row);
 	}
 	return {
 		canSubscribe(senderId: string, topic: string): Promise<boolean> {

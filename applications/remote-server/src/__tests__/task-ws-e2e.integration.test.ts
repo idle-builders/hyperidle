@@ -7,7 +7,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { afterEach, vi } from "vitest";
 import { createServer, type ServerHandle } from "../create-server.js";
@@ -92,10 +92,10 @@ async function seedActor(db: HyperIdleDb): Promise<void> {
 			name: FOUNDER_ID,
 			role: "member",
 			status: "active",
-			teamId: TEAM_ID,
 			createdAt: now,
 		})
 		.onConflictDoNothing();
+	await db.insert(userTeams).values({ userId: FOUNDER_ID, teamId: TEAM_ID }).onConflictDoNothing();
 }
 
 describe("task websocket nudge — real server, both topics", () => {

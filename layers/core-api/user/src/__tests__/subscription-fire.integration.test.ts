@@ -30,6 +30,7 @@ import { eq, inArray } from "drizzle-orm";
 import type { Action } from "../action-types.js";
 import { registerSubscriptionFire, type SubscriptionFireDeps } from "../subscription-fire.js";
 import { insertSubscription, listInboxRows } from "../subscriptions-store.js";
+import { findUser, insertUser, setUserTeams } from "../user-store.js";
 
 const TS = "2026-01-01T00:00:00.000Z";
 /** Every change below happens after the subscriptions it should reach were written. */
@@ -39,12 +40,13 @@ async function seedTeam(db: HyperIdleDb, id: string): Promise<void> {
 	await db.insert(teams).values({ id, name: id, createdAt: TS });
 }
 
+/** A user row; `teamId` puts them in that team. */
 async function seedUser(
 	db: HyperIdleDb,
 	id: string,
-	overrides: Partial<typeof users.$inferInsert> = {},
+	{ teamId, ...overrides }: Partial<typeof users.$inferInsert> & { teamId?: string } = {},
 ): Promise<void> {
-	await db.insert(users).values({
+	await insertUser(db, {
 		id,
 		kind: "human",
 		name: id,
@@ -53,6 +55,7 @@ async function seedUser(
 		createdAt: TS,
 		...overrides,
 	});
+	if (teamId !== undefined) await setUserTeams(db, id, [teamId]);
 }
 
 /** A task needs a real thread (`tasks.thread_id` is `NOT NULL`). */
@@ -110,10 +113,7 @@ function realDocumentActions(): readonly Action[] {
 			},
 		},
 		users: {
-			getUserById: async (exec, id) => {
-				const [row] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
-				return row;
-			},
+			getUserById: (exec, id) => findUser(exec as HyperIdleDb, { id }),
 			listOwnedBy: async (exec, ownerId) =>
 				exec.select().from(users).where(eq(users.ownerUserId, ownerId)),
 		},

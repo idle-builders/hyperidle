@@ -27,7 +27,7 @@
  */
 
 import { listChanges } from "@hyperidle/changes";
-import { agentRunConfig, type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import type { SessionOutcome } from "@hyperidle/domain-model";
 import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
@@ -56,9 +56,9 @@ async function seedAgent(
 		name: agentName,
 		role: "builder",
 		status: "active",
-		teamId: teamId,
 		createdAt: NOW,
 	});
+	await db.insert(userTeams).values({ userId: agentId, teamId });
 	await db.insert(agentRunConfig).values({ agentUserId: agentId, maxConcurrentSessions: 2 });
 	return { agentId, agentName, teamName };
 }

@@ -18,6 +18,7 @@ import {
 	teams,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import type {
@@ -77,9 +78,9 @@ async function seedFounderTeamAgentAndDocument(
 		name: "Live Harness Founder",
 		role: "founder",
 		status: "active",
-		teamId: opts.teamId,
 		createdAt: NOW,
 	});
+	await db.insert(userTeams).values({ userId: opts.founderId, teamId: opts.teamId });
 	await db.insert(users).values({
 		id: opts.agentId,
 		kind: "ai",
@@ -87,9 +88,9 @@ async function seedFounderTeamAgentAndDocument(
 		role: "builder",
 		status: "active",
 		agentCategory: "team",
-		teamId: opts.teamId,
 		createdAt: NOW,
 	});
+	await db.insert(userTeams).values({ userId: opts.agentId, teamId: opts.teamId });
 	await db.insert(agentRunConfig).values({
 		agentUserId: opts.agentId,
 		harnessType: opts.harnessType,

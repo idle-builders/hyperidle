@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	ChangeRowSchema,
+	type EditUserInput,
 	EditUserInputSchema,
 	editUser,
 	editUserInvariants,
@@ -18,6 +19,7 @@ import {
 	openUser,
 	SearchUsersInputSchema,
 	searchUsers,
+	teamMembershipProblems,
 	USER_ACTIONS,
 	USER_KINDS,
 	USER_STATUSES,
@@ -52,54 +54,25 @@ describe("OBJECT_EVENTS", () => {
 
 describe("editUserInvariants — create", () => {
 	it("kind_required: a create with no kind", () => {
-		const problems = editUserInvariants({ name: "Ada", team: { name: "Core" } });
+		const problems = editUserInvariants({ name: "Ada", teams: ["Core"] });
 		expect(problems.map((p) => p.code)).toContain("kind_required");
 	});
 
 	it("name_required: a create with no name", () => {
-		const problems = editUserInvariants({ kind: "human", team: { name: "Core" } });
+		const problems = editUserInvariants({ kind: "human", teams: ["Core"] });
 		expect(problems.map((p) => p.code)).toContain("name_required");
 	});
 
 	it("name_required: a create with a blank name", () => {
-		const problems = editUserInvariants({ kind: "human", name: "   ", team: { name: "Core" } });
+		const problems = editUserInvariants({ kind: "human", name: "   ", teams: ["Core"] });
 		expect(problems.map((p) => p.code)).toContain("name_required");
-	});
-
-	it("belonging_required: a create with neither team nor ownerUserId", () => {
-		const problems = editUserInvariants({ kind: "human", name: "Ada" });
-		expect(problems.map((p) => p.code)).toContain("belonging_required");
-	});
-
-	it("belonging_required does not fire when a team is named", () => {
-		const problems = editUserInvariants({ kind: "human", name: "Ada", team: { name: "Core" } });
-		expect(problems.map((p) => p.code)).not.toContain("belonging_required");
-	});
-
-	it("belonging_required does not fire when an owner is named", () => {
-		const problems = editUserInvariants({
-			kind: "ai",
-			name: "Assistant",
-			ownerUserId: "u1",
-			identity: "You help.",
-		});
-		expect(problems.map((p) => p.code)).not.toContain("belonging_required");
-	});
-
-	it("owned_agent_has_no_team: a create naming both an owner and a team", () => {
-		const problems = editUserInvariants({
-			kind: "ai",
-			name: "Assistant",
-			ownerUserId: "u1",
-			team: { name: "Core" },
-		});
-		expect(problems.map((p) => p.code)).toContain("owned_agent_has_no_team");
 	});
 
 	it("person_has_no_owner: a person create naming an owner", () => {
 		const problems = editUserInvariants({
 			kind: "human",
 			name: "Ada",
+			teams: ["Core"],
 			ownerUserId: "u1",
 		});
 		expect(problems.map((p) => p.code)).toContain("person_has_no_owner");
@@ -109,7 +82,7 @@ describe("editUserInvariants — create", () => {
 		const problems = editUserInvariants({
 			kind: "human",
 			name: "Ada",
-			team: { name: "Core" },
+			teams: ["Core"],
 			identity: "You help.",
 			agentCategory: "individual",
 			runConfig: { harnessType: "claude-code" },
@@ -122,6 +95,7 @@ describe("editUserInvariants — create", () => {
 			kind: "ai",
 			name: "Assistant",
 			ownerUserId: "u1",
+			teams: ["Core"],
 			identity: "You help.",
 			agentCategory: "individual",
 			runConfig: { harnessType: "claude-code" },
@@ -130,7 +104,7 @@ describe("editUserInvariants — create", () => {
 	});
 
 	it("a well-formed person create has no problems", () => {
-		expect(editUserInvariants({ kind: "human", name: "Ada", team: { name: "Core" } })).toEqual([]);
+		expect(editUserInvariants({ kind: "human", name: "Ada", teams: ["Core"] })).toEqual([]);
 	});
 
 	it("a well-formed owned-agent create has no problems", () => {
@@ -139,6 +113,7 @@ describe("editUserInvariants — create", () => {
 				kind: "ai",
 				name: "Ada's Assistant",
 				ownerUserId: "u1",
+				teams: ["Core"],
 				agentCategory: "individual",
 				identity: "You help.",
 			}),
@@ -150,7 +125,7 @@ describe("editUserInvariants — create", () => {
 			editUserInvariants({
 				kind: "ai",
 				name: "Core Agent",
-				team: { name: "Core" },
+				teams: ["Core"],
 				agentCategory: "team",
 			}),
 		).toEqual([]);
@@ -184,6 +159,124 @@ describe("editUserInvariants — edit", () => {
 
 	it("a well-formed status edit has no problems", () => {
 		expect(editUserInvariants({ id: "u1", status: "retired" })).toEqual([]);
+	});
+});
+
+describe("editUserInvariants — teams", () => {
+	it.each<{ why: string; input: EditUserInput; code: string }>([
+		{
+			why: "a person create with no teams",
+			input: { kind: "human", name: "Ada" },
+			code: "belonging_required",
+		},
+		{
+			why: "a person create with an empty list",
+			input: { kind: "human", name: "Ada", teams: [] },
+			code: "belonging_required",
+		},
+		{
+			why: "an owned-agent create with no team",
+			input: { kind: "ai", name: "Bot", ownerUserId: "u1" },
+			code: "belonging_required",
+		},
+		{
+			why: "an edit emptying the list",
+			input: { id: "u1", teams: [] },
+			code: "belonging_required",
+		},
+		{
+			why: "an agent create in two teams",
+			input: { kind: "ai", name: "Bot", teams: ["Core", "Sales"] },
+			code: "agent_one_team",
+		},
+	])("$code: $why", ({ input, code }) => {
+		expect(editUserInvariants(input).map((p) => p.code)).toContain(code);
+	});
+
+	it.each<{ why: string; input: EditUserInput }>([
+		{
+			why: "a person create in two teams",
+			input: { kind: "human", name: "Ada", teams: ["Core", "Sales"] },
+		},
+		{
+			why: "an owned-agent create in one team",
+			input: { kind: "ai", name: "Bot", ownerUserId: "u1", teams: ["Core"] },
+		},
+		{ why: "an edit naming two teams", input: { id: "u1", teams: ["Core", "Sales"] } },
+	])("no team problem: $why", ({ input }) => {
+		expect(editUserInvariants(input)).toEqual([]);
+	});
+});
+
+describe("teamMembershipProblems", () => {
+	it.each([
+		{
+			why: "a person in two teams",
+			subject: { kind: "human", teams: ["Core", "Sales"], ownerTeams: null, ownedAgentTeams: [] },
+			codes: [],
+		},
+		{
+			why: "a person in no team",
+			subject: { kind: "human", teams: [], ownerTeams: null, ownedAgentTeams: [] },
+			codes: ["belonging_required"],
+		},
+		{
+			why: "an agent in one team",
+			subject: { kind: "ai", teams: ["Core"], ownerTeams: null, ownedAgentTeams: [] },
+			codes: [],
+		},
+		{
+			why: "an agent in two teams",
+			subject: { kind: "ai", teams: ["Core", "Sales"], ownerTeams: null, ownedAgentTeams: [] },
+			codes: ["agent_one_team"],
+		},
+		{
+			why: "an agent in no team",
+			subject: { kind: "ai", teams: [], ownerTeams: null, ownedAgentTeams: [] },
+			codes: ["belonging_required"],
+		},
+		{
+			why: "an owned agent in one of its owner's teams",
+			subject: {
+				kind: "ai",
+				teams: ["Support"],
+				ownerTeams: ["Product", "Support"],
+				ownedAgentTeams: [],
+			},
+			codes: [],
+		},
+		{
+			why: "an owned agent in a team its owner is not in",
+			subject: {
+				kind: "ai",
+				teams: ["Sales"],
+				ownerTeams: ["Product", "Support"],
+				ownedAgentTeams: [],
+			},
+			codes: ["agent_team_not_owners"],
+		},
+		{
+			why: "a person leaving the team their agent is in",
+			subject: {
+				kind: "human",
+				teams: ["Product"],
+				ownerTeams: null,
+				ownedAgentTeams: ["Support"],
+			},
+			codes: ["agent_team_not_owners"],
+		},
+		{
+			why: "a person keeping the team their agent is in",
+			subject: {
+				kind: "human",
+				teams: ["Product", "Support"],
+				ownerTeams: null,
+				ownedAgentTeams: ["Support"],
+			},
+			codes: [],
+		},
+	] as const)("$why → $codes", ({ subject, codes }) => {
+		expect(teamMembershipProblems(subject).map((p) => p.code)).toEqual(codes);
 	});
 });
 
@@ -254,11 +347,11 @@ describe("EditUserInputSchema", () => {
 		expect(EditUserInputSchema.safeParse({ id: "u1", bogus: true }).success).toBe(false);
 	});
 
-	it("parses a create with team by name", () => {
+	it("parses a create with teams by name", () => {
 		const result = EditUserInputSchema.safeParse({
 			kind: "human",
 			name: "Ada",
-			team: { name: "Core" },
+			teams: ["Core"],
 		});
 		expect(result.success).toBe(true);
 	});
@@ -298,7 +391,7 @@ describe("EditUserInputSchema", () => {
 		const result = EditUserInputSchema.safeParse({
 			kind: "human",
 			name: "Ada",
-			team: { name: "Core" },
+			teams: ["Core"],
 			folders: {
 				add: [
 					{
@@ -317,7 +410,7 @@ describe("EditUserInputSchema", () => {
 		const problems = editUserInvariants({
 			kind: "human",
 			name: "Ada",
-			team: { name: "Core" },
+			teams: ["Core"],
 			folders: {
 				add: [
 					{
@@ -346,16 +439,12 @@ describe("UserRowSchema", () => {
 		ownerUserId: "u0",
 		health: null,
 		discipline: null,
-		team: { id: "t1", name: "Core" },
+		teams: [{ id: "t1", name: "Core" }],
 		edges: [{ id: "e1", mechanism: "direct" as const, target: "u0", resolvedUserIds: [] }],
 	};
 
 	it("parses a full row", () => {
 		expect(UserRowSchema.safeParse(row).success).toBe(true);
-	});
-
-	it("accepts a null team — a rowless caller in the first-run moment", () => {
-		expect(UserRowSchema.safeParse({ ...row, team: null }).success).toBe(true);
 	});
 
 	it("carries no email — a person is a name and an avatar", () => {

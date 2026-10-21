@@ -4,7 +4,7 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { type HyperIdleDb, messages, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, messages, teams, users, userTeams } from "@hyperidle/db";
 import type {
 	ActionResult,
 	EditTaskInput,
@@ -67,10 +67,10 @@ async function seedActor(db: HyperIdleDb): Promise<void> {
 			role: "member",
 			status: "active",
 			kind: "human",
-			teamId: TEAM_ID,
 			createdAt: now,
 		})
 		.onConflictDoNothing();
+	await db.insert(userTeams).values({ userId: ACTOR, teamId: TEAM_ID }).onConflictDoNothing();
 }
 
 async function insertMsg(
@@ -153,9 +153,9 @@ describe("task need computation — search_tasks and open_task", () => {
 			role: "builder",
 			status: "active",
 			kind: "ai",
-			teamId: TEAM_ID,
 			createdAt: new Date().toISOString(),
 		});
+		await db.insert(userTeams).values({ userId: AGENT, teamId: TEAM_ID });
 		const { editTask, searchTasks, sendMessage } = makeRunners(agentOrchestration);
 		const created = await editTask(makeCtx(db, eventBus), { title: "Ask me", teamId: TEAM_ID });
 		if (!created.ok) throw new Error(JSON.stringify(created.problems));

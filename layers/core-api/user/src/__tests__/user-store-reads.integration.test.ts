@@ -7,7 +7,7 @@
 
 import { type HyperIdleDb, teams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { findUser, insertUser, listUsers } from "../user-store.js";
+import { findUser, insertUser, listUsers, setUserTeams } from "../user-store.js";
 
 const NOW = "2026-01-01T00:00:00.000Z";
 
@@ -27,6 +27,16 @@ async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	await db.insert(teams).values({ id: teamId, name: `Team ${teamId}`, createdAt: NOW });
 }
 
+/** A user row in `teamId`'s team. */
+async function insertInTeam(
+	db: HyperIdleDb,
+	teamId: string,
+	values: ReturnType<typeof userValues>,
+): Promise<void> {
+	await insertUser(db, values);
+	await setUserTeams(db, values.id, [teamId]);
+}
+
 describe("user-store reads", () => {
 	test("findUser returns the row, or undefined when absent", async ({ db }) => {
 		await insertUser(db, userValues("u1", { avatarUrl: "https://example.com/u1.png" }));
@@ -34,6 +44,7 @@ describe("user-store reads", () => {
 		expect(found?.id).toBe("u1");
 		// Full-row getter returns the whole identity row, avatar included.
 		expect(found?.avatarUrl).toBe("https://example.com/u1.png");
+		expect(found?.teamIds).toEqual([]);
 		expect(await findUser(db, { id: "missing" })).toBeUndefined();
 	});
 
@@ -56,9 +67,9 @@ describe("user-store reads", () => {
 		db,
 	}) => {
 		await seedTeam(db, "tm1");
-		await insertUser(db, userValues("z", { teamId: "tm1", kind: "ai", status: "active" }));
-		await insertUser(db, userValues("a", { teamId: "tm1", kind: "ai", status: "active" }));
-		await insertUser(db, userValues("r", { teamId: "tm1", kind: "ai", status: "retired" }));
+		await insertInTeam(db, "tm1", userValues("z", { kind: "ai", status: "active" }));
+		await insertInTeam(db, "tm1", userValues("a", { kind: "ai", status: "active" }));
+		await insertInTeam(db, "tm1", userValues("r", { kind: "ai", status: "retired" }));
 		const rows = await listUsers(db, {
 			teamIds: ["tm1"],
 			kind: "ai",
@@ -70,17 +81,12 @@ describe("user-store reads", () => {
 
 	test("findUser composes role, team, status, and exclusion predicates", async ({ db }) => {
 		await seedTeam(db, "tm-role");
-		await insertUser(
+		await insertInTeam(db, "tm-role", userValues("self", { role: "reviewer", status: "active" }));
+		await insertInTeam(db, "tm-role", userValues("peer", { role: "reviewer", status: "active" }));
+		await insertInTeam(
 			db,
-			userValues("self", { teamId: "tm-role", role: "reviewer", status: "active" }),
-		);
-		await insertUser(
-			db,
-			userValues("peer", { teamId: "tm-role", role: "reviewer", status: "active" }),
-		);
-		await insertUser(
-			db,
-			userValues("retired", { teamId: "tm-role", role: "reviewer", status: "retired" }),
+			"tm-role",
+			userValues("retired", { role: "reviewer", status: "retired" }),
 		);
 
 		const teammate = await findUser(db, {

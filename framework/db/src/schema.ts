@@ -20,41 +20,45 @@ export const teams = pgTable("teams", {
 	createdAt: text("created_at").notNull(),
 });
 
-export const users = pgTable(
-	"users",
+export const users = pgTable("users", {
+	id: text("id").primaryKey(),
+	/** "human" | "ai" */
+	kind: text("kind").notNull().default("ai"),
+	name: text("name").notNull(),
+	role: text("role").notNull(),
+	status: text("status").notNull(),
+	/** Null for AI users. */
+	avatarUrl: text("avatar_url"),
+	createdAt: text("created_at").notNull(),
+	/** Agent category — team | individual. Null for human users and system users. */
+	agentCategory: text("agent_category"),
+	/** The person an agent works for. Null for a person and for an agent no one owns. */
+	ownerUserId: text("owner_user_id").references((): AnyPgColumn => users.id, {
+		onDelete: "set null",
+	}),
+	health: text("health"),
+	// @lore: discipline — an open craft string on a human or agent, matched case-insensitively; it clusters a context bundle, never gates access (`role` does).
+	discipline: text("discipline"),
+});
+
+/**
+ * Which teams a user is in. A person may be in several; an agent in exactly
+ * one, and an owned agent's team is one of its owner's (`edit_user` keeps
+ * both rules). A team is a name only — see `teams`.
+ */
+export const userTeams = pgTable(
+	"user_teams",
 	{
-		id: text("id").primaryKey(),
-		/** "human" | "ai" */
-		kind: text("kind").notNull().default("ai"),
-		name: text("name").notNull(),
-		teamId: text("team_id").references(() => teams.id, { onDelete: "restrict" }),
-		role: text("role").notNull(),
-		status: text("status").notNull(),
-		/** Null for AI users. */
-		avatarUrl: text("avatar_url"),
-		createdAt: text("created_at").notNull(),
-		/** Agent category — team | individual. Null for human users and system users. */
-		agentCategory: text("agent_category"),
-		/**
-		 * Who an agent belongs to, as a real column — a team (`teamId`),
-		 * a person (`ownerUserId`), or neither. Null for human users (the
-		 * `users_belonging_ck` check below is trivially satisfied by them).
-		 * Written only when the agent is created, through `@hyperidle/user`'
-		 * `insertUser`; `updateUser` deliberately never changes it. An owned
-		 * agent takes its owner's team.
-		 */
-		ownerUserId: text("owner_user_id").references((): AnyPgColumn => users.id, {
-			onDelete: "set null",
-		}),
-		health: text("health"),
-		// @lore: discipline — an open craft string on a human or agent, matched case-insensitively; it clusters a context bundle, never gates access (`role` does).
-		discipline: text("discipline"),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		teamId: text("team_id")
+			.notNull()
+			.references(() => teams.id, { onDelete: "restrict" }),
 	},
 	(table) => [
-		check(
-			"users_belonging_ck",
-			sql`${table.ownerUserId} IS NULL OR (${table.kind} = 'ai' AND ${table.teamId} IS NULL)`,
-		),
+		primaryKey({ columns: [table.userId, table.teamId] }),
+		index("user_teams_team_idx").on(table.teamId),
 	],
 );
 

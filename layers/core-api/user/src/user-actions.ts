@@ -20,15 +20,7 @@
  * function seams.
  *
  */
-import type {
-	Change,
-	HyperIdleDb,
-	NewChange,
-	NewUser,
-	Team,
-	User,
-	WriteExecutor,
-} from "@hyperidle/db";
+import type { Change, HyperIdleDb, NewChange, NewUser, Team, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import {
 	type AgentCategory,
@@ -43,6 +35,7 @@ import {
 	type Problem,
 	type SearchUsersInput,
 	searchUsers as searchUsersDeclaration,
+	teamMembershipProblems,
 	type UserKind,
 	type UserRow,
 	type UserStatus,
@@ -68,8 +61,15 @@ import {
 	markInboxSeen,
 	updateSubscription,
 } from "./subscriptions-store.js";
-import { createTeam, getTeam } from "./team-lookup.js";
-import { findUser, insertUser, listUsers, updateUser } from "./user-store.js";
+import { createTeam, getTeam, listTeams } from "./team-lookup.js";
+import {
+	findUser,
+	insertUser,
+	listUsers,
+	setUserTeams,
+	type UserWithTeams,
+	updateUser,
+} from "./user-store.js";
 
 // ---------------------------------------------------------------------------
 // The deps bag — everything this module reaches outside its own tables.
@@ -220,12 +220,6 @@ function isRunnableAgent(kind: string, status: string): boolean {
 	return kind === "ai" && RUNNABLE_STATUSES.has(status);
 }
 
-function effectiveTeamId(user: User, ownerById: ReadonlyMap<string, User>): string | null {
-	if (user.teamId) return user.teamId;
-	if (user.ownerUserId) return ownerById.get(user.ownerUserId)?.teamId ?? null;
-	return null;
-}
-
 /** `internal: true`, actor stamped to the agent whose scoped document this
  * touches — the read-only, system-level lookups `open_user`/`edit_user` make
  * for an agent's identity/skill documents and a subscription's prompt
@@ -239,30 +233,58 @@ function internalCtx(ctx: ActionContext, subjectId: string): ActionContext {
 	return { ...ctx, actor: subjectId, internal: true };
 }
 
-/** `@hyperidle/user`'s own `getTeam`/`listTeams` only batch by id via
- * `listTeams` — this loops `getTeam({id})` instead of adding a third team
- * export, since the batch here is small (distinct effective team ids among
- * one page of users) and every other read in this module already goes
- * through the store's narrow surface. */
-async function listUsersTeams(db: HyperIdleDb, ids: ReadonlySet<string>): Promise<Team[]> {
-	const found = await Promise.all([...ids].map((teamId) => getTeam(db, { id: teamId })));
-	return found.filter((t): t is Team => t !== undefined);
+/** The teams named — each found by name (oldest), or created. */
+async function findOrCreateTeams(
+	tx: HyperIdleDb,
+	names: readonly string[],
+	now: string,
+): Promise<Array<{ id: string; name: string }>> {
+	const teams: Array<{ id: string; name: string }> = [];
+	for (const name of new Set(names)) {
+		const found = await getTeam(tx, { name });
+		if (found) {
+			teams.push({ id: found.id, name });
+			continue;
+		}
+		const teamId = `team-${crypto.randomUUID()}`;
+		await createTeam(tx, { id: teamId, name, createdAt: now });
+		teams.push({ id: teamId, name });
+	}
+	return teams;
 }
 
-/** Batch-builds `UserRow`s — the effective team and outgoing org edges of
- * every row, in two queries total regardless of how many rows. */
-async function toUserRows(db: HyperIdleDb, rows: readonly User[]): Promise<UserRow[]> {
-	if (rows.length === 0) return [];
-	const ownerIds = [...new Set(rows.flatMap((r) => (r.ownerUserId ? [r.ownerUserId] : [])))];
-	const owners = ownerIds.length > 0 ? await listUsers(db, { ids: ownerIds }) : [];
-	const ownerById = new Map(owners.map((o) => [o.id, o] as const));
+async function teamNames(db: HyperIdleDb, ids: readonly string[]): Promise<string[]> {
+	return (await listTeams(db, { ids })).map((t) => t.name);
+}
 
-	const teamIds = new Set<string>();
-	for (const r of rows) {
-		const tid = effectiveTeamId(r, ownerById);
-		if (tid) teamIds.add(tid);
-	}
-	const teamRows: Team[] = teamIds.size > 0 ? await listUsersTeams(db, teamIds) : [];
+/** `teamMembershipProblems` for a user about to be in `teams` (names) — read what the
+ * input alone cannot say: the owner's teams, and a person's own agents' teams. */
+async function membershipProblemsFor(
+	db: HyperIdleDb,
+	subject: {
+		readonly id: string | null;
+		readonly kind: string;
+		readonly ownerUserId: string | null;
+	},
+	teams: readonly string[],
+): Promise<Problem[]> {
+	const owner = subject.ownerUserId ? await findUser(db, { id: subject.ownerUserId }) : undefined;
+	const owned = subject.id !== null ? await listUsers(db, { ownerUserId: subject.id }) : [];
+	return teamMembershipProblems({
+		kind: subject.kind,
+		teams,
+		ownerTeams: owner ? await teamNames(db, owner.teamIds) : null,
+		ownedAgentTeams: await teamNames(db, [...new Set(owned.flatMap((a) => a.teamIds))]),
+	});
+}
+
+/** Batch-builds `UserRow`s — the teams and outgoing org edges of every row,
+ * in a fixed number of queries regardless of how many rows. */
+async function toUserRows(db: HyperIdleDb, rows: readonly UserWithTeams[]): Promise<UserRow[]> {
+	if (rows.length === 0) return [];
+	const teamRows: Team[] = await listTeams(db, {
+		ids: [...new Set(rows.flatMap((r) => r.teamIds))],
+	});
 	const teamById = new Map(teamRows.map((t) => [t.id, t] as const));
 
 	const edgeRows = await listOrgEdges(db, { fromUserIds: rows.map((r) => r.id) });
@@ -293,8 +315,10 @@ async function toUserRows(db: HyperIdleDb, rows: readonly User[]): Promise<UserR
 	}
 
 	return rows.map((r) => {
-		const tid = effectiveTeamId(r, ownerById);
-		const team = tid ? teamById.get(tid) : undefined;
+		const teams = r.teamIds.flatMap((id) => {
+			const team = teamById.get(id);
+			return team ? [{ id: team.id, name: team.name }] : [];
+		});
 		return {
 			id: r.id,
 			kind: r.kind as UserKind,
@@ -307,7 +331,7 @@ async function toUserRows(db: HyperIdleDb, rows: readonly User[]): Promise<UserR
 			ownerUserId: r.ownerUserId ?? null,
 			health: r.health ?? null,
 			discipline: r.discipline ?? null,
-			team: team ? { id: team.id, name: team.name } : null,
+			teams,
 			edges: edgesByUser.get(r.id) ?? [],
 		};
 	});
@@ -338,12 +362,10 @@ async function searchUsersRun(
 		status: input.status,
 		nameContains: input.name,
 		discipline: input.discipline,
+		...(input.teamId !== undefined ? { teamIds: [input.teamId] } : {}),
 	});
 	const listed = rows.filter((r) => r.role !== "system" || (input.ids ?? []).includes(r.id));
-	let views = await toUserRows(ctx.db, listed);
-	if (input.teamId !== undefined) {
-		views = views.filter((v) => v.team?.id === input.teamId);
-	}
+	const views = await toUserRows(ctx.db, listed);
 	views.sort((a, b) => a.name.localeCompare(b.name));
 	const limit = input.limit ?? 500;
 	return { ok: true, data: views.slice(0, limit) };
@@ -356,7 +378,7 @@ async function searchUsersRun(
 async function buildUserView(
 	ctx: ActionContext,
 	deps: UserActionsDeps,
-	userRow: User | null,
+	userRow: UserWithTeams | null,
 	isSelf: boolean,
 ): Promise<UserView> {
 	const runsOn = deps.harnesses ? [...deps.harnesses.describe()] : [];
@@ -400,9 +422,7 @@ async function buildUserView(
 	const folders =
 		userRow.kind === "ai"
 			? await deps.folders.list({ agentUserId: userRow.id })
-			: row.team
-				? await deps.folders.list({ teamId: row.team.id })
-				: [];
+			: (await Promise.all(userRow.teamIds.map((teamId) => deps.folders.list({ teamId })))).flat();
 
 	const subscriptionRows = await listSubscriptions(ctx.db, { userId: userRow.id });
 	const promptDocByParent = new Map<string, string>();
@@ -595,8 +615,9 @@ async function archiveSubscriptionPrompt(
 //
 // ---------------------------------------------------------------------------
 
-/** `give`'s team-consistency gate — checks the
- * team with `folders.list({teamId})`. A folder already given to this
+/** A folder is added to one of the user's teams — the one named, or their only
+ * one. `give`'s team-consistency gate checks the folder is one of those teams'
+ * with `folders.list({teamId})`. A folder already given to this
  * agent is CONFLICT from the port — its own code, `folder_already_given`,
  * distinct from a team mismatch.
  *
@@ -605,20 +626,29 @@ async function archiveSubscriptionPrompt(
 async function applyUserFolders(
 	deps: UserActionsDeps,
 	id: string,
-	teamId: string | null,
+	teams: readonly { readonly id: string; readonly name: string }[],
 	folders: NonNullable<EditUserInput["folders"]>,
 ): Promise<Problem | null> {
-	for (const body of folders.add ?? []) {
-		if (!teamId) {
+	for (const { team: teamName, ...body } of folders.add ?? []) {
+		const team =
+			teamName !== undefined
+				? teams.find((t) => t.name === teamName)
+				: teams.length === 1
+					? teams[0]
+					: undefined;
+		if (!team) {
 			return {
-				code: "unknown_folder",
-				message: "This user has no team to add a folder to.",
+				code: "folder_team_required",
+				message:
+					teamName !== undefined
+						? `'${teamName}' is not one of this user's teams.`
+						: "Name which of this user's teams the folder belongs to.",
 				path: "folders",
 			};
 		}
 		let result: Awaited<ReturnType<typeof deps.folders.add>>;
 		try {
-			result = await deps.folders.add(teamId, body);
+			result = await deps.folders.add(team.id, body);
 		} catch {
 			return { code: "unknown_folder", message: "That team does not exist.", path: "folders" };
 		}
@@ -638,7 +668,7 @@ async function applyUserFolders(
 		}
 	}
 	for (const folderId of folders.give ?? []) {
-		if (!teamId) {
+		if (teams.length === 0) {
 			return {
 				code: "folder_other_team",
 				message: "This agent has no team to receive a folder.",
@@ -647,7 +677,9 @@ async function applyUserFolders(
 		}
 		let teamFolders: readonly UserActionsFolderView[];
 		try {
-			teamFolders = await deps.folders.list({ teamId });
+			teamFolders = (
+				await Promise.all(teams.map((team) => deps.folders.list({ teamId: team.id })))
+			).flat();
 		} catch {
 			return {
 				code: "folder_other_team",
@@ -774,12 +806,18 @@ async function createUserRun(
 		}
 	}
 
-	let ownerRow: User | undefined;
 	if (input.ownerUserId !== undefined) {
-		ownerRow = await findUser(ctx.db, { id: input.ownerUserId });
+		const ownerRow = await findUser(ctx.db, { id: input.ownerUserId });
 		if (!ownerRow)
 			return problem("unknown_owner", `No user with id '${input.ownerUserId}'.`, "ownerUserId");
 	}
+	const teamNamesIn = input.teams ?? [];
+	const membership = await membershipProblemsFor(
+		ctx.db,
+		{ id: null, kind, ownerUserId: input.ownerUserId ?? null },
+		teamNamesIn,
+	);
+	if (membership.length > 0) return { ok: false, problems: membership };
 
 	// Only a "direct" edge's target is a userId — "team"'s is a teamId, and
 	// "discipline"'s is an open-vocabulary craft string nothing enumerates
@@ -816,28 +854,21 @@ async function createUserRun(
 		health: input.health ?? null,
 		// Explicit only — never inherited from anything.
 		discipline: input.discipline ?? null,
-		teamId: null,
 	};
 
 	const addedSubscriptions: Array<{ id: string; prompt: string | null | undefined }> = [];
 	let mainChangeRow: Change | undefined;
+	let teams: Array<{ id: string; name: string }> = [];
 
 	await ctx.db.transaction(async (txRaw) => {
 		const tx = txRaw as HyperIdleDb;
-		if (input.ownerUserId === undefined && input.team) {
-			let teamRow = await getTeam(tx, { name: input.team.name });
-			if (!teamRow) {
-				const teamId = `team-${crypto.randomUUID()}`;
-				await createTeam(tx, {
-					id: teamId,
-					name: input.team.name,
-					createdAt: now,
-				});
-				teamRow = await getTeam(tx, { id: teamId });
-			}
-			values.teamId = teamRow?.id ?? null;
-		}
+		teams = await findOrCreateTeams(tx, teamNamesIn, now);
 		await insertUser(tx, values);
+		await setUserTeams(
+			tx,
+			id,
+			teams.map((t) => t.id),
+		);
 
 		for (const e of input.edges?.add ?? []) {
 			await upsertOrgEdge(tx, { fromUserId: id, mechanism: e.mechanism, target: e.target });
@@ -861,7 +892,14 @@ async function createUserRun(
 
 		const { before, after } = stringifyChange({
 			before: null,
-			after: { kind, name, role, status, teamId: values.teamId, ownerUserId: values.ownerUserId },
+			after: {
+				kind,
+				name,
+				role,
+				status,
+				teamIds: teams.map((t) => t.id),
+				ownerUserId: values.ownerUserId,
+			},
 		});
 		mainChangeRow = await deps.changes.appendChange(tx, {
 			id: crypto.randomUUID(),
@@ -884,8 +922,7 @@ async function createUserRun(
 
 	let stepProblem: Problem | null = null;
 	if (input.folders) {
-		const effectiveTeamId = values.teamId ?? ownerRow?.teamId ?? null;
-		stepProblem = await applyUserFolders(deps, id, effectiveTeamId, input.folders);
+		stepProblem = await applyUserFolders(deps, id, teams, input.folders);
 	}
 	if (!stepProblem && input.connections) {
 		stepProblem = await applyUserConnections(deps, id, input.connections);
@@ -955,8 +992,9 @@ async function editExistingUserRun(
 	if (input.status === "retired" && (existing.kind === "human" || existing.role === "system")) {
 		return problem("cannot_retire", "A person or a system agent cannot be retired.", "status");
 	}
-	if (input.team !== undefined && existing.ownerUserId !== null) {
-		return problem("owned_agent_has_no_team", "An owned agent takes its owner's team.", "team");
+	if (input.teams !== undefined) {
+		const membership = await membershipProblemsFor(ctx.db, existing, input.teams);
+		if (membership.length > 0) return { ok: false, problems: membership };
 	}
 	if (input.connections !== undefined && ctx.actor !== id) {
 		return problem("yourself_only", "Connections are edited on your own view only.", "connections");
@@ -1015,7 +1053,7 @@ async function editExistingUserRun(
 		}
 	}
 
-	const touchesTeam = input.team !== undefined;
+	const touchesTeams = input.teams !== undefined;
 	const touchesEdges =
 		(input.edges?.add?.length ?? 0) > 0 || (input.edges?.remove?.length ?? 0) > 0;
 	const touchesSubscriptions =
@@ -1025,7 +1063,7 @@ async function editExistingUserRun(
 	const touchesRunConfig = input.runConfig !== undefined;
 	const appendsChange =
 		touchesIdentityFields(input) ||
-		touchesTeam ||
+		touchesTeams ||
 		touchesEdges ||
 		touchesSubscriptions ||
 		touchesRunConfig;
@@ -1042,34 +1080,28 @@ async function editExistingUserRun(
 	if (touchesSubscriptions) after.subscriptions = true;
 	if (touchesRunConfig) after.runConfig = input.runConfig;
 
-	let resolvedTeamId: string | null | undefined;
+	let teams: Array<{ id: string; name: string }> | undefined;
 	const addedSubscriptions: Array<{ id: string; prompt: string | null | undefined }> = [];
 	const changedSubscriptionPrompts: Array<{ id: string; prompt: string | null }> = [];
 	let mainChangeRow: Change | undefined;
 
 	await ctx.db.transaction(async (txRaw) => {
 		const tx = txRaw as HyperIdleDb;
-		if (touchesTeam && input.team) {
-			let teamRow = await getTeam(tx, { name: input.team.name });
-			if (!teamRow) {
-				const teamId = `team-${crypto.randomUUID()}`;
-				await createTeam(tx, {
-					id: teamId,
-					name: input.team.name,
-					createdAt: now,
-				});
-				teamRow = await getTeam(tx, { id: teamId });
-			}
-			resolvedTeamId = teamRow?.id ?? null;
-			before.teamId = existing.teamId;
-			after.teamId = resolvedTeamId;
+		if (input.teams !== undefined) {
+			teams = await findOrCreateTeams(tx, input.teams, now);
+			await setUserTeams(
+				tx,
+				id,
+				teams.map((t) => t.id),
+			);
+			before.teamIds = existing.teamIds;
+			after.teamIds = teams.map((t) => t.id);
 		}
 
 		const patch: Partial<NewUser> = {};
 		for (const f of IDENTITY_FIELDS) {
 			if (input[f] !== undefined) (patch as Record<string, unknown>)[f] = input[f];
 		}
-		if (resolvedTeamId !== undefined) patch.teamId = resolvedTeamId;
 		if (Object.keys(patch).length > 0) await updateUser(tx, id, patch);
 
 		for (const e of input.edges?.add ?? []) {
@@ -1149,12 +1181,10 @@ async function editExistingUserRun(
 
 	let stepProblem: Problem | null = null;
 	if (input.folders) {
-		// owned agent's teamId column is null; resolve via ownerRow?.teamId (same "effective team" open_user reports)
-		const ownerRow = existing.ownerUserId
-			? await findUser(ctx.db, { id: existing.ownerUserId })
-			: undefined;
-		const teamId = resolvedTeamId ?? existing.teamId ?? ownerRow?.teamId ?? null;
-		stepProblem = await applyUserFolders(deps, id, teamId, input.folders);
+		const folderTeams =
+			teams ??
+			(await listTeams(ctx.db, { ids: existing.teamIds })).map((t) => ({ id: t.id, name: t.name }));
+		stepProblem = await applyUserFolders(deps, id, folderTeams, input.folders);
 	}
 	if (!stepProblem && input.connections) {
 		stepProblem = await applyUserConnections(deps, id, input.connections);
