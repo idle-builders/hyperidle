@@ -56,6 +56,19 @@ is placed in fresh. Founder: "kill everything old, proper purge and place the ne
 
 ## 3. Steps, in order, all in one branch
 
+**Progress (2026-10-21).** Order changed: the purge came first, so no old UI code had to be kept
+working through the backend changes.
+- [x] Step 0 decisions · [x] step 1 designs (8 small designs + the document's discipline)
+- [x] Step 3 purge: `layers/core-ui` is the studio app; Tailwind, DaisyUI, the old lint rules and
+  e2e suite are gone; the token check replaces the old design check.
+- [x] Step 2 backend, needed-in-branch part: done-when lines + decisions and assumptions; status
+  words (`need`, `openBelow`, live `task:<id>` / `tasks` topics); answer a question by option,
+  verdict is approve or reject with a reason; a person in several teams, an agent in one, all
+  knowledge readable by everyone.
+- [ ] Step 4 screens, wired to real data — next.
+- [ ] Step 5 finish.
+
+
 ### Step 0: decisions (founder, 2026-10-20)
 - **Styling:** plain CSS with tokens, as in the studio. Tailwind and DaisyUI go. A token check
   fails on any raw value outside `tokens.css` and on any reference to a token that does not exist.
@@ -130,6 +143,22 @@ here, core-ui is empty except for its package file.
    9. The gaps that step 1 kept.
 3. The studio's made-up data goes into tests and the demo seed only. Production code never
    contains it.
+
+**How the screens are wired** (decided 2026-10-21):
+- URLs per screen with React Router: `/conversations/:id`, `/work/:id`, `/knowledge/:id`,
+  `/people/:id`, `/teams/:name`, `/plugins/:id`, `/start`. Back and forward work; a link can be
+  shared.
+- Data: one small `call(action, input)` client and one `useAction` hook that runs an action and
+  runs it again when its WebSocket topic says something changed. No cache library.
+- The walkthrough rail goes with the first screen. The studio stays runnable on the design
+  branch (`design/studio-recovery`) as the reference for side-by-side screenshots.
+- The demo world takes over the studio's story (the trials task, How we price, Maya, Builder,
+  Growth…), so a wired screen can be compared with its design one to one.
+- E2E: Playwright against the real server with the demo world, no mocked API. Local only.
+- The remaining small backend pieces land with the screen that needs them: follow a task,
+  document or thread; a document's icon; stop and start again; a comment on a range of text with
+  a proposed change and Apply; review rounds; ticking folders and services per agent; "came with
+  the plugin" and where a plugin came from.
 
 **Each screen counts as done when:**
 - it shows real data from a seeded database
