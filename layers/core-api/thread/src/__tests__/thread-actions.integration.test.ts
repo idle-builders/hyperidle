@@ -1178,6 +1178,26 @@ describe("search_threads", () => {
 			clientKey: "st-preview-d-answer",
 			createdAt: new Date().toISOString(),
 		});
+		for (const [id, verdict] of [
+			["st-preview-e", { decision: "approve", resolvesMessageId: "r" }],
+			["st-preview-f", { decision: "reject", resolvesMessageId: "r", note: "Email too." }],
+		] as const) {
+			await seedThreadRow(db, id, {
+				hostKind: "user",
+				hostId: FOUNDER_ID,
+				initiatorId: FOUNDER_ID,
+				members: [FOUNDER_ID],
+			});
+			await db.insert(messages).values({
+				id: `${id}-verdict`,
+				senderId: FOUNDER_ID,
+				threadId: id,
+				type: "verdict",
+				payload: JSON.stringify(verdict),
+				clientKey: `${id}-verdict`,
+				createdAt: new Date().toISOString(),
+			});
+		}
 		// st-preview-c gets no message at all.
 
 		const res = await call<Array<{ id: string; lastMessagePreview: string | null }>>(
@@ -1185,7 +1205,16 @@ describe("search_threads", () => {
 			db,
 			eventBus,
 			"search_threads",
-			{ ids: ["st-preview-a", "st-preview-b", "st-preview-c", "st-preview-d"] },
+			{
+				ids: [
+					"st-preview-a",
+					"st-preview-b",
+					"st-preview-c",
+					"st-preview-d",
+					"st-preview-e",
+					"st-preview-f",
+				],
+			},
 		);
 		expect(res.status).toBe(200);
 		const byId = new Map(res.body.data?.map((r) => [r.id, r.lastMessagePreview]));
@@ -1193,6 +1222,8 @@ describe("search_threads", () => {
 		expect(byId.get("st-preview-b")).toBe("b only");
 		expect(byId.get("st-preview-c")).toBeNull();
 		expect(byId.get("st-preview-d")).toBe("B");
+		expect(byId.get("st-preview-e")).toBe("Approved");
+		expect(byId.get("st-preview-f")).toBe("Rejected: Email too.");
 	});
 
 	test("text matches message content across threads the actor can read, and canReadThread still filters a DM they are not in", async ({
