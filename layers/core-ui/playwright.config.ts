@@ -41,7 +41,8 @@ export default defineConfig({
 			url: `http://localhost:${SERVER_PORT}/health`,
 			reuseExistingServer: false,
 			timeout: 180_000,
-			env: { DATABASE_URL: dbPath, PORT: String(SERVER_PORT) },
+			// No agent ever runs: a dispatch waits in the queue, so starting a task again starts nothing real.
+			env: { DATABASE_URL: dbPath, PORT: String(SERVER_PORT), HYPERIDLE_LOCAL_MAX_CONCURRENT: "0" },
 		},
 		{
 			command: `npx vite --port ${WEB_PORT} --strictPort`,

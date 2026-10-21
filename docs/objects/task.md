@@ -68,6 +68,16 @@ Code: `createShipConfirmationThread`, `lifecycle-propagation.ts`.
 
 Setting `ownerAgentId` on an `accepted` or `in_progress` task is a handoff. The previous owner's session ends, a new `task_dispatch_attempts` row with `occasion: "owner_handoff"` is inserted, and the new agent's run begins. Code: `task-actions.ts`.
 
+## Hold and stop
+
+A person pauses a task with `edit_task({ id, paused })`. `paused` is set on the task and on every part of it not done; the state stays as it was, so nothing is undone.
+
+- `"hold"` — the agents finish what they are doing, then wait. Nothing new starts in the subtree: moving a paused task to `accepted` is refused (`paused`), so the dependency watcher leaves its waiting parts in `hold`. A new part made under a paused task is paused with it.
+- `"stopped"` — the same, and the running sessions of the task and its subtree stop at once.
+- `null` — lifts it. Every waiting part whose dependencies are all `done` is accepted. After a stop, each leaf still `in_progress` that waits on nobody's answer or review gets a `task_dispatch_attempts` row with `occasion: "restart"`, so its agent picks up where it stopped. A restart may happen once per stop, so it is left out of the one-dispatch-per-occasion index.
+
+A finished task cannot be paused (`paused_closed`). Stop is not kill: `killed` is terminal; a stopped task starts again.
+
 ## Kill
 
 Moving a task to `killed` via `edit_task` kills every task beneath it in the same transaction, and stops their running sessions. Kill never travels up. A kill is not a completion — propagation ignores killed subtrees.

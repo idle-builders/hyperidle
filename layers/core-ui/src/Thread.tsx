@@ -29,7 +29,7 @@ interface Person {
 	readonly name: string;
 	readonly human: boolean;
 }
-type People = ReadonlyMap<string, Person>;
+export type People = ReadonlyMap<string, Person>;
 
 const NO_MESSAGES: readonly Message[] = [];
 
@@ -60,7 +60,7 @@ function useTaskSessions(taskIds: readonly string[]): readonly SessionRow[] {
 }
 
 /** Re-render every half minute, so "12m" keeps up. */
-function useNow(): number {
+export function useNow(): number {
 	const [now, setNow] = useState(Date.now());
 	useEffect(() => {
 		const timer = setInterval(() => setNow(Date.now()), 30_000);
@@ -69,7 +69,7 @@ function useNow(): number {
 	return now;
 }
 
-function stepWords(entry: ActivityEntry): string | null {
+export function stepWords(entry: ActivityEntry): string | null {
 	if (entry.type !== "tool_call") return null;
 	const d = entry.data;
 	return `${d.verb ?? d.toolName} ${d.target ?? d.argsSummary}`.trim();
@@ -261,7 +261,7 @@ function Review({
 }
 
 /** One message's body inside its sender's block. */
-function Body({
+export function Body({
 	message,
 	threadId,
 	you,
@@ -309,6 +309,24 @@ function Body({
 	return <RichText text={p.text} mentions={mentions} />;
 }
 
+/** Each answered question or decided review, by the message that answered or decided it. */
+export function resolvingOf(messages: readonly Message[]): ReadonlyMap<string, Message> {
+	return new Map(
+		messages.flatMap((m): [string, Message][] =>
+			(m.type === "answer" || m.type === "verdict") && !isRedactedPayload(m.payload)
+				? [[(m.payload as { resolvesMessageId: string }).resolvesMessageId, m]]
+				: [],
+		),
+	);
+}
+
+/** Everyone who can be in a thread, by id. */
+export function peopleOf(
+	users: readonly { readonly id: string; readonly name: string; readonly kind: string }[],
+): People {
+	return new Map(users.map((u) => [u.id, { name: u.name, human: u.kind === "human" }]));
+}
+
 export function ThreadPage({ id }: { id: string }) {
 	const me = useAction("open_user", {});
 	const users = useAction("search_users", {});
@@ -328,21 +346,13 @@ export function ThreadPage({ id }: { id: string }) {
 	const scroll = useRef<HTMLDivElement>(null);
 
 	const you = me.data?.user?.id ?? "";
-	const people: People = new Map(
-		(users.data ?? []).map((u) => [u.id, { name: u.name, human: u.kind === "human" }]),
-	);
+	const people = peopleOf(users.data ?? []);
 	const first = (uid: string) =>
 		uid === you ? "You" : (people.get(uid)?.name.split(" ")[0] ?? "Someone");
 	const messages = [...(view.data?.messages ?? NO_MESSAGES)]
 		.filter((m) => m.deletedAt === null)
 		.reverse();
-	const resolving = new Map(
-		messages.flatMap((m): [string, Message][] =>
-			(m.type === "answer" || m.type === "verdict") && !isRedactedPayload(m.payload)
-				? [[(m.payload as { resolvesMessageId: string }).resolvesMessageId, m]]
-				: [],
-		),
-	);
+	const resolving = resolvingOf(messages);
 	const entries = timeline(messages, tasks, sessions, first);
 	const running = sessions.filter((s) => s.endedAt === null && s.state === "active");
 

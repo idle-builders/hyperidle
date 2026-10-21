@@ -62,7 +62,6 @@ export type Reason = z.infer<typeof ReasonSchema>;
 
 /** How a person paused a task: on hold, the agents finish what they are doing, then wait; stopped, they stop at once. */
 export const TASK_PAUSES = ["hold", "stopped"] as const;
-export type TaskPause = (typeof TASK_PAUSES)[number];
 
 export const TaskSchema = z.object({
 	id: z.string(),

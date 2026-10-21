@@ -97,6 +97,8 @@ function ranked(items: Item[], rank: (i: Item) => number): Item[] {
 }
 
 export const NEED_WORDS = { stuck: "Stuck", input: "Needs input", review: "Needs review" } as const;
+/** A person paused it: the agents finish and wait, or stopped where they were. */
+export const PAUSE_WORDS = { hold: "On hold", stopped: "Stopped" } as const;
 
 export function conversationItems(
 	threads: readonly ThreadListRow[],
@@ -125,7 +127,7 @@ export const STATE_WORDS: Record<Task["state"], string> = {
 	in_progress: "Running",
 	blocked: "Stuck",
 	review: "Needs review",
-	hold: "On hold",
+	hold: "Waits",
 	done: "Done",
 	killed: "Stopped",
 };
@@ -145,11 +147,13 @@ export function workItems(tasks: readonly Task[], names: Names, inbox: Inbox): I
 		.map((t): Item => {
 			const parts = kids.has(t.id) ? leaves(t) : [];
 			const done = parts.filter((p) => p.state === "done").length;
-			const state = t.need
-				? NEED_WORDS[t.need]
-				: parts.length > 0 && t.state !== "done"
-					? `${done} of ${parts.length} done`
-					: STATE_WORDS[t.state];
+			const state = t.paused
+				? PAUSE_WORDS[t.paused]
+				: t.need
+					? NEED_WORDS[t.need]
+					: parts.length > 0 && t.state !== "done"
+						? `${done} of ${parts.length} done`
+						: STATE_WORDS[t.state];
 			return {
 				id: t.id,
 				title: t.title,

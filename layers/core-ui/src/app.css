@@ -2919,13 +2919,9 @@ kbd {
 	flex: none;
 	margin-top: var(--sp-2);
 }
-.task-reply input {
-	min-height: 40px;
-	padding: 0 var(--sp-4);
-	border: 0;
-	outline: none;
-	background: transparent;
-	font: var(--t-body);
+.task-reply .composer {
+	padding: 0;
+	border-top: 0;
 }
 
 /* a person is needed here: a question mark for input, an eye for a review */

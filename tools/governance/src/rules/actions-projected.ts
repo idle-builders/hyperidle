@@ -212,9 +212,7 @@ const LEGACY_EVENTS: readonly string[] = [
 const UNIMPLEMENTED_UI_ACTIONS: readonly string[] = [
 	"edit_document",
 	"edit_plugin",
-	"edit_task",
 	"open_document",
-	"open_task",
 	"search_plugins",
 	"stop_session",
 ];

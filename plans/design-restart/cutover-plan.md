@@ -70,7 +70,14 @@ working through the backend changes.
     client, Playwright back against the real server on a fresh demo world. A thread row says what
     it waits on from you (`need`: stuck, input or review), who spoke last, and whether you were
     named. A review opens at its thread's address with `?review=<message id>`.
-  - [ ] Conversations — next.
+  - [x] Conversations.
+  - [x] Work: the task page on real data — the parts graph, a picked part in the address, the loop
+    lists, the summary, the part's conversation, and the box (Follow, hold, stop and start again,
+    ask for a review, questions, reviews, documents, sessions). Backend: `tasks.paused` (hold or
+    stopped, on the task and every part not done; a "restart" dispatch after a stop), following one
+    object (`subscriptions.object_id`; a person follows what they start), and a finished task needs
+    nothing. A task handed off in a thread keeps that thread as its own, and says it came from it.
+  - [ ] Review (Judge) — next.
 - [ ] Step 5 finish.
 
 

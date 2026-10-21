@@ -41,7 +41,8 @@ function Conversation() {
 }
 
 function Task() {
-	return <Shift key={useParams().id} step={0} />;
+	const { id = "" } = useParams();
+	return <Shift key={id} id={id} />;
 }
 
 function Document() {

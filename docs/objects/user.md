@@ -32,6 +32,8 @@ Team scope applies to documents (their space), folders registered per team, and 
 
 A subscription is a row on a user with exactly one of `event` (one of the 9 object events) or `schedule` (cron). Also: `paused`, `nextRunAt`, `documentId` (the prompt document).
 
+**Following one object.** An event subscription may carry `objectId`: it then fires only for that task, thread or document. A person follows a task this way (`edit_user({ subscriptions: { add: [{ event: "task.changed", objectId }] } })`), and follows each task they start: when a person creates a task, the user module adds that subscription for them.
+
 The 9 object events: `task.created`, `task.changed`, `thread.created`, `thread.message`, `thread.changed`, `document.created`, `document.changed`, `user.created`, `user.changed`.
 
 Schedule subscriptions are agent-only (refused for humans at `edit_user`).
