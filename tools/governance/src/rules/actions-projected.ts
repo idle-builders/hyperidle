@@ -113,6 +113,7 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /connections/:userId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId/:id/remove",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId/:id/withhold",
 	// @lore BC5 T11 (architecture.md §0.1 clause 3): `SetupFlow.tsx` needs
 	// folder detail (git repo? which branch?) BEFORE a folder exists to
 	// register — a plumbing lookup, not an action. Moved from LEGACY_ROUTES.
@@ -209,11 +210,7 @@ const LEGACY_EVENTS: readonly string[] = [
  * subsequent commits). Only shrinks: once an action gains a UI call site,
  * its entry must be removed in the same PR. A wired action left here is a finding.
  */
-const UNIMPLEMENTED_UI_ACTIONS: readonly string[] = [
-	"edit_plugin",
-	"search_plugins",
-	"stop_session",
-];
+const UNIMPLEMENTED_UI_ACTIONS: readonly string[] = ["edit_plugin", "stop_session"];
 
 /** Path to the event-bus vocabulary this rule's clause 4 reads. */
 const EVENT_TYPES_FILE = "framework/event-bus/src/events.ts";
