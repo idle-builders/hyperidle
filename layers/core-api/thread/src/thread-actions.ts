@@ -194,7 +194,7 @@ function reviewerOf(m: { readonly type: string; readonly payload: string }): {
 	return parsed.success && parsed.data.reviewer ? { reviewer: parsed.data.reviewer } : {};
 }
 
-/** A message's one-line preview, and whether it mentions `viewer`. */
+/** A message's one-line preview (an answer previews its option), and whether it mentions `viewer`. */
 function readPreview(
 	rawPayload: string,
 	viewer: string,
@@ -203,10 +203,11 @@ function readPreview(
 		const payload = JSON.parse(rawPayload) as {
 			text?: string;
 			title?: string;
+			option?: string;
 			refs?: ReadonlyArray<{ kind?: string; identityId?: string }>;
 		};
 		return {
-			preview: payload.text ?? payload.title ?? null,
+			preview: payload.text ?? payload.title ?? payload.option ?? null,
 			mentions: (payload.refs ?? []).some((r) => r.kind === "mention" && r.identityId === viewer),
 		};
 	} catch {

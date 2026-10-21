@@ -1106,6 +1106,21 @@ describe("search_threads", () => {
 			text: "a latest",
 		});
 		await call(actions, db, eventBus, "send_message", { threadId: "st-preview-b", text: "b only" });
+		await seedThreadRow(db, "st-preview-d", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+		});
+		await db.insert(messages).values({
+			id: "st-preview-d-answer",
+			senderId: FOUNDER_ID,
+			threadId: "st-preview-d",
+			type: "answer",
+			payload: JSON.stringify({ resolvesMessageId: "asked", option: "B" }),
+			clientKey: "st-preview-d-answer",
+			createdAt: new Date().toISOString(),
+		});
 		// st-preview-c gets no message at all.
 
 		const res = await call<Array<{ id: string; lastMessagePreview: string | null }>>(
@@ -1113,13 +1128,14 @@ describe("search_threads", () => {
 			db,
 			eventBus,
 			"search_threads",
-			{ ids: ["st-preview-a", "st-preview-b", "st-preview-c"] },
+			{ ids: ["st-preview-a", "st-preview-b", "st-preview-c", "st-preview-d"] },
 		);
 		expect(res.status).toBe(200);
 		const byId = new Map(res.body.data?.map((r) => [r.id, r.lastMessagePreview]));
 		expect(byId.get("st-preview-a")).toBe("a latest");
 		expect(byId.get("st-preview-b")).toBe("b only");
 		expect(byId.get("st-preview-c")).toBeNull();
+		expect(byId.get("st-preview-d")).toBe("B");
 	});
 
 	test("text matches message content across threads the actor can read, and canReadThread still filters a DM they are not in", async ({
