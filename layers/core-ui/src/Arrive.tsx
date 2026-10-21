@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { CHAT_FORMATS, DOC_FORMATS, FormatBar } from "./FormatBar";
-import { mentionables } from "./handoff";
-import { Avatar } from "./Msg";
 import { Seg } from "./Seg";
 
 /**
@@ -425,76 +423,6 @@ function Focused() {
 		</section>
 	);
 }
-/** A conversation you start yourself: empty until you say what it is about and who is in it. */
-function NewConversation() {
-	return (
-		<section className="thread">
-			<header className="thread-head">
-				<span className="chip chip--quiet">Thread</span>
-				<h2>New conversation</h2>
-				<span className="meta">not sent yet</span>
-			</header>
-			<div className="thread-scroll">
-				<p className="opened-note">
-					Say what it is about and @mention who should be in it, people and agents alike. Its first
-					line becomes its title; you can change it later.
-				</p>
-			</div>
-			<div className="composer">
-				<div style={{ flex: 1 }}>
-					<div className="picker" role="listbox" aria-label="Bring in">
-						<div className="picker-head">
-							<span>Bring in</span>
-							<span>agents and people, same list</span>
-						</div>
-						{mentionables
-							.filter((m) => m.id !== "growth")
-							.map((m, i) => (
-								<button
-									key={m.id}
-									type="button"
-									role="option"
-									className="picker-row"
-									aria-selected={i === 2}
-								>
-									<Avatar who={m.initials} human={m.id === "maya"} />
-									<span>
-										<span className="picker-name">{m.name}</span>
-										<span className="picker-what">{m.what}</span>
-									</span>
-									<span className="picker-load">{m.load}</span>
-								</button>
-							))}
-						<div className="picker-foot">
-							<span>
-								<kbd>↑↓</kbd> choose
-							</span>
-							<span>
-								<kbd>↵</kbd> bring in
-							</span>
-							<span>
-								<kbd>esc</kbd> close
-							</span>
-						</div>
-					</div>
-					<div className="composer-box">
-						<input
-							defaultValue="Can we answer refund questions from the help centre? @ma"
-							aria-label="Message"
-						/>
-						<div className="composer-row">
-							<FormatBar kinds={CHAT_FORMATS} />
-							<button type="button" className="btn btn--accent">
-								Send
-							</button>
-						</div>
-					</div>
-				</div>
-			</div>
-		</section>
-	);
-}
-
 /** A document starts untitled, in edit mode, where its "+" was pressed in the tree. */
 function NewDocument() {
 	return (
@@ -611,7 +539,6 @@ export function Arrive({ step }: { step: number }) {
 			/>
 		);
 	else if (step === 7) detail = <Focused />;
-	else if (step === 11) detail = <NewConversation />;
 	else if (step === 12) detail = <NewDocument />;
 	else if (step === 13) detail = <Failed />;
 

@@ -1,12 +1,12 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, Route, Routes, useParams, useSearchParams } from "react-router";
 import { Arrive } from "./Arrive";
-import { HandOffThread } from "./HandOffThread";
 import { Judge } from "./Judge";
 import { People, viewFor } from "./People";
 import { Shift } from "./Shift";
 import { Sidebar } from "./Sidebar";
 import { Think } from "./Think";
+import { NewConversation, ThreadPage } from "./Thread";
 
 /** Light or dark follows the computer. */
 function useComputerLooks(): void {
@@ -34,10 +34,10 @@ function Shell() {
 
 /** A review opens from its thread, so it keeps the thread's address. */
 function Conversation() {
-	const { id } = useParams();
+	const { id = "" } = useParams();
 	const [search] = useSearchParams();
 	const review = search.get("review");
-	return review ? <Judge key={review} step={0} /> : <HandOffThread key={id} step={5} />;
+	return review ? <Judge key={review} step={0} /> : <ThreadPage key={id} id={id} />;
 }
 
 function Task() {
@@ -69,6 +69,7 @@ export function App() {
 			/>
 			<Route element={<Shell />}>
 				<Route path="/conversations" element={null} />
+				<Route path="/conversations/new" element={<NewConversation />} />
 				<Route path="/conversations/:id" element={<Conversation />} />
 				<Route path="/work/:id" element={<Task />} />
 				<Route path="/knowledge/:id" element={<Document />} />

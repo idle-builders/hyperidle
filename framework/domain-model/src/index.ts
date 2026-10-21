@@ -111,6 +111,7 @@ export type { TaskNeed } from "./actions/task-need.js";
 export { computeTaskNeed } from "./actions/task-need.js";
 export type {
 	AdjustThreadInput,
+	AnswerPayload,
 	Identity,
 	Message,
 	OpenThreadInput,

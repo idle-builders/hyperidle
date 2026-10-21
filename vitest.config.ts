@@ -20,6 +20,7 @@ const PROJECTS = [
 	"framework/harness-protocol",
 	"tools/eslint-plugin-design",
 	"tools/eslint-plugin-authz",
+	"layers/core-ui",
 	"layers/core-api",
 	"layers/core-api/changes",
 	"layers/core-api/document",

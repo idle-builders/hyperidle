@@ -2714,6 +2714,60 @@ kbd {
 	margin-left: auto;
 	min-height: 32px;
 }
+.composer-col {
+	flex: 1;
+	min-width: 0;
+}
+.composer .composer-box textarea {
+	min-height: 40px;
+	max-height: 160px;
+	padding: var(--sp-2) var(--sp-4);
+	border: 0;
+	background: transparent;
+	font: var(--t-body);
+	color: var(--ink);
+	resize: none;
+	field-sizing: content;
+}
+.composer .composer-box textarea:focus {
+	outline: none;
+}
+.composer .composer-box textarea::placeholder {
+	color: var(--ink-3);
+}
+.composer-problem {
+	padding: var(--sp-2) var(--sp-6) 0;
+	font: var(--t-meta);
+	color: var(--ink-2);
+}
+
+/* a message's own formatting */
+:where(.msg-body, .card-why)
+	> :where(.msg-para, .msg-list, .quote)
+	+ :where(.msg-para, .msg-list, .quote) {
+	margin-top: var(--sp-2);
+}
+.msg-list {
+	padding-left: var(--sp-4);
+}
+.msg-gone {
+	font: var(--t-meta);
+	color: var(--ink-3);
+}
+
+/* an answered question keeps its choice in place */
+.opt:disabled {
+	cursor: default;
+}
+.opt:disabled:hover {
+	border-color: var(--line);
+	background: var(--canvas);
+}
+.opt[aria-pressed="true"],
+.opt[aria-pressed="true"]:hover {
+	border-color: var(--accent);
+	background: var(--accent-soft);
+}
 
 /* pieces the format bar adds to a document */
 .tbl {

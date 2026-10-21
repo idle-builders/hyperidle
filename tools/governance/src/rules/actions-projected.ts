@@ -210,18 +210,13 @@ const LEGACY_EVENTS: readonly string[] = [
  * its entry must be removed in the same PR. A wired action left here is a finding.
  */
 const UNIMPLEMENTED_UI_ACTIONS: readonly string[] = [
-	"adjust_thread",
 	"edit_document",
 	"edit_plugin",
 	"edit_task",
 	"open_document",
 	"open_task",
-	"open_thread",
 	"search_plugins",
-	"search_sessions",
-	"send_message",
 	"stop_session",
-	"watch_session",
 ];
 
 /** Path to the event-bus vocabulary this rule's clause 4 reads. */

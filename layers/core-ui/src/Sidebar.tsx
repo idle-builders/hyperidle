@@ -427,7 +427,12 @@ export function Sidebar() {
 			)}
 			<div className="nav-list">
 				{spine === "conversations" && (
-					<button type="button" className="nav-add">
+					<button
+						type="button"
+						className="nav-add"
+						aria-current={section === "conversations" && here === "new"}
+						onClick={() => navigate("/conversations/new")}
+					>
 						<span aria-hidden="true">+</span>New conversation
 					</button>
 				)}

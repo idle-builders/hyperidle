@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DOC_FORMATS, type Format, FormatBar } from "./FormatBar";
-import { mentionables } from "./handoff";
+import { MentionPicker, useMentionables } from "./MentionPicker";
 
 /**
  * THINK — a document stays a document; conversation is a layer on top, in the margin. A comment
@@ -501,6 +501,7 @@ export function Think({ step }: { step: number }) {
 	const [published, setPublished] = useState(step === AT.published);
 	const [edit, setEdit] = useState(step < AT.published);
 	const [hidden, setHidden] = useState(false);
+	const people = useMentionables();
 	const [following, setFollowing] = useState(true);
 	const [justResolved, setJustResolved] = useState<BlockId | null>(null);
 	const [drag, setDrag] = useState<{ id: BlockId; end: 0 | 1 } | null>(null);
@@ -877,29 +878,14 @@ export function Think({ step }: { step: number }) {
 					<b className="mention">@</b>
 					{caret}
 				</p>
-				<div className="picker picker--inline">
-					<div className="picker-head">
-						<span>Mention</span>
-						<span>agents and people, same list</span>
-					</div>
-					{mentionables.map((m) => (
-						<button
-							key={m.id}
-							type="button"
-							className="picker-row"
-							onClick={() =>
-								setAdded((all) => all.map((x) => (x.id === a.id ? { ...x, who: m.name } : x)))
-							}
-						>
-							<Av m={{ av: m.initials, agent: m.id !== "maya" }} />
-							<span>
-								<span className="picker-name">{m.name}</span>
-								<span className="picker-what">{m.what}</span>
-							</span>
-							<span className="picker-load">{m.load}</span>
-						</button>
-					))}
-				</div>
+				<MentionPicker
+					inline
+					head="Mention"
+					options={people}
+					onPick={(m) =>
+						setAdded((all) => all.map((x) => (x.id === a.id ? { ...x, who: m.name } : x)))
+					}
+				/>
 			</>
 		);
 	};

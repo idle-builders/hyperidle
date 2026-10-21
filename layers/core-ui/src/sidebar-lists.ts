@@ -61,13 +61,11 @@ export function age(iso: string, now: number = Date.now()): string {
 	return at.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
+/** Two letters: a first and last initial, or the first two letters of a one-word name. */
 export function initials(name: string): string {
-	return name
-		.split(/\s+/)
-		.map((w) => w[0] ?? "")
-		.join("")
-		.slice(0, 2)
-		.toUpperCase();
+	const words = name.trim().split(/\s+/);
+	const letters = words.length > 1 ? words.map((w) => w[0] ?? "").join("") : (words[0] ?? "");
+	return letters.slice(0, 2).toUpperCase();
 }
 
 /** A list row names people by their first name, as people do. */
@@ -98,7 +96,7 @@ function ranked(items: Item[], rank: (i: Item) => number): Item[] {
 		.map((x) => x.i);
 }
 
-const NEED_WORDS = { stuck: "Stuck", input: "Needs input", review: "Needs review" } as const;
+export const NEED_WORDS = { stuck: "Stuck", input: "Needs input", review: "Needs review" } as const;
 
 export function conversationItems(
 	threads: readonly ThreadListRow[],
@@ -121,7 +119,7 @@ export function conversationItems(
 	return ranked(items, (i) => (i.yours ? 0 : i.fresh ? 1 : 2));
 }
 
-const STATE_WORDS: Record<Task["state"], string> = {
+export const STATE_WORDS: Record<Task["state"], string> = {
 	proposed: "Queued",
 	accepted: "Queued",
 	in_progress: "Running",
