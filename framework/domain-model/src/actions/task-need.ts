@@ -5,6 +5,7 @@ export type TaskNeed = "stuck" | "input" | "review" | null;
 
 /**
  * Derive the one status word shown wherever a task appears.
+ * A finished task needs nothing — a conversation it came from may still ask about other work.
  * Precedence: stuck > input > review > null.
  * "Unresolved" means `resolvedAt === null`.
  */
@@ -13,6 +14,7 @@ export function computeTaskNeed(
 	messages: ReadonlyArray<{ readonly type: string; readonly resolvedAt: string | null }>,
 	reasons: readonly Reason[],
 ): TaskNeed {
+	if (state === "done" || state === "killed") return null;
 	if (state === "blocked") return "stuck";
 	const hasUnresolvedQuestionnaire = messages.some(
 		(m) => m.type === "questionnaire" && m.resolvedAt === null,

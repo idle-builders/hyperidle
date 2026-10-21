@@ -31,6 +31,21 @@ const rows: {
 	reasons: Reason[];
 	expected: ReturnType<typeof computeTaskNeed>;
 }[] = [
+	// a finished task waits on nobody, even when the conversation it shares still asks
+	{
+		label: "done + open review → none",
+		state: "done",
+		msgs: unresolvedReview,
+		reasons: [],
+		expected: null,
+	},
+	{
+		label: "killed + open question → none",
+		state: "killed",
+		msgs: unresolvedQuestionnaire,
+		reasons: waitingDecision,
+		expected: null,
+	},
 	// stuck
 	{ label: "blocked → stuck", state: "blocked", msgs: none, reasons: [], expected: "stuck" },
 	// stuck wins over everything
