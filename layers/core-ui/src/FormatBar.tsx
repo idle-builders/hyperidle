@@ -37,7 +37,7 @@ export const CHAT_FORMATS: Format[] = [
 	"code",
 ];
 
-const NAMES: Record<Format, string> = {
+export const FORMAT_NAMES: Record<Format, string> = {
 	heading: "Heading",
 	list: "List",
 	checklist: "Checklist",
@@ -104,6 +104,25 @@ const SHAPES: Record<Format, React.ReactNode> = {
 	),
 };
 
+/** The small picture of a piece's shape. */
+export function FormatIcon({ kind }: { kind: Format }): React.ReactElement {
+	return (
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 16 16"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.4"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+			aria-hidden="true"
+		>
+			{SHAPES[kind]}
+		</svg>
+	);
+}
+
 export function FormatBar({
 	kinds,
 	floating,
@@ -135,20 +154,8 @@ export function FormatBar({
 						onMouseDown={(e) => e.preventDefault()}
 						onClick={() => onAdd?.(kind)}
 					>
-						<svg
-							width="16"
-							height="16"
-							viewBox="0 0 16 16"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth="1.4"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							aria-hidden="true"
-						>
-							{SHAPES[kind]}
-						</svg>
-						{NAMES[kind]}
+						<FormatIcon kind={kind} />
+						{FORMAT_NAMES[kind]}
 					</button>
 				</span>
 			))}

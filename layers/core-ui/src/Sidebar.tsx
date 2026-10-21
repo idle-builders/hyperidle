@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { call } from "./api";
+import { UNTITLED } from "./doc-page";
 import { listen } from "./live";
 import {
 	conversationItems,
@@ -101,19 +102,20 @@ interface TreeProps {
 	toggle: (id: string) => void;
 	picked: string | null;
 	onPick: (id: string) => void;
-	icons: Record<string, string>;
 	onIcon: (id: string, icon: string) => void;
+	/** A new untitled draft inside this row: under a document, or at the top of a space. */
+	onAdd: (d: Doc) => void;
 	picking: string | null;
 	setPicking: (id: string | null) => void;
 }
 
 /** Every node is a document with its own icon; the page outline is only the default. */
 function Tree(props: TreeProps) {
-	const { docs, open, toggle, picked, onPick, icons, picking, setPicking, onIcon } = props;
+	const { docs, open, toggle, picked, onPick, picking, setPicking, onIcon, onAdd } = props;
 	return (
 		<>
 			{docs.map((d) => {
-				const icon = icons[d.id] ?? "";
+				const icon = d.icon ?? "";
 				return (
 					<div key={d.id}>
 						<div
@@ -164,6 +166,7 @@ function Tree(props: TreeProps) {
 								className="tree-add"
 								aria-label={`New document in ${d.title}`}
 								title={`New document in ${d.title}`}
+								onClick={() => onAdd(d)}
 							>
 								+
 							</button>
@@ -319,7 +322,6 @@ export function Sidebar() {
 	const [teamId, setTeamId] = useState<string | null>(null);
 	const [menu, setMenu] = useState(false);
 	const [open, setOpen] = useState<Set<string>>(new Set());
-	const [icons, setIcons] = useState<Record<string, string>>({});
 	const [picking, setPicking] = useState<string | null>(null);
 
 	const names = namesOf(users.data ?? []);
@@ -516,8 +518,23 @@ export function Sidebar() {
 									toggle={toggle}
 									picked={picked}
 									onPick={(id) => navigate(`/knowledge/${encodeURIComponent(id)}`)}
-									icons={icons}
-									onIcon={(id, ic) => setIcons((p) => ({ ...p, [id]: ic }))}
+									onIcon={(id, icon) =>
+										void call("edit_document", { id, icon: icon || null }).then(docs.reload)
+									}
+									onAdd={(d) =>
+										void call("edit_document", {
+											title: UNTITLED,
+											body: "",
+											scopeKind: "team",
+											scopeId: d.team,
+											...(d.space ? {} : { parent: { kind: "document", id: d.id } }),
+										}).then((made) => {
+											if (!made.ok) return;
+											setOpen((prev) => new Set([...prev, d.id]));
+											docs.reload();
+											navigate(`/knowledge/${encodeURIComponent(made.data.document.id)}`);
+										})
+									}
 									picking={picking}
 									setPicking={setPicking}
 								/>

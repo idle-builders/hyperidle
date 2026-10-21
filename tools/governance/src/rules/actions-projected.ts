@@ -210,9 +210,7 @@ const LEGACY_EVENTS: readonly string[] = [
  * its entry must be removed in the same PR. A wired action left here is a finding.
  */
 const UNIMPLEMENTED_UI_ACTIONS: readonly string[] = [
-	"edit_document",
 	"edit_plugin",
-	"open_document",
 	"search_plugins",
 	"stop_session",
 ];

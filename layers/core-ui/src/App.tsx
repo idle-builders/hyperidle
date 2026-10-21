@@ -50,7 +50,8 @@ function Task() {
 }
 
 function Document() {
-	return <Think key={useParams().id} step={0} />;
+	const { id = "" } = useParams();
+	return <Think key={id} id={id} />;
 }
 
 function Page({ of }: { of: "user" | "team" | "plugin" }) {

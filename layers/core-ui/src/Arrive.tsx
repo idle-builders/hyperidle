@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CHAT_FORMATS, DOC_FORMATS, FormatBar } from "./FormatBar";
+import { CHAT_FORMATS, FormatBar } from "./FormatBar";
 import { Seg } from "./Seg";
 
 /**
@@ -423,37 +423,6 @@ function Focused() {
 		</section>
 	);
 }
-/** A document starts untitled, in edit mode, where its "+" was pressed in the tree. */
-function NewDocument() {
-	return (
-		<section className="detail">
-			<header className="detail-head">
-				<span className="chip chip--quiet">Document</span>
-				<span className="doc-state">Draft</span>
-				<span className="doc-act">
-					<span className="doc-mode">✎ Editing</span>
-					<button type="button" className="btn">
-						Done
-					</button>
-					<button type="button" className="btn btn--accent">
-						Publish
-					</button>
-				</span>
-			</header>
-			<div className="detail-scroll">
-				<article className="page">
-					<h1 className="page-title page-title--empty">
-						Untitled
-						<span className="caret" />
-					</h1>
-					<p className="blk-empty">Type / for a block, @ to ask someone</p>
-				</article>
-			</div>
-			<FormatBar floating kinds={DOC_FORMATS} />
-		</section>
-	);
-}
-
 /** A page that did not load says so in one line, and offers to try again. */
 function Failed() {
 	const [tried, setTried] = useState(false);
@@ -539,7 +508,6 @@ export function Arrive({ step }: { step: number }) {
 			/>
 		);
 	else if (step === 7) detail = <Focused />;
-	else if (step === 12) detail = <NewDocument />;
 	else if (step === 13) detail = <Failed />;
 
 	return (

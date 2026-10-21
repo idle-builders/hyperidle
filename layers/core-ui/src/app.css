@@ -2261,6 +2261,181 @@ kbd {
 	padding: 2px 0;
 }
 
+/* the document's text, written in the editor: each top-level piece reads as a block — hover shows
+   how far it goes; edit mode adds the handle on the left */
+.doc-body {
+	position: relative;
+}
+.doc-text {
+	position: relative;
+}
+.doc-text .tiptap {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sp-2);
+	font: var(--t-lead);
+	color: var(--ink);
+	outline: none;
+	caret-color: var(--accent);
+}
+.doc-text .tiptap > * {
+	position: relative;
+	margin: 0 calc(-1 * var(--sp-2));
+	padding: 2px var(--sp-2);
+	border-radius: var(--r-sm);
+	transition: background var(--dur-tap) var(--ease);
+}
+.doc-text .tiptap > *:hover {
+	background: var(--sunk);
+}
+.doc-body--edit .tiptap > * {
+	cursor: text;
+}
+.doc-body--edit .tiptap > *::before {
+	content: "⠿";
+	position: absolute;
+	left: -22px;
+	top: 2px;
+	width: 18px;
+	text-align: center;
+	font-size: 15px;
+	line-height: 1.6;
+	color: var(--ink-3);
+	opacity: 0;
+	cursor: grab;
+	user-select: none;
+}
+.doc-body--edit .tiptap > *:hover::before {
+	opacity: 1;
+}
+.doc-text :is(h1, h2, h3) {
+	margin-top: var(--sp-4);
+	font: 600 1.1875rem / 1.35 var(--font-ui);
+}
+.doc-text ul,
+.doc-text ol {
+	padding-left: var(--sp-5);
+	display: flex;
+	flex-direction: column;
+	gap: var(--sp-1);
+}
+.doc-text ul[data-type="taskList"] {
+	list-style: none;
+	padding-left: var(--sp-2);
+}
+.doc-text li[data-type="taskItem"] {
+	display: flex;
+	align-items: baseline;
+	gap: var(--sp-2);
+}
+.doc-text li[data-type="taskItem"] > label input {
+	accent-color: var(--accent);
+}
+.doc-text blockquote {
+	padding-left: var(--sp-4);
+	border-left: 3px solid var(--line-strong);
+}
+.doc-text pre {
+	padding: var(--sp-3) var(--sp-4);
+	background: var(--sunk);
+	font: var(--t-data);
+}
+.doc-text code {
+	font: var(--t-data);
+}
+.doc-text a {
+	color: var(--accent);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+.doc-text table {
+	width: 100%;
+	table-layout: fixed;
+	border-collapse: collapse;
+	font: var(--t-body);
+}
+.doc-text th,
+.doc-text td {
+	height: 38px;
+	padding: 0 var(--sp-3);
+	border: var(--line-w) solid var(--line-strong);
+	text-align: left;
+}
+.doc-text th {
+	background: var(--sunk);
+	font-weight: 600;
+	color: var(--ink-3);
+}
+.doc-text :is(th, td) p {
+	margin: 0;
+}
+.doc-text .tableWrapper {
+	overflow-x: auto;
+}
+.doc-menu {
+	position: absolute;
+	z-index: 6;
+	width: 340px;
+}
+.picker-row--block {
+	grid-template-columns: auto minmax(0, 1fr);
+	color: var(--ink-2);
+}
+.page-title--row {
+	display: flex;
+	gap: 0.3em;
+}
+.page-title--edit {
+	flex: 1;
+	min-width: 0;
+	font: inherit;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--ink);
+}
+.page-title--edit:focus {
+	outline: none;
+}
+.page-title--edit::placeholder {
+	color: var(--ink-3);
+}
+button.blk-empty {
+	text-align: left;
+}
+/* the comment button beside a block on hover, or beside the words picked */
+.cm-add {
+	position: absolute;
+	left: calc(100% + var(--sp-2));
+	opacity: 1;
+	z-index: 1;
+}
+.mg-receipt {
+	position: absolute;
+	top: 0;
+	left: calc(100% + var(--sp-6));
+	width: 272px;
+}
+.doc-problem {
+	padding: var(--sp-2) var(--sp-6) 0;
+	font: var(--t-meta);
+	color: var(--ink-2);
+}
+.doc-link-box {
+	position: absolute;
+	left: 50%;
+	bottom: calc(var(--sp-5) + 52px);
+	z-index: 5;
+	width: 320px;
+	transform: translateX(-50%);
+	background: var(--surface);
+	box-shadow: var(--sh-2);
+}
+button.tv-where:hover {
+	color: var(--ink);
+	text-decoration: underline;
+}
+
 /* the commented text: a faint dashed underline while its comment waits in the margin, so reading
    is not disturbed; a highlight while the comment is open */
 .anc--bg {

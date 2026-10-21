@@ -33,6 +33,9 @@ export interface Item {
 export interface Doc {
 	id: string;
 	title: string;
+	/** The team whose space it is in. */
+	team: string;
+	icon?: string;
 	note?: string;
 	children?: Doc[];
 	space?: boolean;
@@ -219,6 +222,8 @@ export function knowledgeTree(docs: readonly DocumentRow[], teams: readonly Team
 			return {
 				id: d.id,
 				title: d.title,
+				team: d.scopeId ?? "",
+				...(d.icon ? { icon: d.icon } : {}),
 				...(d.status === "proposed" ? { note: "draft" } : {}),
 				...(children.length > 0 ? { children } : {}),
 			};
@@ -226,6 +231,7 @@ export function knowledgeTree(docs: readonly DocumentRow[], teams: readonly Team
 	return teams.map((t) => ({
 		id: t.id,
 		title: t.name,
+		team: t.id,
 		space: true,
 		children: under((d) => d.scopeId === t.id && d.parentKind === null),
 	}));

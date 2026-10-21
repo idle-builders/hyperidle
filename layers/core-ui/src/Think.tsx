@@ -1,26 +1,69 @@
+import {
+	type Anchor,
+	DOCUMENT_STATUS_LABEL,
+	type Message,
+	type PlainReadPayload,
+	type ProposedChange,
+	type Task,
+} from "@hyperidle/domain-model";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { DOC_FORMATS, type Format, FormatBar } from "./FormatBar";
+import { useNavigate } from "react-router";
+import { call, type InputOf } from "./api";
+import { activeFormat, addFormat, DocEditor, useDocText } from "./DocEditor";
+import {
+	changeAt,
+	changeOf,
+	commentsOf,
+	type DocComment,
+	disciplinesOf,
+	locate,
+	type Range,
+	tasksIn,
+	UNTITLED,
+} from "./doc-page";
+import { DOC_FORMATS, FormatBar } from "./FormatBar";
+import { listen } from "./live";
 import { MentionPicker, useMentionables } from "./MentionPicker";
+import { type Mentionable, matching, typedMention } from "./mentionables";
+import { RichText } from "./RichText";
+import { initials, STATE_WORDS } from "./sidebar-lists";
+import { clock } from "./thread-timeline";
+import { useAction } from "./useAction";
 
 /**
  * THINK — a document stays a document; conversation is a layer on top, in the margin. A comment
  * waiting there is faded, and its text carries only a faint dashed underline, so reading is never
  * disturbed. Open it and its text is highlighted, with two ends you can drag to change what the
  * comment covers. Anyone — person or agent — proposes a change the same way: inside a comment,
- * as removed and added lines with Apply. Edit mode shows a caret, block handles, an "Editing"
- * mark and the format bar floating at the bottom; view mode shows none of them. Sessions belong to
- * threads, never to the document.
+ * as removed and added lines with Apply. Edit mode shows the caret, block handles, an "Editing"
+ * mark and the format bar floating at the bottom; view mode shows none of them. Drafts open in
+ * edit mode, published documents in view mode. Sessions belong to threads, never to the document.
  */
-/** Who a document is for: every agent, or only agents of one discipline. People read every document. */
-const FOR = ["Everyone", "Design", "Engineering", "Growth", "Product", "Research", "Support"];
+const NEW = "new";
 
-function ForPick({ open: initial }: { open: boolean }) {
-	const [open, setOpen] = useState(initial);
-	const [value, setValue] = useState("Growth");
+interface People {
+	readonly you: string;
+	/** "You", or a first name. */
+	readonly name: (id: string) => string;
+	readonly initials: (id: string) => string;
+	readonly human: (id: string) => boolean;
+}
+
+/** Who a document is for: every agent, or only agents of one discipline. People read every document. */
+function ForPick({
+	value,
+	choices,
+	onPick,
+}: {
+	value: string | null;
+	choices: readonly string[];
+	onPick: (discipline: string | null) => void;
+}) {
+	const [open, setOpen] = useState(false);
 	return (
 		<span className="for">
 			<button type="button" className="for-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
-				For {value === "Everyone" ? "everyone" : value}
+				For {value ?? "everyone"}
 				<svg viewBox="0 0 12 12" aria-hidden="true">
 					<path
 						d="M3 4.5l3 3 3-3"
@@ -34,25 +77,23 @@ function ForPick({ open: initial }: { open: boolean }) {
 			</button>
 			{open && (
 				<div className="team-menu for-menu" role="menu" aria-label="Who this document is for">
-					{FOR.map((f) => (
+					{[null, ...choices].map((f) => (
 						<button
-							key={f}
+							key={f ?? "everyone"}
 							type="button"
 							role="menuitem"
 							className="team-row"
-							aria-current={value === f}
+							aria-current={(value?.toLowerCase() ?? null) === (f?.toLowerCase() ?? null)}
 							onClick={() => {
-								setValue(f);
+								onPick(f);
 								setOpen(false);
 							}}
 						>
 							<span className="team-mark" aria-hidden="true">
-								{value === f && "✓"}
+								{(value?.toLowerCase() ?? null) === (f?.toLowerCase() ?? null) && "✓"}
 							</span>
-							<span className="team-name">{f}</span>
-							<span className="team-n">
-								{f === "Everyone" ? "every agent gets it" : `agents marked ${f}`}
-							</span>
+							<span className="team-name">{f ?? "Everyone"}</span>
+							<span className="team-n">{f ? `agents marked ${f}` : "every agent gets it"}</span>
 						</button>
 					))}
 					<p className="for-note">
@@ -63,150 +104,6 @@ function ForPick({ open: initial }: { open: boolean }) {
 		</span>
 	);
 }
-
-/** The walkthrough's steps by name, so the story below reads without counting. */
-const AT = { add: 1, comment: 2, narrow: 3, propose: 4, applied: 5, handoff: 6, published: 7 };
-
-type BlockId = "intro" | "know" | "decision";
-/** none · writing the first comment · open · closed (waiting in the margin) · resolved (off the page) */
-type ThreadState = "none" | "compose" | "open" | "closed" | "resolved";
-/** First and last word a comment covers, counted across the block's lines. */
-type Region = [number, number];
-
-/** A change proposed inside a comment: the covered text as it was, and as it should become. */
-interface Change {
-	from: string;
-	to: string;
-	state: "open" | "applied" | "dismissed";
-	by?: string;
-}
-interface Msg {
-	id: string;
-	who: string;
-	av: string;
-	agent?: boolean;
-	when: string;
-	plain: string;
-	text?: React.ReactNode;
-	change?: Change;
-}
-interface Thread {
-	state: ThreadState;
-	msgs: Msg[];
-	region: Region | null;
-}
-
-const INTRO = [
-	"Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose.",
-];
-const KNOW = [
-	"Trials run 14 days, card up front.",
-	"Since the warning email, 27% more trials convert.",
-	"Most cancellations happen on day 13.",
-];
-const KNOW_NEW =
-	"Most cancellations happen on day 13, and 1 in 5 people who pay decide on days 11–14.";
-const DECISION = ["Try 10 days for new signups for two weeks, and watch refund requests."];
-
-const count = (lines: string[]) => lines.reduce((n, l) => n + l.split(" ").length, 0);
-const whole = (lines: string[]): Region => [0, count(lines) - 1];
-const span = (lines: string[], first: number, last = first): Region => {
-	const start = count(lines.slice(0, first));
-	return [start, start + count(lines.slice(first, last + 1)) - 1];
-};
-
-/** The text a region covers, one covered line per line. */
-const covered = (lines: string[], [a, b]: Region): string => {
-	let start = 0;
-	const out: string[] = [];
-	for (const l of lines) {
-		const ws = l.split(" ");
-		const inside = ws.filter((_, k) => start + k >= a && start + k <= b);
-		if (inside.length) out.push(inside.join(" "));
-		start += ws.length;
-	}
-	return out.join("\n");
-};
-
-/** Put new text where a region was. The region then covers the new text. */
-const replace = (
-	lines: string[],
-	[a, b]: Region,
-	to: string,
-): { lines: string[]; region: Region } => {
-	const toks = lines.map((l) => l.split(" "));
-	let i = 0;
-	let first = { line: 0, word: 0 };
-	let last = { line: 0, word: 0 };
-	for (const [li, ws] of toks.entries()) {
-		for (const wi of ws.keys()) {
-			if (i === a) first = { line: li, word: wi };
-			if (i === b) last = { line: li, word: wi };
-			i++;
-		}
-	}
-	const fresh = to
-		.split("\n")
-		.map((l) => l.trim().split(" ").filter(Boolean))
-		.filter((ws) => ws.length);
-	const added = fresh.reduce((n, ws) => n + ws.length, 0);
-	const body = fresh.length ? fresh : [[]];
-	body[0] = [...toks[first.line].slice(0, first.word), ...body[0]];
-	body[body.length - 1] = [...body[body.length - 1], ...toks[last.line].slice(last.word + 1)];
-	return {
-		lines: [
-			...lines.slice(0, first.line),
-			...body.map((ws) => ws.join(" ")).filter(Boolean),
-			...lines.slice(last.line + 1),
-		],
-		region: [a, Math.max(a, a + added - 1)],
-	};
-};
-
-const ASK_TEXT = "@Growth if trials end on day 10, how many people who pay would we lose?";
-const ASK: Msg = {
-	id: "ask",
-	who: "You",
-	av: "FO",
-	when: "10:42",
-	plain: ASK_TEXT,
-	text: (
-		<>
-			<b className="mention">@Growth</b> if trials end on day 10, how many people who pay would we
-			lose?
-		</>
-	),
-};
-const answer = (state: Change["state"]): Msg => ({
-	id: "answer",
-	who: "Growth",
-	av: "GR",
-	agent: true,
-	when: "10:44",
-	plain: "About 1 in 5. This line should say so.",
-	change: { from: KNOW[2], to: KNOW_NEW, state, by: state === "open" ? undefined : "You" },
-});
-const HAND: Msg = {
-	id: "hand",
-	who: "You",
-	av: "FO",
-	when: "11:05",
-	plain: "@Builder set new signups to a 10-day trial from Monday, for two weeks.",
-	text: (
-		<>
-			<b className="mention">@Builder</b> set new signups to a 10-day trial from Monday, for two
-			weeks.
-		</>
-	),
-};
-const TAKE: Msg = {
-	id: "take",
-	who: "Builder",
-	av: "BU",
-	agent: true,
-	when: "11:05",
-	plain: "Taking it. I will come back in this thread when it is live.",
-};
 
 function Bubble() {
 	return (
@@ -227,17 +124,23 @@ function Bubble() {
 	);
 }
 
-function Av({ m }: { m: { av: string; agent?: boolean } }) {
-	return <span className={m.agent ? "avatar cm-av" : "avatar avatar--human cm-av"}>{m.av}</span>;
+function Av({ id, people }: { id: string; people: People }) {
+	return (
+		<span className={people.human(id) ? "avatar avatar--human cm-av" : "avatar cm-av"}>
+			{people.initials(id)}
+		</span>
+	);
 }
 
-/** A proposed change as diff lines: old in red, kept in grey, new in green. Apply puts it into the document. */
+/** A proposed change as diff lines: old in red, new in green. Apply puts it into the document. */
 function ChangeBox({
 	c,
+	people,
 	onApply,
 	onDismiss,
 }: {
-	c: Change;
+	c: ProposedChange;
+	people: People;
 	onApply: () => void;
 	onDismiss: () => void;
 }) {
@@ -249,8 +152,9 @@ function ChangeBox({
 			was.includes(l) ? { kind: "same", sign: "", l } : { kind: "in", sign: "+", l },
 		),
 	];
+	const by = c.settled ? people.name(c.settled.by) : "";
 	return (
-		<div className={c.state === "dismissed" ? "chg chg--off" : "chg"}>
+		<div className={c.settled?.state === "dismissed" ? "chg chg--off" : "chg"}>
 			<div className="chg-h">Proposed change</div>
 			{rows.map((r) => (
 				<div key={`${r.kind}${r.l}`} className={`chg-l chg-l--${r.kind}`}>
@@ -259,7 +163,9 @@ function ChangeBox({
 				</div>
 			))}
 			<div className="chg-f">
-				{c.state === "open" ? (
+				{c.settled ? (
+					<span>{c.settled.state === "applied" ? `✓ Applied by ${by}` : `Dismissed by ${by}`}</span>
+				) : (
 					<>
 						<button type="button" className="btn btn--accent" onClick={onApply}>
 							Apply
@@ -268,8 +174,6 @@ function ChangeBox({
 							Dismiss
 						</button>
 					</>
-				) : (
-					<span>{c.state === "applied" ? `✓ Applied by ${c.by}` : `Dismissed by ${c.by}`}</span>
 				)}
 			</div>
 		</div>
@@ -278,35 +182,53 @@ function ChangeBox({
 
 /**
  * A text box you can see, with its buttons. A reply box stays one line until you use it.
- * "Propose a change" adds the covered text below, to edit into what it should become.
+ * "Propose a change" adds the covered text below, to edit into what it should become. Typing @
+ * opens the mention picker.
  */
 function Field({
-	draft = "",
 	placeholder,
 	button,
 	compact,
 	note,
 	covers,
+	everyone,
 	onPost,
 	onCancel,
 }: {
-	draft?: string;
 	placeholder: string;
 	button: string;
 	compact?: boolean;
 	note?: string;
 	covers?: string;
-	onPost: (text: string, to?: string) => void;
+	everyone: readonly Mentionable[];
+	onPost: (text: string, to?: string) => Promise<boolean>;
 	onCancel?: () => void;
 }) {
-	const [text, setText] = useState(draft);
+	const box = useRef<HTMLTextAreaElement>(null);
+	const [text, setText] = useState("");
+	const [caret, setCaret] = useState(0);
 	const [to, setTo] = useState<string | null>(null);
 	const [focus, setFocus] = useState(false);
-	const changed = to !== null && to.trim() !== covers;
-	const ready = text.trim().length > 0 || changed;
-	const post = () => {
+	const [active, setActive] = useState(0);
+	const [busy, setBusy] = useState(false);
+	const changed = to !== null && to !== covers;
+	const ready = (text.trim().length > 0 || changed) && !busy;
+	const typed = focus ? typedMention(text, caret) : null;
+	const options = typed ? matching(everyone, typed.query) : [];
+	const chosen = Math.min(active, Math.max(0, options.length - 1));
+	const pick = (m: Mentionable) => {
+		if (!typed) return;
+		const name = `@${m.name} `;
+		setText(text.slice(0, typed.at) + name + text.slice(caret));
+		setCaret(typed.at + name.length);
+		box.current?.focus();
+	};
+	const post = async () => {
 		if (!ready) return;
-		onPost(text.trim(), changed && to !== null ? to : undefined);
+		setBusy(true);
+		const sent = await onPost(text.trim(), changed && to !== null ? to : undefined);
+		setBusy(false);
+		if (!sent) return;
 		setText("");
 		setTo(null);
 	};
@@ -314,19 +236,38 @@ function Field({
 	return (
 		<div className="fld">
 			<textarea
+				ref={box}
 				className={used ? "fld-in" : "fld-in fld-in--one"}
 				value={text}
 				rows={2}
 				placeholder={placeholder}
 				aria-label={placeholder}
-				onChange={(e) => setText(e.target.value)}
+				onChange={(e) => {
+					setText(e.target.value);
+					setCaret(e.target.selectionStart);
+					setActive(0);
+				}}
+				onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
 				onFocus={() => setFocus(true)}
 				onBlur={() => setFocus(false)}
 				onKeyDown={(e) => {
-					if (e.key === "Escape") onCancel?.();
-					if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) post();
+					if (options.length > 0 && e.key === "ArrowDown") {
+						e.preventDefault();
+						setActive((chosen + 1) % options.length);
+					} else if (options.length > 0 && e.key === "ArrowUp") {
+						e.preventDefault();
+						setActive((chosen - 1 + options.length) % options.length);
+					} else if (options.length > 0 && e.key === "Enter") {
+						e.preventDefault();
+						const m = options[chosen];
+						if (m) pick(m);
+					} else if (e.key === "Escape") onCancel?.();
+					else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void post();
 				}}
 			/>
+			{options.length > 0 && (
+				<MentionPicker inline options={options} active={chosen} head="Mention" onPick={pick} />
+			)}
 			{to !== null && (
 				<div className="chg">
 					<div className="chg-h">
@@ -377,7 +318,7 @@ function Field({
 						className="btn btn--accent"
 						disabled={!ready}
 						onMouseDown={(e) => e.preventDefault()}
-						onClick={post}
+						onClick={() => void post()}
 					>
 						{button}
 					</button>
@@ -387,241 +328,427 @@ function Field({
 	);
 }
 
-/** An open thread: who said what, then a reply box. Resolve and close sit in its top line. */
+const textOf = (m: Message): PlainReadPayload | null =>
+	m.type === "plain" ? (m.payload as PlainReadPayload) : null;
+
+/** An open comment: who said what, then a reply box. Resolve and close sit in its top line. */
 function ThreadView({
-	t,
+	comment,
+	tasks,
+	people,
+	everyone,
 	covers,
+	onConversation,
+	onTask,
 	onClose,
 	onResolve,
 	onReply,
-	onChange,
-	task,
+	onSettle,
 }: {
-	t: Thread;
+	comment: DocComment;
+	tasks: readonly Task[];
+	people: People;
+	everyone: readonly Mentionable[];
 	covers?: string;
+	onConversation: () => void;
+	onTask: (id: string) => void;
 	onClose: () => void;
 	onResolve: () => void;
-	onReply: (text: string, to?: string) => void;
-	onChange: (msg: string, state: "applied" | "dismissed") => void;
-	task?: React.ReactNode;
+	onReply: (text: string, to?: string) => Promise<boolean>;
+	onSettle: (m: Message, state: "applied" | "dismissed") => void;
 }) {
 	return (
 		<div className="tv">
 			<div className="tv-head">
-				<span className="tv-where">Also in Conversations</span>
+				<button type="button" className="tv-where" onClick={onConversation}>
+					Also in Conversations
+				</button>
 				<button type="button" className="tv-btn" onClick={onResolve}>
 					✓ Resolve
 				</button>
-				<button type="button" className="tv-btn" onClick={onClose} aria-label="Close thread">
+				<button type="button" className="tv-btn" onClick={onClose} aria-label="Close comment">
 					×
 				</button>
 			</div>
-			{t.msgs.map((m) => (
-				<div className="tv-turn" key={m.id}>
-					<div className="tv-msg">
-						<Av m={m} />
-						<div>
-							<div className="tv-who">
-								<b>{m.who}</b>
-								<span>{m.when}</span>
+			{comment.messages.map((m) => {
+				const p = textOf(m);
+				const change = changeOf(m);
+				const mentions = (p?.refs ?? []).flatMap((r) =>
+					r.kind === "mention" ? [r.sourceText] : [],
+				);
+				return (
+					<div className="tv-turn" key={m.id}>
+						<div className="tv-msg">
+							<Av id={m.senderId} people={people} />
+							<div>
+								<div className="tv-who">
+									<b>{people.name(m.senderId)}</b>
+									<span>{clock(m.createdAt)}</span>
+								</div>
+								{p?.text && (
+									<div className="tv-text">
+										<RichText text={p.text} mentions={mentions} />
+									</div>
+								)}
 							</div>
-							{(m.text ?? m.plain) && <div className="tv-text">{m.text ?? m.plain}</div>}
 						</div>
+						{change && (
+							<ChangeBox
+								c={change}
+								people={people}
+								onApply={() => onSettle(m, "applied")}
+								onDismiss={() => onSettle(m, "dismissed")}
+							/>
+						)}
 					</div>
-					{m.change && (
-						<ChangeBox
-							c={m.change}
-							onApply={() => onChange(m.id, "applied")}
-							onDismiss={() => onChange(m.id, "dismissed")}
-						/>
-					)}
-				</div>
+				);
+			})}
+			{tasks.map((t) => (
+				<button key={t.id} type="button" className="cm-task" onClick={() => onTask(t.id)}>
+					<span className="cm-task-k">Task</span>
+					<span className="cm-task-t">{t.title}</span>
+					<span className="cm-task-s">
+						{people.name(t.ownerAgentId ?? "")} · {STATE_WORDS[t.state]}
+					</span>
+				</button>
 			))}
-			{task}
-			<Field placeholder="Reply…" button="Reply" compact covers={covers} onPost={onReply} />
+			<Field
+				placeholder="Reply…"
+				button="Reply"
+				compact
+				covers={covers}
+				everyone={everyone}
+				onPost={onReply}
+			/>
 		</div>
 	);
 }
 
 /** A comment waiting in the margin, faded: who is in it, how many, the latest. Click to open. */
-function Summary({ t, onOpen }: { t: Thread; onOpen: () => void }) {
-	const last = t.msgs[t.msgs.length - 1];
-	const people = [...new Map(t.msgs.map((m) => [m.av, m])).values()];
+function Summary({
+	comment,
+	people,
+	onOpen,
+}: {
+	comment: DocComment;
+	people: People;
+	onOpen: () => void;
+}) {
+	const last = comment.messages.at(-1);
+	const who = [...new Set(comment.messages.map((m) => m.senderId))];
+	const n = comment.messages.length;
 	return (
 		<button type="button" className="sum" onClick={onOpen}>
 			<span className="sum-avs">
-				{people.map((m) => (
-					<Av key={m.av} m={m} />
+				{who.map((id) => (
+					<Av key={id} id={id} people={people} />
 				))}
 			</span>
 			<span className="sum-n">
-				{t.msgs.length} {t.msgs.length === 1 ? "comment" : "comments"}
+				{n} {n === 1 ? "comment" : "comments"}
 			</span>
 			{last && (
 				<span className="sum-last">
-					{last.who}: {last.plain || "proposed a change"}
+					{people.name(last.senderId)}: {textOf(last)?.text || "proposed a change"}
 				</span>
 			)}
 		</button>
 	);
 }
 
-function Block({
-	edit,
-	active,
-	heading,
-	children,
-	side,
-	under,
-}: {
-	edit: boolean;
-	active?: boolean;
-	heading?: boolean;
-	children: React.ReactNode;
-	side?: React.ReactNode;
-	under?: React.ReactNode;
-}) {
-	return (
-		<div className={["blk", heading && "blk--h", edit && "blk--edit"].filter(Boolean).join(" ")}>
-			<div className="blk-row">
-				{edit && (
-					<span className={active ? "blk-handle blk-handle--on" : "blk-handle"} aria-hidden="true">
-						⠿
-					</span>
-				)}
-				{children}
-			</div>
-			{side}
-			{under}
-		</div>
+/** The document's thread: its comments, and the tasks handed off from them. Made on the first comment. */
+function useDocThread(docId: string) {
+	const found = useAction("search_threads", { host: { kind: "document", id: docId } }, [
+		"conversations",
+	]);
+	const threadId = found.data?.[0]?.id ?? null;
+	const [messages, setMessages] = useState<readonly Message[]>([]);
+	const [tasks, setTasks] = useState<readonly Task[]>([]);
+	const [turn, setTurn] = useState(0);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `turn` asks again
+	useEffect(() => {
+		if (!threadId) return;
+		let current = true;
+		void Promise.all([
+			call("open_thread", { id: threadId }),
+			call("search_tasks", { threadId }),
+		]).then(([t, k]) => {
+			if (!current) return;
+			if (t.ok) setMessages(t.data.messages);
+			if (k.ok) setTasks(k.data.filter((x) => x.parentTaskId === null));
+		});
+		return () => {
+			current = false;
+		};
+	}, [threadId, turn]);
+	useEffect(
+		() =>
+			threadId ? listen([`thread:${threadId}`, "tasks"], () => setTurn((t) => t + 1)) : undefined,
+		[threadId],
 	);
+	return { threadId, messages, tasks, reload: () => setTurn((t) => t + 1), found: found.reload };
 }
 
-export function Think({ step }: { step: number }) {
-	const [published, setPublished] = useState(step === AT.published);
-	const [edit, setEdit] = useState(step < AT.published);
+/** The open comment, or the one being written, and the stretch it covers while it is in front. */
+interface Front {
+	readonly id: string;
+	readonly range: Range | null;
+}
+
+export function Think({ id }: { id: string }) {
+	const navigate = useNavigate();
+	const view = useAction("open_document", { id }, [`document:${id}`]);
+	const me = useAction("open_user", {});
+	const users = useAction("search_users", {});
+	const tree = useAction("search_documents", { inTree: true }, ["documents"]);
+	const everyone = useMentionables();
+	const thread = useDocThread(id);
+	const doc = view.data?.document;
+
+	const [edit, setEdit] = useState<boolean | null>(null);
+	const [dirty, setDirty] = useState(false);
+	const [typed, setTyped] = useState(0);
+	const [title, setTitle] = useState<string | null>(null);
+	const [problem, setProblem] = useState<string | null>(null);
 	const [hidden, setHidden] = useState(false);
-	const people = useMentionables();
-	const [following, setFollowing] = useState(true);
-	const [justResolved, setJustResolved] = useState<BlockId | null>(null);
-	const [drag, setDrag] = useState<{ id: BlockId; end: 0 | 1 } | null>(null);
-	/** Pieces added from the format bar, in order, after the last block. */
-	const [added, setAdded] = useState<{ id: number; kind: Format; who?: string }[]>(
-		step === AT.add ? [{ id: 0, kind: "table" }] : [],
-	);
-	const applied = [KNOW[0], KNOW[1], KNOW_NEW];
-	const [doc, setDoc] = useState<Record<BlockId, string[]>>({
-		intro: INTRO,
-		know: step >= AT.applied ? applied : KNOW,
-		decision: step >= AT.handoff ? DECISION : [],
-	});
-	const [threads, setThreads] = useState<Record<BlockId, Thread>>({
-		intro: { state: "none", msgs: [], region: null },
-		know:
-			step === AT.comment
-				? { state: "compose", msgs: [], region: whole(KNOW) }
-				: step === AT.narrow
-					? { state: "compose", msgs: [], region: span(KNOW, 2) }
-					: step === AT.propose
-						? { state: "open", msgs: [ASK, answer("open")], region: span(KNOW, 2) }
-						: step === AT.applied
-							? { state: "open", msgs: [ASK, answer("applied")], region: span(applied, 2) }
-							: step >= AT.handoff
-								? { state: "closed", msgs: [ASK, answer("applied")], region: span(applied, 2) }
-								: { state: "none", msgs: [], region: null },
-		decision:
-			step === AT.handoff
-				? { state: "open", msgs: [HAND, TAKE], region: whole(DECISION) }
-				: step === AT.published
-					? { state: "closed", msgs: [HAND, TAKE], region: whole(DECISION) }
-					: { state: "none", msgs: [], region: null },
-	});
+	const [front, setFront] = useState<Front | null>(null);
+	const [justResolved, setJustResolved] = useState<string | null>(null);
+	const [drag, setDrag] = useState<{ end: 0 | 1 } | null>(null);
+	const [hover, setHover] = useState<{ top: number; index: number } | null>(null);
+	const [picked, setPicked] = useState<{ top: number; range: Range } | null>(null);
+	const [linking, setLinking] = useState(false);
+	const base = useRef(0);
 
-	const setState = (id: BlockId, state: ThreadState) =>
-		setThreads((t) => ({ ...t, [id]: { ...t[id], state } }));
-	/** One comment is in front at a time; opening one sends any other back to the margin. */
-	const open = (id: BlockId) =>
-		setThreads((t) => {
-			const next = { ...t };
-			for (const k of Object.keys(next) as BlockId[])
-				if (next[k].state === "open") next[k] = { ...next[k], state: "closed" };
-			next[id] = { ...next[id], state: "open" };
-			return next;
-		});
-	const compose = (id: BlockId) =>
-		setThreads((t) => ({ ...t, [id]: { state: "compose", msgs: [], region: whole(doc[id]) } }));
-	const close = (id: BlockId) =>
-		setThreads((t) => ({
-			...t,
-			[id]: t[id].msgs.length
-				? { ...t[id], state: "closed" }
-				: { state: "none", msgs: [], region: null },
-		}));
-	const post = (id: BlockId, text: string, to?: string) =>
-		setThreads((t) => {
-			const r = t[id].region;
-			const change: Change | undefined =
-				to !== undefined && r ? { from: covered(doc[id], r), to, state: "open" } : undefined;
-			const msg: Msg = {
-				id: `m${t[id].msgs.length}-${Date.now()}`,
-				who: "You",
-				av: "FO",
-				when: "now",
-				plain: text,
-				change,
-			};
-			return { ...t, [id]: { ...t[id], state: "open", msgs: [...t[id].msgs, msg] } };
-		});
-	/** Apply puts the proposed text where the comment's region was; Dismiss only marks it. */
-	const settle = (id: BlockId, msgId: string, state: "applied" | "dismissed") => {
-		const t = threads[id];
-		const to = t.msgs.find((m) => m.id === msgId)?.change?.to;
-		const next =
-			state === "applied" && t.region && to !== undefined ? replace(doc[id], t.region, to) : null;
-		if (next) setDoc((d) => ({ ...d, [id]: next.lines }));
-		setThreads((all) => ({
-			...all,
-			[id]: {
-				...all[id],
-				region: next ? next.region : all[id].region,
-				msgs: all[id].msgs.map((m) =>
-					m.id === msgId && m.change ? { ...m, change: { ...m.change, state, by: "You" } } : m,
-				),
-			},
-		}));
+	const editing = edit === true;
+	const text = useDocText(doc?.body ?? null, editing, () => {
+		setDirty(true);
+		setTyped((t) => t + 1);
+	});
+	const body = text.markdown();
+	const you = me.data?.user?.id ?? "";
+	const names = new Map((users.data ?? []).map((u) => [u.id, u]));
+	const people: People = {
+		you,
+		name: (uid) => (uid === you ? "You" : (names.get(uid)?.name.split(" ")[0] ?? "Someone")),
+		initials: (uid) => initials(names.get(uid)?.name ?? ""),
+		human: (uid) => names.get(uid)?.kind === "human",
 	};
-	const moveEnd = (id: BlockId, end: 0 | 1, to: number) =>
-		setThreads((t) => {
-			const r = t[id].region;
-			if (!r) return t;
-			const region: Region =
-				end === 0
-					? [Math.max(0, Math.min(to, r[1])), r[1]]
-					: [r[0], Math.min(count(doc[id]) - 1, Math.max(to, r[0]))];
-			return region[0] === r[0] && region[1] === r[1] ? t : { ...t, [id]: { ...t[id], region } };
-		});
 
-	const pageRef = useRef<HTMLElement>(null);
-	// A margin comment sits level with the first line it is about, not with the top of its block.
+	// Drafts open in edit mode, published documents in view mode.
+	useEffect(() => {
+		if (doc && edit === null) setEdit(doc.status === "proposed");
+	}, [doc, edit]);
+	// The version the text in the editor is built on; it moves only while nothing is unsaved.
+	useEffect(() => {
+		if (doc && !dirty) base.current = Math.max(base.current, doc.version);
+	}, [doc, dirty]);
+
+	const comments = commentsOf(thread.messages, id);
+	const where = new Map(comments.map((c) => [c.id, locate(body, c)]));
+	const handed = tasksIn(comments, thread.tasks);
+	const regionOf = (cid: string): Range | null =>
+		front?.id === cid && front.range ? front.range : (where.get(cid) ?? null);
+	const shown = hidden ? [] : comments.filter((c) => !c.resolved);
+	const highlights = [
+		...shown.flatMap((c) => {
+			const range = regionOf(c.id);
+			return range ? [{ id: c.id, range, front: front?.id === c.id }] : [];
+		}),
+		...(front?.id === NEW && front.range ? [{ id: NEW, range: front.range, front: true }] : []),
+	];
+	useEffect(() => text.draw(highlights));
+
+	/** Every write to the document goes through here, on the version the page is built on. */
+	const write = async (patch: Omit<InputOf<"edit_document">, "id" | "version">) => {
+		const done = await call("edit_document", {
+			id,
+			version: base.current || doc?.version,
+			...patch,
+		});
+		if (!done.ok) {
+			setProblem(
+				done.problems[0]?.code === "stale"
+					? "Someone else saved this document while you were writing. Your text is still here: copy it, then reload to see theirs."
+					: (done.problems[0]?.message ?? "That did not save."),
+			);
+			return false;
+		}
+		base.current = done.data.document.version;
+		setProblem(null);
+		view.reload();
+		return true;
+	};
+
+	const save = async (): Promise<boolean> => {
+		if (!doc) return false;
+		const next = text.markdown();
+		const named = (title ?? doc.title).trim() || doc.title;
+		if (next === doc.body && named === doc.title) {
+			setDirty(false);
+			return true;
+		}
+		const saved = await write({
+			...(next !== doc.body ? { body: next } : {}),
+			...(named !== doc.title ? { title: named } : {}),
+		});
+		if (saved) {
+			setDirty(false);
+			setTitle(null);
+		}
+		return saved;
+	};
+	const saveRef = useRef(save);
+	saveRef.current = save;
+	// Leaving the page keeps what was written.
+	useEffect(() => () => void saveRef.current(), []);
+	// What is written saves itself a moment after typing stops.
+	useEffect(() => {
+		if (!(dirty || title !== null) || typed < 0) return;
+		const timer = setTimeout(() => void saveRef.current(), 1200);
+		return () => clearTimeout(timer);
+	}, [dirty, title, typed]);
+
+	const ensureThread = async (): Promise<string | null> => {
+		if (thread.threadId) return thread.threadId;
+		const made = await call("adjust_thread", {
+			host: { kind: "document", id },
+			title: doc?.title ?? null,
+		});
+		if (!made.ok) {
+			setProblem(made.problems[0]?.message ?? "The comment could not start.");
+			return null;
+		}
+		thread.found();
+		return made.data.thread.id;
+	};
+
+	/** A comment covers what it covers in the saved text, so anything unsaved is saved first. */
+	const post = async (
+		commentId: string | null,
+		range: Range,
+		words: string,
+		to?: string,
+	): Promise<boolean> => {
+		if (!(await save())) return false;
+		const threadId = await ensureThread();
+		if (!threadId) return false;
+		const saved = text.markdown();
+		const covered = saved.slice(range.start, range.end);
+		const anchor: Anchor = {
+			id: commentId ?? crypto.randomUUID(),
+			part: id,
+			label: covered.slice(0, 128),
+			spot: { kind: "range", start: range.start, end: range.end },
+		};
+		const sent = await call("send_message", {
+			threadId,
+			text: words,
+			anchor,
+			...(to !== undefined ? { change: { from: covered, to } } : {}),
+		});
+		if (!sent.ok) {
+			setProblem(sent.problems[0]?.message ?? "It did not send.");
+			return false;
+		}
+		setProblem(null);
+		setFront({ id: anchor.id, range: null });
+		thread.reload();
+		return true;
+	};
+
+	const settle = async (c: DocComment, m: Message, state: "applied" | "dismissed") => {
+		const change = changeOf(m);
+		const threadId = thread.threadId;
+		if (!(change && threadId)) return;
+		if (state === "applied") {
+			if (!(await save())) return;
+			const pin = textOf(m)?.anchor;
+			const saved = text.markdown();
+			const at = pin ? locate(saved, { ...c, anchor: pin, messages: [m] }) : null;
+			const next = at ? changeAt(saved, at, change) : null;
+			if (next === null) {
+				setProblem(
+					"The text this change is for has changed since. Propose it again on the new text.",
+				);
+				return;
+			}
+			if (!(await write({ body: next }))) return;
+			text.editor?.commands.setContent(next, { emitUpdate: false });
+		}
+		const done = await call("adjust_thread", {
+			id: threadId,
+			message: { id: m.id, change: state },
+		});
+		if (!done.ok) setProblem(done.problems[0]?.message ?? "That did not work.");
+		thread.reload();
+	};
+
+	const resolve = async (c: DocComment, resolved: boolean) => {
+		if (!thread.threadId) return;
+		await call("adjust_thread", { id: thread.threadId, message: { id: c.first.id, resolved } });
+		setJustResolved(resolved ? c.id : null);
+		if (resolved) setFront(null);
+		thread.reload();
+	};
+
+	const follow = me.data?.subscriptions.find(
+		(s) => s.objectId === id && s.event === "document.changed",
+	);
+	const toggleFollow = async () => {
+		await call("edit_user", {
+			id: you,
+			subscriptions: follow
+				? { remove: [follow.id] }
+				: { add: [{ event: "document.changed", objectId: id }] },
+		});
+		me.reload();
+	};
+
+	const publish = async () => {
+		if (!(await save())) return;
+		if (await write({ status: "active" })) setEdit(false);
+	};
+
+	const done = async () => {
+		if (await save()) setEdit(false);
+	};
+
+	// Positions in the margin: each card level with the first line it is about, never on top of another.
+	const bodyRef = useRef<HTMLDivElement>(null);
 	useLayoutEffect(() => {
-		for (const card of pageRef.current?.querySelectorAll<HTMLElement>(".mg") ?? []) {
-			const blk = card.closest(".blk")?.getBoundingClientRect();
-			const anchor = card
-				.closest(".blk")
-				?.querySelector<HTMLElement>(".anc")
-				?.getBoundingClientRect();
-			if (blk && anchor) card.style.top = `${anchor.top - blk.top - 6}px`;
+		const wrap = bodyRef.current;
+		const ed = text.editor;
+		if (!(wrap && ed)) return;
+		const top0 = wrap.getBoundingClientRect().top;
+		const cards = [...wrap.querySelectorAll<HTMLElement>(":scope > .mg")].map((el) => {
+			const start = Number(el.dataset.start);
+			const at = start >= 0 ? text.toEditor({ start, end: start + 1 }) : null;
+			const top = at ? ed.view.coordsAtPos(at.from).top - top0 - 6 : 0;
+			return { el, top };
+		});
+		let floor = Number.NEGATIVE_INFINITY;
+		for (const card of cards.sort((a, b) => a.top - b.top)) {
+			const top = Math.max(card.top, floor);
+			card.el.style.top = `${top}px`;
+			floor = top + card.el.offsetHeight + 8;
 		}
 	});
 
-	// Dragging an end of the highlight: the end follows the word under the pointer.
+	// Dragging an end of the highlight: the end follows the character under the pointer.
 	useEffect(() => {
-		if (!drag) return;
+		if (!(drag && front)) return;
 		const move = (e: MouseEvent) => {
-			const word = document
-				.elementFromPoint(e.clientX, e.clientY)
-				?.closest<HTMLElement>(`[data-b="${drag.id}"]`);
-			if (word) moveEnd(drag.id, drag.end, Number(word.dataset.w));
+			const ed = text.editor;
+			const range = front.range ?? where.get(front.id);
+			const at = ed?.view.posAtCoords({ left: e.clientX, top: e.clientY });
+			const md = at ? text.toText(at.pos, at.pos + 1) : null;
+			if (!(range && md)) return;
+			const next =
+				drag.end === 0
+					? { start: Math.min(md.start, range.end - 1), end: range.end }
+					: { start: range.start, end: Math.max(md.start, range.start + 1) };
+			if (next.start !== range.start || next.end !== range.end)
+				setFront({ id: front.id, range: next });
 		};
 		const up = () => setDrag(null);
 		document.addEventListener("mousemove", move);
@@ -636,295 +763,135 @@ export function Think({ step }: { step: number }) {
 	useEffect(() => {
 		const down = (e: MouseEvent) => {
 			const el = e.target as Element;
-			if (!el.closest?.(".page") || el.closest(".mg, .anc, .anc-h, .blk-side")) return;
-			setThreads((t) => {
-				const next = { ...t };
-				for (const k of Object.keys(next) as BlockId[])
-					if (next[k].state === "open") next[k] = { ...next[k], state: "closed" };
-				return next;
-			});
+			if (!el.closest?.(".page") || el.closest(".mg, .anc, .anc-h, .cm-add")) return;
+			setFront((f) => (f && f.id !== NEW ? null : f));
 		};
 		document.addEventListener("mousedown", down);
 		return () => document.removeEventListener("mousedown", down);
 	}, []);
 
-	const anyComments = Object.values(threads).some(
-		(t) => t.state === "open" || t.state === "closed",
-	);
-
-	/**
-	 * A block's lines, word by word. The words a comment covers get a faint dashed underline while
-	 * the comment waits in the margin, and a highlight with two draggable ends while it is open.
-	 */
-	const words = (id: BlockId): React.ReactNode[] => {
-		const t = threads[id];
-		const state = hidden ? "none" : t.state;
-		const r = state === "none" || state === "resolved" ? null : t.region;
-		const front = state === "open" || state === "compose";
-		const grip = (end: 0 | 1) => (
-			<button
-				type="button"
-				className={end === 0 ? "anc-h anc-h--start" : "anc-h anc-h--end"}
-				aria-label={
-					end === 0
-						? "Drag to change where the comment starts"
-						: "Drag to change where the comment ends"
-				}
-				title="Drag to change what this comment covers"
-				onMouseDown={(e) => {
-					e.preventDefault();
-					setDrag({ id, end });
-				}}
-				onKeyDown={(e) => {
-					if (!r) return;
-					if (e.key === "ArrowLeft") moveEnd(id, end, r[end] - 1);
-					if (e.key === "ArrowRight") moveEnd(id, end, r[end] + 1);
-				}}
-			/>
-		);
-		let i = 0;
-		return doc[id].map((text) => {
-			const ws = text.split(" ").map((w) => ({ w, idx: i++ }));
-			const run = (items: { w: string; idx: number }[]) =>
-				items.flatMap(({ w, idx }, k) => [
-					k ? " " : "",
-					<span key={idx} data-b={id} data-w={idx}>
-						{w}
-					</span>,
-				]);
-			const mid = r ? ws.filter((x) => x.idx >= r[0] && x.idx <= r[1]) : [];
-			if (!(r && mid.length)) return run(ws);
-			const pre = ws.filter((x) => x.idx < r[0]);
-			const post = ws.filter((x) => x.idx > r[1]);
-			return (
-				<>
-					{run(pre)}
-					{pre.length > 0 && " "}
-					{/* biome-ignore lint/a11y/noStaticElementInteractions: the margin summary is the keyboard way to open a comment; the text is a pointer shortcut */}
-					{/* biome-ignore lint/a11y/useKeyWithClickEvents: same */}
-					<span
-						className={front ? "anc anc--on" : "anc anc--bg"}
-						onClick={front ? undefined : () => open(id)}
-					>
-						{front && mid[0].idx === r[0] && grip(0)}
-						{run(mid)}
-						{front && mid[mid.length - 1].idx === r[1] && grip(1)}
-					</span>
-					{post.length > 0 && " "}
-					{run(post)}
-				</>
-			);
-		});
-	};
-
-	/** What a block has in the margin: the comment button, a faded waiting comment, or the open one. */
-	const margin = (
-		id: BlockId,
-		task?: React.ReactNode,
-	): { side?: React.ReactNode; under?: React.ReactNode } => {
-		const t = threads[id];
-		const add = doc[id].length > 0 && (
-			<span className="blk-side">
-				<button
-					type="button"
-					className="blk-add"
-					onClick={() => compose(id)}
-					aria-label="Comment on this block"
-					title="Comment"
-				>
-					<Bubble />
-				</button>
-			</span>
-		);
-		if (hidden || t.state === "none") return { side: add };
-		if (t.state === "resolved") {
-			return {
-				side: add,
-				under: justResolved === id && (
-					<p className="cm-receipt">
-						Resolved. The thread stays in Conversations.{" "}
-						<button
-							type="button"
-							onClick={() => {
-								setState(id, "closed");
-								setJustResolved(null);
-							}}
-						>
-							Undo
-						</button>
-					</p>
-				),
-			};
-		}
-		if (t.state === "closed")
-			return {
-				side: (
-					<aside className="mg">
-						<Summary t={t} onOpen={() => open(id)} />
-					</aside>
-				),
-			};
-		const covers = t.region ? covered(doc[id], t.region) : undefined;
-		return {
-			side: (
-				<aside className="mg mg--on">
-					{t.state === "compose" ? (
-						<Field
-							draft={id === "know" ? ASK_TEXT : ""}
-							placeholder="Comment, or @mention someone"
-							button="Comment"
-							covers={covers}
-							note="Drag the ends of the highlight to change what this covers."
-							onPost={(text, to) => post(id, text, to)}
-							onCancel={() => close(id)}
-						/>
-					) : (
-						<ThreadView
-							t={t}
-							covers={covers}
-							onClose={() => close(id)}
-							onResolve={() => {
-								setState(id, "resolved");
-								setJustResolved(id);
-							}}
-							onReply={(text, to) => post(id, text, to)}
-							onChange={(msg, state) => settle(id, msg, state)}
-							task={task}
-						/>
-					)}
-				</aside>
-			),
-		};
-	};
-
-	/** A piece just added from the format bar: its shape, with placeholder words to type over. */
-	const piece = (a: { id: number; kind: Format; who?: string }, last: boolean): React.ReactNode => {
-		const caret = edit && last && <span className="caret" />;
-		if (a.kind === "heading") return <h3 className="page-empty">Heading{caret}</h3>;
-		if (a.kind === "list")
-			return (
-				<ul>
-					<li className="page-empty">List item{caret}</li>
-				</ul>
-			);
-		if (a.kind === "checklist")
-			return (
-				<ul className="todo">
-					<li className="page-empty">
-						<span className="todo-box" />
-						To-do{caret}
-					</li>
-				</ul>
-			);
-		if (a.kind === "quote")
-			return <blockquote className="quote page-empty">Quote{caret}</blockquote>;
-		if (a.kind === "code") return <pre className="code page-empty">Code{caret}</pre>;
-		if (a.kind === "bold")
-			return (
-				<p>
-					<b className="page-empty">Bold words</b>
-					{caret}
-				</p>
-			);
-		if (a.kind === "italic")
-			return (
-				<p>
-					<i className="page-empty">Italic words</i>
-					{caret}
-				</p>
-			);
-		if (a.kind === "link")
-			return (
-				<p>
-					<span className="lnk">Link text</span>
-					{caret} <span className="lnk-url">Paste or type a link…</span>
-				</p>
-			);
-		if (a.kind === "table") {
-			return (
-				<table className="tbl">
-					<thead>
-						<tr>
-							<th>Column{caret}</th>
-							<th>Column</th>
-							<th>Column</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td />
-							<td />
-							<td />
-						</tr>
-						<tr>
-							<td />
-							<td />
-							<td />
-						</tr>
-					</tbody>
-				</table>
-			);
-		}
-		if (a.who)
-			return (
-				<p>
-					<b className="mention">@{a.who}</b>
-					{caret}
-				</p>
-			);
+	if (view.problems)
 		return (
-			<>
-				<p>
-					<b className="mention">@</b>
-					{caret}
-				</p>
-				<MentionPicker
-					inline
-					head="Mention"
-					options={people}
-					onPick={(m) =>
-						setAdded((all) => all.map((x) => (x.id === a.id ? { ...x, who: m.name } : x)))
-					}
-				/>
-			</>
+			<section className="detail">
+				<header className="detail-head">
+					<span className="chip chip--quiet">Document</span>
+				</header>
+				<div className="detail-scroll">
+					<p className="opened-note">
+						{view.problems[0]?.message ?? "This document did not load."}
+					</p>
+				</div>
+			</section>
 		);
+
+	const published = doc?.status === "active";
+	const followers = view.data?.followers ?? 0;
+	const state = !doc
+		? ""
+		: doc.status === "proposed"
+			? "Draft"
+			: published
+				? followers > 0
+					? `Published · ${followers} ${followers === 1 ? "follower" : "followers"} told`
+					: "Published"
+				: DOCUMENT_STATUS_LABEL[doc.status];
+	const untitled = doc?.title === UNTITLED && doc.body === "";
+	const choices = disciplinesOf(users.data ?? [], tree.data ?? []);
+	const coversOf = (r: Range | null) => (r ? body.slice(r.start, r.end) : undefined);
+
+	/** A block's whole text, or the words picked, start a new comment. */
+	const compose = (range: Range | null) => {
+		if (!range) return;
+		setFront({ id: NEW, range });
+		setPicked(null);
+		window.getSelection()?.removeAllRanges();
+	};
+	const blockRange = (index: number): Range | null => {
+		const ed = text.editor;
+		if (!ed) return null;
+		let offset = 0;
+		for (let i = 0; i < index; i++) offset += ed.state.doc.child(i).nodeSize;
+		const node = ed.state.doc.maybeChild(index);
+		return node ? text.toText(offset + 1, offset + node.nodeSize - 1) : null;
+	};
+	const pickWords = () => {
+		const ed = text.editor;
+		const wrap = bodyRef.current;
+		const sel = window.getSelection();
+		if (!(ed && wrap && sel && !sel.isCollapsed && ed.view.dom.contains(sel.anchorNode))) {
+			setPicked(null);
+			return;
+		}
+		const r = sel.getRangeAt(0);
+		const from = ed.view.posAtDOM(r.startContainer, r.startOffset);
+		const to = ed.view.posAtDOM(r.endContainer, r.endOffset);
+		const range = text.toText(Math.min(from, to), Math.max(from, to));
+		const top = r.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
+		setPicked(range ? { top, range } : null);
 	};
 
-	const intro = words("intro");
-	const know = words("know");
-	const decision = words("decision");
-	const writingAtEnd = edit && added.length === 0;
+	const card = (c: DocComment) => {
+		const range = regionOf(c.id);
+		const isFront = front?.id === c.id;
+		return (
+			<aside key={c.id} className={isFront ? "mg mg--on" : "mg"} data-start={range?.start ?? -1}>
+				{isFront ? (
+					<ThreadView
+						comment={c}
+						tasks={handed.get(c.id) ?? []}
+						people={people}
+						everyone={everyone}
+						covers={coversOf(range)}
+						onConversation={() => thread.threadId && navigate(`/conversations/${thread.threadId}`)}
+						onTask={(t) => navigate(`/work/${t}`)}
+						onClose={() => setFront(null)}
+						onResolve={() => void resolve(c, true)}
+						onReply={(words, to) => (range ? post(c.id, range, words, to) : Promise.resolve(false))}
+						onSettle={(m, s) => void settle(c, m, s)}
+					/>
+				) : (
+					<Summary comment={c} people={people} onOpen={() => setFront({ id: c.id, range: null })} />
+				)}
+			</aside>
+		);
+	};
 
 	return (
 		<section className="detail">
 			<header className="detail-head">
 				<span className="chip chip--quiet">Document</span>
-				<span className="doc-state">{published ? "Published · 4 followers told" : "Draft"}</span>
-				<ForPick open={step === 8} />
+				<span className="doc-state">{state}</span>
+				{doc && (
+					<ForPick
+						value={doc.discipline}
+						choices={choices}
+						onPick={(discipline) => void write({ discipline })}
+					/>
+				)}
 				<span className="doc-act">
-					{(anyComments || hidden) && (
+					{(comments.length > 0 || hidden) && (
 						<button type="button" className="tool doc-cm" onClick={() => setHidden(!hidden)}>
 							<Bubble />
 							{hidden ? "Show comments" : "Hide comments"}
 						</button>
 					)}
-					{edit ? (
+					{!doc ? null : editing ? (
 						<>
 							<span className="doc-mode">✎ Editing</span>
-							<button type="button" className="btn" onClick={() => setEdit(false)}>
+							<button type="button" className="btn" onClick={() => void done()}>
 								Done
 							</button>
 						</>
 					) : (
 						<>
-							{published && (
+							{published && me.data && (
 								<button
 									type="button"
 									className="btn"
-									aria-pressed={following}
-									onClick={() => setFollowing(!following)}
+									aria-pressed={Boolean(follow)}
+									onClick={() => void toggleFollow()}
 								>
-									{following ? "Following" : "Follow"}
+									{follow ? "Following" : "Follow"}
 								</button>
 							)}
 							<button type="button" className="btn" onClick={() => setEdit(true)}>
@@ -932,85 +899,199 @@ export function Think({ step }: { step: number }) {
 							</button>
 						</>
 					)}
-					{!published && (
-						<button
-							type="button"
-							className="btn btn--accent"
-							onClick={() => {
-								setPublished(true);
-								setEdit(false);
-							}}
-						>
+					{doc && !published && (
+						<button type="button" className="btn btn--accent" onClick={() => void publish()}>
 							Publish
 						</button>
 					)}
 				</span>
 			</header>
+			{problem && <p className="doc-problem">{problem}</p>}
 
 			<div className="detail-scroll">
-				<article className={drag ? "page page--dragging" : "page"} ref={pageRef}>
-					<h1 className="page-title">🤔 Should trials be 10 days?</h1>
+				<article className={drag ? "page page--dragging" : "page"}>
+					{editing ? (
+						<div className="page-title page-title--row">
+							{doc?.icon && <span>{doc.icon}</span>}
+							<input
+								className="page-title--edit"
+								aria-label="Title"
+								placeholder={UNTITLED}
+								value={title ?? (untitled ? "" : (doc?.title ?? ""))}
+								// biome-ignore lint/a11y/noAutofocus: a new document starts at its title
+								autoFocus={untitled}
+								onChange={(e) => setTitle(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") text.editor?.commands.focus("start");
+								}}
+							/>
+						</div>
+					) : (
+						<h1 className="page-title">
+							{doc?.icon && `${doc.icon} `}
+							{doc?.title}
+						</h1>
+					)}
 
-					<Block edit={edit} {...margin("intro")}>
-						{intro.map((p, i) => (
-							<p key={doc.intro[i]}>{p}</p>
-						))}
-					</Block>
-
-					<Block edit={edit} heading>
-						<h3>What we know</h3>
-					</Block>
-					<Block edit={edit} {...margin("know")}>
-						<ul>
-							{know.map((item, i) => (
-								<li key={doc.know[i]}>{item}</li>
-							))}
-						</ul>
-					</Block>
-
-					<Block edit={edit} heading>
-						<h3>Decision</h3>
-					</Block>
-					<Block
-						edit={edit}
-						active={added.length === 0}
-						{...margin(
-							"decision",
-							<button type="button" className="cm-task">
-								<span className="cm-task-k">Task</span>
-								<span className="cm-task-t">10-day trial for new signups</span>
-								<span className="cm-task-s">Builder · Queued</span>
-							</button>,
-						)}
+					{/* biome-ignore lint/a11y/noStaticElementInteractions: the comment buttons in the margin are the keyboard way in; this only follows the pointer */}
+					<div
+						className={editing ? "doc-body doc-body--edit" : "doc-body"}
+						ref={bodyRef}
+						onMouseMove={(e) => {
+							const el = (e.target as Element).closest?.(".tiptap > *");
+							const wrap = bodyRef.current;
+							if (!(el && wrap && el.parentElement)) return;
+							const index = [...el.parentElement.children].indexOf(el);
+							const top = el.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
+							if (hover?.index !== index || hover.top !== top) setHover({ top, index });
+						}}
+						onMouseUp={pickWords}
+						onKeyUp={pickWords}
+						onMouseDown={(e) => {
+							const g = (e.target as HTMLElement).closest?.<HTMLElement>(".anc-h");
+							if (g) {
+								e.preventDefault();
+								setDrag({ end: g.dataset.end === "0" ? 0 : 1 });
+								return;
+							}
+							const mark = (e.target as HTMLElement).closest?.<HTMLElement>(".anc--bg");
+							if (mark?.dataset.comment) setFront({ id: mark.dataset.comment, range: null });
+						}}
 					>
-						{doc.decision.length === 0 && (
-							<p className="page-empty">Not yet{writingAtEnd && <span className="caret" />}</p>
+						<DocEditor text={text} people={everyone} />
+						{!hidden && shown.map(card)}
+						{front?.id === NEW && (
+							<aside className="mg mg--on" data-start={front.range?.start ?? -1}>
+								<Field
+									placeholder="Comment, or @mention someone"
+									button="Comment"
+									covers={coversOf(front.range)}
+									everyone={everyone}
+									note="Drag the ends of the highlight to change what this covers."
+									onPost={(words, to) =>
+										front.range ? post(null, front.range, words, to) : Promise.resolve(false)
+									}
+									onCancel={() => setFront(null)}
+								/>
+							</aside>
 						)}
-						{decision.map((p, i) => (
-							<p key={doc.decision[i]}>
-								{p}
-								{writingAtEnd && i === decision.length - 1 && <span className="caret" />}
+						{justResolved && (
+							<p className="cm-receipt mg-receipt">
+								Resolved. The thread stays in Conversations.{" "}
+								<button
+									type="button"
+									onClick={() => {
+										const c = comments.find((x) => x.id === justResolved);
+										if (c) void resolve(c, false);
+									}}
+								>
+									Undo
+								</button>
 							</p>
-						))}
-					</Block>
-
-					{added.map((a, i) => (
-						<Block key={a.id} edit={edit} active={i === added.length - 1}>
-							{piece(a, i === added.length - 1)}
-						</Block>
-					))}
-
-					{edit && <p className="blk-empty">Type / for a block, @ to ask someone</p>}
+						)}
+						{picked ? (
+							<button
+								type="button"
+								className="blk-add cm-add"
+								style={{ top: picked.top }}
+								onMouseDown={(e) => e.preventDefault()}
+								onClick={() => compose(picked.range)}
+							>
+								<Bubble />
+								Comment
+							</button>
+						) : (
+							hover && (
+								<button
+									type="button"
+									className="blk-add cm-add cm-add--block"
+									style={{ top: hover.top }}
+									aria-label="Comment on this block"
+									title="Comment"
+									onClick={() => compose(blockRange(hover.index))}
+								>
+									<Bubble />
+								</button>
+							)
+						)}
+					</div>
+					{editing && (
+						<button
+							type="button"
+							className="blk-empty"
+							onMouseDown={(e) => e.preventDefault()}
+							onClick={() => {
+								const ed = text.editor;
+								const last = ed?.state.doc.lastChild;
+								if (!ed) return;
+								// The line starts a new piece at the end, unless an empty one is already there.
+								if (last?.type.name === "paragraph" && last.content.size === 0)
+									ed.commands.focus("end");
+								else
+									ed.chain()
+										.insertContentAt(ed.state.doc.content.size, { type: "paragraph" })
+										.focus("end")
+										.run();
+							}}
+						>
+							Type / for a block, @ to ask someone
+						</button>
+					)}
 				</article>
 			</div>
-			{edit && (
-				<FormatBar
-					floating
-					kinds={DOC_FORMATS}
-					active={added[added.length - 1]?.kind ?? null}
-					onAdd={(kind) => setAdded((all) => [...all, { id: all.length, kind }])}
-				/>
+			{editing && (
+				<>
+					{linking && (
+						<LinkBox
+							onDone={(href) => {
+								setLinking(false);
+								const ed = text.editor;
+								if (!(ed && href)) return;
+								if (ed.state.selection.empty)
+									ed.chain()
+										.focus()
+										.insertContent({
+											type: "text",
+											text: href,
+											marks: [{ type: "link", attrs: { href } }],
+										})
+										.run();
+								else ed.chain().focus().setLink({ href }).run();
+							}}
+						/>
+					)}
+					<FormatBar
+						floating
+						kinds={DOC_FORMATS}
+						active={activeFormat(text.editor)}
+						onAdd={(kind) => {
+							if (kind === "link") setLinking(true);
+							else if (text.editor) addFormat(text.editor, kind);
+						}}
+					/>
+				</>
 			)}
 		</section>
+	);
+}
+
+/** Where a link goes: typed or pasted, then ↵. */
+function LinkBox({ onDone }: { onDone: (href: string | null) => void }) {
+	const [href, setHref] = useState("");
+	return (
+		<input
+			className="lnk-url doc-link-box"
+			aria-label="Link address"
+			placeholder="Paste or type a link…"
+			value={href}
+			// biome-ignore lint/a11y/noAutofocus: the box opens because a link is being added
+			autoFocus
+			onChange={(e) => setHref(e.target.value)}
+			onBlur={() => onDone(null)}
+			onKeyDown={(e) => {
+				if (e.key === "Enter") onDone(href.trim() || null);
+				if (e.key === "Escape") onDone(null);
+			}}
+		/>
 	);
 }
