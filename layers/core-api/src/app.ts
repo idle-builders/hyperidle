@@ -4,7 +4,7 @@ import { createLogger } from "@hyperidle/diagnostics";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool } from "@hyperidle/harness-protocol";
-import { checkAndUnblockDependents } from "@hyperidle/task";
+import { checkAndUnblockDependents, registerTaskLiveUpdates } from "@hyperidle/task";
 import {
 	createUpgradeTokenStore,
 	registerSubscriptionFire,
@@ -295,7 +295,11 @@ function registerSubscriptionServices(
 		searchDocuments: runners.searchDocumentsRun,
 		assembleSessionDocuments,
 	});
-	return [unsubSubscriptionFire, subscriptionClock.stop];
+	return [
+		unsubSubscriptionFire,
+		subscriptionClock.stop,
+		...(wsPush ? [registerTaskLiveUpdates(db, eventBus, wsPush)] : []),
+	];
 }
 
 // Create core-api's route table. Every path is RELATIVE — Application mounts at /api.

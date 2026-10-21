@@ -106,7 +106,6 @@ function buildTaskActionsDeps(
 	adjustThread: (ctx: ActionContext, input: AdjustThreadInput) => Promise<ActionResult<ThreadView>>,
 	openThread: (ctx: ActionContext, input: OpenThreadInput) => Promise<ActionResult<ThreadView>>,
 	searchDocuments: SearchDocumentsRunFn,
-	wsPush?: (topic: string, envelope: unknown) => void,
 ): TaskActionsDeps {
 	return {
 		changes: { appendChange },
@@ -125,9 +124,12 @@ function buildTaskActionsDeps(
 		openThread,
 		listUnresolvedMessagesForThreads: (db, threadIds) => {
 			if (threadIds.length === 0) return Promise.resolve([]);
-			return listMessages(db, { threadIds: [...threadIds], types: ["review", "questionnaire"], unresolved: true });
+			return listMessages(db, {
+				threadIds: [...threadIds],
+				types: ["review", "questionnaire"],
+				unresolved: true,
+			});
 		},
-		...(wsPush ? { wsPush } : {}),
 	};
 }
 
@@ -391,7 +393,7 @@ export function buildCoreActions(bindings: {
 	const adjustThread = runnerFor<AdjustThreadInput, ThreadView>(threadActions, "adjust_thread");
 	const openThread = runnerFor<OpenThreadInput, ThreadView>(threadActions, "open_thread");
 	const taskActions = createTaskActions(
-		buildTaskActionsDeps(bindings.agentOrchestration, adjustThread, openThread, searchDocuments, bindings.wsPush),
+		buildTaskActionsDeps(bindings.agentOrchestration, adjustThread, openThread, searchDocuments),
 	) as readonly Action[];
 	documentActions = createDocumentActions(
 		buildDocumentActionsDeps(taskActions, threadActions, bindings.wsPush),

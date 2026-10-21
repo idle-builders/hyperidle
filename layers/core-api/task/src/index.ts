@@ -15,6 +15,7 @@ export {
 	TaskInvalidTransitionError,
 } from "./errors.js";
 export { createTaskActions, type TaskActionsDeps } from "./task-actions.js";
+export { registerTaskLiveUpdates } from "./task-live-updates.js";
 // -- unified emit-time resolver --
 export type {
 	BakedTaskRunRequest,

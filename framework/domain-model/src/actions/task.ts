@@ -101,7 +101,10 @@ export interface TaskNode extends Task {
 const TaskNodeSchema: z.ZodType<TaskNode> = z.lazy(() =>
 	TaskSchema.extend({
 		children: z.array(TaskNodeSchema),
-		openBelow: z.object({ input: z.number().int().nonnegative(), review: z.number().int().nonnegative() }),
+		openBelow: z.object({
+			input: z.number().int().nonnegative(),
+			review: z.number().int().nonnegative(),
+		}),
 	}),
 );
 
@@ -140,6 +143,11 @@ export const TaskViewSchema = z.object({
 	ancestors: z.array(TaskSchema),
 	/** The whole nested subtree, not only direct children. */
 	children: z.array(TaskNodeSchema),
+	/** Open questions and reviews anywhere below the task, for its "Parts" tally. */
+	openBelow: z.object({
+		input: z.number().int().nonnegative(),
+		review: z.number().int().nonnegative(),
+	}),
 	tokensActualRollup: z.number().nullable(),
 	threadId: z.string(),
 	/** Document ids parented to this task. */

@@ -17,13 +17,9 @@ export function computeTaskNeed(
 	const hasUnresolvedQuestionnaire = messages.some(
 		(m) => m.type === "questionnaire" && m.resolvedAt === null,
 	);
-	const hasWaitingDecision = reasons.some(
-		(r) => r.kind === "decision" && r.state === "waiting",
-	);
+	const hasWaitingDecision = reasons.some((r) => r.kind === "decision" && r.state === "waiting");
 	if (hasUnresolvedQuestionnaire || hasWaitingDecision) return "input";
-	const hasUnresolvedReview = messages.some(
-		(m) => m.type === "review" && m.resolvedAt === null,
-	);
+	const hasUnresolvedReview = messages.some((m) => m.type === "review" && m.resolvedAt === null);
 	if (state === "review" || hasUnresolvedReview) return "review";
 	return null;
 }

@@ -18,6 +18,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 		description: null,
 		doneWhen: [],
 		reasons: [],
+		need: null,
 		state: "in_progress",
 		dependencies: null,
 		threadId: "thr-t1",

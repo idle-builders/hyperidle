@@ -5,8 +5,14 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, messages, teams, users } from "@hyperidle/db";
-import type { ActionResult, EditTaskInput, SearchTasksInput, TaskListItem, TaskView } from "@hyperidle/domain-model";
-import { EventBus } from "@hyperidle/event-bus";
+import type {
+	ActionResult,
+	EditTaskInput,
+	SearchTasksInput,
+	TaskListItem,
+	TaskView,
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import type { ActionContext } from "../actions/action.js";
@@ -42,10 +48,22 @@ function makeRunners(agentOrchestration: AgentOrchestrationPort) {
 
 async function seedActor(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: TEAM_ID, name: TEAM_ID, createdAt: now }).onConflictDoNothing();
-	await db.insert(users).values({
-		id: ACTOR, name: ACTOR, role: "member", status: "active", kind: "human", teamId: TEAM_ID, createdAt: now,
-	}).onConflictDoNothing();
+	await db
+		.insert(teams)
+		.values({ id: TEAM_ID, name: TEAM_ID, createdAt: now })
+		.onConflictDoNothing();
+	await db
+		.insert(users)
+		.values({
+			id: ACTOR,
+			name: ACTOR,
+			role: "member",
+			status: "active",
+			kind: "human",
+			teamId: TEAM_ID,
+			createdAt: now,
+		})
+		.onConflictDoNothing();
 }
 
 async function insertMsg(
@@ -68,7 +86,11 @@ async function insertMsg(
 }
 
 describe("task need computation — search_tasks and open_task", () => {
-	test("questionnaire message → need:input; resolving clears it", async ({ db, eventBus, agentOrchestration }) => {
+	test("questionnaire message → need:input; resolving clears it", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		await seedActor(db);
 		const ctx = makeCtx(db, eventBus);
 		const { editTask, searchTasks, openTask } = makeRunners(agentOrchestration);
@@ -136,7 +158,11 @@ describe("task need computation — search_tasks and open_task", () => {
 		const ctx = makeCtx(db, eventBus);
 		const { editTask, searchTasks } = makeRunners(agentOrchestration);
 
-		const created = await editTask(ctx, { title: "Blocked task", teamId: TEAM_ID, state: "in_progress" });
+		const created = await editTask(ctx, {
+			title: "Blocked task",
+			teamId: TEAM_ID,
+			state: "in_progress",
+		});
 		expect(created.ok).toBe(true);
 		if (!created.ok) return;
 		const taskId = created.data.task.id;
@@ -150,7 +176,11 @@ describe("task need computation — search_tasks and open_task", () => {
 		expect(res.data[0]?.need).toBe("stuck");
 	});
 
-	test("child questionnaire → parent openBelow.input:1", async ({ db, eventBus, agentOrchestration }) => {
+	test("child questionnaire → parent openBelow.input:1", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		await seedActor(db);
 		const ctx = makeCtx(db, eventBus);
 		const { editTask, openTask } = makeRunners(agentOrchestration);
@@ -162,7 +192,11 @@ describe("task need computation — search_tasks and open_task", () => {
 		const parentId = parentResult.data.task.id;
 
 		// Child task.
-		const childResult = await editTask(ctx, { title: "Child task", teamId: TEAM_ID, parentTaskId: parentId });
+		const childResult = await editTask(ctx, {
+			title: "Child task",
+			teamId: TEAM_ID,
+			parentTaskId: parentId,
+		});
 		expect(childResult.ok).toBe(true);
 		if (!childResult.ok) return;
 		const childThreadId = childResult.data.threadId;
@@ -176,13 +210,7 @@ describe("task need computation — search_tasks and open_task", () => {
 		if (!parentOpen.ok) return;
 		const childNode = parentOpen.data.children[0];
 		expect(childNode?.need).toBe("input");
-		// The root task itself has no children in its TaskView.task (openBelow is on TaskNode).
-		// children[0].openBelow should be {0,0} (child has no grandchildren).
 		expect(childNode?.openBelow).toEqual({ input: 0, review: 0 });
-		// The open_task children array reflects parent's openBelow (we compute it separately for the root).
-		// Verify by checking child need propagates up via openBelow on the root — but root has no openBelow field on TaskView.task.
-		// Instead verify total children needs directly from the children list.
-		const inputBelow = parentOpen.data.children.filter((c) => c.need === "input").length;
-		expect(inputBelow).toBe(1);
+		expect(parentOpen.data.openBelow).toEqual({ input: 1, review: 0 });
 	});
 });

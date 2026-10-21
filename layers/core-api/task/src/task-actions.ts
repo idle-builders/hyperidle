@@ -106,9 +106,13 @@ export interface TaskActionsDeps {
 	readonly listUnresolvedMessagesForThreads: (
 		db: HyperIdleDb,
 		threadIds: readonly string[],
-	) => Promise<ReadonlyArray<{ readonly threadId: string; readonly type: string; readonly resolvedAt: string | null }>>;
-	/** Push a "something changed, refetch" nudge to WebSocket subscribers. Optional — absent in compositions that don't wire WS. */
-	readonly wsPush?: (topic: string, envelope: unknown) => void;
+	) => Promise<
+		ReadonlyArray<{
+			readonly threadId: string;
+			readonly type: string;
+			readonly resolvedAt: string | null;
+		}>
+	>;
 }
 
 /** Tasks a kill cascade never touches when it meets them BENEATH the root. */
@@ -322,10 +326,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 
 		// Batch one message query for all threadIds in scope (ancestors + subtree).
 		const allThreadIds = [
-			...new Set([
-				...ancestorTasks.map((t) => t.threadId),
-				...subtreeTasks.map((t) => t.threadId),
-			]),
+			...new Set([...ancestorTasks.map((t) => t.threadId), ...subtreeTasks.map((t) => t.threadId)]),
 		];
 		const unresolvedMsgs =
 			allThreadIds.length > 0
@@ -370,6 +371,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				task: { ...toTask(task), need: rootNeed },
 				ancestors: ancestorsWithNeed,
 				children,
+				openBelow: { input: rootOpenBelowInput, review: rootOpenBelowReview },
 				tokensActualRollup,
 				threadId: task.threadId,
 				attachments: [...attachments],
@@ -378,10 +380,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 	}
 
 	/** Annotate a list of domain tasks with their computed `need` via one batched message query. */
-	async function withNeed(
-		db: HyperIdleDb,
-		domainTasks: DomainTask[],
-	): Promise<DomainTask[]> {
+	async function withNeed(db: HyperIdleDb, domainTasks: DomainTask[]): Promise<DomainTask[]> {
 		if (domainTasks.length === 0) return domainTasks;
 		const threadIds = [...new Set(domainTasks.map((t) => t.threadId))];
 		const unresolvedMsgs = await deps.listUnresolvedMessagesForThreads(db, threadIds);
@@ -897,17 +896,6 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			ctx.eventBus.emit(
 				objectEvent(mainChangeRow, dispatch ? { woke: [dispatch.ownerAgentId] } : undefined),
 			);
-			if (deps.wsPush) {
-				const taskId = mainChangeRow.objectId;
-				const envelope = {
-					type: "update",
-					topic: `task:${taskId}`,
-					kind: prev ? "task.changed" : "task.created",
-					data: { id: mainChangeRow.id, object: "task", objectId: taskId, actor: ctx.actor, at: now },
-				};
-				deps.wsPush(`task:${taskId}`, envelope);
-				deps.wsPush("tasks", { ...envelope, topic: "tasks" });
-			}
 		}
 		for (const killed of killedTasks) {
 			if (killed.id === (prev?.id ?? next.id)) continue;

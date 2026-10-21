@@ -101,6 +101,6 @@ When a task reaches `review`, a human may record an outcome. Four values: `met`,
 
 Precedence (highest first): `stuck > input > review > null`.
 
-Both `search_tasks` and `open_task` return `need` on every task item. `open_task` also returns `openBelow: { input: number, review: number }` on each `TaskNode` in the `children` subtree, counting descendants (not the node itself) whose need is `input` or `review` respectively.
+Both `search_tasks` and `open_task` return `need` on every task item. `open_task` also returns `openBelow: { input: number, review: number }` on each `TaskNode` in the `children` subtree, counting descendants (not the node itself) whose need is `input` or `review` respectively. The opened task itself carries the same count for everything below it as `openBelow` at the top of the view. Work stays live through two WebSocket topics: `tasks` is nudged on any task change, and `task:<id>` on a change to that task, to any task below it, or a message in its thread.
 
 Source: `framework/domain-model/src/actions/task-need.ts` (pure logic), `layers/core-api/task/src/task-actions.ts` (wiring and batch message fetch).
