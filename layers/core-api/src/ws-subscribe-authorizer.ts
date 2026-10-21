@@ -55,7 +55,8 @@ export function createDbSubscribeAuthorizer(
 	db: HyperIdleDb,
 	deps: SubscribeAuthorizerDeps,
 ): SubscribeAuthorizer {
-	const GLOBAL_TOPICS = new Set(["conversations", "documents"]);
+	// @lore: tasks is global (any signed-in identity) — tasks have no per-row ACL; task:<id> likewise admits any authenticated identity (same rule as session:<id>)
+	const GLOBAL_TOPICS = new Set(["conversations", "documents", "tasks"]);
 	async function senderInThread(senderId: string, threadId: string): Promise<boolean> {
 		const row = await deps.conversation.getThreadById(db, threadId);
 		if (!row) return false;
@@ -106,6 +107,10 @@ export function createDbSubscribeAuthorizer(
 			if (topic.startsWith("user:")) {
 				const userId = topic.slice("user:".length);
 				return Promise.resolve(userId.length > 0 && userId === senderId);
+			}
+			if (topic.startsWith("task:")) {
+				const taskId = topic.slice("task:".length);
+				return Promise.resolve(Boolean(taskId));
 			}
 			return Promise.resolve(false);
 		},

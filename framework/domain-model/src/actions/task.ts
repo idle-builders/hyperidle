@@ -85,6 +85,8 @@ export const TaskSchema = z.object({
 	position: z.number().int(),
 	/** Parsed reasons (decisions and assumptions, stored as JSON text in the DB). */
 	reasons: z.array(ReasonSchema),
+	/** Derived UI status — computed from state, thread messages and reasons; never stored. Defaults to null so DB rows parse without it. */
+	need: z.enum(["stuck", "input", "review"]).nullable().default(null),
 });
 
 export type Task = z.infer<typeof TaskSchema>;
@@ -92,10 +94,15 @@ export type Task = z.infer<typeof TaskSchema>;
 /** A task in the nested subtree returned by `open_task`, its own children alongside it. */
 export interface TaskNode extends Task {
 	readonly children: readonly TaskNode[];
+	/** Counts of descendants (not the node itself) whose need is input or review. */
+	readonly openBelow: { readonly input: number; readonly review: number };
 }
 
 const TaskNodeSchema: z.ZodType<TaskNode> = z.lazy(() =>
-	TaskSchema.extend({ children: z.array(TaskNodeSchema) }),
+	TaskSchema.extend({
+		children: z.array(TaskNodeSchema),
+		openBelow: z.object({ input: z.number().int().nonnegative(), review: z.number().int().nonnegative() }),
+	}),
 );
 
 export const SearchTasksInputSchema = z

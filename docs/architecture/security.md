@@ -41,11 +41,12 @@ All WebSocket subscribes route through `createDbSubscribeAuthorizer` (`layers/co
 
 | Topic | Admitted iff |
 |---|---|
-| `conversations`, `documents` | any authenticated identity |
+| `conversations`, `documents`, `tasks` | any authenticated identity |
 | `thread:<id>` | `canReadThread` passes for that thread |
 | `document:<id>` | `canReadDocument` passes for that document |
 | `session:<id>` | any signed-in identity (no table read) |
 | `user:<id>` | the subscriber's own id matches the topic id |
+| `task:<id>` | any signed-in identity, no table read (tasks have no per-row ACL) |
 | anything else | denied |
 
 ## Secrets

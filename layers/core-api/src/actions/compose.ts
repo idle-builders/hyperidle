@@ -26,7 +26,7 @@ import type {
 import { derivePrimaryHarness } from "@hyperidle/harness-capability";
 import { createPlatformActions, markDetached, type PlatformActionsDeps } from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
-import { createThreadActions, type ThreadActionsDeps } from "@hyperidle/thread";
+import { createThreadActions, listMessages, type ThreadActionsDeps } from "@hyperidle/thread";
 import {
 	createUserActions,
 	deleteSubscriptions,
@@ -106,6 +106,7 @@ function buildTaskActionsDeps(
 	adjustThread: (ctx: ActionContext, input: AdjustThreadInput) => Promise<ActionResult<ThreadView>>,
 	openThread: (ctx: ActionContext, input: OpenThreadInput) => Promise<ActionResult<ThreadView>>,
 	searchDocuments: SearchDocumentsRunFn,
+	wsPush?: (topic: string, envelope: unknown) => void,
 ): TaskActionsDeps {
 	return {
 		changes: { appendChange },
@@ -122,6 +123,11 @@ function buildTaskActionsDeps(
 		taskRunResolver: buildTaskRunResolverDeps(searchDocuments),
 		adjustThread,
 		openThread,
+		listUnresolvedMessagesForThreads: (db, threadIds) => {
+			if (threadIds.length === 0) return Promise.resolve([]);
+			return listMessages(db, { threadIds: [...threadIds], types: ["review", "questionnaire"], unresolved: true });
+		},
+		...(wsPush ? { wsPush } : {}),
 	};
 }
 
@@ -385,7 +391,7 @@ export function buildCoreActions(bindings: {
 	const adjustThread = runnerFor<AdjustThreadInput, ThreadView>(threadActions, "adjust_thread");
 	const openThread = runnerFor<OpenThreadInput, ThreadView>(threadActions, "open_thread");
 	const taskActions = createTaskActions(
-		buildTaskActionsDeps(bindings.agentOrchestration, adjustThread, openThread, searchDocuments),
+		buildTaskActionsDeps(bindings.agentOrchestration, adjustThread, openThread, searchDocuments, bindings.wsPush),
 	) as readonly Action[];
 	documentActions = createDocumentActions(
 		buildDocumentActionsDeps(taskActions, threadActions, bindings.wsPush),

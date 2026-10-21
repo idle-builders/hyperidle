@@ -5,6 +5,7 @@ import {
 	type AdjustThreadInput,
 	type AgentWorkIntentRecorderInput,
 	canTransitionTaskState,
+	computeTaskNeed,
 	type DocumentRow,
 	type Task as DomainTask,
 	DoneWhenLineSchema,
@@ -18,6 +19,7 @@ import {
 	type SearchTasksInput,
 	searchTasks as searchTasksDeclaration,
 	type TaskListItem,
+	type TaskNeed,
 	type TaskNode,
 	type TaskView,
 	type ThreadView,
@@ -64,7 +66,7 @@ function toTask(row: Task): DomainTask {
 		// leave empty
 	}
 
-	return { ...(row as unknown as DomainTask), doneWhen, reasons };
+	return { ...(row as unknown as DomainTask), doneWhen, reasons, need: null };
 }
 
 /** Task action dependencies — every one is a sibling Service or the seam; this module may not import any directly (service boundary). */
@@ -100,6 +102,13 @@ export interface TaskActionsDeps {
 		ctx: ActionContext,
 		input: OpenThreadInput,
 	) => Promise<ActionResult<ThreadView>>;
+	/** Batch-fetch unresolved review/questionnaire messages for multiple threads — needed to compute `need` without N+1 queries. Injected from `@hyperidle/thread` via the composition root. */
+	readonly listUnresolvedMessagesForThreads: (
+		db: HyperIdleDb,
+		threadIds: readonly string[],
+	) => Promise<ReadonlyArray<{ readonly threadId: string; readonly type: string; readonly resolvedAt: string | null }>>;
+	/** Push a "something changed, refetch" nudge to WebSocket subscribers. Optional — absent in compositions that don't wire WS. */
+	readonly wsPush?: (topic: string, envelope: unknown) => void;
 }
 
 /** Tasks a kill cascade never touches when it meets them BENEATH the root. */
@@ -173,6 +182,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		completedAt: null,
 		position: 0,
 		reasons: [],
+		need: null,
 	};
 	return {
 		...base,
@@ -214,10 +224,47 @@ function diffFields(
 	return { before: { id, ...before }, after: { id, ...after } };
 }
 
-function buildChildren(all: readonly Task[], parentId: string): TaskNode[] {
+function buildChildren(
+	all: readonly Task[],
+	parentId: string,
+	needMap: ReadonlyMap<string, TaskNeed>,
+): TaskNode[] {
 	return all
 		.filter((t) => t.parentTaskId === parentId)
-		.map((t) => ({ ...toTask(t), children: buildChildren(all, t.id) }));
+		.map((t) => {
+			const children = buildChildren(all, t.id, needMap);
+			const need = needMap.get(t.id) ?? null;
+			let openBelowInput = 0;
+			let openBelowReview = 0;
+			for (const child of children) {
+				if (child.need === "input") openBelowInput++;
+				if (child.need === "review") openBelowReview++;
+				openBelowInput += child.openBelow.input;
+				openBelowReview += child.openBelow.review;
+			}
+			return {
+				...toTask(t),
+				need,
+				children,
+				openBelow: { input: openBelowInput, review: openBelowReview },
+			};
+		});
+}
+
+/** Group message stubs by threadId for O(1) lookup per task. */
+function groupByThread<T extends { readonly threadId: string }>(
+	msgs: ReadonlyArray<T>,
+): Map<string, T[]> {
+	const map = new Map<string, T[]>();
+	for (const m of msgs) {
+		let arr = map.get(m.threadId);
+		if (!arr) {
+			arr = [];
+			map.set(m.threadId, arr);
+		}
+		arr.push(m);
+	}
+	return map;
 }
 
 function sumTokensActual(rows: readonly Task[]): number | null {
@@ -272,7 +319,41 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		const subtreeIds = await taskDb.listSubtreeIds(ctx.db, input.id);
 		const subtreeTasks =
 			subtreeIds.length > 0 ? await taskDb.list(ctx.db, "task", { ids: subtreeIds }) : [task];
-		const children = buildChildren(subtreeTasks, input.id);
+
+		// Batch one message query for all threadIds in scope (ancestors + subtree).
+		const allThreadIds = [
+			...new Set([
+				...ancestorTasks.map((t) => t.threadId),
+				...subtreeTasks.map((t) => t.threadId),
+			]),
+		];
+		const unresolvedMsgs =
+			allThreadIds.length > 0
+				? await deps.listUnresolvedMessagesForThreads(ctx.db, allThreadIds)
+				: [];
+		const msgsByThread = groupByThread(unresolvedMsgs);
+
+		// Compute need for every task in scope.
+		const needMap = new Map<string, TaskNeed>();
+		for (const t of [...ancestorTasks, ...subtreeTasks]) {
+			const domainTask = toTask(t);
+			const msgs = msgsByThread.get(t.threadId) ?? [];
+			needMap.set(t.id, computeTaskNeed(t.state, msgs, domainTask.reasons));
+		}
+
+		const rootNeed = needMap.get(input.id) ?? null;
+		const children = buildChildren(subtreeTasks, input.id, needMap);
+
+		// Compute openBelow for the root task itself (sum of direct children + their descendants).
+		let rootOpenBelowInput = 0;
+		let rootOpenBelowReview = 0;
+		for (const child of children) {
+			if (child.need === "input") rootOpenBelowInput++;
+			if (child.need === "review") rootOpenBelowReview++;
+			rootOpenBelowInput += child.openBelow.input;
+			rootOpenBelowReview += child.openBelow.review;
+		}
+
 		const tokensActualRollup = sumTokensActual(subtreeTasks);
 		// searchDocuments, never a raw table read — an artifact's `parent_kind IN ('task','thread')` visibility arm means this never needs a separate scope check.
 		const artifactsResult = await deps.searchDocuments(ctx, {
@@ -280,17 +361,35 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		});
 		const attachments = artifactsResult.ok ? artifactsResult.data.map((d) => d.id) : [];
 
+		// Annotate ancestors with their computed need.
+		const ancestorsWithNeed = ancestors.map((a) => ({ ...a, need: needMap.get(a.id) ?? null }));
+
 		return {
 			ok: true,
 			data: {
-				task: toTask(task),
-				ancestors,
+				task: { ...toTask(task), need: rootNeed },
+				ancestors: ancestorsWithNeed,
 				children,
 				tokensActualRollup,
 				threadId: task.threadId,
 				attachments: [...attachments],
 			},
 		};
+	}
+
+	/** Annotate a list of domain tasks with their computed `need` via one batched message query. */
+	async function withNeed(
+		db: HyperIdleDb,
+		domainTasks: DomainTask[],
+	): Promise<DomainTask[]> {
+		if (domainTasks.length === 0) return domainTasks;
+		const threadIds = [...new Set(domainTasks.map((t) => t.threadId))];
+		const unresolvedMsgs = await deps.listUnresolvedMessagesForThreads(db, threadIds);
+		const msgsByThread = groupByThread(unresolvedMsgs);
+		return domainTasks.map((t) => ({
+			...t,
+			need: computeTaskNeed(t.state, msgsByThread.get(t.threadId) ?? [], t.reasons),
+		}));
 	}
 
 	async function searchTasksRun(
@@ -305,7 +404,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			const excluded = new Set(input.excludeIds ?? []);
 			return {
 				ok: true,
-				data: rows.filter((r) => !excluded.has(r.id)).map(toTask),
+				data: await withNeed(ctx.db, rows.filter((r) => !excluded.has(r.id)).map(toTask)),
 			};
 		}
 		if (input.text !== undefined) {
@@ -318,7 +417,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			const excluded = new Set(input.excludeIds ?? []);
 			return {
 				ok: true,
-				data: rows.filter((r) => !excluded.has(r.id)).map(toTask),
+				data: await withNeed(ctx.db, rows.filter((r) => !excluded.has(r.id)).map(toTask)),
 			};
 		}
 		const rows = await taskDb.list(ctx.db, "task", {
@@ -330,7 +429,10 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			...(input.limit !== undefined ? { limit: input.limit } : {}),
 		});
 		const excluded = new Set(input.excludeIds ?? []);
-		return { ok: true, data: rows.filter((r) => !excluded.has(r.id)).map(toTask) };
+		return {
+			ok: true,
+			data: await withNeed(ctx.db, rows.filter((r) => !excluded.has(r.id)).map(toTask)),
+		};
 	}
 
 	/**
@@ -795,6 +897,17 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			ctx.eventBus.emit(
 				objectEvent(mainChangeRow, dispatch ? { woke: [dispatch.ownerAgentId] } : undefined),
 			);
+			if (deps.wsPush) {
+				const taskId = mainChangeRow.objectId;
+				const envelope = {
+					type: "update",
+					topic: `task:${taskId}`,
+					kind: prev ? "task.changed" : "task.created",
+					data: { id: mainChangeRow.id, object: "task", objectId: taskId, actor: ctx.actor, at: now },
+				};
+				deps.wsPush(`task:${taskId}`, envelope);
+				deps.wsPush("tasks", { ...envelope, topic: "tasks" });
+			}
 		}
 		for (const killed of killedTasks) {
 			if (killed.id === (prev?.id ?? next.id)) continue;

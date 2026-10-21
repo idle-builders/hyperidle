@@ -107,6 +107,8 @@ export {
 	TaskViewSchema,
 	taskInvariants,
 } from "./actions/task.js";
+export type { TaskNeed } from "./actions/task-need.js";
+export { computeTaskNeed } from "./actions/task-need.js";
 export type {
 	AdjustThreadInput,
 	Identity,

@@ -87,3 +87,20 @@ When a task reaches `review`, a human may record an outcome. Four values: `met`,
 ## Token rollup
 
 `tasks.tokensActualJson` is a JSON string of per-tier token counts, merged by the session-end handler and written back via `edit_task({ tokensActualJson })`. Displayed as a rollup on the task page.
+
+## Derived need
+
+`task.need` is a derived, never-stored field computed at read time from the task's state, thread messages, and reasons. It signals what kind of human attention the task requires right now.
+
+| Value | When |
+|---|---|
+| `"stuck"` | `state === "blocked"` |
+| `"input"` | An unresolved `questionnaire` message in the thread, OR a `decision` reason with `state: "waiting"` |
+| `"review"` | `state === "review"`, OR an unresolved `review` message in the thread |
+| `null` | None of the above |
+
+Precedence (highest first): `stuck > input > review > null`.
+
+Both `search_tasks` and `open_task` return `need` on every task item. `open_task` also returns `openBelow: { input: number, review: number }` on each `TaskNode` in the `children` subtree, counting descendants (not the node itself) whose need is `input` or `review` respectively.
+
+Source: `framework/domain-model/src/actions/task-need.ts` (pure logic), `layers/core-api/task/src/task-actions.ts` (wiring and batch message fetch).
