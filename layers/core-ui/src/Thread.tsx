@@ -82,7 +82,7 @@ function SessionLine({ session, agent }: { session: SessionRow; agent: string })
 	const watch = useAction("watch_session", { id: session.id }, [`session:${session.id}`]);
 	const steps = (watch.data?.activity ?? []).flatMap((e) => stepWords(e) ?? []);
 	return (
-		<>
+		<div>
 			<div className="running">
 				<span className="dot dot--live" />
 				<span className="running-txt">
@@ -103,7 +103,7 @@ function SessionLine({ session, agent }: { session: SessionRow; agent: string })
 					)}
 				</ul>
 			)}
-		</>
+		</div>
 	);
 }
 
