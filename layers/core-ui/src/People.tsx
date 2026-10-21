@@ -562,7 +562,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 				).length,
 				nextRun:
 					next?.nextRunAt && next.documentId
-						? { title: titles.get(next.documentId) ?? "", at: next.nextRunAt }
+						? { title: titles.get(next.documentId) ?? "", when: reasonWords(next) }
 						: null,
 				now,
 			})

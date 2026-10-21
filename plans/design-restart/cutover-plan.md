@@ -92,6 +92,15 @@ working through the backend changes.
     icons. Backend: a document comment's anchor is the document and a range of its body, a
     message may propose a change that adjust_thread settles once, documents.icon (migration
     0104), and open_document counts the followers.
+  - [x] People: the team page (people with their agents, the agents of every team, Add someone,
+    the team's plugins), the user page and your own page on real data (lists from tasks, reviews
+    and questions; the box with conversation, edit, pause, runs on, folders, services, reasons,
+    notifications, instructions or About, this app, agent programs, looks), and every set-up
+    dialog. Backend: who started a task (tasks.started_by), what someone does (users.what), a
+    person's four reasons replace the nine raw events, a service kept from one agent
+    (service_connection_withholds), new folders go to every agent of yours, a person's About is
+    their agent_file document (migrations 0105, 0106). Inviting a person stays later; plugin
+    pages keep the design's content until Plugins.
 - [ ] Step 5 finish.
 
 

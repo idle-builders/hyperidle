@@ -166,6 +166,18 @@ describe("setting someone up", () => {
 		expect(await reach("growth")).toEqual([["Linear", []]]);
 	});
 
+	test("what someone does is kept apart from their role", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedPeople(db);
+		const { edit, open } = actionsOf(agentOrchestration);
+		await edit("finn", { id: "builder", what: "Builds and ships." }, db, eventBus);
+		const builder = (await open("finn", "builder", db, eventBus)).user;
+		expect([builder?.what, builder?.role]).toEqual(["Builds and ships.", "agent"]);
+	});
+
 	test("a new person is told about the four reasons", async ({
 		db,
 		eventBus,

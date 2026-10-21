@@ -2,6 +2,7 @@ import type { SessionRow, Task, ThreadListRow, UserRow } from "@hyperidle/domain
 import { describe, expect, it } from "vitest";
 import {
 	agentJobs,
+	agentStand,
 	crewOf,
 	cronOf,
 	cronWords,
@@ -197,5 +198,24 @@ describe("a person's lists", () => {
 			["trials", "Growth · 1 of 2 done"],
 			["explain", "Builder · needs review · 6h"],
 		]);
+	});
+});
+
+describe("what an agent is doing now", () => {
+	const base = { paused: false, unwritten: false, running: [], asking: 0, nextRun: null, now: NOW };
+	it.each([
+		[{ paused: true }, "Paused. It takes no new work until you let it."],
+		[{ unwritten: true }, "New. It has no instructions yet."],
+		[
+			{ running: [{ title: "Reminder email", startedAt: at(0.2) }] },
+			"Working on “Reminder email”, 12 min in.",
+		],
+		[
+			{ nextRun: { title: "Support themes, weekly", when: "Every Monday at 07:00" } },
+			"Idle. Its next run is “Support themes, weekly”, every Monday at 07:00.",
+		],
+		[{ asking: 1 }, "Idle. It waits for an answer."],
+	] as const)("%o", (over, words) => {
+		expect(agentStand({ ...base, ...over })).toBe(words);
 	});
 });

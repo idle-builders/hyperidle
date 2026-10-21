@@ -596,7 +596,7 @@ async function installRun(
 		if (subscriptionSpec.prompt) {
 			documentSpecs.push({
 				id: `ki_rp_${subscriptionDbId}`,
-				title: `${subscriptionSpec.name || "Subscription"} — prompt`,
+				title: subscriptionSpec.name || "Subscription",
 				body: subscriptionSpec.prompt,
 				slot: "prompt",
 				parentKind: "subscription",

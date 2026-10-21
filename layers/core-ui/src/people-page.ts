@@ -322,7 +322,8 @@ export function agentStand(input: {
 	unwritten: boolean;
 	running: readonly { title: string; startedAt: string }[];
 	asking: number;
-	nextRun: { title: string; at: string } | null;
+	/** Its next scheduled run: what it does, and when, in words. */
+	nextRun: { title: string; when: string } | null;
 	now: number;
 }): string {
 	if (input.paused) return "Paused. It takes no new work until you let it.";
@@ -331,7 +332,7 @@ export function agentStand(input: {
 	if (first)
 		return `Working on “${first.title}”, ${forWords(first.startedAt, input.now)} in${more.length > 0 ? `, and ${more.length} more` : ""}.`;
 	const next = input.nextRun
-		? ` Its next run is “${input.nextRun.title}” on ${new Date(input.nextRun.at).toLocaleDateString("en-GB", { weekday: "long" })} at ${new Date(input.nextRun.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}.`
+		? ` Its next run is “${input.nextRun.title}”, ${input.nextRun.when.charAt(0).toLowerCase()}${input.nextRun.when.slice(1)}.`
 		: "";
 	if (input.asking > 0)
 		return `Idle. It waits for ${input.asking === 1 ? "an answer" : `${input.asking} answers`}.${next}`;
