@@ -1147,9 +1147,9 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					{
 						threadId: effectiveThreadId,
 						text:
-							reply.decision === "answer"
-								? `This answer could not reach the agent: ${verdictOutcome.reason}. The agent has not been told.`
-								: `This action was approved but could not be carried out: ${verdictOutcome.reason}. The agent has not been told, and the action has not run.`,
+							reply.decision === "approve"
+								? `This action was approved but could not be carried out: ${verdictOutcome.reason}. The agent has not been told, and the action has not run.`
+								: `This ${reply.decision === "answer" ? "answer" : "rejection"} could not reach the agent: ${verdictOutcome.reason}. The agent has not been told.`,
 					},
 				);
 			}
