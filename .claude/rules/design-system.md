@@ -1,6 +1,6 @@
 # Design System
 
-The UI lives in `layers/core-ui/src/`. It is a plain React + CSS design preview — no utility framework, no component library.
+The UI lives in `layers/core-ui/src/`: plain React + CSS, no utility framework, no component library. Design decisions live in `plans/design-restart/` (`information-architecture.md`, `journey-map.md`, `cutover-plan.md`); the studio on branch `design/studio-recovery` is the visual reference.
 
 ## Token contract
 
@@ -13,4 +13,4 @@ The UI lives in `layers/core-ui/src/`. It is a plain React + CSS design preview 
 
 - Styles go in the component's own CSS block or in `app.css`. Never add raw colour literals outside `tokens.css`.
 - No Tailwind, no DaisyUI, no CSS-in-JS.
-- Keep demo data (handoff.ts, judge-data.ts, teams.ts) in the source tree — this is a static preview app, not a production route handler.
+- No made-up data in production code. Screens read the backend through `call` / `useAction`; the demo world (`tools/setup/src/demo-world`) holds the story. Screens not wired yet still carry the design's made-up data — each is removed when its screen is wired, and none survives the cutover branch.
