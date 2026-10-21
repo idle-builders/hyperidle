@@ -152,3 +152,11 @@ export function clock(iso: string, now: number = Date.now()): string {
 	if (days < 7) return `${at.toLocaleDateString("en-GB", { weekday: "short" })} ${time}`;
 	return `${at.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
 }
+
+/** A new conversation is named by its first line, without the @mentions that only bring people in. */
+export function titleFrom(text: string, names: readonly string[]): string {
+	let line = text.split("\n")[0] ?? "";
+	for (const name of names) line = line.split(`@${name}`).join("");
+	const title = line.replace(/\s+/g, " ").trim().slice(0, 512);
+	return title || `With ${names.join(", ")}`;
+}

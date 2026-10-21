@@ -88,7 +88,7 @@ test("a new conversation starts with the picker, and its first message makes it 
 	await box.press("Enter");
 	await box.press("Enter");
 
-	const title = "Can we answer refund questions from the help centre? @Maya Chen";
+	const title = "Can we answer refund questions from the help centre?";
 	await expect(page).toHaveURL(/\/conversations\/[0-9a-f-]{36}$/);
 	await expect(page.getByRole("heading", { name: title })).toBeVisible();
 	await expect(

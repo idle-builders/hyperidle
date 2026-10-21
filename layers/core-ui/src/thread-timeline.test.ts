@@ -1,7 +1,7 @@
 /** How a thread reads top to bottom, and how its work item says where it is. */
 import type { Message, SessionRow, Task } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
-import { clock, duration, timeline, workState } from "./thread-timeline";
+import { clock, duration, timeline, titleFrom, workState } from "./thread-timeline";
 
 const at = (hhmm: string) => `2026-10-20T${hhmm}:00.000Z`;
 const msg = (id: string, senderId: string, hhmm: string, type: Message["type"], payload: unknown) =>
@@ -151,5 +151,19 @@ describe("duration and clock", () => {
 		expect(clock(new Date(2026, 9, 21, 8, 12).toISOString(), now)).toBe("08:12");
 		expect(clock(new Date(2026, 9, 20, 8, 12).toISOString(), now)).toBe("yesterday 08:12");
 		expect(clock(new Date(2026, 9, 1, 8, 12).toISOString(), now)).toBe("1 Oct 08:12");
+	});
+});
+
+describe("titleFrom", () => {
+	test.each([
+		[
+			"Can we answer refund questions from the help centre? @Maya Chen",
+			["Maya Chen"],
+			"Can we answer refund questions from the help centre?",
+		],
+		["@Builder can you take a look\nmore below", ["Builder"], "can you take a look"],
+		["@Maya Chen @Builder", ["Maya Chen", "Builder"], "With Maya Chen, Builder"],
+	])("%s", (text, names, title) => {
+		expect(titleFrom(text, names)).toBe(title);
 	});
 });

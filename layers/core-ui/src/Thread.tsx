@@ -17,7 +17,7 @@ import { listen } from "./live";
 import { Avatar, Event, Msg } from "./Msg";
 import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
-import { clock, duration, timeline, workState } from "./thread-timeline";
+import { clock, duration, timeline, titleFrom, workState } from "./thread-timeline";
 import { useAction } from "./useAction";
 
 /**
@@ -473,7 +473,10 @@ export function NewConversation() {
 						setProblem("@mention who should be in it.");
 						return false;
 					}
-					const title = (text.split("\n")[0] ?? text).slice(0, 512);
+					const title = titleFrom(
+						text,
+						mentioned.map((m) => m.name),
+					);
 					const made = await call("adjust_thread", { title, members: mentioned.map((m) => m.id) });
 					if (!made.ok) {
 						setProblem(made.problems[0]?.message ?? "It did not start.");
