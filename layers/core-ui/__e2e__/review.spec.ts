@@ -99,7 +99,9 @@ test("a reject needs a reason, and goes back with it", async ({ page }) => {
 	await send.click();
 	await expect(dialog).toBeHidden();
 	await expect(verdict(page)).toHaveText("Rejected · sent to Designer");
-	await expect(page.getByText("Price under the plan name, not above it.")).toBeVisible();
+	await expect(
+		page.getByText("Price under the plan name, not above it.", { exact: true }),
+	).toBeVisible();
 });
 
 test("Approve shows the open count beside it and works; the conversation stops asking", async ({
