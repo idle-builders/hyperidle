@@ -1,12 +1,13 @@
 /**
  * The conversations that are not a task's own: the hand-off "Trial-end
  * confusion, three tickets" — Maya's tickets, Builder taking it, its question
- * about the charge's name, the two reviews and round 1 rejected with a reason —
- * Maya's question about the rollout rule, three quieter threads, and the
+ * about the charge's name, the two reviews — round 1 with Finn's comments on its
+ * parts, rejected with a reason, and round 2 — Maya's question about the rollout rule, three quieter threads, and the
  * comments on "Should trials be 10 days?".
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { Anchor, Flag, Pin, ReviewPart, Spot } from "@hyperidle/domain-model";
 import {
 	BUILDER_ID,
 	DOC_DEPLOY_RULE,
@@ -21,6 +22,7 @@ import {
 	THREAD_TEN_DAYS,
 	THREAD_TRIAL_END,
 } from "./ids.js";
+import { TRIAL_END_PAGE } from "./review-pages.js";
 import { type MessageSpec, plain, seedThreads, type ThreadSpec } from "./threads.js";
 import type { DemoClock } from "./time.js";
 
@@ -36,6 +38,114 @@ const REJECT_REASON =
 	"Wrong direction. Customers need the warning in the email, not only on this page — most never open the page before the charge.";
 
 const BUILDER = { id: BUILDER_ID, name: "Builder" };
+
+const TRIAL_PAGE_PART: ReviewPart = {
+	id: "page",
+	kind: "preview",
+	label: "Live preview",
+	title: "Trial-end page",
+	url: TRIAL_END_PAGE,
+};
+
+const PRORATION_PART: ReviewPart = {
+	id: "proration",
+	kind: "code",
+	label: "Code",
+	title: "billing/proration.ts",
+	files: [
+		{
+			path: "billing/proration.ts",
+			hunks: [
+				{
+					lines: [
+						{ op: "same", n: 214, text: "  const cycleStart = plan.currentPeriodStart;" },
+						{ op: "del", n: 215, text: "  const days = differenceInDays(now, cycleStart);" },
+						{
+							op: "add",
+							n: 215,
+							text: "  const days = differenceInCalendarDays(utc(now), utc(cycleStart));",
+						},
+						{ op: "same", n: 216, text: "  const unused = days / plan.cycleLength;" },
+						{ op: "del", n: 217, text: "  return Math.round(plan.amount * unused);" },
+						{ op: "add", n: 217, text: "  // half-up at the boundary, matches the invoice engine" },
+						{ op: "add", n: 218, text: "  return roundHalfUp(plan.amount * unused);" },
+					],
+				},
+			],
+		},
+	],
+};
+
+const TICKETS_PART: ReviewPart = {
+	id: "tickets",
+	kind: "numbers",
+	label: "Numbers",
+	title: "Trial-end tickets · 30 days",
+	figures: [
+		{ label: "Trial-end tickets", value: "31", change: "−58%", good: true },
+		{ label: "Reached support", value: "12", change: "−64%", good: true },
+		{ label: "Trial → paid", value: "24.1%", change: "+1.8pt", good: true },
+		{ label: "Refund requests", value: "4", change: "+1", good: false },
+	],
+};
+
+const WARNING_EMAIL_PART = {
+	id: "email",
+	kind: "text",
+	label: "Email",
+	title: "Three-day warning · new in round 2",
+	to: "the trial user",
+	subject: "Your trial ends in 3 days",
+	body: "Hi Sam,\n\nYour trial ends on 1 September. On 2 September we start your Team plan and charge £24.\n\nIf you do not want to continue, cancel before 1 September and nothing is charged.",
+} as const satisfies ReviewPart;
+
+const FLAG_AMOUNT: Flag = {
+	id: "amount",
+	part: "page",
+	label: "the amount",
+	spot: { kind: "element", selector: "#amount" },
+	says: "I added the amount, not just the date — you did not ask for that. Dishonest to warn about a charge without saying how much.",
+};
+
+const FLAG_ROUNDING: Flag = {
+	id: "rounding",
+	part: "proration",
+	label: "proration.ts:218",
+	spot: { kind: "line", file: "billing/proration.ts", line: 218 },
+	says: "Rounding is half-up at the boundary now. It matches the invoice engine, but it is a behaviour change.",
+};
+
+/** Where a flag points, without its words: the pin its replies take. */
+const pinOf = ({ says: _, ...pin }: Flag): Pin => pin;
+
+const PIN_HEADING: Anchor = {
+	review: EXPLAINER_ROUND_1,
+	id: "heading",
+	part: "page",
+	label: "the heading",
+	spot: { kind: "element", selector: "h1" },
+};
+
+const PIN_REFUNDS: Anchor = {
+	review: EXPLAINER_ROUND_1,
+	id: "refunds",
+	part: "tickets",
+	label: "refund requests",
+	spot: { kind: "figure", label: "Refund requests" },
+};
+
+const PIN_DAY_13: Anchor = {
+	id: "day-13",
+	part: "what-we-know",
+	label: "Most cancellations happen on day 13.",
+};
+
+/** The characters of `body` that `words` covers. */
+function rangeOf(body: string, words: string): Spot {
+	const start = body.indexOf(words);
+	if (start < 0) throw new Error(`"${words}" is not in the text`);
+	return { kind: "range", start, end: start + words.length };
+}
 const GROWTH = { id: GROWTH_ID, name: "Growth" };
 
 export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Promise<void> {
@@ -155,14 +265,12 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			type: "review",
 			payload: {
 				title: "Trial-end explainer",
+				stage: "Final",
 				reasoning: [
 					"Page says the date and the amount before the trial runs out. Proration bug fixed on the way. Two things I flagged for you.",
-					"Proration bug on mid-cycle upgrade — fixed, 3 cases cover it.",
-					"Pricing page and receipt now name the first bill and its date.",
-					"Support macro updated to match.",
-					"Flag A, on the warning email: I added the amount, not just the date — you did not ask for that. Dishonest to warn about a charge without saying how much.",
-					"Flag B, on proration.ts:216: rounding is half-up at the boundary now. It matches the invoice engine, but it is a behaviour change.",
 				],
+				parts: [TRIAL_PAGE_PART, PRORATION_PART, TICKETS_PART],
+				flags: [FLAG_AMOUNT, FLAG_ROUNDING],
 				reviewer: FOUNDER_ID,
 				taskId: TASK_EXPLAIN,
 			},
@@ -174,10 +282,32 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			payload: {
 				title: "Three replies to customers",
 				reasoning: [
-					"ZD-4471, to priya@northwind.co: You were charged on 2 September, the day your trial ended. We have rewritten that page so the date and amount now show before the trial runs out — and here is the breakdown for your account.",
-					"ZD-4468, to sam@lumen.dev: Your first bill is £24 on 12 September for the Team plan. You will get an email three days before. The pricing page now says this on the plan you are trialling.",
-					"ZD-4460, to ops@fairbank.io: That invoice covered the first month starting the day the trial ended. We found a proration bug on mid-cycle upgrades that made it read oddly — fixed, and your invoice has been reissued.",
 					"These go to customers, so I am not sending them — and they are not yours to approve either. They are Maya's.",
+				],
+				parts: [
+					{
+						id: "replies",
+						kind: "items",
+						label: "Replies",
+						title: "Three tickets, one reply each",
+						items: [
+							{
+								id: "zd-4471",
+								title: "ZD-4471 · priya@northwind.co",
+								body: "You were charged on 2 September, the day your trial ended. We have rewritten that page so the date and amount now show before the trial runs out — and here is the breakdown for your account.",
+							},
+							{
+								id: "zd-4468",
+								title: "ZD-4468 · sam@lumen.dev",
+								body: "Your first bill is £24 on 12 September for the Team plan. You will get an email three days before. The pricing page now says this on the plan you are trialling.",
+							},
+							{
+								id: "zd-4460",
+								title: "ZD-4460 · ops@fairbank.io",
+								body: "That invoice covered the first month starting the day the trial ended. We found a proration bug on mid-cycle upgrades that made it read oddly — fixed, and your invoice has been reissued.",
+							},
+						],
+					},
 				],
 				reviewer: MAYA_ID,
 				taskId: TASK_EXPLAIN,
@@ -186,24 +316,28 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		trialEnd("07", FOUNDER_ID, clock.at(1, "14:50"), {
 			type: "plain",
 			payload: plain("“2 September” reads as the trial end date. Both dates?", {
-				spotLabel: "the heading",
+				anchor: PIN_HEADING,
 			}),
 		}),
 		trialEnd("08", BUILDER_ID, clock.at(1, "14:52"), {
 			type: "plain",
-			payload: plain("Changed to “Trial ends 1 Sep · first bill 2 Sep”.", {
-				spotLabel: "the heading",
+			payload: plain("Changed to “Trial ends 1 Sep · first bill 2 Sep”.", { anchor: PIN_HEADING }),
+		}),
+		trialEnd("08a", FOUNDER_ID, clock.at(1, "14:58"), {
+			type: "plain",
+			payload: plain("Good call. Keep the amount.", {
+				anchor: { ...pinOf(FLAG_AMOUNT), review: EXPLAINER_ROUND_1 },
 			}),
 		}),
 		trialEnd("09", FOUNDER_ID, clock.at(1, "15:05"), {
 			type: "plain",
-			payload: plain("This one went the wrong way — is that us?", { spotLabel: "refund requests" }),
+			payload: plain("This one went the wrong way — is that us?", { anchor: PIN_REFUNDS }),
 		}),
 		trialEnd("10", BUILDER_ID, clock.at(1, "15:07"), {
 			type: "plain",
 			payload: plain(
 				"Three of the four predate the fix. The fourth asked for a refund because they did not see the warning, which is the thing we just changed.",
-				{ spotLabel: "refund requests" },
+				{ anchor: PIN_REFUNDS },
 			),
 		}),
 		trialEnd("11", FOUNDER_ID, clock.at(1, "15:20"), {
@@ -217,12 +351,34 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			type: "review",
 			payload: {
 				title: "Trial-end explainer",
+				stage: "Final",
 				reasoning: [
 					"Moved the warning into the email, as you asked. The page stays as it was. Two things I flagged for you.",
-					"New: the three-day warning email, with date and amount.",
-					"Same: the trial-end page and the proration fix.",
-					"Flag A, on the warning email: this is what you asked for — the three-day warning now goes out by email, with the date and the amount.",
-					"Flag B, on the trial-end page: unchanged from round 1. The page still says the same thing, so the email and the page agree.",
+				],
+				previousReviewId: EXPLAINER_ROUND_1,
+				changed: [
+					"New: the three-day warning email, with date and amount",
+					"Same: the trial-end page and the proration fix",
+				],
+				parts: [WARNING_EMAIL_PART, { ...TRIAL_PAGE_PART, title: "Trial-end page · unchanged" }],
+				flags: [
+					{
+						id: "email",
+						part: "email",
+						label: "the warning email",
+						spot: rangeOf(
+							WARNING_EMAIL_PART.body,
+							"On 2 September we start your Team plan and charge £24.",
+						),
+						says: "This is what you asked for: the three-day warning now goes out by email, with the date and the amount.",
+					},
+					{
+						id: "page",
+						part: "page",
+						label: "the trial-end page",
+						spot: { kind: "element", selector: "h1" },
+						says: "Unchanged from round 1. The page still says the same thing, so the email and the page agree.",
+					},
 				],
 				reviewer: FOUNDER_ID,
 				taskId: TASK_EXPLAIN,
@@ -310,8 +466,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			type: "plain",
 			payload: plain("@Growth if trials end on day 10, how many people who pay would we lose?", {
 				mentions: [GROWTH],
-				blockId: "what-we-know",
-				spotLabel: "Most cancellations happen on day 13.",
+				anchor: PIN_DAY_13,
 			}),
 			createdAt: clock.at(0, "10:42"),
 		},
@@ -320,10 +475,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			threadId: THREAD_TEN_DAYS,
 			senderId: GROWTH_ID,
 			type: "plain",
-			payload: plain("About 1 in 5. This line should say so.", {
-				blockId: "what-we-know",
-				spotLabel: "Most cancellations happen on day 13.",
-			}),
+			payload: plain("About 1 in 5. This line should say so.", { anchor: PIN_DAY_13 }),
 			createdAt: clock.at(0, "10:44"),
 		},
 	];

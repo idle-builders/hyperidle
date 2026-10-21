@@ -1,9 +1,9 @@
 import { z } from "zod";
+import { anchorSchema, flagSchema, reviewInvariants, reviewPartSchema } from "../review.js";
 import {
 	HOST_KINDS,
 	type HostKind,
 	MESSAGE_TYPES,
-	REVIEW_CANVAS_KINDS,
 	type RedactedPayload,
 	VERDICT_DECISIONS,
 } from "../thread.js";
@@ -24,22 +24,7 @@ export const mentionRefSchema = z.object({
 	sourceText: z.string().min(1),
 });
 
-/**
- * Review canvas anchor ref — preserves `kind:"artifact"` on the wire so
- * `ReviewPage`'s `isArtifactEntityRef` guard can locate the anchor unchanged.
- * The id here is the id of
- * a `ReviewCanvasArtifact` inside a review message's `artifacts` array.
- */
-export const canvasArtifactRefSchema = z.object({
-	kind: z.literal("artifact"),
-	id: z.string().min(1),
-});
-
-export const inlineRefSchema = z.discriminatedUnion("kind", [
-	entityRefSchema,
-	mentionRefSchema,
-	canvasArtifactRefSchema,
-]);
+export const inlineRefSchema = z.discriminatedUnion("kind", [entityRefSchema, mentionRefSchema]);
 
 export const assistantNoticeSchema = z.object({
 	kind: z.enum(["missing_harness", "provider_error"]),
@@ -51,16 +36,6 @@ const toolCallSummarySchema = z.object({
 	input: z.record(z.string(), z.unknown()),
 	output: z.string(),
 	status: z.enum(["ok", "error"]),
-});
-
-const reviewCanvasArtifactSchema = z.object({
-	id: z.string().min(1),
-	tool: z.string().min(1),
-	app: z.string().min(1),
-	sourceHref: z.string().min(1),
-	title: z.string().min(1),
-	kind: z.enum(REVIEW_CANVAS_KINDS),
-	payload: z.record(z.string(), z.unknown()),
 });
 
 const redactedPayloadSchema = z.object({
@@ -81,8 +56,8 @@ export const threadParticipantsSchema = z.array(z.string().min(1));
 export const plainPayloadSchema = z.object({
 	text: z.string().max(16_384),
 	refs: z.array(inlineRefSchema).optional(),
-	blockId: z.string().max(128).optional(),
-	spotLabel: z.string().max(128).optional(),
+	/** A comment on a review's part, or on a block of the thread's document. */
+	anchor: anchorSchema.optional(),
 });
 export type PlainPayload = z.infer<typeof plainPayloadSchema>;
 
@@ -97,11 +72,21 @@ export type PlainReadPayload = z.infer<typeof plainReadPayloadSchema>;
 
 export const reviewPayloadSchema = z.object({
 	title: z.string().min(1).max(512),
+	/** What the sender says about it, a line each. */
 	reasoning: z.array(z.string().max(1024)).max(16),
+	/** Which stage of the work this reviews, in a word or two: "Design", "Final". */
+	stage: z.string().min(1).max(64).optional(),
+	/** What there is to look at, composed for the question. */
+	parts: z.array(reviewPartSchema).max(12).optional(),
+	/** The sender's own pointers to where to look. */
+	flags: z.array(flagSchema).max(26).optional(),
+	/** The round this one retries, after it was rejected; its open questions stay there. */
+	previousReviewId: z.string().min(1).optional(),
+	/** What changed since the previous round, a line each. */
+	changed: z.array(z.string().min(1).max(512)).max(16).optional(),
 	producedItemId: z.string().optional(),
 	/** The person who reviews it; absent ⇒ anyone in the thread but its sender. */
 	reviewer: z.string().min(1).optional(),
-	artifacts: z.array(reviewCanvasArtifactSchema).optional(),
 	// server-stamped from ctx.caller.taskId — never accepted from the caller; SendMessageInputSchema.review omits it so a smuggled taskId is stripped by validation
 	taskId: z.string().optional(),
 });
@@ -184,7 +169,6 @@ export const MessageSchema = z.object({
 	type: z.enum(MESSAGE_TYPES),
 	payload: z.unknown(), // one of the five payload shapes, or the redacted variant
 	clientKey: z.string(),
-	blockId: z.string().nullable(),
 	resolvedAt: z.string().nullable(),
 	deletedAt: z.string().nullable(),
 	redactedAt: z.string().nullable(),
@@ -232,7 +216,6 @@ export const searchThreads: ActionDeclaration<SearchThreadsInput, ThreadListRow[
 export const OpenThreadInputSchema = z
 	.object({
 		id: z.string().min(1),
-		blockId: z.string().min(1).max(128).optional(), // the block-anchored comment filter, unchanged
 	})
 	.strict();
 export type OpenThreadInput = z.infer<typeof OpenThreadInputSchema>;
@@ -272,8 +255,7 @@ export const SendMessageInputSchema = z
 		// exactly one of the five bodies below — a pure invariant, not a schema rule
 		text: z.string().max(16_384).optional(),
 		refs: z.array(inlineRefSchema).optional(), // plain only
-		blockId: z.string().max(128).optional(), // plain only
-		spotLabel: z.string().max(128).optional(), // plain only
+		anchor: anchorSchema.optional(), // plain only
 		// `taskId` is server-stamped from `ctx.caller.taskId`, never caller
 		// input — omitted here so a smuggled `taskId` in the request body is
 		// stripped by validation rather than stored.
@@ -382,16 +364,17 @@ export function sendMessageInvariants(
 	}
 
 	const hasText = input.text !== undefined;
-	if (
-		!hasText &&
-		(input.refs !== undefined || input.blockId !== undefined || input.spotLabel !== undefined)
-	) {
+	if (!hasText && (input.refs !== undefined || input.anchor !== undefined)) {
 		problems.push({
 			code: "plain_fields_on_non_plain",
-			message: "refs/blockId/spotLabel only apply to a text message.",
+			message: "refs and anchor only apply to a text message.",
 			path: "text",
 		});
 	}
+	if (input.review !== undefined)
+		problems.push(
+			...reviewInvariants(input.review).map((p) => ({ ...p, path: `review.${p.path}` })),
+		);
 
 	if (input.messageId !== undefined && !hasThreadId) {
 		problems.push({

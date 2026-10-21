@@ -33,8 +33,8 @@ Per-kind normalisation is in `block/normalise.ts`. Heading text is slugged; para
 
 ## Message block anchors
 
-A message can carry a `block_id` field that anchors it to a specific block. Opening the host document with that anchor scrolls to the matching `data-block-id` element. The fragment is `#block-<encodeURIComponent(blockId)>`. No selector concatenation — matching is by value.
+A comment on a block is a plain message in the document's thread whose `anchor.part` is the block's id, with `anchor.label` naming the spot. It is the same anchor a review comment uses; see [reviews.md](reviews.md#comments).
 
 ## Render surfaces
 
-`deriveBlocks()` is called by: `DocumentBody`, `review-canvas` (ReviewRenderedInContext), and `ImagePayload`. Task bodies are not rendered as blocks.
+`deriveBlocks()` is called by: `DocumentBody` and `ImagePayload`. Task bodies are not rendered as blocks.

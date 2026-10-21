@@ -5,6 +5,7 @@
  */
 
 import { type HyperIdleDb, messages, threads } from "@hyperidle/db";
+import type { Anchor } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 
 export interface ThreadSpec {
@@ -33,8 +34,8 @@ export function plain(
 	extra: {
 		readonly mentions?: readonly { readonly id: string; readonly name: string }[];
 		readonly documents?: readonly string[];
-		readonly blockId?: string;
-		readonly spotLabel?: string;
+		/** A comment on a review's part, or on a block of the thread's document. */
+		readonly anchor?: Anchor;
 	} = {},
 ): Record<string, unknown> {
 	const refs = [
@@ -49,8 +50,7 @@ export function plain(
 	return {
 		text,
 		...(refs.length > 0 ? { refs } : {}),
-		...(extra.blockId ? { blockId: extra.blockId } : {}),
-		...(extra.spotLabel ? { spotLabel: extra.spotLabel } : {}),
+		...(extra.anchor ? { anchor: extra.anchor } : {}),
 	};
 }
 
@@ -80,7 +80,6 @@ export async function seedThreads(
 /** Messages into threads that already exist; each thread's last activity follows its newest. */
 async function seedMessages(db: HyperIdleDb, messageSpecs: readonly MessageSpec[]): Promise<void> {
 	for (const message of messageSpecs) {
-		const blockId = message.payload.blockId;
 		await db
 			.insert(messages)
 			.values({
@@ -90,7 +89,6 @@ async function seedMessages(db: HyperIdleDb, messageSpecs: readonly MessageSpec[
 				type: message.type,
 				payload: JSON.stringify(message.payload),
 				clientKey: `demo-ck-${message.id}`,
-				blockId: typeof blockId === "string" ? blockId : null,
 				resolvedAt: message.resolvedAt ?? null,
 				createdAt: message.createdAt,
 			})

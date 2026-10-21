@@ -18,9 +18,8 @@
  * linter. Grepping the filesystem from a `*.test.ts` would be a lint rule wearing a test's name.
  *
  * @lore the banned list names SYMBOLS, never the bare word `artifacts`. That is deliberate and
- * load-bearing: `artifacts:` is a live key in at least five unrelated shapes that all survive —
- * the handoff filename array (`tool-definitions.ts`), the review canvas (`reviewCanvasArtifactSchema`),
- * review composition, the core-api port client, and the threads write arm. A rule that banned the
+ * load-bearing: `artifacts:` is a live key in unrelated shapes that all survive — the handoff
+ * filename array (`tool-definitions.ts`), the core-api port client, and the threads write arm. A rule that banned the
  * word would have to carve exceptions for every one of them, and the first thing anyone would do
  * with a carve-out is widen it.
  *

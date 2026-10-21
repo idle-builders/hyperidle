@@ -11,7 +11,11 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	DOCUMENT_STATUSES,
 	parseMessagePayload,
+	pinProblems,
+	plainPayloadSchema,
+	reviewPayloadSchema,
 	SCOPE_KINDS,
+	sendMessageInvariants,
 	TaskSchema,
 } from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
@@ -111,6 +115,47 @@ describe("demo world schema validation", () => {
 			}
 		}
 		expect(failures, failures.join("\n")).toHaveLength(0);
+	});
+
+	test("every review holds together, and every comment's pin fits a review in its own thread", async ({
+		db,
+	}) => {
+		await seedWorld(db);
+
+		const msgRows = await rows<{ id: string; thread_id: string; type: string; payload: string }>(
+			db,
+			"SELECT id, thread_id, type, payload FROM messages WHERE type IN ('review', 'plain')",
+		);
+		const reviews = new Map(
+			msgRows
+				.filter((m) => m.type === "review")
+				.map((m) => [
+					m.id,
+					{ threadId: m.thread_id, payload: reviewPayloadSchema.parse(JSON.parse(m.payload)) },
+				]),
+		);
+		const failures: string[] = [];
+		for (const [id, { payload }] of reviews) {
+			const { taskId: _, ...review } = payload;
+			for (const p of sendMessageInvariants({ threadId: "t", review }, { hasCallingThread: true }))
+				failures.push(`review ${id}: ${p.code} at ${p.path}`);
+		}
+		const anchored = msgRows.flatMap((m) => {
+			const anchor =
+				m.type === "plain" ? plainPayloadSchema.parse(JSON.parse(m.payload)).anchor : undefined;
+			return anchor?.review
+				? [{ id: m.id, threadId: m.thread_id, anchor, review: anchor.review }]
+				: [];
+		});
+		expect(anchored.length).toBeGreaterThan(0);
+		for (const { id, threadId, anchor, review } of anchored) {
+			const on = reviews.get(review);
+			if (on?.threadId !== threadId)
+				failures.push(`comment ${id}: its review is not in its thread`);
+			for (const p of pinProblems(anchor, on?.payload.parts ?? []))
+				failures.push(`comment ${id}: ${p.code}`);
+		}
+		expect(failures, failures.join("\n")).toEqual([]);
 	});
 
 	test("every seeded document has valid status and scopeKind", async ({ db }) => {

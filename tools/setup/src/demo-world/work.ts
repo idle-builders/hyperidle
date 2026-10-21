@@ -12,7 +12,7 @@
  */
 
 import { documents, type HyperIdleDb, subscriptions, tasks } from "@hyperidle/db";
-import type { TaskState } from "@hyperidle/domain-model";
+import type { ReviewPart, TaskState } from "@hyperidle/domain-model";
 import {
 	BUILDER_ID,
 	DESIGNER_ID,
@@ -50,6 +50,7 @@ import {
 	taskThreadId,
 	weeklyRunId,
 } from "./ids.js";
+import { COMPARISON_TABLE } from "./review-pages.js";
 import { type MessageSpec, plain, seedThreads, type ThreadSpec } from "./threads.js";
 import type { DemoClock } from "./time.js";
 
@@ -713,6 +714,14 @@ function otherRoots(clock: DemoClock): TaskSpec[] {
 	];
 }
 
+const REFUND_WORDING = {
+	id: "wording",
+	kind: "text",
+	label: "Help centre",
+	title: "Refunds",
+	body: "You get all of it back if you ask within 14 days of a payment.\n\nAfter that, we refund the days you have not used, to the card you paid with.",
+} as const satisfies ReviewPart;
+
 function questionsAndReviews(clock: DemoClock): MessageSpec[] {
 	return [
 		{
@@ -753,9 +762,27 @@ function questionsAndReviews(clock: DemoClock): MessageSpec[] {
 			type: "review",
 			payload: {
 				title: "Comparison table, stacked layout",
+				stage: "Design",
 				reasoning: [
-					"The table stacks into one column on a narrow screen. Both widths are here: 375 and 1280 px.",
-					"Flagged: the order of the plans on a phone. I put the price on top.",
+					"The table stacks into one column on a narrow screen. Look at it at phone width; it reads the same at 1280.",
+				],
+				parts: [
+					{
+						id: "table",
+						kind: "preview",
+						label: "Live preview",
+						title: "Comparison table",
+						url: COMPARISON_TABLE,
+					},
+				],
+				flags: [
+					{
+						id: "order",
+						part: "table",
+						label: "the order of the plans on a phone",
+						spot: { kind: "element", selector: "#starter .price" },
+						says: "I put the price on top of each plan. It assumes people compare plans by price first — I am not sure that holds on a phone.",
+					},
 				],
 				taskId: TASK_LAYOUT,
 			},
@@ -770,7 +797,22 @@ function questionsAndReviews(clock: DemoClock): MessageSpec[] {
 				title: "Refund wording",
 				reasoning: [
 					"Two short paragraphs: a full refund within 14 days of a payment, the unused days after that.",
-					"Flagged: the second paragraph says “days you have not used”; the receipt says “unused time”.",
+				],
+				parts: [REFUND_WORDING],
+				flags: [
+					{
+						id: "unused",
+						part: "wording",
+						label: "the second paragraph",
+						spot: {
+							kind: "range",
+							start: REFUND_WORDING.body.indexOf("days you have not used"),
+							end:
+								REFUND_WORDING.body.indexOf("days you have not used") +
+								"days you have not used".length,
+						},
+						says: "This says “days you have not used”; the receipt says “unused time”. One of them should change.",
+					},
 				],
 				reviewer: MAYA_ID,
 				taskId: TASK_REFUNDS,

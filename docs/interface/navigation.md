@@ -27,8 +27,8 @@ Any object reference in the UI is opened through a single `OpenHandler`. The ren
 
 Three target kinds:
 
-- **host** — resolves to a page via `resolveHostRoute(hostKind, hostId)`. Route host kinds: `task`, `document`, `agent`, `team`. `user` and `factory` resolve to null (no navigation). An optional `blockId` appends `#block-<encoded>` so the target page can scroll to the matching block.
-- **review** — navigates to `/reviews/:reviewId?threadId=<encoded>`.
+- **host** — resolves to a page via `resolveHostRoute(hostKind, hostId)`. Route host kinds: `task`, `document`, `agent`, `team`. `user` and `factory` resolve to null (no navigation).
+- **review** — opens at its thread's address, `/conversations/<thread>?review=<message>`.
 - **session** — fires a page-supplied callback to open a session pane; no URL navigation.
 
 Opening intent maps to presentation:

@@ -407,7 +407,7 @@ describe("generic transcript delivery", () => {
 		// comes.
 		expect(prompt, "the agent elects to ask; nothing stops it").toContain("Nothing here stops you");
 		expect(prompt, "a decline must not read as the task being refused").toContain(
-			"declines the approach you proposed, not the task",
+			"turns down the approach you proposed, not the task",
 		);
 	});
 

@@ -410,7 +410,7 @@ export function ThreadPage({ id }: { id: string }) {
 							/>
 						);
 					const sender = people.get(e.senderId);
-					const spot = (e.messages[0]?.payload as PlainReadPayload | undefined)?.spotLabel;
+					const spot = (e.messages[0]?.payload as PlainReadPayload | undefined)?.anchor?.label;
 					return (
 						<Msg
 							key={e.key}

@@ -23,7 +23,7 @@ This separation is enforced by a scoped `no-restricted-imports` ESLint rule (W1,
 | Kind | What it is |
 |---|---|
 | `prose` | A text body |
-| `review` | A review message — shows a canvas summary, links to the review page |
+| `review` | A review message — shows what its sender says about it, links to the review |
 | `resolved` | A resolved verdict with label and summary |
 | `questionnaire` | A question with options |
 | `tool` | One tool call the agent made (compact row) |

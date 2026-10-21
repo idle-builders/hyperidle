@@ -250,6 +250,8 @@ export {
 } from "./mention.js";
 export type { ModelProvider } from "./model-provider.js";
 export { MODEL_PROVIDERS } from "./model-provider.js";
+export type { Anchor, Flag, Pin, ReviewPart, Spot } from "./review.js";
+export { pinProblems } from "./review.js";
 export type {
 	ActivityEntry,
 	AnswerDeltaData,
@@ -279,11 +281,7 @@ export {
 export type { AgentHealthLevel, AgentOperationalStatus } from "./team.js";
 export type {
 	AgentSessionStateSnapshot,
-	AnchorRef,
 	AssistantNotice,
-	BlockHostKind,
-	BlockId,
-	CanvasArtifactRef,
 	EntityRef,
 	HeadCollapseResult,
 	HostKind,
@@ -293,10 +291,7 @@ export type {
 	MentionRef,
 	MessageId,
 	MessageType,
-	PlainPayloadWithBlockId,
 	RedactedPayload,
-	ReviewCanvasArtifact,
-	ReviewCanvasKind,
 	ThreadId,
 	VerdictDecision,
 } from "./thread.js";
@@ -306,7 +301,6 @@ export {
 	isBlocking,
 	isRedactedPayload,
 	MESSAGE_TYPES,
-	REVIEW_CANVAS_KINDS,
 	VERDICT_DECISIONS,
 	verdictDecisionLabel,
 } from "./thread.js";

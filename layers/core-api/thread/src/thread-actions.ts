@@ -31,6 +31,7 @@ import {
 	type OpenThreadInput,
 	openThread as openThreadDeclaration,
 	type Problem,
+	pinProblems,
 	type ReviewVerdictOutcome,
 	type ReviewVerdictRecorderFn,
 	resolvesMessageInvariants,
@@ -149,7 +150,6 @@ function rowToMessage(row: {
 	type: string;
 	payload: string;
 	clientKey: string;
-	blockId: string | null;
 	resolvedAt: string | null;
 	deletedAt: string | null;
 	redactedAt: string | null;
@@ -162,7 +162,6 @@ function rowToMessage(row: {
 		type: row.type,
 		payload: JSON.parse(row.payload) as unknown,
 		clientKey: row.clientKey,
-		blockId: row.blockId,
 		resolvedAt: row.resolvedAt,
 		deletedAt: row.deletedAt,
 		redactedAt: row.redactedAt,
@@ -388,12 +387,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 	async function assembleThreadView(
 		ctx: ActionContext,
 		row: Parameters<typeof rowToThread>[0],
-		blockId?: string,
 	): Promise<ThreadView> {
 		const members = parseParticipants(row.participants);
 		const messageRows = await store.listMessages(ctx.db, {
 			threadId: row.id,
-			...(blockId !== undefined ? { blockId } : {}),
 			order: "createdAt",
 			dir: "desc",
 			tiebreakId: true,
@@ -450,7 +447,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			};
 		}
 
-		return { ok: true, data: await assembleThreadView(ctx, row, input.blockId) };
+		return { ok: true, data: await assembleThreadView(ctx, row) };
 	}
 
 	// -----------------------------------------------------------------------
@@ -847,6 +844,9 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			}
 		}
 
+		const reviewProblems = await reviewLinkProblems(ctx, input, threadId);
+		if (reviewProblems.length > 0) return { ok: false, problems: reviewProblems };
+
 		const resolvesMessageId = (input.verdict ?? input.answer)?.resolvesMessageId;
 		if (resolvesMessageId !== undefined) {
 			resolvesMessageRow = await store.findMessage(ctx.db, { id: resolvesMessageId });
@@ -1024,7 +1024,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					await store.updateMessage(tx as HyperIdleDb, messageId, {
 						type: body.type,
 						payload: JSON.stringify(body.payload),
-						blockId: body.blockId ?? null,
 					});
 				} else {
 					const values: NewMessage = {
@@ -1034,7 +1033,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						type: body.type,
 						payload: JSON.stringify(body.payload),
 						clientKey,
-						blockId: body.blockId ?? null,
 						createdAt: now,
 					};
 					await store.insertMessage(tx as HyperIdleDb, values);
@@ -1074,7 +1072,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					type: body.type,
 					payload: body.payload,
 					clientKey: existingMessageRow?.clientKey ?? clientKey,
-					blockId: body.blockId ?? null,
 					createdAt: now,
 				};
 				if (membersChanged) messageAfter.members = finalMembers;
@@ -1442,6 +1439,46 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 	];
 }
 
+/**
+ * The review a message points into must be one in the same thread: a comment's pin must fit the
+ * part it names, and a round must follow a review that is there.
+ */
+async function reviewLinkProblems(
+	ctx: ActionContext,
+	input: SendMessageInput,
+	threadId: string | undefined,
+): Promise<Problem[]> {
+	const reviewIn = async (id: string) => {
+		const row = await store.findMessage(ctx.db, { id });
+		if (row?.type !== "review" || row.threadId !== threadId) return undefined;
+		const parsed = reviewPayloadSchema.safeParse(JSON.parse(row.payload));
+		return parsed.success ? parsed.data : undefined;
+	};
+	const anchored = input.anchor?.review;
+	if (anchored !== undefined) {
+		const review = await reviewIn(anchored);
+		if (!review)
+			return [
+				{
+					code: "anchor_review_unknown",
+					message: "That review is not in this thread.",
+					path: "anchor.review",
+				},
+			];
+		if (input.anchor) return pinProblems(input.anchor, review.parts ?? []);
+	}
+	const previous = input.review?.previousReviewId;
+	if (previous !== undefined && !(await reviewIn(previous)))
+		return [
+			{
+				code: "previous_review_unknown",
+				message: "The round this one follows must be a review in this thread.",
+				path: "review.previousReviewId",
+			},
+		];
+	return [];
+}
+
 /** What a verdict or an answer tells the agent whose review or question it resolves. */
 function replyOf(input: SendMessageInput): SessionResumeReply | undefined {
 	if (input.verdict !== undefined) {
@@ -1463,7 +1500,6 @@ function replyOf(input: SendMessageInput): SessionResumeReply | undefined {
 function messageBodyOf(input: SendMessageInput): {
 	type: MessageType;
 	payload: Record<string, unknown>;
-	blockId?: string;
 } {
 	if (input.text !== undefined) {
 		return {
@@ -1471,10 +1507,8 @@ function messageBodyOf(input: SendMessageInput): {
 			payload: {
 				text: input.text,
 				...(input.refs !== undefined ? { refs: input.refs } : {}),
-				...(input.blockId !== undefined ? { blockId: input.blockId } : {}),
-				...(input.spotLabel !== undefined ? { spotLabel: input.spotLabel } : {}),
+				...(input.anchor !== undefined ? { anchor: input.anchor } : {}),
 			},
-			...(input.blockId !== undefined ? { blockId: input.blockId } : {}),
 		};
 	}
 	if (input.review !== undefined)

@@ -438,6 +438,63 @@ describe("send_message — answering a question, approving or rejecting a review
 		);
 	});
 
+	const explainer = {
+		title: "Trial-end explainer",
+		reasoning: ["The page says the date and the amount."],
+		parts: [
+			{
+				id: "mail",
+				kind: "text",
+				label: "Email",
+				title: "Three-day warning",
+				body: "Your trial ends on 1 September.",
+			},
+		],
+	};
+
+	test("a comment pinned to a review's part is kept with its pin; one pinned past the part is refused", async ({
+		db,
+	}) => {
+		const { ask, reply } = await seedAsk(db, "6");
+		const reviewId = await ask({ review: explainer });
+		const pin = { id: "c1", review: reviewId, part: "mail", label: "1 September" };
+
+		const fits = await reply({
+			text: "Both dates?",
+			anchor: { ...pin, spot: { kind: "range", start: 19, end: 30 } },
+		});
+		const past = await reply({
+			text: "And this?",
+			anchor: { ...pin, spot: { kind: "range", start: 19, end: 99 } },
+		});
+		const elsewhere = await reply({ text: "Here?", anchor: { ...pin, review: "no-such-review" } });
+
+		expect(fits.status).toBe(200);
+		expect(past.body.problems?.map((p) => p.code)).toEqual(["pin_range_outside"]);
+		expect(elsewhere.body.problems?.map((p) => p.code)).toEqual(["anchor_review_unknown"]);
+		const stored = await db.select().from(messages).where(eq(messages.type, "plain"));
+		expect(stored.map((m) => JSON.parse(m.payload).anchor)).toEqual([
+			{ ...pin, spot: { kind: "range", start: 19, end: 30 } },
+		]);
+	});
+
+	test("a second round names the review it retries, which must be a review in the same thread", async ({
+		db,
+	}) => {
+		const { ask, reply } = await seedAsk(db, "7");
+		const round1 = await ask({ review: explainer });
+		await reply({ verdict: { decision: "reject", resolvesMessageId: round1, note: "Email too." } });
+
+		const round2 = await ask({
+			review: { ...explainer, previousReviewId: round1, changed: ["New: the email"] },
+		});
+		const notAReview = ask({ review: { ...explainer, previousReviewId: "missing" } });
+
+		const [stored] = await db.select().from(messages).where(eq(messages.id, round2));
+		expect(JSON.parse(stored?.payload ?? "{}").previousReviewId).toBe(round1);
+		await expect(notAReview).rejects.toThrow(/previous_review_unknown/);
+	});
+
 	test("a verdict cannot resolve a question", async ({ db }) => {
 		const { ask, reply, resolvedAt } = await seedAsk(db, "5");
 		const questionId = await ask({ questionnaire: billing });

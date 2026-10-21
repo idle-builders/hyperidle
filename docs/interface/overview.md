@@ -17,7 +17,7 @@ The shell also carries the AssistantOverlay (command-K) and a ToastRegion for tr
 
 ## What the human does
 
-The human answers every review. An agent sends a review message when it needs a decision; the session ends; the human reads the canvas on the review page and casts a verdict; the agent's session resumes. No review is auto-approved.
+The human answers every review. An agent sends a review message when it needs a decision; the session ends; the human checks its parts and the agent's flags on the review page and approves or rejects it; the agent's session resumes. No review is auto-approved.
 
 ## Approval rate
 

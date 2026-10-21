@@ -35,8 +35,8 @@ Host is immutable after creation.
 
 `MESSAGE_TYPES` (`thread.ts`): `plain | review | questionnaire | verdict | answer`.
 
-- **plain** — text, optional inline refs (entity refs, mention refs, canvas refs), optional `blockId` anchor.
-- **review** — agent submits evidence for a human to decide on; has a `title`, `reasoning`, optional `artifacts` (canvas payloads).
+- **plain** — text, optional inline refs (entity refs, mention refs), optional `anchor`: where a comment points — a pin on a part of a review, or on a block of the thread's document.
+- **review** — something produced, put to a person to judge; has a `title`, `reasoning`, and optionally `stage`, `parts`, `flags`, `previousReviewId` and `changed` (see below).
 - **questionnaire** — agent asks a constrained question; has a `title`, `question`, `options` (up to 16).
 - **verdict** — a human approves or rejects a review; carries `decision`, `resolvesMessageId` and an optional `note`.
 - **answer** — answers a questionnaire; carries `resolvesMessageId` and exactly one of `option` (one of the questionnaire's options, word for word) or `text` (the sender's own words).
@@ -49,7 +49,6 @@ A plain message may carry `refs: InlineRef[]`. `InlineRef` is a discriminated un
 
 - `EntityRef` — kind `document | task | message`.
 - `MentionRef` — kind `mention`; carries `identityId`, `displayName`, `sourceText`.
-- `CanvasArtifactRef` — kind `artifact`; points to a `ReviewCanvasArtifact` id inside a review message payload, not a stored artifacts-table row.
 
 ## Verdicts and answers
 
@@ -83,8 +82,14 @@ After a message lands, agents are woken if:
 
 The sender is never woken. Code: `agentsToWake`, `actions/thread.ts`.
 
-## Review canvas kinds
+## Review parts, pins, flags and rounds
 
-Nine kinds, declared in `REVIEW_CANVAS_KINDS` (`thread.ts`): `outcome_summary`, `field_change_set`, `action_operation`, `rendered_in_context`, `metrics_moved`, `visual_diff`, `code_diff`, `batch`, `browser_preview`. Plus an unknown fallback.
+Source: `framework/domain-model/src/review.ts`.
 
-See [interface/reviews.md](../interface/reviews.md) for how the review page renders these.
+- **Parts** — a review is made of parts of six kinds: `preview`, `code`, `image`, `numbers`, `text`, `items`. Each has an `id`, a `label` and a `title`.
+- **Pins** — where a flag or a comment points: a part, a few words naming the spot, and a `spot` pointed at the way that part is (an element, a line, a region, a figure, a range of text, an item).
+- **Flags** — the sender's own pointers, in the review payload: a pin and what it `says`.
+- **Comments** — plain messages whose `anchor` is a pin plus the `review` they are on; a reply repeats the pin, so each pin is its own little thread.
+- **Rounds** — a retry is a new review naming the one it follows in `previousReviewId`, in the same thread.
+
+See [interface/reviews.md](../interface/reviews.md) for the whole account.

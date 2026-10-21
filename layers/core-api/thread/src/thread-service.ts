@@ -34,7 +34,6 @@ export interface MessageFilter {
 	readonly threadId?: string;
 	readonly threadIds?: string[];
 	readonly types?: string[];
-	readonly blockId?: string;
 	readonly unresolved?: boolean;
 	readonly includeDeleted?: boolean;
 	readonly threadInitiatorId?: string;
@@ -174,7 +173,6 @@ export async function findMessage(
 	if (q.clientKey !== undefined) conds.push(eq(messages.clientKey, q.clientKey));
 	if (q.senderId !== undefined) conds.push(eq(messages.senderId, q.senderId));
 	if (q.threadId !== undefined) conds.push(eq(messages.threadId, q.threadId));
-	if (q.blockId !== undefined) conds.push(eq(messages.blockId, q.blockId));
 
 	const w = buildWhere(conds);
 	let base = exec.select().from(messages).$dynamic();
@@ -192,7 +190,6 @@ export function listMessages(exec: HyperIdleDb, f: MessageFilter): Promise<Messa
 	if (f.threadIds !== undefined && f.threadIds.length > 0)
 		conds.push(inArray(messages.threadId, f.threadIds));
 	if (f.types !== undefined && f.types.length > 0) conds.push(inArray(messages.type, f.types));
-	if (f.blockId !== undefined) conds.push(eq(messages.blockId, f.blockId));
 	if (f.unresolved === true) conds.push(sql`${messages.resolvedAt} IS NULL`);
 	if (f.includeDeleted === false) conds.push(sql`${messages.deletedAt} IS NULL`);
 	if (f.since !== undefined) conds.push(gte(messages.createdAt, f.since));

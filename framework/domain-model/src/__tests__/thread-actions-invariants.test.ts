@@ -49,12 +49,33 @@ describe("sendMessageInvariants", () => {
 		expect(problems.map((p) => p.code)).toContain("two_bodies");
 	});
 
-	it("plain_fields_on_non_plain: refs/blockId/spotLabel without text", () => {
+	it("plain_fields_on_non_plain: refs or an anchor without text", () => {
 		const problems = sendMessageInvariants(
-			{ threadId: "t1", review: { title: "r", reasoning: [] }, blockId: "b1" },
+			{
+				threadId: "t1",
+				review: { title: "r", reasoning: [] },
+				anchor: { id: "p1", part: "page", label: "the heading" },
+			},
 			noCaller,
 		);
 		expect(problems.map((p) => p.code)).toContain("plain_fields_on_non_plain");
+	});
+
+	it("a review whose flag points at a part it does not have is refused", () => {
+		const problems = sendMessageInvariants(
+			{
+				threadId: "t1",
+				review: {
+					title: "r",
+					reasoning: [],
+					flags: [{ id: "a", part: "missing", label: "here", says: "Look." }],
+				},
+			},
+			noCaller,
+		);
+		expect(problems.map((p) => [p.code, p.path])).toEqual([
+			["pin_part_unknown", "review.flags.0.part"],
+		]);
 	});
 
 	it("overwrite_needs_thread: messageId without threadId", () => {

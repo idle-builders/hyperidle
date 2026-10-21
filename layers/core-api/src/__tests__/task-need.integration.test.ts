@@ -86,7 +86,6 @@ async function insertMsg(
 		payload: "{}",
 		clientKey: opts.id,
 		resolvedAt: opts.resolvedAt ?? null,
-		blockId: null,
 		createdAt: now,
 		deletedAt: null,
 	});

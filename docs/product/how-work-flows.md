@@ -49,7 +49,7 @@ One verdict resolves the whole review. The agent gets your verdict as context an
 
 When an agent needs an answer rather than a decision, it asks a **question** with options. You pick one of the options, or write your own answer, and the agent resumes with it.
 
-There are nine review canvas kinds — code diffs, visual diffs, rendered previews, field change sets, and more — each matched to what the agent was proposing.
+A review is made of parts the agent picks for the question: a live page, a code diff, an image, numbers, a text, or a batch of items. The agent flags the spots it decided on its own or is not sure about, and you comment right on the part. After a reject, the next try is a new round that links back to the first.
 
 ---
 

@@ -443,14 +443,11 @@ export const messages = pgTable(
 		redactedAt: text("redacted_at"),
 		resolvedAt: text("resolved_at"),
 		createdAt: text("created_at").notNull(),
-		/** Structured, queryable block anchor. Dual-written alongside payload.blockId. */
-		blockId: text("block_id"),
 	},
 	(table) => [
 		index("messages_thread_id_idx").on(table.threadId, table.createdAt),
 		uniqueIndex("messages_idempotency_uq").on(table.threadId, table.senderId, table.clientKey),
 		index("messages_unresolved_idx").on(table.threadId, table.resolvedAt),
-		index("messages_block_id_idx").on(table.blockId),
 	],
 );
 
