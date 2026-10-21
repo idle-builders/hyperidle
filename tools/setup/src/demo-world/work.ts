@@ -2,15 +2,16 @@
  * The work: the task "Trials that convert without a call" with its whole tree
  * of parts, the small fix "Trial dates normalised to UTC", the recurring
  * "Support themes, weekly" with one part per Monday, and the other root tasks
- * in the Work list. Each task has its own conversation, which holds its
- * questions and reviews; the documents an agent made while working hang on the
- * part that made them.
+ * in the Work list. Each task has a conversation, which holds its questions and
+ * reviews: its own, or the one it was handed off in (the trial-end fixes). The
+ * documents an agent made while working hang on the part that made them.
  *
  * A task's summary is its outcome summary once it is done, and its notes while
- * it runs or waits. A part that waits for other parts is in `hold`.
+ * it runs or waits. A part that waits for other parts is in `hold`. Finn
+ * follows the trials task, since he started it.
  */
 
-import { documents, type HyperIdleDb, tasks } from "@hyperidle/db";
+import { documents, type HyperIdleDb, subscriptions, tasks } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import {
 	BUILDER_ID,
@@ -602,6 +603,7 @@ function otherRoots(clock: DemoClock): TaskSpec[] {
 			],
 			createdAt: clock.at(0, "05:10"),
 			updatedAt: clock.at(0, "05:55"),
+			threadId: THREAD_TRIAL_END,
 		},
 		{
 			id: TASK_PRORATION,
@@ -939,6 +941,22 @@ export async function seedWork(db: HyperIdleDb, clock: DemoClock): Promise<void>
 	}
 
 	await seedThreads(db, [], questionsAndReviews(clock));
+
+	// Finn started the trials task, and a person follows what they start.
+	await db
+		.insert(subscriptions)
+		.values({
+			id: "demo-sub-follow-trials",
+			userId: FOUNDER_ID,
+			event: "task.changed",
+			objectId: TASK_TRIALS,
+			schedule: null,
+			paused: false,
+			nextRunAt: null,
+			createdAt: clock.daysAgo(14),
+			updatedAt: clock.daysAgo(14),
+		})
+		.onConflictDoNothing();
 
 	const made: MadeDoc[] = [
 		...madeWhileWorking(clock),
