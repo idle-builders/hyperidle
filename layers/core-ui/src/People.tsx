@@ -1,19 +1,46 @@
-import { Fragment, useState } from "react";
-import { DOC_FORMATS, FormatBar } from "./FormatBar";
+import type {
+	DocumentRow,
+	PluginListing,
+	SessionRow,
+	SubscriptionEventName,
+	Task,
+	UserRow,
+	UserView,
+} from "@hyperidle/domain-model";
+import { PERSON_REASONS } from "@hyperidle/domain-model";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
+import { call, type InputOf } from "./api";
+import { disciplinesOf } from "./doc-page";
+import { LOOKS, useLooks } from "./looks";
 import { Avatar } from "./Msg";
-import { type Need, NeedIcon } from "./NeedIcon";
+import { NeedIcon } from "./NeedIcon";
 import {
-	PLUGIN_ORDER,
-	PLUGIN_STATES,
-	PLUGINS,
-	PluginDialog,
-	type PluginId,
-	PluginPage,
-	type PluginState,
-	pluginLine,
-} from "./Plugins";
-import { JOB, type Row as Pair, ReachDialog, StartDialog, type Subject, UserDialog } from "./Setup";
-import { TEAMS, type TeamName } from "./teams";
+	agentJobs,
+	agentStand,
+	countWords,
+	crewOf,
+	folderMay,
+	folderPath,
+	forWords,
+	givenTo,
+	type Job,
+	joinWords,
+	type Pair,
+	personStand,
+	pluginName,
+	programWords,
+	reasonWords,
+	serviceHow,
+	sinceWords,
+	startedJobs,
+	startRows,
+	waitingJobs,
+} from "./people-page";
+import { ReachDialog, type ReachRow, StartDialog, UserDialog } from "./Setup";
+import { age, initials, teamsOf } from "./sidebar-lists";
+import { useNow } from "./Thread";
+import { useAction } from "./useAction";
 
 /**
  * PEOPLE — agents and people are the same kind of user, so they share one page. The page is that
@@ -24,602 +51,34 @@ import { TEAMS, type TeamName } from "./teams";
  * memory). There is no separate settings screen: your own page is where your settings live, and it
  * is one click away at the bottom of the sidebar. A team is a group inside the one organisation —
  * a product team, a function, or both; a person can be in several, an agent is in one. A team's
- * page is reached from Work, where you jump between teams: its people and agents, and in its box
- * its plugins. Changing any of it happens in a small dialog over the page. Anything long is a
- * document: a new agent, or a new reason for it to start, is made in a dialog, and its
- * instructions are then written as a document.
+ * page is reached from Work: its people and agents, and in its box its plugins. Changing any of it
+ * happens in a small dialog over the page. Anything long is a document: a new agent, or a new
+ * reason for it to start, is made in a dialog, and its instructions are then written as a document.
  */
-type UserId = "you" | "maya" | "builder" | "growth" | "designer" | "facilitation" | "researcher";
+
 type DialogId = "folder" | "service" | "start" | "edit";
-
-/** Where the page opens. Nothing set is the Product team's page, opened from Work. */
-interface View {
-	team?: TeamName;
-	open?: UserId;
-	dialog?: DialogId | "add" | "plugin";
-	/** A document: an agent's instructions, or what one of its reasons makes it do. */
-	file?: string;
-	plugin?: PluginId;
-	plugins?: Partial<Record<PluginId, PluginState>>;
-}
-const INSTRUCTIONS = "Instructions";
-
-/** The page a route names: `me` is your own; a name this page does not know opens the Product team. */
-export function viewFor(route: { user?: string; team?: string; plugin?: string }): View {
-	const user = route.user === "me" ? "you" : route.user;
-	if (user && user in USERS) return { open: user as UserId };
-	if (route.plugin && route.plugin in PLUGINS) return { plugin: route.plugin as PluginId };
-	const team = TEAMS.find((t) => t.name === route.team);
-	return team ? { team: team.name } : {};
-}
-
-interface Work {
-	title: string;
-	words: string;
-	mark: "run" | "open" | "done";
-	needs?: Need;
-	/** Whose initials mark a running row, when it is not the user the page is about. */
-	by?: string;
-}
-interface User {
-	name: string;
-	av: string;
-	kind: "Agent" | "Person";
-	/** An agent works for one person, or for everyone in the organisation. */
-	owner?: UserId | "everyone";
-	/** The team an agent is in. A person's teams are in TEAM_PEOPLE. */
-	team?: TeamName;
-	what: string;
-	status: string;
-	stand: string;
-	about: string;
-	onTitle: string;
-	on: Work[];
-	doneToday?: number;
-	/** For a person: the tasks they handed to someone, and how each stands. */
-	started?: Work[];
-	runsOn?: Pair[];
-	/** The folders they work in. */
-	worksIn: Pair[];
-	/** The services they can reach. */
-	reach: Pair[];
-	/** An agent: what makes it start working. A person: what they are told about, each a switch. */
-	when: Pair[];
-	/** What a person follows, beyond the general rules. */
-	following?: string;
-	/** What makes them who they are: an agent's instructions, skills and memory; a person's "about". */
-	self: Pair[];
-	facts: string[];
-	/** Their craft. An agent gets the documents marked with the same discipline. */
-	discipline?: string;
-	/** When you last talked. */
-	talked?: string;
-	/** Not in the team until someone adds it. */
-	fresh?: boolean;
-	/** Its instructions are not written yet. */
-	unwritten?: boolean;
-	/** The plugin it came with. */
-	plugin?: PluginId;
-}
-
-const USERS: Record<UserId, User> = {
-	you: {
-		discipline: "Product",
-		name: "You",
-		av: "FO",
-		kind: "Person",
-		what: "Founder. Product and pricing.",
-		status: "Here",
-		stand: "Here now. Two reviews and two questions wait for you.",
-		about: "You decide what gets built and what customers see. Builder and Growth work for you.",
-		onTitle: "Waiting for you",
-		on: [
-			{
-				title: "Trial-end explainer · Final",
-				words: "Review · from Builder · open 8h",
-				mark: "open",
-				needs: "review",
-			},
-			{
-				title: "Comparison table, stacked layout · Final",
-				words: "Review · from Designer · open 5h",
-				mark: "open",
-				needs: "review",
-			},
-			{
-				title: "When do we take the card?",
-				words: "Question · from Builder · 6h ago",
-				mark: "open",
-				needs: "input",
-			},
-			{
-				title: "Rollout rule, written down: will you own it?",
-				words: "Question · from Maya · 11h ago",
-				mark: "open",
-				needs: "input",
-			},
-		],
-		worksIn: [
-			{ what: "~/code/northwind", why: "on this computer · Builder works here" },
-			{ what: "~/code/northwind-site", why: "on this computer" },
-		],
-		reach: [
-			{ what: "GitHub", why: "northwind, your account" },
-			{ what: "Zendesk", why: "the support desk" },
-			{ what: "Stripe", why: "payments" },
-			{ what: "Google Drive", why: "the Northwind shared drive" },
-		],
-		started: [
-			{ title: "Trials that convert without a call", words: "Growth · 6 of 12 done", mark: "open" },
-			{ title: "Usage-based tier, metering", words: "Builder · running 2h", mark: "run", by: "BU" },
-			{
-				title: "Explain what happens when a trial ends",
-				words: "Builder · needs review",
-				mark: "open",
-				needs: "review",
-			},
-		],
-		when: [
-			{ what: "A review is raised for me", why: "" },
-			{ what: "Someone mentions me", why: "" },
-			{ what: "A task I started is done or stuck", why: "" },
-			{ what: "Something I follow changes", why: "" },
-		],
-		following: "You follow 4 documents and 3 tasks",
-		self: [{ what: "About you", why: "What agents should know when they work with you" }],
-		facts: ["Person", "Teams Product and Support", "Here since 3 July"],
-	},
-	maya: {
-		discipline: "Support",
-		name: "Maya Chen",
-		av: "MC",
-		kind: "Person",
-		what: "Support and ops.",
-		status: "Away",
-		stand: "Away until Monday. One review waits for her.",
-		about: "Answers customers and owns everything that goes out to them. Designer works for her.",
-		onTitle: "Waiting for Maya",
-		on: [
-			{
-				title: "Refund wording · Final",
-				words: "Review · from Designer · open 2h",
-				mark: "open",
-				needs: "review",
-			},
-		],
-		worksIn: [{ what: "~/code/northwind-site", why: "on her computer · Designer works here" }],
-		reach: [
-			{ what: "Zendesk", why: "the support desk" },
-			{ what: "Google Drive", why: "the Northwind shared drive" },
-		],
-		started: [
-			{ title: "Refund wording", words: "Designer · needs review", mark: "open", needs: "review" },
-		],
-		when: [],
-		self: [{ what: "About Maya", why: "What agents should know when they work with her" }],
-		facts: ["Person", "Team Support", "Here since 3 July"],
-		talked: "Friday 13:10",
-	},
-	builder: {
-		discipline: "Engineering",
-		name: "Builder",
-		av: "BU",
-		kind: "Agent",
-		owner: "you",
-		team: "Product",
-		what: "Builds and ships.",
-		status: "Working",
-		stand: "Working on “Reminder email three days before”, 12 minutes in.",
-		about:
-			"Writes and changes code, proves it works, and says what it did. It stops and asks when something reaches customers.",
-		onTitle: "On now",
-		on: [
-			{ title: "Reminder email three days before", words: "Running · 12 min", mark: "run" },
-			{ title: "Usage-based tier, metering", words: "Running · 2h", mark: "run" },
-			{
-				title: "Decide when the card is taken",
-				words: "Needs input · 6h",
-				mark: "open",
-				needs: "input",
-			},
-			{ title: "Put the answer into the checkout", words: "Waits", mark: "open" },
-		],
-		doneToday: 2,
-		runsOn: [
-			{ what: "Claude Code", why: "on your computer · signed in" },
-			{ what: "Model", why: "the default" },
-			{ what: "2 sessions at a time", why: "" },
-		],
-		worksIn: [{ what: "~/code/northwind", why: "reads and changes" }],
-		reach: [
-			{ what: "GitHub", why: "northwind/app · opens pull requests" },
-			{ what: "Zendesk", why: "reads tickets" },
-		],
-		when: [
-			{ what: "Someone mentions @Builder", why: "it joins that thread", fixed: true },
-			{ what: "A task is handed to it", why: "it starts when a session is free", fixed: true },
-		],
-		self: [
-			{ what: "Instructions", why: "Who Builder is and how it works · you edited it 3 weeks ago" },
-			{ what: "Skills · 3", why: "Write a migration · Run the tests · Open a pull request" },
-			{ what: "Memory · 14 notes", why: "Only you and Builder can read these" },
-		],
-		facts: ["Agent · works for you", "Team Product", "Here since 3 July"],
-		talked: "yesterday 17:40",
-	},
-	growth: {
-		discipline: "Growth",
-		name: "Growth",
-		av: "GR",
-		kind: "Agent",
-		owner: "you",
-		team: "Product",
-		what: "Trials and pricing: numbers and experiments.",
-		status: "Idle",
-		stand: "Idle. Its next run is “Support themes, weekly” on Monday at 07:00.",
-		about:
-			"Looks at how trials turn into paid plans, runs experiments on pricing, and keeps the numbers written down.",
-		onTitle: "On now",
-		on: [
-			{ title: "Trials that convert without a call", words: "6 of 12 done", mark: "open" },
-			{ title: "Support themes, weekly", words: "Every Monday", mark: "open" },
-		],
-		runsOn: [
-			{ what: "Codex", why: "on your computer · signed in" },
-			{ what: "Model", why: "the default" },
-			{ what: "1 session at a time", why: "" },
-		],
-		worksIn: [],
-		reach: [
-			{ what: "Stripe", why: "reads payments" },
-			{ what: "Zendesk", why: "reads tickets" },
-			{ what: "Google Drive", why: "the Northwind shared drive" },
-		],
-		when: [
-			{ what: "Every Monday at 07:00", why: "it starts a run of Support themes, weekly" },
-			{ what: "Someone mentions @Growth", why: "it joins that thread", fixed: true },
-			{ what: "A task is handed to it", why: "it starts when a session is free", fixed: true },
-		],
-		self: [
-			{ what: "Instructions", why: "Who Growth is and how it works · you edited it 2 months ago" },
-			{ what: "Skills · 2", why: "Read the payment numbers · Read the support desk" },
-			{ what: "Memory · 9 notes", why: "Only you and Growth can read these" },
-		],
-		facts: ["Agent · works for you", "Team Product", "Here since 14 July"],
-		talked: "today 14:32",
-	},
-	designer: {
-		discipline: "Design",
-		name: "Designer",
-		av: "DS",
-		kind: "Agent",
-		owner: "maya",
-		team: "Support",
-		what: "Pages and copy.",
-		status: "Idle",
-		stand: "Idle. Its last task waits for a review.",
-		about:
-			"Lays out pages and writes the words on them. It shows its work at two widths and flags what it is unsure about.",
-		onTitle: "On now",
-		on: [
-			{
-				title: "Comparison table, stacked layout",
-				words: "Needs review · 5h",
-				mark: "open",
-				needs: "review",
-			},
-		],
-		doneToday: 1,
-		runsOn: [
-			{ what: "Claude Code", why: "on Maya's computer · signed in" },
-			{ what: "Model", why: "the default" },
-			{ what: "1 session at a time", why: "" },
-		],
-		worksIn: [{ what: "~/code/northwind-site", why: "reads and changes" }],
-		reach: [{ what: "Figma", why: "reads the brand file" }],
-		when: [
-			{ what: "Someone mentions @Designer", why: "it joins that thread", fixed: true },
-			{ what: "A task is handed to it", why: "it starts when a session is free", fixed: true },
-		],
-		self: [
-			{
-				what: "Instructions",
-				why: "Who Designer is and how it works · Maya edited it 5 weeks ago",
-			},
-			{ what: "Skills · 1", why: "Check a page at two widths" },
-			{ what: "Memory · 6 notes", why: "Only Maya and Designer can read these" },
-		],
-		facts: ["Agent · works for Maya Chen", "Team Support", "Here since 20 July"],
-	},
-	facilitation: {
-		name: "Facilitation",
-		av: "FA",
-		kind: "Agent",
-		owner: "everyone",
-		plugin: "habits",
-		what: "Keeps how we work written down.",
-		status: "Idle",
-		stand: "Idle. One draft of its waits to be published.",
-		about:
-			"Reads what tasks say went well or badly when they finish, and proposes changes to how the team works.",
-		onTitle: "On now",
-		on: [{ title: "Deploy rule", words: "Draft · waits to be published", mark: "open" }],
-		runsOn: [
-			{ what: "Claude Code", why: "on your computer · signed in" },
-			{ what: "Model", why: "the default" },
-			{ what: "1 session at a time", why: "" },
-		],
-		worksIn: [],
-		reach: [],
-		when: [
-			{ what: "A task finishes with a note on how it went", why: "it reads the note" },
-			{ what: "Every Friday at 16:00", why: "it proposes changes to How we work" },
-		],
-		self: [
-			{
-				what: "Instructions",
-				why: "Who Facilitation is and how it works · Maya edited it 2 weeks ago",
-			},
-			{ what: "Skills · 2", why: "Read how a task went · Propose a change to How we work" },
-			{ what: "Memory · 21 notes", why: "Anyone in the team can read these" },
-		],
-		facts: ["Agent · works for everyone in Northwind", "In every team", "Here since 3 July"],
-	},
-	researcher: {
-		discipline: "Research",
-		name: "Researcher",
-		av: "RE",
-		kind: "Agent",
-		owner: "you",
-		fresh: true,
-		team: "Product",
-		what: "Reads what competitors ship and writes it down.",
-		status: "Idle",
-		stand: "New. It has no instructions yet.",
-		about: "Watches what the three closest competitors ship and says what it means for pricing.",
-		onTitle: "On now",
-		on: [],
-		runsOn: [
-			{ what: "Claude Code", why: "on your computer · signed in" },
-			{ what: "Model", why: "the default" },
-			{ what: "1 session at a time", why: "" },
-		],
-		worksIn: [],
-		reach: [],
-		when: [
-			{ what: "Someone mentions @Researcher", why: "it joins that thread", fixed: true },
-			{ what: "A task is handed to it", why: "it starts when a session is free", fixed: true },
-		],
-		self: [{ what: "Instructions", why: "Not written yet" }],
-		unwritten: true,
-		facts: ["Agent · works for you", "Team Product", "Here since today"],
-	},
-};
-
-/** A document that tells an agent what to do: who it is, or what one of its reasons starts. */
-interface Doc {
-	lead: string;
-	parts: { title: string; lines: string[] }[];
-}
-const DOCS: Record<string, Doc> = {
-	[INSTRUCTIONS]: {
-		lead: "You watch what our three closest competitors ship, and say what it means for our pricing.",
-		parts: [
-			{
-				title: "What you do",
-				lines: [
-					"Once a week, read their changelogs, pricing pages and release posts.",
-					"Write what changed into “Competitors”, newest first.",
-					"Say in one line what each change means for us.",
-				],
-			},
-			{
-				title: "How you work",
-				lines: [
-					"Ask me before you contact anyone outside the team.",
-					"If you are not sure something is true, say so and say where you read it.",
-				],
-			},
-		],
-	},
-	[JOB]: {
-		lead: "Check that the numbers on the pricing page still match the document “Pricing”.",
-		parts: [
-			{
-				title: "What to check",
-				lines: [
-					"Every price and every plan name.",
-					"How long a trial is, and what happens when it ends.",
-					"The date the page says its prices are from.",
-				],
-			},
-			{
-				title: "What to do then",
-				lines: [
-					"If something does not match, tell me which number and on which page.",
-					"If nothing is wrong, say so in one line.",
-					"If a different document changed, stop.",
-				],
-			},
-		],
-	},
-};
-/** The reasons that come with the step that opens on what they make the agent do. */
-const JOB_REASONS: Pair[] = [
-	{ what: "Every Thursday at 08:00", why: `it starts a run of ${JOB}` },
-	{ what: "A document changes", why: `it starts a run of ${JOB}` },
-];
+const NO_USERS: readonly UserRow[] = [];
+const NO_SESSIONS: readonly SessionRow[] = [];
+const problemOf = (r: { ok: boolean; problems?: readonly { message: string }[] }): string | null =>
+	r.ok ? null : (r.problems?.[0]?.message ?? "That did not work.");
+const docHref = (id: string, edit = false) =>
+	`/knowledge/${encodeURIComponent(id)}${edit ? "?edit" : ""}`;
 
 /** The same marks as on a task's graph: an icon where a person is needed, initials where an agent is working. */
-function Mark({ w, av }: { w: Work; av: string }) {
-	if (w.needs) return <NeedIcon kind={w.needs} />;
-	if (w.mark === "run") return <span className="avatar nd-av">{av}</span>;
-	return <>{w.mark === "done" ? "✓" : "○"}</>;
+function Mark({ job }: { job: Job }) {
+	if (job.needs) return <NeedIcon kind={job.needs} />;
+	if (job.mark === "run") return <span className="avatar nd-av">{job.by}</span>;
+	return <>{job.mark === "done" ? "✓" : "○"}</>;
 }
 
-/** One row on the team page: who, what they do, and what they are doing right now. */
-function Row({ id, onOpen }: { id: UserId; onOpen: (id: UserId) => void }) {
-	const u = USERS[id];
-	return (
-		<button type="button" className="who" onClick={() => onOpen(id)}>
-			<Avatar who={u.av} human={u.kind === "Person"} />
-			<span className="who-text">
-				<span className="who-name">{u.name}</span>
-				<span className="who-what">{u.what}</span>
-			</span>
-			<span className="who-now">{u.stand}</span>
-		</button>
-	);
-}
-
-/** The people in each team. A person can be in several; an agent is in one, named on the agent. */
-const TEAM_PEOPLE: Record<TeamName, UserId[]> = { Product: ["you"], Support: ["maya", "you"] };
-/** Where a user's crumbs start: an agent's team, or a person's first team. */
-const homeTeam = (id: UserId): TeamName | null =>
-	USERS[id].team ?? TEAMS.map((t) => t.name).find((t) => TEAM_PEOPLE[t].includes(id)) ?? null;
-
-function TeamPage({
-	team,
-	added,
-	plugins,
-	onOpen,
-	onAdd,
-	onPlugin,
-	onAddPlugin,
-}: {
-	team: TeamName;
-	added: boolean;
-	plugins: Record<PluginId, PluginState>;
-	onOpen: (id: UserId) => void;
-	onAdd: () => void;
-	onPlugin: (id: PluginId) => void;
-	onAddPlugin: () => void;
-}) {
-	const t = TEAMS.find((x) => x.name === team) ?? TEAMS[0];
-	const here = (Object.keys(USERS) as UserId[]).filter((id) => added || !USERS[id].fresh);
-	const people = TEAM_PEOPLE[team];
-	const agents = here.filter((a) => USERS[a].kind === "Agent" && USERS[a].team === team);
-	const everyone = here.filter((a) => USERS[a].owner === "everyone");
-	const theirs = (person: UserId) => agents.filter((a) => USERS[a].owner === person);
-	const shown = PLUGIN_ORDER.filter(
-		(id) => plugins[id] !== "gone" && (PLUGINS[id].team ?? team) === team,
-	);
-	return (
-		<article className="tk-page">
-			<div className="tk-main">
-				<h1 className="page-title">{team}</h1>
-				<p className="stand">
-					<span>
-						{people.length} {people.length === 1 ? "person" : "people"} and {agents.length}{" "}
-						{agents.length === 1 ? "agent" : "agents"}.
-					</span>
-				</p>
-				<p>
-					{t.what} A team can be a product team, a function such as sales, or a group across
-					functions. Its conversations and knowledge are open to everyone; its work is what Work
-					shows when you pick it.
-				</p>
-
-				{people.map((person) => (
-					<section key={person} className="crew">
-						<Row id={person} onOpen={onOpen} />
-						{theirs(person).length > 0 && (
-							<div className="crew-agents">
-								{theirs(person).map((a) => (
-									<Row key={a} id={a} onOpen={onOpen} />
-								))}
-							</div>
-						)}
-					</section>
-				))}
-				<section className="crew-team">
-					<h3>
-						Also here <span>works for every team</span>
-					</h3>
-					<div className="crew-agents">
-						{everyone.map((a) => (
-							<Row key={a} id={a} onOpen={onOpen} />
-						))}
-					</div>
-				</section>
-
-				<div className="crew-add">
-					<button type="button" className="btn" onClick={onAdd}>
-						Add someone to {team}
-					</button>
-				</div>
-			</div>
-
-			<aside className="tbox" aria-label={`How ${team} is set up`}>
-				<div className="tbox-head">
-					<span className="tbox-name">{team}</span>
-					<span className="tbox-state">Team</span>
-				</div>
-				<ul className="tbox-facts">
-					<li>
-						{people.length} {people.length === 1 ? "person" : "people"} and {agents.length}{" "}
-						{agents.length === 1 ? "agent" : "agents"}
-					</li>
-					<li>Here since 3 July</li>
-				</ul>
-				<section className="tbox-sec">
-					<h4>
-						Plugins <span>ready-made agents and skills</span>
-					</h4>
-					{shown.map((id) => (
-						<button key={id} type="button" className="pair pair--go" onClick={() => onPlugin(id)}>
-							<span className="pair-what">{PLUGINS[id].name}</span>
-							<span className="pair-why">{pluginLine(id, plugins[id])}</span>
-						</button>
-					))}
-					<button type="button" className="tbox-more" onClick={onAddPlugin}>
-						Add a plugin
-					</button>
-				</section>
-			</aside>
-		</article>
-	);
-}
-
-function Section({
-	title,
-	items,
-	none,
-	add,
-	onAdd,
-}: {
-	title: string;
-	items: Pair[];
-	none?: string;
-	add?: string;
-	onAdd?: () => void;
-}) {
-	return (
-		<section className="tbox-sec">
-			<h4>{title}</h4>
-			{items.length === 0 && <p className="tbox-none">{none}</p>}
-			{items.map((x) => (
-				<div key={x.what + x.why} className="pair">
-					<span className="pair-what">{x.what}</span>
-					{x.why && <span className="pair-why">{x.why}</span>}
-				</div>
-			))}
-			{add && (
-				<button type="button" className="tbox-more" onClick={onAdd}>
-					{add}
-				</button>
-			)}
-		</section>
-	);
-}
-
-function Jobs({ u, items }: { u: User; items: Work[] }) {
+function Jobs({ items }: { items: readonly Job[] }) {
+	const navigate = useNavigate();
 	return (
 		<div className="jobs">
 			{items.map((w) => (
-				<button key={w.title} type="button" className="nd">
+				<button key={w.id} type="button" className="nd" onClick={() => navigate(w.href)}>
 					<span className="nd-mark" aria-hidden="true">
-						<Mark w={w} av={w.by ?? u.av} />
+						<Mark job={w} />
 					</span>
 					<span className="nd-text">
 						<span className="nd-name">{w.title}</span>
@@ -631,268 +90,1009 @@ function Jobs({ u, items }: { u: User; items: Work[] }) {
 	);
 }
 
-function UserPage({
-	id,
-	initialDialog,
-	more,
-	onOpen,
-	onTeam,
-	onFile,
-	onJob,
-	onPlugin,
+function Section({
+	title,
+	sub,
+	items,
+	none,
+	add,
+	onAdd,
 }: {
-	id: UserId;
-	initialDialog: DialogId | null;
-	/** Reasons added since the page was first opened. */
-	more: Pair[];
-	onOpen: (id: UserId) => void;
-	onTeam: (team: TeamName) => void;
-	onFile: () => void;
-	/** New reasons for an agent: they are kept, and what to do is written next. */
-	onJob: (added: Pair[]) => void;
-	onPlugin: (id: PluginId) => void;
+	title: string;
+	sub?: string;
+	items: readonly (Pair & { href?: string })[];
+	none?: string;
+	add?: string;
+	onAdd?: () => void;
 }) {
-	const u = USERS[id];
-	const [dialog, setDialog] = useState(initialDialog);
-	const [worksIn, setWorksIn] = useState(u.worksIn);
-	const [reach, setReach] = useState(u.reach);
-	const [when, setWhen] = useState([...u.when, ...more]);
-	const [paused, setPaused] = useState(false);
-	const [looks, setLooks] = useState("Light");
-	const [off, setOff] = useState<Set<string>>(new Set());
-	const me = id === "you";
-	const mine = me || u.owner === "you" || u.owner === "everyone";
-	const owner = u.owner && u.owner !== "everyone" ? u.owner : null;
-	const edited = u.self[0].why.split(" · ")[1];
-	const subject: Subject = {
-		name: u.name,
-		kind: u.kind,
-		what: u.what,
-		me,
-		sessions: Number.parseInt(u.runsOn?.[2].what ?? "1", 10),
-		discipline: u.discipline,
-		edited: edited && `${edited[0].toUpperCase()}${edited.slice(1)}.`,
-	};
-	const close = () => setDialog(null);
-	const home = homeTeam(id);
+	const navigate = useNavigate();
 	return (
-		<article className="tk-page">
-			<div className="tk-main">
-				<nav className="crumbs" aria-label="Where you are">
-					{home && (
-						<button type="button" onClick={() => onTeam(home)}>
-							{home}
-						</button>
-					)}
-					{owner && (
-						<button type="button" onClick={() => onOpen(owner)}>
-							{USERS[owner].name}
-						</button>
-					)}
-					<span aria-current="true">{u.name}</span>
-				</nav>
-				<h1 className="page-title who-title">
-					<Avatar who={u.av} human={u.kind === "Person"} />
-					{u.name}
-				</h1>
-				<p className="stand">
-					<span>{paused ? "Paused. It takes no new work until you let it." : u.stand}</span>
-				</p>
-				<p>{u.about}</p>
-				{u.unwritten && (
-					<div className="hint">
-						<span>
-							{u.name} has no instructions yet. They are a document: who it is and how it should
-							work.
-						</span>
-						<span className="hint-acts">
-							<button type="button" className="btn btn--accent" onClick={onFile}>
-								Write its instructions
-							</button>
-						</span>
-					</div>
-				)}
-
-				<h3>
-					{u.onTitle} <span>{u.on.length}</span>
-				</h3>
-				{u.on.length === 0 && (
-					<p className="tbox-none">
-						Nothing yet. Hand it a task, or mention @{u.name} in a thread.
-					</p>
-				)}
-				<Jobs u={u} items={u.on} />
-				{u.doneToday && (
-					<button type="button" className="tbox-more">
-						{u.doneToday} more, done today
+		<section className="tbox-sec">
+			<h4>
+				{title} {sub && <span>{sub}</span>}
+			</h4>
+			{items.length === 0 && none && <p className="tbox-none">{none}</p>}
+			{items.map((x) =>
+				x.href ? (
+					<button
+						key={x.what + x.why}
+						type="button"
+						className="pair pair--go"
+						onClick={() => navigate(x.href ?? "")}
+					>
+						<span className="pair-what">{x.what}</span>
+						{x.why && <span className="pair-why">{x.why}</span>}
 					</button>
-				)}
-
-				{u.started && (
-					<>
-						<h3>
-							{me ? "Started by you" : `Started by ${u.name.split(" ")[0]}`}{" "}
-							<span>{u.started.length}</span>
-						</h3>
-						<Jobs u={u} items={u.started} />
-					</>
-				)}
-			</div>
-
-			<aside className="tbox" aria-label={`How ${u.name} is set up`}>
-				<div className="tbox-head">
-					<span className="tbox-name">{u.name}</span>
-					<span className="tbox-state">{paused ? "Paused" : u.status}</span>
-				</div>
-				{(mine || !me) && (
-					<div className="tbox-acts">
-						{!me && (
-							<button type="button" className="btn btn--accent">
-								Open conversation
-							</button>
-						)}
-						{mine && (
-							<button type="button" className="btn" onClick={() => setDialog("edit")}>
-								Edit
-							</button>
-						)}
-						{mine && u.kind === "Agent" && (
-							<button type="button" className="btn" onClick={() => setPaused(!paused)}>
-								{paused ? "Let it work" : "Pause"}
-							</button>
-						)}
+				) : (
+					<div key={x.what + x.why} className="pair">
+						<span className="pair-what">{x.what}</span>
+						{x.why && <span className="pair-why">{x.why}</span>}
 					</div>
-				)}
-				<ul className="tbox-facts">
-					{u.facts.map((f) => (
-						<li key={f}>{f}</li>
-					))}
-					{u.discipline && (
-						<li>
-							Discipline {u.discipline}
-							{u.kind === "Agent" && ` · gets the documents marked ${u.discipline}`}
-						</li>
-					)}
-					{u.plugin && (
-						<li>
-							<button
-								type="button"
-								className="tbox-link"
-								onClick={() => u.plugin && onPlugin(u.plugin)}
-							>
-								Came with the plugin {PLUGINS[u.plugin].name}
-							</button>
-						</li>
-					)}
-					{u.talked && <li>You last talked {u.talked}</li>}
-				</ul>
+				),
+			)}
+			{add && (
+				<button type="button" className="tbox-more" onClick={onAdd}>
+					{add}
+				</button>
+			)}
+		</section>
+	);
+}
 
-				{u.runsOn && <Section title="Runs on" items={u.runsOn} />}
-				<Section
-					title="Works in"
-					items={worksIn}
-					none={
-						u.kind === "Agent"
-							? "No folder. It works inside HyperIdle and with what it can reach."
-							: "No folder yet."
-					}
-					add={mine ? "Add a folder" : undefined}
-					onAdd={() => setDialog("folder")}
-				/>
-				<Section
-					title="Can reach"
-					items={reach}
-					none="No service yet."
-					add={mine ? "Connect a service" : undefined}
-					onAdd={() => setDialog("service")}
-				/>
+/** Running sessions, for every stand on the page. */
+function useRunning(): readonly SessionRow[] {
+	return (
+		useAction("search_sessions", { state: "active", limit: 500 }, ["tasks"]).data ?? NO_SESSIONS
+	);
+}
 
-				{u.kind === "Agent" && (
-					<Section
-						title="Starts working when"
-						items={when}
-						add={mine ? "Add a time or an event" : undefined}
-						onAdd={() => setDialog("start")}
-					/>
-				)}
-				{me && (
-					<section className="tbox-sec">
-						<h4>
-							Notifications <span>tell me when</span>
-						</h4>
-						{when.map((x) => (
-							<button
-								key={x.what}
-								type="button"
-								className="fact-switch"
-								role="switch"
-								aria-checked={!off.has(x.what)}
-								onClick={() =>
-									setOff((o) => {
-										const n = new Set(o);
-										if (n.has(x.what)) n.delete(x.what);
-										else n.add(x.what);
-										return n;
-									})
-								}
-							>
-								<span className="fact-knob" />
-								{x.what}
-							</button>
-						))}
-						<button type="button" className="tbox-more" onClick={() => setDialog("start")}>
-							Change what you are told about
-						</button>
-						<p className="pair-why">
-							{u.following}. You follow a document, task or thread from its own page.
+/* ---------- a team's page ---------- */
+
+/** One row on the team page: who, what they do, and what they are doing right now. */
+function Row({ u, stand }: { u: UserRow; stand: string }) {
+	const navigate = useNavigate();
+	return (
+		<button type="button" className="who" onClick={() => navigate(`/people/${u.id}`)}>
+			<Avatar who={initials(u.name)} human={u.kind === "human"} />
+			<span className="who-text">
+				<span className="who-name">{u.name}</span>
+				<span className="who-what">{u.what}</span>
+			</span>
+			<span className="who-now">{stand}</span>
+		</button>
+	);
+}
+
+/** A person's row says what waits for them, which only they and the threads know. */
+function PersonRow({ u, you }: { u: UserRow; you: string }) {
+	const now = useNow();
+	const threads = useAction("search_threads", { member: u.id }, ["conversations"]);
+	return <Row u={u} stand={personStand(waitingJobs(threads.data ?? [], now), u.id === you)} />;
+}
+
+function agentRowStand(
+	u: UserRow,
+	tasks: readonly Task[],
+	running: readonly SessionRow[],
+	now: number,
+): string {
+	const titles = new Map(tasks.map((t) => [t.id, t.title]));
+	return agentStand({
+		paused: u.status === "inactive",
+		unwritten: false,
+		running: running
+			.filter((s) => s.agentId === u.id && s.endedAt === null)
+			.map((s) => ({
+				title: titles.get(s.taskId ?? "") ?? "a conversation",
+				startedAt: s.startedAt,
+			})),
+		asking: tasks.filter(
+			(t) => t.ownerAgentId === u.id && (t.need === "input" || t.need === "stuck"),
+		).length,
+		nextRun: null,
+		now,
+	});
+}
+const NO_TASKS: readonly Task[] = [];
+function useTasks(): readonly Task[] {
+	return useAction("search_tasks", {}, ["tasks"]).data ?? NO_TASKS;
+}
+
+/** What a plugin says in a team's box: how it stands, then what it adds. */
+function pluginLine(p: PluginListing): string {
+	if (p.state === "available") return "Comes with HyperIdle · not installed";
+	if (p.state === "disabled") return "Off · what it added is paused";
+	const words = (
+		[
+			["agent", "agent", "agents"],
+			["document", "document", "documents"],
+			["subscription", "reason to start", "reasons to start"],
+			["mcp_server", "service", "services"],
+		] as const
+	).flatMap(([kind, one, many]) => {
+		const n = p.contributions.filter((c) => c.kind === kind).length;
+		return n === 0 ? [] : [`${n} ${n === 1 ? one : many}`];
+	});
+	return words.length > 0 ? `On · ${joinWords(words)}` : "On";
+}
+const forTeam = (p: PluginListing, teamId: string): boolean =>
+	p.state === "available" || p.scope.kind === "factory" || p.scope.teamId === teamId;
+
+export function TeamScreen({ name }: { name: string }): React.ReactElement {
+	const navigate = useNavigate();
+	const now = useNow();
+	const me = useAction("open_user", {});
+	const users = useAction("search_users", {}, ["users"]);
+	const plugins = useAction("search_plugins", {});
+	const tasks = useTasks();
+	const running = useRunning();
+	const [adding, setAdding] = useState(false);
+
+	const you = me.data?.user?.id ?? "";
+	const everyone = users.data ?? NO_USERS;
+	const team = teamsOf([...everyone]).find((t) => t.name === name);
+	if (users.data && !team)
+		return (
+			<section className="detail">
+				<header className="detail-head">
+					<span className="chip chip--quiet">Team</span>
+				</header>
+				<div className="detail-scroll">
+					<p className="opened-note">There is no team called {name}.</p>
+				</div>
+			</section>
+		);
+	const { crews, wholeTeam, everyTeam } = crewOf(everyone, team?.id ?? "", you);
+	const agents = crews.flatMap((c) => c.agents).length + wholeTeam.length;
+	const stand = (u: UserRow) => agentRowStand(u, tasks, running, now);
+	const shown = (plugins.data ?? []).filter((p) => forTeam(p, team?.id ?? ""));
+	const yours = me.data?.user?.teams.some((t) => t.id === team?.id) ?? false;
+
+	return (
+		<section className="detail">
+			<header className="detail-head">
+				<span className="chip chip--quiet">Team</span>
+				<span className="doc-state">Its people and agents</span>
+			</header>
+			<div className="detail-scroll">
+				<article className="tk-page">
+					<div className="tk-main">
+						<h1 className="page-title">{name}</h1>
+						<p className="stand">
+							<span>{countWords(crews.length, agents)}.</span>
 						</p>
-					</section>
-				)}
+						<p>
+							A team can be a product team, a function such as sales, or a group across functions.
+							Its conversations and knowledge are open to everyone; its work is what Work shows when
+							you pick it.
+						</p>
 
-				<Section
-					title={u.kind === "Agent" ? "Instructions, skills and memory" : "About"}
-					items={u.self}
-				/>
-				{me && (
-					<section className="tbox-sec">
-						<h4>This app</h4>
-						<div className="pair">
-							<span className="pair-what">Lives on a shared server</span>
-							<span className="pair-why">
-								hyperidle.northwind.example · everyone sees the same work
-							</span>
+						{crews.map(({ person, agents: theirs }) => (
+							<section
+								key={person.id}
+								className="crew"
+								aria-label={`${person.id === you ? "You" : person.name} and their agents`}
+							>
+								<PersonRow u={person} you={you} />
+								{theirs.length > 0 && (
+									<div className="crew-agents">
+										{theirs.map((a) => (
+											<Row key={a.id} u={a} stand={stand(a)} />
+										))}
+									</div>
+								)}
+							</section>
+						))}
+						{wholeTeam.length > 0 && (
+							<section className="crew-team" aria-label="Works for the whole team">
+								<h3>
+									Also here <span>works for the whole team</span>
+								</h3>
+								<div className="crew-agents">
+									{wholeTeam.map((a) => (
+										<Row key={a.id} u={a} stand={stand(a)} />
+									))}
+								</div>
+							</section>
+						)}
+						{everyTeam.length > 0 && (
+							<section className="crew-team" aria-label="Works for every team">
+								<h3>
+									Also here <span>works for every team</span>
+								</h3>
+								<div className="crew-agents">
+									{everyTeam.map((a) => (
+										<Row key={a.id} u={a} stand={stand(a)} />
+									))}
+								</div>
+							</section>
+						)}
+
+						<div className="crew-add">
+							<button type="button" className="btn" onClick={() => setAdding(true)}>
+								Add someone to {name}
+							</button>
 						</div>
-					</section>
-				)}
-				{me && <Programs />}
-				{me && (
-					<section className="tbox-sec">
-						<h4>Looks</h4>
-						<div className="chips">
-							{["Light", "Dark", "Like this computer"].map((l) => (
+					</div>
+
+					<aside className="tbox" aria-label={`How ${name} is set up`}>
+						<div className="tbox-head">
+							<span className="tbox-name">{name}</span>
+							<span className="tbox-state">Team</span>
+						</div>
+						<ul className="tbox-facts">
+							<li>{countWords(crews.length, agents)}</li>
+						</ul>
+						<section className="tbox-sec">
+							<h4>
+								Plugins <span>ready-made agents and skills</span>
+							</h4>
+							{shown.length === 0 && <p className="tbox-none">No plugin yet.</p>}
+							{shown.map((p) => (
 								<button
-									key={l}
+									key={p.id}
 									type="button"
-									aria-pressed={looks === l}
-									onClick={() => setLooks(l)}
+									className="pair pair--go"
+									onClick={() =>
+										navigate(
+											`/plugins/${encodeURIComponent(p.id)}?team=${encodeURIComponent(name)}`,
+										)
+									}
 								>
-									{l}
+									<span className="pair-what">{pluginName(p.name)}</span>
+									<span className="pair-why">{pluginLine(p)}</span>
 								</button>
 							))}
-						</div>
-					</section>
+						</section>
+					</aside>
+				</article>
+				{adding && (
+					<AddSomeone
+						team={name}
+						you={you}
+						yours={yours}
+						users={everyone}
+						programs={me.data?.runsOn ?? []}
+						onClose={() => setAdding(false)}
+					/>
 				)}
-			</aside>
+			</div>
+		</section>
+	);
+}
+
+/** Adding an agent: made in a dialog, then its page, where its instructions are written next. */
+function AddSomeone({
+	team,
+	you,
+	yours,
+	users,
+	programs,
+	onClose,
+}: {
+	team: string;
+	you: string;
+	/** You are in this team, so an agent of yours can join it. */
+	yours: boolean;
+	users: readonly UserRow[];
+	programs: UserView["runsOn"];
+	onClose: () => void;
+}) {
+	const navigate = useNavigate();
+	const docs = useAction("search_documents", { inTree: true });
+	return (
+		<UserDialog
+			programs={programs}
+			disciplines={disciplinesOf(users, docs.data ?? [])}
+			owners={yours ? ["You", team] : [team]}
+			onClose={onClose}
+			onSave={async (v) => {
+				const made = await call("edit_user", {
+					kind: "ai",
+					name: v.name,
+					what: v.what || null,
+					...(v.discipline ? { discipline: v.discipline } : {}),
+					teams: [team],
+					...(v.worksFor === "You" ? { ownerUserId: you } : {}),
+					...(v.harness
+						? {
+								runConfig: {
+									harnessType: v.harness as NonNullable<
+										InputOf<"edit_user">["runConfig"]
+									>["harnessType"],
+									...(v.model ? { modelId: v.model } : {}),
+								},
+							}
+						: {}),
+					identity: "",
+				});
+				if (!made.ok) return problemOf(made);
+				navigate(`/people/${made.data.user?.id ?? ""}`);
+				return null;
+			}}
+		/>
+	);
+}
+
+/* ---------- a user's page ---------- */
+
+/** The open_user of each of these users, kept fresh with the people list. */
+function useViews(ids: readonly string[]): ReadonlyMap<string, UserView> {
+	const [views, setViews] = useState<ReadonlyMap<string, UserView>>(new Map());
+	const key = ids.join(" ");
+	const users = useAction("search_users", {}, ["users"]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for `ids`; a new people list asks again
+	useEffect(() => {
+		let current = true;
+		const list = key ? key.split(" ") : [];
+		void Promise.all(list.map((id) => call("open_user", { id }))).then((all) => {
+			if (!current) return;
+			setViews(new Map(all.flatMap((r, i) => (r.ok ? [[list[i] ?? "", r.data] as const] : []))));
+		});
+		return () => {
+			current = false;
+		};
+	}, [key, users.data]);
+	return views;
+}
+
+export function UserScreen({ id }: { id: string }): React.ReactElement {
+	const me = useAction("open_user", {});
+	const you = me.data?.user?.id ?? "";
+	const self = id === "me" || id === you;
+	const view = useAction(
+		"open_user",
+		self ? {} : { id },
+		you ? ["users", `user:${you}`] : ["users"],
+	);
+	if (view.problems && !view.data)
+		return (
+			<section className="detail">
+				<header className="detail-head">
+					<span className="chip chip--quiet">Person</span>
+				</header>
+				<div className="detail-scroll">
+					<p className="opened-note">{view.problems[0]?.message ?? "This page did not load."}</p>
+				</div>
+			</section>
+		);
+	if (!(view.data?.user && me.data?.user)) return <section className="detail" />;
+	return (
+		<UserPage
+			key={view.data.user.id}
+			view={view.data}
+			me={me.data}
+			reload={() => {
+				view.reload();
+				me.reload();
+			}}
+		/>
+	);
+}
+
+function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: () => void }) {
+	const navigate = useNavigate();
+	const now = useNow();
+	const [search, setSearch] = useSearchParams();
+	const u = view.user as UserRow;
+	const you = me.user?.id ?? "";
+	const isMe = u.id === you;
+	const agent = u.kind === "ai";
+	const mine = isMe || (agent && (u.ownerUserId === you || u.ownerUserId === null));
+	const paused = u.status === "inactive";
+
+	const users = useAction("search_users", {}, ["users"]).data ?? NO_USERS;
+	const tasks = useTasks();
+	const running = useRunning();
+	const threads = useAction("search_threads", { member: u.id }, ["conversations"]);
+	const myThreads = useAction("search_threads", {}, ["conversations"]);
+	const plugins = useAction("search_plugins", {});
+	const ownDocs = useAction("search_documents", { scopeKind: "user" }, ["documents"]);
+	const promptIds = view.subscriptions.flatMap((s) => (s.documentId ? [s.documentId] : []));
+	const fileIds = [...view.documentIds.map((d) => d.id), ...promptIds];
+	const files = useAction("search_documents", { ids: fileIds }, ["documents"]);
+	const tree = useAction("search_documents", { inTree: true });
+	const myAgents = users.filter(
+		(a) => a.kind === "ai" && a.ownerUserId === you && a.status !== "retired",
+	);
+	const agentViews = useViews(isMe ? myAgents.map((a) => a.id) : []);
+	const [dialog, setDialog] = useState<DialogId | null>(null);
+	// The bell's "Change what you are told about" opens the dialog here.
+	const askedToChange = search.get("change") === "told" && isMe;
+	useEffect(() => {
+		if (askedToChange) setDialog("start");
+	}, [askedToChange]);
+	const [showDone, setShowDone] = useState(false);
+	const [looked, setLooked] = useState<string | null>(null);
+	const [problem, setProblem] = useState<string | null>(null);
+	const [looks, setLooks] = useLooks();
+
+	const byId = new Map(users.map((x) => [x.id, x]));
+	const firstNames = new Map(users.map((x) => [x.id, x.name.split(" ")[0] ?? x.name]));
+	const nameOf = (uid: string) => (uid === you ? "you" : (byId.get(uid)?.name ?? "someone"));
+	const docById = new Map<string, DocumentRow>((files.data ?? []).map((d) => [d.id, d]));
+	const titles = new Map((files.data ?? []).map((d) => [d.id, d.title]));
+	const file = view.documentIds.find((d) => d.slot === "agent_file");
+	const fileDoc = file ? docById.get(file.id) : undefined;
+	const unwritten = agent && files.data !== null && !fileDoc?.body.trim();
+	const owner = u.ownerUserId ? byId.get(u.ownerUserId) : undefined;
+	const home = u.teams[0] ?? null;
+	const close = () => {
+		setDialog(null);
+		if (search.has("change")) setSearch({}, { replace: true });
+	};
+	const after = (result: { ok: boolean; problems?: readonly { message: string }[] }) => {
+		reload();
+		return problemOf(result);
+	};
+
+	// What the page lists.
+	const mineRunning = running.filter((s) => s.agentId === u.id);
+	const jobs = agentJobs(tasks, u.id, running, initials(u.name), now);
+	const done = tasks.filter(
+		(t) =>
+			t.ownerAgentId === u.id &&
+			t.state === "done" &&
+			t.completedAt !== null &&
+			new Date(t.completedAt).toDateString() === new Date(now).toDateString(),
+	);
+	const waiting = waitingJobs(threads.data ?? [], now);
+	const started = startedJobs(
+		tasks,
+		u.id,
+		firstNames,
+		(x) => initials(byId.get(x)?.name ?? ""),
+		running,
+		now,
+	);
+	const titlesOfTasks = new Map(tasks.map((t) => [t.id, t.title]));
+	const next = view.subscriptions
+		.filter((s) => s.nextRunAt && !s.paused)
+		.sort((a, b) => (a.nextRunAt ?? "").localeCompare(b.nextRunAt ?? ""))[0];
+	const stand = agent
+		? agentStand({
+				paused,
+				unwritten,
+				running: mineRunning.map((s) => ({
+					title: titlesOfTasks.get(s.taskId ?? "") ?? "a conversation",
+					startedAt: s.startedAt,
+				})),
+				asking: tasks.filter(
+					(t) => t.ownerAgentId === u.id && (t.need === "input" || t.need === "stuck"),
+				).length,
+				nextRun:
+					next?.nextRunAt && next.documentId
+						? { title: titles.get(next.documentId) ?? "", at: next.nextRunAt }
+						: null,
+				now,
+			})
+		: personStand(waiting, isMe);
+
+	// The conversation between you and them: one you are both in, and nobody else.
+	const direct = (myThreads.data ?? []).find(
+		(t) =>
+			(t.hostKind === "user" || t.hostKind === "agent") &&
+			t.members.length === 2 &&
+			t.members.includes(you) &&
+			t.members.includes(u.id),
+	);
+	const talk = async () => {
+		if (direct) return navigate(`/conversations/${direct.id}`);
+		const made = await call("adjust_thread", { members: [you, u.id] });
+		if (!made.ok) return setProblem(problemOf(made));
+		navigate(`/conversations/${made.data.thread.id}`);
+	};
+	const pause = async () =>
+		setProblem(
+			await after(await call("edit_user", { id: u.id, status: paused ? "active" : "inactive" })),
+		);
+	const openFile = async () => {
+		if (file) return navigate(docHref(file.id, !fileDoc?.body.trim()));
+		const made = await call("edit_user", { id: u.id, identity: "" });
+		const madeFile = made.ok
+			? made.data.documentIds.find((d) => d.slot === "agent_file")
+			: undefined;
+		if (!madeFile) return setProblem(problemOf(made) ?? "Its document was not made.");
+		navigate(docHref(madeFile.id, true));
+	};
+
+	// Facts.
+	const plugin = (plugins.data ?? []).find(
+		(p) =>
+			p.state !== "available" &&
+			p.contributions.some((c) => c.kind === "agent" && c.entityId === u.id),
+	);
+	const facts = [
+		agent
+			? `Agent · works for ${owner ? nameOf(owner.id) : home ? `the ${home.name} team` : "everyone in the organisation"}`
+			: isMe
+				? "Person · you"
+				: "Person",
+		agent
+			? home
+				? `Team ${home.name}`
+				: "In every team"
+			: u.teams.length > 0
+				? `${u.teams.length === 1 ? "Team" : "Teams"} ${joinWords(u.teams.map((t) => t.name))}`
+				: "In no team yet",
+		`Here since ${sinceWords(u.createdAt)}`,
+	];
+
+	// The box's lists.
+	const program = view.runsOn.find((h) => h.type === view.runConfig?.harnessType);
+	const model = program?.models.find((m) => m.id === view.runConfig?.modelId);
+	const sessions = view.runConfig?.maxConcurrentSessions ?? 1;
+	const runsOn: Pair[] = agent
+		? [
+				program
+					? { what: program.name, why: `on this computer · ${programWords(program)}` }
+					: { what: "No agent program set", why: "pick one in Edit" },
+				{ what: "Model", why: model?.label ?? view.runConfig?.modelId ?? "the default" },
+				{ what: `${sessions} ${sessions === 1 ? "session" : "sessions"} at a time`, why: "" },
+			]
+		: [];
+	const folderGivenTo = (folderId: string) =>
+		givenTo(
+			myAgents
+				.filter((a) => agentViews.get(a.id)?.folders.some((f) => f.id === folderId))
+				.map((a) => a.name),
+		);
+	const worksIn: Pair[] = view.folders.map((f) => ({
+		what: folderPath(f),
+		why: isMe ? `given to ${folderGivenTo(f.id)}` : folderMay(f),
+	}));
+	const held = view.connections?.connections ?? [];
+	const inherited = view.connections?.inherited ?? [];
+	const servicesGivenTo = (keptFrom: readonly string[]) =>
+		givenTo(myAgents.filter((a) => !keptFrom.includes(a.id)).map((a) => a.name));
+	const reach: Pair[] = [
+		...held
+			.filter((c) => !(agent && c.withheldFrom.includes(u.id)))
+			.map((c) => ({
+				what: c.service,
+				why: isMe
+					? `${serviceHow(c)} · given to ${servicesGivenTo(c.withheldFrom)}`
+					: serviceHow(c),
+			})),
+		...inherited.map((c) => ({ what: c.service, why: serviceHow(c) })),
+	];
+	const reasons = startRows(u.name, view.subscriptions, titles);
+	const told = view.subscriptions.filter((s) => s.objectId === null && s.event !== null);
+	const toldRows = [...told].sort(
+		(a, b) =>
+			Number(!(PERSON_REASONS as readonly string[]).includes(a.event ?? "")) -
+				Number(!(PERSON_REASONS as readonly string[]).includes(b.event ?? "")) ||
+			reasonWords(a).localeCompare(reasonWords(b)),
+	);
+	const follows = view.subscriptions.filter((s) => s.objectId !== null);
+	const followWords = joinWords(
+		(
+			[
+				["document", "document"],
+				["task", "task"],
+				["thread", "conversation"],
+			] as const
+		)
+			.map(
+				([kind, word]) =>
+					[follows.filter((s) => s.event?.startsWith(`${kind}.`)).length, word] as const,
+			)
+			.filter(([n]) => n > 0)
+			.map(([n, word]) => `${n} ${word}${n === 1 ? "" : "s"}`),
+	);
+	const skills = (ownDocs.data ?? []).filter((d) => d.scopeId === u.id && d.slot === "skill");
+	const memory = (ownDocs.data ?? []).filter(
+		(d) => d.scopeId === u.id && d.slot === "ordinary" && d.parentKind === null,
+	);
+	const editedWords = (d: DocumentRow | undefined) =>
+		d
+			? `${nameOf(d.updatedBy) === "you" ? "you" : nameOf(d.updatedBy)} edited it ${age(d.updatedAt, now) === "now" ? "just now" : forWords(d.updatedAt, now)} ago`
+			: "";
+	const selfRows: (Pair & { href?: string })[] = agent
+		? [
+				{
+					what: "Instructions",
+					why: unwritten
+						? "Not written yet"
+						: `Who ${u.name} is and how it works · ${editedWords(fileDoc)}`,
+					...(file ? { href: docHref(file.id, unwritten) } : {}),
+				},
+				...skills.map((d) => ({ what: `Skill · ${d.title}`, why: "", href: docHref(d.id) })),
+				...(memory.length > 0
+					? [
+							{
+								what: `Memory · ${memory.length} ${memory.length === 1 ? "note" : "notes"}`,
+								why: `Only ${owner ? `${nameOf(owner.id)} and ${u.name}` : `${u.name} and the people it works for`} can read these`,
+							},
+						]
+					: []),
+			]
+		: fileDoc
+			? [
+					{
+						what: isMe ? "About you" : `About ${u.name.split(" ")[0]}`,
+						why: `What agents should know when they work with ${isMe ? "you" : "them"}`,
+						href: docHref(fileDoc.id),
+					},
+				]
+			: [];
+	const app = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname)
+		? { what: "Lives on this computer", why: "only the people on it see this work" }
+		: {
+				what: "Lives on a shared server",
+				why: `${window.location.host} · everyone sees the same work`,
+			};
+
+	const subject = { name: u.name, agent, me: isMe };
+	const agentTeam = home?.name;
+	const folderRows: ReachRow[] = (
+		agent ? me.folders.filter((f) => u.teams.some((t) => t.id === f.teamId)) : view.folders
+	).map((f) => ({
+		id: f.id,
+		name: folderPath(f),
+		how: `${f.kind === "code" ? "A git repository" : "A folder"} · ${folderMay(f)}`,
+		given: view.folders.some((g) => g.id === f.id),
+		givenTo: folderGivenTo(f.id),
+	}));
+	const serviceRows: ReachRow[] = [
+		...held.map((c) => ({
+			id: c.id,
+			name: c.service,
+			how: serviceHow(c),
+			given: !c.withheldFrom.includes(u.id),
+			givenTo: servicesGivenTo(c.withheldFrom),
+		})),
+		...inherited.map((c) => ({
+			id: c.id,
+			name: c.service,
+			how: serviceHow(c),
+			given: true,
+			givenTo: "every agent",
+			locked: true,
+		})),
+	];
+	const ticked = (ticks: Map<string, boolean>, on: boolean) =>
+		[...ticks].filter(([, given]) => given === on).map(([x]) => x);
+
+	return (
+		<section className="detail">
+			<header className="detail-head">
+				<span className="chip chip--quiet">{agent ? "Agent" : "Person"}</span>
+				<span className="doc-state">{u.what}</span>
+			</header>
+			<div className="detail-scroll">
+				<article className="tk-page">
+					<div className="tk-main">
+						<nav className="crumbs" aria-label="Where you are">
+							{home && (
+								<button
+									type="button"
+									onClick={() => navigate(`/teams/${encodeURIComponent(home.name)}`)}
+								>
+									{home.name}
+								</button>
+							)}
+							{owner && (
+								<button type="button" onClick={() => navigate(`/people/${owner.id}`)}>
+									{owner.id === you ? "You" : owner.name}
+								</button>
+							)}
+							<span aria-current="true">{isMe ? "You" : u.name}</span>
+						</nav>
+						<h1 className="page-title who-title">
+							<Avatar who={initials(u.name)} human={!agent} />
+							{u.name}
+						</h1>
+						<p className="stand">
+							<span>{stand}</span>
+						</p>
+						{unwritten && mine && (
+							<div className="hint">
+								<span>
+									{u.name} has no instructions yet. They are a document: who it is and how it should
+									work.
+								</span>
+								<span className="hint-acts">
+									<button type="button" className="btn btn--accent" onClick={() => void openFile()}>
+										Write its instructions
+									</button>
+								</span>
+							</div>
+						)}
+
+						{agent ? (
+							<>
+								<h3>
+									On now <span>{jobs.on.length}</span>
+								</h3>
+								{jobs.on.length === 0 && (
+									<p className="tbox-none">
+										Nothing yet. Hand it a task, or mention @{u.name} in a thread.
+									</p>
+								)}
+								<Jobs items={jobs.on} />
+								{jobs.doneToday > 0 && (
+									<button
+										type="button"
+										className="tbox-more"
+										onClick={() => setShowDone(!showDone)}
+									>
+										{jobs.doneToday} more, done today
+									</button>
+								)}
+								{showDone && (
+									<Jobs
+										items={done.map((t) => ({
+											id: t.id,
+											title: t.title,
+											words: `Done · ${forWords(t.completedAt ?? t.updatedAt, now)} ago`,
+											mark: "done",
+											href: `/work/${t.id}`,
+										}))}
+									/>
+								)}
+							</>
+						) : (
+							<>
+								<h3>
+									{isMe ? "Waiting for you" : `Waiting for ${u.name.split(" ")[0]}`}{" "}
+									<span>{waiting.length}</span>
+								</h3>
+								{waiting.length === 0 && <p className="tbox-none">Nothing waits here.</p>}
+								<Jobs items={waiting} />
+								<h3>
+									{isMe ? "Started by you" : `Started by ${u.name.split(" ")[0]}`}{" "}
+									<span>{started.length}</span>
+								</h3>
+								{started.length === 0 && (
+									<p className="tbox-none">
+										Nothing under way that {isMe ? "you" : "they"} started.
+									</p>
+								)}
+								<Jobs items={started} />
+							</>
+						)}
+					</div>
+
+					<aside className="tbox" aria-label={`How ${u.name} is set up`}>
+						<div className="tbox-head">
+							<span className="tbox-name">{u.name}</span>
+							<span className="tbox-state">
+								{agent
+									? paused
+										? "Paused"
+										: mineRunning.length > 0
+											? "Working"
+											: "Idle"
+									: isMe
+										? "You"
+										: "Person"}
+							</span>
+						</div>
+						{(mine || !isMe) && (
+							<div className="tbox-acts">
+								{!isMe && (
+									<button type="button" className="btn btn--accent" onClick={() => void talk()}>
+										Open conversation
+									</button>
+								)}
+								{mine && (
+									<button type="button" className="btn" onClick={() => setDialog("edit")}>
+										Edit
+									</button>
+								)}
+								{mine && agent && (
+									<button type="button" className="btn" onClick={() => void pause()}>
+										{paused ? "Let it work" : "Pause"}
+									</button>
+								)}
+							</div>
+						)}
+						{problem && <p className="composer-problem">{problem}</p>}
+						<ul className="tbox-facts">
+							{facts.map((f) => (
+								<li key={f}>{f}</li>
+							))}
+							{u.discipline && (
+								<li>
+									Discipline {u.discipline}
+									{agent && ` · gets the documents marked ${u.discipline}`}
+								</li>
+							)}
+							{plugin && (
+								<li>
+									<button
+										type="button"
+										className="tbox-link"
+										onClick={() =>
+											navigate(
+												`/plugins/${encodeURIComponent(plugin.id)}${home ? `?team=${encodeURIComponent(home.name)}` : ""}`,
+											)
+										}
+									>
+										Came with the plugin {pluginName(plugin.name)}
+									</button>
+								</li>
+							)}
+							{direct && <li>You last talked {age(direct.lastActiveAt, now)}</li>}
+						</ul>
+
+						{agent && <Section title="Runs on" items={runsOn} />}
+						<Section
+							title="Works in"
+							items={worksIn}
+							none={
+								agent
+									? "No folder. It works inside HyperIdle and with what it can reach."
+									: "No folder yet."
+							}
+							add={mine && (isMe || agentTeam) ? "Add a folder" : undefined}
+							onAdd={() => setDialog("folder")}
+						/>
+						{view.connections && (
+							<Section
+								title="Can reach"
+								items={reach}
+								none="No service yet."
+								add={mine ? "Connect a service" : undefined}
+								onAdd={() => setDialog("service")}
+							/>
+						)}
+						{agent && (
+							<Section
+								title="Starts working when"
+								items={reasons.filter((r) => !r.paused)}
+								add={mine ? "Add a time or an event" : undefined}
+								onAdd={() => setDialog("start")}
+							/>
+						)}
+						{isMe && (
+							<section className="tbox-sec">
+								<h4>
+									Notifications <span>tell me when</span>
+								</h4>
+								{toldRows.map((s) => (
+									<button
+										key={s.id}
+										type="button"
+										className="fact-switch"
+										role="switch"
+										aria-checked={!s.paused}
+										onClick={() =>
+											void call("edit_user", {
+												id: you,
+												subscriptions: { change: [{ id: s.id, paused: !s.paused }] },
+											}).then(after)
+										}
+									>
+										<span className="fact-knob" />
+										{reasonWords(s)}
+									</button>
+								))}
+								<button type="button" className="tbox-more" onClick={() => setDialog("start")}>
+									Change what you are told about
+								</button>
+								<p className="pair-why">
+									{followWords ? `You follow ${followWords}. ` : ""}You follow a document, task or
+									thread from its own page.
+								</p>
+							</section>
+						)}
+						<Section
+							title={agent ? "Instructions, skills and memory" : "About"}
+							items={selfRows}
+							none={isMe ? undefined : "Nothing written yet."}
+							add={
+								!agent && isMe && !fileDoc ? "Write what agents should know about you" : undefined
+							}
+							onAdd={() => void openFile()}
+						/>
+						{isMe && <Section title="This app" items={[app]} />}
+						{isMe && (
+							<section className="tbox-sec">
+								<h4>
+									Agent programs <span>on this computer</span>
+								</h4>
+								{view.runsOn.length === 0 && <p className="tbox-none">None found.</p>}
+								{view.runsOn.map((h) => (
+									<div
+										key={h.type}
+										className={h.discovery.state === "ready" ? "pair" : "pair pair--off"}
+									>
+										<span className="pair-what">{h.name}</span>
+										<span className="pair-why">
+											{programWords(h)}
+											{h.discovery.version ? ` · ${h.discovery.version}` : ""}
+											{agentsOn(h.type, myAgents, agentViews)}
+										</span>
+									</div>
+								))}
+								<p className="pair-why">
+									Each one signs in on its own. Install or sign in to one, then look again.
+								</p>
+								<button
+									type="button"
+									className="tbox-more"
+									onClick={() => {
+										setLooked("Looking…");
+										const before = view.runsOn.filter((h) => h.discovery.state === "ready").length;
+										void call("edit_user", { id: you, redetectHarnesses: true }).then((r) => {
+											const found = r.ok
+												? r.data.runsOn.filter((h) => h.discovery.state === "ready").length
+												: before;
+											setLooked(
+												found > before
+													? `Looked just now · ${found - before} more signed in`
+													: "Looked just now · nothing new",
+											);
+											reload();
+										});
+									}}
+								>
+									{looked ?? "Look again"}
+								</button>
+							</section>
+						)}
+						{isMe && (
+							<section className="tbox-sec">
+								<h4>Looks</h4>
+								<div className="chips">
+									{LOOKS.map((l) => (
+										<button
+											key={l}
+											type="button"
+											aria-pressed={looks === l}
+											onClick={() => setLooks(l)}
+										>
+											{l}
+										</button>
+									))}
+								</div>
+							</section>
+						)}
+					</aside>
+				</article>
+			</div>
 
 			{dialog === "folder" && (
 				<ReachDialog
 					who={subject}
 					kind="folder"
-					given={worksIn.map((x) => x.what)}
+					rows={folderRows}
+					yourAgents={myAgents}
+					teams={me.user?.teams.map((t) => t.name) ?? []}
 					onClose={close}
-					onDone={(added) => {
-						setWorksIn([...worksIn, added]);
+					onSave={async (save) => {
+						if (agent && save.ticks.size > 0) {
+							const r = await call("edit_user", {
+								id: u.id,
+								folders: { give: ticked(save.ticks, true), take: ticked(save.ticks, false) },
+							});
+							if (!r.ok) return after(r);
+						}
+						if (save.added?.kind === "folder") {
+							const before = new Set(me.folders.map((f) => f.id));
+							const r = await call("edit_user", {
+								id: you,
+								folders: {
+									add: [
+										{
+											team: agent ? agentTeam : save.added.team,
+											kind: "code",
+											resourceRef: { kind: "code", repo: save.added.where, branch: "main" },
+											writeback: save.added.readOnly ? "none" : "git",
+										},
+									],
+								},
+							});
+							if (!r.ok) return after(r);
+							const made = r.data.folders.find((f) => !before.has(f.id));
+							for (const agentId of save.keepFrom)
+								if (made) await call("edit_user", { id: agentId, folders: { take: [made.id] } });
+						}
+						reload();
 						close();
+						return null;
 					}}
 				/>
 			)}
@@ -900,265 +1100,145 @@ function UserPage({
 				<ReachDialog
 					who={subject}
 					kind="service"
-					given={reach.map((x) => x.what)}
+					rows={serviceRows}
+					yourAgents={myAgents}
+					teams={[]}
 					onClose={close}
-					onDone={(added) => {
-						setReach([...reach, added]);
+					onSave={async (save) => {
+						if (agent && save.ticks.size > 0) {
+							const r = await call("edit_user", {
+								id: u.id,
+								connections: { give: ticked(save.ticks, true), take: ticked(save.ticks, false) },
+							});
+							if (!r.ok) return after(r);
+						}
+						if (save.added?.kind === "service") {
+							const before = new Set((me.connections?.connections ?? []).map((c) => c.id));
+							const r = await call("edit_user", {
+								id: you,
+								connections: {
+									add: [
+										save.added.key
+											? { service: save.added.name, authSource: "token", token: save.added.key }
+											: {
+													...(save.added.name ? { service: save.added.name } : {}),
+													authSource: "mcp",
+													serverUrl: save.added.address ?? "",
+												},
+									],
+								},
+							});
+							if (!r.ok) return after(r);
+							const made = r.data.connections?.connections.find((c) => !before.has(c.id));
+							for (const agentId of save.keepFrom)
+								if (made)
+									await call("edit_user", { id: agentId, connections: { take: [made.id] } });
+						}
+						reload();
 						close();
+						return null;
 					}}
 				/>
 			)}
 			{dialog === "start" && (
 				<StartDialog
 					who={subject}
-					rows={when}
+					rows={
+						agent
+							? reasons
+							: toldRows.map((s) => ({ id: s.id, what: reasonWords(s), why: "", paused: s.paused }))
+					}
 					onClose={close}
-					onDone={(added) => {
-						const fresh = added.filter(
-							(a) => !when.some((w) => w.what === a.what && w.why === a.why),
-						);
-						if (u.kind === "Agent") onJob(fresh);
-						else setWhen([...when, ...fresh]);
+					onSave={async (save) => {
+						const before = new Set(view.subscriptions.map((s) => s.id));
+						const add = [
+							...save.times.map((schedule) => ({ schedule, prompt: "", title: save.name })),
+							...save.events.map((event: SubscriptionEventName) =>
+								agent ? { event, prompt: "", title: save.name } : { event },
+							),
+						];
+						const change = [...save.paused].map(([sid, p]) => ({ id: sid, paused: p }));
+						const r = await call("edit_user", { id: u.id, subscriptions: { add, change } });
+						if (!r.ok) return after(r);
+						reload();
 						close();
+						const made = r.data.subscriptions.find((s) => !before.has(s.id) && s.documentId);
+						if (agent && made?.documentId) navigate(docHref(made.documentId, true));
+						return null;
 					}}
 				/>
 			)}
 			{dialog === "edit" && (
-				<UserDialog user={subject} program={u.runsOn?.[0].what} onClose={close} onDone={close} />
+				<UserDialog
+					user={{
+						name: u.name,
+						agent,
+						me: isMe,
+						what: u.what ?? "",
+						discipline: u.discipline ?? "",
+						harness: view.runConfig?.harnessType ?? null,
+						model: view.runConfig?.modelId ?? null,
+						sessions,
+						worksFor: owner
+							? owner.id === you
+								? "You"
+								: owner.name
+							: home
+								? `The ${home.name} team`
+								: "Every team",
+						file: fileDoc
+							? {
+									title: fileDoc.title,
+									edited: `${editedWords(fileDoc).replace(/^./, (c) => c.toUpperCase())}.`,
+								}
+							: null,
+					}}
+					programs={view.runsOn}
+					disciplines={disciplinesOf(users, tree.data ?? [])}
+					owners={[]}
+					onClose={close}
+					onFile={() => void openFile()}
+					onSave={async (v) => {
+						const r = await call("edit_user", {
+							id: u.id,
+							...(v.name !== u.name ? { name: v.name } : {}),
+							what: v.what || null,
+							discipline: v.discipline || null,
+							...(agent
+								? {
+										runConfig: {
+											...(v.harness
+												? {
+														harnessType: v.harness as NonNullable<
+															InputOf<"edit_user">["runConfig"]
+														>["harnessType"],
+													}
+												: {}),
+											...(v.model ? { modelId: v.model } : {}),
+											maxConcurrentSessions: v.sessions,
+										},
+									}
+								: {}),
+						});
+						if (!r.ok) return after(r);
+						reload();
+						close();
+						return null;
+					}}
+				/>
 			)}
-		</article>
-	);
-}
-
-const PROGRAMS_HERE = [
-	{ name: "Claude Code", how: "signed in · 6 connectors · Builder and Growth run on it" },
-	{ name: "Codex", how: "signed in" },
-	{ name: "Cursor", how: "not installed", off: true },
-];
-
-/** The agent programs this computer has. Each signs itself in; HyperIdle only finds them. */
-function Programs() {
-	const [looked, setLooked] = useState(false);
-	return (
-		<section className="tbox-sec">
-			<h4>
-				Agent programs <span>on this computer</span>
-			</h4>
-			{PROGRAMS_HERE.map((x) => (
-				<div key={x.name} className={x.off ? "pair pair--off" : "pair"}>
-					<span className="pair-what">{x.name}</span>
-					<span className="pair-why">{x.how}</span>
-				</div>
-			))}
-			<p className="pair-why">
-				Each one signs in on its own. Install or sign in to one, then look again.
-			</p>
-			<button type="button" className="tbox-more" onClick={() => setLooked(true)}>
-				{looked ? "Looked just now · nothing new" : "Look again"}
-			</button>
 		</section>
 	);
 }
 
-/** What an agent is told is a document, written where every document is written. */
-function FilePage({
-	id,
-	name,
-	onUser,
-	onTeam,
-}: {
-	id: UserId;
-	name: string;
-	onUser: () => void;
-	onTeam: (team: TeamName) => void;
-}) {
-	const u = USERS[id];
-	const doc = DOCS[name];
-	const home = homeTeam(id);
-	return (
-		<article className="page">
-			<nav className="crumbs" aria-label="Where you are">
-				{home && (
-					<button type="button" onClick={() => onTeam(home)}>
-						{home}
-					</button>
-				)}
-				<button type="button" onClick={onUser}>
-					{u.name}
-				</button>
-				<span aria-current="true">{name}</span>
-			</nav>
-			<h1 className="page-title">
-				{name === INSTRUCTIONS ? `Who ${u.name} is and how it works` : name}
-			</h1>
-			<div className="blk blk--edit">
-				<div className="blk-row">
-					<p>{doc.lead}</p>
-				</div>
-			</div>
-			{doc.parts.map((part, i) => (
-				<Fragment key={part.title}>
-					<div className="blk blk--h blk--edit">
-						<div className="blk-row">
-							<h3>{part.title}</h3>
-						</div>
-					</div>
-					<div className="blk blk--edit">
-						<div className="blk-row">
-							<ul>
-								{part.lines.map((line, j) => (
-									<li key={line}>
-										{line}
-										{i === doc.parts.length - 1 && j === part.lines.length - 1 && (
-											<span className="caret" />
-										)}
-									</li>
-								))}
-							</ul>
-						</div>
-					</div>
-				</Fragment>
-			))}
-			<p className="blk-empty">Type / for a block, @ to ask someone</p>
-		</article>
-	);
-}
-
-export function People({ view }: { view: View }): React.ReactElement {
-	const [open, setOpen] = useState<UserId | null>(view.open ?? null);
-	const [adding, setAdding] = useState<"someone" | "plugin" | null>(
-		view.dialog === "add" ? "someone" : view.dialog === "plugin" ? "plugin" : null,
-	);
-	const [added, setAdded] = useState(view.open === "researcher");
-	const [file, setFile] = useState<string | null>(view.file ?? null);
-	const [more, setMore] = useState(view.file === JOB ? JOB_REASONS : []);
-	const [wrote, setWrote] = useState(false);
-	const [plugin, setPlugin] = useState<PluginId | null>(view.plugin ?? null);
-	const [plugins, setPlugins] = useState<Record<PluginId, PluginState>>({
-		...PLUGIN_STATES,
-		...view.plugins,
-	});
-	const [team, setTeam] = useState<TeamName>(view.team ?? "Product");
-	const first =
-		!wrote && view.dialog !== "add" && view.dialog !== "plugin" ? (view.dialog ?? null) : null;
-	const u = open ? USERS[open] : null;
-	const go = (id: UserId | null) => {
-		setOpen(id);
-		setPlugin(null);
-		setFile(null);
-		setMore([]);
-	};
-	const goTeam = (t: TeamName) => {
-		setTeam(t);
-		go(null);
-	};
-	const show = (id: PluginId) => {
-		setPlugin(id);
-		setOpen(null);
-		setFile(null);
-	};
-	const write = (name: string) => {
-		setFile(name);
-		setWrote(true);
-	};
-	const set = (id: PluginId, state: PluginState) => setPlugins({ ...plugins, [id]: state });
-	return (
-		<section className="detail">
-			{u && file ? (
-				<header className="detail-head">
-					<span className="chip chip--quiet">Document</span>
-					<span className="doc-state">
-						Draft · {u.name} reads this every time{" "}
-						{file === INSTRUCTIONS ? "it starts" : "one of its reasons starts it"}
-					</span>
-					<span className="doc-act">
-						<span className="doc-mode">✎ Editing</span>
-						<button type="button" className="btn" onClick={() => setFile(null)}>
-							Done
-						</button>
-					</span>
-				</header>
-			) : (
-				<header className="detail-head">
-					<span className="chip chip--quiet">{plugin ? "Plugin" : u ? u.kind : "Team"}</span>
-					<span className="doc-state">
-						{plugin ? PLUGINS[plugin].what : u ? u.what : "Its people and agents"}
-					</span>
-				</header>
-			)}
-			<div className="detail-scroll">
-				{open && file && (
-					<FilePage id={open} name={file} onUser={() => setFile(null)} onTeam={goTeam} />
-				)}
-				{open && !file && (
-					<UserPage
-						key={open}
-						id={open}
-						initialDialog={open === view.open ? first : null}
-						more={more}
-						onOpen={go}
-						onTeam={goTeam}
-						onFile={() => write(INSTRUCTIONS)}
-						onJob={(reasons) => {
-							setMore([...more, ...reasons]);
-							write(JOB);
-						}}
-						onPlugin={show}
-					/>
-				)}
-				{plugin && (
-					<PluginPage
-						key={plugin}
-						id={plugin}
-						state={plugins[plugin]}
-						team={team}
-						onTeam={() => go(null)}
-						onOpen={(user) => {
-							if (user in USERS) go(user as UserId);
-						}}
-						onState={(state) => set(plugin, state)}
-						onRemove={() => {
-							set(plugin, PLUGINS[plugin].from.startsWith("Comes with") ? "new" : "gone");
-							go(null);
-						}}
-					/>
-				)}
-				{!(open || plugin) && (
-					<TeamPage
-						team={team}
-						added={added}
-						plugins={plugins}
-						onOpen={go}
-						onAdd={() => setAdding("someone")}
-						onPlugin={show}
-						onAddPlugin={() => setAdding("plugin")}
-					/>
-				)}
-				{adding === "someone" && (
-					<UserDialog
-						onClose={() => setAdding(null)}
-						onDone={(agent) => {
-							setAdding(null);
-							if (agent) {
-								setAdded(true);
-								go("researcher");
-							}
-						}}
-					/>
-				)}
-				{adding === "plugin" && (
-					<PluginDialog
-						teams={TEAMS.map((t) => t.name)}
-						onClose={() => setAdding(null)}
-						onDone={() => {
-							setAdding(null);
-							setPlugins({ ...plugins, notes: "on" });
-							show("notes");
-						}}
-					/>
-				)}
-			</div>
-			{file && <FormatBar floating kinds={DOC_FORMATS} />}
-		</section>
-	);
+/** Which of your agents run on a program, as the end of its line. */
+function agentsOn(
+	type: string,
+	agents: readonly UserRow[],
+	views: ReadonlyMap<string, UserView>,
+): string {
+	const on = agents
+		.filter((a) => views.get(a.id)?.runConfig?.harnessType === type)
+		.map((a) => a.name);
+	return on.length > 0 ? ` · ${joinWords(on)} ${on.length === 1 ? "runs" : "run"} on it` : "";
 }

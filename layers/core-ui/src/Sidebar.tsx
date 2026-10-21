@@ -281,7 +281,14 @@ function Notifications({
 			))}
 			<footer className="notes-f">
 				<span>You get these for what you follow.</span>
-				<button type="button" className="notes-act">
+				<button
+					type="button"
+					className="notes-act"
+					onClick={() => {
+						onClose();
+						navigate("/people/me?change=told");
+					}}
+				>
 					Change what you are told about
 				</button>
 			</footer>

@@ -215,7 +215,7 @@ function Preview({
 			{reachable && (
 				<button
 					type="button"
-					className="pick"
+					className="pin-pick"
 					aria-label="Point at something on the page"
 					onMouseMove={(e) => {
 						const el = under(e);
@@ -235,7 +235,7 @@ function Preview({
 			)}
 			{hover && (
 				<span
-					className="pick-hi"
+					className="pin-pick-hi"
 					style={{ top: hover.top, left: hover.left, width: hover.width, height: hover.height }}
 				/>
 			)}

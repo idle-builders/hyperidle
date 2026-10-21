@@ -1,8 +1,8 @@
 import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { Avatar } from "./Msg";
-import { Seg } from "./Seg";
-import { Dialog, Field, type Row } from "./Setup";
-import type { TeamName } from "./teams";
+import type { Pair as Row } from "./people-page";
+import { useAction } from "./useAction";
 
 /**
  * PLUGINS — a plugin is a ready-made pack: agents, skills, reasons to start and services. It has
@@ -10,9 +10,9 @@ import type { TeamName } from "./teams";
  * change, so a plugin's page is mostly a list of links to them. A plugin is added for one team or
  * for every team, and listed in the box on the page of each team it is for.
  */
-export type PluginId = "habits" | "notes" | "roles";
+type PluginId = "habits" | "notes" | "roles";
 /** "gone" is not listed anywhere: it was never added, or it was removed. */
-export type PluginState = "on" | "off" | "new" | "gone";
+type PluginState = "on" | "off" | "new" | "gone";
 
 interface Plugin {
 	name: string;
@@ -21,7 +21,7 @@ interface Plugin {
 	version: string;
 	from: string;
 	/** The team it is added for; none is every team. Its agents join that team. */
-	team?: TeamName;
+	team?: string;
 	installed: string;
 	/** `user` is set where the agent has a page in this walkthrough; `comes` is what the plugin gives it. */
 	agents: { user?: string; av: string; name: string; what: string; comes: string }[];
@@ -32,7 +32,7 @@ interface Plugin {
 	changed: Row[];
 }
 
-export const PLUGINS: Record<PluginId, Plugin> = {
+const PLUGINS: Record<PluginId, Plugin> = {
 	habits: {
 		name: "Team habits",
 		what: "An agent that keeps how the team works written down.",
@@ -148,8 +148,7 @@ export const PLUGINS: Record<PluginId, Plugin> = {
 	},
 };
 
-export const PLUGIN_ORDER: PluginId[] = ["habits", "notes", "roles"];
-export const PLUGIN_STATES: Record<PluginId, PluginState> = {
+const PLUGIN_STATES: Record<PluginId, PluginState> = {
 	habits: "on",
 	notes: "gone",
 	roles: "new",
@@ -176,16 +175,6 @@ function adds(p: Plugin): string {
 		: parts.join("");
 }
 
-/** One line for a plugin in the team's box: how it stands, then what it is. */
-export function pluginLine(id: PluginId, state: PluginState): string {
-	const p = PLUGINS[id];
-	return state === "on"
-		? `On · ${adds(p)}`
-		: state === "off"
-			? "Off · what it added is paused"
-			: `${p.from} · not installed`;
-}
-
 function Items({ title, items }: { title: string; items: Row[] }) {
 	if (items.length === 0) return null;
 	return (
@@ -205,7 +194,7 @@ function Items({ title, items }: { title: string; items: Row[] }) {
 	);
 }
 
-export function PluginPage({
+function PluginPage({
 	id,
 	state,
 	team,
@@ -217,10 +206,10 @@ export function PluginPage({
 	id: PluginId;
 	state: PluginState;
 	/** The team whose page it was opened from. */
-	team: TeamName;
+	team: string;
 	onTeam: () => void;
-	/** Open the page of an agent the plugin added. */
-	onOpen: (user: string) => void;
+	/** Open the page of an agent the plugin added, by its name. */
+	onOpen: (name: string) => void;
 	onState: (state: PluginState) => void;
 	onRemove: () => void;
 }): React.ReactElement {
@@ -261,7 +250,7 @@ export function PluginPage({
 							type="button"
 							className="who"
 							disabled={!(here && a.user)}
-							onClick={() => a.user && onOpen(a.user)}
+							onClick={() => onOpen(a.name)}
 						>
 							<Avatar who={a.av} />
 							<span className="who-text">
@@ -346,62 +335,62 @@ export function PluginPage({
 	);
 }
 
-const SOURCES = ["A git address", "A folder", "A zip file"] as const;
+const same = (a: string, b: string): boolean =>
+	a
+		.toLowerCase()
+		.replace(/[^a-z]+/g, " ")
+		.trim() ===
+	b
+		.toLowerCase()
+		.replace(/[^a-z]+/g, " ")
+		.trim();
 
-export function PluginDialog({
-	teams,
-	onClose,
-	onDone,
-}: {
-	teams: string[];
-	onClose: () => void;
-	onDone: () => void;
-}): React.ReactElement {
-	const [from, setFrom] = useState<(typeof SOURCES)[number]>("A git address");
-	const [scope, setScope] = useState(teams[0]);
+/**
+ * A plugin's page, opened from a team's box or an agent it added. Its content is still the design's
+ * until plugins are wired; the plugin itself and the agents it links to are real.
+ */
+export function PluginScreen({ id }: { id: string }): React.ReactElement {
+	const navigate = useNavigate();
+	const [search] = useSearchParams();
+	const team = search.get("team") ?? "";
+	const plugins = useAction("search_plugins", {});
+	const users = useAction("search_users", {});
+	const listing = plugins.data?.find((p) => p.id === id);
+	const page =
+		listing &&
+		(Object.keys(PLUGINS) as PluginId[]).find((k) => same(PLUGINS[k].name, listing.name));
+	const [state, setState] = useState<PluginState | null>(null);
 	return (
-		<Dialog
-			title="Add a plugin"
-			sub="A plugin adds ready-made agents, skills, reasons to start and services. Everything it adds is yours to change."
-			done="Add"
-			onClose={onClose}
-			onDone={onDone}
-		>
-			<Field label="From">
-				<Seg label="From" options={SOURCES} value={from} onChange={setFrom} />
-			</Field>
-			<Field
-				label="Where"
-				hint={
-					from === "A git address" ? "The address of the repository the plugin is in." : undefined
-				}
-			>
-				<div className="in-row">
-					<input
-						className="in"
-						key={from}
-						aria-label="Where"
-						defaultValue={
-							from === "A git address"
-								? "github.com/northwind/release-notes"
-								: from === "A folder"
-									? "~/code/release-notes"
-									: "~/Downloads/release-notes.zip"
-						}
+		<section className="detail">
+			<header className="detail-head">
+				<span className="chip chip--quiet">Plugin</span>
+				<span className="doc-state">{page ? PLUGINS[page].what : (listing?.name ?? "")}</span>
+			</header>
+			<div className="detail-scroll">
+				{page ? (
+					<PluginPage
+						id={page}
+						state={state ?? PLUGIN_STATES[page]}
+						team={team}
+						onTeam={() => {
+							if (team) navigate(`/teams/${encodeURIComponent(team)}`);
+							else navigate(-1);
+						}}
+						onOpen={(name) => {
+							const agent = users.data?.find((u) => u.name === name);
+							if (agent) navigate(`/people/${agent.id}`);
+						}}
+						onState={setState}
+						onRemove={() => setState("new")}
 					/>
-					{from !== "A git address" && (
-						<button type="button" className="btn">
-							Choose…
-						</button>
-					)}
-				</div>
-			</Field>
-			<Field
-				label="For"
-				hint="A plugin's agents join the team it is added for. Every team: added once, for the whole organisation."
-			>
-				<Seg label="For" options={[...teams, "Every team"]} value={scope} onChange={setScope} />
-			</Field>
-		</Dialog>
+				) : (
+					plugins.data && (
+						<p className="opened-note">
+							The page of {listing?.name ?? "this plugin"} is not built yet.
+						</p>
+					)
+				)}
+			</div>
+		</section>
 	);
 }

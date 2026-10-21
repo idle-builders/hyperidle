@@ -44,6 +44,8 @@ interface PersonSpec {
 	readonly discipline: string;
 	readonly teams: readonly string[];
 	readonly sinceDays: number;
+	/** What they do, in a few words. */
+	readonly what: string;
 	/** What agents should know when they work with them. */
 	readonly about: string;
 }
@@ -57,6 +59,7 @@ interface AgentSpec {
 	readonly harness: HarnessType;
 	readonly sessions: number;
 	readonly sinceDays: number;
+	readonly what: string;
 }
 
 const PEOPLE: readonly PersonSpec[] = [
@@ -67,6 +70,7 @@ const PEOPLE: readonly PersonSpec[] = [
 		discipline: "Product",
 		teams: [PRODUCT_TEAM_ID, SUPPORT_TEAM_ID],
 		sinceDays: 98,
+		what: "Founder. Product and pricing.",
 		about: `# About Finn
 
 Founder. I decide what gets built and what customers see.
@@ -82,6 +86,7 @@ Founder. I decide what gets built and what customers see.
 		discipline: "Support",
 		teams: [SUPPORT_TEAM_ID],
 		sinceDays: 97,
+		what: "Support and ops.",
 		about: `# About Maya
 
 I run support and everything that goes out to customers.
@@ -95,6 +100,7 @@ const AGENTS: readonly AgentSpec[] = [
 	{
 		id: BUILDER_ID,
 		name: "Builder",
+		what: "Builds and ships.",
 		owner: FOUNDER_ID,
 		team: PRODUCT_TEAM_ID,
 		discipline: "Engineering",
@@ -105,6 +111,7 @@ const AGENTS: readonly AgentSpec[] = [
 	{
 		id: GROWTH_ID,
 		name: "Growth",
+		what: "Trials and pricing: numbers and experiments.",
 		owner: FOUNDER_ID,
 		team: PRODUCT_TEAM_ID,
 		discipline: "Growth",
@@ -115,6 +122,7 @@ const AGENTS: readonly AgentSpec[] = [
 	{
 		id: DESIGNER_ID,
 		name: "Designer",
+		what: "Pages and copy.",
 		owner: MAYA_ID,
 		team: SUPPORT_TEAM_ID,
 		discipline: "Design",
@@ -191,6 +199,7 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 				name: person.name,
 				role: person.role,
 				discipline: person.discipline,
+				what: person.what,
 				status: "active",
 				createdAt: clock.daysAgo(person.sinceDays),
 			})
@@ -275,6 +284,7 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 				agentCategory: "individual",
 				ownerUserId: agent.owner,
 				discipline: agent.discipline,
+				what: agent.what,
 				status: "active",
 				createdAt: clock.daysAgo(agent.sinceDays),
 			})
@@ -380,6 +390,10 @@ async function seedTeamHabits(db: HyperIdleDb, clock: DemoClock): Promise<void> 
 		now: clock.daysAgo(98),
 	});
 	await setRunConfig(db, FACILITATION_ID, "claude-code", 1);
+	await db
+		.update(users)
+		.set({ what: "Keeps how we work written down." })
+		.where(eq(users.id, FACILITATION_ID));
 	// The install counts the next Friday from its own date, long past; the
 	// Fridays since then have run, so the next one is still to come.
 	const daysToFriday = (4 - clock.daysSinceMonday + 7) % 7 || 7;

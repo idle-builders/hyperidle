@@ -4236,13 +4236,13 @@ button.rejected-next:hover {
 	border-radius: 0 0 var(--r) var(--r);
 	background: var(--surface);
 }
-.pick {
+.pin-pick {
 	position: absolute;
 	inset: 0;
 	cursor: crosshair;
 	background: transparent;
 }
-.pick-hi {
+.pin-pick-hi {
 	position: absolute;
 	pointer-events: none;
 	outline: 2px solid var(--accent);

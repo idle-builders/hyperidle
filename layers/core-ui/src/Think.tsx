@@ -7,7 +7,7 @@ import {
 	type Task,
 } from "@hyperidle/domain-model";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { call, type InputOf } from "./api";
 import { activeFormat, addFormat, DocEditor, useDocText } from "./DocEditor";
 import {
@@ -505,6 +505,7 @@ export function Think({ id }: { id: string }) {
 	const thread = useDocThread(id);
 	const doc = view.data?.document;
 
+	const [search] = useSearchParams();
 	const [edit, setEdit] = useState<boolean | null>(null);
 	const [dirty, setDirty] = useState(false);
 	const [typed, setTyped] = useState(0);
@@ -534,10 +535,11 @@ export function Think({ id }: { id: string }) {
 		human: (uid) => names.get(uid)?.kind === "human",
 	};
 
-	// Drafts open in edit mode, published documents in view mode.
+	// Drafts open in edit mode, published documents in view mode, unless the address asks to write.
+	const writeNow = search.has("edit");
 	useEffect(() => {
-		if (doc && edit === null) setEdit(doc.status === "proposed");
-	}, [doc, edit]);
+		if (doc && edit === null) setEdit(writeNow || doc.status === "proposed");
+	}, [doc, edit, writeNow]);
 	// The version the text in the editor is built on; it moves only while nothing is unsaved.
 	useEffect(() => {
 		if (doc && !dirty) base.current = Math.max(base.current, doc.version);

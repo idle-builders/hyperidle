@@ -39,6 +39,8 @@ export const users = pgTable("users", {
 	health: text("health"),
 	// @lore: discipline — an open craft string on a human or agent, matched case-insensitively; it clusters a context bundle, never gates access (`role` does).
 	discipline: text("discipline"),
+	/** What they do, in a few words, as everyone sees it. Never access: that is `role`. */
+	what: text("what"),
 });
 
 /**

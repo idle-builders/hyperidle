@@ -1,28 +1,16 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense } from "react";
 import { Navigate, Outlet, Route, Routes, useParams, useSearchParams } from "react-router";
 import { Arrive } from "./Arrive";
 import { Judge } from "./Judge";
-import { People, viewFor } from "./People";
+import { useAppLooks } from "./looks";
+import { TeamScreen, UserScreen } from "./People";
+import { PluginScreen } from "./Plugins";
 import { Shift } from "./Shift";
 import { Sidebar } from "./Sidebar";
 import { NewConversation, ThreadPage } from "./Thread";
 
 /** The document page carries the editor, the largest piece of the app; it loads when a document is opened. */
 const Think = lazy(() => import("./Think").then((m) => ({ default: m.Think })));
-
-/** Light or dark follows the computer. */
-function useComputerLooks(): void {
-	useEffect(() => {
-		const dark = window.matchMedia("(prefers-color-scheme: dark)");
-		const apply = () => {
-			document.documentElement.dataset.skin = "paper";
-			document.documentElement.dataset.mode = dark.matches ? "dark" : "light";
-		};
-		apply();
-		dark.addEventListener("change", apply);
-		return () => dark.removeEventListener("change", apply);
-	}, []);
-}
 
 /** The one shell: the sidebar, and the screen the address names beside it. */
 function Shell() {
@@ -60,15 +48,23 @@ function Document() {
 	);
 }
 
-function Page({ of }: { of: "user" | "team" | "plugin" }) {
+function Person() {
 	const { id = "" } = useParams();
-	return <People key={`${of}:${id}`} view={viewFor({ [of]: id })} />;
+	return <UserScreen key={id} id={id} />;
+}
+
+function Team() {
+	const { id = "" } = useParams();
+	return <TeamScreen key={id} name={id} />;
+}
+
+function Plugin() {
+	const { id = "" } = useParams();
+	return <PluginScreen key={id} id={id} />;
 }
 
 export function App() {
-	useComputerLooks();
-	// Every screen beside the sidebar still shows its design's made-up content; each later step
-	// replaces one screen's content with real data, and none of it is left when the cutover ends.
+	useAppLooks();
 	return (
 		<Routes>
 			<Route
@@ -85,9 +81,9 @@ export function App() {
 				<Route path="/conversations/:id" element={<Conversation />} />
 				<Route path="/work/:id" element={<Task />} />
 				<Route path="/knowledge/:id" element={<Document />} />
-				<Route path="/people/:id" element={<Page of="user" />} />
-				<Route path="/teams/:id" element={<Page of="team" />} />
-				<Route path="/plugins/:id" element={<Page of="plugin" />} />
+				<Route path="/people/:id" element={<Person />} />
+				<Route path="/teams/:id" element={<Team />} />
+				<Route path="/plugins/:id" element={<Plugin />} />
 			</Route>
 			<Route path="*" element={<Navigate to="/conversations" replace />} />
 		</Routes>

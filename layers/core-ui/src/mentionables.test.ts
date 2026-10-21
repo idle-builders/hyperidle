@@ -13,6 +13,7 @@ const user = (u: Partial<UserRow> & Pick<UserRow, "id" | "name">): UserRow => ({
 	ownerUserId: null,
 	health: null,
 	discipline: null,
+	what: null,
 	teams: [],
 	edges: [],
 	...u,

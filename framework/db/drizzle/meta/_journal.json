@@ -736,6 +736,13 @@
 			"when": 1791368881807,
 			"tag": "0105_people_and_set_up",
 			"breakpoints": true
+		},
+		{
+			"idx": 106,
+			"version": "7",
+			"when": 1791455281807,
+			"tag": "0106_what_someone_does",
+			"breakpoints": true
 		}
 	]
 }

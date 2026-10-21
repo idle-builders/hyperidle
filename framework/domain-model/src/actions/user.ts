@@ -89,6 +89,8 @@ export const UserRowSchema = z.object({
 	 * own doc for the shared rule.
 	 */
 	discipline: z.string().nullable(),
+	/** What they do, in a few words, as everyone sees it. */
+	what: z.string().nullable(),
 	teams: z.array(z.object({ id: z.string(), name: z.string() })),
 	edges: z.array(
 		z.object({
@@ -437,6 +439,8 @@ export const EditUserInputSchema = z
 		role: z.string().optional(),
 		/** Someone's craft. Explicit only — never inherited. `null` clears it. */
 		discipline: z.string().nullable().optional(),
+		/** What they do, in a few words. `null` clears it. */
+		what: z.string().nullable().optional(),
 		avatarUrl: z.string().nullable().optional(),
 		status: z.enum(USER_STATUSES).optional(),
 		health: z.string().nullable().optional(),

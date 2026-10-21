@@ -341,6 +341,7 @@ async function toUserRows(db: HyperIdleDb, rows: readonly UserWithTeams[]): Prom
 			ownerUserId: r.ownerUserId ?? null,
 			health: r.health ?? null,
 			discipline: r.discipline ?? null,
+			what: r.what ?? null,
 			teams,
 			edges: edgesByUser.get(r.id) ?? [],
 		};
@@ -932,6 +933,7 @@ async function createUserRun(
 		health: input.health ?? null,
 		// Explicit only — never inherited from anything.
 		discipline: input.discipline ?? null,
+		what: input.what ?? null,
 	};
 
 	const addedSubscriptions: Array<{
@@ -1062,7 +1064,15 @@ async function createUserRun(
 // edit_user — edit an existing user
 // ---------------------------------------------------------------------------
 
-const IDENTITY_FIELDS = ["name", "role", "avatarUrl", "status", "health", "discipline"] as const;
+const IDENTITY_FIELDS = [
+	"name",
+	"role",
+	"avatarUrl",
+	"status",
+	"health",
+	"discipline",
+	"what",
+] as const;
 
 function touchesIdentityFields(input: EditUserInput): boolean {
 	return IDENTITY_FIELDS.some((f) => input[f] !== undefined);
