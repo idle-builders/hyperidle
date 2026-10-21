@@ -227,7 +227,7 @@ Artifact content: a pricing page headed "Simple pricing that scales with your te
 
 1. **How the artifact gets enough room.** Full-bleed review mode, an overlay, a swap, a resizable split — pick a shape where judging is actually possible. This is the prompt's primary job.
 2. **A visual identity per canvas type** so the founder knows what kind of judgement is being asked for before reading a word.
-3. **Where the verdict lives** and what approve / reject / request-changes look like in a language where yellow is the only accent.
+3. **Where the verdict lives** and what approve / reject-with-a-reason look like in a language where yellow is the only accent.
 4. **Anchored comments** — commenting on a specific spot in a rendered artifact.
 5. **Irreversible operations.** `commit_file` and `create_bet` are marked high-risk in the tool layer and route to human approval. That approval moment needs a design that reads as consequential without becoming a scary enterprise modal.
 
