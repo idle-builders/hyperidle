@@ -55,7 +55,7 @@ Nothing about a server is stored at install: the folder is the only copy, so an 
 
 `plugins/` in the repository holds the plugins that ship with the app. The desktop build copies it into the app's resources beside the migrations (`electron-builder.yml`), and the desktop shell points the server at it with `HYPERIDLE_BUNDLED_PLUGINS_DIR`; the server image finds it in the repository it carries. Nothing is installed by default.
 
-`search_plugins` answers two kinds of rows: every install, and — as `state: "available"` — each bundled plugin the viewer's team has not installed. A factory install makes a plugin installed for everyone; a removed install makes it available again. Settings › Plugins shows the available rows with an Install button beside the installed ones.
+`search_plugins` answers two kinds of rows: every install, and — as `state: "available"` — each bundled plugin not yet installed for every team the viewer is in. A factory install makes a plugin installed for everyone; a removed install makes it available again. Settings › Plugins shows the available rows with an Install button beside the installed ones.
 
 `edit_plugin` installs one with `source: { kind: "bundled", name, scope }`. The name is matched exactly against the manifest names the server read from its own bundled folder; the caller never supplies a path. The manifest's `extensions["io.hyperidle"].installScope` (`team` by default, or `factory`) decides the scope.
 

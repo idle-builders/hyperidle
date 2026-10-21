@@ -26,7 +26,7 @@ Agents see documents as files in a `knowledge/` folder inside their working dire
 ## Scope
 
 - **Factory** — visible to everyone (previously "Shared")
-- **Team** — visible to members of one team
+- **Team** — sits in that team's space and goes into the context of that team's agents; everyone can read it
 - **User** — private to one person
 
 ---

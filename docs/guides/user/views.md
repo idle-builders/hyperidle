@@ -81,13 +81,13 @@ The task page shows all sessions that have run on that task: state (active, done
 
 ## 3. Knowledge
 
-Knowledge is one document store your whole team — humans and agents — reads and writes. Documents sit in a nested tree; where a document sits says what it is about.
+Knowledge is one document store everyone — humans and agents, in every team — reads and writes. Each team is a space in it. Documents sit in a nested tree; where a document sits says what it is about.
 
 ### Scope pills
 
 - **All** — everything you can see
 - **Shared** — factory scope (visible to everyone)
-- **Team** — your team's documents
+- **Team** — team-scoped documents, from every team
 - **Private** — your own documents
 
 ### Tabs

@@ -12,14 +12,21 @@ From `UserRowSchema` (`actions/user.ts`):
 - `ownerUserId` — the person who owns an agent.
 - `agentCategory` (`team | individual | null`).
 - `health` — a note on the agent (e.g. crash count); null when healthy.
-- `team` — `{ id, name }` or null. Derived: an agent with no own team inherits its owner's team.
+- `teams` — `{ id, name }[]`, every team the user is in. A person may be in several; an agent is in exactly one.
 - `edges` — outgoing `org_edges` rows; the org chart is these edges.
 
-## Team
+## Teams
 
-The `teams` table has only `id`, `name`, `createdAt`. Team is set by name via `edit_user({ team: { name } })` — found or created. Never deleted. An agent inherits its owner's team when it has none of its own.
+There is one organisation, and nothing names it. A team is a group inside it — a product team, a function such as sales, or a group across functions. A team is a name and a filter, not an object of its own: there are no team actions.
 
-Team scope applies to documents, folders registered per team, and task assignment.
+- **A person can be in several teams. An agent is in exactly one** — an owned agent too, and its team must be one of its owner's. A person cannot leave a team one of their agents is in; move the agent first. The only users in no team are the hidden system actor and the agents a plugin brings for everyone.
+- `edit_user({ teams: ["Product", "Support"] })` sets the whole list; each name is found (oldest first) or created. Refusals: `belonging_required` (no team), `agent_one_team` (an agent in more than one), `agent_team_not_owners` (an owned agent outside its owner's teams).
+- `search_users({ teamId })` lists everyone in that team.
+- Storage: `teams` (`id`, `name`, `createdAt`, never deleted) and `user_teams` (`user_id`, `team_id`).
+
+**Everyone reads every team's knowledge.** Conversations and documents are shown across all teams. A team-scoped document sits in that team's space, and goes into the context of that team's agents; it never limits who can read it.
+
+Team scope applies to documents (their space), folders registered per team, and task assignment.
 
 ## Subscriptions
 
@@ -34,7 +41,7 @@ Schedule subscriptions are agent-only (refused for humans at `edit_user`).
 - If the subscriber is a person → an `inbox` row is created and a `user:<id>` push is sent.
 - If the subscriber is an agent → a `subscription_run` work intent is queued.
 
-**Reach.** Each subscription is scoped to what the subscriber can see — factory-wide, their team's objects, or their own. The scope is re-evaluated at fire time using the same `search_*` predicates as a normal query.
+**Reach.** Each subscription is scoped to what the subscriber can see, re-evaluated at fire time with the same `search_*` predicates as a normal query. A task or user change reaches the subscriber when it is theirs or in one of their teams; a subscriber in no team is reached by every team's.
 
 **Fresh install.** The person and their owned assistant are each subscribed to all 9 events.
 
@@ -58,7 +65,7 @@ Per agent: `harnessType`, `modelId`, `modelProvider`, `modelOptions`, `maxConcur
 
 ## Folders
 
-Each user's `open_user` response includes folders: for agents, the folders given to them; for people, their team's folders. Given/taken via `edit_user({ folders: { give, take } })`.
+Each user's `open_user` response includes folders: for agents, the folders given to them; for people, the folders of every team they are in. Given/taken via `edit_user({ folders: { give, take } })`; a folder added by someone in several teams names which one (`folders.add[].team`).
 
 ## Connections
 

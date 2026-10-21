@@ -56,7 +56,7 @@ The surface is verifiable by path alone — no content inspection. Adding a new 
 
 `Nimmly` is a real, separate product — it must not appear anywhere in the HyperIdle codebase (code, tests, stories, docs, mockups).
 
-The sanctioned fictional name for demo data is **`Acme`** (team id `demo-team-acme`, agents `demo-agent-*`). Use it for:
+The sanctioned fictional name for demo data is **`Acme`** (the demo company; its teams are `demo-team-product` and `demo-team-support`). Use it for:
 
 - Test fixtures and stories that need a believable team name
 - Setup-cli demo mode (`--demo` flag) — seeds the lived-in six-week Acme world (tasks, threads/reviews, knowledge, sessions, subscriptions) into a fresh database; opt-in only, never on a normal boot path

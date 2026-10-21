@@ -8,7 +8,7 @@ For agent identity and the full lifecycle, see [agent-layer/agent-model.md](../.
 
 ## Your assistant
 
-Every HyperIdle user gets a personal **assistant** — created during setup, one per human. It is an individual agent: scoped to you, not a team. It can see what you can see and act on your behalf through the same tools any other agent uses.
+Every HyperIdle user gets a personal **assistant** — created during setup, one per human. It is an individual agent: it works for you, and like every agent it is in exactly one team — one of yours. It can see what you can see and act on your behalf through the same tools any other agent uses.
 
 Open the assistant as an overlay from the **Assistant** button in the sidebar's top row, next to search. Ask it to draft a task, look something up, or explain what's happening. You can see every change it makes.
 

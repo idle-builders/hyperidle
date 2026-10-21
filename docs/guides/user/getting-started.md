@@ -56,7 +56,7 @@ No API key. No team type. No preset selection. After you click **Finish**, Hyper
 - **You** — your user account.
 - **Your assistant** — an individual agent, subscribed to every object event, ready to help from the sidebar overlay.
 - **A team** — named after your folder if you provided one, otherwise "My Team".
-- **No team agents.** The assistant is yours, not a team member. To get team agents — Builder, Designer, Product Manager, and others — install the **role-personas** plugin.
+- **No team agents.** The assistant is yours (it sits in your team, but works for you). To get team agents — Builder, Designer, Product Manager, and others — install the **role-personas** plugin.
 
 ---
 
