@@ -1,12 +1,14 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Outlet, Route, Routes, useParams, useSearchParams } from "react-router";
 import { Arrive } from "./Arrive";
 import { Judge } from "./Judge";
 import { People, viewFor } from "./People";
 import { Shift } from "./Shift";
 import { Sidebar } from "./Sidebar";
-import { Think } from "./Think";
 import { NewConversation, ThreadPage } from "./Thread";
+
+/** The document page carries the editor, the largest piece of the app; it loads when a document is opened. */
+const Think = lazy(() => import("./Think").then((m) => ({ default: m.Think })));
 
 /** Light or dark follows the computer. */
 function useComputerLooks(): void {
@@ -51,7 +53,11 @@ function Task() {
 
 function Document() {
 	const { id = "" } = useParams();
-	return <Think key={id} id={id} />;
+	return (
+		<Suspense fallback={null}>
+			<Think key={id} id={id} />
+		</Suspense>
+	);
 }
 
 function Page({ of }: { of: "user" | "team" | "plugin" }) {
