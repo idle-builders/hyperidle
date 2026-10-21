@@ -77,7 +77,13 @@ working through the backend changes.
     stopped, on the task and every part not done; a "restart" dispatch after a stop), following one
     object (`subscriptions.object_id`; a person follows what they start), and a finished task needs
     nothing. A task handed off in a thread keeps that thread as its own, and says it came from it.
-  - [ ] Review (Judge) — next.
+  - [x] Review (Judge): the review page on real data — the parts (a live page at desktop, tablet
+    and phone widths, code, an image, numbers, text, a batch of items), the agent's flags and
+    people's comments as pins on them with a thread each, the list of questions, the loop from
+    the work item's task, more space, Approve and Reject with a reason, and the link back to
+    round 1. Backend: a review is made of parts and flags, a comment points with an anchor (one
+    shape for reviews and document blocks), and a retry names the round it follows; the nine
+    canvas kinds and `messages.block_id` are gone (migration 0103).
 - [ ] Step 5 finish.
 
 
@@ -172,9 +178,7 @@ here, core-ui is empty except for its package file.
   a proposed change and Apply; review rounds; ticking folders and services per agent; "came with
   the plugin" and where a plugin came from.
 - Found while wiring Conversations (2026-10-21), designed but not stored yet: a few words under
-  each option of a question, and the question's exposure ("seen by every trial user"); a
-  review's content beyond text lines (the preview, code, numbers, email parts — lands with the
-  review page); outside links such as Zendesk tickets as reference chips; "Builder joined".
+  each option of a question, and the question's exposure ("seen by every trial user"); outside links such as Zendesk tickets as reference chips; "Builder joined".
 
 **Each screen counts as done when:**
 - it shows real data from a seeded database
