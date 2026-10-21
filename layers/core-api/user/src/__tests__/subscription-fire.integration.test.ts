@@ -17,6 +17,7 @@ import {
 	changes,
 	documents,
 	type HyperIdleDb,
+	subscriptions,
 	tasks,
 	teams,
 	threads,
@@ -369,6 +370,82 @@ describe("registerSubscriptionFire — a person subscriber", () => {
 		expect(rows[0]?.changeId).toBe("c5");
 		expect(pushes).toHaveLength(1);
 		expect(pushes[0]?.topic).toBe("user:person");
+	});
+});
+
+describe("following one object", () => {
+	test("a person following one task hears that task change and no other", async ({ db }) => {
+		const eventBus = new EventBus();
+		await seedTeam(db, "team-a");
+		await seedUser(db, "actor", { teamId: "team-a" });
+		await seedUser(db, "person", { teamId: "team-a" });
+		await seedTaskWithThread(db, "followed", "team-a", null);
+		await seedTaskWithThread(db, "other", "team-a", null);
+		await insertSubscription(db, {
+			id: "sub-follow",
+			userId: "person",
+			event: "task.changed",
+			objectId: "followed",
+			schedule: null,
+			paused: false,
+			nextRunAt: null,
+			createdAt: TS,
+			updatedAt: TS,
+		});
+		const unsub = fire(db, eventBus, buildDeps(db));
+		try {
+			for (const [id, task] of [
+				["c-followed", "followed"],
+				["c-other", "other"],
+			] as const) {
+				eventBus.emit(objectEvent(await insertChangeRow(db, id, "task", task, "actor")));
+			}
+			await new Promise((r) => setTimeout(r, 50));
+		} finally {
+			unsub();
+		}
+		const rows = await listInboxRows(db, { userId: "person" });
+		expect(rows.map((r) => r.changeId)).toEqual(["c-followed"]);
+	});
+
+	test("a person follows the task they start; an agent starting one follows nothing", async ({
+		db,
+	}) => {
+		const eventBus = new EventBus();
+		await seedTeam(db, "team-a");
+		await seedUser(db, "person", { teamId: "team-a" });
+		await seedUser(db, "agent", { teamId: "team-a", kind: "ai" });
+		await seedTaskWithThread(db, "by-person", "team-a", null);
+		await seedTaskWithThread(db, "by-agent", "team-a", null);
+		const unsub = fire(db, eventBus, buildDeps(db));
+		try {
+			for (const [task, actor] of [
+				["by-person", "person"],
+				["by-agent", "agent"],
+			] as const) {
+				const [row] = await db
+					.insert(changes)
+					.values({
+						id: `created-${task}`,
+						object: "task",
+						objectId: task,
+						kind: "created",
+						actor,
+						before: null,
+						after: "{}",
+						at: LATER,
+					})
+					.returning();
+				if (row) eventBus.emit(objectEvent(row));
+			}
+			await new Promise((r) => setTimeout(r, 50));
+		} finally {
+			unsub();
+		}
+		const follows = await db.select().from(subscriptions);
+		expect(follows.map((f) => [f.userId, f.event, f.objectId])).toEqual([
+			["person", "task.changed", "by-person"],
+		]);
 	});
 });
 

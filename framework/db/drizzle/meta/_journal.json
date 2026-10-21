@@ -708,6 +708,13 @@
 			"when": 1791023281807,
 			"tag": "0101_task_paused",
 			"breakpoints": true
+		},
+		{
+			"idx": 102,
+			"version": "7",
+			"when": 1791109681807,
+			"tag": "0102_follow_one_object",
+			"breakpoints": true
 		}
 	]
 }

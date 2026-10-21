@@ -489,6 +489,8 @@ export const subscriptions = pgTable(
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
 		event: text("event"),
+		/** The one task, thread or document this follows; null hears the event about anything it reaches. */
+		objectId: text("object_id"),
 		schedule: text("schedule"),
 		paused: boolean("paused").notNull().default(false),
 		nextRunAt: text("next_run_at"),
@@ -499,6 +501,7 @@ export const subscriptions = pgTable(
 		index("subscriptions_user_idx").on(table.userId),
 		index("subscriptions_event_idx").on(table.event).where(sql`${table.event} IS NOT NULL`),
 		check("subscriptions_trigger_ck", sql`(${table.event} IS NULL) <> (${table.schedule} IS NULL)`),
+		check("subscriptions_object_ck", sql`${table.objectId} IS NULL OR ${table.event} IS NOT NULL`),
 		check(
 			"subscriptions_event_ck",
 			sql`${table.event} IS NULL OR ${table.event} IN (

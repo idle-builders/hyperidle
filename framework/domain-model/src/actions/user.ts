@@ -220,6 +220,8 @@ export type FolderView = z.infer<typeof FolderViewSchema>;
 export const SubscriptionViewSchema = z.object({
 	id: z.string(),
 	event: z.enum(OBJECT_EVENTS).nullable(),
+	/** The one object it follows, or null for the event about anything the user reaches. */
+	objectId: z.string().nullable(),
 	schedule: z.string().nullable(),
 	paused: z.boolean(),
 	documentId: z.string().nullable(),
@@ -364,6 +366,8 @@ const EditUserConnectionsSchema = z
 const AddSubscriptionSchema = z
 	.object({
 		event: z.enum(OBJECT_EVENTS).optional(),
+		/** Follow one task, thread or document: only the event about it fires. Needs `event`. */
+		objectId: z.string().min(1).optional(),
 		schedule: z.string().min(1).optional(),
 		prompt: z.string().nullable().optional(),
 		paused: z.boolean().optional(),
@@ -580,6 +584,13 @@ function subscriptionInvariants(input: EditUserInput): Problem[] {
 			problems.push({
 				code: "event_or_schedule",
 				message: "A subscription fires on exactly one of an event or a schedule.",
+				path: "subscriptions",
+			});
+		}
+		if (subscription.objectId !== undefined && !hasEvent) {
+			problems.push({
+				code: "follow_needs_event",
+				message: "Following one object needs the event to hear about it.",
 				path: "subscriptions",
 			});
 		}

@@ -438,6 +438,7 @@ async function buildUserView(
 	const subscriptions = subscriptionRows.map((s) => ({
 		id: s.id,
 		event: s.event as ObjectEventName | null,
+		objectId: s.objectId,
 		schedule: s.schedule,
 		paused: s.paused,
 		documentId: promptDocByParent.get(s.id) ?? null,
@@ -881,6 +882,7 @@ async function createUserRun(
 				id: subId,
 				userId: id,
 				event: sub.event ?? null,
+				objectId: sub.objectId ?? null,
 				schedule: sub.schedule ?? null,
 				paused: sub.paused ?? false,
 				nextRunAt,
@@ -1118,6 +1120,7 @@ async function editExistingUserRun(
 				id: subId,
 				userId: id,
 				event: sub.event ?? null,
+				objectId: sub.objectId ?? null,
 				schedule: sub.schedule ?? null,
 				paused: sub.paused ?? false,
 				nextRunAt,

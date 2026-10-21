@@ -7,7 +7,7 @@ import type { ActionContext, SearchDocumentsRunFn } from "./action-types.js";
 import { AgentNotRunnableError } from "./runnable-agent.js";
 import type { SubscriptionWakeDeps } from "./subscription-wake.js";
 import { resolveSubscriptionWakeRequest } from "./subscription-wake.js";
-import { insertInboxRow, listSubscriptions } from "./subscriptions-store.js";
+import { insertInboxRow, insertSubscription, listSubscriptions } from "./subscriptions-store.js";
 import { findUser, type UserWithTeams } from "./user-store.js";
 
 const logger = createLogger({ pkg: "user.subscription-fire" });
@@ -187,7 +187,11 @@ async function fireForEvent(
 	const woke = new Set(event.woke ?? []);
 	// @lore: subscription filter — createdAt < change.at blocks self-wake on agent.created; woke set prevents double-wake when change already started this agent
 	const candidates = subs.filter(
-		(s) => s.userId !== change.actor && !woke.has(s.userId) && s.createdAt < change.at,
+		(s) =>
+			s.userId !== change.actor &&
+			!woke.has(s.userId) &&
+			s.createdAt < change.at &&
+			(s.objectId === null || s.objectId === change.objectId),
 	);
 	for (const sub of candidates) {
 		const subscriber = await findUser(db, { id: sub.userId });
@@ -200,6 +204,24 @@ async function fireForEvent(
 			await notifyPerson(db, subscriber, change, deps.wsPush);
 		}
 	}
+}
+
+/** A person follows the task they start, so what happens to it reaches them. */
+async function followWhatTheyStart(db: HyperIdleDb, event: ObjectChangeEvent): Promise<void> {
+	const change = event.change;
+	const starter = await findUser(db, { id: change.actor });
+	if (starter?.kind !== "human") return;
+	await insertSubscription(db, {
+		id: crypto.randomUUID(),
+		userId: starter.id,
+		event: "task.changed",
+		objectId: change.objectId,
+		schedule: null,
+		paused: false,
+		nextRunAt: null,
+		createdAt: change.at,
+		updatedAt: change.at,
+	});
 }
 
 /** Unsubscribe every registered listener — the app's own disposer shape. */
@@ -221,6 +243,16 @@ export function registerSubscriptionFire(
 			void fireForEvent(db, eventBus, event, deps).catch((error) => {
 				logger.error("subscription fire failed", {
 					eventType,
+					changeId: event.change.id,
+					error: error instanceof Error ? error.message : String(error),
+				});
+			});
+		}),
+	);
+	unsubscribers.push(
+		eventBus.on("task.created", (event) => {
+			void followWhatTheyStart(db, event).catch((error) => {
+				logger.error("follow on start failed", {
 					changeId: event.change.id,
 					error: error instanceof Error ? error.message : String(error),
 				});

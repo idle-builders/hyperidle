@@ -343,6 +343,27 @@ describe("edit_user — a subscription prompt document parented to the subscript
 	});
 });
 
+describe("edit_user — following one object", () => {
+	test("a person follows a task and stops following it, read back on their page", async ({
+		db,
+	}) => {
+		await seedFounder(db);
+		const { editUser, openUser } = actionsFor(buildDeps());
+		const followed = await editUser(ctxFor(db, "u-founder"), {
+			id: "u-founder",
+			subscriptions: { add: [{ event: "task.changed", objectId: "task-1" }] },
+		});
+		expect(followed.ok && followed.data.subscriptions.map((s) => [s.event, s.objectId])).toEqual([
+			["task.changed", "task-1"],
+		]);
+		const id = followed.ok ? (followed.data.subscriptions[0]?.id ?? "") : "";
+
+		await editUser(ctxFor(db, "u-founder"), { id: "u-founder", subscriptions: { remove: [id] } });
+		const opened = await openUser(ctxFor(db, "u-founder"), { id: "u-founder" });
+		expect(opened.ok && opened.data.subscriptions).toEqual([]);
+	});
+});
+
 describe("edit_user — inbox marks", () => {
 	test("marking a change read stamps both readAt and seenAt", async ({ db }) => {
 		await seedFounder(db);
