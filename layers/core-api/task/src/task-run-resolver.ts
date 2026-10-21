@@ -2,11 +2,44 @@ import type { HyperIdleDb, Task, Team, User } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
+	DoneWhenLine,
+	Reason,
 	SessionDocumentLike,
 } from "@hyperidle/domain-model";
-import { bakeAgentRunnableConfig, toBakedContextDocuments } from "@hyperidle/domain-model";
+import {
+	bakeAgentRunnableConfig,
+	DoneWhenLineSchema,
+	ReasonSchema,
+	toBakedContextDocuments,
+} from "@hyperidle/domain-model";
 import * as work from "./task-service.js";
 import { taskDispatchAttemptStore } from "./task-service.js";
+
+function parseDoneWhen(json: string): readonly DoneWhenLine[] {
+	try {
+		const parsed: unknown = JSON.parse(json);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.flatMap((item) => {
+			const r = DoneWhenLineSchema.safeParse(item);
+			return r.success ? [r.data] : [];
+		});
+	} catch {
+		return [];
+	}
+}
+
+function parseReasons(json: string): readonly Reason[] {
+	try {
+		const parsed: unknown = JSON.parse(json);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.flatMap((item) => {
+			const r = ReasonSchema.safeParse(item);
+			return r.success ? [r.data] : [];
+		});
+	} catch {
+		return [];
+	}
+}
 
 export interface TaskRunResolverDeps {
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
@@ -67,14 +100,15 @@ export async function bakeTaskContextBundle(
 			title: task.title,
 			description: task.description,
 			state: task.state,
-			doneCondition: task.doneCondition,
+			doneWhen: parseDoneWhen(task.doneWhen),
+			reasons: parseReasons(task.reasons),
 		},
 		// Root-first, so the agent reads the goal chain top-down.
 		ancestors: ancestors.map((a) => ({
 			id: a.id,
 			title: a.title,
 			description: a.description,
-			doneCondition: a.doneCondition,
+			doneWhen: parseDoneWhen(a.doneWhen),
 		})),
 		agent: { id: agent.id, name: agent.name, role: agent.role },
 		team: { id: team.id, name: team.name },

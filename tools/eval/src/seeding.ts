@@ -163,7 +163,7 @@ export async function seedRootTask(
 		rootTaskId?: string;
 		teamId: string;
 		description: string;
-		doneCondition?: string;
+		doneWhen?: string;
 		state?: TaskState;
 	},
 ): Promise<{ rootTaskId: string; threadId: string }> {
@@ -183,6 +183,10 @@ export async function seedRootTask(
 		createdAt: now,
 	});
 
+	const doneWhenJson = opts.doneWhen
+		? JSON.stringify([{ id: `dw-${rootTaskId}`, what: opts.doneWhen, by: "check", state: "open", how: null }])
+		: "[]";
+
 	await db.insert(tasks).values({
 		id: rootTaskId,
 		threadId,
@@ -191,7 +195,7 @@ export async function seedRootTask(
 		title:
 			opts.description.length > 120 ? `${opts.description.slice(0, 117)}...` : opts.description,
 		description: opts.description,
-		doneCondition: opts.doneCondition ?? null,
+		doneWhen: doneWhenJson,
 		state: opts.state ?? "in_progress",
 		createdAt: now,
 		updatedAt: now,
@@ -211,7 +215,7 @@ export async function seedTask(
 		ownerAgentId: string;
 		title: string;
 		description?: string;
-		doneCondition?: string;
+		doneWhen?: string;
 		state?: TaskState;
 	},
 ): Promise<{ taskId: string; threadId: string }> {
@@ -231,6 +235,10 @@ export async function seedTask(
 		createdAt: now,
 	});
 
+	const doneWhenJson = opts.doneWhen
+		? JSON.stringify([{ id: `dw-${taskId}`, what: opts.doneWhen, by: "check", state: "open", how: null }])
+		: "[]";
+
 	await db.insert(tasks).values({
 		id: taskId,
 		threadId,
@@ -239,7 +247,7 @@ export async function seedTask(
 		ownerAgentId: opts.ownerAgentId,
 		title: opts.title,
 		description: opts.description ?? null,
-		doneCondition: opts.doneCondition ?? null,
+		doneWhen: doneWhenJson,
 		state: opts.state ?? "accepted",
 		createdAt: now,
 		updatedAt: now,
@@ -344,7 +352,7 @@ export async function seedMinimalWorld(
 	const { rootTaskId } = await seedRootTask(db, {
 		teamId,
 		description: opts?.betDescription ?? "Eval scenario root task",
-		doneCondition: opts?.betDoneCondition ?? "Scenario objectives completed.",
+		doneWhen: opts?.betDoneCondition ?? "Scenario objectives completed.",
 	});
 
 	const { taskId } = await seedTask(db, {
@@ -353,7 +361,7 @@ export async function seedMinimalWorld(
 		ownerAgentId: agentId,
 		title: opts?.taskTitle ?? "Eval task",
 		description: opts?.taskDescription ?? "Complete the assigned task.",
-		doneCondition: opts?.betDoneCondition ?? "Task objectives completed.",
+		doneWhen: opts?.betDoneCondition ?? "Task objectives completed.",
 		state: "accepted",
 	});
 

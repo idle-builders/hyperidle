@@ -38,16 +38,18 @@ describe("demo world schema validation", () => {
 		const taskRows = await rows<Record<string, unknown>>(
 			db,
 			`SELECT id, parent_task_id, team_id, owner_agent_id, title, description,
-			        done_condition, state, dependencies, thread_id, notes,
+			        done_when, reasons, state, dependencies, thread_id, notes,
 			        created_at, updated_at, outcome_verdict, outcome_summary,
 			        outcome_recorded_at, outcome_recorded_by, tokens_actual_json,
-			        source_document_id, completed_at, position, needs_review
+			        source_document_id, completed_at, position
 			   FROM tasks`,
 		);
 		expect(taskRows.length).toBeGreaterThan(0);
 
 		const failures: string[] = [];
 		for (const row of taskRows) {
+			const doneWhenParsed: unknown = (() => { try { return JSON.parse(row.done_when as string); } catch { return []; } })();
+			const reasonsParsed: unknown = (() => { try { return JSON.parse(row.reasons as string); } catch { return []; } })();
 			const result = TaskSchema.safeParse({
 				id: row.id,
 				parentTaskId: row.parent_task_id ?? null,
@@ -55,7 +57,8 @@ describe("demo world schema validation", () => {
 				ownerAgentId: row.owner_agent_id ?? null,
 				title: row.title,
 				description: row.description ?? null,
-				doneCondition: row.done_condition ?? null,
+				doneWhen: doneWhenParsed,
+				reasons: reasonsParsed,
 				state: row.state,
 				dependencies: row.dependencies ?? null,
 				threadId: row.thread_id,
@@ -70,7 +73,6 @@ describe("demo world schema validation", () => {
 				sourceDocumentId: row.source_document_id ?? null,
 				completedAt: row.completed_at ?? null,
 				position: Number(row.position ?? 0),
-				needsReview: Boolean(row.needs_review),
 			});
 			if (!result.success) {
 				failures.push(`task ${row.id as string}: ${result.error.message}`);

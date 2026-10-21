@@ -28,7 +28,7 @@ Full transition map in `TASK_STATE_TRANSITIONS` (`actions/task.ts`). Key edges:
 - `proposed → hold` — entering the dependency-wait chain.
 - `hold → accepted` — dependency watcher fires when all deps are `done`.
 - `hold → proposed` — a dependency was killed; the task returns for re-planning.
-- `in_progress → review` or `→ done` — session ends, governed by `needsReview`.
+- `in_progress → review` or `→ done` — session ends; `review` when any `doneWhen` line has `by:"review"`, else `done`.
 - `done → killed` — only terminal edge; killing is always a subtree operation.
 
 ## Dependencies
@@ -37,22 +37,24 @@ Full transition map in `TASK_STATE_TRANSITIONS` (`actions/task.ts`). Key edges:
 
 A cycle, a self-dependency, or a dependency on a non-existent task is refused at the time it is set.
 
-## Finishing: done by default, review on request
+## Finishing: done by default, review when requested
 
-`tasks.needsReview` (boolean, default `false`) decides where a task goes when its work ends.
+`tasks.doneWhen` is a JSON array of `DoneWhenLine` objects. Each line has an `id`, a `what` description, a `by` field (`"check"` or `"review"`), a `state` (`"open"`, `"met"`, or `"failed"`), and an optional `how`.
 
-| Event | `needsReview = false` | `needsReview = true` |
+| Event | No `by:"review"` line | At least one `by:"review"` line |
 |---|---|---|
 | Session on task ends (`completed` outcome) | task → `done` | task → `review` |
 | All children reach terminal state | parent → `done` | parent → `review` |
 
-With most tasks going straight to `done`, completion cascades up the tree automatically. A task with `needsReview = true` is where the chain stops until a person acts.
+With most tasks going straight to `done`, completion cascades up the tree automatically. A task with a `by:"review"` line is where the chain stops until a person acts.
+
+`tasks.reasons` is a JSON array of `Reason` objects — decisions and assumptions the task records. Each reason has a `kind` (`"decision"` or `"assumption"`), a `what`, a `state` (decision: `"made"` or `"waiting"`; assumption: `"held"`, `"open"`, or `"broke"`), and an optional `why`.
 
 Code: `layers/core-api/policy/src/lifecycle-propagation.ts`.
 
 ## Upward propagation
 
-When a task reaches `done` or `killed`, `propagateTaskToParent` walks up the ancestor chain. At each level it checks whether all direct children are terminal. If yes, it transitions that ancestor (`done` or `review` per its own `needsReview`). The cascade continues upward until it reaches a `review`, terminal, or non-all-terminal ancestor.
+When a task reaches `done` or `killed`, `propagateTaskToParent` walks up the ancestor chain. At each level it checks whether all direct children are terminal. If yes, it transitions that ancestor (`done` or `review` depending on whether it has a `by:"review"` line in its `doneWhen`). The cascade continues upward until it reaches a `review`, terminal, or non-all-terminal ancestor.
 
 A race (two children finishing at once) produces an `InvalidTransitionError` from the second one — swallowed silently. The first finisher wins.
 

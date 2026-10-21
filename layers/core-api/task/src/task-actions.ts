@@ -6,12 +6,14 @@ import {
 	type AgentWorkIntentRecorderInput,
 	canTransitionTaskState,
 	type DocumentRow,
+	DoneWhenLineSchema,
 	type Task as DomainTask,
 	type EditTaskInput,
 	editTask as editTaskDeclaration,
 	type OpenThreadInput,
 	openTask as openTaskDeclaration,
 	type Problem,
+	ReasonSchema,
 	type SearchDocumentsInput,
 	type SearchTasksInput,
 	searchTasks as searchTasksDeclaration,
@@ -29,6 +31,41 @@ import { resolveTaskRunRequest } from "./task-run-resolver.js";
 import type { Task } from "./task-service.js";
 import * as taskDb from "./task-service.js";
 import { taskDispatchAttemptStore } from "./task-service.js";
+
+/**
+ * Parse the JSON text columns `done_when` and `reasons` of a DB row into a domain Task.
+ * Invalid JSON or schema mismatches fall back to empty arrays rather than throwing — the
+ * rows were valid when written; a parse failure here means a schema gap, not corrupt data.
+ */
+function toTask(row: Task): DomainTask {
+	let doneWhen: DomainTask["doneWhen"] = [];
+	try {
+		const parsed: unknown = JSON.parse(row.doneWhen);
+		if (Array.isArray(parsed)) {
+			doneWhen = parsed.flatMap((item) => {
+				const r = DoneWhenLineSchema.safeParse(item);
+				return r.success ? [r.data] : [];
+			});
+		}
+	} catch {
+		// leave empty
+	}
+
+	let reasons: DomainTask["reasons"] = [];
+	try {
+		const parsed: unknown = JSON.parse(row.reasons);
+		if (Array.isArray(parsed)) {
+			reasons = parsed.flatMap((item) => {
+				const r = ReasonSchema.safeParse(item);
+				return r.success ? [r.data] : [];
+			});
+		}
+	} catch {
+		// leave empty
+	}
+
+	return { ...(row as unknown as DomainTask), doneWhen, reasons };
+}
 
 /** Task action dependencies — every one is a sibling Service or the seam; this module may not import any directly (service boundary). */
 export interface TaskActionsDeps {
@@ -113,14 +150,14 @@ async function dependsOnTransitively(
 
 /** A task-shaped candidate `taskInvariants` runs over — never written. */
 function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: string): DomainTask {
-	const base: DomainTask = (prev as unknown as DomainTask | null) ?? {
+	const base: DomainTask = (prev ? toTask(prev) : null) ?? {
 		id: input.id ?? randomUUID(),
 		parentTaskId: null,
 		teamId: "",
 		ownerAgentId: null,
 		title: "",
 		description: null,
-		doneCondition: null,
+		doneWhen: [],
 		state: "proposed",
 		dependencies: null,
 		threadId: "",
@@ -135,7 +172,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		sourceDocumentId: null,
 		completedAt: null,
 		position: 0,
-		needsReview: false,
+		reasons: [],
 	};
 	return {
 		...base,
@@ -144,9 +181,9 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		...(input.ownerAgentId !== undefined ? { ownerAgentId: input.ownerAgentId } : {}),
 		...(input.title !== undefined ? { title: input.title } : {}),
 		...(input.description !== undefined ? { description: input.description } : {}),
-		...(input.doneCondition !== undefined ? { doneCondition: input.doneCondition } : {}),
+		...(input.doneWhen !== undefined ? { doneWhen: input.doneWhen } : {}),
 		...(input.position !== undefined ? { position: input.position } : {}),
-		...(input.needsReview !== undefined ? { needsReview: input.needsReview } : {}),
+		...(input.reasons !== undefined ? { reasons: input.reasons } : {}),
 		...(input.dependencies !== undefined
 			? { dependencies: input.dependencies ? JSON.stringify(input.dependencies) : null }
 			: {}),
@@ -180,7 +217,7 @@ function diffFields(
 function buildChildren(all: readonly Task[], parentId: string): TaskNode[] {
 	return all
 		.filter((t) => t.parentTaskId === parentId)
-		.map((t) => ({ ...(t as unknown as DomainTask), children: buildChildren(all, t.id) }));
+		.map((t) => ({ ...toTask(t), children: buildChildren(all, t.id) }));
 }
 
 function sumTokensActual(rows: readonly Task[]): number | null {
@@ -229,7 +266,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		const ancestorById = new Map(ancestorTasks.map((t) => [t.id, t]));
 		const ancestors: DomainTask[] = [...ancestorIds].reverse().flatMap((id) => {
 			const t = ancestorById.get(id);
-			return t ? [t as unknown as DomainTask] : [];
+			return t ? [toTask(t)] : [];
 		});
 
 		const subtreeIds = await taskDb.listSubtreeIds(ctx.db, input.id);
@@ -246,7 +283,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		return {
 			ok: true,
 			data: {
-				task: task as unknown as DomainTask,
+				task: toTask(task),
 				ancestors,
 				children,
 				tokensActualRollup,
@@ -266,7 +303,10 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
 			});
 			const excluded = new Set(input.excludeIds ?? []);
-			return { ok: true, data: rows.filter((r) => !excluded.has(r.id)) as unknown as DomainTask[] };
+			return {
+				ok: true,
+				data: rows.filter((r) => !excluded.has(r.id)).map(toTask),
+			};
 		}
 		if (input.text !== undefined) {
 			const rows = await taskDb.list(ctx.db, "task", {
@@ -276,7 +316,10 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				...(input.limit !== undefined ? { limit: input.limit } : {}),
 			});
 			const excluded = new Set(input.excludeIds ?? []);
-			return { ok: true, data: rows.filter((r) => !excluded.has(r.id)) as unknown as DomainTask[] };
+			return {
+				ok: true,
+				data: rows.filter((r) => !excluded.has(r.id)).map(toTask),
+			};
 		}
 		const rows = await taskDb.list(ctx.db, "task", {
 			...(input.parentTaskId !== undefined ? { parentTaskId: input.parentTaskId } : {}),
@@ -287,7 +330,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			...(input.limit !== undefined ? { limit: input.limit } : {}),
 		});
 		const excluded = new Set(input.excludeIds ?? []);
-		return { ok: true, data: rows.filter((r) => !excluded.has(r.id)) as unknown as DomainTask[] };
+		return { ok: true, data: rows.filter((r) => !excluded.has(r.id)).map(toTask) };
 	}
 
 	/**
@@ -435,7 +478,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		if (teamId) next.teamId = teamId;
 
 		// -- 2. pure invariants ---------------------------------------------------
-		const problems: Problem[] = [...taskInvariants(next, prev as unknown as DomainTask | null)];
+		const problems: Problem[] = [...taskInvariants(next, prev ? toTask(prev) : null)];
 
 		// -- 3. server invariants (need the database) ------------------------------
 		if (input.parentTaskId !== undefined && input.parentTaskId !== null && prev) {
@@ -597,11 +640,11 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				ownerAgentId: next.ownerAgentId,
 				title: next.title,
 				description: next.description,
-				doneCondition: next.doneCondition,
+				doneWhen: JSON.stringify(next.doneWhen),
 				state: resolvedState,
 				dependencies: next.dependencies,
 				position: next.position,
-				needsReview: next.needsReview,
+				reasons: JSON.stringify(next.reasons),
 				sourceDocumentId: next.sourceDocumentId,
 				tokensActualJson: next.tokensActualJson,
 				updatedAt: now,
@@ -621,14 +664,14 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					ownerAgentId: next.ownerAgentId,
 					title: next.title,
 					description: next.description,
-					doneCondition: next.doneCondition,
+					doneWhen: JSON.stringify(next.doneWhen),
 					state: resolvedState,
 					dependencies: next.dependencies,
 					threadId,
 					position:
 						next.position ||
 						(await taskDb.maxSiblingPosition(tx, next.parentTaskId, next.teamId)) + 1,
-					needsReview: next.needsReview,
+					reasons: JSON.stringify(next.reasons),
 					sourceDocumentId: next.sourceDocumentId,
 					createdAt: now,
 					updatedAt: now,

@@ -2,7 +2,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { TaskState } from "@hyperidle/domain-model";
+import { DoneWhenLineSchema, type TaskState } from "@hyperidle/domain-model";
 import type {
 	EventBus,
 	EventByType,
@@ -16,6 +16,23 @@ import type { PolicyDeps } from "./ports.js";
 const logger = createLogger({ pkg: "policy.lifecycle-propagation" });
 
 type LifecyclePropagationDeps = Pick<PolicyDeps, "work" | "editTask" | "sendMessage">;
+
+/**
+ * A task needs human review before it can close if it has any doneWhen line
+ * with `by:"review"` whose state is not yet `"met"`.
+ */
+function needsHumanReview(doneWhenJson: string): boolean {
+	try {
+		const parsed: unknown = JSON.parse(doneWhenJson);
+		if (!Array.isArray(parsed)) return false;
+		return parsed.some((item) => {
+			const r = DoneWhenLineSchema.safeParse(item);
+			return r.success && r.data.by === "review" && r.data.state !== "met";
+		});
+	} catch {
+		return false;
+	}
+}
 
 // Write through edit_task; a refusal becomes TaskInvalidTransitionError.
 async function transitionTask(
@@ -77,10 +94,9 @@ async function propagateSessionToTask(
 		if (!task) return;
 		if (task.state !== "in_progress") return;
 
-		// NeedsReview fork: only tasks that explicitly asked for review go
-		// to `review`; everything else completes directly to `done`, keeping the
-		// upward cascade moving without requiring a verdict at every leaf.
-		const targetState: TaskState = task.needsReview ? "review" : "done";
+		// Review fork: task goes to `review` when it has an open review line;
+		// otherwise completes directly to `done`, keeping the cascade moving.
+		const targetState: TaskState = needsHumanReview(task.doneWhen) ? "review" : "done";
 		await transitionTask(db, eventBus, taskId, targetState, deps);
 
 		// Emit propagation_applied event
@@ -152,8 +168,8 @@ async function propagateTaskToParent(
 
 			const fromState = ancestor.state;
 
-			// needsReview=true → review (chain stops for human); otherwise done (cascade continues upward).
-			const targetState: TaskState = ancestor.needsReview ? "review" : "done";
+			// Review fork: ancestor goes to `review` if it has an open review line; otherwise done.
+			const targetState: TaskState = needsHumanReview(ancestor.doneWhen) ? "review" : "done";
 			await transitionTask(db, eventBus, ancestorId, targetState, deps);
 
 			if (ancestor.parentTaskId === null) {

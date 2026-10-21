@@ -71,7 +71,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		teamId: TEAM_ID,
 		title: "Byte-parity bet",
 		description: "Byte-parity bet",
-		doneCondition: "Byte-identical sandboxes",
+		doneWhen: JSON.stringify([{ id: "dw-byte-parity-bet", what: "Byte-identical sandboxes", by: "check", state: "open", how: null }]),
 		state: "in_progress",
 		createdAt: NOW,
 		updatedAt: NOW,

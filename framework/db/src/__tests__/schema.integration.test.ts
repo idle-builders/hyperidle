@@ -71,7 +71,7 @@ describe("database schema", () => {
 				teamId: "prod-1",
 				title: "Build file upload",
 				description: "Add chunked upload support",
-				doneCondition: "Upload works for files > 100 MB",
+				doneWhen: JSON.stringify([{ id: "dw-root-1", what: "Upload works for files > 100 MB", by: "check", state: "open", how: null }]),
 				state: "in_progress",
 				threadId: "thr-root-1",
 				createdAt: now,

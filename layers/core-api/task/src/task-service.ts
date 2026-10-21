@@ -315,7 +315,7 @@ export async function list(
 				or(
 					sql`${tasks.title} ILIKE ${pattern} ESCAPE '\\'`,
 					sql`${tasks.description} ILIKE ${pattern} ESCAPE '\\'`,
-					sql`${tasks.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
+					sql`${tasks.doneWhen} ILIKE ${pattern} ESCAPE '\\'`,
 				) as SQL,
 			];
 			// A `killed` task can never be a legitimate dependency target (see

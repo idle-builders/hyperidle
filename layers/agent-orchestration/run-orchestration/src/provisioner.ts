@@ -10,6 +10,7 @@ import type {
 	BakedContextBundle,
 	BakedSessionResumeRequest,
 	ChangeRow,
+	DoneWhenLine,
 	ModelTier,
 	SessionOutcome,
 } from "@hyperidle/domain-model";
@@ -314,14 +315,14 @@ interface SessionLifecycleSessionContextData {
 		readonly title: string;
 		readonly description: string | null;
 		readonly state: string;
-		readonly doneCondition: string | null;
+		readonly doneWhen: readonly DoneWhenLine[];
 	};
 	/** Root-first chain of ancestor tasks. ancestors[0] is the root task (the former "bet"). */
 	readonly ancestors: readonly {
 		readonly id: string;
 		readonly title: string;
 		readonly description: string | null;
-		readonly doneCondition: string | null;
+		readonly doneWhen: readonly DoneWhenLine[];
 	}[];
 	readonly agent: { readonly id: string; readonly name: string; readonly role: string };
 	readonly team: { readonly id: string; readonly name: string };
@@ -1225,7 +1226,11 @@ function composeTaskInstruction(params: ProvisionSessionParams): string | undefi
 		// The goal chain this task serves, root first — a leaf task read alone can
 		// be followed to the letter and still miss the point of the work above it.
 		const chain = bundle.ancestors
-			.map((a) => (a.doneCondition ? `${a.title} (done when: ${a.doneCondition})` : a.title))
+			.map((a) => {
+				const openLines = a.doneWhen.filter((l) => l.state === "open" || l.state === "failed");
+				const summary = openLines.length > 0 ? ` (done when: ${openLines.map((l) => l.what).join("; ")})` : "";
+				return `${a.title}${summary}`;
+			})
 			.join(" → ");
 		parts.push(`This serves: ${chain}`);
 	}

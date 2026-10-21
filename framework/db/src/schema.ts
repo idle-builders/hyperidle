@@ -101,7 +101,8 @@ export const tasks = pgTable(
 		ownerAgentId: text("owner_agent_id").references(() => users.id, { onDelete: "restrict" }),
 		title: text("title").notNull(),
 		description: text("description"),
-		doneCondition: text("done_condition"),
+		/** JSON array of DoneWhenLine objects. */
+		doneWhen: text("done_when").notNull().default("[]"),
 		state: text("state").notNull(),
 		dependencies: text("dependencies"),
 		threadId: text("thread_id")
@@ -134,13 +135,8 @@ export const tasks = pgTable(
 		 *
 		 */
 		position: integer("position").notNull().default(0),
-		/**
-		 * Does finishing this task need a human verdict?
-		 *
-		 * `false` (the default) means the task closes straight to `done`; `true` sends it to `review` instead.
-		 *
-		 */
-		needsReview: boolean("needs_review").notNull().default(false),
+		/** JSON array of Reason objects (decisions and assumptions). */
+		reasons: text("reasons").notNull().default("[]"),
 	},
 	(table) => [
 		index("tasks_parent_task_id_idx").on(table.parentTaskId),

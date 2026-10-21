@@ -81,7 +81,9 @@ export {
 	watchSession,
 } from "./actions/session.js";
 export type {
+	DoneWhenLine,
 	EditTaskInput,
+	Reason,
 	SearchTasksInput,
 	Task,
 	TaskListItem,
@@ -89,10 +91,14 @@ export type {
 	TaskView,
 } from "./actions/task.js";
 export {
+	ASSUMPTION_STATES,
 	canTransitionTaskState,
+	DECISION_STATES,
+	DoneWhenLineSchema,
 	EditTaskInputSchema,
 	editTask,
 	openTask,
+	ReasonSchema,
 	SearchTasksInputSchema,
 	searchTasks,
 	TASK_ACTIONS,

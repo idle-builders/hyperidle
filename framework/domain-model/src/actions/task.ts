@@ -23,6 +23,43 @@ export function canTransitionTaskState(from: TaskState, to: TaskState): boolean 
 	return TASK_STATE_TRANSITIONS[from].includes(to);
 }
 
+/** One completion criterion. `by:"check"` closes itself; `by:"review"` needs a person. */
+export const DoneWhenLineSchema = z.object({
+	id: z.string(),
+	what: z.string().min(1),
+	by: z.enum(["check", "review"]),
+	state: z.enum(["open", "met", "failed"]),
+	/** How it is or was checked, or who reviews it. */
+	how: z.string().nullable(),
+});
+
+export type DoneWhenLine = z.infer<typeof DoneWhenLineSchema>;
+
+/** Valid states for a decision reason. */
+export const DECISION_STATES = ["made", "waiting"] as const;
+/** Valid states for an assumption reason. */
+export const ASSUMPTION_STATES = ["held", "open", "broke"] as const;
+
+/** A decision or assumption recorded alongside the work. */
+export const ReasonSchema = z.discriminatedUnion("kind", [
+	z.object({
+		id: z.string(),
+		kind: z.literal("decision"),
+		what: z.string().min(1),
+		state: z.enum(DECISION_STATES),
+		why: z.string().nullable(),
+	}),
+	z.object({
+		id: z.string(),
+		kind: z.literal("assumption"),
+		what: z.string().min(1),
+		state: z.enum(ASSUMPTION_STATES),
+		why: z.string().nullable(),
+	}),
+]);
+
+export type Reason = z.infer<typeof ReasonSchema>;
+
 export const TaskSchema = z.object({
 	id: z.string(),
 	parentTaskId: z.string().nullable(),
@@ -30,7 +67,8 @@ export const TaskSchema = z.object({
 	ownerAgentId: z.string().nullable(),
 	title: z.string(),
 	description: z.string().nullable(),
-	doneCondition: z.string().nullable(),
+	/** Parsed done-when lines (stored as JSON text in the DB). */
+	doneWhen: z.array(DoneWhenLineSchema),
 	state: z.enum(TASK_STATES),
 	dependencies: z.string().nullable(),
 	threadId: z.string(),
@@ -45,7 +83,8 @@ export const TaskSchema = z.object({
 	sourceDocumentId: z.string().nullable(),
 	completedAt: z.string().nullable(),
 	position: z.number().int(),
-	needsReview: z.boolean(),
+	/** Parsed reasons (decisions and assumptions, stored as JSON text in the DB). */
+	reasons: z.array(ReasonSchema),
 });
 
 export type Task = z.infer<typeof TaskSchema>;
@@ -121,10 +160,12 @@ export const EditTaskInputSchema = z
 		ownerAgentId: z.string().nullable().optional(),
 		title: z.string().min(1).optional(),
 		description: z.string().nullable().optional(),
-		doneCondition: z.string().nullable().optional(),
+		/** Whole-list upsert — replaces the existing list. */
+		doneWhen: z.array(DoneWhenLineSchema).optional(),
 		state: z.enum(TASK_STATES).optional(),
 		position: z.number().int().nonnegative().optional(),
-		needsReview: z.boolean().optional(),
+		/** Whole-list upsert — replaces the existing list. */
+		reasons: z.array(ReasonSchema).optional(),
 		dependencies: z.array(z.string()).nullable().optional(),
 		outcome: z
 			.object({
@@ -192,6 +233,52 @@ export function taskInvariants(next: Task, prev: Task | null): Problem[] {
 			message: `A task cannot move from "${prev.state}" to "${next.state}".`,
 			path: "state",
 		});
+	}
+
+	// done-when: ids unique, what non-empty (enforced by schema min(1) but checked defensively)
+	const doneWhenIds = new Set<string>();
+	for (const line of next.doneWhen) {
+		if (doneWhenIds.has(line.id)) {
+			problems.push({
+				code: "done_when_duplicate_id",
+				message: `Duplicate id "${line.id}" in doneWhen.`,
+				path: "doneWhen",
+			});
+		}
+		doneWhenIds.add(line.id);
+	}
+
+	// reasons: ids unique; state must match kind
+	const reasonIds = new Set<string>();
+	for (const reason of next.reasons) {
+		if (reasonIds.has(reason.id)) {
+			problems.push({
+				code: "reasons_duplicate_id",
+				message: `Duplicate id "${reason.id}" in reasons.`,
+				path: "reasons",
+			});
+		}
+		reasonIds.add(reason.id);
+
+		if (reason.kind === "decision") {
+			const validDecisionStates: readonly string[] = DECISION_STATES;
+			if (!validDecisionStates.includes(reason.state)) {
+				problems.push({
+					code: "reason_state_mismatch",
+					message: `Decision reason "${reason.id}" has invalid state "${reason.state}".`,
+					path: "reasons",
+				});
+			}
+		} else {
+			const validAssumptionStates: readonly string[] = ASSUMPTION_STATES;
+			if (!validAssumptionStates.includes(reason.state)) {
+				problems.push({
+					code: "reason_state_mismatch",
+					message: `Assumption reason "${reason.id}" has invalid state "${reason.state}".`,
+					path: "reasons",
+				});
+			}
+		}
 	}
 
 	return problems;

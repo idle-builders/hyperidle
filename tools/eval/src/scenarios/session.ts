@@ -45,7 +45,7 @@ Write substantive session notes covering: what you analyzed, key findings, and n
 		const { rootTaskId } = await seedRootTask(ctx.db, {
 			teamId,
 			description: "Q4 sales pipeline optimization",
-			doneCondition: "Pipeline bottlenecks identified and addressed.",
+			doneWhen: "Pipeline bottlenecks identified and addressed.",
 		});
 
 		const { taskId } = await seedTask(ctx.db, {
@@ -59,7 +59,7 @@ Write substantive session notes covering: what you analyzed, key findings, and n
 3. Recommended next steps
 
 Use write_session_notes to document your analysis.`,
-			doneCondition: "Pipeline analysis documented with actionable findings.",
+			doneWhen: "Pipeline analysis documented with actionable findings.",
 			state: "accepted",
 		});
 
@@ -144,7 +144,7 @@ const sessModelTierBuilderDevops: EvalScenario = {
 		const { rootTaskId } = await seedRootTask(ctx.db, {
 			teamId,
 			description: "Infrastructure optimization",
-			doneCondition: "Optimization complete.",
+			doneWhen: "Optimization complete.",
 		});
 
 		const { taskId } = await seedTask(ctx.db, {
@@ -153,7 +153,7 @@ const sessModelTierBuilderDevops: EvalScenario = {
 			ownerAgentId: agentId,
 			title: "Document infrastructure optimization approach",
 			description: "Write session notes describing your infrastructure optimization approach.",
-			doneCondition: "Approach documented.",
+			doneWhen: "Approach documented.",
 			state: "accepted",
 		});
 
@@ -229,7 +229,7 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 		const { rootTaskId } = await seedRootTask(ctx.db, {
 			teamId,
 			description: "Frontend component library",
-			doneCondition: "Component documented.",
+			doneWhen: "Component documented.",
 		});
 
 		const { taskId } = await seedTask(ctx.db, {
@@ -238,7 +238,7 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 			ownerAgentId: agentId,
 			title: "Document component API",
 			description: "Write session notes documenting the component API you've designed.",
-			doneCondition: "API documented.",
+			doneWhen: "API documented.",
 			state: "accepted",
 		});
 

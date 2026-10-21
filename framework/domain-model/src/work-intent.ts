@@ -8,6 +8,7 @@
  * assigns `enqueueWorkIntent` unchanged — no adapter needed (structural superset).
  */
 
+import type { DoneWhenLine, Reason } from "./actions/task.js";
 import type { ChangeRow } from "./actions/user.js";
 import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./session-request.js";
 
@@ -198,14 +199,15 @@ export type BakedContextBundle =
 				readonly title: string;
 				readonly description: string | null;
 				readonly state: string;
-				readonly doneCondition: string | null;
+				readonly doneWhen: readonly DoneWhenLine[];
+				readonly reasons: readonly Reason[];
 			};
 			/** Containing work, root first, down to the immediate parent. Empty for a root task. */
 			readonly ancestors: readonly {
 				readonly id: string;
 				readonly title: string;
 				readonly description: string | null;
-				readonly doneCondition: string | null;
+				readonly doneWhen: readonly DoneWhenLine[];
 			}[];
 			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
 			readonly team: { readonly id: string; readonly name: string };
