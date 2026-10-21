@@ -171,7 +171,15 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 			title: "Probe Task",
 			description: "Probe task for skill materialisation test",
 			state: "active",
-			doneWhen: [{ id: "dw-task-probe", what: "PROBE_TOKEN in harness output", by: "check", state: "open", how: null }],
+			doneWhen: [
+				{
+					id: "dw-task-probe",
+					what: "PROBE_TOKEN in harness output",
+					by: "check",
+					state: "open",
+					how: null,
+				},
+			],
 			reasons: [],
 		},
 		ancestors: [
@@ -179,7 +187,15 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 				id: "bet-probe",
 				title: "Prove skill materialisation via production path",
 				description: null,
-				doneWhen: [{ id: "dw-bet-probe", what: "PROBE_TOKEN in harness output", by: "check", state: "open", how: null }],
+				doneWhen: [
+					{
+						id: "dw-bet-probe",
+						what: "PROBE_TOKEN in harness output",
+						by: "check",
+						state: "open",
+						how: null,
+					},
+				],
 			},
 		],
 		agent: { id: AGENT_ID, name: "Probe Agent", role: "builder" },

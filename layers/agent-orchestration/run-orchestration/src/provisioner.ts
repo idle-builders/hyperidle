@@ -1228,7 +1228,8 @@ function composeTaskInstruction(params: ProvisionSessionParams): string | undefi
 		const chain = bundle.ancestors
 			.map((a) => {
 				const openLines = a.doneWhen.filter((l) => l.state === "open" || l.state === "failed");
-				const summary = openLines.length > 0 ? ` (done when: ${openLines.map((l) => l.what).join("; ")})` : "";
+				const summary =
+					openLines.length > 0 ? ` (done when: ${openLines.map((l) => l.what).join("; ")})` : "";
 				return `${a.title}${summary}`;
 			})
 			.join(" → ");

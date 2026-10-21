@@ -898,28 +898,40 @@ describe("edit_task — doneWhen and reasons round-trip", () => {
 	}) => {
 		await seedTeam(db, "ta-dw-team-1");
 		// Create task
-		const created = await call<{ task: { id: string }; ancestors: unknown[]; children: unknown[] }>(app, "edit_task", {
-			teamId: "ta-dw-team-1",
-			title: "DoneWhen round-trip",
-		});
+		const created = await call<{ task: { id: string }; ancestors: unknown[]; children: unknown[] }>(
+			app,
+			"edit_task",
+			{
+				teamId: "ta-dw-team-1",
+				title: "DoneWhen round-trip",
+			},
+		);
 		expect(created.status).toBe(200);
 		const taskId = created.body.data?.task.id ?? "";
 
 		// Edit to set doneWhen and reasons
-		const doneWhen = [{ id: "dw-1", what: "Feature ships", by: "review", state: "open", how: null }];
+		const doneWhen = [
+			{ id: "dw-1", what: "Feature ships", by: "review", state: "open", how: null },
+		];
 		const reasons = [
 			{ id: "r-1", kind: "decision", what: "Use Postgres", state: "made", why: "Battle-tested" },
 			{ id: "r-2", kind: "assumption", what: "API stable", state: "held", why: null },
 		];
-		const edited = await call<{ task: { id: string; doneWhen: unknown; reasons: unknown } }>(app, "edit_task", {
-			id: taskId,
-			doneWhen,
-			reasons,
-		});
+		const edited = await call<{ task: { id: string; doneWhen: unknown; reasons: unknown } }>(
+			app,
+			"edit_task",
+			{
+				id: taskId,
+				doneWhen,
+				reasons,
+			},
+		);
 		expect(edited.status).toBe(200);
 
 		// Read back via open_task
-		const opened = await call<{ task: { doneWhen: unknown; reasons: unknown } }>(app, "open_task", { id: taskId });
+		const opened = await call<{ task: { doneWhen: unknown; reasons: unknown } }>(app, "open_task", {
+			id: taskId,
+		});
 		expect(opened.status).toBe(200);
 		expect(opened.body.data?.task.doneWhen).toEqual(doneWhen);
 		expect(opened.body.data?.task.reasons).toEqual(reasons);

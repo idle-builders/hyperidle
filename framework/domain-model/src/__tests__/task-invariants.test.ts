@@ -38,7 +38,13 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 
 describe("taskInvariants: doneWhen duplicate id", () => {
 	it("reports done_when_duplicate_id when two lines share an id", () => {
-		const line = { id: "dw-1", what: "Ships", by: "check" as const, state: "open" as const, how: null };
+		const line = {
+			id: "dw-1",
+			what: "Ships",
+			by: "check" as const,
+			state: "open" as const,
+			how: null,
+		};
 		const problems = taskInvariants(makeTask({ doneWhen: [line, { ...line }] }), null);
 		expect(problems[0]?.code).toBe("done_when_duplicate_id");
 	});
@@ -59,7 +65,13 @@ describe("taskInvariants: doneWhen duplicate id", () => {
 
 describe("taskInvariants: reasons duplicate id", () => {
 	it("reports reasons_duplicate_id when two reasons share an id", () => {
-		const reason = { id: "r-1", kind: "decision" as const, what: "Use Postgres", state: "made" as const, why: null };
+		const reason = {
+			id: "r-1",
+			kind: "decision" as const,
+			what: "Use Postgres",
+			state: "made" as const,
+			why: null,
+		};
 		const problems = taskInvariants(makeTask({ reasons: [reason, { ...reason }] }), null);
 		expect(problems[0]?.code).toBe("reasons_duplicate_id");
 	});
@@ -69,7 +81,9 @@ describe("taskInvariants: reason_state_mismatch", () => {
 	it("reports reason_state_mismatch when a decision reason carries an assumption state (corrupted JSON)", () => {
 		// Cast bypasses TS — this simulates data parsed from corrupted JSON.
 		const bad = makeTask({
-			reasons: [{ id: "r-1", kind: "decision", what: "Use Postgres", state: "held", why: null }] as unknown as Task["reasons"],
+			reasons: [
+				{ id: "r-1", kind: "decision", what: "Use Postgres", state: "held", why: null },
+			] as unknown as Task["reasons"],
 		});
 		const problems = taskInvariants(bad, null);
 		expect(problems[0]?.code).toBe("reason_state_mismatch");
@@ -77,7 +91,9 @@ describe("taskInvariants: reason_state_mismatch", () => {
 
 	it("reports reason_state_mismatch when an assumption reason carries a decision state", () => {
 		const bad = makeTask({
-			reasons: [{ id: "r-1", kind: "assumption", what: "API stable", state: "made", why: null }] as unknown as Task["reasons"],
+			reasons: [
+				{ id: "r-1", kind: "assumption", what: "API stable", state: "made", why: null },
+			] as unknown as Task["reasons"],
 		});
 		const problems = taskInvariants(bad, null);
 		expect(problems[0]?.code).toBe("reason_state_mismatch");
@@ -85,7 +101,9 @@ describe("taskInvariants: reason_state_mismatch", () => {
 
 	it("no problem when a decision has a valid decision state", () => {
 		const problems = taskInvariants(
-			makeTask({ reasons: [{ id: "r-1", kind: "decision", what: "Use Postgres", state: "made", why: null }] }),
+			makeTask({
+				reasons: [{ id: "r-1", kind: "decision", what: "Use Postgres", state: "made", why: null }],
+			}),
 			null,
 		);
 		expect(problems.filter((p) => p.code === "reason_state_mismatch")).toHaveLength(0);
@@ -93,7 +111,9 @@ describe("taskInvariants: reason_state_mismatch", () => {
 
 	it("no problem when an assumption has a valid assumption state", () => {
 		const problems = taskInvariants(
-			makeTask({ reasons: [{ id: "r-1", kind: "assumption", what: "API stable", state: "held", why: null }] }),
+			makeTask({
+				reasons: [{ id: "r-1", kind: "assumption", what: "API stable", state: "held", why: null }],
+			}),
 			null,
 		);
 		expect(problems.filter((p) => p.code === "reason_state_mismatch")).toHaveLength(0);

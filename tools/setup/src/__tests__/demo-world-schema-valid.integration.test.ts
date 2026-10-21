@@ -48,8 +48,20 @@ describe("demo world schema validation", () => {
 
 		const failures: string[] = [];
 		for (const row of taskRows) {
-			const doneWhenParsed: unknown = (() => { try { return JSON.parse(row.done_when as string); } catch { return []; } })();
-			const reasonsParsed: unknown = (() => { try { return JSON.parse(row.reasons as string); } catch { return []; } })();
+			const doneWhenParsed: unknown = (() => {
+				try {
+					return JSON.parse(row.done_when as string);
+				} catch {
+					return [];
+				}
+			})();
+			const reasonsParsed: unknown = (() => {
+				try {
+					return JSON.parse(row.reasons as string);
+				} catch {
+					return [];
+				}
+			})();
 			const result = TaskSchema.safeParse({
 				id: row.id,
 				parentTaskId: row.parent_task_id ?? null,

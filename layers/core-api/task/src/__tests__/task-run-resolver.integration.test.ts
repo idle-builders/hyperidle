@@ -317,7 +317,17 @@ describe("resolveTaskRunRequest — contextBundle baking", () => {
 		await seedTeamAndRootTask(db, { teamId: "team-trun-ctx-1", rootTaskId: "bet-trun-ctx-1" });
 		await db
 			.update(tasks)
-			.set({ doneWhen: JSON.stringify([{ id: "dw-bet-trun-ctx-1", what: "Shipped to prod", by: "check", state: "open", how: null }]) })
+			.set({
+				doneWhen: JSON.stringify([
+					{
+						id: "dw-bet-trun-ctx-1",
+						what: "Shipped to prod",
+						by: "check",
+						state: "open",
+						how: null,
+					},
+				]),
+			})
 			.where(eq(tasks.id, "bet-trun-ctx-1"));
 		await seedAgent(db, "agent-trun-ctx-1");
 		await seedTask(db, {

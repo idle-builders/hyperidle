@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { BakedContextBundle } from "@hyperidle/domain-model";
+import type { BakedContextBundle, DoneWhenLine, Reason } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createContextAssembler } from "../context.js";
 
@@ -23,15 +23,23 @@ function sessionContext() {
 			title: "Ship the thing",
 			description: "Do the work",
 			state: "in_progress",
-			doneWhen: [] as { id: string; what: string; by: "check" | "review"; state: "open" | "met" | "failed"; how: string | null }[],
-			reasons: [] as { id: string; kind: "decision" | "assumption"; what: string; state: string; why: string | null }[],
+			doneWhen: [] as DoneWhenLine[],
+			reasons: [] as Reason[],
 		},
 		ancestors: [
 			{
 				id: "b1",
 				title: "Root goal",
 				description: "Ship it fast",
-				doneWhen: [{ id: "dw-b1", what: "It ships", by: "check" as const, state: "open" as const, how: null }],
+				doneWhen: [
+					{
+						id: "dw-b1",
+						what: "It ships",
+						by: "check" as const,
+						state: "open" as const,
+						how: null,
+					},
+				],
 			},
 		],
 		agent: { id: "a1", name: "Ada", role: "builder" },
@@ -102,6 +110,20 @@ describe("buildTemplateVariables", () => {
 	});
 });
 
+describe("buildTaskSection: decisions and assumptions", () => {
+	it("asks the agent to record its decisions and assumptions even before it has any", async () => {
+		const result = await assembler.assemblePrompt({
+			systemPromptText: "",
+			context: sessionContext(),
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+		expect(result.assembledPrompt).toContain(
+			"Record the decisions you make and the assumptions you rely on",
+		);
+	});
+});
+
 describe("buildTaskSection: doneWhen source priority", () => {
 	it("uses task own doneWhen lines when present, ignoring ancestor", async () => {
 		const base = sessionContext();
@@ -109,7 +131,15 @@ describe("buildTaskSection: doneWhen source priority", () => {
 			...base,
 			task: {
 				...base.task,
-				doneWhen: [{ id: "dw-t1", what: "Task-own condition", by: "check" as const, state: "open" as const, how: null }],
+				doneWhen: [
+					{
+						id: "dw-t1",
+						what: "Task-own condition",
+						by: "check" as const,
+						state: "open" as const,
+						how: null,
+					},
+				],
 			},
 		};
 		const result = await assembler.assemblePrompt({

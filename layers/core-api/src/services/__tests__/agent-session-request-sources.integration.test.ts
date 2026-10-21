@@ -101,7 +101,9 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 		teamId: "team-src",
 		title: "Agent layer execution",
 		description: "Agent layer execution",
-		doneWhen: JSON.stringify([{ id: "dw-bet-src", what: "Tasks exist", by: "check", state: "open", how: null }]),
+		doneWhen: JSON.stringify([
+			{ id: "dw-bet-src", what: "Tasks exist", by: "check", state: "open", how: null },
+		]),
 		state: "in_progress",
 		createdAt: now,
 		updatedAt: now,

@@ -279,9 +279,7 @@ function buildTaskSection(context: SessionContextData): string {
 	// Fall back to root ancestor's done-when lines when the task's own list is empty.
 	const rootAncestor = context.ancestors[0];
 	const effectiveDoneWhen =
-		context.task.doneWhen.length > 0
-			? context.task.doneWhen
-			: (rootAncestor?.doneWhen ?? []);
+		context.task.doneWhen.length > 0 ? context.task.doneWhen : (rootAncestor?.doneWhen ?? []);
 
 	const parts = [
 		"## Task",
@@ -294,7 +292,8 @@ function buildTaskSection(context: SessionContextData): string {
 	if (effectiveDoneWhen.length > 0) {
 		parts.push("### Done When", "");
 		for (const line of effectiveDoneWhen) {
-			const stateLabel = line.state === "met" ? "[met]" : line.state === "failed" ? "[failed]" : "[ ]";
+			const stateLabel =
+				line.state === "met" ? "[met]" : line.state === "failed" ? "[failed]" : "[ ]";
 			const byLabel = line.by === "review" ? "(needs review)" : "";
 			const howPart = line.how ? ` — ${line.how}` : "";
 			parts.push(`- ${stateLabel} ${line.what}${byLabel ? ` ${byLabel}` : ""}${howPart}`);
@@ -317,12 +316,12 @@ function buildTaskSection(context: SessionContextData): string {
 			const whyPart = reason.why ? ` — ${reason.why}` : "";
 			parts.push(`- ${stateLabel} ${kindLabel}: ${reason.what}${whyPart}`);
 		}
-		parts.push(
-			"",
-			"Record the decisions you make and the assumptions you rely on in this task's `reasons`. Mark an assumption held or broke once you have checked it.",
-			"",
-		);
+		parts.push("");
 	}
+	parts.push(
+		"Record the decisions you make and the assumptions you rely on in this task's `reasons`. Mark an assumption held or broke once you have checked it.",
+		"",
+	);
 
 	if (context.ancestors.length > 0) {
 		parts.push("### Context");

@@ -194,7 +194,13 @@ async function seedTask(
 		createdAt: NOW,
 	});
 	// needsReview=true → a doneWhen line with by:"review"; false → by:"check".
-	const doneWhenLine = { id: `dw-${id}`, what: "Task complete", by: needsReview ? "review" : "check", state: "open", how: null };
+	const doneWhenLine = {
+		id: `dw-${id}`,
+		what: "Task complete",
+		by: needsReview ? "review" : "check",
+		state: "open",
+		how: null,
+	};
 	await db.insert(tasks).values({
 		id,
 		parentTaskId,
@@ -294,47 +300,50 @@ describe("session→task propagation (doneWhen review fork)", () => {
 		}
 	});
 
-	dbTest("session ends on task with review line in doneWhen → task reaches review", async ({ db }) => {
-		const teamId = "bb1-s2-team";
-		await seedTeam(db, teamId);
-		await seedTask(db, {
-			id: "bb1-s2-task",
-			teamId,
-			parentTaskId: null,
-			state: "in_progress",
-			needsReview: true,
-		});
-
-		const eventBus = new EventBus();
-		const policyDeps: PolicyDeps = {
-			work: makeWorkPort(),
-			conversation: conversationStub,
-			sendMessage: sendMessageStub,
-			editTask: makeEditTask(),
-		};
-		const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
-
-		try {
-			eventBus.emit({
-				type: "session_ended",
-				streamId: "sess-2",
-				sessionId: "sess-2",
-				agentId: "agent-2",
-				taskId: "bb1-s2-task",
-				outcome: "completed",
-				timestamp: Date.now(),
+	dbTest(
+		"session ends on task with review line in doneWhen → task reaches review",
+		async ({ db }) => {
+			const teamId = "bb1-s2-team";
+			await seedTeam(db, teamId);
+			await seedTask(db, {
+				id: "bb1-s2-task",
+				teamId,
+				parentTaskId: null,
+				state: "in_progress",
+				needsReview: true,
 			});
 
-			await vi.waitFor(
-				async () => {
-					expect(await getTaskState(db, "bb1-s2-task")).toBe("review");
-				},
-				{ timeout: 5000 },
-			);
-		} finally {
-			unregister();
-		}
-	});
+			const eventBus = new EventBus();
+			const policyDeps: PolicyDeps = {
+				work: makeWorkPort(),
+				conversation: conversationStub,
+				sendMessage: sendMessageStub,
+				editTask: makeEditTask(),
+			};
+			const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
+
+			try {
+				eventBus.emit({
+					type: "session_ended",
+					streamId: "sess-2",
+					sessionId: "sess-2",
+					agentId: "agent-2",
+					taskId: "bb1-s2-task",
+					outcome: "completed",
+					timestamp: Date.now(),
+				});
+
+				await vi.waitFor(
+					async () => {
+						expect(await getTaskState(db, "bb1-s2-task")).toBe("review");
+					},
+					{ timeout: 5000 },
+				);
+			} finally {
+				unregister();
+			}
+		},
+	);
 });
 
 // ─── Task → Parent propagation tests ─────────────────────────────────────────

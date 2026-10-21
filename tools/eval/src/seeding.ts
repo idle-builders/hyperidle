@@ -184,7 +184,9 @@ export async function seedRootTask(
 	});
 
 	const doneWhenJson = opts.doneWhen
-		? JSON.stringify([{ id: `dw-${rootTaskId}`, what: opts.doneWhen, by: "check", state: "open", how: null }])
+		? JSON.stringify([
+				{ id: `dw-${rootTaskId}`, what: opts.doneWhen, by: "check", state: "open", how: null },
+			])
 		: "[]";
 
 	await db.insert(tasks).values({
@@ -236,7 +238,9 @@ export async function seedTask(
 	});
 
 	const doneWhenJson = opts.doneWhen
-		? JSON.stringify([{ id: `dw-${taskId}`, what: opts.doneWhen, by: "check", state: "open", how: null }])
+		? JSON.stringify([
+				{ id: `dw-${taskId}`, what: opts.doneWhen, by: "check", state: "open", how: null },
+			])
 		: "[]";
 
 	await db.insert(tasks).values({
