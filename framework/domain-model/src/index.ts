@@ -158,6 +158,8 @@ export {
 	threadParticipantsSchema,
 	verdictPayloadSchema,
 } from "./actions/thread.js";
+export type { ThreadNeed } from "./actions/thread-need.js";
+export { computeThreadNeed } from "./actions/thread-need.js";
 export type {
 	AddSubscriptionInput,
 	ChangeKind,

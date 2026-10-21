@@ -20,6 +20,7 @@ import {
 	bakeAgentRunnableConfig,
 	canReadThread,
 	canWriteThread,
+	computeThreadNeed,
 	type DocumentRow,
 	type HostKind,
 	type Identity,
@@ -183,6 +184,26 @@ function toIdentity(user: User): Identity {
  * A missing/invisible document has no entry in the returned map and the
  * ladder's own fallback ("Deleted document") takes over.
  */
+/** A message's one-line preview, and whether it mentions `viewer`. */
+function readPreview(
+	rawPayload: string,
+	viewer: string,
+): { readonly preview: string | null; readonly mentions: boolean } {
+	try {
+		const payload = JSON.parse(rawPayload) as {
+			text?: string;
+			title?: string;
+			refs?: ReadonlyArray<{ kind?: string; identityId?: string }>;
+		};
+		return {
+			preview: payload.text ?? payload.title ?? null,
+			mentions: (payload.refs ?? []).some((r) => r.kind === "mention" && r.identityId === viewer),
+		};
+	} catch {
+		return { preview: null, mentions: false };
+	}
+}
+
 function documentTitleLookup(
 	ctx: ActionContext,
 	deps: ThreadActionsDeps,
@@ -424,6 +445,31 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 	// -----------------------------------------------------------------------
 	// search_threads
 	// -----------------------------------------------------------------------
+	/** Each thread's need for the caller, from its open questions and reviews — one query for all. */
+	async function threadNeeds(
+		ctx: ActionContext,
+		threadIds: readonly string[],
+	): Promise<Map<string, ThreadListRow["need"]>> {
+		const open = await store.listMessages(ctx.db, {
+			threadIds: [...threadIds],
+			types: ["review", "questionnaire"],
+			unresolved: true,
+		});
+		const senders = await deps.users.listByIds(ctx.db, [...new Set(open.map((m) => m.senderId))]);
+		const agents = new Set(senders.filter((u) => u.kind === "ai").map((u) => u.id));
+		const byThread = new Map<string, typeof open>();
+		for (const m of open) byThread.set(m.threadId, [...(byThread.get(m.threadId) ?? []), m]);
+		return new Map(
+			[...byThread].map(([id, msgs]) => [
+				id,
+				computeThreadNeed(
+					ctx.actor,
+					msgs.map((m) => ({ ...m, senderIsAgent: agents.has(m.senderId) })),
+				),
+			]),
+		);
+	}
+
 	async function searchThreadsRun(
 		ctx: ActionContext,
 		input: SearchThreadsInput,
@@ -482,12 +528,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		if (readable.length === 0) return { ok: true, data: [] };
 
 		const threadIds = readable.map((r) => r.id);
-		const unresolvedMsgs = await store.listMessages(ctx.db, {
-			threadIds,
-			types: ["review", "questionnaire"],
-			unresolved: true,
-		});
-		const unresolvedThreadIds = new Set(unresolvedMsgs.map((m) => m.threadId));
+		const needs = await threadNeeds(ctx, threadIds);
 
 		const lastMessageRows = await store.listLastMessagePerThread(ctx.db, threadIds);
 		const lastMessageById = new Map(lastMessageRows.map((m) => [m.threadId, m]));
@@ -503,19 +544,13 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		const data: ThreadListRow[] = readable.map((row) => {
 			const thread = rowToThread(row, titles.get(row.id) ?? "Untitled conversation");
 			const last = lastMessageById.get(row.id);
-			let preview: string | null = null;
-			if (last) {
-				try {
-					const payload = JSON.parse(last.payload) as { text?: string; title?: string };
-					preview = payload.text ?? payload.title ?? null;
-				} catch {
-					preview = null;
-				}
-			}
+			const said = last ? readPreview(last.payload, ctx.actor) : null;
 			return {
 				...thread,
-				hasUnresolvedReview: unresolvedThreadIds.has(row.id),
-				lastMessagePreview: preview,
+				need: needs.get(row.id) ?? null,
+				lastMessagePreview: said?.preview ?? null,
+				lastSenderId: last?.senderId ?? null,
+				mentionsYou: last !== undefined && last.senderId !== ctx.actor && (said?.mentions ?? false),
 			};
 		});
 		return { ok: true, data };

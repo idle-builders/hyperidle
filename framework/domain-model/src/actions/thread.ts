@@ -211,8 +211,12 @@ export const SearchThreadsInputSchema = z
 export type SearchThreadsInput = z.infer<typeof SearchThreadsInputSchema>;
 
 export const ThreadListRowSchema = ThreadSchema.extend({
-	hasUnresolvedReview: z.boolean(), // sidebar badge; one batched query, never N+1
+	/** What it waits on from the caller — `computeThreadNeed`; one batched query, never N+1. */
+	need: z.enum(["stuck", "input", "review"]).nullable(),
 	lastMessagePreview: z.string().nullable(),
+	lastSenderId: z.string().nullable(),
+	/** The newest message, from someone else, mentions the caller. */
+	mentionsYou: z.boolean(),
 });
 export type ThreadListRow = z.infer<typeof ThreadListRowSchema>;
 

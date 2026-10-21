@@ -940,7 +940,7 @@ describe("adjust_thread", () => {
 });
 
 describe("search_threads", () => {
-	test("mine returns only threads the actor is in, and carries hasUnresolvedReview correctly", async ({
+	test("mine returns only threads the actor is in, each saying what it waits on from the actor and whether its newest message names them", async ({
 		db,
 	}) => {
 		const eventBus = new EventBus();
@@ -948,12 +948,16 @@ describe("search_threads", () => {
 		await seedTeam(db, "st-1");
 		await seedHuman(db, "st-outsider-1", "st-1");
 		await seedAgent(db, "st-agent-1", "st-1");
-		await seedThreadRow(db, "st-mine-1", {
-			hostKind: "user",
-			hostId: FOUNDER_ID,
-			initiatorId: FOUNDER_ID,
-			members: [FOUNDER_ID, "st-agent-1"],
-		});
+		const mineWith = (id: string, other: string) =>
+			seedThreadRow(db, id, {
+				hostKind: "user",
+				hostId: FOUNDER_ID,
+				initiatorId: FOUNDER_ID,
+				members: [FOUNDER_ID, other],
+			});
+		await mineWith("st-review-1", "st-agent-1");
+		await mineWith("st-asked-1", "st-agent-1");
+		await mineWith("st-mention-1", "st-outsider-1");
 		await seedThreadRow(db, "st-not-mine-1", {
 			hostKind: "user",
 			hostId: "st-outsider-1",
@@ -961,39 +965,66 @@ describe("search_threads", () => {
 			members: ["st-outsider-1"],
 		});
 
-		await call<{ message: { id: string } }>(actions, db, eventBus, "send_message", {
-			threadId: "st-mine-1",
-			review: { title: "open review", reasoning: ["x"] },
-		});
+		await call(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{ threadId: "st-review-1", review: { title: "open review", reasoning: ["x"] } },
+			"st-agent-1",
+		);
 		const resolvedReview = await call<{ message: { id: string } }>(
 			actions,
 			db,
 			eventBus,
 			"send_message",
-			{ threadId: "st-mine-1", review: { title: "resolved review", reasoning: ["y"] } },
+			{ threadId: "st-review-1", review: { title: "resolved review", reasoning: ["y"] } },
 			"st-agent-1",
 		);
 		await call(actions, db, eventBus, "send_message", {
-			threadId: "st-mine-1",
+			threadId: "st-review-1",
 			verdict: {
 				decision: "approve",
 				resolvesMessageId: resolvedReview.body.data?.message.id as string,
 			},
 		});
-
-		const res = await call<Array<{ id: string; hasUnresolvedReview: boolean }>>(
+		await call(
 			actions,
 			db,
 			eventBus,
-			"search_threads",
-			{ mine: true },
+			"send_message",
+			{
+				threadId: "st-asked-1",
+				questionnaire: { title: "Which?", question: "Which one?", options: ["A", "B"] },
+			},
+			"st-agent-1",
 		);
+		await call(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{ threadId: "st-mention-1", text: "@Founder can you read this?" },
+			"st-outsider-1",
+		);
+
+		const res = await call<
+			Array<{ id: string; need: string | null; lastSenderId: string | null; mentionsYou: boolean }>
+		>(actions, db, eventBus, "search_threads", { mine: true });
 		expect(res.status).toBe(200);
-		const ids = res.body.data?.map((r) => r.id) ?? [];
-		expect(ids).toContain("st-mine-1");
-		expect(ids).not.toContain("st-not-mine-1");
-		const mine = res.body.data?.find((r) => r.id === "st-mine-1");
-		expect(mine?.hasUnresolvedReview).toBe(true);
+		const byId = new Map(res.body.data?.map((r) => [r.id, r]));
+		expect([...byId.keys()].sort()).toEqual(["st-asked-1", "st-mention-1", "st-review-1"]);
+		expect(byId.get("st-review-1")).toMatchObject({
+			need: "review",
+			lastSenderId: FOUNDER_ID,
+			mentionsYou: false,
+		});
+		expect(byId.get("st-asked-1")).toMatchObject({ need: "stuck", lastSenderId: "st-agent-1" });
+		expect(byId.get("st-mention-1")).toMatchObject({
+			need: null,
+			lastSenderId: "st-outsider-1",
+			mentionsYou: true,
+		});
 	});
 
 	test("an empty input ({}) takes the same mine branch as {mine:true} — the sentence's own promise", async ({
