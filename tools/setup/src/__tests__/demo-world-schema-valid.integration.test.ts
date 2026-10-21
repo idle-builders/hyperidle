@@ -82,6 +82,7 @@ describe("demo world schema validation", () => {
 				sourceDocumentId: row.source_document_id ?? null,
 				completedAt: row.completed_at ?? null,
 				position: Number(row.position ?? 0),
+				paused: row.paused ?? null,
 			});
 			if (!result.success) {
 				failures.push(`task ${row.id as string}: ${result.error.message}`);

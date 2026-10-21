@@ -186,6 +186,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		completedAt: null,
 		position: 0,
 		reasons: [],
+		paused: null,
 		need: null,
 	};
 	return {
@@ -203,6 +204,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 			: {}),
 		...(input.sourceDocumentId !== undefined ? { sourceDocumentId: input.sourceDocumentId } : {}),
 		...(input.tokensActualJson !== undefined ? { tokensActualJson: input.tokensActualJson } : {}),
+		...(input.paused !== undefined ? { paused: input.paused } : {}),
 		state: resolvedState as DomainTask["state"],
 	};
 }
@@ -497,6 +499,112 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		return [...killed, { id: rootTaskId, fromState: rootFromState, row: null }];
 	}
 
+	/**
+	 * Pause (or lift the pause on) every part below `rootTaskId`, inside the caller's transaction.
+	 * A pause skips parts already done or killed; lifting it clears every part that carries one.
+	 */
+	async function pauseSubtreeInTx(
+		tx: WriteExecutor,
+		rootTaskId: string,
+		paused: DomainTask["paused"],
+		actor: string,
+		now: string,
+	): Promise<readonly Change[]> {
+		const ids = (await taskDb.listSubtreeIds(tx, rootTaskId)).filter((id) => id !== rootTaskId);
+		if (ids.length === 0) return [];
+		const parts = await taskDb.list(tx, "task", { ids });
+		const moving = parts.filter((t) =>
+			paused === null
+				? t.paused !== null
+				: t.paused !== paused && !TERMINAL_TASK_STATES.includes(t.state),
+		);
+		const rows: Change[] = [];
+		for (const t of moving) {
+			const { before, after } = diffFields(t.id, t, { paused });
+			await taskDb.update(tx, "task", t.id, { paused, updatedAt: now });
+			rows.push(
+				await deps.changes.appendChange(tx, {
+					id: randomUUID(),
+					object: "task",
+					objectId: t.id,
+					kind: "changed",
+					actor,
+					before: JSON.stringify(before),
+					after: JSON.stringify(after),
+					at: now,
+				}),
+			);
+		}
+		return rows;
+	}
+
+	/**
+	 * After a pause is lifted: every part that waited only for finished parts starts, and after a
+	 * stop each agent goes back to the part it was working on — a leaf still under way that waits
+	 * on nobody's answer or review.
+	 */
+	async function resumeSubtree(
+		ctx: ActionContext,
+		rootTaskId: string,
+		wasStopped: boolean,
+	): Promise<void> {
+		const ids = await taskDb.listSubtreeIds(ctx.db, rootTaskId);
+		const waiting = (await taskDb.list(ctx.db, "task", { ids })).filter((t) => t.state === "hold");
+		for (const t of waiting) {
+			const waitsFor = parseDependencyIds(t.dependencies);
+			if (waitsFor.length > 0 && !(await hasUnfinishedDependency(ctx.db, waitsFor))) {
+				await editTaskRun(ctx, { id: t.id, state: "accepted" });
+			}
+		}
+		if (!wasStopped) return;
+		const view = await openTaskRun(ctx, { id: rootTaskId });
+		if (!view.ok) return;
+		const working = (nodes: readonly TaskNode[]): TaskNode[] =>
+			nodes.flatMap((n) =>
+				n.children.length > 0
+					? working(n.children)
+					: n.state === "in_progress" && n.need === null && n.ownerAgentId
+						? [n]
+						: [],
+			);
+		const top = view.data.task;
+		const leaves =
+			view.data.children.length > 0
+				? working(view.data.children)
+				: top.state === "in_progress" && top.need === null && top.ownerAgentId
+					? [top]
+					: [];
+		for (const leaf of leaves) await restart(ctx, leaf.id, leaf.ownerAgentId ?? "");
+	}
+
+	/** Send the owner back to a part a stop cut off; one restart per stop, so it is not one-per-occasion. */
+	async function restart(ctx: ActionContext, taskId: string, agentId: string): Promise<void> {
+		const dispatched = await ctx.db.transaction(async (tx) => {
+			const inserted = await taskDispatchAttemptStore.insertAttempt(tx, {
+				taskId,
+				occasion: "restart",
+				agentId,
+				now: ctx.now,
+			});
+			if (!inserted.id) return null;
+			const bakedRequest = await resolveTaskRunRequest(
+				tx as HyperIdleDb,
+				{ kind: "task_run", attemptId: inserted.id },
+				deps.taskRunResolver,
+			);
+			return { attemptId: inserted.id, bakedRequest };
+		});
+		if (!dispatched) return;
+		await deps.agentOrchestration.submitWorkIntent({
+			kind: "task_run",
+			sourceKind: "task_dispatch_attempt",
+			sourceId: dispatched.attemptId,
+			requestedBy: agentId,
+			idempotencyKey: `task-dispatch:${dispatched.attemptId}`,
+			bakedRequest: dispatched.bakedRequest,
+		});
+	}
+
 	async function editTaskRun(
 		ctx: ActionContext,
 		input: EditTaskInput,
@@ -511,6 +619,8 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		}
 
 		let teamId = input.teamId ?? prev?.teamId;
+		/** A new part of a paused task is paused with it. */
+		let parentPaused: DomainTask["paused"] = null;
 		if (!prev && input.parentTaskId) {
 			const parent = await taskDb.get(ctx.db, "task", input.parentTaskId);
 			if (!parent) {
@@ -522,6 +632,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				};
 			}
 			teamId ??= parent.teamId;
+			parentPaused = toTask(parent).paused;
 		}
 		if (input.sourceDocumentId !== undefined) {
 			const srcResult = await deps.searchDocuments(ctx, { ids: [input.sourceDocumentId] });
@@ -577,6 +688,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 
 		const next = candidateTask(prev, input, resolvedState);
 		if (teamId) next.teamId = teamId;
+		if (!prev && input.paused === undefined) next.paused = parentPaused;
 
 		// -- 2. pure invariants ---------------------------------------------------
 		const problems: Problem[] = [...taskInvariants(next, prev ? toTask(prev) : null)];
@@ -723,6 +835,8 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			  }
 			| undefined;
 		let predecessorSessionId: string | undefined;
+		const pauseMoved = prev !== null && input.paused !== undefined && input.paused !== prev.paused;
+		let pausedParts: readonly Change[] = [];
 
 		await ctx.db.transaction(async (tx) => {
 			const taskId = prev?.id ?? next.id;
@@ -748,6 +862,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				reasons: JSON.stringify(next.reasons),
 				sourceDocumentId: next.sourceDocumentId,
 				tokensActualJson: next.tokensActualJson,
+				paused: next.paused,
 				updatedAt: now,
 			};
 			if (input.outcome) {
@@ -774,6 +889,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 						(await taskDb.maxSiblingPosition(tx, next.parentTaskId, next.teamId)) + 1,
 					reasons: JSON.stringify(next.reasons),
 					sourceDocumentId: next.sourceDocumentId,
+					paused: next.paused,
 					createdAt: now,
 					updatedAt: now,
 				};
@@ -816,6 +932,9 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 
 			if (resolvedState === "killed" && prev?.state !== "killed") {
 				killedTasks = await killSubtreeInTx(tx, taskId, ctx.actor, now, prev?.state ?? "proposed");
+			}
+			if (pauseMoved && prev) {
+				pausedParts = await pauseSubtreeInTx(tx, taskId, next.paused, ctx.actor, now);
 			}
 
 			// -- the dispatch branch: an accept, or an owner change to an agent --
@@ -902,6 +1021,13 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			if (killed.row) {
 				ctx.eventBus.emit(objectEvent(killed.row, { cascade: true }));
 			}
+		}
+		for (const row of pausedParts) ctx.eventBus.emit(objectEvent(row));
+		if (prev && pauseMoved && next.paused === "stopped") {
+			await deps.agentOrchestration.stopRunsForTasks(await taskDb.listSubtreeIds(ctx.db, prev.id));
+		}
+		if (prev && pauseMoved && next.paused === null) {
+			await resumeSubtree(ctx, prev.id, prev.paused === "stopped");
 		}
 		if (dispatch) {
 			await deps.agentOrchestration.submitWorkIntent({

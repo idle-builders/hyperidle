@@ -141,8 +141,11 @@ export const tasks = pgTable(
 		position: integer("position").notNull().default(0),
 		/** JSON array of Reason objects (decisions and assumptions). */
 		reasons: text("reasons").notNull().default("[]"),
+		/** A person paused it, and every part not done with it: "hold" or "stopped". The state stays as it was. */
+		paused: text("paused"),
 	},
 	(table) => [
+		check("tasks_paused_ck", sql`${table.paused} IS NULL OR ${table.paused} IN ('hold','stopped')`),
 		index("tasks_parent_task_id_idx").on(table.parentTaskId),
 		index("tasks_team_id_idx").on(table.teamId),
 		// no index on state — too few distinct values to be selective
@@ -342,7 +345,7 @@ export const taskDispatchAttempts = pgTable(
 		index("task_dispatch_attempts_status_idx").on(table.status, table.createdAt),
 		check(
 			"task_dispatch_attempts_occasion_ck",
-			sql`${table.occasion} in ('accepted','retry','owner_handoff')`,
+			sql`${table.occasion} in ('accepted','retry','owner_handoff','restart')`,
 		),
 		check(
 			"task_dispatch_attempts_status_ck",

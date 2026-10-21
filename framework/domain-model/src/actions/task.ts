@@ -60,6 +60,10 @@ export const ReasonSchema = z.discriminatedUnion("kind", [
 
 export type Reason = z.infer<typeof ReasonSchema>;
 
+/** How a person paused a task: on hold, the agents finish what they are doing, then wait; stopped, they stop at once. */
+export const TASK_PAUSES = ["hold", "stopped"] as const;
+export type TaskPause = (typeof TASK_PAUSES)[number];
+
 export const TaskSchema = z.object({
 	id: z.string(),
 	parentTaskId: z.string().nullable(),
@@ -85,6 +89,8 @@ export const TaskSchema = z.object({
 	position: z.number().int(),
 	/** Parsed reasons (decisions and assumptions, stored as JSON text in the DB). */
 	reasons: z.array(ReasonSchema),
+	/** Set on the task a person paused and on every part of it not done; the state stays as it was. */
+	paused: z.enum(TASK_PAUSES).nullable(),
 	/** Derived UI status — computed from state, thread messages and reasons; never stored. Defaults to null so DB rows parse without it. */
 	need: z.enum(["stuck", "input", "review"]).nullable().default(null),
 });
@@ -181,6 +187,12 @@ export const EditTaskInputSchema = z
 		position: z.number().int().nonnegative().optional(),
 		/** Whole-list upsert — replaces the existing list. */
 		reasons: z.array(ReasonSchema).optional(),
+		/**
+		 * Pause the task and every part of it not done (`stopped` also stops their running sessions),
+		 * or `null` to lift it: the parts that waited start once nothing holds them, and after a stop
+		 * each agent goes back to the part it was working on.
+		 */
+		paused: z.enum(TASK_PAUSES).nullable().optional(),
 		dependencies: z.array(z.string()).nullable().optional(),
 		outcome: z
 			.object({
@@ -225,6 +237,8 @@ export const TASK_ACTIONS = {
 
 // Server-only invariants (cycle, team capacity, owner exists, unmet deps at accept) are NOT here — DB-dependent, run inside edit_task.run.
 
+const TERMINAL_STATES: readonly TaskState[] = ["done", "killed"];
+
 export function taskInvariants(next: Task, prev: Task | null): Problem[] {
 	const problems: Problem[] = [];
 
@@ -236,6 +250,23 @@ export function taskInvariants(next: Task, prev: Task | null): Problem[] {
 			code: "team_required",
 			message: "A new task needs a team, or a parent to inherit one from.",
 			path: "teamId",
+		});
+	}
+	if (prev !== null && next.paused !== prev.paused && TERMINAL_STATES.includes(next.state)) {
+		problems.push({
+			code: "paused_closed",
+			message: "A finished task cannot be put on hold or stopped.",
+			path: "paused",
+		});
+	}
+	if (next.paused !== null && next.state === "accepted" && prev?.state !== "accepted") {
+		problems.push({
+			code: "paused",
+			message:
+				next.paused === "hold"
+					? "The task is on hold."
+					: "The task is stopped; start it again first.",
+			path: "state",
 		});
 	}
 	if (
