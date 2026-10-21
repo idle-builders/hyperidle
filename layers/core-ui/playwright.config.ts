@@ -32,13 +32,14 @@ export default defineConfig({
 	projects: [
 		{
 			name: "chromium",
-			testIgnore: /review\.spec\.ts$/,
+			testIgnore: /(review|document)\.spec\.ts$/,
 			use: browser,
 		},
-		// Deciding reviews changes what the other specs read, so it runs after them on the same world.
+		// Deciding reviews and writing in documents change what the other specs read, so they run
+		// after them on the same world.
 		{
-			name: "review",
-			testMatch: /review\.spec\.ts$/,
+			name: "after-the-rest",
+			testMatch: /(review|document)\.spec\.ts$/,
 			dependencies: ["chromium"],
 			use: browser,
 		},

@@ -177,7 +177,7 @@ test("publishing tells the followers, and the tree stops saying draft", async ({
 	const row = tree(page).getByRole("button", { name: "Should trials be 10 days?" }).locator("..");
 	await expect(row).toContainText("draft");
 	await page.getByRole("button", { name: "Publish", exact: true }).click();
-	await expect(page.getByText("Published · 4 followers told")).toBeVisible();
+	await expect(page.getByText("Published · 1 follower told")).toBeVisible();
 	await expect(page.getByRole("button", { name: "Following" })).toBeVisible();
 	await expect(row).not.toContainText("draft");
 	await expect(page.getByRole("heading", { name: "🤔 Should trials be 10 days?" })).toBeVisible();

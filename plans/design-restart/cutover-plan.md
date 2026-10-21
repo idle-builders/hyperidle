@@ -84,6 +84,14 @@ working through the backend changes.
     round 1. Backend: a review is made of parts and flags, a comment points with an anchor (one
     shape for reviews and document blocks), and a retry names the round it follows; the nine
     canvas kinds and `messages.block_id` are gone (migration 0103).
+  - [x] Knowledge (Think): the document on real data — its Markdown in a TipTap editor, view and
+    edit mode, the floating format bar, / for a block and @ for the picker, saving on its
+    version; comments in the margin, each a pin on a stretch of the text, faded until opened,
+    with draggable ends, replies, resolve and undo, a proposed change with Apply and Dismiss,
+    and the task handed off from it; For <discipline>, Follow and Publish; the tree's + and
+    icons. Backend: a document comment's anchor is the document and a range of its body, a
+    message may propose a change that adjust_thread settles once, documents.icon (migration
+    0104), and open_document counts the followers.
 - [ ] Step 5 finish.
 
 

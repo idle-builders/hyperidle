@@ -42,8 +42,8 @@ const DOC_ENGINEERING = "demo-doc-engineering";
 export const TEN_DAYS_BODY =
 	"Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose.\n\n## What we know\n\n- Trials run 14 days, card up front.\n- Since the warning email, 27% more trials convert.\n- Most cancellations happen on day 13.\n\n## Decision\n\nNot yet.";
 
-/** Who follows "Should trials be 10 days?" besides Finn, who wrote it: they are told when it is published. */
-const TEN_DAYS_FOLLOWERS = [FOUNDER_ID, MAYA_ID, BUILDER_ID, GROWTH_ID, DESIGNER_ID];
+/** Finn wrote "Should trials be 10 days?" and Maya follows it: she is told when it is published. */
+const TEN_DAYS_FOLLOWERS = [FOUNDER_ID, MAYA_ID];
 
 export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 	const specs: readonly DocSpec[] = [
