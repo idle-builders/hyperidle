@@ -7,6 +7,8 @@
 // -- agent identity --
 export type { AgentIdentityDeps, AgentIdentityPort } from "./agent-identity.js";
 export { createAgentIdentityPort } from "./agent-identity.js";
+// -- whose services an agent reaches --
+export { connectionOwnerFor } from "./connection-owner.js";
 // -- cron (used by the subscription clock's schedule trigger) --
 export type { CronFields } from "./cron.js";
 export { nextCronMatch, parseCron } from "./cron.js";
@@ -67,6 +69,8 @@ export { createUpgradeTokenStore } from "./upgrade-token-store.js";
 // -- user actions (search_users / open_user / edit_user) --
 export type { UserActionsDeps } from "./user-actions.js";
 export { createUserActions } from "./user-actions.js";
+// -- live updates for people's pages --
+export { registerUserLiveUpdates } from "./user-live-updates.js";
 // -- user store (single owner of `users` row read/write) --
 export type { UserFilter, UserWithTeams } from "./user-store.js";
 export {

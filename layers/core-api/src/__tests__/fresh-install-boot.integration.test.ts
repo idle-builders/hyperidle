@@ -14,7 +14,12 @@
  * welcome screen sends, then `search_users`/`open_user` read it back.
  */
 import { documents, subscriptions, teams, users } from "@hyperidle/db";
-import { OBJECT_EVENTS, type UserRow, type UserView } from "@hyperidle/domain-model";
+import {
+	OBJECT_EVENTS,
+	PERSON_REASONS,
+	type UserRow,
+	type UserView,
+} from "@hyperidle/domain-model";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { applyFactoryCoreState } from "../bootstrap/factory-state.js";
@@ -60,7 +65,7 @@ describe("a fresh install", () => {
 		expect(await db.select().from(documents)).toEqual([]);
 	});
 
-	test("after the welcome screen's two calls: the person, their team and one assistant with nine empty subscriptions", async ({
+	test("after the welcome screen's two calls: the person, their team and one assistant with nine empty subscriptions, the person with the four reasons", async ({
 		db,
 		app,
 	}) => {
@@ -100,9 +105,15 @@ describe("a fresh install", () => {
 		expect(opened.subscriptions.every((s) => s.documentId === null && !s.paused)).toBe(true);
 		expect(opened.documentIds).toEqual([]);
 
+		// The person is told about the four reasons; the assistant has the nine events.
 		const rows = await db.select().from(subscriptions);
-		expect(rows).toHaveLength(OBJECT_EVENTS.length);
-		expect(rows.every((r) => r.userId === assistant?.id)).toBe(true);
+		expect(rows.filter((r) => r.userId === assistant?.id)).toHaveLength(OBJECT_EVENTS.length);
+		expect(
+			rows
+				.filter((r) => r.userId === personId)
+				.map((r) => r.event)
+				.sort(),
+		).toEqual([...PERSON_REASONS].sort());
 
 		expect(await db.select().from(documents)).toEqual([]);
 		expect(await db.select().from(teams)).toHaveLength(1);

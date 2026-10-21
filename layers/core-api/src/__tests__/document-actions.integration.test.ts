@@ -1165,7 +1165,7 @@ describe("case 9b — forbidden_parent_kind refuses client doors, not the intern
 		});
 		const id = await identity.upsertAgentIdentity(db, {
 			agentId: "c9b3-agent",
-			agentName: "c9b3-agent",
+			title: "c9b3-agent — identity",
 			body: "identity body",
 			updatedBy: "system:propagation",
 		});

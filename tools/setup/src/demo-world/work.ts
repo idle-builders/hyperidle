@@ -87,6 +87,8 @@ interface TaskSpec {
 	readonly threadId?: string;
 	/** Who else is in its conversation besides the owner. */
 	readonly members?: readonly string[];
+	/** Who started it; a part is started by the agent that owns its parent. */
+	readonly startedBy?: string;
 	readonly sourceDocumentId?: string;
 	/** Its place among its siblings, when not set by `CHILD_ORDER`. */
 	readonly position?: number;
@@ -123,6 +125,7 @@ function trialsTree(clock: DemoClock): TaskSpec[] {
 	return [
 		{
 			id: TASK_TRIALS,
+			startedBy: FOUNDER_ID,
 			owner: GROWTH_ID,
 			title: "Trials that convert without a call",
 			about:
@@ -570,6 +573,7 @@ function otherRoots(clock: DemoClock): TaskSpec[] {
 	return [
 		{
 			id: TASK_UTC,
+			startedBy: FOUNDER_ID,
 			owner: BUILDER_ID,
 			title: "Trial dates normalised to UTC",
 			about:
@@ -627,6 +631,7 @@ function otherRoots(clock: DemoClock): TaskSpec[] {
 		},
 		{
 			id: TASK_EXPLAIN,
+			startedBy: FOUNDER_ID,
 			owner: BUILDER_ID,
 			title: "Explain what happens when a trial ends",
 			about:
@@ -682,6 +687,7 @@ function otherRoots(clock: DemoClock): TaskSpec[] {
 		},
 		{
 			id: TASK_METERING,
+			startedBy: FOUNDER_ID,
 			owner: BUILDER_ID,
 			title: "Usage-based tier, metering",
 			about:
@@ -693,6 +699,7 @@ function otherRoots(clock: DemoClock): TaskSpec[] {
 		},
 		{
 			id: TASK_REFUNDS,
+			startedBy: MAYA_ID,
 			team: SUPPORT_TEAM_ID,
 			owner: DESIGNER_ID,
 			title: "Refund wording",
@@ -958,6 +965,9 @@ export async function seedWork(db: HyperIdleDb, clock: DemoClock): Promise<void>
 				parentTaskId: task.parent ?? null,
 				teamId: teamOf.get(task.id) ?? PRODUCT_TEAM_ID,
 				ownerAgentId: task.owner,
+				startedBy:
+					task.startedBy ??
+					(task.parent ? specs.find((p) => p.id === task.parent)?.owner : task.owner),
 				title: task.title,
 				description: task.about,
 				doneWhen: JSON.stringify(

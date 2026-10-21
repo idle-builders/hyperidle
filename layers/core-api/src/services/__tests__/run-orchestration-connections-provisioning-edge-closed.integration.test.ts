@@ -106,6 +106,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 		const fetchSpy = vi.spyOn(app, "fetch");
 
 		const plan = await buildProvisioningPlan({
+			agentId: "agent",
 			connections: {
 				listHeldForProvisioning: () =>
 					listConnections(db, { userId: USER_HUMAN_ID }).then((rows) =>
@@ -154,6 +155,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 		const fetchSpy = vi.spyOn(app, "fetch");
 
 		const plan = await buildProvisioningPlan({
+			agentId: "agent",
 			connections: {
 				listHeldForProvisioning: () =>
 					listConnections(db, { userId: USER_HUMAN_ID }).then((rows) =>

@@ -45,6 +45,7 @@ export {
 	type Session,
 	type Subscription,
 	serviceConnections,
+	serviceConnectionWithholds,
 	sessions,
 	subscriptions,
 	type Task,

@@ -463,9 +463,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 	// -----------------------------------------------------------------------
 	// search_threads
 	// -----------------------------------------------------------------------
-	/** Each thread's need for the caller, from its open questions and reviews — one query for all. */
+	/** Each thread's need for `viewer`, from its open questions and reviews — one query for all. */
 	async function threadNeeds(
 		ctx: ActionContext,
+		viewer: string,
 		threadIds: readonly string[],
 	): Promise<Map<string, ThreadListRow["need"]>> {
 		const open = await store.listMessages(ctx.db, {
@@ -481,7 +482,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			[...byThread].map(([id, msgs]) => [
 				id,
 				computeThreadNeed(
-					ctx.actor,
+					viewer,
 					msgs.map((m) => ({
 						type: m.type,
 						senderId: m.senderId,
@@ -525,6 +526,16 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			);
 			const ids = [...new Set([...byMessage.map((r) => r.id), ...byTitle.map((r) => r.id)])];
 			rows = ids.length > 0 ? await store.listThreads(ctx.db, { ids, includeDeleted: false }) : [];
+		} else if (input.member !== undefined) {
+			const probe = `%${JSON.stringify(input.member).replace(/[\\%_]/g, "\\$&")}%`;
+			const raw = await store.listThreads(ctx.db, {
+				participantProbe: probe,
+				order: "lastActive",
+				includeDeleted: false,
+				...(input.limit !== undefined ? { limit: input.limit } : {}),
+			});
+			const member = input.member;
+			rows = raw.filter((r) => parseParticipants(r.participants).includes(member));
 		} else if (input.mine !== false) {
 			// `mine` defaults to the sentence's own promise — "no parameter lists
 			// the ones you are in" — so an empty `{}` input (mine `undefined`)
@@ -551,7 +562,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		if (readable.length === 0) return { ok: true, data: [] };
 
 		const threadIds = readable.map((r) => r.id);
-		const needs = await threadNeeds(ctx, threadIds);
+		const needs = await threadNeeds(ctx, input.member ?? ctx.actor, threadIds);
 
 		const lastMessageRows = await store.listLastMessagePerThread(ctx.db, threadIds);
 		const lastMessageById = new Map(lastMessageRows.map((m) => [m.threadId, m]));

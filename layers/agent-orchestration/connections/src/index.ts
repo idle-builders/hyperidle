@@ -23,5 +23,7 @@ export {
 	deleteConnection,
 	insertConnection,
 	listConnections,
+	listWithholds,
+	setWithhold,
 	updateConnection,
 } from "./service-connection-store.js";

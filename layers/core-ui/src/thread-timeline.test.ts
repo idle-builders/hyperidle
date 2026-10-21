@@ -42,6 +42,7 @@ const task = (t: Partial<Task>): Task => ({
 	reasons: [],
 	need: null,
 	paused: null,
+	startedBy: null,
 	...t,
 });
 const session = (start: string, end: string): SessionRow => ({

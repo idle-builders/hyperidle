@@ -1107,6 +1107,46 @@ describe("search_threads", () => {
 		expect(byId.get("st-theirs-1")).toMatchObject({ need: null });
 	});
 
+	test("member lists another user's threads that you can read, each saying what it waits on from them", async ({
+		db,
+	}) => {
+		const eventBus = new EventBus();
+		const actions = createThreadActions(threadDeps());
+		await seedTeam(db, "sm-1");
+		await seedHuman(db, "sm-maya", "sm-1");
+		await seedAgent(db, "sm-agent", "sm-1");
+		await seedThreadRow(db, "sm-team", {
+			hostKind: "team",
+			hostId: "sm-1",
+			initiatorId: "sm-agent",
+			members: ["sm-agent", "sm-maya"],
+		});
+		await seedThreadRow(db, "sm-direct", {
+			hostKind: "agent",
+			hostId: "sm-agent",
+			initiatorId: "sm-agent",
+			members: ["sm-agent", "sm-maya"],
+		});
+		for (const threadId of ["sm-team", "sm-direct"])
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId, review: { title: "Refund wording", reasoning: ["x"], reviewer: "sm-maya" } },
+				"sm-agent",
+			);
+
+		const res = await call<Array<{ id: string; need: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{ member: "sm-maya" },
+		);
+		expect(res.body.data?.map((r) => [r.id, r.need])).toEqual([["sm-team", "review"]]);
+	});
+
 	test("an empty input ({}) takes the same mine branch as {mine:true} — the sentence's own promise", async ({
 		db,
 	}) => {

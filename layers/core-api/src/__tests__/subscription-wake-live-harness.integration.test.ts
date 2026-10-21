@@ -150,7 +150,12 @@ function buildFireDeps(
 		agentWorkIntentRecorder,
 		searchTasks: async (_ctx, input) => {
 			const rows = await db
-				.select({ id: tasks.id, teamId: tasks.teamId, ownerAgentId: tasks.ownerAgentId })
+				.select({
+					id: tasks.id,
+					teamId: tasks.teamId,
+					ownerAgentId: tasks.ownerAgentId,
+					startedBy: tasks.startedBy,
+				})
 				.from(tasks);
 			return { ok: true, data: rows.filter((r) => input.ids.includes(r.id)) };
 		},
@@ -164,7 +169,10 @@ function buildFireDeps(
 						members: JSON.parse(r.participants) as string[],
 					}),
 				);
-			return { ok: true, data: readable.map((r) => ({ id: r.id })) };
+			return {
+				ok: true,
+				data: readable.map((r) => ({ id: r.id, members: JSON.parse(r.participants) as string[] })),
+			};
 		},
 		searchDocuments,
 		// Present (even trivial) so `resolveSubscriptionWakeRequest` bakes a

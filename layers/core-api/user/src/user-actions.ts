@@ -23,6 +23,7 @@
 import type { Change, HyperIdleDb, NewChange, NewUser, Team, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import {
+	type AddSubscriptionInput,
 	type AgentCategory,
 	type EditUserInput,
 	editUser as editUserDeclaration,
@@ -32,6 +33,7 @@ import {
 	type OpenUserInput,
 	type OrgEdgeMechanism,
 	openUser as openUserDeclaration,
+	PERSON_REASONS,
 	type Problem,
 	type SearchUsersInput,
 	searchUsers as searchUsersDeclaration,
@@ -50,6 +52,7 @@ import type {
 	SearchDocumentsRunFn,
 } from "./action-types.js";
 import { type AgentIdentityPort, createAgentIdentityPort } from "./agent-identity.js";
+import { connectionOwnerFor } from "./connection-owner.js";
 import { nextCronMatch, parseCron } from "./cron.js";
 import { deleteOrgEdge, listOrgEdges, resolveDisciplineUsers, upsertOrgEdge } from "./org-edges.js";
 import {
@@ -114,6 +117,7 @@ export interface UserActionsConnectionView {
 	readonly authSource: "token" | "mcp" | "inherited";
 	readonly health: "working" | "needs-attention";
 	readonly removable: boolean;
+	readonly withheldFrom: readonly string[];
 }
 
 /** Mirrors `AgentOrchestrationConnectionCreateInput`'s discriminated union. */
@@ -174,6 +178,12 @@ export interface UserActionsDeps {
 			| { readonly ok: false; readonly code: "MISSING_ROOT_SECRET" | "DUPLICATE_CONNECTION" }
 		>;
 		remove(userId: string, id: string): Promise<UserActionsRemoveResult>;
+		withhold(
+			userId: string,
+			id: string,
+			agentUserId: string,
+			keep: boolean,
+		): Promise<UserActionsRemoveResult>;
 	};
 	/** Install-wide: this machine's harnesses. Absent when no adapter pool
 	 * is wired (a composition without agent execution). */
@@ -408,15 +418,14 @@ async function buildUserView(
 			: null;
 
 	let documentIds: UserView["documentIds"] = [];
-	if (userRow.kind === "ai") {
-		const found = await deps.searchDocuments(internalCtx(ctx, userRow.id), {
-			parent: { kind: "agent", id: userRow.id },
-		});
-		if (found.ok) {
-			documentIds = found.data
-				.filter((d) => d.slot === "agent_file" || d.slot === "skill" || d.slot === "rule")
-				.map((d) => ({ slot: d.slot, id: d.id }));
-		}
+	const ownDocs = await deps.searchDocuments(internalCtx(ctx, userRow.id), {
+		parent: { kind: "agent", id: userRow.id },
+	});
+	if (ownDocs.ok) {
+		const slots = userRow.kind === "ai" ? ["agent_file", "skill", "rule"] : ["agent_file"];
+		documentIds = ownDocs.data
+			.filter((d) => slots.includes(d.slot) && d.status !== "archived")
+			.map((d) => ({ slot: d.slot, id: d.id }));
 	}
 
 	const folders =
@@ -445,7 +454,12 @@ async function buildUserView(
 		nextRunAt: s.nextRunAt,
 	}));
 
-	const connections = isSelf ? await deps.connections.list(userRow.id) : null;
+	const connectionOwner = isSelf
+		? userRow.id
+		: userRow.kind === "ai"
+			? await connectionOwnerFor(ctx.db, userRow.id)
+			: null;
+	const connections = connectionOwner ? await deps.connections.list(connectionOwner) : null;
 
 	let inbox: UserView["inbox"] = null;
 	if (isSelf) {
@@ -509,6 +523,7 @@ function makeOpenUserRun(deps: UserActionsDeps) {
 
 interface SubscriptionAddLike {
 	readonly event?: string;
+	readonly title?: string;
 	readonly schedule?: string;
 	readonly prompt?: string | null;
 	readonly paused?: boolean;
@@ -527,6 +542,17 @@ function validateSubscriptionAdd(
 		return {
 			code: "schedule_for_agents_only",
 			message: "Only an agent can run on a schedule.",
+			path: "subscriptions",
+		};
+	}
+	if (
+		sub.event !== undefined &&
+		(PERSON_REASONS as readonly string[]).includes(sub.event) &&
+		targetKind === "ai"
+	) {
+		return {
+			code: "reason_for_people_only",
+			message: "This reason tells a person something; an agent starts on events or times.",
 			path: "subscriptions",
 		};
 	}
@@ -569,7 +595,7 @@ function nextRunAtFor(schedule: string, now: string): string {
 async function writeSubscriptionPrompt(
 	ctx: ActionContext,
 	deps: UserActionsDeps,
-	ownerName: string,
+	title: string,
 	agentId: string,
 	subscriptionId: string,
 	prompt: string,
@@ -585,7 +611,7 @@ async function writeSubscriptionPrompt(
 	}
 	await deps.editDocument(internalCtx(ctx, agentId), {
 		id: `doc_sp_${subscriptionId}`,
-		title: `${ownerName} — subscription prompt`,
+		title,
 		body: prompt,
 		slot: "prompt",
 		status: "active",
@@ -593,6 +619,11 @@ async function writeSubscriptionPrompt(
 		scopeId: agentId,
 		parent: { kind: "subscription", id: subscriptionId },
 	});
+}
+
+/** A prompt document is titled with the name of what it does, when it has one. */
+function promptTitle(agentName: string, title: string | undefined): string {
+	return title ?? `${agentName} — subscription prompt`;
 }
 
 async function archiveSubscriptionPrompt(
@@ -629,6 +660,7 @@ async function applyUserFolders(
 	id: string,
 	teams: readonly { readonly id: string; readonly name: string }[],
 	folders: NonNullable<EditUserInput["folders"]>,
+	recipients: (teamId: string) => Promise<readonly string[]>,
 ): Promise<Problem | null> {
 	for (const { team: teamName, ...body } of folders.add ?? []) {
 		const team =
@@ -655,6 +687,9 @@ async function applyUserFolders(
 		}
 		if (!result.ok) {
 			return { code: "unknown_folder", message: "That team does not exist.", path: "folders" };
+		}
+		for (const agentId of await recipients(team.id)) {
+			await deps.folders.give(result.folder.id, agentId);
 		}
 	}
 	for (const folderId of folders.remove ?? []) {
@@ -734,6 +769,7 @@ async function applyUserFolders(
 }
 
 async function applyUserConnections(
+	db: HyperIdleDb,
 	deps: UserActionsDeps,
 	id: string,
 	connections: NonNullable<EditUserInput["connections"]>,
@@ -779,7 +815,48 @@ async function applyUserConnections(
 			};
 		}
 	}
+	const keeps = [
+		...(connections.give ?? []).map((connId) => [connId, false] as const),
+		...(connections.take ?? []).map((connId) => [connId, true] as const),
+	];
+	if (keeps.length > 0) {
+		const owner = await connectionOwnerFor(db, id);
+		for (const [connId, keep] of keeps) {
+			const result = owner
+				? await deps.connections.withhold(owner, connId, id, keep)
+				: ({ ok: false, code: "NOT_FOUND" } as const);
+			if (!result.ok) {
+				return {
+					code: "unknown_connection",
+					message: `No connection '${connId}' of this agent's owner.`,
+					path: "connections",
+				};
+			}
+		}
+	}
 	return null;
+}
+
+/**
+ * Who a new folder goes to: every agent of its owner in that team — a person's own agents, or an
+ * agent's owner's. An agent no one owns keeps it to itself.
+ */
+async function folderRecipients(
+	db: HyperIdleDb,
+	user: { readonly id: string; readonly kind: string; readonly ownerUserId: string | null },
+	teamId: string,
+): Promise<string[]> {
+	const owner = user.kind === "human" ? user.id : user.ownerUserId;
+	if (!owner) return [user.id];
+	const agents = await listUsers(db, { ownerUserId: owner, kind: "ai" });
+	return agents
+		.filter((a) => a.status !== "retired" && a.teamIds.includes(teamId))
+		.map((a) => a.id);
+}
+
+/** An agent's `agent_file` says who it is; a person's says what agents should know about them. */
+function identityTitle(kind: string, name: string): string {
+	return kind === "ai" ? `${name} — identity` : `About ${name}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -857,7 +934,11 @@ async function createUserRun(
 		discipline: input.discipline ?? null,
 	};
 
-	const addedSubscriptions: Array<{ id: string; prompt: string | null | undefined }> = [];
+	const addedSubscriptions: Array<{
+		id: string;
+		prompt: string | null | undefined;
+		title: string | undefined;
+	}> = [];
 	let mainChangeRow: Change | undefined;
 	let teams: Array<{ id: string; name: string }> = [];
 
@@ -875,7 +956,15 @@ async function createUserRun(
 			await upsertOrgEdge(tx, { fromUserId: id, mechanism: e.mechanism, target: e.target });
 		}
 
-		for (const sub of input.subscriptions?.add ?? []) {
+		// A new person is told about every reason until they switch one off.
+		const given = input.subscriptions?.add ?? [];
+		const reasons: AddSubscriptionInput[] =
+			kind === "human"
+				? PERSON_REASONS.filter((r) => !given.some((g) => g.event === r)).map((event) => ({
+						event,
+					}))
+				: [];
+		for (const sub of [...reasons, ...given]) {
 			const subId = crypto.randomUUID();
 			const nextRunAt = sub.schedule !== undefined ? nextRunAtFor(sub.schedule, now) : null;
 			await insertSubscription(tx, {
@@ -889,7 +978,7 @@ async function createUserRun(
 				createdAt: now,
 				updatedAt: now,
 			});
-			addedSubscriptions.push({ id: subId, prompt: sub.prompt });
+			addedSubscriptions.push({ id: subId, prompt: sub.prompt, title: sub.title });
 		}
 
 		const { before, after } = stringifyChange({
@@ -924,22 +1013,32 @@ async function createUserRun(
 
 	let stepProblem: Problem | null = null;
 	if (input.folders) {
-		stepProblem = await applyUserFolders(deps, id, teams, input.folders);
+		stepProblem = await applyUserFolders(deps, id, teams, input.folders, (teamId) =>
+			folderRecipients(ctx.db, { id, kind, ownerUserId: values.ownerUserId ?? null }, teamId),
+		);
 	}
 	if (!stepProblem && input.connections) {
-		stepProblem = await applyUserConnections(deps, id, input.connections);
+		stepProblem = await applyUserConnections(ctx.db, deps, id, input.connections);
 	}
 
-	if (kind === "ai" && input.identity !== undefined) {
+	if (input.identity !== undefined) {
 		await identity.upsertAgentIdentity(ctx.db, {
 			agentId: id,
-			agentName: name,
+			title: identityTitle(kind, name),
 			body: input.identity ?? "",
 			updatedBy: ctx.actor,
 		});
 	}
 	for (const sub of addedSubscriptions) {
-		if (sub.prompt) await writeSubscriptionPrompt(ctx, deps, name, id, sub.id, sub.prompt);
+		if (typeof sub.prompt === "string")
+			await writeSubscriptionPrompt(
+				ctx,
+				deps,
+				promptTitle(name, sub.title),
+				id,
+				sub.id,
+				sub.prompt,
+			);
 	}
 	if (input.redetectHarnesses && deps.harnesses) await deps.harnesses.redetect();
 
@@ -998,8 +1097,15 @@ async function editExistingUserRun(
 		const membership = await membershipProblemsFor(ctx.db, existing, input.teams);
 		if (membership.length > 0) return { ok: false, problems: membership };
 	}
-	if (input.connections !== undefined && ctx.actor !== id) {
-		return problem("yourself_only", "Connections are edited on your own view only.", "connections");
+	if ((input.connections?.add || input.connections?.remove) && ctx.actor !== id) {
+		return problem("yourself_only", "Connections are added on your own view only.", "connections");
+	}
+	if ((input.connections?.give || input.connections?.take) && existing.kind !== "ai") {
+		return problem(
+			"agents_only",
+			"A service is given to or kept from an agent; a person reaches their own.",
+			"connections",
+		);
 	}
 	if (input.inbox !== undefined && ctx.actor !== id) {
 		return problem("yourself_only", "Your inbox is edited on your own view only.", "inbox");
@@ -1063,12 +1169,14 @@ async function editExistingUserRun(
 		(input.subscriptions?.change?.length ?? 0) > 0 ||
 		(input.subscriptions?.remove?.length ?? 0) > 0;
 	const touchesRunConfig = input.runConfig !== undefined;
+	const touchesReach = input.folders !== undefined || input.connections !== undefined;
 	const appendsChange =
 		touchesIdentityFields(input) ||
 		touchesTeams ||
 		touchesEdges ||
 		touchesSubscriptions ||
-		touchesRunConfig;
+		touchesRunConfig ||
+		touchesReach;
 
 	const before: Record<string, unknown> = {};
 	const after: Record<string, unknown> = {};
@@ -1081,9 +1189,14 @@ async function editExistingUserRun(
 	if (touchesEdges) after.edges = true;
 	if (touchesSubscriptions) after.subscriptions = true;
 	if (touchesRunConfig) after.runConfig = input.runConfig;
+	if (touchesReach) after.reach = true;
 
 	let teams: Array<{ id: string; name: string }> | undefined;
-	const addedSubscriptions: Array<{ id: string; prompt: string | null | undefined }> = [];
+	const addedSubscriptions: Array<{
+		id: string;
+		prompt: string | null | undefined;
+		title: string | undefined;
+	}> = [];
 	const changedSubscriptionPrompts: Array<{ id: string; prompt: string | null }> = [];
 	let mainChangeRow: Change | undefined;
 
@@ -1127,7 +1240,7 @@ async function editExistingUserRun(
 				createdAt: now,
 				updatedAt: now,
 			});
-			addedSubscriptions.push({ id: subId, prompt: sub.prompt });
+			addedSubscriptions.push({ id: subId, prompt: sub.prompt, title: sub.title });
 		}
 		for (const change of input.subscriptions?.change ?? []) {
 			const subPatch: {
@@ -1187,18 +1300,45 @@ async function editExistingUserRun(
 		const folderTeams =
 			teams ??
 			(await listTeams(ctx.db, { ids: existing.teamIds })).map((t) => ({ id: t.id, name: t.name }));
-		stepProblem = await applyUserFolders(deps, id, folderTeams, input.folders);
+		stepProblem = await applyUserFolders(deps, id, folderTeams, input.folders, (teamId) =>
+			folderRecipients(ctx.db, existing, teamId),
+		);
 	}
 	if (!stepProblem && input.connections) {
-		stepProblem = await applyUserConnections(deps, id, input.connections);
+		stepProblem = await applyUserConnections(ctx.db, deps, id, input.connections);
 	}
 
 	for (const sub of addedSubscriptions) {
-		if (sub.prompt) await writeSubscriptionPrompt(ctx, deps, existing.name, id, sub.id, sub.prompt);
+		if (typeof sub.prompt === "string")
+			await writeSubscriptionPrompt(
+				ctx,
+				deps,
+				promptTitle(existing.name, sub.title),
+				id,
+				sub.id,
+				sub.prompt,
+			);
 	}
 	for (const change of changedSubscriptionPrompts) {
 		if (change.prompt === null) await archiveSubscriptionPrompt(ctx, deps, id, change.id);
-		else await writeSubscriptionPrompt(ctx, deps, existing.name, id, change.id, change.prompt);
+		else
+			await writeSubscriptionPrompt(
+				ctx,
+				deps,
+				promptTitle(existing.name, undefined),
+				id,
+				change.id,
+				change.prompt,
+			);
+	}
+
+	if (input.identity !== undefined) {
+		await identity.upsertAgentIdentity(ctx.db, {
+			agentId: id,
+			title: identityTitle(existing.kind, input.name ?? existing.name),
+			body: input.identity ?? "",
+			updatedBy: ctx.actor,
+		});
 	}
 
 	if (input.status === "retired" && existing.kind === "ai") {

@@ -89,6 +89,7 @@ function openUserDeps(db: HyperIdleDb): UserActionsDeps {
 			list: async () => ({ connections: [], inherited: [] }),
 			add: async () => ({ ok: false, code: "MISSING_ROOT_SECRET" }) as const,
 			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
+			withhold: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
 		},
 		searchDocuments: async () => ({ ok: true, data: [] as never }) as const,
 		editDocument: async () => ({ ok: false, problems: [] as never }) as const,

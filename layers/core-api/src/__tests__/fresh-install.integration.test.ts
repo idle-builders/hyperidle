@@ -225,7 +225,9 @@ describe("a fresh install, end to end", () => {
 		expect(assistant.subscriptions.map((s) => s.event).sort()).toEqual([...OBJECT_EVENTS].sort());
 		expect(assistant.subscriptions.every((s) => s.documentId === null && !s.paused)).toBe(true);
 		expect(assistant.documentIds).toEqual([]);
-		expect(await db.select().from(subscriptions)).toHaveLength(OBJECT_EVENTS.length);
+		expect(
+			(await db.select().from(subscriptions)).filter((r) => r.userId === assistantId),
+		).toHaveLength(OBJECT_EVENTS.length);
 
 		// Empty lists: no prompt documents, no documents, tasks or threads.
 		expect(await db.select().from(documents)).toEqual([]);

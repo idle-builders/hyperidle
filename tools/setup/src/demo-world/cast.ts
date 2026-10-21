@@ -16,11 +16,13 @@ import {
 	type HyperIdleDb,
 	orgEdges,
 	pluginContributions,
+	serviceConnections,
+	serviceConnectionWithholds,
 	subscriptions,
 	users,
 	userTeams,
 } from "@hyperidle/db";
-import { type HarnessType, OBJECT_EVENTS } from "@hyperidle/domain-model";
+import { type HarnessType, PERSON_REASONS } from "@hyperidle/domain-model";
 import { and, eq, isNotNull } from "drizzle-orm";
 import {
 	BUILDER_ID,
@@ -42,6 +44,8 @@ interface PersonSpec {
 	readonly discipline: string;
 	readonly teams: readonly string[];
 	readonly sinceDays: number;
+	/** What agents should know when they work with them. */
+	readonly about: string;
 }
 
 interface AgentSpec {
@@ -63,6 +67,13 @@ const PEOPLE: readonly PersonSpec[] = [
 		discipline: "Product",
 		teams: [PRODUCT_TEAM_ID, SUPPORT_TEAM_ID],
 		sinceDays: 98,
+		about: `# About Finn
+
+Founder. I decide what gets built and what customers see.
+
+- Ask me before anything reaches customers: the words, the prices, the emails.
+- Give me the date and the amount together, never the date alone.
+- I answer questions within a few hours on weekdays.`,
 	},
 	{
 		id: MAYA_ID,
@@ -71,6 +82,12 @@ const PEOPLE: readonly PersonSpec[] = [
 		discipline: "Support",
 		teams: [SUPPORT_TEAM_ID],
 		sinceDays: 97,
+		about: `# About Maya
+
+I run support and everything that goes out to customers.
+
+- I send replies to customers myself; draft them, never send them.
+- Tickets tagged trial-end are about billing after a trial.`,
 	},
 ];
 
@@ -123,6 +140,41 @@ const FOLDERS = [
 	},
 ] as const;
 
+/**
+ * The services each person connected, as MCP servers; every agent of theirs reaches them unless
+ * kept from one. Builder does not get the payment or drive ones.
+ */
+const SERVICES = [
+	{
+		id: "demo-sc-zendesk",
+		user: FOUNDER_ID,
+		service: "Zendesk",
+		url: "https://mcp.zendesk.com/mcp",
+		keptFrom: [],
+	},
+	{
+		id: "demo-sc-stripe",
+		user: FOUNDER_ID,
+		service: "Stripe",
+		url: "https://mcp.stripe.com",
+		keptFrom: [BUILDER_ID],
+	},
+	{
+		id: "demo-sc-drive",
+		user: FOUNDER_ID,
+		service: "Google Drive",
+		url: "https://drivemcp.googleapis.com/mcp",
+		keptFrom: [BUILDER_ID],
+	},
+	{
+		id: "demo-sc-figma",
+		user: MAYA_ID,
+		service: "Figma",
+		url: "https://mcp.figma.com/mcp",
+		keptFrom: [],
+	},
+] as const;
+
 /** What a person edited after the plugin installed it, so a reinstall leaves it alone. */
 const PLUGIN_EDITS = [
 	{ title: "Facilitation — identity", by: MAYA_ID, daysAgo: 14 },
@@ -157,8 +209,8 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 				})
 				.onConflictDoNothing();
 		}
-		// What a person is told about: the nine object events, as the welcome screen gives everyone.
-		for (const event of OBJECT_EVENTS) {
+		// What a person is told about: every reason, as every new person starts.
+		for (const event of PERSON_REASONS) {
 			await db
 				.insert(subscriptions)
 				.values({
@@ -173,6 +225,43 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 				})
 				.onConflictDoNothing();
 		}
+	}
+
+	for (const person of PEOPLE) {
+		await db
+			.insert(documents)
+			.values({
+				id: `demo-doc-about-${person.id}`,
+				scopeKind: "user",
+				scopeId: person.id,
+				title: `About ${person.name}`,
+				body: person.about,
+				format: "markdown",
+				status: "active",
+				slot: "agent_file",
+				parentKind: "agent",
+				parentId: person.id,
+				updatedBy: person.id,
+				createdAt: clock.daysAgo(person.sinceDays),
+				updatedAt: clock.daysAgo(30),
+			})
+			.onConflictDoNothing();
+	}
+
+	for (const service of SERVICES) {
+		await db
+			.insert(serviceConnections)
+			.values({
+				id: service.id,
+				userId: service.user,
+				service: service.service,
+				authSource: "mcp",
+				serverUrl: service.url,
+				health: "working",
+				createdAt: clock.daysAgo(60),
+				updatedAt: clock.daysAgo(60),
+			})
+			.onConflictDoNothing();
 	}
 
 	for (const agent of AGENTS) {
@@ -216,6 +305,13 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 			.values({ agentUserId: folder.agent, filesystemId: folder.id, createdAt: clock.daysAgo(90) })
 			.onConflictDoNothing();
 	}
+
+	for (const service of SERVICES)
+		for (const agentUserId of service.keptFrom)
+			await db
+				.insert(serviceConnectionWithholds)
+				.values({ connectionId: service.id, agentUserId, createdAt: clock.daysAgo(60) })
+				.onConflictDoNothing();
 
 	await seedGrowthsMonday(db, clock);
 	await seedTeamHabits(db, clock);

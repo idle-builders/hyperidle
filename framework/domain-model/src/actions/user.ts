@@ -26,6 +26,24 @@ export const OBJECT_EVENTS = [
 ] as const;
 export type ObjectEventName = (typeof OBJECT_EVENTS)[number];
 
+/**
+ * What tells a person something, in their own words — each a subscription of theirs, fired by the
+ * object event it reads: a review raised for them, a message naming them, a task they started
+ * ending done or stuck, and a change to something they follow (their one-object follows are heard
+ * only while this one is on).
+ */
+export const PERSON_REASONS = [
+	"review.raised_for_me",
+	"mention.of_me",
+	"started.done_or_stuck",
+	"followed.changed",
+] as const;
+export type PersonReason = (typeof PERSON_REASONS)[number];
+
+/** What a subscription can be about: an object event, or one of a person's reasons. */
+export const SUBSCRIPTION_EVENTS = [...OBJECT_EVENTS, ...PERSON_REASONS] as const;
+export type SubscriptionEventName = (typeof SUBSCRIPTION_EVENTS)[number];
+
 /** Matches the `changes` table's `changes_kind_ck` check verbatim. */
 export const CHANGE_KINDS = ["created", "changed", "message"] as const;
 export type ChangeKind = (typeof CHANGE_KINDS)[number];
@@ -195,6 +213,8 @@ export const ConnectionViewSchema = z.object({
 	authSource: z.enum(CONNECTION_AUTH_SOURCES),
 	health: z.enum(CONNECTION_HEALTH),
 	removable: z.boolean(),
+	/** The agents it is kept from; every other agent of its owner reaches it. Always empty for an inherited one. */
+	withheldFrom: z.array(z.string()),
 });
 export type ConnectionView = z.infer<typeof ConnectionViewSchema>;
 
@@ -219,7 +239,7 @@ export type FolderView = z.infer<typeof FolderViewSchema>;
 
 export const SubscriptionViewSchema = z.object({
 	id: z.string(),
-	event: z.enum(OBJECT_EVENTS).nullable(),
+	event: z.enum(SUBSCRIPTION_EVENTS).nullable(),
 	/** The one object it follows, or null for the event about anything the user reaches. */
 	objectId: z.string().nullable(),
 	schedule: z.string().nullable(),
@@ -261,12 +281,12 @@ export const UserViewSchema = z.object({
 	/** Install-wide: this machine's harnesses, `discovery.disabled` stamped. */
 	runsOn: z.array(HarnessDescriptorSchema),
 	runConfig: RunConfigViewSchema.nullable(),
-	/** Agent-parented identity / skill / rule documents. */
+	/** An agent's identity, skill and rule documents; a person's About (their `agent_file`). */
 	documentIds: z.array(z.object({ slot: z.enum(DOCUMENT_SLOTS), id: z.string() })),
 	/** Agent: folders given to it. Person: the folders of every team they are in. */
 	folders: z.array(FolderViewSchema),
 	subscriptions: z.array(SubscriptionViewSchema),
-	/** Self only. */
+	/** Yourself, or an agent: the services its sessions get — its owner's, or the first person's for an agent no one owns. */
 	connections: z
 		.object({
 			connections: z.array(ConnectionViewSchema),
@@ -360,16 +380,23 @@ const EditUserConnectionsSchema = z
 			)
 			.optional(),
 		remove: z.array(z.string().min(1)).optional(),
+		/** On an agent: let it reach these services of its owner again. */
+		give: z.array(z.string().min(1)).optional(),
+		/** On an agent: keep these services of its owner from it. */
+		take: z.array(z.string().min(1)).optional(),
 	})
 	.strict();
 
 const AddSubscriptionSchema = z
 	.object({
-		event: z.enum(OBJECT_EVENTS).optional(),
+		event: z.enum(SUBSCRIPTION_EVENTS).optional(),
 		/** Follow one task, thread or document: only the event about it fires. Needs `event`. */
 		objectId: z.string().min(1).optional(),
 		schedule: z.string().min(1).optional(),
+		/** What it makes an agent do, as a document; `""` makes the document empty, to be written next. */
 		prompt: z.string().nullable().optional(),
+		/** The name of what it does — the title of its prompt document. */
+		title: z.string().min(1).optional(),
 		paused: z.boolean().optional(),
 	})
 	.strict();
@@ -378,7 +405,7 @@ export type AddSubscriptionInput = z.infer<typeof AddSubscriptionSchema>;
 const ChangeSubscriptionSchema = z
 	.object({
 		id: z.string().min(1),
-		event: z.enum(OBJECT_EVENTS).optional(),
+		event: z.enum(SUBSCRIPTION_EVENTS).optional(),
 		schedule: z.string().min(1).optional(),
 		prompt: z.string().nullable().optional(),
 		paused: z.boolean().optional(),
@@ -419,7 +446,10 @@ export const EditUserInputSchema = z
 		ownerUserId: z.string().min(1).optional(),
 		/** Create-only, agents; default: owned → "individual", else "team". */
 		agentCategory: z.enum(AGENT_CATEGORIES).optional(),
-		/** Create-only, agents. `null`/`undefined` distinguish "no document" from "not touched". */
+		/**
+		 * Who an agent is, or a person's About: their `agent_file` document. Makes it with this text
+		 * when there is none yet; never overwrites one that exists — that is edited as a document.
+		 */
 		identity: z.string().nullable().optional(),
 		runConfig: EditUserRunConfigSchema.optional(),
 		edges: EditUserEdgesSchema.optional(),
@@ -529,21 +559,18 @@ function createUserInvariants(input: EditUserInput): Problem[] {
 	}
 	if (
 		input.kind === "human" &&
-		(input.identity !== undefined ||
-			input.agentCategory !== undefined ||
-			input.runConfig !== undefined)
+		(input.agentCategory !== undefined || input.runConfig !== undefined)
 	) {
 		problems.push({
 			code: "agent_fields_for_agents",
-			message: "Identity, category and run config belong to an agent, not a person.",
-			path: "identity",
+			message: "Category and run config belong to an agent, not a person.",
+			path: "runConfig",
 		});
 	}
 	return problems;
 }
 
-/** `name_required`, `kind_is_create_only`, `owner_is_create_only`, `identity_is_create_only` —
- * only meaningful on an edit (`id` given). */
+/** `name_required`, `kind_is_create_only`, `owner_is_create_only` — only meaningful on an edit (`id` given). */
 function editExistingUserInvariants(input: EditUserInput): Problem[] {
 	const problems: Problem[] = [];
 	if (input.name !== undefined && input.name.trim().length === 0) {
@@ -562,13 +589,6 @@ function editExistingUserInvariants(input: EditUserInput): Problem[] {
 			code: "owner_is_create_only",
 			message: "An agent's owner cannot change after it is created.",
 			path: "ownerUserId",
-		});
-	}
-	if (input.identity !== undefined) {
-		problems.push({
-			code: "identity_is_create_only",
-			message: "An agent's identity is set at creation; edit its identity document afterwards.",
-			path: "identity",
 		});
 	}
 	return problems;
@@ -591,6 +611,15 @@ function subscriptionInvariants(input: EditUserInput): Problem[] {
 			problems.push({
 				code: "follow_needs_event",
 				message: "Following one object needs the event to hear about it.",
+				path: "subscriptions",
+			});
+		} else if (
+			subscription.objectId !== undefined &&
+			(PERSON_REASONS as readonly string[]).includes(subscription.event ?? "")
+		) {
+			problems.push({
+				code: "follow_needs_object_event",
+				message: "Following one object needs an event about objects, not a reason.",
 				path: "subscriptions",
 			});
 		}

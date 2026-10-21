@@ -117,7 +117,7 @@ async function seedFounderAndThread(
 	// Who the agent is — an `agent_file` document bound to it, not a run-config field.
 	await agentIdentity.upsertAgentIdentity(db, {
 		agentId: assistantId,
-		agentName: "Assistant",
+		title: "Assistant — identity",
 		body: "You are a helpful assistant.",
 		updatedBy: assistantId,
 	});

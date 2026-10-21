@@ -1495,6 +1495,7 @@ async function runSession(
 	if (serviceConnectionResolver) {
 		try {
 			const plan = await buildProvisioningPlan({
+				agentId: params.agentId,
 				...(heldConnections ? { connections: heldConnections } : {}),
 				resolver: serviceConnectionResolver,
 			});

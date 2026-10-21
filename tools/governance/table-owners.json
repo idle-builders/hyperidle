@@ -2,8 +2,8 @@
 	"tableOwners": true,
 	"note": "Every table names the ONE service that may read and write it. A table absent from this file is a build error, never a silently skipped row \u2014 completeness is the point. Owners are package names, never paths (Ruling 5).",
 	"totals": {
-		"tables": 22,
-		"owned": 22,
+		"tables": 23,
+		"owned": 23,
 		"unowned": 0
 	},
 	"owners": {
@@ -21,6 +21,7 @@
 		"plugins": "settings",
 		"pluginContributions": "settings",
 		"serviceConnections": "connections",
+		"serviceConnectionWithholds": "connections",
 		"agentWorkIntents": "session-requests",
 		"agentSessionRequests": "session-requests",
 		"filesystems": "filesystems",

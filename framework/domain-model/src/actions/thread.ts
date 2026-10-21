@@ -206,6 +206,8 @@ export type Identity = z.infer<typeof IdentitySchema>;
 export const SearchThreadsInputSchema = z
 	.object({
 		mine: z.boolean().optional(), // threads the actor is a member of
+		/** The threads this user is in, each saying what it waits on from them — only those you can read. */
+		member: z.string().min(1).optional(),
 		host: z.object({ kind: z.enum(HOST_KINDS), id: z.string().min(1) }).optional(),
 		text: z.string().min(1).optional(), // across message text and stored title
 		ids: z.array(z.string()).optional(),

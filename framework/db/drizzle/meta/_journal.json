@@ -729,6 +729,13 @@
 			"when": 1791282481807,
 			"tag": "0104_document_icon",
 			"breakpoints": true
+		},
+		{
+			"idx": 105,
+			"version": "7",
+			"when": 1791368881807,
+			"tag": "0105_people_and_set_up",
+			"breakpoints": true
 		}
 	]
 }

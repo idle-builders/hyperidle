@@ -215,6 +215,7 @@ export interface WorkFilter {
 	/** Direct children of this task. `null` selects ROOT tasks (no parent). */
 	parentTaskId?: string | null;
 	ownerAgentId?: string;
+	startedBy?: string;
 	dependencyId?: string;
 	/** Opt-in only — global search shows all states including killed; only the dependency picker excludes killed, so it must ask explicitly. */
 	excludeKilled?: true;
@@ -336,6 +337,7 @@ export async function list(
 		if (f.parentTaskId !== undefined) conditions.push(parentCond(f.parentTaskId));
 		if (f.state !== undefined) conditions.push(eq(tasks.state, f.state));
 		if (f.ownerAgentId !== undefined) conditions.push(eq(tasks.ownerAgentId, f.ownerAgentId));
+		if (f.startedBy !== undefined) conditions.push(eq(tasks.startedBy, f.startedBy));
 		if (f.teamId !== undefined) conditions.push(eq(tasks.teamId, f.teamId));
 		if (f.threadId !== undefined) conditions.push(eq(tasks.threadId, f.threadId));
 		// Siblings come back in display order, always. `position` alone is not

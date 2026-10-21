@@ -90,6 +90,8 @@ export const TaskSchema = z.object({
 	reasons: z.array(ReasonSchema),
 	/** Set on the task a person paused and on every part of it not done; the state stays as it was. */
 	paused: z.enum(TASK_PAUSES).nullable(),
+	/** Who started it; null for a task from before this was kept. */
+	startedBy: z.string().nullable(),
 	/** Derived UI status — computed from state, thread messages and reasons; never stored. Defaults to null so DB rows parse without it. */
 	need: z.enum(["stuck", "input", "review"]).nullable().default(null),
 });
@@ -119,6 +121,8 @@ export const SearchTasksInputSchema = z
 		excludeIds: z.array(z.string()).optional(),
 		parentTaskId: z.string().nullable().optional(),
 		ownerAgentId: z.string().optional(),
+		/** The tasks this user started. */
+		startedBy: z.string().optional(),
 		state: z.enum(TASK_STATES).optional(),
 		teamId: z.string().optional(),
 		threadId: z.string().optional(),

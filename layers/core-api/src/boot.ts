@@ -10,7 +10,12 @@ import type {
 import { EventBus } from "@hyperidle/event-bus";
 import { getPluginMcpContributions } from "@hyperidle/settings";
 import { findThread } from "@hyperidle/thread";
-import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/user";
+import {
+	connectionOwnerFor,
+	createUpgradeTokenStore,
+	listUsers,
+	type UpgradeTokenStore,
+} from "@hyperidle/user";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import type { ActionContext } from "./actions/action.js";
@@ -53,7 +58,7 @@ export interface CoreApiBoot {
 	/** Present whenever WS support is being wired. */
 	readonly upgradeTokenStore: UpgradeTokenStore | null;
 	/** Present whenever `db` is provided. */
-	readonly resolveProvisioningOwnerUserId?: () => Promise<string | null>;
+	readonly resolveProvisioningOwnerUserId?: (agentId: string) => Promise<string | null>;
 	readonly pluginMcpContributions?: {
 		getContributions(teamId: string | null): Promise<
 			readonly {
@@ -104,20 +109,8 @@ export interface CoreApiBoot {
 
 function resolveProvisioningOwnerUserIdFor(
 	db: NonNullable<AppOptions["db"]>,
-): () => Promise<string | null> {
-	return async () => {
-		const humans = await listUsers(db, { kind: "human" });
-		let owner: (typeof humans)[number] | undefined;
-		for (const human of humans) {
-			if (!owner) {
-				owner = human;
-				continue;
-			}
-			if (human.createdAt < owner.createdAt) owner = human;
-			else if (human.createdAt === owner.createdAt && human.id < owner.id) owner = human;
-		}
-		return owner?.id ?? null;
-	};
+): (agentId: string) => Promise<string | null> {
+	return (agentId) => connectionOwnerFor(db, agentId);
 }
 
 export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApiBoot> {

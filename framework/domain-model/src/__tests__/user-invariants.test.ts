@@ -78,16 +78,26 @@ describe("editUserInvariants — create", () => {
 		expect(problems.map((p) => p.code)).toContain("person_has_no_owner");
 	});
 
-	it("agent_fields_for_agents: a person create with identity/agentCategory/runConfig", () => {
+	it("agent_fields_for_agents: a person create with agentCategory/runConfig", () => {
 		const problems = editUserInvariants({
 			kind: "human",
 			name: "Ada",
 			teams: ["Core"],
-			identity: "You help.",
 			agentCategory: "individual",
 			runConfig: { harnessType: "claude-code" },
 		});
 		expect(problems.map((p) => p.code)).toContain("agent_fields_for_agents");
+	});
+
+	it("a person may be created with an About document", () => {
+		expect(
+			editUserInvariants({
+				kind: "human",
+				name: "Ada",
+				teams: ["Core"],
+				identity: "Ask me first.",
+			}),
+		).toEqual([]);
 	});
 
 	it("agent_fields_for_agents does not fire for an agent create", () => {
@@ -143,9 +153,8 @@ describe("editUserInvariants — edit", () => {
 		expect(problems.map((p) => p.code)).toContain("owner_is_create_only");
 	});
 
-	it("identity_is_create_only: an edit naming identity", () => {
-		const problems = editUserInvariants({ id: "u1", identity: "New persona" });
-		expect(problems.map((p) => p.code)).toContain("identity_is_create_only");
+	it("an edit may name identity: it makes the document when there is none", () => {
+		expect(editUserInvariants({ id: "u1", identity: "" })).toEqual([]);
 	});
 
 	it("name_required: an edit blanking the name", () => {
@@ -277,6 +286,21 @@ describe("teamMembershipProblems", () => {
 		},
 	] as const)("$why → $codes", ({ subject, codes }) => {
 		expect(teamMembershipProblems(subject).map((p) => p.code)).toEqual(codes);
+	});
+});
+
+describe("editUserInvariants — what a person is told about", () => {
+	it.each([
+		["a reason is a person's own", { event: "mention.of_me" }, null],
+		[
+			"a reason never follows one object",
+			{ event: "mention.of_me", objectId: "t1" },
+			"follow_needs_object_event",
+		],
+		["an object event can follow one object", { event: "task.changed", objectId: "t1" }, null],
+	] as const)("%s", (_, add, code) => {
+		const problems = editUserInvariants({ id: "u1", subscriptions: { add: [add] } });
+		expect(problems[0]?.code ?? null).toBe(code);
 	});
 });
 

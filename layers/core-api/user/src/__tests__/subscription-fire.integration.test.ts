@@ -65,6 +65,7 @@ async function seedTaskWithThread(
 	id: string,
 	teamId: string,
 	ownerAgentId: string | null,
+	startedBy: string | null = null,
 ): Promise<void> {
 	const threadId = `${id}-thread`;
 	await db.insert(threads).values({
@@ -80,6 +81,7 @@ async function seedTaskWithThread(
 		id,
 		teamId,
 		ownerAgentId,
+		startedBy,
 		title: id,
 		state: "in_progress",
 		threadId,
@@ -155,7 +157,12 @@ function buildDeps(
 		}),
 		searchTasks: async (_ctx, input) => {
 			const rows = await db
-				.select({ id: tasks.id, teamId: tasks.teamId, ownerAgentId: tasks.ownerAgentId })
+				.select({
+					id: tasks.id,
+					teamId: tasks.teamId,
+					ownerAgentId: tasks.ownerAgentId,
+					startedBy: tasks.startedBy,
+				})
 				.from(tasks)
 				.where(inArray(tasks.id, Array.from(input.ids)));
 			return { ok: true, data: rows };
@@ -171,7 +178,10 @@ function buildDeps(
 					members: JSON.parse(r.participants) as string[],
 				}),
 			);
-			return { ok: true, data: readable.map((r) => ({ id: r.id })) };
+			return {
+				ok: true,
+				data: readable.map((r) => ({ id: r.id, members: JSON.parse(r.participants) as string[] })),
+			};
 		},
 		searchDocuments,
 		...overrides,
@@ -383,6 +393,16 @@ describe("following one object", () => {
 		await seedTaskWithThread(db, "followed", "team-a", null);
 		await seedTaskWithThread(db, "other", "team-a", null);
 		await insertSubscription(db, {
+			id: "sub-reason",
+			userId: "person",
+			event: "followed.changed",
+			schedule: null,
+			paused: false,
+			nextRunAt: null,
+			createdAt: TS,
+			updatedAt: TS,
+		});
+		await insertSubscription(db, {
 			id: "sub-follow",
 			userId: "person",
 			event: "task.changed",
@@ -566,5 +586,140 @@ describe("registerSubscriptionFire — one change, one session", () => {
 			eventBus.emit(objectEvent(change, { woke: ["someone-else"] }));
 		});
 		expect(woken).toEqual(["sub-once:c-after"]);
+	});
+});
+
+describe("what a person is told about", () => {
+	/** A person, P, in a thread with the agent that sends and with Q; P started the task. */
+	async function seedWorld(db: HyperIdleDb): Promise<void> {
+		await seedTeam(db, "team-a");
+		await seedUser(db, "agent", { kind: "ai", teamId: "team-a" });
+		await seedUser(db, "p", { teamId: "team-a" });
+		await seedUser(db, "q", { teamId: "team-a" });
+		await seedTaskWithThread(db, "task-p", "team-a", "agent", "p");
+		await db.insert(threads).values({
+			id: "talk",
+			hostKind: "team",
+			hostId: "team-a",
+			initiatorId: "agent",
+			participants: JSON.stringify(["agent", "p", "q"]),
+			lastActiveAt: TS,
+			createdAt: TS,
+		});
+	}
+
+	const message = (type: string, payload: Record<string, unknown>) =>
+		({
+			object: "thread",
+			objectId: "talk",
+			kind: "message",
+			before: null,
+			after: { type, payload },
+		}) as const;
+	const task = (state: string) =>
+		({
+			object: "task",
+			objectId: "task-p",
+			kind: "changed",
+			before: { state: "in_progress" },
+			after: { state },
+		}) as const;
+	const mention = (identityId: string) => ({
+		text: "hi",
+		refs: [{ kind: "mention", identityId, displayName: identityId, sourceText: `@${identityId}` }],
+	});
+
+	test.for([
+		[
+			"a review names P",
+			"review.raised_for_me",
+			message("review", { title: "R", reviewer: "p" }),
+			true,
+		],
+		[
+			"a review names Q",
+			"review.raised_for_me",
+			message("review", { title: "R", reviewer: "q" }),
+			false,
+		],
+		[
+			"a review names nobody: everyone in the thread",
+			"review.raised_for_me",
+			message("review", { title: "R" }),
+			true,
+		],
+		["a message mentions P", "mention.of_me", message("plain", mention("p")), true],
+		["a message mentions Q", "mention.of_me", message("plain", mention("q")), false],
+		["P's task is done", "started.done_or_stuck", task("done"), true],
+		["P's task is stuck", "started.done_or_stuck", task("blocked"), true],
+		["P's task only moves on", "started.done_or_stuck", task("review"), false],
+	] as const)("%s", async ([, reason, change, told], { db }) => {
+		await seedWorld(db);
+		await insertSubscription(db, {
+			id: "sub-p",
+			userId: "p",
+			event: reason,
+			schedule: null,
+			paused: false,
+			nextRunAt: null,
+			createdAt: TS,
+			updatedAt: TS,
+		});
+		const eventBus = new EventBus();
+		const unsub = fire(db, eventBus, buildDeps(db));
+		try {
+			const [row] = await db
+				.insert(changes)
+				.values({
+					id: "c-reason",
+					...change,
+					actor: "agent",
+					before: change.before === null ? null : JSON.stringify(change.before),
+					after: JSON.stringify(change.after),
+					at: LATER,
+				})
+				.returning();
+			if (!row) throw new Error("no change row");
+			eventBus.emit(objectEvent(row));
+			await new Promise((r) => setTimeout(r, 50));
+		} finally {
+			unsub();
+		}
+		const rows = await listInboxRows(db, { userId: "p" });
+		expect(rows.map((r) => r.changeId)).toEqual(told ? ["c-reason"] : []);
+	});
+
+	test("a follow is heard only while 'something I follow changes' is on", async ({ db }) => {
+		await seedWorld(db);
+		await insertSubscription(db, {
+			id: "sub-follow",
+			userId: "p",
+			event: "task.changed",
+			objectId: "task-p",
+			schedule: null,
+			paused: false,
+			nextRunAt: null,
+			createdAt: TS,
+			updatedAt: TS,
+		});
+		await insertSubscription(db, {
+			id: "sub-reason",
+			userId: "p",
+			event: "followed.changed",
+			schedule: null,
+			paused: true,
+			nextRunAt: null,
+			createdAt: TS,
+			updatedAt: TS,
+		});
+		const eventBus = new EventBus();
+		const unsub = fire(db, eventBus, buildDeps(db));
+		try {
+			eventBus.emit(objectEvent(await insertChangeRow(db, "c-off", "task", "task-p", "agent")));
+			await new Promise((r) => setTimeout(r, 50));
+		} finally {
+			unsub();
+		}
+		expect(await listInboxRows(db, { userId: "p" })).toEqual([]);
 	});
 });

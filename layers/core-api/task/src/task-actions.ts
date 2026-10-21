@@ -187,6 +187,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		position: 0,
 		reasons: [],
 		paused: null,
+		startedBy: null,
 		need: null,
 	};
 	return {
@@ -424,6 +425,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		const rows = await taskDb.list(ctx.db, "task", {
 			...(input.parentTaskId !== undefined ? { parentTaskId: input.parentTaskId } : {}),
 			...(input.ownerAgentId !== undefined ? { ownerAgentId: input.ownerAgentId } : {}),
+			...(input.startedBy !== undefined ? { startedBy: input.startedBy } : {}),
 			...(input.state !== undefined ? { state: input.state } : {}),
 			...(input.teamId !== undefined ? { teamId: input.teamId } : {}),
 			...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
@@ -890,6 +892,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					reasons: JSON.stringify(next.reasons),
 					sourceDocumentId: next.sourceDocumentId,
 					paused: next.paused,
+					startedBy: ctx.actor,
 					createdAt: now,
 					updatedAt: now,
 				};

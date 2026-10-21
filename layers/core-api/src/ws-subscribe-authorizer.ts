@@ -41,7 +41,7 @@ export interface SubscribeAuthorizerDeps {
 
 /**
  * Build an authorizer:
- *  - global topics (`conversations`, `documents`): any authenticated identity
+ *  - global topics (`conversations`, `documents`, `tasks`, `users`): any authenticated identity
  *  - `thread:<id>`: exactly who `canReadThread` admits (host-scoped threads admit any signed-in identity; direct threads admit only members)
  *  - `document:<id>`: exactly who `canReadDocument`/`open_document` would admit
  *  - `session:<id>`: any signed-in identity, no DB read
@@ -52,7 +52,7 @@ export function createDbSubscribeAuthorizer(
 	deps: SubscribeAuthorizerDeps,
 ): SubscribeAuthorizer {
 	// @lore: tasks is global (any signed-in identity) — tasks have no per-row ACL; task:<id> likewise admits any authenticated identity (same rule as session:<id>)
-	const GLOBAL_TOPICS = new Set(["conversations", "documents", "tasks"]);
+	const GLOBAL_TOPICS = new Set(["conversations", "documents", "tasks", "users"]);
 	async function senderInThread(senderId: string, threadId: string): Promise<boolean> {
 		const row = await deps.conversation.getThreadById(db, threadId);
 		if (!row) return false;

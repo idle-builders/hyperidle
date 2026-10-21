@@ -20,6 +20,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 		reasons: [],
 		need: null,
 		paused: null,
+		startedBy: null,
 		state: "in_progress",
 		dependencies: null,
 		threadId: "thr-t1",

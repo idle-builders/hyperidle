@@ -147,7 +147,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		});
 
 		const { connections, resolver } = buildRealDeps(db);
-		const plan = await buildProvisioningPlan({ connections, resolver });
+		const plan = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 		const result = await applyProvisioningPlan({
 			plan,
 			sandboxPath,
@@ -177,7 +177,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		});
 		const { connections, resolver } = buildRealDeps(db);
 
-		const plan1 = await buildProvisioningPlan({ connections, resolver });
+		const plan1 = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "respawn-a-"));
 		await applyProvisioningPlan({
 			plan: plan1,
@@ -188,7 +188,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		const tomlA = fs.readFileSync(path.join(sandboxA, ".codex-home", "config.toml"), "utf-8");
 		fs.rmSync(sandboxA, { recursive: true, force: true });
 
-		const plan2 = await buildProvisioningPlan({ connections, resolver });
+		const plan2 = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "respawn-b-"));
 		await applyProvisioningPlan({
 			plan: plan2,
@@ -222,7 +222,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		});
 
 		const { connections, resolver } = buildRealDeps(db);
-		const plan = await buildProvisioningPlan({ connections, resolver });
+		const plan = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 		await applyProvisioningPlan({
 			plan,
 			sandboxPath,
@@ -251,7 +251,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		const { connections, resolver } = buildRealDeps(db);
 
 		const sandbox1 = fs.mkdtempSync(path.join(os.tmpdir(), "disconnect-1-"));
-		const plan1 = await buildProvisioningPlan({ connections, resolver });
+		const plan1 = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 		await applyProvisioningPlan({
 			plan: plan1,
 			sandboxPath: sandbox1,
@@ -273,6 +273,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 			buildRealDeps(db);
 		const sandbox2 = fs.mkdtempSync(path.join(os.tmpdir(), "disconnect-2-"));
 		const plan2 = await buildProvisioningPlan({
+			agentId: "agent",
 			connections: connectionsAfterDisconnect,
 			resolver: resolverAfterDisconnect,
 		});
@@ -312,7 +313,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		});
 
 		const { connections, resolver } = buildRealDeps(db);
-		const plan = await buildProvisioningPlan({ connections, resolver });
+		const plan = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 
 		// CLI-key envInjections populated for github.
 		expect(plan.envInjections.GH_TOKEN).toBe("ghs_e2e_github_pat");

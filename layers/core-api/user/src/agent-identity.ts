@@ -30,7 +30,7 @@ export interface AgentIdentityPort {
 		db: WriteExecutor,
 		input: {
 			readonly agentId: string;
-			readonly agentName: string;
+			readonly title: string;
 			readonly body: string;
 			readonly updatedBy: string;
 		},
@@ -71,7 +71,7 @@ export function createAgentIdentityPort(deps: AgentIdentityDeps): AgentIdentityP
 			}
 			const created = await deps.editDocument(ctx, {
 				id: `doc_af_${input.agentId}`,
-				title: `${input.agentName || input.agentId} — identity`,
+				title: input.title,
 				body: input.body,
 				slot: "agent_file",
 				status: "active",

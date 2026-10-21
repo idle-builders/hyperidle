@@ -38,6 +38,7 @@ function node(id: string, t: Partial<Task> = {}, children: TaskNode[] = []): Tas
 		reasons: [],
 		need: null,
 		paused: null,
+		startedBy: null,
 		...t,
 		children,
 		openBelow: { input, review },

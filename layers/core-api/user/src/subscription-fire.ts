@@ -1,6 +1,11 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { AgentWorkIntentRecorderFn, ChangeRow, Problem } from "@hyperidle/domain-model";
+import type {
+	AgentWorkIntentRecorderFn,
+	ChangeRow,
+	PersonReason,
+	Problem,
+} from "@hyperidle/domain-model";
 import { OBJECT_EVENTS } from "@hyperidle/domain-model";
 import type { EventBus, ObjectChangeEvent } from "@hyperidle/event-bus";
 import type { ActionContext, SearchDocumentsRunFn } from "./action-types.js";
@@ -17,6 +22,7 @@ interface TaskReachRow {
 	readonly id: string;
 	readonly teamId: string;
 	readonly ownerAgentId: string | null;
+	readonly startedBy: string | null;
 }
 
 /** `search_tasks({ids})`, structurally — `@hyperidle/user` may not import `@hyperidle/task`. */
@@ -33,7 +39,10 @@ export type SearchThreadsReachFn = (
 	ctx: ActionContext,
 	input: { readonly ids: readonly string[] },
 ) => Promise<
-	| { readonly ok: true; readonly data: readonly { readonly id: string }[] }
+	| {
+			readonly ok: true;
+			readonly data: readonly { readonly id: string; readonly members: readonly string[] }[];
+	  }
 	| { readonly ok: false; readonly problems: readonly Problem[] }
 >;
 
@@ -175,6 +184,71 @@ async function notifyPerson(
 	}
 }
 
+/** What a change says about one message or one task, read without trusting its shape. */
+function field(row: Record<string, unknown> | null, key: string): unknown {
+	return row === null ? undefined : row[key];
+}
+
+/**
+ * The people a change concerns, each with the reason: a review raised for them (named, or anyone
+ * in the thread but its sender), a mention of them, or a task they started ending done or stuck.
+ */
+async function concerned(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	change: ChangeRow,
+	deps: Pick<SubscriptionFireDeps, "searchTasks" | "searchThreads">,
+): Promise<Array<readonly [PersonReason, string]>> {
+	const ctx = actionContextFor(db, eventBus, change.actor, change.at);
+	if (change.object === "thread" && change.kind === "message" && change.before === null) {
+		const type = field(change.after, "type");
+		const payload = field(change.after, "payload") as Record<string, unknown> | undefined;
+		if (type === "review") {
+			const reviewer = payload?.reviewer;
+			if (typeof reviewer === "string") return [["review.raised_for_me", reviewer]];
+			const found = await deps.searchThreads(ctx, { ids: [change.objectId] });
+			const members = found.ok ? (found.data[0]?.members ?? []) : [];
+			return members.map((id) => ["review.raised_for_me", id] as const);
+		}
+		if (type === "plain" && Array.isArray(payload?.refs)) {
+			return (payload.refs as Array<{ kind?: unknown; identityId?: unknown }>).flatMap((ref) =>
+				ref.kind === "mention" && typeof ref.identityId === "string"
+					? [["mention.of_me", ref.identityId] as const]
+					: [],
+			);
+		}
+		return [];
+	}
+	if (change.object === "task" && change.kind === "changed") {
+		const state = field(change.after, "state");
+		if ((state !== "done" && state !== "blocked") || field(change.before, "state") === state)
+			return [];
+		const found = await deps.searchTasks(ctx, { ids: [change.objectId] });
+		const startedBy = found.ok ? found.data[0]?.startedBy : null;
+		return startedBy ? [["started.done_or_stuck", startedBy]] : [];
+	}
+	return [];
+}
+
+/** A person's reasons: each one the change concerns tells them, once. */
+async function tellPeople(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	event: ObjectChangeEvent,
+	deps: SubscriptionFireDeps,
+): Promise<void> {
+	const change = event.change;
+	for (const [reason, userId] of await concerned(db, eventBus, change, deps)) {
+		if (userId === change.actor) continue;
+		const [sub] = await listSubscriptions(db, { userId, event: reason, paused: false });
+		if (!sub || sub.createdAt >= change.at) continue;
+		const person = await findUser(db, { id: userId });
+		if (person?.kind !== "human") continue;
+		if (!(await reaches(db, eventBus, person, change, deps))) continue;
+		await notifyPerson(db, person, change, deps.wsPush);
+	}
+}
+
 async function fireForEvent(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -182,6 +256,7 @@ async function fireForEvent(
 	deps: SubscriptionFireDeps,
 ): Promise<void> {
 	const change = event.change;
+	await tellPeople(db, eventBus, event, deps);
 	const subs = await listSubscriptions(db, { event: event.type, paused: false });
 	if (subs.length === 0) return;
 	const woke = new Set(event.woke ?? []);
@@ -200,10 +275,16 @@ async function fireForEvent(
 		if (!reached) continue;
 		if (subscriber.kind === "ai") {
 			await wakeAgent(db, eventBus, sub, subscriber, change, deps);
-		} else {
+		} else if (sub.objectId === null || (await hearsFollows(db, subscriber.id))) {
 			await notifyPerson(db, subscriber, change, deps.wsPush);
 		}
 	}
+}
+
+/** A person hears what they follow only while "Something I follow changes" is on. */
+async function hearsFollows(db: HyperIdleDb, userId: string): Promise<boolean> {
+	const on = await listSubscriptions(db, { userId, event: "followed.changed", paused: false });
+	return on.length > 0;
 }
 
 /** A person follows the task they start, so what happens to it reaches them. */

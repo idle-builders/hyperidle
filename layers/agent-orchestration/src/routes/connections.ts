@@ -7,6 +7,8 @@ import {
 	type InheritedReach,
 	insertConnection,
 	listConnections,
+	listWithholds,
+	setWithhold,
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/domain-model";
@@ -76,13 +78,16 @@ function toHealth(raw: string): ConnectionHealth {
 }
 
 // Build the public ServiceConnectionView; NEVER includes encryptedToken or serverUrl.
-function rowToView(row: {
-	id: string;
-	service: string;
-	authSource: string;
-	health: string;
-	serverUrl: string | null | undefined;
-}): ServiceConnectionView {
+function rowToView(
+	row: {
+		id: string;
+		service: string;
+		authSource: string;
+		health: string;
+		serverUrl: string | null | undefined;
+	},
+	withheldFrom: readonly string[] = [],
+): ServiceConnectionView {
 	return {
 		id: row.id,
 		service: row.service,
@@ -90,6 +95,7 @@ function rowToView(row: {
 		authSource: row.authSource as ServiceConnectionView["authSource"],
 		health: toHealth(row.health),
 		removable: true,
+		withheldFrom: [...withheldFrom],
 	};
 }
 
@@ -118,10 +124,28 @@ export async function listConnectionsForUser(
 	readonly inherited: readonly ServiceConnectionView[];
 }> {
 	const rows = await listConnections(db, { userId });
+	const kept = await listWithholds(
+		db,
+		rows.map((r) => r.id),
+	);
 	return {
-		connections: rows.map(rowToView),
+		connections: rows.map((row) => rowToView(row, kept.get(row.id))),
 		inherited: inheritedReach?.list() ?? [],
 	};
+}
+
+// `connections.withhold` — keep one of the user's own connections from one agent, or let it back.
+export async function withholdConnectionForUser(
+	db: HyperIdleDb,
+	userId: string,
+	id: string,
+	agentUserId: string,
+	keep: boolean,
+): Promise<RemoveConnectionResult> {
+	const [existing] = await listConnections(db, { id, userId });
+	if (!existing) return { ok: false, code: "NOT_FOUND" };
+	await setWithhold(db, { connectionId: id, agentUserId, keep, at: new Date().toISOString() });
+	return { ok: true };
 }
 
 export type CreateConnectionResult =

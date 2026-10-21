@@ -104,6 +104,7 @@ function buildConnectionsFake(): UserActionsDeps["connections"] {
 				authSource: input.authSource,
 				health: "working",
 				removable: true,
+				withheldFrom: [],
 			};
 			store.set(userId, [...(store.get(userId) ?? []), connection]);
 			return { ok: true, connection };
@@ -117,6 +118,7 @@ function buildConnectionsFake(): UserActionsDeps["connections"] {
 			);
 			return { ok: true };
 		},
+		withhold: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
 	};
 }
 

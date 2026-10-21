@@ -138,6 +138,7 @@ async function provisionConnections(
 	ownerUserId: string,
 ): Promise<Awaited<ReturnType<typeof buildProvisioningPlan>>> {
 	const plan = await buildProvisioningPlan({
+		agentId: "agent",
 		connections: {
 			listHeldForProvisioning: () =>
 				listConnections(db, { userId: ownerUserId }).then((rows) =>

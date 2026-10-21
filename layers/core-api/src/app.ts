@@ -8,6 +8,7 @@ import { checkAndUnblockDependents, registerTaskLiveUpdates } from "@hyperidle/t
 import {
 	createUpgradeTokenStore,
 	registerSubscriptionFire,
+	registerUserLiveUpdates,
 	startSubscriptionClock,
 	type UpgradeTokenStore,
 } from "@hyperidle/user";
@@ -298,7 +299,9 @@ function registerSubscriptionServices(
 	return [
 		unsubSubscriptionFire,
 		subscriptionClock.stop,
-		...(wsPush ? [registerTaskLiveUpdates(db, eventBus, wsPush)] : []),
+		...(wsPush
+			? [registerTaskLiveUpdates(db, eventBus, wsPush), registerUserLiveUpdates(eventBus, wsPush)]
+			: []),
 	];
 }
 
@@ -398,11 +401,12 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				readonly id: string;
 				readonly teamId: string;
 				readonly ownerAgentId: string | null;
+				readonly startedBy: string | null;
 			}[]
 		>(actions, "search_tasks");
 		const searchThreadsRun = runnerFor<
 			{ readonly ids: readonly string[] },
-			readonly { readonly id: string }[]
+			readonly { readonly id: string; readonly members: readonly string[] }[]
 		>(actions, "search_threads");
 		// edit_plugin writes documents through edit_document action — never document repository functions directly
 		const editDocumentAction = actions.find((a) => a.declaration.name === "edit_document");

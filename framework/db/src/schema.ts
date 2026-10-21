@@ -143,6 +143,8 @@ export const tasks = pgTable(
 		reasons: text("reasons").notNull().default("[]"),
 		/** A person paused it, and every part not done with it: "hold" or "stopped". The state stays as it was. */
 		paused: text("paused"),
+		/** Who started it: whoever made it. */
+		startedBy: text("started_by").references(() => users.id, { onDelete: "set null" }),
 	},
 	(table) => [
 		check("tasks_paused_ck", sql`${table.paused} IS NULL OR ${table.paused} IN ('hold','stopped')`),
@@ -505,8 +507,13 @@ export const subscriptions = pgTable(
 				'task.created', 'task.changed',
 				'thread.created', 'thread.message', 'thread.changed',
 				'document.created', 'document.changed',
-				'user.created', 'user.changed'
+				'user.created', 'user.changed',
+				'review.raised_for_me', 'mention.of_me', 'started.done_or_stuck', 'followed.changed'
 			)`,
+		),
+		check(
+			"subscriptions_reason_ck",
+			sql`${table.objectId} IS NULL OR ${table.event} NOT IN ('review.raised_for_me', 'mention.of_me', 'started.done_or_stuck', 'followed.changed')`,
 		),
 		check(
 			"subscriptions_next_run_ck",
@@ -855,6 +862,21 @@ export const serviceConnections = pgTable(
 
 export type ServiceConnectionRow = typeof serviceConnections.$inferSelect;
 export type NewServiceConnectionRow = typeof serviceConnections.$inferInsert;
+
+/** A service reaches every agent of its owner; a row here keeps it from one of them. */
+export const serviceConnectionWithholds = pgTable(
+	"service_connection_withholds",
+	{
+		connectionId: text("connection_id")
+			.notNull()
+			.references(() => serviceConnections.id, { onDelete: "cascade" }),
+		agentUserId: text("agent_user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		createdAt: text("created_at").notNull(),
+	},
+	(t) => [primaryKey({ columns: [t.connectionId, t.agentUserId] })],
+);
 
 // --- Action rules (scoped items for agent action approval) ---
 

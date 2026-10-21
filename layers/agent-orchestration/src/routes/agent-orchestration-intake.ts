@@ -34,6 +34,7 @@ import {
 	createConnectionForUser,
 	listConnectionsForUser,
 	removeConnectionForUser,
+	withholdConnectionForUser,
 } from "./connections.js";
 import { listFolders, registerFolder, removeFolder, takeFolder } from "./filesystems.js";
 
@@ -399,6 +400,23 @@ export function createAgentOrchestrationIntakeRoutes(
 		);
 		return c.json(result);
 	});
+
+	// ── connections.withhold — POST /agent-orchestration/connections/:userId/:id/withhold ──
+	router.post(
+		"/connections/:userId/:id/withhold",
+		validateBody(z.object({ agentUserId: z.string().min(1), keep: z.boolean() })),
+		async (c) => {
+			const { agentUserId, keep } = c.req.valid("json");
+			const result = await withholdConnectionForUser(
+				db,
+				c.req.param("userId"),
+				c.req.param("id"),
+				agentUserId,
+				keep,
+			);
+			return c.json(result);
+		},
+	);
 
 	// ── connections.remove — POST /agent-orchestration/connections/:userId/:id/remove ──
 	router.post("/connections/:userId/:id/remove", async (c) => {

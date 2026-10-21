@@ -69,7 +69,7 @@ describe("createAgentIdentityPort", () => {
 
 		const id = await port.upsertAgentIdentity(FAKE_DB, {
 			agentId: "agent-1",
-			agentName: "Atlas",
+			title: "Atlas — identity",
 			body: "You are Atlas.",
 			updatedBy: "u-founder",
 		});
@@ -95,7 +95,7 @@ describe("createAgentIdentityPort", () => {
 
 		const id = await port.upsertAgentIdentity(FAKE_DB, {
 			agentId: "agent-1",
-			agentName: "Atlas",
+			title: "Atlas — identity",
 			body: "A freshly re-seeded body that must be discarded.",
 			updatedBy: "u-founder",
 		});
