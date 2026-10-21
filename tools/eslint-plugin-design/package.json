@@ -3,12 +3,10 @@
 	"version": "0.0.1",
 	"private": true,
 	"type": "module",
-	"description": "HyperIdle design-system ESLint rules (K6). Enforces the AESTHETICS.md recommendations table and tokens.css scales.",
+	"description": "HyperIdle design ESLint rules — test hygiene, lore format, mock-data, stream-drain, unknown-cast.",
 	"exports": {
 		".": "./src/index.ts",
-		"./mock-data-policy": "./src/mock-data-policy.ts",
-		"./hearth-config": "./src/hearth-config.ts",
-		"./token-family-owners": "./src/token-family-owners.ts"
+		"./mock-data-policy": "./src/mock-data-policy.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
@@ -22,7 +20,6 @@
 		"@types/estree": "^1.0.0",
 		"@typescript-eslint/parser": "^8.62.0",
 		"estree-jsx": "^0.0.1",
-		"react": "^19.2.7",
 		"vitest": "^4.1.9"
 	}
 }

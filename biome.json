@@ -176,7 +176,6 @@
 			"!layers/agent-execution/harness-registry/src/__tests__/fixtures",
 			"!.verify-attestations",
 			"!applications/desktop/release",
-			"!layers/core-ui/src/index.css",
 			"!docs/product/.vitepress/cache",
 			"!docs/product/.vitepress/dist",
 			"!.vitepress/cache",

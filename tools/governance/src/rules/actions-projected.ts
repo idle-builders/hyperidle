@@ -202,6 +202,34 @@ const LEGACY_EVENTS: readonly string[] = [
 	"session_not_returned",
 ];
 
+/**
+ * Actions declared in `framework/domain-model/src/actions/` that are not yet
+ * wired to a `call(...)` site in the UI (core-ui is a static preview in the
+ * design-restart branch; wiring to live data happens screen by screen in
+ * subsequent commits). Only shrinks: once an action gains a UI call site,
+ * its entry must be removed in the same PR. A wired action left here is a finding.
+ */
+const UNIMPLEMENTED_UI_ACTIONS: readonly string[] = [
+	"adjust_thread",
+	"edit_document",
+	"edit_plugin",
+	"edit_task",
+	"edit_user",
+	"open_document",
+	"open_task",
+	"open_thread",
+	"open_user",
+	"search_documents",
+	"search_plugins",
+	"search_sessions",
+	"search_tasks",
+	"search_threads",
+	"search_users",
+	"send_message",
+	"stop_session",
+	"watch_session",
+];
+
 /** Path to the event-bus vocabulary this rule's clause 4 reads. */
 const EVENT_TYPES_FILE = "framework/event-bus/src/events.ts";
 
@@ -339,6 +367,17 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 					f.path.startsWith("layers/core-ui/src/") &&
 					/\.tsx?$/.test(f.path),
 			);
+			const unimplementedUiSet = new Set(UNIMPLEMENTED_UI_ACTIONS);
+			for (const name of UNIMPLEMENTED_UI_ACTIONS) {
+				if (!declaredActionNames.includes(name)) {
+					findings.push({
+						ruleId: "actions-projected",
+						severity: "error",
+						message: `UNIMPLEMENTED_UI_ACTIONS entry "${name}" is no longer a declared action — delete the entry in the same PR that removed the action`,
+						world: "production",
+					});
+				}
+			}
 			for (const name of declaredActionNames) {
 				const matcher = buildCallSiteMatcher(name);
 				const reachable = uiFiles.some((f) => {
@@ -349,7 +388,14 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 						throw error;
 					}
 				});
-				if (!reachable) {
+				if (reachable && unimplementedUiSet.has(name)) {
+					findings.push({
+						ruleId: "actions-projected",
+						severity: "error",
+						message: `action "${name}" is now reachable from the UI — remove it from UNIMPLEMENTED_UI_ACTIONS in actions-projected.ts`,
+						world: "production",
+					});
+				} else if (!(reachable || unimplementedUiSet.has(name))) {
 					findings.push({
 						ruleId: "actions-projected",
 						severity: "error",

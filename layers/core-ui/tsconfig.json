@@ -1,20 +1,14 @@
 {
-	"extends": "../../tsconfig.json",
 	"compilerOptions": {
-		"outDir": "dist",
-		"rootDir": "src",
+		"target": "ES2022",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"module": "ESNext",
+		"moduleResolution": "bundler",
 		"jsx": "react-jsx",
-		"composite": false,
-		"declaration": false,
-		"declarationMap": false
+		"strict": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"types": ["vite/client"]
 	},
-	"include": ["src"],
-	"references": [
-		{
-			"path": "../../framework/domain-model"
-		},
-		{
-			"path": "../../framework/harness-capability"
-		}
-	]
+	"include": ["src", "vite.config.ts"]
 }

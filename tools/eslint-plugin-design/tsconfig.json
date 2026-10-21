@@ -6,9 +6,7 @@
 		"composite": true,
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
-		"types": ["node"],
-		"jsx": "react-jsx",
-		"jsxImportSource": "react"
+		"types": ["node"]
 	},
-	"include": ["src/**/*.ts", "test-fixtures/**/*.tsx"]
+	"include": ["src/**/*.ts"]
 }
