@@ -130,7 +130,7 @@ Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipel
 
 ## Tech Stack
 
-Node.js, npm, TypeScript strict, Hono, Drizzle ORM (PGlite locally / PostgreSQL server), React + Vite, Tailwind CSS + DaisyUI (hearth-light/hearth-dark themes), Vitest, Playwright, Biome, in-process `setInterval` schedulers (distributed across `layers/core-api/*/src/`, `layers/agent-orchestration/*/src/` — e.g. `core-api/user/src/subscription-clock.ts`).
+Node.js, npm, TypeScript strict, Hono, Drizzle ORM (PGlite locally / PostgreSQL server), React + Vite, plain CSS with tokens (Paper skin — no Tailwind, no DaisyUI), Vitest, Playwright, Biome, in-process `setInterval` schedulers (distributed across `layers/core-api/*/src/`, `layers/agent-orchestration/*/src/` — e.g. `core-api/user/src/subscription-clock.ts`).
 
 ---
 

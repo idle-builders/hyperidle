@@ -115,7 +115,7 @@ describe("unused direction", () => {
 
 	it("credits a dependency referenced only from CSS", () => {
 		const result = computePackageDivergences(
-			facts({ declared: dev("daisyui"), cssReferences: new Set(["daisyui"]) }),
+			facts({ declared: dev("some-css-lib"), cssReferences: new Set(["some-css-lib"]) }),
 		);
 		expect(result).toEqual([]);
 	});

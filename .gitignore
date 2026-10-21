@@ -31,7 +31,6 @@ logs/
 .claude/scheduled_tasks.lock
 test-output.toon
 .verify.pid
-framework/design-system/03-hearth.html
 framework/design-system/inspiration/
 installed-plugins/
 hyperidle-pg/
