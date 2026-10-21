@@ -51,8 +51,8 @@ export function registerTaskLiveUpdates(
 	};
 	const onThread = (event: ObjectChangeEvent): void => {
 		void list(db, "task", { threadId: event.change.objectId })
-			.then(async ([host]) => {
-				if (host) await nudgeChain(db, push, host.id, event);
+			.then(async (hosts) => {
+				for (const host of hosts) await nudgeChain(db, push, host.id, event);
 			})
 			.catch(failed(event));
 	};
