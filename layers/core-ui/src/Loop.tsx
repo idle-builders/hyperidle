@@ -1,3 +1,4 @@
+import type { Task } from "@hyperidle/domain-model";
 import { NeedIcon } from "./NeedIcon";
 
 /**
@@ -123,4 +124,22 @@ export function Closes({
 			</div>
 		</>
 	);
+}
+
+/** A task's decisions and assumptions, as the loop shows them. */
+export function toReason(r: Task["reasons"][number]): Reason {
+	if (r.kind === "decision")
+		return {
+			kind: "Decision",
+			what: r.what,
+			state: r.state === "waiting" ? "open" : "made",
+			why: r.why ?? "",
+			waits: r.state === "waiting",
+		};
+	return { kind: "Assumption", what: r.what, state: r.state, why: r.why ?? "" };
+}
+
+/** A task's done-when line, as the loop shows it. */
+export function toClose(l: Task["doneWhen"][number]): Close {
+	return { what: l.what, by: l.by, state: l.state, how: l.how ?? "" };
 }

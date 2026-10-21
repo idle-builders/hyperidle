@@ -12,7 +12,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
-import { type Close, Closes, type Reason, Reasons } from "./Loop";
+import { Closes, Reasons, toClose, toReason } from "./Loop";
 import { Event, Msg } from "./Msg";
 import { type Need, NeedIcon } from "./NeedIcon";
 import { initials } from "./sidebar-lists";
@@ -327,22 +327,6 @@ function Stand({
 function iconOf(need: TaskNode["need"]): Need | undefined {
 	if (need === "review") return "review";
 	return need ? "input" : undefined;
-}
-
-function toReason(r: Task["reasons"][number]): Reason {
-	if (r.kind === "decision")
-		return {
-			kind: "Decision",
-			what: r.what,
-			state: r.state === "waiting" ? "open" : "made",
-			why: r.why ?? "",
-			waits: r.state === "waiting",
-		};
-	return { kind: "Assumption", what: r.what, state: r.state, why: r.why ?? "" };
-}
-
-function toClose(l: Task["doneWhen"][number]): Close {
-	return { what: l.what, by: l.by, state: l.state, how: l.how ?? "" };
 }
 
 /** Written by the owner: the outcome once it is done, its notes while it runs or waits. */

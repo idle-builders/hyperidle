@@ -1,539 +1,288 @@
+import type { Message, PlainReadPayload, Task, VerdictPayload } from "@hyperidle/domain-model";
 import { useState } from "react";
-import { devices, diff, numbers } from "./judge-data";
-import { type Close, Closes, type Reason, Reasons } from "./Loop";
+import { useNavigate } from "react-router";
+import { call, type InputOf } from "./api";
+import { Composer } from "./Composer";
+import { Closes, Reasons, toClose, toReason } from "./Loop";
+import { DEVICES, PartBody, type Point, partTitle } from "./ReviewPart";
+import { nextRoundOf, type PinThread, pinsOf, type Round, roundsOf } from "./review-page";
+import { peopleOf, resolvingOf } from "./Thread";
+import { useAction } from "./useAction";
 
 /**
  * JUDGE — you are checking, not reading. Dozens of these a day.
- * The artifact gets the width of the region (expand when it needs more), pins mark
- * the spots, and every pin has a row in an index so you never hunt for a comment again. Above the
- * work, the loop: what already checked itself (so your attention goes to the rest), and the
- * decisions and assumptions it rests on (so you can judge why it went this way).
+ * The parts get the width of the page (more space is one click away), pins mark the spots,
+ * and every pin has a row in a list so you never hunt for a comment again. Above the work, the
+ * loop: what already checked itself, and the decisions and assumptions it rests on. A retry is
+ * a new round; the round before is one link away, its open questions left there.
  */
-const SEEDED_REASON =
-	"Wrong direction. Customers need the warning in the email, not only on this page — most never open the page before the charge.";
+const NO_MESSAGES: readonly Message[] = [];
 
-interface Qa {
-	n: string;
-	who: "you" | "agent";
-	where: string;
-	q: string;
-	a?: string;
-	state: "open" | "answered" | "done";
-}
-
-/** Round 1: the fix rests on people reading the page before they are charged. Rejecting it says that did not hold. */
-function loopFor(step: number): { closes: Close[]; reasons: Reason[] } {
-	return {
-		closes: [
-			{
-				what: "Proration on a mid-cycle upgrade is right.",
-				by: "check",
-				state: "met",
-				how: "38 tests pass, 3 new ones cover it",
-			},
-			{
-				what: "The page says the date and the amount before the trial runs out.",
-				by: "check",
-				state: "met",
-				how: "checked at all four widths",
-			},
-			{
-				what: "A customer understands what they will pay.",
-				by: "review",
-				state: step === 3 ? "met" : "open",
-				how: step === 3 ? "you approved it" : "you review it · this is what needs your eyes",
-			},
-		],
-		reasons: [
-			{
-				kind: "Assumption",
-				what: "People read the trial-end page before they are charged.",
-				state: step === 4 ? "broke" : "open",
-				why:
-					step === 4
-						? "you rejected it: most people never open the page before the charge"
-						: "the whole fix rests on it",
-			},
-			{
-				kind: "Decision",
-				what: "Say the amount, not only the date.",
-				state: "made",
-				why: "by Builder · pin A",
-			},
-			{
-				kind: "Decision",
-				what: "Round half-up at the boundary, like the invoice engine.",
-				state: "made",
-				why: "by Builder · pin B · it changes behaviour",
-			},
-		],
-	};
-}
-
-const ROUND2: { closes: Close[]; reasons: Reason[] } = {
-	closes: [
-		{
-			what: "A warning email goes out three days before the trial ends.",
-			by: "check",
-			state: "met",
-			how: "sent to a test account three days before its trial ended",
-		},
-		{
-			what: "The email says the date and the amount.",
-			by: "check",
-			state: "met",
-			how: "read back from the test inbox",
-		},
-		{
-			what: "A customer understands what they will pay.",
-			by: "review",
-			state: "open",
-			how: "you review it",
-		},
-	],
-	reasons: [
-		{
-			kind: "Assumption",
-			what: "People read the trial-end page before they are charged.",
-			state: "broke",
-			why: "you rejected round 1 for it; the warning moved into the email",
-		},
-		{
-			kind: "Assumption",
-			what: "People open an email about money three days before.",
-			state: "open",
-			why: "opens are counted from today",
-		},
-		{
-			kind: "Decision",
-			what: "Leave the trial-end page as it was.",
-			state: "made",
-			why: "by Builder · it was right, only not enough",
-		},
-	],
+/** The first sentence of a reason, for the link back to its round. */
+const firstSentence = (s: string): string => {
+	const m = /^.+?[.!?](?=\s|$)/.exec(s);
+	return m && m[0].length < s.length ? `${m[0].slice(0, -1)}…` : s;
 };
 
-function Loop({ closes, reasons }: { closes: Close[]; reasons: Reason[] }) {
-	return (
-		<div className="rev-loop">
-			<div>
-				<Closes title="How this closes" items={closes} />
-			</div>
-			<div>
-				<Reasons items={reasons} />
-			</div>
-		</div>
+const flagsBefore = (rounds: readonly Round[], i: number): number =>
+	rounds.slice(0, i).reduce((n, r) => n + (r.review.flags?.length ?? 0), 0);
+
+export function Judge({ threadId, reviewId }: { threadId: string; reviewId: string }) {
+	const navigate = useNavigate();
+	const me = useAction("open_user", {});
+	const users = useAction("search_users", {});
+	const view = useAction("open_thread", { id: threadId }, [`thread:${threadId}`]);
+	const messages = [...(view.data?.messages ?? NO_MESSAGES)]
+		.filter((m) => m.deletedAt === null)
+		.reverse();
+	const rounds = roundsOf(reviewId, messages);
+	const round = rounds.at(-1);
+	const taskId = round?.review.taskId;
+	const tasks = useAction(
+		"search_tasks",
+		taskId ? { ids: [taskId] } : { threadId },
+		taskId ? [`task:${taskId}`] : ["tasks"],
 	);
-}
-
-function qaFor(step: number): Qa[] {
-	const agent: Qa[] = [
-		{
-			n: "A",
-			who: "agent",
-			where: "the warning email",
-			q: "I added the amount, not just the date — you did not ask for that. Dishonest to warn about a charge without saying how much.",
-			state: step >= 2 ? "done" : "open",
-		},
-		{
-			n: "B",
-			who: "agent",
-			where: "proration.ts:216",
-			q: "Rounding is half-up at the boundary now. It matches the invoice engine, but it is a behaviour change.",
-			state: "open",
-		},
-	];
-	if (step === 0) return agent;
-	const mine: Qa[] = [
-		{
-			n: "1",
-			who: "you",
-			where: "the heading",
-			q: '"2 September" reads as the trial end date. Both dates?',
-			a: step >= 2 ? 'Changed to "Trial ends 1 Sep · first bill 2 Sep".' : undefined,
-			state: step >= 2 ? "answered" : "open",
-		},
-	];
-	if (step >= 2) {
-		mine.push({
-			n: "2",
-			who: "you",
-			where: "refund requests",
-			q: "This one went the wrong way — is that us?",
-			a: "Three of the four predate the fix. The fourth asked for a refund because they did not see the warning, which is the thing we just changed.",
-			state: "answered",
-		});
-	}
-	return [...mine, ...agent];
-}
-
-function TrialPage({ width }: { width: number }) {
-	return (
-		<div style={{ maxWidth: width, margin: "0 auto" }}>
-			<span className="pg-eyebrow">Your trial</span>
-			<h3 className="pg-h">Your first bill: 2 September</h3>
-			<p className="pg-sub">
-				Your trial ends on 1 September. The day after, we start your Team plan and send the first
-				invoice.
-			</p>
-			<div className="pg-bill">
-				<span>
-					<b>£24</b>
-					<span>per month</span>
-				</span>
-				<span>
-					<b>2 Sep</b>
-					<span>first charge</span>
-				</span>
-				<span>
-					<b>3 days</b>
-					<span>we warn you before</span>
-				</span>
-			</div>
-			<p className="pg-note">Cancel any time before 1 September and you will not be charged.</p>
-		</div>
+	const task: Task | undefined = (tasks.data ?? []).find(
+		(t, _, all) => !all.some((p) => p.id === t.parentTaskId),
 	);
-}
 
-function Pin({
-	n,
-	kind,
-	top,
-	left,
-	onOpen,
-}: {
-	n: string;
-	kind: "mine" | "agent" | "done";
-	top: number;
-	left: number;
-	onOpen: () => void;
-}) {
-	return (
-		<button type="button" className={`pin pin--${kind}`} style={{ top, left }} onClick={onOpen}>
-			{n}
-		</button>
-	);
-}
-
-/**
- * A retry is a new review, never an edit of the old one — comments stay pinned to the
- * version they were made on. Questions left open on round 1 stay there; round 2 starts clean.
- */
-function FlagPop({
-	q,
-	top,
-	left,
-	onClose,
-}: {
-	q: Qa;
-	top: number;
-	left: number;
-	onClose: () => void;
-}) {
-	return (
-		<div className="pop" style={{ top, left }}>
-			<div className="pop-head">
-				<span>on {q.where}</span>
-				<button type="button" style={{ marginLeft: "auto" }} onClick={onClose}>
-					✕
-				</button>
-			</div>
-			<div className="pop-body">
-				<div className="pop-msg">
-					<span className="pop-who">Builder</span>
-					<p>{q.q}</p>
-				</div>
-			</div>
-			<div className="pop-reply">
-				<input placeholder="Reply…" aria-label="Reply" />
-				<button type="button" className="btn">
-					Send
-				</button>
-			</div>
-		</div>
-	);
-}
-
-function Round2({ approved }: { approved: boolean }) {
 	const [openPin, setOpenPin] = useState<string | null>(null);
-	const flags: Qa[] = [
-		{
-			n: "C",
-			who: "agent",
-			where: "the warning email",
-			q: "This is what you asked for: the three-day warning now goes out by email, with the date and the amount.",
-			state: approved ? "done" : "open",
-		},
-		{
-			n: "D",
-			who: "agent",
-			where: "the trial-end page",
-			q: "Unchanged from round 1. The page still says the same thing, so the email and the page agree.",
-			state: approved ? "done" : "open",
-		},
-	];
-	const pinned = flags.find((q) => q.n === openPin);
-	const open = flags.filter((q) => q.state === "open").length;
-
-	return (
-		<div className="rev">
-			<header className="rev-head">
-				<span className="chip chip--quiet">Thread</span>
-				<span className="rev-stage">Review · Final · round 2</span>
-				<h2>Trial-end explainer</h2>
-				<span className="rev-from">Builder · Explain what happens when a trial ends</span>
-				<span className="rev-act">
-					{approved ? (
-						<span className="chip chip--flag">Approved · work item closed</span>
-					) : (
-						<>
-							<button type="button" className="btn">
-								Reject
-							</button>
-							<button type="button" className="btn btn--accent">
-								Approve
-							</button>
-						</>
-					)}
-				</span>
-			</header>
-
-			<div className="rev-scroll">
-				<div className="rev-in">
-					<button type="button" className="prev-round">
-						<span className="prev-round-h">Round 1 · rejected by you</span>
-						<span className="prev-round-why">
-							"Wrong direction. Customers need the warning in the email, not only on this page…"
-						</span>
-						<span className="prev-round-meta">1 question still open there · open round 1 ›</span>
-					</button>
-
-					<p className="rev-said">
-						Moved the warning into the email, as you asked. The page stays as it was. Two things I
-						flagged for you.
-					</p>
-
-					<div className="since">
-						<span className="since-h">Changed since round 1</span>
-						<ul>
-							<li>New: the three-day warning email, with date and amount</li>
-							<li>Same: the trial-end page and the proration fix</li>
-						</ul>
-					</div>
-
-					<Loop
-						closes={
-							approved
-								? ROUND2.closes.map((c) =>
-										c.by === "review" ? { ...c, state: "met" as const, how: "you approved it" } : c,
-									)
-								: ROUND2.closes
-						}
-						reasons={ROUND2.reasons}
-					/>
-
-					<div className="art">
-						<div className="art-bar">
-							<span className="art-kind">Email</span>
-							<span className="art-title">Three-day warning · new in round 2</span>
-						</div>
-						<div className="art-body">
-							<div className="mail">
-								<div className="mail-meta">
-									<span>
-										<b>To</b> the trial user
-									</span>
-									<span>
-										<b>Subject</b> Your trial ends in 3 days
-									</span>
-								</div>
-								<p>Hi Sam,</p>
-								<p>
-									Your trial ends on 1 September. On 2 September we start your Team plan and charge
-									<b> £24</b>.
-								</p>
-								<p>
-									If you do not want to continue, cancel before 1 September and nothing is charged.
-								</p>
-							</div>
-							<Pin
-								n="C"
-								kind={approved ? "done" : "agent"}
-								top={120}
-								left={596}
-								onOpen={() => setOpenPin("C")}
-							/>
-							{pinned?.n === "C" && (
-								<FlagPop q={pinned} top={150} left={626} onClose={() => setOpenPin(null)} />
-							)}
-						</div>
-					</div>
-
-					<div className="art">
-						<div className="art-bar">
-							<span className="art-kind">Live preview</span>
-							<span className="art-title">Trial-end page · unchanged</span>
-						</div>
-						<div className="art-body">
-							<TrialPage width={720} />
-							<Pin
-								n="D"
-								kind={approved ? "done" : "agent"}
-								top={20}
-								left={330}
-								onOpen={() => setOpenPin("D")}
-							/>
-							{pinned?.n === "D" && (
-								<FlagPop q={pinned} top={50} left={360} onClose={() => setOpenPin(null)} />
-							)}
-						</div>
-					</div>
-
-					<div className="qa">
-						<div className="qa-head">
-							<span className="qa-title">Questions on this review</span>
-							<span className="qa-counts">
-								{open > 0 && <span>{open} open</span>}
-								<span>{flags.length} total</span>
-							</span>
-						</div>
-						{flags.map((q) => (
-							<button key={q.n} type="button" className="qa-row" onClick={() => setOpenPin(q.n)}>
-								<span className={`qa-mark pin--${q.state === "done" ? "done" : "agent"}`}>
-									{q.n}
-								</span>
-								<span>
-									<span className="qa-where">Builder flagged · on {q.where}</span>
-									<span className="qa-q">{q.q}</span>
-								</span>
-								<span className={`qa-state qa-state--${q.state}`}>
-									{q.state === "open" ? "Open" : "Settled"}
-								</span>
-							</button>
-						))}
-					</div>
-				</div>
-			</div>
-		</div>
-	);
-}
-
-export function Judge({ step }: { step: number }) {
-	if (step >= 5) return <Round2 approved={step === 6} />;
-	return <Round1 step={step} />;
-}
-
-function Round1({ step }: { step: number }) {
-	const [wide, setWide] = useState(false);
-	const [device, setDevice] = useState("desktop");
-	const [openPin, setOpenPin] = useState<string | null>(null);
+	const [draft, setDraft] = useState<(Point & { part: string }) | null>(null);
+	const [wide, setWide] = useState<string | null>(null);
+	const [device, setDevice] = useState<string>("desktop");
 	const [rejecting, setRejecting] = useState(false);
 	const [reason, setReason] = useState("");
-	const [rejected, setRejected] = useState<string | null>(step === 4 ? SEEDED_REASON : null);
-	const w = devices.find((d) => d.id === device)?.w ?? 1280;
+	const [problem, setProblem] = useState<string | null>(null);
 
-	const qa = qaFor(step);
-	const open = qa.filter((q) => q.state === "open").length;
-	const answered = qa.filter((q) => q.state === "answered").length;
-	const pinned = qa.find((q) => q.n === openPin);
+	const you = me.data?.user?.id ?? "";
+	const people = peopleOf(users.data ?? []);
+	const first = (uid: string) =>
+		uid === you ? "You" : (people.get(uid)?.name.split(" ")[0] ?? "Someone");
 
-	const page = (
-		<>
-			<TrialPage width={wide ? w : 720} />
-			{step >= 1 && (
-				<Pin
-					n="1"
-					kind={step >= 2 ? "done" : "mine"}
-					top={54}
-					left={210}
-					onOpen={() => setOpenPin("1")}
-				/>
-			)}
-			<Pin
-				n="A"
-				kind={step >= 2 ? "done" : "agent"}
-				top={186}
-				left={330}
-				onOpen={() => setOpenPin("A")}
-			/>
-			{pinned && (
-				<div
-					className="pop"
-					style={{ top: pinned.n === "1" ? 84 : 216, left: pinned.n === "1" ? 240 : 360 }}
-				>
-					<div className="pop-head">
-						<span>on {pinned.where}</span>
-						<button type="button" style={{ marginLeft: "auto" }} onClick={() => setOpenPin(null)}>
-							✕
-						</button>
-					</div>
+	const send = async (body: InputOf<"send_message">): Promise<boolean> => {
+		const sent = await call("send_message", body);
+		setProblem(sent.ok ? null : (sent.problems[0]?.message ?? "It did not send."));
+		if (sent.ok) view.reload();
+		return sent.ok;
+	};
+
+	if (view.problems || (view.data && !round))
+		return (
+			<section className="rev">
+				<header className="rev-head">
+					<button
+						type="button"
+						className="chip chip--quiet"
+						onClick={() => navigate(`/conversations/${threadId}`)}
+					>
+						Thread
+					</button>
+				</header>
+				<div className="rev-scroll">
+					<p className="opened-note">
+						{view.problems?.[0]?.message ?? "This review is not in this conversation."}
+					</p>
+				</div>
+			</section>
+		);
+	if (!round) return <section className="rev" />;
+
+	const r = round.review;
+	const id = round.message.id;
+	const sender = round.message.senderId;
+	const resolving = resolvingOf(messages);
+	const verdictOf = (m: Message) => {
+		const v = resolving.get(m.id);
+		return v?.type === "verdict" ? { by: v.senderId, ...(v.payload as VerdictPayload) } : null;
+	};
+	const verdict = verdictOf(round.message);
+	const approved = verdict?.decision === "approve";
+	const pins = pinsOf(round, messages, flagsBefore(rounds, rounds.length - 1), approved);
+	const open = pins.filter((p) => p.state === "open").length;
+	const answered = pins.filter((p) => p.state === "answered").length;
+	const yours = !verdict && sender !== you && (!r.reviewer || r.reviewer === you);
+	const parts = r.parts ?? [];
+	const previous = rounds.at(-2);
+	const next = nextRoundOf(id, messages);
+	const showRound = rounds.length > 1 || next !== undefined;
+	const lookAt = (reviewMessageId: string) =>
+		navigate(`/conversations/${threadId}?review=${reviewMessageId}`);
+
+	const openPinAt = (key: string) => {
+		setDraft(null);
+		setOpenPin(key);
+		const pin = pins.find((p) => p.key === key);
+		if (wide && pin && pin.pin.part !== wide) setWide(null);
+		requestAnimationFrame(() =>
+			document.getElementById(`pin-${key}`)?.scrollIntoView({ block: "center" }),
+		);
+	};
+	const point = (part: string) => (p: Point) => {
+		setDraft({ ...p, part });
+		setOpenPin("draft");
+	};
+
+	const reply = async (pin: PinThread | (Point & { part: string }), text: string) => {
+		const anchor =
+			"key" in pin
+				? { ...pin.pin, review: id }
+				: {
+						id: crypto.randomUUID(),
+						part: pin.part,
+						label: pin.label,
+						review: id,
+						...(pin.spot ? { spot: pin.spot } : {}),
+					};
+		const sent = await send({ threadId, text, anchor });
+		if (sent) {
+			setDraft(null);
+			setOpenPin(anchor.id);
+		}
+		return sent;
+	};
+
+	const thread = (key: string) => {
+		const pin = pins.find((p) => p.key === key);
+		const target = pin ?? (key === "draft" ? draft : null);
+		if (!target) return null;
+		const close = () => {
+			setOpenPin(null);
+			setDraft(null);
+		};
+		return (
+			<>
+				<div className="pop-head">
+					<span>on {pin ? pin.pin.label : draft?.label}</span>
+					<button type="button" style={{ marginLeft: "auto" }} aria-label="Close" onClick={close}>
+						✕
+					</button>
+				</div>
+				{pin && (
 					<div className="pop-body">
 						<div className="pop-msg">
-							<span className="pop-who">{pinned.who === "you" ? "You" : "Builder"}</span>
-							<p>{pinned.q}</p>
+							<span className="pop-who">{first(pin.asker)}</span>
+							<p>{pin.says}</p>
 						</div>
-						{pinned.a && (
-							<div className="pop-msg">
-								<span className="pop-who">Builder</span>
-								<p>{pinned.a}</p>
+						{pin.replies.map((m) => (
+							<div className="pop-msg" key={m.id}>
+								<span className="pop-who">{first(m.senderId)}</span>
+								<p>{(m.payload as PlainReadPayload).text}</p>
 							</div>
-						)}
+						))}
 					</div>
-					<div className="pop-reply">
-						<input placeholder="Reply…" aria-label="Reply" />
-						<button type="button" className="btn">
-							Send
-						</button>
-					</div>
-				</div>
-			)}
-		</>
+				)}
+				<Say
+					key={key}
+					label={pin ? "Reply" : "Comment"}
+					placeholder={pin ? "Reply…" : "Ask or say something about this…"}
+					onSend={(text) => reply(pin ?? (target as Point & { part: string }), text)}
+					onCancel={close}
+				/>
+			</>
+		);
+	};
+
+	const body = (part: (typeof parts)[number], width?: number) => (
+		<PartBody
+			part={part}
+			pins={pins.filter((p) => p.pin.part === part.id)}
+			draft={draft?.part === part.id ? draft : null}
+			open={
+				openPin &&
+				(openPin === "draft"
+					? draft?.part === part.id
+					: pins.some((p) => p.key === openPin && p.pin.part === part.id))
+					? openPin
+					: null
+			}
+			width={width}
+			onOpen={(k) => (k ? openPinAt(k) : setOpenPin(null))}
+			onPoint={point(part.id)}
+			thread={thread}
+		/>
 	);
 
-	if (wide) {
+	const widePart = parts.find((p) => p.id === wide);
+	if (widePart) {
+		const w = DEVICES.find((d) => d.id === device)?.w ?? 1280;
 		return (
 			<div className="wide">
 				<div className="wide-bar">
-					<span className="art-kind">Live preview</span>
-					<span className="art-title">Trial-end page</span>
-					<span className="art-tools">
-						{devices.map((d) => (
-							<button
-								key={d.id}
-								type="button"
-								className="tool"
-								aria-pressed={device === d.id}
-								onClick={() => setDevice(d.id)}
-							>
-								{d.name}
-							</button>
-						))}
-					</span>
+					<span className="art-kind">{widePart.label}</span>
+					<span className="art-title">{partTitle(widePart)}</span>
+					{widePart.kind === "preview" && (
+						<span className="art-tools">
+							{DEVICES.map((d) => (
+								<button
+									key={d.id}
+									type="button"
+									className="tool"
+									aria-pressed={device === d.id}
+									onClick={() => setDevice(d.id)}
+								>
+									{d.name}
+								</button>
+							))}
+						</span>
+					)}
 					<span style={{ marginLeft: "auto" }}>
-						<button type="button" className="btn" onClick={() => setWide(false)}>
+						<button type="button" className="btn" onClick={() => setWide(null)}>
 							Done
 						</button>
 					</span>
 				</div>
-				<div className="wide-body">{page}</div>
+				<div className="wide-body">
+					<div className="wide-part" style={widePart.kind === "preview" ? { width: w } : undefined}>
+						{body(widePart, widePart.kind === "preview" ? w : undefined)}
+					</div>
+				</div>
 			</div>
 		);
 	}
 
+	const prevVerdict = previous && verdictOf(previous.message);
+	const prevOpen = previous
+		? pinsOf(
+				previous,
+				messages,
+				flagsBefore(rounds, rounds.length - 2),
+				prevVerdict?.decision === "approve",
+			).filter((p) => p.state === "open").length
+		: 0;
+	const stage = ["Review", r.stage, showRound && `round ${rounds.length}`]
+		.filter(Boolean)
+		.join(" · ");
+
 	return (
-		<div className="rev">
+		<section className="rev">
 			<header className="rev-head">
-				<span className="chip chip--quiet">Thread</span>
-				<span className="rev-stage">Review · Final · 3 of 3</span>
-				<h2>Trial-end explainer</h2>
-				<span className="rev-from">Builder · Explain what happens when a trial ends</span>
-				<span className="rev-act">
-					{open > 0 && <span className="rev-open">{open} open</span>}
-					{rejected ? (
-						<span className="chip chip--quiet">Rejected · sent to Builder</span>
-					) : step === 3 ? (
-						<span className="chip chip--flag">Approved · 1 open</span>
-					) : (
+				<button
+					type="button"
+					className="chip chip--quiet"
+					onClick={() => navigate(`/conversations/${threadId}`)}
+				>
+					Thread
+				</button>
+				<span className="rev-stage">{stage}</span>
+				<h2>{r.title}</h2>
+				<span className="rev-from">
+					{[people.get(sender)?.name, task?.title].filter(Boolean).join(" · ")}
+				</span>
+				<section className="rev-act" aria-label="Verdict">
+					{!verdict && open > 0 && <span className="rev-open">{open} open</span>}
+					{verdict ? (
+						<span className={approved ? "chip chip--flag" : "chip chip--quiet"}>
+							{approved
+								? [
+										"Approved",
+										task?.state === "done" ? "work item closed" : open > 0 && `${open} open`,
+									]
+										.filter(Boolean)
+										.join(" · ")
+								: `Rejected · sent to ${first(sender)}`}
+						</span>
+					) : yours ? (
 						<>
 							<button
 								type="button"
@@ -543,13 +292,23 @@ function Round1({ step }: { step: number }) {
 							>
 								Reject
 							</button>
-							<button type="button" className="btn btn--accent">
+							<button
+								type="button"
+								className="btn btn--accent"
+								onClick={() =>
+									void send({ threadId, verdict: { decision: "approve", resolvesMessageId: id } })
+								}
+							>
 								Approve
 							</button>
 						</>
+					) : (
+						<span className="chip chip--quiet">
+							{r.reviewer ? `Needs review by ${first(r.reviewer)}` : "Needs review"}
+						</span>
 					)}
-				</span>
-				{rejecting && (
+				</section>
+				{rejecting && !verdict && (
 					<div className="reject" role="dialog" aria-label="Reject this review">
 						<label className="reject-h" htmlFor="reject-reason">
 							Why are you rejecting this?
@@ -562,7 +321,7 @@ function Round1({ step }: { step: number }) {
 							onChange={(e) => setReason(e.target.value)}
 						/>
 						<p className="reject-to">
-							Goes back to Builder and the session that raised this review.
+							Goes back to {first(sender)} and the session that raised this review.
 						</p>
 						<div className="reject-act">
 							<button type="button" className="btn" onClick={() => setRejecting(false)}>
@@ -572,9 +331,12 @@ function Round1({ step }: { step: number }) {
 								type="button"
 								className="btn btn--accent"
 								disabled={reason.trim() === ""}
-								onClick={() => {
-									setRejected(reason.trim());
-									setRejecting(false);
+								onClick={async () => {
+									const sent = await send({
+										threadId,
+										verdict: { decision: "reject", resolvesMessageId: id, note: reason.trim() },
+									});
+									if (sent) setRejecting(false);
 								}}
 							>
 								Reject and send
@@ -583,127 +345,213 @@ function Round1({ step }: { step: number }) {
 					</div>
 				)}
 			</header>
+			{problem && <p className="composer-problem">{problem}</p>}
 
 			<div className="rev-scroll">
 				<div className="rev-in">
-					{rejected && (
+					{previous && (
+						<button
+							type="button"
+							className="prev-round"
+							onClick={() => lookAt(previous.message.id)}
+						>
+							<span className="prev-round-h">
+								Round {rounds.length - 1} ·{" "}
+								{prevVerdict
+									? `${prevVerdict.decision === "approve" ? "approved" : "rejected"} by ${prevVerdict.by === you ? "you" : first(prevVerdict.by)}`
+									: "not decided"}
+							</span>
+							{prevVerdict?.note && (
+								<span className="prev-round-why">"{firstSentence(prevVerdict.note)}"</span>
+							)}
+							<span className="prev-round-meta">
+								{prevOpen === 0
+									? "No questions open there"
+									: `${prevOpen} ${prevOpen === 1 ? "question" : "questions"} still open there`}{" "}
+								· open round {rounds.length - 1} ›
+							</span>
+						</button>
+					)}
+					{verdict?.decision === "reject" && (
 						<div className="rejected">
 							<span className="rejected-h">
-								You rejected this · Builder's session has your reason
+								{verdict.by === you ? "You rejected this" : `${first(verdict.by)} rejected this`} ·{" "}
+								{first(sender)}'s session has {verdict.by === you ? "your" : "the"} reason
 							</span>
-							<p className="rejected-why">{rejected}</p>
-							<span className="rejected-next">Builder answers in this thread.</span>
+							<p className="rejected-why">{verdict.note}</p>
+							{next ? (
+								<button type="button" className="rejected-next" onClick={() => lookAt(next.id)}>
+									{first(sender)} answered with round {rounds.length + 1} · open round{" "}
+									{rounds.length + 1} ›
+								</button>
+							) : (
+								<span className="rejected-next">{first(sender)} answers in this thread.</span>
+							)}
 						</div>
 					)}
-					<p className="rev-said">
-						Page says the date and the amount before the trial runs out. Proration bug fixed on the
-						way. Two things I flagged for you.
-					</p>
+					{r.reasoning.map((line) => (
+						<p className="rev-said" key={line}>
+							{line}
+						</p>
+					))}
 
-					<Loop {...loopFor(step)} />
-
-					<div className="art">
-						<div className="art-bar">
-							<span className="art-kind">Live preview</span>
-							<span className="art-title">Trial-end page</span>
-							<span className="art-tools">
-								<button type="button" className="tool" onClick={() => setWide(true)}>
-									More space
-								</button>
-							</span>
-						</div>
-						<div className="art-body">{page}</div>
-					</div>
-
-					<div className="art">
-						<div className="art-bar">
-							<span className="art-kind">Code</span>
-							<span className="art-title">billing/proration.ts · +3 −2</span>
-							<span className="art-tools">
-								<button type="button" className="tool">
-									More space
-								</button>
-							</span>
-						</div>
-						<div className="art-body art-body--flush">
-							{diff.map((l) => (
-								<div
-									key={l.n}
-									className={`code-line${l.sign === "+" ? " code-line--add" : l.sign === "-" ? " code-line--del" : ""}`}
-								>
-									<span className="code-n">{l.n}</span>
-									<span>{l.sign}</span>
-									<span className="code-txt">{l.text}</span>
-								</div>
-							))}
-							<Pin n="B" kind="agent" top={92} left={560} onOpen={() => setOpenPin("B")} />
-						</div>
-					</div>
-
-					<div className="art">
-						<div className="art-bar">
-							<span className="art-kind">Numbers</span>
-							<span className="art-title">Trial-end tickets · 30 days</span>
-						</div>
-						<div className="art-body">
-							<div className="kpis">
-								{numbers.map((k) => (
-									<div className="kpi" key={k.label}>
-										<span className="kpi-label">{k.label}</span>
-										<b>{k.value}</b>
-										<span className={`kpi-delta ${k.good ? "kpi-delta--good" : "kpi-delta--bad"}`}>
-											{k.delta}
-										</span>
-									</div>
+					{(r.changed?.length ?? 0) > 0 && (
+						<div className="since">
+							<span className="since-h">Changed since round {rounds.length - 1}</span>
+							<ul>
+								{r.changed?.map((c) => (
+									<li key={c}>{c}</li>
 								))}
-							</div>
+							</ul>
 						</div>
-					</div>
+					)}
 
-					<div className="qa">
-						<div className="qa-head">
-							<span className="qa-title">Questions on this review</span>
-							<span className="qa-counts">
-								{open > 0 && <span>{open} open</span>}
-								{answered > 0 && <span>{answered} answered</span>}
-								<span>{qa.length} total</span>
-							</span>
+					{task && (task.doneWhen.length > 0 || task.reasons.length > 0) && (
+						<div className="rev-loop">
+							<div>
+								{task.doneWhen.length > 0 && (
+									<Closes title="How this closes" items={task.doneWhen.map(toClose)} />
+								)}
+							</div>
+							<div>{task.reasons.length > 0 && <Reasons items={task.reasons.map(toReason)} />}</div>
 						</div>
-						{qa.map((q) => (
-							<button key={q.n} type="button" className="qa-row" onClick={() => setOpenPin(q.n)}>
-								<span
-									className={`qa-mark pin--${q.who === "you" ? "mine" : q.state === "done" ? "done" : "agent"}`}
-								>
-									{q.n}
-								</span>
-								<span>
-									<span className="qa-where">
-										{q.who === "you" ? "You asked" : "Builder flagged"} · on {q.where}
+					)}
+
+					{parts.map((part) => (
+						<div className="art" key={part.id}>
+							<div className="art-bar">
+								<span className="art-kind">{part.label}</span>
+								<span className="art-title">{partTitle(part)}</span>
+								{(part.kind === "preview" || part.kind === "code" || part.kind === "image") && (
+									<span className="art-tools">
+										<button
+											type="button"
+											className="tool"
+											onClick={() => {
+												setWide(part.id);
+												setOpenPin(null);
+												setDraft(null);
+											}}
+										>
+											More space
+										</button>
 									</span>
-									<span className="qa-q">{q.q}</span>
-									{q.a && <span className="qa-a">{q.a}</span>}
+								)}
+							</div>
+							{body(part)}
+						</div>
+					))}
+
+					{pins.length > 0 && (
+						<section className="qa" aria-label="Questions on this review">
+							<div className="qa-head">
+								<span className="qa-title">Questions on this review</span>
+								<span className="qa-counts">
+									{open > 0 && <span>{open} open</span>}
+									{answered > 0 && <span>{answered} answered</span>}
+									<span>{pins.length} total</span>
 								</span>
-								<span className={`qa-state qa-state--${q.state}`}>
-									{q.state === "open" ? "Open" : q.state === "answered" ? "Answered" : "Settled"}
-								</span>
-							</button>
-						))}
-					</div>
+							</div>
+							{pins.map((p) => {
+								const answer = [...p.replies].reverse().find((m) => m.senderId !== p.asker);
+								return (
+									<button
+										key={p.key}
+										type="button"
+										className="qa-row"
+										onClick={() => openPinAt(p.key)}
+									>
+										<span
+											className={`qa-mark pin--${p.state !== "open" ? "done" : p.flag ? "agent" : "mine"}`}
+										>
+											{p.mark}
+										</span>
+										<span>
+											<span className="qa-where">
+												{p.flag
+													? `${first(p.asker)} flagged`
+													: p.asker === you
+														? "You asked"
+														: `${first(p.asker)} asked`}{" "}
+												· on {p.pin.label}
+											</span>
+											<span className="qa-q">{p.says}</span>
+											{answer && (
+												<span className="qa-a">{(answer.payload as PlainReadPayload).text}</span>
+											)}
+										</span>
+										<span
+											className={`qa-state qa-state--${p.state === "settled" ? "done" : p.state}`}
+										>
+											{p.state === "open"
+												? "Open"
+												: p.state === "answered"
+													? "Answered"
+													: "Settled"}
+										</span>
+									</button>
+								);
+							})}
+						</section>
+					)}
 
 					<div className="overall">
 						<span className="overall-h">Anything overall?</span>
-						<div className="overall-say">
-							<input
-								placeholder="Comment on the whole thing, or @someone…"
-								aria-label="Overall comment"
-							/>
-							<button type="button" className="btn">
-								Send
-							</button>
-						</div>
+						<Composer
+							label="Overall comment"
+							placeholder="Comment on the whole thing, or @someone…"
+							pickerHead="Hand to"
+							pickerKeys={["hand on", "keep it"]}
+							onSend={(text) => send({ threadId, text })}
+						/>
 					</div>
 				</div>
 			</div>
-		</div>
+		</section>
+	);
+}
+
+/** The box under a pin's thread: ↵ sends, esc closes. */
+function Say({
+	label,
+	placeholder,
+	onSend,
+	onCancel,
+}: {
+	label: string;
+	placeholder: string;
+	onSend: (text: string) => Promise<boolean>;
+	onCancel: () => void;
+}) {
+	const [text, setText] = useState("");
+	const [sending, setSending] = useState(false);
+	const submit = async () => {
+		if (text.trim() === "" || sending) return;
+		setSending(true);
+		const sent = await onSend(text.trim());
+		setSending(false);
+		if (sent) setText("");
+	};
+	return (
+		<form
+			className="pop-reply"
+			onSubmit={(e) => {
+				e.preventDefault();
+				void submit();
+			}}
+		>
+			<input
+				value={text}
+				placeholder={placeholder}
+				aria-label={label}
+				// biome-ignore lint/a11y/noAutofocus: pointing at something opens its box to type in
+				autoFocus
+				onChange={(e) => setText(e.target.value)}
+				onKeyDown={(e) => e.key === "Escape" && onCancel()}
+			/>
+			<button type="submit" className="btn" disabled={text.trim() === "" || sending}>
+				Send
+			</button>
+		</form>
 	);
 }

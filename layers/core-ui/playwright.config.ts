@@ -12,6 +12,11 @@ const SERVER_PORT = 3102;
 const WEB_PORT = 5182;
 const dbPath = join(mkdtempSync(join(tmpdir(), "hyperidle-e2e-")), "db");
 const repoRoot = join(import.meta.dirname, "../..");
+const browser = {
+	...devices["Desktop Chrome"],
+	// The installed Chrome stands in when Playwright's own browser was never downloaded.
+	...(existsSync(chromium.executablePath()) ? {} : { channel: "chrome" as const }),
+};
 
 export default defineConfig({
 	testDir: "./__e2e__",
@@ -27,11 +32,15 @@ export default defineConfig({
 	projects: [
 		{
 			name: "chromium",
-			use: {
-				...devices["Desktop Chrome"],
-				// The installed Chrome stands in when Playwright's own browser was never downloaded.
-				...(existsSync(chromium.executablePath()) ? {} : { channel: "chrome" }),
-			},
+			testIgnore: /review\.spec\.ts$/,
+			use: browser,
+		},
+		// Deciding reviews changes what the other specs read, so it runs after them on the same world.
+		{
+			name: "review",
+			testMatch: /review\.spec\.ts$/,
+			dependencies: ["chromium"],
+			use: browser,
 		},
 	],
 	webServer: [

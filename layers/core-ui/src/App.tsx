@@ -37,7 +37,11 @@ function Conversation() {
 	const { id = "" } = useParams();
 	const [search] = useSearchParams();
 	const review = search.get("review");
-	return review ? <Judge key={review} step={0} /> : <ThreadPage key={id} id={id} />;
+	return review ? (
+		<Judge key={review} threadId={id} reviewId={review} />
+	) : (
+		<ThreadPage key={id} id={id} />
+	);
 }
 
 function Task() {

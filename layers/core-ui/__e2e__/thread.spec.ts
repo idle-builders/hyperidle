@@ -8,7 +8,7 @@ test("the hand-off opens at its newest message, with its reviews and the work it
 	await expect(
 		page.getByRole("heading", { name: "Trial-end confusion, three tickets" }),
 	).toBeVisible();
-	await expect(page.getByText(/^Flag B, on the trial-end page: unchanged/)).toBeInViewport();
+	await expect(page.getByText(/^Moved the warning into the email, as you asked/)).toBeInViewport();
 	await expect(page.getByText("Needs review by Maya")).toBeVisible();
 
 	const yours = page.getByRole("button", { name: "Look at it" }).last();

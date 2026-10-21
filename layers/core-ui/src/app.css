@@ -4032,3 +4032,121 @@ select.in {
 	font: var(--t-meta);
 	color: var(--ink-3);
 }
+
+/* ---------- JUDGE, on real parts ---------- */
+.rev-head > .chip {
+	cursor: pointer;
+}
+.rejected-next {
+	text-align: left;
+}
+button.rejected-next:hover {
+	color: var(--ink);
+}
+.overall .composer {
+	border-top: 0;
+	padding: 0;
+	margin-top: var(--sp-3);
+}
+/* a page under review: the frame takes the page's own height, so nothing scrolls inside it */
+.preview-frame {
+	position: relative;
+	max-width: 100%;
+	margin: 0 auto;
+}
+.preview-frame iframe {
+	display: block;
+	width: 100%;
+	border: 0;
+	border-radius: 0 0 var(--r) var(--r);
+	background: var(--surface);
+}
+.pick {
+	position: absolute;
+	inset: 0;
+	cursor: crosshair;
+	background: transparent;
+}
+.pick-hi {
+	position: absolute;
+	pointer-events: none;
+	outline: 2px solid var(--accent);
+	outline-offset: 1px;
+	border-radius: var(--r-sm);
+}
+.wide-part {
+	box-sizing: content-box;
+	max-width: 100%;
+	margin: 0 auto;
+	border: var(--line-w) solid var(--line);
+	border-radius: var(--r);
+	background: var(--surface);
+	box-shadow: var(--sh-1);
+}
+button.code-line {
+	width: 100%;
+	text-align: left;
+	cursor: pointer;
+}
+.code-file {
+	padding: var(--sp-2) var(--sp-4);
+	border-bottom: var(--line-w) solid var(--line);
+	font: var(--t-meta);
+	color: var(--ink-3);
+}
+button.kpi {
+	text-align: left;
+	cursor: pointer;
+}
+button.kpi:hover,
+button.item:hover {
+	border-color: var(--line-strong);
+}
+.mail {
+	cursor: text;
+}
+.mail p {
+	white-space: pre-wrap;
+}
+.items {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sp-3);
+}
+.item {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sp-1);
+	padding: var(--sp-3) var(--sp-4);
+	border: var(--line-w) solid var(--line);
+	border-radius: var(--r-sm);
+	background: var(--canvas);
+	text-align: left;
+	cursor: pointer;
+}
+.item b {
+	font: var(--t-strong);
+	font-weight: 600;
+}
+.item span {
+	font: var(--t-body);
+	color: var(--ink-2);
+}
+.shot {
+	position: relative;
+	display: block;
+	width: 100%;
+	cursor: crosshair;
+	user-select: none;
+}
+.shot img {
+	display: block;
+	max-width: 100%;
+	margin: 0 auto;
+}
+.region {
+	position: absolute;
+	border: 2px dashed var(--accent);
+	border-radius: var(--r-sm);
+	pointer-events: none;
+}
