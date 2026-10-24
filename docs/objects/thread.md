@@ -64,8 +64,6 @@ A review is resolved by a verdict; a questionnaire is resolved by an answer. Not
 - **Verdict** — two decisions, `approve` and `reject` (`VERDICT_DECISIONS`, `thread.ts`). A `reject` must carry a non-empty `note` saying why; `send_message` refuses one without (`reject_needs_reason`). There is no "request changes" verdict — to ask for a change, comment. Only a human gives a verdict, and never on their own review.
 - **Answer** — names one of the questionnaire's options (`answer_unknown_option` if it is not one of them) or gives non-empty text of its own. Humans and agents answer the same way.
 
-Display labels: approve → APPROVED; reject → REJECTED (`verdictDecisionLabel`).
-
 ## The review flow
 
 An agent asks for a human decision by sending a review or a questionnaire (`send_message({ review: ... })` / `send_message({ questionnaire: ... })`). That session ends. The `review_sessions` table records the link between the asking message and the session. When the verdict or answer arrives, `send_message` (`thread-actions.ts`) calls the review-verdict recorder, which queues a `session_resume` work intent. The session resumes with a message that says what came back — approved (with the note), rejected (with the reason), or the option picked or words written (`verdict-message.ts`).

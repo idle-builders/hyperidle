@@ -15,14 +15,6 @@ export const DOCUMENT_STATUS_LABEL: Record<DocumentStatus, string> = {
 export const DOCUMENT_SLOTS = ["ordinary", "skill", "rule", "agent_file", "prompt"] as const;
 export type DocumentSlot = (typeof DOCUMENT_SLOTS)[number];
 
-export const DOCUMENT_SLOT_LABEL: Record<DocumentSlot, string> = {
-	ordinary: "Knowledge",
-	skill: "Skill",
-	rule: "Rule",
-	agent_file: "Identity",
-	prompt: "Prompt",
-};
-
 export const DOCUMENT_PARENT_KINDS = [
 	"document",
 	"task",

@@ -57,10 +57,6 @@ Seen: set when the popover opens. Read: set on click-through. Read rows older th
 
 Unread rows older than 30 days are NOT deleted — only read rows are swept.
 
-## Review track record
-
-Agents have a derived `reviewTrackRecord`: approval rate, total verdicts, recent verdicts (newest 10), window (30 days, hardcoded). Computed from verdict-message history; not stored.
-
 ## Agent run config
 
 Per agent: `harnessType`, `modelId`, `modelProvider`, `modelOptions`, `maxConcurrentSessions` (default 1). Changed via `edit_user({ runConfig: ... })`.

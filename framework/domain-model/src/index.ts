@@ -16,7 +16,6 @@ export {
 	DOCUMENT_ACTIONS,
 	DOCUMENT_AS,
 	DOCUMENT_PARENT_KINDS,
-	DOCUMENT_SLOT_LABEL,
 	DOCUMENT_SLOTS,
 	DOCUMENT_STATUS_LABEL,
 	DOCUMENT_STATUSES,
@@ -210,12 +209,6 @@ export {
 	UserRowSchema,
 	UserViewSchema,
 } from "./actions/user.js";
-export type {
-	AgentHarnessCapabilities,
-	AgentProfileResponse,
-	AgentReviewTrackRecord,
-	AgentVerdictEntry,
-} from "./agent-profile.js";
 export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
 export type {
@@ -286,12 +279,8 @@ export {
 	subscriptionSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
-export type { AgentHealthLevel, AgentOperationalStatus } from "./team.js";
 export type {
-	AgentSessionStateSnapshot,
-	AssistantNotice,
 	EntityRef,
-	HeadCollapseResult,
 	HostKind,
 	IdentityId,
 	InlineRef,
@@ -305,41 +294,31 @@ export type {
 } from "./thread.js";
 export {
 	HOST_KINDS,
-	headCollapsePredicate,
-	isBlocking,
 	isRedactedPayload,
 	MESSAGE_TYPES,
 	VERDICT_DECISIONS,
-	verdictDecisionLabel,
 } from "./thread.js";
 export type { TierTokenCount, TokenUsage } from "./types/money.js";
 export type {
 	AgentCategory,
 	HarnessType,
 	HealthResponse,
-	KernelDocumentStatus,
 	ModelTier,
-	ModelTier as MoneyModelTier,
 	OrgEdgeMechanism,
 	ScopeKind,
 	SessionOutcome,
 	TaskOutcomeVerdict,
 	TaskState,
-	TriggerType,
 } from "./types.js";
 export {
 	AGENT_CATEGORIES,
-	AGENT_OPERATIONAL_STATUS_LABEL,
 	HARNESS_TYPES,
-	KERNEL_DOCUMENT_STATUSES,
 	MODEL_TIERS,
 	ORG_EDGE_MECHANISMS,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	scopeKindToLabel,
-	TASK_OUTCOME_VERDICT_LABEL,
 	TASK_OUTCOME_VERDICTS,
-	TASK_STATE_LABEL,
 	TASK_STATES,
 } from "./types.js";
 export type {

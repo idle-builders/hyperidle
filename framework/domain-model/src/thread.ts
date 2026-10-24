@@ -1,5 +1,3 @@
-import type { Message, Thread } from "./actions/thread.js";
-
 // ── Closed enums ────────────────────────────────────────────────
 
 export const HOST_KINDS = ["document", "agent", "user", "team", "factory"] as const;
@@ -45,18 +43,6 @@ export interface MentionRef {
 
 export type InlineRef = EntityRef | MentionRef;
 
-/**
- * Assistant notice discriminator. Extends PlainPayload with an optional
- * field so error/guidance messages share the same message type as normal chat
- * but render with special styling keyed on notice.kind.
- *
- */
-export interface AssistantNotice {
-	readonly kind: "missing_harness" | "provider_error";
-	/** Non-sensitive provider code (e.g. "rate_limited"). Allowlisted — never raw error.message. */
-	readonly code?: string;
-}
-
 export interface RedactedPayload {
 	readonly redacted: true;
 	readonly redactedBy: IdentityId;
@@ -78,68 +64,4 @@ export function isRedactedPayload(payload: unknown): payload is RedactedPayload 
 		payload !== null &&
 		(payload as { redacted?: unknown }).redacted === true
 	);
-}
-
-// ── Predicates ──────────────────────────────────────────────────
-
-export interface HeadCollapseResult {
-	readonly headMessageId: MessageId | null;
-}
-
-/**
- * Head mounts iff there exists a message of type 'review' or 'questionnaire'
- * whose resolvedAt is null AND that message is the most recent of its kind in
- * the thread. Pure: messages must be sorted by (createdAt, id) ascending.
- * Returns the id of the most-recent unresolved review/questionnaire, or null
- * when the head should collapse to chat-shape.
- */
-export function headCollapsePredicate(messages: ReadonlyArray<Message>): HeadCollapseResult {
-	for (let i = messages.length - 1; i >= 0; i--) {
-		const m = messages[i];
-		if (
-			m !== undefined &&
-			(m.type === "review" || m.type === "questionnaire") &&
-			m.resolvedAt === null
-		) {
-			return { headMessageId: m.id };
-		}
-	}
-	return { headMessageId: null };
-}
-
-export interface AgentSessionStateSnapshot {
-	readonly pausedOnThreadId: ThreadId | null;
-	readonly activeForThreadId: ThreadId | null;
-}
-
-/**
- * A thread is blocking iff the agent participating in the
- * thread cannot continue to work without an answer. Derivation:
- *  - With an unresolved review/questionnaire HEAD: blocking iff the agent
- *    has a session active for this thread.
- *  - Without a HEAD (plain quick-question case): blocking iff the agent
- *    has explicitly paused on this thread.
- */
-export function isBlocking(
-	thread: Thread,
-	messages: ReadonlyArray<Message>,
-	agentSessionState: AgentSessionStateSnapshot,
-): boolean {
-	const head = headCollapsePredicate(messages);
-	if (head.headMessageId === null) {
-		return agentSessionState.pausedOnThreadId === thread.id;
-	}
-	return agentSessionState.activeForThreadId === thread.id;
-}
-
-// ── Verdict vocabulary (display mapping) ────────────────────────
-
-/** The uppercase label every surface shows for a verdict decision. */
-export function verdictDecisionLabel(decision: VerdictDecision): string {
-	switch (decision) {
-		case "approve":
-			return "APPROVED";
-		case "reject":
-			return "REJECTED";
-	}
 }

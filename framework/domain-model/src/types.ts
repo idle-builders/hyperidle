@@ -17,31 +17,10 @@ export const TASK_STATES = [
 
 export type TaskState = (typeof TASK_STATES)[number];
 
-/**
- * Human-readable labels for each TaskState. Exhaustive `Record` so adding
- * a 9th TaskState is a TS error until labelled here.
- *
- */
-export const TASK_STATE_LABEL: Record<TaskState, string> = {
-	proposed: "Planned",
-	accepted: "Accepted",
-	hold: "On hold",
-	in_progress: "In progress",
-	blocked: "Blocked",
-	review: "In review",
-	done: "Done",
-	killed: "Killed",
-};
-
 export interface HealthResponse {
 	status: "ok";
 	timestamp: string;
 }
-
-/**
- */
-export const KERNEL_DOCUMENT_STATUSES = ["proposed", "active", "stale", "archived"] as const;
-export type KernelDocumentStatus = (typeof KERNEL_DOCUMENT_STATUSES)[number];
 
 export type ModelTier = "reasoning" | "workhorse" | "fast";
 
@@ -52,8 +31,6 @@ export type ModelTier = "reasoning" | "workhorse" | "fast";
  * corresponding const tuple for runtime use.
  */
 export const MODEL_TIERS = ["reasoning", "workhorse", "fast"] as const;
-
-export type TriggerType = "heartbeat" | "calendar" | "event" | "continuous";
 
 /**
  * Agent categories. Closed enum.
@@ -127,23 +104,6 @@ export const TASK_OUTCOME_VERDICTS = [
 	"not_met",
 ] as const;
 export type TaskOutcomeVerdict = (typeof TASK_OUTCOME_VERDICTS)[number];
-
-/**
- * Human-readable labels for each TaskOutcomeVerdict.
- *
- */
-export const TASK_OUTCOME_VERDICT_LABEL: Record<TaskOutcomeVerdict, string> = {
-	met: "Met",
-	met_with_rework: "Rework",
-	partially_met: "Partial",
-	not_met: "Not met",
-};
-
-export const AGENT_OPERATIONAL_STATUS_LABEL: Record<"active" | "error" | "idle", string> = {
-	active: "Active",
-	error: "Error",
-	idle: "Idle",
-};
 
 /**
  * "not_returned" is a non-completed outcome for a turn that exhausted its

@@ -753,7 +753,6 @@ export interface DiBinding {
 
 const DI_BINDING_FILES = [
 	"layers/core-api/src/service-bootstrap.ts",
-	"layers/core-api/src/services/policy-bindings.ts",
 	"layers/core-api/src/services/task-run-resolver-bindings.ts",
 	"layers/agent-orchestration/src/services/run-orchestration-composition.ts",
 ];

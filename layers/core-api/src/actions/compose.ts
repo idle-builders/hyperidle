@@ -47,7 +47,6 @@ import {
 	updateUser,
 } from "@hyperidle/user";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
-import { computeApprovalRate } from "../services/policy-bindings.js";
 import {
 	buildTaskRunResolverDeps,
 	resolveAgentIdentityBody,
@@ -357,20 +356,6 @@ function buildUserActionsDeps(
 					},
 				}
 			: {}),
-		// reviewTrackRecord: computeApprovalRate, 30-day window, 10-verdict cap
-		reviewTrackRecord: async (db, agentId) => {
-			const result = await computeApprovalRate(db, agentId, 30, 10);
-			return {
-				approvalRate: result.approvalRate,
-				totalVerdicts: result.totalVerdicts,
-				recentVerdicts: result.recentVerdicts.map((v) => ({
-					decision: v.decision,
-					threadId: v.threadId,
-					createdAt: v.createdAt,
-				})),
-				windowDays: 30,
-			};
-		},
 		editDocument: runnerFor<EditDocumentInput, DocumentView>(documentActions, "edit_document"),
 		searchDocuments: runnerFor<SearchDocumentsInput, DocumentRow[]>(
 			documentActions,

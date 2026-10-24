@@ -265,18 +265,6 @@ const RunConfigViewSchema = z.object({
 	modelOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).nullable(),
 });
 
-// derived trust signal, not a stored column
-const ReviewTrackRecordSchema = z.object({
-	/** approve / total. 0 when no verdicts. */
-	approvalRate: z.number(),
-	totalVerdicts: z.number().int(),
-	/** Newest first, capped at 10. */
-	recentVerdicts: z.array(
-		z.object({ decision: z.string(), threadId: z.string(), createdAt: z.string() }),
-	),
-	windowDays: z.number().int(),
-});
-
 export const UserViewSchema = z.object({
 	/** null only for a caller with no row — the first-run moment. */
 	user: UserRowSchema.nullable(),
@@ -300,12 +288,6 @@ export const UserViewSchema = z.object({
 		.nullable(),
 	/** Self only, newest 50. */
 	inbox: z.array(InboxRowViewSchema).nullable(),
-	/**
-	 * Agent only — derived trust signal from verdict-message history over a
-	 * fixed 30-day window. `null` for a person, or when the caller wired no
-	 * reviewTrackRecord reader.
-	 */
-	reviewTrackRecord: ReviewTrackRecordSchema.nullable(),
 });
 export type UserView = z.infer<typeof UserViewSchema>;
 
