@@ -26,7 +26,6 @@ interface MountingGitRunner {
 	): Promise<void>;
 	worktreeRemove(worktreePath: string, opts?: { force?: boolean }): Promise<void>;
 	restoreStaged(paths: readonly string[]): Promise<void>;
-	currentBranch(): Promise<string | null>;
 }
 
 export type MountingGitRunnerFactory = (cwd: string) => MountingGitRunner;

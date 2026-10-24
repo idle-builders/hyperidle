@@ -1,21 +1,16 @@
-// /api/filesystems — one plumbing route: `POST /inspect-path`.
-// The rest of the folder logic is called directly by `AgentOrchestrationPort`'s folder seam.
+// The folder logic `AgentOrchestrationPort`'s folder seam calls.
 
 import type { FilesystemRow, HyperIdleDb } from "@hyperidle/db";
-import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type { Filesystem } from "@hyperidle/filesystems";
 import {
 	deleteFilesystem,
 	deleteInjection,
 	type FilesystemTokenResolver,
 	getFilesystem,
-	inspectLocalPath,
 	listFilesystems,
 	refreshFilesystemState,
 	saveFilesystem,
 } from "@hyperidle/filesystems";
-import { Hono } from "hono";
-import { z } from "zod";
 import { createGitRunner } from "../git-runner.js";
 
 // ─── Row → wire mappers ───────────────────────────────────────────────────────
@@ -145,19 +140,4 @@ export async function takeFolder(
 ): Promise<RemoveFolderResult> {
 	const deleted = await deleteInjection(db, agentUserId, filesystemId);
 	return deleted ? { ok: true } : { ok: false, code: "NOT_FOUND" };
-}
-
-// ─── createFilesystemRoutes ───────────────────────────────────────────────────
-
-export function createFilesystemRoutes(): Hono<HyperIdleEnv> {
-	const router = new Hono<HyperIdleEnv>();
-
-	// POST /api/filesystems/inspect-path — probe a local path before adding it as a folder
-	router.post("/inspect-path", validateBody(z.object({ path: z.string().min(1) })), async (c) => {
-		const { path } = c.req.valid("json");
-		const info = await inspectLocalPath(path, { gitRunnerFactory: createGitRunner });
-		return c.json(info, 200);
-	});
-
-	return router;
 }

@@ -114,10 +114,6 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId/:id/remove",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId/:id/withhold",
-	// @lore BC5 T11 (architecture.md §0.1 clause 3): `SetupFlow.tsx` needs
-	// folder detail (git repo? which branch?) BEFORE a folder exists to
-	// register — a plumbing lookup, not an action. Moved from LEGACY_ROUTES.
-	"layers/agent-orchestration/src/routes/filesystems.ts|POST /inspect-path",
 	// First start runs before anyone has a row, so there is no one to run an action as: a
 	// bootstrap door like auth, not an action.
 	"layers/core-api/src/routes/start.ts|POST /look",

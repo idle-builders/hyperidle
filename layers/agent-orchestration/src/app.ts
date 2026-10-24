@@ -16,7 +16,6 @@ import { actionsAsTools } from "./actions/actions-as-tools.js";
 import { createActionsRouter } from "./actions/actions-router.js";
 import { createAgentOrchestrationIntakeRoutes } from "./routes/agent-orchestration-intake.js";
 import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions.js";
-import { createFilesystemRoutes } from "./routes/filesystems.js";
 
 export interface AgentOrchestrationAppOptions {
 	readonly db: HyperIdleDb;
@@ -48,7 +47,6 @@ export function createAgentOrchestrationApp(
 		"/agent-orchestration",
 		createAgentOrchestrationIntakeRoutes(db, eventBus, { inheritedReach, cipher }),
 	);
-	app.route("/filesystems", createFilesystemRoutes());
 
 	return { app, actionTools };
 }
