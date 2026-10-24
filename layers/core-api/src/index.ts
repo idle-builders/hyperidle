@@ -9,6 +9,7 @@ export type {
 	ComposedApiMiddleware,
 } from "./compose-api-application.js";
 export { composeApiApplication } from "./compose-api-application.js";
+export { installedPluginsDir } from "./installed-plugins-dir.js";
 export { health } from "./routes/health.js";
 export {
 	DEFAULT_REAPER_STALE_AFTER_MS,
