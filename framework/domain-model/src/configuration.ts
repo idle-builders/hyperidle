@@ -18,3 +18,7 @@ export const PLUGIN_CONTRIBUTION_KINDS = [
 export type PluginContributionKind = (typeof PLUGIN_CONTRIBUTION_KINDS)[number];
 
 export type PluginScopeKind = "factory" | "team";
+
+/** Where an install came from: a folder, a repository, a zip file, or the app itself. */
+export const PLUGIN_SOURCE_KINDS = ["folder", "git", "zip", "bundled"] as const;
+export type PluginSourceKind = (typeof PLUGIN_SOURCE_KINDS)[number];

@@ -90,8 +90,8 @@ export async function setSubscriptionsPaused(
 		.where(inArray(subscriptions.id, Array.from(ids)));
 }
 
-/** Hard-delete every one of these subscriptions — the plugin remove
- * lifecycle's cleanup (a subscription has no soft-delete column). */
+/** Hard-delete every one of these subscriptions — a reinstall's cleanup of
+ * the reasons its manifest no longer declares. */
 export async function deleteSubscriptions(db: HyperIdleDb, ids: readonly string[]): Promise<void> {
 	if (ids.length === 0) return;
 	await db.delete(subscriptions).where(inArray(subscriptions.id, Array.from(ids)));

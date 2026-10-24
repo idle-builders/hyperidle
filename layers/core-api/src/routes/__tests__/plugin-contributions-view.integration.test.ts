@@ -74,7 +74,7 @@ interface ContributionRow {
 	readonly kind: string;
 	readonly entityId?: string;
 	readonly label?: string;
-	readonly detached: boolean;
+	readonly detachedAt: string | null;
 }
 
 async function contributionsOf(app: Hono): Promise<readonly ContributionRow[]> {
@@ -137,7 +137,7 @@ describe("a plugin's contributions view lists what it contributed", () => {
 		const contributions = await contributionsOf(app);
 		expect(contributions.length).toBeGreaterThan(0);
 		for (const c of contributions) {
-			expect(c.detached, `${c.kind} ${c.entityId} must start attached`).toBe(false);
+			expect(c.detachedAt, `${c.kind} ${c.entityId} must start attached`).toBeNull();
 		}
 	});
 });

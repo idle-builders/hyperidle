@@ -17,6 +17,7 @@ import {
 	type EditPluginSource,
 	editPlugin as editPluginDeclaration,
 	editPluginInvariants,
+	type PluginAddView,
 	type PluginContributionView,
 	type PluginListing,
 	type PluginView,
@@ -43,6 +44,7 @@ import {
 	disablePlugin,
 	enablePlugin,
 	getInstalledPlugin,
+	getPluginEvenRemoved,
 	type InstalledPlugin,
 	type PluginScope as InstallerPluginScope,
 	installPlugin,
@@ -52,7 +54,7 @@ import {
 	skillItemId,
 	subscriptionItemId,
 } from "./plugin-installer.js";
-import { parseMcpJson, parsePluginManifest } from "./plugin-manifest.js";
+import { type PluginManifest, parseMcpJson, parsePluginManifest } from "./plugin-manifest.js";
 
 /**
  * Local structural mirror of `layers/core-api/src/actions/action.ts`'s
@@ -124,6 +126,16 @@ export interface PlatformActionsDeps {
 			exec: WriteExecutor,
 			ids: readonly string[],
 		): Promise<readonly { readonly id: string; readonly name: string }[]>;
+		/** Put the plugin's version of an agent back: the fields its manifest declares. */
+		restore(
+			exec: WriteExecutor,
+			id: string,
+			values: {
+				readonly name: string;
+				readonly discipline: string;
+				readonly what: string | null;
+			},
+		): Promise<void>;
 	};
 	readonly subscriptions: {
 		insert(
@@ -133,7 +145,20 @@ export interface PlatformActionsDeps {
 		): Promise<void>;
 		setLive(exec: WriteExecutor, ids: readonly string[], live: boolean): Promise<void>;
 		remove(exec: WriteExecutor, ids: readonly string[]): Promise<void>;
-		get(exec: WriteExecutor, id: string): Promise<{ readonly label: string } | undefined>;
+		get(
+			exec: WriteExecutor,
+			id: string,
+		): Promise<{ readonly label: string; readonly userId: string } | undefined>;
+		/** Put the plugin's trigger back, live or paused as the plugin now is. */
+		restore(
+			exec: WriteExecutor,
+			id: string,
+			values: {
+				readonly event: string | null;
+				readonly schedule: string | null;
+				readonly paused: boolean;
+			},
+		): Promise<void>;
 	};
 	readonly editDocument: EditDocumentRunFn;
 	readonly searchDocuments: SearchDocumentsRunFn;
@@ -198,8 +223,11 @@ function toPluginView(
 		id: p.id,
 		name: p.name,
 		version: p.version,
+		description: p.description,
 		state: toListState(p.state),
 		scope: toDeclaredScope(p.scope),
+		source: p.source,
+		installedBy: p.installedBy,
 		installedAt: p.installedAt,
 		updatedAt: p.updatedAt,
 		disabledAt: p.disabledAt,
@@ -331,12 +359,19 @@ async function upsertContributedDocuments(
 	}
 }
 
-/** What each contributed row is called, asked of the service that owns it. */
-async function labelContributions(
+/** What a contributed row is called, its slot when a document, and which of the plugin's agents it belongs to. */
+interface ContributionFacts {
+	readonly label: string;
+	readonly slot: DocumentSlot | null;
+	readonly agentId: string | null;
+}
+
+/** Each contributed row's facts, asked of the service that owns it. */
+async function describeContributions(
 	ctx: ActionContext,
 	deps: PlatformActionsDeps,
 	contributions: readonly PluginContribution[],
-): Promise<ReadonlyMap<string, string>> {
+): Promise<ReadonlyMap<string, ContributionFacts>> {
 	const idsOf = (kind: StoredPluginContributionKind): string[] =>
 		contributions.filter((c) => c.kind === kind).map((c) => c.entityId);
 
@@ -346,22 +381,36 @@ async function labelContributions(
 
 	const [agents, subscriptionRows, documentsResult] = await Promise.all([
 		agentIds.length > 0 ? deps.agents.list(ctx.db, agentIds) : Promise.resolve([]),
-		subscriptionIds.length > 0
-			? Promise.all(subscriptionIds.map((id) => deps.subscriptions.get(ctx.db, id)))
-			: Promise.resolve([]),
+		Promise.all(subscriptionIds.map((id) => deps.subscriptions.get(ctx.db, id))),
 		documentIds.length > 0
 			? deps.searchDocuments(ctx, { ids: documentIds })
 			: Promise.resolve({ ok: true as const, data: [] as readonly DocumentRow[] }),
 	]);
 
-	const labels = new Map<string, string>();
-	for (const a of agents) labels.set(a.id, a.name);
+	const facts = new Map<string, ContributionFacts>();
+	for (const a of agents) facts.set(a.id, { label: a.name, slot: null, agentId: null });
+	const agentOfSubscription = new Map<string, string>();
 	subscriptionIds.forEach((id, i) => {
 		const r = subscriptionRows[i];
-		if (r) labels.set(id, r.label);
+		if (!r) return;
+		agentOfSubscription.set(id, r.userId);
+		facts.set(id, { label: r.label, slot: null, agentId: r.userId });
 	});
-	if (documentsResult.ok) for (const d of documentsResult.data) labels.set(d.id, d.title);
-	return labels;
+	if (documentsResult.ok) {
+		for (const d of documentsResult.data) {
+			const agentId =
+				d.parentKind === "agent"
+					? d.parentId
+					: d.parentKind === "subscription" && d.parentId
+						? (agentOfSubscription.get(d.parentId) ?? null)
+						: null;
+			facts.set(d.id, { label: d.title, slot: d.slot, agentId });
+			// A reason is called what its prompt is called; its trigger is only the fallback.
+			const reason = d.parentKind === "subscription" && d.parentId ? facts.get(d.parentId) : null;
+			if (reason && d.parentId) facts.set(d.parentId, { ...reason, label: d.title });
+		}
+	}
+	return facts;
 }
 
 /**
@@ -395,6 +444,46 @@ function readPluginDocumentSource(
 	return null;
 }
 
+/**
+ * Put the plugin's version of one agent or reason back, read from the install's manifest: an
+ * agent's name, discipline and what it does; a reason's trigger, paused only while the plugin is
+ * off. False when the manifest no longer declares it.
+ */
+async function restoreAgentOrReason(
+	ctx: ActionContext,
+	deps: PlatformActionsDeps,
+	plugin: InstalledPlugin,
+	installPath: string,
+	kind: "agent" | "subscription",
+	entityId: string,
+): Promise<boolean> {
+	const parsed = parsePluginManifest(installPath);
+	if (!parsed.ok) return false;
+	const { kind: scopeKind, teamId: scopeId } = plugin.scope;
+	if (kind === "agent") {
+		const agent = parsed.manifest.agents.find(
+			(a) => agentItemId(plugin.name, a.id, scopeKind, scopeId) === entityId,
+		);
+		if (!agent) return false;
+		await deps.agents.restore(ctx.db, entityId, {
+			name: agent.name,
+			discipline: agent.discipline,
+			what: agent.what,
+		});
+		return true;
+	}
+	const reason = parsed.manifest.subscriptions.find(
+		(r) => subscriptionItemId(plugin.name, r.id, scopeKind, scopeId) === entityId,
+	);
+	if (!reason) return false;
+	await deps.subscriptions.restore(ctx.db, entityId, {
+		event: reason.event,
+		schedule: reason.schedule,
+		paused: plugin.state !== "enabled",
+	});
+	return true;
+}
+
 // ---------------------------------------------------------------------------
 // The contributions view — the MCP servers in the install's `mcp.json`, then
 // the registry's rows (agents, subscriptions, documents).
@@ -414,21 +503,28 @@ async function pluginContributionsView(
 			label: server.name,
 			key,
 			manifestKey: server.name,
-			detached: false,
+			slot: null,
+			agentId: null,
+			detachedAt: null,
+			detachedBy: null,
 		});
 	}
 
 	const contributions = await listContributions(ctx.db, plugin.id);
 	if (contributions.length > 0) {
-		const labels = await labelContributions(ctx, deps, contributions);
+		const facts = await describeContributions(ctx, deps, contributions);
 		for (const c of contributions) {
+			const f = facts.get(c.entityId);
 			view.push({
 				kind: c.kind,
 				entityId: c.entityId,
-				label: labels.get(c.entityId) ?? c.entityId,
+				label: f?.label ?? c.entityId,
 				key: c.entityId,
 				manifestKey: c.entityId,
-				detached: c.detachedAt !== null,
+				slot: f?.slot ?? null,
+				agentId: f?.agentId ?? null,
+				detachedAt: c.detachedAt,
+				detachedBy: c.detachedBy,
 			});
 		}
 	}
@@ -460,8 +556,14 @@ type LookupResult =
 	| { readonly ok: true; readonly plugin: InstalledPlugin }
 	| { readonly ok: false; readonly problems: Problem[] };
 
-async function lookupPlugin(ctx: ActionContext, id: string): Promise<LookupResult> {
-	const existing = await getInstalledPlugin(ctx.db, id);
+async function lookupPlugin(
+	ctx: ActionContext,
+	id: string,
+	opts: { readonly evenRemoved?: boolean } = {},
+): Promise<LookupResult> {
+	const existing = opts.evenRemoved
+		? await getPluginEvenRemoved(ctx.db, id)
+		: await getInstalledPlugin(ctx.db, id);
 	if (existing) return { ok: true, plugin: existing };
 
 	const [row] = await ctx.db
@@ -543,6 +645,10 @@ async function installRun(
 	}
 	const result = await installPlugin(ctx.db, {
 		source: pluginSource,
+		...(source.kind === "bundled"
+			? { recordedSource: { kind: "bundled", address: source.name } as const }
+			: {}),
+		installedBy: ctx.actor,
 		scope: source.scope,
 		now: ctx.now,
 		...(deps.pluginsBaseDir ? { pluginsBaseDir: deps.pluginsBaseDir } : {}),
@@ -621,6 +727,7 @@ async function installRun(
 					// `role` is RBAC only (founder | member | agent | system).
 					role: "agent",
 					discipline: agentSpec.discipline,
+					what: agentSpec.what,
 					status: "active",
 					agentCategory: agentSpec.agentCategory,
 					createdAt: installTs,
@@ -697,7 +804,8 @@ async function stateRun(
 	id: string,
 	state: "enabled" | "disabled",
 ): Promise<ActionResult<PluginView>> {
-	const found = await lookupPlugin(ctx, id);
+	// A removed plugin's rows are only paused, so switching it back on undoes the remove.
+	const found = await lookupPlugin(ctx, id, { evenRemoved: true });
 	if (!found.ok) return found;
 
 	if (state === "enabled") await enablePlugin(ctx.db, id, ctx.now);
@@ -740,7 +848,6 @@ async function removeRun(
 	]);
 	await ctx.db.transaction(async (tx) => {
 		await setNonDocumentContributionsLive(deps, tx, { agentIds, subscriptionIds }, false);
-		await deps.subscriptions.remove(tx, subscriptionIds);
 	});
 	await setContributedDocumentsLive(internalCtx(ctx), deps, documentIds, false);
 
@@ -765,10 +872,6 @@ async function restoreRun(
 			`Plugin "${id}" did not contribute "${contributionKey}".`,
 		);
 	}
-	if (registryMatch.kind !== "document") {
-		await clearDetached(ctx.db, { kind: registryMatch.kind, entityId: contributionKey });
-		return { ok: true, data: await assemblePluginView(ctx, deps, id) };
-	}
 	if (!existing.installPath) {
 		return problem(
 			"no_install_path",
@@ -776,6 +879,24 @@ async function restoreRun(
 				"supported, or on a server not configured with a plugins directory. Reinstall the " +
 				"plugin to enable restore.",
 		);
+	}
+	if (registryMatch.kind !== "document") {
+		const restored = await restoreAgentOrReason(
+			ctx,
+			deps,
+			existing,
+			existing.installPath,
+			registryMatch.kind,
+			contributionKey,
+		);
+		if (!restored) {
+			return problem(
+				"source_not_found",
+				`The plugin no longer declares "${contributionKey}" under ${existing.installPath}.`,
+			);
+		}
+		await clearDetached(ctx.db, { kind: registryMatch.kind, entityId: contributionKey });
+		return { ok: true, data: await assemblePluginView(ctx, deps, id) };
 	}
 	const sourceBody = readPluginDocumentSource(
 		existing.installPath,
@@ -821,6 +942,33 @@ function matchesSearchFilter(
 	return true;
 }
 
+/** What a plugin in `path` would add, kind by kind, each with the name of the agent it belongs to. */
+function manifestAdds(manifest: PluginManifest, path: string): PluginAddView[] {
+	const nameOf = new Map(manifest.agents.map((a) => [a.id, a.name]));
+	const add = (
+		kind: PluginAddView["kind"],
+		label: string,
+		extra: Partial<Pick<PluginAddView, "slot" | "agent" | "what">> = {},
+	): PluginAddView => ({ kind, label, slot: null, agent: null, what: null, ...extra });
+	return [
+		...manifest.agents.flatMap((a) => [
+			add("agent", a.name, { what: a.what }),
+			...(a.identity === null
+				? []
+				: [add("document", `${a.name} — identity`, { slot: "agent_file", agent: a.name })]),
+		]),
+		...manifest.skills.map((k) => add("document", k.dirName, { slot: "skill" })),
+		...manifest.subscriptions.flatMap((r) => {
+			const agent = nameOf.get(r.agentId) ?? null;
+			return [
+				add("subscription", r.name, { agent }),
+				...(r.prompt ? [add("document", r.name, { slot: "prompt", agent })] : []),
+			];
+		}),
+		...parseMcpJson(path).map((m) => add("mcp_server", m.name)),
+	];
+}
+
 /**
  * The bundled plugins still to install for this viewer. A factory install
  * covers everyone; a team plugin is covered only once every team the viewer is
@@ -842,13 +990,14 @@ function availableBundledPlugins(
 	return listBundledPlugins(bundledPluginsDir)
 		.filter(({ manifest }) => manifest.installScope === "factory" || viewerTeamIds.length > 0)
 		.filter(({ manifest }) => !covered(manifest.name, manifest.installScope))
-		.map(({ manifest }) => ({
+		.map(({ manifest, path }) => ({
 			id: manifest.name,
 			name: manifest.name,
 			version: manifest.version,
 			description: manifest.description,
 			state: "available",
 			installScope: manifest.installScope,
+			adds: manifestAdds(manifest, path),
 		}));
 }
 

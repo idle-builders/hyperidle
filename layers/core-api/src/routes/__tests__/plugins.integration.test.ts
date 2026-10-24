@@ -68,6 +68,8 @@ describe("edit_plugin — not found", () => {
 			state: "removed",
 			scopeKind: "factory",
 			scopeTeamId: null,
+			sourceKind: "folder",
+			sourceAddress: "/plugins/removed-plugin",
 			installedAt: now,
 			updatedAt: now,
 			removedAt: now,

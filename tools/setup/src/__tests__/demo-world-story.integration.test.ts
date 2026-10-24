@@ -93,6 +93,7 @@ function openUserDeps(db: HyperIdleDb): UserActionsDeps {
 		},
 		searchDocuments: async () => ({ ok: true, data: [] as never }) as const,
 		editDocument: async () => ({ ok: false, problems: [] as never }) as const,
+		onPluginPartEdited: async () => undefined,
 	};
 }
 

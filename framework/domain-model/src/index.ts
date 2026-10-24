@@ -37,6 +37,7 @@ export type {
 	AvailablePluginView,
 	EditPluginInput,
 	EditPluginSource,
+	PluginAddView,
 	PluginContributionView,
 	PluginListing,
 	PluginListState,
@@ -220,6 +221,7 @@ export { API_ERROR_CODES } from "./api-types.js";
 export type {
 	PluginContributionKind,
 	PluginScopeKind,
+	PluginSourceKind,
 	PluginState,
 	StoredPluginContributionKind,
 } from "./configuration.js";

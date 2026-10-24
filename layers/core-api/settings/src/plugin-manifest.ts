@@ -89,6 +89,8 @@ export interface ParsedPluginAgent {
 	/** The agent's craft — designer, developer, whatever the plugin names. Installed as `role: "agent"` plus this `discipline`; a plugin agent spec declares a discipline, never a role. */
 	readonly discipline: string;
 	readonly agentCategory: string;
+	/** What it does, in a few words, as its page and its team show it; null when the manifest says nothing. */
+	readonly what: string | null;
 	/**
 	 * Who this agent is, read from the file the manifest's `identity` names.
 	 */
@@ -412,6 +414,7 @@ function parsePluginAgent(
 		name: obj.name,
 		discipline: obj.discipline,
 		agentCategory: obj.agentCategory,
+		what: typeof obj.what === "string" && obj.what ? obj.what : null,
 		identity,
 	};
 }

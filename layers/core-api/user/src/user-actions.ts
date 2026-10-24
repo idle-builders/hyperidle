@@ -210,6 +210,18 @@ export interface UserActionsDeps {
 	}>;
 	readonly searchDocuments: SearchDocumentsRunFn;
 	readonly editDocument: EditDocumentRunFn;
+	/**
+	 * A person changed what a plugin may have added — an agent's name, discipline or what it
+	 * does, or a reason's trigger — so the plugin's version is no longer the one in use. Called
+	 * inside the edit's transaction; a row no plugin added is left alone by the binding.
+	 */
+	readonly onPluginPartEdited: (
+		exec: WriteExecutor,
+		kind: "agent" | "subscription",
+		entityId: string,
+		actor: string,
+		at: string,
+	) => Promise<void>;
 }
 
 type Result<T> = { ok: true; data: T } | { ok: false; problems: Problem[] };
@@ -1074,6 +1086,9 @@ const IDENTITY_FIELDS = [
 	"what",
 ] as const;
 
+/** The agent fields a plugin's manifest declares, so the ones a plugin's version can be put back over. */
+const PLUGIN_AGENT_FIELDS = ["name", "discipline", "what"] as const;
+
 function touchesIdentityFields(input: EditUserInput): boolean {
 	return IDENTITY_FIELDS.some((f) => input[f] !== undefined);
 }
@@ -1228,6 +1243,9 @@ async function editExistingUserRun(
 			if (input[f] !== undefined) (patch as Record<string, unknown>)[f] = input[f];
 		}
 		if (Object.keys(patch).length > 0) await updateUser(tx, id, patch);
+		if (PLUGIN_AGENT_FIELDS.some((f) => input[f] !== undefined && input[f] !== existing[f])) {
+			await deps.onPluginPartEdited(tx, "agent", id, ctx.actor, now);
+		}
 
 		for (const e of input.edges?.add ?? []) {
 			await upsertOrgEdge(tx, { fromUserId: id, mechanism: e.mechanism, target: e.target });
@@ -1272,6 +1290,9 @@ async function editExistingUserRun(
 			}
 			if (change.paused !== undefined) subPatch.paused = change.paused;
 			await updateSubscription(tx, change.id, subPatch);
+			if (Object.keys(subPatch).length > 1) {
+				await deps.onPluginPartEdited(tx, "subscription", change.id, ctx.actor, now);
+			}
 			if (change.prompt !== undefined)
 				changedSubscriptionPrompts.push({ id: change.id, prompt: change.prompt });
 		}

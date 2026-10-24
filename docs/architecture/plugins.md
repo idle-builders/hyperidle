@@ -35,13 +35,17 @@ Install, enable, disable and remove all drive the same function over the registr
 
 **Installing is a deliberate act**: everything the plugin contributes is live afterwards, whatever a previous disable or remove left behind.
 
-Agents and documents are never hard-deleted: the audit tables hold RESTRICT foreign keys, so a removed plugin's agents go `inactive` and its documents archive. Subscriptions are the exception — they carry no soft-delete column, so a removed plugin's subscription rows are deleted outright; disable instead sets them `paused` (`subscriptions.setLive`).
+Nothing a plugin added is deleted when it is removed: its agents go `inactive`, its subscriptions `paused` (`subscriptions.setLive`) and its documents archive — the same as a disable, with the install row marked `removed`. So a remove can be undone: `edit_plugin` with `state: "enabled"` on a removed install brings it back exactly as it was, people's edits included. A later install does the same.
 
 ## Detach and restore
 
-Editing a plugin-contributed document makes it yours: the registry stamps `detached_at`, the contributions view says so, and a reinstall leaves your version alone.
+Editing what a plugin added makes it the team's: the registry stamps `detached_at` and `detached_by`, the contributions view says who and when, and a reinstall leaves that version alone. That is a document's body, an agent's name, discipline or what it does (the fields a manifest declares, `edit_user`), and a subscription's trigger or pause (`edit_user`'s subscription change). An agent's harness is not tracked: a plugin never ships one.
 
-**Restore** hands it back: the plugin's version is re-read from disk and the stamp cleared. A skill document's id is a one-way hash of the plugin id and the skill directory, so restore inverts it by enumerating the plugin's skill directories — the id derivation stays the single source of truth rather than the mapping being stored twice.
+**Restore** hands it back: the plugin's version is re-read from the install folder and the stamp cleared — a document's body, an agent's declared fields, a subscription's trigger (paused only while the plugin is off). A skill document's id is a one-way hash of the plugin id and the skill directory, so restore inverts it by enumerating the plugin's skill directories — the id derivation stays the single source of truth rather than the mapping being stored twice.
+
+## Where a plugin came from
+
+Each install keeps its source as given — `source_kind` (`folder`, `git`, `zip`, `bundled`) and `source_address` (the path, the URL, or the bundled plugin's name) — the manifest's `description`, and `installed_by`. `search_plugins` returns all three, and for a bundled plugin not installed yet, what it would add (`adds`), read from its manifest.
 
 ## Where plugin files live
 

@@ -43,6 +43,8 @@ import {
 	setAgentsStatus,
 	setSubscriptionsPaused,
 	type UserActionsDeps,
+	updateSubscription,
+	updateUser,
 } from "@hyperidle/user";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import { computeApprovalRate } from "../services/policy-bindings.js";
@@ -203,8 +205,13 @@ function buildDocumentActionsDeps(
 		followersOf,
 		// bound to the settings package's contribution tracker — a
 		// document's `body` changing detaches it from the plugin that seeded it.
-		onBodyChanged: (exec, documentId) =>
-			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
+		onBodyChanged: (exec, documentId, actor) =>
+			markDetached(exec, {
+				kind: "document",
+				entityId: documentId,
+				ts: new Date().toISOString(),
+				by: actor,
+			}),
 		...(wsPush ? { wsPush } : {}),
 	};
 }
@@ -237,6 +244,7 @@ function buildPlatformActionsDeps(
 			insertIfAbsent: (exec, values, teamId) => insertUserIfAbsent(exec, values, teamId),
 			setStatus: (exec, ids, status) => setAgentsStatus(exec, ids, status),
 			list: (exec, ids) => listUsers(exec, { ids: [...ids] }),
+			restore: (exec, id, values) => updateUser(exec as HyperIdleDb, id, values),
 		},
 		subscriptions: {
 			insert: async (exec, values, opts) => {
@@ -264,7 +272,18 @@ function buildPlatformActionsDeps(
 			remove: (exec, ids) => deleteSubscriptions(exec, ids),
 			get: async (exec, id) => {
 				const row = await getSubscription(exec, id);
-				return row ? { label: row.event ?? row.schedule ?? "" } : undefined;
+				return row ? { label: row.event ?? row.schedule ?? "", userId: row.userId } : undefined;
+			},
+			restore: (exec, id, values) => {
+				const now = new Date();
+				return updateSubscription(exec as HyperIdleDb, id, {
+					...values,
+					nextRunAt:
+						values.schedule === null
+							? null
+							: nextCronMatch(parseCron(values.schedule), now).toISOString(),
+					updatedAt: now.toISOString(),
+				});
 			},
 		},
 		editDocument: runnerFor<EditDocumentInput, DocumentView>(documentActions, "edit_document"),
@@ -357,6 +376,8 @@ function buildUserActionsDeps(
 			documentActions,
 			"search_documents",
 		),
+		onPluginPartEdited: (exec, kind, entityId, actor, at) =>
+			markDetached(exec, { kind, entityId, ts: at, by: actor }),
 	};
 }
 
@@ -441,8 +462,13 @@ function buildStandaloneDocumentActions(): readonly Action[] {
 		},
 		systemParentExists,
 		followersOf,
-		onBodyChanged: (exec, documentId) =>
-			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
+		onBodyChanged: (exec, documentId, actor) =>
+			markDetached(exec, {
+				kind: "document",
+				entityId: documentId,
+				ts: new Date().toISOString(),
+				by: actor,
+			}),
 	}) as readonly Action[];
 }
 

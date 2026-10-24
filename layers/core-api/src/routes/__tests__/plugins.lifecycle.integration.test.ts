@@ -188,8 +188,8 @@ describe("plugin lifecycle: enable reactivates materialised rows", () => {
 	});
 });
 
-describe("plugin lifecycle: remove deletes materialised rows", () => {
-	test("after remove: subscriptions gone (no soft-delete column), agent inactive", async ({
+describe("plugin lifecycle: remove pauses what it added; switching it on undoes the remove", () => {
+	test("after remove: subscriptions paused, agent inactive, documents archived", async ({
 		db,
 		app,
 	}) => {
@@ -197,17 +197,44 @@ describe("plugin lifecycle: remove deletes materialised rows", () => {
 		const subscriptionIds = [...(await contributed(db, "subscription"))];
 		const res = await removeKmPlugin(app);
 		expect(res.status).toBe(200);
-		// A subscription has no soft-delete column — remove is a hard delete.
 		const subscriptionRows = await db
 			.select()
 			.from(subscriptions)
 			.where(inArray(subscriptions.id, subscriptionIds));
-		expect(subscriptionRows).toHaveLength(0);
+		expect(subscriptionRows.map((r) => r.paused)).toEqual(subscriptionIds.map(() => true));
 		const agentRows = await db
 			.select()
 			.from(users)
 			.where(inArray(users.id, [...(await contributed(db, "agent"))]));
 		expect(agentRows.length).toBeGreaterThan(0);
 		expect(agentRows.every((r) => r.status === "inactive")).toBe(true);
+	});
+
+	test("switching a removed plugin on brings it back as it was", async ({ db, app }) => {
+		await installKmPlugin(db, app);
+		const subscriptionIds = [...(await contributed(db, "subscription"))];
+		const documentIds = [...(await contributed(db, "document"))];
+		expect((await removeKmPlugin(app)).status).toBe(200);
+
+		const res = await enableKmPlugin(app);
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { data: { state: string } };
+		expect(body.data.state).toBe("enabled");
+
+		const subscriptionRows = await db
+			.select()
+			.from(subscriptions)
+			.where(inArray(subscriptions.id, subscriptionIds));
+		expect(subscriptionRows.map((r) => r.paused)).toEqual(subscriptionIds.map(() => false));
+		const agentRows = await db
+			.select()
+			.from(users)
+			.where(inArray(users.id, [...(await contributed(db, "agent"))]));
+		expect(agentRows.every((r) => r.status === "active")).toBe(true);
+		const documentRows = await db
+			.select()
+			.from(documents)
+			.where(inArray(documents.id, documentIds));
+		expect(documentRows.map((r) => r.status)).toEqual(documentIds.map(() => "active"));
 	});
 });

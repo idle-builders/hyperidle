@@ -89,9 +89,9 @@ export interface DocumentActionsDeps {
 	) => Promise<boolean>;
 	/**
 	 * Bound in `compose.ts` to `markDetached`, called inside the
-	 * edit's transaction when `body` changed. The subscriptions item deletes it.
+	 * edit's transaction when `body` changed, with who changed it.
 	 */
-	readonly onBodyChanged: (exec: WriteExecutor, documentId: string) => Promise<void>;
+	readonly onBodyChanged: (exec: WriteExecutor, documentId: string, actor: string) => Promise<void>;
 	/** Who follows the document — the user module owns subscriptions. */
 	readonly followersOf: (exec: WriteExecutor, documentId: string) => Promise<readonly string[]>;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
@@ -857,7 +857,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 
 				// inside the same transaction, only when body changed.
 				if (bodyChanged) {
-					await deps.onBodyChanged(tx, id);
+					await deps.onBodyChanged(tx, id, ctx.actor);
 				}
 			});
 		} catch (error) {

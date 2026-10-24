@@ -15,8 +15,12 @@ import { seedDocuments } from "./documents.js";
 import type { DemoClock } from "./time.js";
 import { seedWork } from "./work.js";
 
-export async function seedDemoWorldContent(db: HyperIdleDb, clock: DemoClock): Promise<void> {
-	await seedCast(db, clock);
+export async function seedDemoWorldContent(
+	db: HyperIdleDb,
+	clock: DemoClock,
+	pluginsBaseDir?: string,
+): Promise<void> {
+	await seedCast(db, clock, pluginsBaseDir);
 	await seedAgentFiles(db, clock);
 	await seedDocuments(db, clock);
 	await seedConversations(db, clock);

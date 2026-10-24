@@ -279,6 +279,8 @@ async function seedPluginContribution(db: HyperIdleDb, documentId: string): Prom
 		version: "1.0.0",
 		state: "enabled",
 		scopeKind: "factory",
+		sourceKind: "folder",
+		sourceAddress: "/plugins/one",
 		installedAt: now,
 		updatedAt: now,
 	});

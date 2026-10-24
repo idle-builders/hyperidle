@@ -12,6 +12,7 @@
 					"name": "Facilitation",
 					"discipline": "facilitation",
 					"agentCategory": "team",
+					"what": "Keeps how we work written down.",
 					"identity": "instructions.md"
 				}
 			],

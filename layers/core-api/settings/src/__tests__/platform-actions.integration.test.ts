@@ -98,8 +98,13 @@ function realDocumentActions(): readonly Action[] {
 				.limit(1);
 			return row !== undefined;
 		},
-		onBodyChanged: (exec, documentId) =>
-			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
+		onBodyChanged: (exec, documentId, actor) =>
+			markDetached(exec, {
+				kind: "document",
+				entityId: documentId,
+				ts: new Date().toISOString(),
+				by: actor,
+			}),
 		followersOf: async () => [],
 	};
 	return createDocumentActions(deps) as readonly Action[];
@@ -146,6 +151,9 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 					.from(users)
 					.where(inArray(users.id, [...ids]));
 			},
+			restore: async (exec, id, values) => {
+				await exec.update(users).set(values).where(eq(users.id, id));
+			},
 		},
 		subscriptions: {
 			insert: async (exec, values, opts) => {
@@ -178,11 +186,18 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 			},
 			get: async (exec, id) => {
 				const [row] = await exec
-					.select({ event: subscriptions.event, schedule: subscriptions.schedule })
+					.select({
+						event: subscriptions.event,
+						schedule: subscriptions.schedule,
+						userId: subscriptions.userId,
+					})
 					.from(subscriptions)
 					.where(eq(subscriptions.id, id))
 					.limit(1);
-				return row ? { label: row.event ?? row.schedule ?? "" } : undefined;
+				return row ? { label: row.event ?? row.schedule ?? "", userId: row.userId } : undefined;
+			},
+			restore: async (exec, id, values) => {
+				await exec.update(subscriptions).set(values).where(eq(subscriptions.id, id));
 			},
 		},
 		editDocument: runnerFor(documentActions, "edit_document"),
@@ -441,7 +456,7 @@ describe("createPlatformActions", () => {
 	});
 
 	describe("edit_plugin — remove", () => {
-		test("removes subscriptions, deactivates the agent, archives documents; the answer is the pre-remove view", async ({
+		test("pauses subscriptions, deactivates the agent, archives documents; the answer is the pre-remove view", async ({
 			db,
 		}) => {
 			await seedFounder(db);
@@ -466,10 +481,10 @@ describe("createPlatformActions", () => {
 				.select()
 				.from(subscriptions)
 				.where(eq(subscriptions.id, subscriptionId));
-			expect(subRow.length).toBe(0);
+			expect(subRow.map((r) => r.paused)).toEqual([true]);
 
-			// A second change on the now-removed plugin answers plugin_removed.
-			const again = await edit.run(ctxFor(db), { id: "remove-under-test", state: "enabled" });
+			// Removing the now-removed plugin again answers plugin_removed.
+			const again = await edit.run(ctxFor(db), { id: "remove-under-test", remove: true });
 			expect(again.ok).toBe(false);
 			if (again.ok) throw new Error("expected refusal");
 			expect(again.problems[0]?.code).toBe("plugin_removed");
@@ -517,7 +532,7 @@ describe("createPlatformActions", () => {
 			});
 			if (!restored.ok) throw new Error(`restore failed: ${JSON.stringify(restored.problems)}`);
 			const restoredDoc = restored.data.contributions.find((c) => c.entityId === skillId);
-			expect(restoredDoc?.detached).toBe(false);
+			expect(restoredDoc?.detachedAt).toBeNull();
 
 			const after = await searchDocs(ctxFor(db), { ids: [skillId] });
 			expect((after as unknown as { data: Array<{ body: string }> }).data[0]?.body).toBe(

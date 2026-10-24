@@ -202,7 +202,10 @@ async function applyLaptopMigrations(
 		// @lore AF17: demo mode seeds the Northwind demo world — opt-in only.
 		// Without --demo, factory bootstrap only (no demo data in production DBs).
 		if (demo) {
-			await seedDemoWorld(handle.db);
+			// Where the server keeps installed plugins: beside its data directory.
+			await seedDemoWorld(handle.db, {
+				pluginsBaseDir: path.join(path.dirname(dataDir), "installed-plugins"),
+			});
 		}
 	} finally {
 		await handle.close();

@@ -11,6 +11,7 @@
 					"name": "Builder",
 					"discipline": "builder",
 					"agentCategory": "team",
+					"what": "Writes code and ships features.",
 					"identity": "personas/builder.md"
 				},
 				{
@@ -18,6 +19,7 @@
 					"name": "Designer",
 					"discipline": "designer",
 					"agentCategory": "team",
+					"what": "Owns how the product looks and works for people.",
 					"identity": "personas/designer.md"
 				},
 				{
@@ -25,6 +27,7 @@
 					"name": "Product Manager",
 					"discipline": "product_manager",
 					"agentCategory": "team",
+					"what": "Turns what customers ask for into tasks.",
 					"identity": "personas/product-manager.md"
 				},
 				{
@@ -32,6 +35,7 @@
 					"name": "QA Engineer",
 					"discipline": "qa_engineer",
 					"agentCategory": "team",
+					"what": "Tries to break what was built before a customer does.",
 					"identity": "personas/qa-engineer.md"
 				},
 				{
@@ -39,6 +43,7 @@
 					"name": "Growth",
 					"discipline": "growth",
 					"agentCategory": "team",
+					"what": "Brings people to the product.",
 					"identity": "personas/growth.md"
 				},
 				{
@@ -46,6 +51,7 @@
 					"name": "Ops",
 					"discipline": "ops",
 					"agentCategory": "team",
+					"what": "Keeps the servers and the deploys healthy.",
 					"identity": "personas/ops.md"
 				},
 				{
@@ -53,6 +59,7 @@
 					"name": "Facilitator",
 					"discipline": "facilitator",
 					"agentCategory": "team",
+					"what": "Keeps a community of practice learning together.",
 					"identity": "personas/facilitator.md"
 				}
 			]

@@ -118,6 +118,7 @@ function buildDeps(
 		},
 		searchDocuments: runnerFor(documentActions, "search_documents"),
 		editDocument: runnerFor(documentActions, "edit_document"),
+		onPluginPartEdited: async () => {},
 	};
 }
 

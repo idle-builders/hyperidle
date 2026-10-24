@@ -26,6 +26,8 @@ export interface InstallPluginOutsideServerInput {
 	readonly actor: string;
 	/** The install's timestamp: the agents' and documents' creation time. */
 	readonly now: string;
+	/** Where the server keeps installed plugins, so restore can read the plugin's files; absent → no folder. */
+	readonly pluginsBaseDir?: string;
 }
 
 function unreachable(what: string): never {
@@ -40,6 +42,7 @@ export async function installPluginOutsideServer(
 		agentOrchestration: buildAgentOrchestrationPort(() => unreachable("orchestration")),
 		agentWorkIntentRecorder: () => unreachable("the work-intent recorder"),
 		reviewVerdictRecorder: () => unreachable("the review-verdict recorder"),
+		...(input.pluginsBaseDir ? { pluginsBaseDir: input.pluginsBaseDir } : {}),
 	});
 	const editPlugin = actions.find((a) => a.declaration.name === "edit_plugin") as
 		| Action<EditPluginInput, PluginView>

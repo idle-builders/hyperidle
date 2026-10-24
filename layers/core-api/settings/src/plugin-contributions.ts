@@ -12,6 +12,8 @@ export interface PluginContribution {
 	readonly entityId: string;
 	/** Set when a person edited it — a reinstall leaves their version alone. */
 	readonly detachedAt: string | null;
+	/** Who made that edit. */
+	readonly detachedBy: string | null;
 }
 
 /** Deterministic, so recording the same contribution twice is one row. */
@@ -66,6 +68,7 @@ export async function listContributions(
 		kind: r.kind,
 		entityId: r.entityId,
 		detachedAt: r.detachedAt,
+		detachedBy: r.detachedBy,
 	}));
 }
 
@@ -89,11 +92,12 @@ export async function markDetached(
 		readonly kind: StoredPluginContributionKind;
 		readonly entityId: string;
 		readonly ts: string;
+		readonly by: string;
 	},
 ): Promise<void> {
 	await exec
 		.update(pluginContributions)
-		.set({ detachedAt: input.ts })
+		.set({ detachedAt: input.ts, detachedBy: input.by })
 		.where(
 			and(
 				eq(pluginContributions.kind, input.kind),
@@ -109,7 +113,7 @@ export async function clearDetached(
 ): Promise<void> {
 	await exec
 		.update(pluginContributions)
-		.set({ detachedAt: null })
+		.set({ detachedAt: null, detachedBy: null })
 		.where(
 			and(
 				eq(pluginContributions.kind, input.kind),

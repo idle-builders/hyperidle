@@ -13,7 +13,7 @@
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { documents, type HyperIdleDb, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, subscriptions, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -52,7 +52,7 @@ async function editPlugin(app: Hono, body: unknown): Promise<Response> {
 	});
 }
 
-async function install(app: Hono): Promise<void> {
+async function install(app: Hono): Promise<string> {
 	const dir = join(tmpdir(), `detach-restore-${Date.now()}-${Math.round(performance.now())}`);
 	mkdirSync(dir, { recursive: true });
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
@@ -64,6 +64,7 @@ async function install(app: Hono): Promise<void> {
 	if (res.status !== 200) {
 		throw new Error(`Install failed: ${JSON.stringify(await res.json())}`);
 	}
+	return dir;
 }
 
 async function seedFounder(db: HyperIdleDb): Promise<void> {
@@ -81,19 +82,38 @@ interface ContributionRow {
 	readonly kind: string;
 	readonly entityId: string;
 	readonly label: string;
-	readonly detached: boolean;
+	readonly detachedAt: string | null;
+	readonly detachedBy: string | null;
 }
 
-async function contributionsOf(app: Hono): Promise<readonly ContributionRow[]> {
+interface PluginRow {
+	readonly id: string;
+	readonly description: string | null;
+	readonly source: { readonly kind: string; readonly address: string };
+	readonly installedBy: string | null;
+	readonly contributions: ContributionRow[];
+}
+
+async function pluginOf(app: Hono): Promise<PluginRow | undefined> {
 	const res = await app.request("/api/actions/search_plugins", {
 		method: "POST",
 		headers: auth(),
 		body: JSON.stringify({}),
 	});
-	const body = (await res.json()) as {
-		data: Array<{ id: string; contributions: ContributionRow[] }>;
-	};
-	return body.data.find((p) => p.id === PLUGIN_ID)?.contributions ?? [];
+	const body = (await res.json()) as { data: PluginRow[] };
+	return body.data.find((p) => p.id === PLUGIN_ID);
+}
+
+async function contributionsOf(app: Hono): Promise<readonly ContributionRow[]> {
+	return (await pluginOf(app))?.contributions ?? [];
+}
+
+async function editUser(app: Hono, body: unknown): Promise<Response> {
+	return app.request("/api/actions/edit_user", {
+		method: "POST",
+		headers: auth(),
+		body: JSON.stringify(body),
+	});
 }
 
 /** One skill the plugin contributed. */
@@ -123,7 +143,8 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		expect(res.status).toBe(200);
 
 		const after = (await contributionsOf(app)).find((c) => c.entityId === skill.entityId);
-		expect(after?.detached, "an edited contribution reads as yours").toBe(true);
+		expect(after?.detachedBy, "an edited contribution says who edited it").toBe(FOUNDER);
+		expect(after?.detachedAt, "and when").not.toBeNull();
 	});
 
 	test("a reinstall leaves an edited contribution alone", async ({ db, app }) => {
@@ -147,7 +168,7 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		const [after] = await db.select().from(documents).where(eq(documents.id, skill.entityId));
 		expect(after?.body, "your edit wins over a reinstall").toBe("My own version of this skill.");
 		const view = (await contributionsOf(app)).find((c) => c.entityId === skill.entityId);
-		expect(view?.detached, "and it is still yours afterwards").toBe(true);
+		expect(view?.detachedBy, "and it is still yours afterwards").toBe(FOUNDER);
 	});
 
 	test("restore re-imports the plugin's version and hands ownership back", async ({
@@ -180,7 +201,7 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		expect(restored?.body, "the plugin's version comes back").toBe(original?.body);
 
 		const view = (await contributionsOf(app)).find((c) => c.entityId === skill.entityId);
-		expect(view?.detached, "and it is the plugin's again").toBe(false);
+		expect(view?.detachedAt, "and it is the plugin's again").toBeNull();
 	});
 
 	test("restoring something the plugin never contributed is unknown_contribution", async ({
@@ -197,5 +218,83 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		expect(res.status).toBe(422);
 		const body = (await res.json()) as { problems: ReadonlyArray<{ code: string }> };
 		expect(body.problems[0]?.code).toBe("unknown_contribution");
+	});
+
+	test("editing the plugin's agent marks it changed by you; restore puts the plugin's agent back", async ({
+		db,
+		pluginsApp: app,
+	}) => {
+		await seedFounder(db);
+		await install(app);
+		const agent = (await contributionsOf(app)).find((c) => c.kind === "agent");
+		const agentId = agent?.entityId ?? "";
+		const agentNow = async () => {
+			const [u] = await db.select().from(users).where(eq(users.id, agentId));
+			return { name: u?.name, discipline: u?.discipline, what: u?.what };
+		};
+		const plugins = await agentNow();
+
+		const res = await editUser(app, {
+			id: agentId,
+			name: "Archivist",
+			discipline: "archivist",
+			what: "Files things.",
+		});
+		expect(res.status).toBe(200);
+		const changed = (await contributionsOf(app)).find((c) => c.entityId === agentId);
+		expect(changed?.detachedBy).toBe(FOUNDER);
+
+		const restored = await editPlugin(app, { id: PLUGIN_ID, restore: { contribution: agentId } });
+		expect(restored.status).toBe(200);
+		expect(await agentNow()).toEqual(plugins);
+		const view = (await contributionsOf(app)).find((c) => c.entityId === agentId);
+		expect(view?.detachedAt).toBeNull();
+	});
+
+	test("editing the plugin's reason to start marks it changed by you; restore puts its trigger back", async ({
+		db,
+		pluginsApp: app,
+	}) => {
+		await seedFounder(db);
+		await install(app);
+		const contributions = await contributionsOf(app);
+		const agentId = contributions.find((c) => c.kind === "agent")?.entityId ?? "";
+		const reasonId = contributions.find((c) => c.kind === "subscription")?.entityId ?? "";
+		const reasonNow = async () => {
+			const [r] = await db.select().from(subscriptions).where(eq(subscriptions.id, reasonId));
+			return { event: r?.event, schedule: r?.schedule, paused: r?.paused };
+		};
+		const plugins = await reasonNow();
+
+		const res = await editUser(app, {
+			id: agentId,
+			subscriptions: { change: [{ id: reasonId, schedule: "0 9 * * 1", paused: true }] },
+		});
+		expect(res.status).toBe(200);
+		const changed = (await contributionsOf(app)).find((c) => c.entityId === reasonId);
+		expect(changed?.detachedBy).toBe(FOUNDER);
+
+		const restored = await editPlugin(app, { id: PLUGIN_ID, restore: { contribution: reasonId } });
+		expect(restored.status).toBe(200);
+		expect(await reasonNow()).toEqual(plugins);
+		const view = (await contributionsOf(app)).find((c) => c.entityId === reasonId);
+		expect(view?.detachedAt).toBeNull();
+	});
+});
+
+describe("a plugin says where it came from", () => {
+	test("search_plugins names the folder it was added from, who added it, and what it is", async ({
+		db,
+		app,
+	}) => {
+		await seedFounder(db);
+		const dir = await install(app);
+
+		const plugin = await pluginOf(app);
+		expect(plugin?.source).toEqual({ kind: "folder", address: dir });
+		expect(plugin?.installedBy).toBe(FOUNDER);
+		expect(plugin?.description).toBe(
+			"Document Librarian agent with decay, document triage, and post-task retro subscriptions.",
+		);
 	});
 });

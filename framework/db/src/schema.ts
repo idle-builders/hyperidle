@@ -1,4 +1,8 @@
-import type { PluginState, StoredPluginContributionKind } from "@hyperidle/domain-model";
+import type {
+	PluginSourceKind,
+	PluginState,
+	StoredPluginContributionKind,
+} from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
 import {
 	type AnyPgColumn,
@@ -730,6 +734,13 @@ export const plugins = pgTable(
 		 * at session materialisation time.
 		 */
 		installPath: text("install_path"),
+		/** Where it was added from; `sourceAddress` is the folder, repository URL or zip path as given, or the manifest name for a bundled one. */
+		sourceKind: text("source_kind").$type<PluginSourceKind>().notNull(),
+		sourceAddress: text("source_address").notNull(),
+		/** The manifest's description, as of the last install. */
+		description: text("description"),
+		/** Who added it; null only for an install made before this was kept. */
+		installedBy: text("installed_by"),
 		installedAt: text("installed_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 		disabledAt: text("disabled_at"),
@@ -738,6 +749,10 @@ export const plugins = pgTable(
 	(table) => [
 		check("plugins_state_ck", sql`${table.state} IN ('enabled', 'disabled', 'removed')`),
 		check("plugins_scope_kind_ck", sql`${table.scopeKind} IN ('factory', 'team')`),
+		check(
+			"plugins_source_kind_ck",
+			sql`${table.sourceKind} IN ('folder', 'git', 'zip', 'bundled')`,
+		),
 		uniqueIndex("plugins_name_scope_uq").on(table.name, table.scopeKind, table.scopeTeamId),
 	],
 );
@@ -761,6 +776,8 @@ export const pluginContributions = pgTable(
 		entityId: text("entity_id").notNull(),
 		/** Set when a person edited this contribution; a reinstall leaves their version alone. */
 		detachedAt: text("detached_at"),
+		/** Who made that edit. */
+		detachedBy: text("detached_by"),
 		createdAt: text("created_at").notNull(),
 	},
 	(table) => [

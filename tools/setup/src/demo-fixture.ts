@@ -19,11 +19,14 @@ import { createDemoClock } from "./demo-world/time.js";
 /**
  * Seed the demo world. Idempotent: fixed `demo-*` ids with
  * `onConflictDoNothing` throughout, and the plugin install re-runs in place.
+ * `pluginsBaseDir` is where the server will keep installed plugins, so the
+ * demo's plugin can put its own version back.
  *
  * @returns the Product team id and the founder's user id.
  */
 export async function seedDemoWorld(
 	db: HyperIdleDb,
+	opts: { readonly pluginsBaseDir?: string } = {},
 ): Promise<{ teamId: string; founderId: string }> {
 	const clock = createDemoClock();
 	await db
@@ -33,6 +36,6 @@ export async function seedDemoWorld(
 			{ id: SUPPORT_TEAM_ID, name: "Support", createdAt: clock.daysAgo(98) },
 		])
 		.onConflictDoNothing();
-	await seedDemoWorldContent(db, clock);
+	await seedDemoWorldContent(db, clock, opts.pluginsBaseDir);
 	return { teamId: PRODUCT_TEAM_ID, founderId: FOUNDER_ID };
 }

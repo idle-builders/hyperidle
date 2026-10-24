@@ -185,11 +185,25 @@ const SERVICES = [
 
 /** What a person edited after the plugin installed it, so a reinstall leaves it alone. */
 const PLUGIN_EDITS = [
-	{ title: "Facilitation — identity", by: MAYA_ID, daysAgo: 14 },
-	{ title: "Propose a change to How we work", by: FOUNDER_ID, daysAgo: 6 },
+	{
+		title: "Facilitation — identity",
+		by: MAYA_ID,
+		daysAgo: 14,
+		add: "- Keep a proposal short enough to read in two minutes.",
+	},
+	{
+		title: "Propose a change to How we work",
+		by: FOUNDER_ID,
+		daysAgo: 6,
+		add: "Ask Maya before you propose a change to how reviews work.",
+	},
 ] as const;
 
-export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void> {
+export async function seedCast(
+	db: HyperIdleDb,
+	clock: DemoClock,
+	pluginsBaseDir?: string,
+): Promise<void> {
 	for (const person of PEOPLE) {
 		await db
 			.insert(users)
@@ -324,7 +338,7 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 				.onConflictDoNothing();
 
 	await seedGrowthsMonday(db, clock);
-	await seedTeamHabits(db, clock);
+	await seedTeamHabits(db, clock, pluginsBaseDir);
 }
 
 async function setRunConfig(
@@ -383,17 +397,18 @@ async function seedGrowthsMonday(db: HyperIdleDb, clock: DemoClock): Promise<voi
  * the company started; Facilitation runs on Claude Code. Two of its documents
  * were edited by a person since, which detaches them from the plugin.
  */
-async function seedTeamHabits(db: HyperIdleDb, clock: DemoClock): Promise<void> {
+async function seedTeamHabits(
+	db: HyperIdleDb,
+	clock: DemoClock,
+	pluginsBaseDir: string | undefined,
+): Promise<void> {
 	const view = await installPluginOutsideServer(db, {
 		source: { kind: "folder", path: TEAM_HABITS_DIR, scope: { kind: "factory", teamId: null } },
 		actor: FOUNDER_ID,
 		now: clock.daysAgo(98),
+		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
 	});
 	await setRunConfig(db, FACILITATION_ID, "claude-code", 1);
-	await db
-		.update(users)
-		.set({ what: "Keeps how we work written down." })
-		.where(eq(users.id, FACILITATION_ID));
 	// The install counts the next Friday from its own date, long past; the
 	// Fridays since then have run, so the next one is still to come.
 	const daysToFriday = (4 - clock.daysSinceMonday + 7) % 7 || 7;
@@ -407,13 +422,22 @@ async function seedTeamHabits(db: HyperIdleDb, clock: DemoClock): Promise<void> 
 			(c) => c.kind === "document" && c.label === edit.title,
 		);
 		if (!contribution) throw new Error(`Team habits did not contribute "${edit.title}"`);
+		const [doc] = await db
+			.select({ body: documents.body })
+			.from(documents)
+			.where(eq(documents.id, contribution.entityId));
 		await db
 			.update(documents)
-			.set({ updatedBy: edit.by, updatedAt: clock.daysAgo(edit.daysAgo), version: 2 })
+			.set({
+				body: `${doc?.body.trimEnd() ?? ""}\n${edit.add}\n`,
+				updatedBy: edit.by,
+				updatedAt: clock.daysAgo(edit.daysAgo),
+				version: 2,
+			})
 			.where(eq(documents.id, contribution.entityId));
 		await db
 			.update(pluginContributions)
-			.set({ detachedAt: clock.daysAgo(edit.daysAgo) })
+			.set({ detachedAt: clock.daysAgo(edit.daysAgo), detachedBy: edit.by })
 			.where(
 				and(
 					eq(pluginContributions.pluginId, view.id),
