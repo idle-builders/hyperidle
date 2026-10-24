@@ -13,4 +13,4 @@ The UI lives in `layers/core-ui/src/`: plain React + CSS, no utility framework, 
 
 - Styles go in the component's own CSS block or in `app.css`. Never add raw colour literals outside `tokens.css`.
 - No Tailwind, no DaisyUI, no CSS-in-JS.
-- No made-up data in production code. Screens read the backend through `call` / `useAction`; the demo world (`tools/setup/src/demo-world`) holds the story. Screens not wired yet still carry the design's made-up data — each is removed when its screen is wired, and none survives the cutover branch.
+- No made-up data in production code. Screens read the backend through `call` / `useAction`; the demo world (`tools/setup/src/demo-world`) holds the story.
