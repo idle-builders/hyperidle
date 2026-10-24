@@ -201,7 +201,7 @@ interface BootContext {
 	credentialsPath: string;
 }
 
-function registerCommonIpcHandlers(mainWindow: BrowserWindow, ctx: BootContext): void {
+function registerCommonIpcHandlers(ctx: BootContext): void {
 	ipcMain.handle("shell:open-logs", async (): Promise<void> => {
 		await shell.openPath(ctx.logDir);
 	});
@@ -227,13 +227,6 @@ function registerCommonIpcHandlers(mainWindow: BrowserWindow, ctx: BootContext):
 			return { ok: true };
 		},
 	);
-	ipcMain.handle("shell:select-folder", async (): Promise<string | null> => {
-		const result = await dialog.showOpenDialog(mainWindow, {
-			properties: ["openDirectory"],
-			title: "Select repository folder",
-		});
-		return result.canceled ? null : (result.filePaths[0] ?? null);
-	});
 }
 
 function bindWindowStatePersistence(mainWindow: BrowserWindow, configPath: string): void {
@@ -466,7 +459,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 
 	const credManager = createSafeCredentialsManager(ctx.credentialsPath);
 	credManager.registerHandlers();
-	registerCommonIpcHandlers(mainWindow, ctx);
+	registerCommonIpcHandlers(ctx);
 
 	const menuTemplate = buildAppMenuTemplate({
 		isDev: IS_DEV,
@@ -539,7 +532,7 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 
 	const credManager = createSafeCredentialsManager(ctx.credentialsPath);
 	credManager.registerHandlers();
-	registerCommonIpcHandlers(mainWindow, ctx);
+	registerCommonIpcHandlers(ctx);
 
 	let workerClient: RemoteWorkerClient | null = null;
 	const workerIpcChannels = [

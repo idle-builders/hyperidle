@@ -438,10 +438,9 @@ export function buildCoreActions(bindings: {
 
 /**
  * A minimal, standalone document action list — never `buildCoreActions`'s
- * composed HTTP/MCP list — for the composition roots that need
- * `search_documents`/`edit_document` before or outside that list exists:
- * the pre-auth first-run setup route (called before any request has reached
- * `createCoreApiApp`). `openParent` is honestly
+ * composed HTTP/MCP list — for the callers that need
+ * `search_documents`/`edit_document` outside that list (the eval tools).
+ * `openParent` is honestly
  * unreachable here: it fires only from `edit_document` when the caller's
  * `parent.kind` is `"task"`/`"thread"`, and this caller never parents a
  * document that way (an agent identity document is agent-parented). Throws
@@ -474,8 +473,7 @@ function buildStandaloneDocumentActions(): readonly Action[] {
 
 /**
  * `search_documents` and `edit_document`, standalone (see
- * `buildStandaloneDocumentActions` above) — the pre-auth setup route feeds
- * both into `createAgentIdentityPort`.
+ * `buildStandaloneDocumentActions` above).
  */
 export function buildStandaloneDocumentRunners(): {
 	readonly searchDocuments: SearchDocumentsRunFn;
