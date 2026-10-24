@@ -10,7 +10,7 @@ import {
 	type VerdictPayload,
 } from "@hyperidle/domain-model";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
 import { listen } from "./live";
@@ -344,16 +344,21 @@ export function ThreadPage({ id }: { id: string }) {
 	const sessions = useTaskSessions(tasks.map((t) => t.id));
 	const [problem, setProblem] = useState<string | null>(null);
 	const scroll = useRef<HTMLDivElement>(null);
+	// The first conversation after first start offers what an agent can use next.
+	const [search, setSearch] = useSearchParams();
+	const navigate = useNavigate();
+	const first = search.has("first");
 
 	const you = me.data?.user?.id ?? "";
 	const people = peopleOf(users.data ?? []);
-	const first = (uid: string) =>
+	const firstName = (uid: string) =>
 		uid === you ? "You" : (people.get(uid)?.name.split(" ")[0] ?? "Someone");
+	const agent = view.data?.members.find((m) => m.isAgent);
 	const messages = [...(view.data?.messages ?? NO_MESSAGES)]
 		.filter((m) => m.deletedAt === null)
 		.reverse();
 	const resolving = resolvingOf(messages);
-	const entries = timeline(messages, tasks, sessions, first);
+	const entries = timeline(messages, tasks, sessions, firstName);
 	const running = sessions.filter((s) => s.endedAt === null && s.state === "active");
 
 	// A thread opens at its newest message, and follows new ones in.
@@ -398,7 +403,7 @@ export function ThreadPage({ id }: { id: string }) {
 							<WorkItem
 								key={e.key}
 								task={e.task}
-								owner={first(e.task.ownerAgentId ?? "")}
+								owner={firstName(e.task.ownerAgentId ?? "")}
 								openReviews={
 									messages.filter(
 										(m) =>
@@ -439,8 +444,36 @@ export function ThreadPage({ id }: { id: string }) {
 					);
 				})}
 				{running.map((s) => (
-					<SessionLine key={s.id} session={s} agent={first(s.agentId)} />
+					<SessionLine key={s.id} session={s} agent={firstName(s.agentId)} />
 				))}
+				{first && agent && (
+					<div className="hint">
+						<span>Point {agent.name} at your code, and it can do more</span>
+						<span className="hint-acts">
+							<button
+								type="button"
+								className="btn"
+								onClick={() => navigate("/people/me?open=folder")}
+							>
+								Connect a folder
+							</button>
+							<button
+								type="button"
+								className="btn"
+								onClick={() => navigate("/people/me?open=service")}
+							>
+								Connect GitHub
+							</button>
+							<button
+								type="button"
+								className="hint-skip"
+								onClick={() => setSearch({}, { replace: true })}
+							>
+								Not now
+							</button>
+						</span>
+					</div>
+				)}
 			</div>
 
 			{problem && <p className="composer-problem">{problem}</p>}

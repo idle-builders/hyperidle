@@ -287,7 +287,7 @@ function Notifications({
 					className="notes-act"
 					onClick={() => {
 						onClose();
-						navigate("/people/me?change=told");
+						navigate("/people/me?open=start");
 					}}
 				>
 					Change what you are told about

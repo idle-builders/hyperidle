@@ -514,11 +514,14 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 	);
 	const agentViews = useViews(isMe ? myAgents.map((a) => a.id) : []);
 	const [dialog, setDialog] = useState<DialogId | null>(null);
-	// The bell's "Change what you are told about" opens the dialog here.
-	const askedToChange = search.get("change") === "told" && isMe;
+	// A dialog asked for from elsewhere: the bell's "Change what you are told about" (start), and
+	// the first conversation's "Connect a folder" and "Connect GitHub".
+	const asked = search.get("open");
+	const askedFor =
+		isMe && (asked === "start" || asked === "folder" || asked === "service") ? asked : null;
 	useEffect(() => {
-		if (askedToChange) setDialog("start");
-	}, [askedToChange]);
+		if (askedFor) setDialog(askedFor);
+	}, [askedFor]);
 	const [showDone, setShowDone] = useState(false);
 	const [looked, setLooked] = useState<string | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
@@ -536,7 +539,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 	const home = u.teams[0] ?? null;
 	const close = () => {
 		setDialog(null);
-		if (search.has("change")) setSearch({}, { replace: true });
+		if (search.has("open")) setSearch({}, { replace: true });
 	};
 	const after = (result: { ok: boolean; problems?: readonly { message: string }[] }) => {
 		reload();

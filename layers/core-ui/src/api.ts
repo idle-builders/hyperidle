@@ -24,7 +24,15 @@ export type OutputOf<N extends ActionName> = Parts<Actions[N]>["output"];
 declare global {
 	interface Window {
 		/** Set by the desktop app's preload. */
-		__HYPERIDLE__?: { readonly apiKey: string };
+		__HYPERIDLE__?: {
+			readonly apiKey: string;
+			/** Desktop only: keep a secret in the computer's keychain. */
+			readonly credentials?: {
+				set(name: string, value: string): Promise<{ stored: boolean; warning?: string }>;
+			};
+			/** Desktop only: reopen on a team's server, once its key is kept. */
+			readonly join?: (address: string) => Promise<{ ok: boolean; problem?: string }>;
+		};
 	}
 }
 

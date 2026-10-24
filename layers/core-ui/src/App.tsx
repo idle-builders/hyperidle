@@ -1,19 +1,25 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Outlet, Route, Routes, useParams, useSearchParams } from "react-router";
-import { Arrive } from "./Arrive";
 import { Judge } from "./Judge";
 import { useAppLooks } from "./looks";
 import { TeamScreen, UserScreen } from "./People";
 import { PluginScreen } from "./Plugins";
 import { Shift } from "./Shift";
 import { Sidebar } from "./Sidebar";
+import { Start } from "./Start";
 import { NewConversation, ThreadPage } from "./Thread";
+import { useAction } from "./useAction";
 
 /** The document page carries the editor, the largest piece of the app; it loads when a document is opened. */
 const Think = lazy(() => import("./Think").then((m) => ({ default: m.Think })));
 
-/** The one shell: the sidebar, and the screen the address names beside it. */
+/**
+ * The one shell: the sidebar, and the screen the address names beside it. A fresh install — no
+ * person has a row yet — goes to first start instead.
+ */
 function Shell() {
+	const me = useAction("open_user", {});
+	if (me.data && me.data.user === null) return <Navigate to="/start" replace />;
 	return (
 		<div className="frame">
 			<Sidebar />
@@ -67,14 +73,7 @@ export function App() {
 	useAppLooks();
 	return (
 		<Routes>
-			<Route
-				path="/start"
-				element={
-					<div className="frame frame--first">
-						<Arrive step={0} />
-					</div>
-				}
-			/>
+			<Route path="/start" element={<Start />} />
 			<Route element={<Shell />}>
 				<Route path="/conversations" element={null} />
 				<Route path="/conversations/new" element={<NewConversation />} />

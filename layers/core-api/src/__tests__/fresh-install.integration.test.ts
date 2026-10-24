@@ -2,7 +2,7 @@
  * A fresh install, end to end, through the actions the app and its agents
  * call.
  *
- * Boot writes only the hidden system actor. The welcome screen's two calls
+ * Boot writes only the hidden system actor. Two calls — a person, and their own assistant —
  * leave the person, their team and one agent — their assistant, owned, on the
  * picked harness, with one empty subscription per object event — and nothing
  * else: no prompt documents, no documents, tasks or threads. A message to the
@@ -185,7 +185,7 @@ function bundled(name: string, teamId: string | null): Record<string, unknown> {
 }
 
 describe("a fresh install, end to end", () => {
-	test("the welcome screen leaves one assistant; plugins bring every other agent, per team", async ({
+	test("a person and their assistant leave one agent; plugins bring every other agent, per team", async ({
 		db,
 		app,
 		eventBus,
@@ -194,7 +194,7 @@ describe("a fresh install, end to end", () => {
 		await applyFactoryCoreState(db);
 		const { search, edit, pluginsBaseDir } = pluginActions(agentOrchestration, db, eventBus);
 
-		// The welcome screen's two calls.
+		// A person, and their own assistant.
 		const ada = await call<UserView>(app, "edit_user", {
 			kind: "human",
 			name: "Ada",

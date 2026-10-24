@@ -1262,10 +1262,6 @@ kbd {
 }
 
 /* ---------- ARRIVE — one navigation column, not two ---------- */
-.frame--first {
-	grid-template-columns: minmax(0, 1fr);
-}
-
 .nav {
 	border-right: var(--line-w) solid var(--line);
 	background: var(--sunk);
@@ -4170,6 +4166,7 @@ select.in {
 }
 /* first start: what to do when no agent program is ready */
 .found-fix {
+	grid-column: 2 / -1;
 	font: var(--t-meta);
 	color: var(--ink-2);
 }
@@ -4193,6 +4190,9 @@ select.in {
 }
 .first-other:hover {
 	text-decoration-color: var(--ink-3);
+}
+.first-other--start {
+	align-self: flex-start;
 }
 .page-title--empty {
 	color: var(--ink-3);

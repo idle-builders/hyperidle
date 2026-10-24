@@ -208,6 +208,25 @@ function registerCommonIpcHandlers(mainWindow: BrowserWindow, ctx: BootContext):
 	ipcMain.handle("shell:open-data", async (): Promise<void> => {
 		await shell.openPath(ctx.userDataDir);
 	});
+	// First start's "Join a team on a server": the key is already stored through
+	// credentials:set; this checks the server answers, then reopens the app in shared mode.
+	ipcMain.handle(
+		"backend:join",
+		async (_event: unknown, address: string): Promise<{ ok: boolean; problem?: string }> => {
+			const trimmed = address.trim().replace(/\/$/, "");
+			const serverUrl = /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
+			if (!URL.canParse(serverUrl)) return { ok: false, problem: "That is not a server address." };
+			try {
+				await waitForRemoteHealth(serverUrl, 10_000);
+			} catch {
+				return { ok: false, problem: `${serverUrl} did not answer.` };
+			}
+			saveClientConfig(ctx.configPath, { backendMode: "shared", serverUrl });
+			app.relaunch();
+			app.exit(0);
+			return { ok: true };
+		},
+	);
 	ipcMain.handle("shell:select-folder", async (): Promise<string | null> => {
 		const result = await dialog.showOpenDialog(mainWindow, {
 			properties: ["openDirectory"],
@@ -483,7 +502,11 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 			preload: preloadPath,
 			contextIsolation: true,
 			sandbox: true,
-			additionalArguments: ["--backend-mode=shared"],
+			// The key the server's owner gave at joining, so the app can speak to it.
+			additionalArguments: [
+				"--backend-mode=shared",
+				`--api-key=${readCredentialFromStore("shared_backend_key") ?? ""}`,
+			],
 		},
 		show: false,
 	});
