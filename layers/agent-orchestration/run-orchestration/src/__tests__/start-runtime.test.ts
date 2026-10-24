@@ -195,17 +195,21 @@ describe("startRuntime resource ownership", () => {
 			runtime: {} as NonNullable<RuntimeDeps["runtime"]>,
 		};
 		state.runSessionThrows = () => new ConcurrencyLimitError("agent-concurrency-test", 1);
-		const stuckRequest = { id: "request-concurrency-stuck" } as unknown as AgentSessionRequest;
+		const stuckRequest = {
+			id: "request-concurrency-stuck",
+			agentId: "agent-concurrency-test",
+		} as unknown as AgentSessionRequest;
 		let claimCalls = 0;
 		if (!runtimeDeps.ports) throw new Error("test runtime ports missing");
-		runtimeDeps.ports.sessionRequests.claimSessionRequest = vi.fn(async () => {
+		runtimeDeps.ports.sessionRequests.claimSessionRequest = vi.fn(async (_db, selector) => {
 			claimCalls += 1;
 			if (claimCalls > MAX_SAFE_CLAIMS) {
 				throw new Error(
 					`drainAgentSessionRequests reclaimed a ConcurrencyLimitError-released request ${claimCalls} times in one drain call — busy-loop regression`,
 				);
 			}
-			return stuckRequest;
+			const skipped = "next" in selector ? (selector.skipAgentIds ?? []) : [];
+			return skipped.includes(stuckRequest.agentId) ? null : stuckRequest;
 		});
 		runtimeDeps.ports.sessionRequests.findSessionRequest = vi.fn(
 			async () => undefined,
@@ -213,16 +217,15 @@ describe("startRuntime resource ownership", () => {
 
 		await startRuntime(runtimeDeps);
 
-		// `startRuntime` itself does one synchronous `await wake()` as part of
-		// boot (before the 1s interval even starts) — that single wake must
-		// claim the stuck request exactly ONCE, not loop.
-		expect(claimCalls).toBe(1);
+		// The boot wake claims the stuck request once, then asks for work from
+		// any other agent (none here) and stops — it never reclaims the stuck one.
+		expect(claimCalls).toBe(2);
 
 		// The retry belongs to the NEXT natural wake() cadence (1s), not the
-		// same drain call — one more claim per tick, never a burst.
+		// same drain call — one more attempt per tick, never a burst.
 		await vi.advanceTimersByTimeAsync(1_000);
-		expect(claimCalls).toBe(2);
+		expect(claimCalls).toBe(4);
 		await vi.advanceTimersByTimeAsync(1_000);
-		expect(claimCalls).toBe(3);
+		expect(claimCalls).toBe(6);
 	});
 });

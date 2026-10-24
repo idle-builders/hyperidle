@@ -121,7 +121,7 @@ export interface RuntimePorts {
 	readonly sessionRequests: {
 		claimSessionRequest(
 			exec: HyperIdleDb,
-			selector: { next: true } | { id: string },
+			selector: { next: true; skipAgentIds?: readonly string[] } | { id: string },
 			options: { workerId: string; now: Date; leaseMs: number },
 		): Promise<AgentSessionRequest | null>;
 		findSessionRequest(

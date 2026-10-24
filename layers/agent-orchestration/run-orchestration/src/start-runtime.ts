@@ -85,10 +85,11 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 	assertStartable(deps);
 	if (!deps.runtime) return 0;
 	let consumed = 0;
+	const atLimit = new Set<string>();
 	for (;;) {
 		const request = await deps.ports.sessionRequests.claimSessionRequest(
 			deps.db,
-			{ next: true },
+			{ next: true, skipAgentIds: [...atLimit] },
 			{ workerId: "agent-layer", now: new Date(), leaseMs: 30_000 },
 		);
 		if (!request) return consumed;
@@ -104,8 +105,8 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 		} catch (error) {
 			const failure = classifyAdmissionFailure(error);
 			// @lore: catch block — runClaimedRequest terminalizes before rethrowing; ConcurrencyLimitError → pending, others → failed; retrying would double-terminalize
-			// @lore: ConcurrencyLimitError early-return — released claim reclaimable immediately; looping back busy-spins at 100% CPU; return lets wake() retry after 1s
-			if (failure.code === "CONCURRENCY_LIMIT") return consumed;
+			// @lore: ConcurrencyLimitError — skip that agent for the rest of this pass so its waiting request never blocks other agents; reclaiming it here busy-spins at 100% CPU; the next wake() retries it after 1s
+			if (failure.code === "CONCURRENCY_LIMIT") atLimit.add(request.agentId);
 		}
 	}
 }

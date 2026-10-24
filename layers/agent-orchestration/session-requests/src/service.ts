@@ -15,7 +15,7 @@ import type {
 } from "@hyperidle/domain-model";
 import { agentSessionRequestInputSchema } from "@hyperidle/domain-model";
 import type { AgentRunAdmissionFailureCode, EventBus } from "@hyperidle/event-bus";
-import { and, asc, eq, gt, inArray, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { executeRows } from "./execute-rows.js";
 import { isAgentWorkIntentKind, isAgentWorkIntentSourceKind } from "./guards.js";
 
@@ -170,6 +170,7 @@ async function insertRequestInternal(db: HyperIdleDb, input: AgentSessionRequest
 async function claimNextRequestInternal(
 	db: HyperIdleDb,
 	workerId: string,
+	skipAgentIds: readonly string[],
 	options: Pick<ClaimOptions, "now" | "leaseMs">,
 ) {
 	const now = options.now.toISOString();
@@ -177,12 +178,17 @@ async function claimNextRequestInternal(
 		.select()
 		.from(agentSessionRequests)
 		.where(
-			or(
-				eq(agentSessionRequests.status, "pending"),
-				and(
-					eq(agentSessionRequests.status, "claimed"),
-					lt(agentSessionRequests.claimExpiresAt, now),
+			and(
+				or(
+					eq(agentSessionRequests.status, "pending"),
+					and(
+						eq(agentSessionRequests.status, "claimed"),
+						lt(agentSessionRequests.claimExpiresAt, now),
+					),
 				),
+				skipAgentIds.length > 0
+					? notInArray(agentSessionRequests.agentId, [...skipAgentIds])
+					: undefined,
 			),
 		)
 		.orderBy(asc(agentSessionRequests.createdAt))
@@ -1018,13 +1024,15 @@ export function listSessionRequests(
 }
 export function claimSessionRequest(
 	exec: HyperIdleDb,
-	selector: { readonly next: true } | { readonly id: string },
+	selector:
+		| { readonly next: true; readonly skipAgentIds?: readonly string[] }
+		| { readonly id: string },
 	options: ClaimOptions,
 ) {
 	const claim = { now: options.now, leaseMs: options.leaseMs };
 	return "id" in selector
 		? claimRequestIdInternal(exec, selector.id, options.workerId, claim)
-		: claimNextRequestInternal(exec, options.workerId, claim);
+		: claimNextRequestInternal(exec, options.workerId, selector.skipAgentIds ?? [], claim);
 }
 export function renewClaim(
 	exec: HyperIdleDb,
