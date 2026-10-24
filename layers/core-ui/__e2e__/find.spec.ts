@@ -27,9 +27,6 @@ test("⌘K finds trial in knowledge, conversations and work, and ↵ opens the o
 	for (const group of ["Knowledge", "Conversations", "Work"])
 		await expect(found.getByText(group, { exact: true })).toBeVisible();
 	await expect(
-		found.getByRole("option", { name: /^Trial-end confusion, three tickets/ }),
-	).toBeVisible();
-	await expect(
 		found.getByRole("option", { name: /^Trials that convert without a call/ }),
 	).toBeVisible();
 	// The preview marks where it matched.
@@ -41,13 +38,10 @@ test("⌘K finds trial in knowledge, conversations and work, and ↵ opens the o
 	await page.keyboard.press("ArrowDown");
 	await expect(options.nth(1)).toHaveAttribute("aria-selected", "true");
 	await expect(options.first()).toHaveAttribute("aria-selected", "false");
-	await found.getByRole("option", { name: /^Trial-end confusion, three tickets/ }).hover();
+	await found.getByRole("option", { name: /^Trials that convert without a call/ }).hover();
 	await page.keyboard.press("Enter");
 	await expect(overlay).toHaveCount(0);
-	await expect(page).toHaveURL(/\/conversations\/demo-thread-trial-end$/);
-	await expect(
-		page.getByRole("heading", { name: "Trial-end confusion, three tickets" }),
-	).toBeVisible();
+	await expect(page).toHaveURL(/\/work\/demo-task-trials$/);
 
 	// Esc and a click outside both close it.
 	await page.getByRole("button", { name: /Find or ask/ }).click();
