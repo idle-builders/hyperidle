@@ -117,7 +117,6 @@ working through the backend changes.
     hits carry the matching text and their team; `POST /api/start` and `/api/start/look`; the
     desktop's `backend:join`, and shared mode passes the kept key to the page. `Arrive.tsx` is
     gone.
-- [ ] Step 4, the last item: the gaps step 1 kept.
 - [ ] Step 5 finish.
 
 
