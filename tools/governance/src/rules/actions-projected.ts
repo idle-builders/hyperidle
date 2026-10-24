@@ -69,8 +69,8 @@ function scanDeclaredActionNames(
 }
 
 /**
- * The twenty-six registrations that realise the twenty-six plumbing doors —
- * internal seams, auth, health. A route, never an action.
+ * The registrations that realise the plumbing doors — internal seams, auth,
+ * health, first start. A route, never an action.
  *
  * @lore `GET /sessions/:sessionId` (a live core-api caller,
  * `port.sessions.getById`) and `POST /runs/stop-for-tasks` (a live core-api
@@ -118,6 +118,10 @@ const PLUMBING_ROUTES: readonly string[] = [
 	// folder detail (git repo? which branch?) BEFORE a folder exists to
 	// register — a plumbing lookup, not an action. Moved from LEGACY_ROUTES.
 	"layers/agent-orchestration/src/routes/filesystems.ts|POST /inspect-path",
+	// First start runs before anyone has a row, so there is no one to run an action as: a
+	// bootstrap door like auth, not an action.
+	"layers/core-api/src/routes/start.ts|POST /look",
+	"layers/core-api/src/routes/start.ts|POST /",
 ];
 
 /** The nine object events — task/thread/document/user, edit-in/changed-out. */
