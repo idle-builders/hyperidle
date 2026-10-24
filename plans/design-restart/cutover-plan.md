@@ -117,7 +117,12 @@ working through the backend changes.
     hits carry the matching text and their team; `POST /api/start` and `/api/start/look`; the
     desktop's `backend:join`, and shared mode passes the kept key to the page. `Arrive.tsx` is
     gone.
-- [ ] Step 5 finish.
+- [ ] Step 5 finish:
+  - [x] leftovers of the old UI that nothing reached (CSS classes, the desktop worker and settings
+    bridge, inspect-path, display helpers and the agent track record, two unwired lint rules), one
+    home for the installed-plugins folder, the desktop window and splash on the Paper canvas, the
+    docs and the skills that drive the app rewritten to the new app.
+  - [ ] the desktop and web smoke tests, and the pull request.
 
 
 ### Step 0: decisions (founder, 2026-10-20)
