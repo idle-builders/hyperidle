@@ -2,6 +2,7 @@ import type { EditPluginSource, PluginListing, Problem } from "@hyperidle/domain
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { call } from "./api";
+import { Failed } from "./Failed";
 import { Avatar } from "./Msg";
 import type { Pair as Row } from "./people-page";
 import { type PluginStand, pluginPage } from "./plugin-page";
@@ -63,14 +64,18 @@ export function PluginScreen({ id }: { id: string }): React.ReactElement {
 		teamsOf(everyone).find((t) => t.name === teamName) ?? me.data?.user?.teams[0] ?? null;
 	const toTeam = () => navigate(`/teams/${encodeURIComponent(team?.name ?? teamName)}`);
 
-	if (plugins.data && !listing)
+	if (plugins.problems || (plugins.data && !listing))
 		return (
 			<section className="detail">
 				<header className="detail-head">
 					<span className="chip chip--quiet">Plugin</span>
 				</header>
 				<div className="detail-scroll">
-					<p className="opened-note">There is no plugin {id} here.</p>
+					<Failed
+						what="This plugin"
+						why={plugins.problems?.[0]?.message ?? `There is no plugin ${id} here.`}
+						onRetry={plugins.reload}
+					/>
 				</div>
 			</section>
 		);

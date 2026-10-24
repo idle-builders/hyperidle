@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { call, type InputOf } from "./api";
 import { disciplinesOf } from "./doc-page";
+import { Failed } from "./Failed";
 import { LOOKS, useLooks } from "./looks";
 import { Avatar } from "./Msg";
 import { NeedIcon } from "./NeedIcon";
@@ -219,14 +220,18 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 	const you = me.data?.user?.id ?? "";
 	const everyone = users.data ?? NO_USERS;
 	const team = teamsOf([...everyone]).find((t) => t.name === name);
-	if (users.data && !team)
+	if (users.problems || (users.data && !team))
 		return (
 			<section className="detail">
 				<header className="detail-head">
 					<span className="chip chip--quiet">Team</span>
 				</header>
 				<div className="detail-scroll">
-					<p className="opened-note">There is no team called {name}.</p>
+					<Failed
+						what="This team"
+						why={users.problems?.[0]?.message ?? `There is no team called ${name}.`}
+						onRetry={users.reload}
+					/>
 				</div>
 			</section>
 		);
@@ -469,7 +474,7 @@ export function UserScreen({ id }: { id: string }): React.ReactElement {
 					<span className="chip chip--quiet">Person</span>
 				</header>
 				<div className="detail-scroll">
-					<p className="opened-note">{view.problems[0]?.message ?? "This page did not load."}</p>
+					<Failed what="This page" why={view.problems[0]?.message} onRetry={view.reload} />
 				</div>
 			</section>
 		);

@@ -13,6 +13,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
+import { Failed } from "./Failed";
 import { listen } from "./live";
 import { Avatar, Event, Msg } from "./Msg";
 import { RichText } from "./RichText";
@@ -383,7 +384,7 @@ export function ThreadPage({ id }: { id: string }) {
 					<span className="chip chip--quiet">Thread</span>
 				</header>
 				<div className="thread-scroll">
-					<p className="opened-note">{view.problems[0]?.message ?? "This thread did not load."}</p>
+					<Failed what="This thread" why={view.problems[0]?.message} onRetry={view.reload} />
 				</div>
 			</section>
 		);

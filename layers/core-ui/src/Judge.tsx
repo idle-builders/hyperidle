@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
+import { Failed } from "./Failed";
 import { Closes, Reasons, toClose, toReason } from "./Loop";
 import { DEVICES, PartBody, type Point, partTitle } from "./ReviewPart";
 import { nextRoundOf, type PinThread, pinsOf, type Round, roundsOf } from "./review-page";
@@ -80,9 +81,11 @@ export function Judge({ threadId, reviewId }: { threadId: string; reviewId: stri
 					</button>
 				</header>
 				<div className="rev-scroll">
-					<p className="opened-note">
-						{view.problems?.[0]?.message ?? "This review is not in this conversation."}
-					</p>
+					<Failed
+						what="This review"
+						why={view.problems?.[0]?.message ?? "It is not in this conversation."}
+						onRetry={view.reload}
+					/>
 				</div>
 			</section>
 		);

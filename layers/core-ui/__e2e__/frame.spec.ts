@@ -49,3 +49,23 @@ test("the sidebar lists the demo world and every row is an address you can go ba
 		page.getByRole("heading", { name: "Trial-end confusion, three tickets" }),
 	).toBeVisible();
 });
+
+test("a page whose id does not exist says it did not load, and Try again asks once more", async ({
+	page,
+}) => {
+	for (const [address, what] of [
+		["/conversations/no-such-thread", "This thread"],
+		["/conversations/demo-thread-trial-end?review=no-such-review", "This review"],
+		["/work/no-such-task", "This task"],
+		["/knowledge/no-such-document", "This document"],
+		["/people/no-such-person", "This page"],
+		["/teams/No such team", "This team"],
+		["/plugins/no-such-plugin", "This plugin"],
+	]) {
+		await page.goto(address);
+		const failed = page.getByRole("alert");
+		await expect(failed).toContainText(`${what} did not load.`);
+		await failed.getByRole("button", { name: "Try again" }).click();
+		await expect(failed).toContainText("Tried again just now.");
+	}
+});

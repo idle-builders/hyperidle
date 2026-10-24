@@ -21,6 +21,7 @@ import {
 	tasksIn,
 	UNTITLED,
 } from "./doc-page";
+import { Failed } from "./Failed";
 import { DOC_FORMATS, FormatBar } from "./FormatBar";
 import { useFocus } from "./focus";
 import { listen } from "./live";
@@ -785,9 +786,7 @@ export function Think({ id }: { id: string }) {
 					<span className="chip chip--quiet">Document</span>
 				</header>
 				<div className="detail-scroll">
-					<p className="opened-note">
-						{view.problems[0]?.message ?? "This document did not load."}
-					</p>
+					<Failed what="This document" why={view.problems[0]?.message} onRetry={view.reload} />
 				</div>
 			</section>
 		);

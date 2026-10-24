@@ -12,6 +12,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
+import { Failed } from "./Failed";
 import { Closes, Reasons, toClose, toReason } from "./Loop";
 import { Event, Msg } from "./Msg";
 import { type Need, NeedIcon } from "./NeedIcon";
@@ -132,7 +133,7 @@ export function Shift({ id }: { id: string }) {
 					<span className="chip chip--quiet">Task</span>
 				</header>
 				<div className="detail-scroll">
-					<p className="opened-note">{view.problems[0]?.message ?? "This task did not load."}</p>
+					<Failed what="This task" why={view.problems[0]?.message} onRetry={view.reload} />
 				</div>
 			</section>
 		);
