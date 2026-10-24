@@ -222,3 +222,38 @@ test("a document's icon is changed from the tree and shows before its title", as
 	await page.reload();
 	await expect(page.getByRole("heading", { name: "📣 July support themes" })).toBeVisible();
 });
+
+test("while you edit, a conversation that moves waits in place and the sidebar says one is new", async ({
+	page,
+}) => {
+	await page.goto("/knowledge/demo-doc-clean-feature");
+	await page.getByRole("button", { name: "✎ Edit" }).click();
+	await expect(page.getByText("✎ Editing")).toBeVisible();
+	const sidebar = page.getByRole("navigation", { name: "Sidebar" });
+	await sidebar.getByRole("button", { name: /^Conversations/ }).click();
+	const onboarding = sidebar.getByRole("button", { name: /^Onboarding emails/ });
+	const hiring = sidebar.getByRole("button", { name: /^Support hire, second round/ });
+	const above = async () =>
+		((await onboarding.boundingBox())?.y ?? 0) < ((await hiring.boundingBox())?.y ?? 0);
+	expect(await above()).toBe(false);
+
+	await page.evaluate(async () => {
+		const act = (name: string, body: unknown) =>
+			fetch(`/api/actions/${name}`, {
+				method: "POST",
+				headers: { "X-API-Key": "hyperidle-dev-local", "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			}).then((r) => r.json());
+		const threads = (await act("search_threads", {})) as {
+			data: { id: string; computedTitle: string }[];
+		};
+		const id = threads.data.find((t) => t.computedTitle === "Onboarding emails")?.id;
+		await act("send_message", { threadId: id, text: "Picking this up again in November." });
+	});
+	await expect(sidebar.getByText("1 new since you started · it waits here")).toBeVisible();
+	expect(await above()).toBe(false);
+
+	await page.getByRole("button", { name: "Done", exact: true }).click();
+	await expect(sidebar.getByText("1 new since you started · it waits here")).toHaveCount(0);
+	await expect.poll(above).toBe(true);
+});

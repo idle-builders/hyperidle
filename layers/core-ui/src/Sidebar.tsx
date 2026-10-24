@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import { call } from "./api";
 import { UNTITLED } from "./doc-page";
 import { FindOrAsk } from "./Find";
+import { useFocus } from "./focus";
 import { listen } from "./live";
 import {
 	conversationItems,
@@ -13,6 +14,7 @@ import {
 	knowledgeItems,
 	knowledgeTree,
 	namesOf,
+	newSince,
 	noteWhat,
 	age as relative,
 	teamsOf,
@@ -375,11 +377,28 @@ export function Sidebar() {
 		work: tasks.data && workItems(tasks.data, names, inbox),
 		knowledge: docs.data && knowledgeItems(docs.data, you, names, teams, inbox),
 	};
+	// While you write in a document, the conversation list holds still; what is new waits.
+	const { editing } = useFocus();
+	const [held, setHeld] = useState<{ items: Item[]; at: ReadonlyMap<string, string> } | null>(null);
+	const conversations = lists.conversations;
+	const threadRows = threads.data;
+	useEffect(() => {
+		if (!editing) setHeld(null);
+		else if (conversations && threadRows)
+			setHeld(
+				(h) =>
+					h ?? {
+						items: conversations,
+						at: new Map(threadRows.map((t) => [t.id, t.lastActiveAt])),
+					},
+			);
+	}, [editing, conversations, threadRows]);
+	const waitingNew = held && threadRows ? newSince(held.at, threadRows) : 0;
 	const needs = (t: Spine) => (t === "work" ? 0 : (lists[t] ?? []).filter((i) => i.yours).length);
 	// The same count your page lists: questions and reviews waiting on you.
 	const waiting = (threads.data ?? []).filter((t) => t.need !== null).length;
 	const unread = inbox.filter((r) => r.readAt === null).length;
-	const all = lists[spine];
+	const all = spine === "conversations" && held ? held.items : lists[spine];
 	const items = all && spine === "work" && teamId ? all.filter((i) => i.team === teamId) : all;
 	const team = teams.find((t) => t.id === teamId) ?? null;
 	const picked = section === spine ? here : null;
@@ -515,6 +534,9 @@ export function Sidebar() {
 							</div>
 						)}
 					</div>
+				)}
+				{spine === "conversations" && waitingNew > 0 && (
+					<p className="nav-new">{waitingNew} new since you started · it waits here</p>
 				)}
 				{items?.map((i) => (
 					<Row

@@ -1,5 +1,6 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useParams, useSearchParams } from "react-router";
+import { FocusContext } from "./focus";
 import { Judge } from "./Judge";
 import { useAppLooks } from "./looks";
 import { TeamScreen, UserScreen } from "./People";
@@ -19,12 +20,15 @@ const Think = lazy(() => import("./Think").then((m) => ({ default: m.Think })));
  */
 function Shell() {
 	const me = useAction("open_user", {});
+	const [editing, setEditing] = useState(false);
 	if (me.data && me.data.user === null) return <Navigate to="/start" replace />;
 	return (
-		<div className="frame">
-			<Sidebar />
-			<Outlet />
-		</div>
+		<FocusContext.Provider value={{ editing, setEditing }}>
+			<div className="frame">
+				<Sidebar />
+				<Outlet />
+			</div>
+		</FocusContext.Provider>
 	);
 }
 

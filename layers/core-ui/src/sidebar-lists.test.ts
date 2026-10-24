@@ -1,7 +1,7 @@
-/** How a person or agent is drawn in an avatar, and how a task reads in the Work list. */
+/** How a person or agent is drawn in an avatar, how a task reads in Work, and what waits while you focus. */
 import type { Task } from "@hyperidle/domain-model";
 import { expect, test } from "vitest";
-import { initials, workItems } from "./sidebar-lists";
+import { initials, newSince, workItems } from "./sidebar-lists";
 
 test.each([
 	["Maya Chen", "MC"],
@@ -28,4 +28,17 @@ test.each([
 		updatedAt: "2026-10-21T09:00:00.000Z",
 	} as Task;
 	expect(workItems([task], new Map(), [])[0]?.state).toBe(words);
+});
+
+test("while you focus, a new conversation and one with new activity wait; one that did not move does not", () => {
+	const held = new Map([
+		["quiet", "2026-10-21T09:00:00.000Z"],
+		["moved", "2026-10-21T09:00:00.000Z"],
+	]);
+	const now = [
+		{ id: "quiet", lastActiveAt: "2026-10-21T09:00:00.000Z" },
+		{ id: "moved", lastActiveAt: "2026-10-21T09:05:00.000Z" },
+		{ id: "new", lastActiveAt: "2026-10-21T09:06:00.000Z" },
+	];
+	expect(newSince(held, now)).toBe(2);
 });

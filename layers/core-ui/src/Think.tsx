@@ -22,6 +22,7 @@ import {
 	UNTITLED,
 } from "./doc-page";
 import { DOC_FORMATS, FormatBar } from "./FormatBar";
+import { useFocus } from "./focus";
 import { listen } from "./live";
 import { MentionPicker, useMentionables } from "./MentionPicker";
 import { type Mentionable, matching, typedMention } from "./mentionables";
@@ -521,6 +522,11 @@ export function Think({ id }: { id: string }) {
 	const base = useRef(0);
 
 	const editing = edit === true;
+	const { setEditing } = useFocus();
+	useEffect(() => {
+		setEditing(editing);
+		return () => setEditing(false);
+	}, [editing, setEditing]);
 	const text = useDocText(doc?.body ?? null, editing, () => {
 		setDirty(true);
 		setTyped((t) => t + 1);

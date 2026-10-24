@@ -251,3 +251,17 @@ export function noteWhat(change: ChangeRow, names: Names): string {
 	if (change.kind === "created") return `New ${change.object} · ${who}`;
 	return `${who} changed it`;
 }
+
+/**
+ * While you focus on a document the conversation list holds still: how many conversations are new
+ * or have moved since it was held, by when each was last active then.
+ */
+export function newSince(
+	held: ReadonlyMap<string, string>,
+	now: readonly { readonly id: string; readonly lastActiveAt: string }[],
+): number {
+	return now.filter((t) => {
+		const was = held.get(t.id);
+		return was === undefined || t.lastActiveAt > was;
+	}).length;
+}
