@@ -127,7 +127,7 @@ export function conversationItems(
 export const STATE_WORDS: Record<Task["state"], string> = {
 	proposed: "Queued",
 	accepted: "Queued",
-	in_progress: "Running",
+	in_progress: "Under way",
 	blocked: "Stuck",
 	review: "Needs review",
 	hold: "Waits",

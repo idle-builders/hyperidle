@@ -130,7 +130,7 @@ describe("workState", () => {
 			words: "Stuck",
 			dot: "wait",
 		},
-		{ t: { state: "in_progress" as const }, reviews: 0, words: "Running", dot: "live" },
+		{ t: { state: "in_progress" as const }, reviews: 0, words: "Under way", dot: "live" },
 		{ t: { state: "done" as const }, reviews: 0, words: "Done", dot: "done" },
 		{ t: { state: "accepted" as const }, reviews: 0, words: "Queued", dot: "" },
 	])("$words", ({ t, reviews, words, dot }) => {
