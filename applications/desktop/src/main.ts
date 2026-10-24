@@ -54,7 +54,7 @@ export async function waitForRemoteHealth(serverUrl: string, timeoutMs = 30_000)
 	);
 }
 
-// @lore: the Paper canvas from layers/core-ui/src/tokens.css; the window paints it before the page loads, following the computer's light or dark like the app's "Like this computer".
+// @lore: the Paper canvas in core-ui's tokens.css, light or dark like the computer, painted before the page loads.
 function paperCanvas(): string {
 	return nativeTheme.shouldUseDarkColors ? "#141310" : "#faf8f4";
 }
