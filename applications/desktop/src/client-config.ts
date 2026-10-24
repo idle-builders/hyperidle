@@ -19,46 +19,27 @@ const ClientConfigSchema = z.object({
 	backendMode: BackendModeSchema.nullable().default(null),
 	/** Remote server URL for shared mode. Null when local. */
 	serverUrl: z.string().url().nullable().default(null),
-	lastView: z.string().nullable().default(null),
 	windowState: WindowStateSchema.optional(),
-	/** Whether this desktop is registered as a worker. Default false. */
-	workerEnabled: z.boolean().default(false),
-	/** Maximum concurrent sessions this worker handles. Default 1, max 8. */
-	workerMaxConcurrent: z.number().int().min(1).max(8).default(1),
-	/** Stable UUID for worker pool identity. Generated on first enable, persisted. */
-	workerDeviceId: z.string().nullable().default(null),
 });
 
 export type ClientConfig = {
 	backendMode: "local" | "shared" | null;
 	serverUrl: string | null;
-	lastView: string | null;
 	windowState: WindowState;
-	workerEnabled: boolean;
-	workerMaxConcurrent: number;
-	workerDeviceId: string | null;
 };
 
 // @lore: Zod v4 — nested .default({}) does not re-parse through sub-schema; DEFAULTS uses WindowStateSchema.parse({}) to apply inner defaults
 const DEFAULTS: ClientConfig = {
 	backendMode: null,
 	serverUrl: null,
-	lastView: null,
 	windowState: WindowStateSchema.parse({}),
-	workerEnabled: false,
-	workerMaxConcurrent: 1,
-	workerDeviceId: null,
 };
 
 function applyConfigDefaults(raw: z.infer<typeof ClientConfigSchema>): ClientConfig {
 	return {
 		backendMode: raw.backendMode ?? null,
 		serverUrl: raw.serverUrl ?? null,
-		lastView: raw.lastView ?? null,
 		windowState: WindowStateSchema.parse(raw.windowState ?? {}),
-		workerEnabled: raw.workerEnabled ?? false,
-		workerMaxConcurrent: raw.workerMaxConcurrent ?? 1,
-		workerDeviceId: raw.workerDeviceId ?? null,
 	};
 }
 

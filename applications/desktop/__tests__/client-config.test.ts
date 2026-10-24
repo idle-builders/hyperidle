@@ -21,7 +21,6 @@ describe("loadClientConfig", () => {
 
 		expect(result.backendMode).toBeNull();
 		expect(result.serverUrl).toBeNull();
-		expect(result.lastView).toBeNull();
 		expect(result.windowState.width).toBe(1280);
 		expect(result.windowState.height).toBe(800);
 		expect(result.windowState.isMaximized).toBe(false);
@@ -42,7 +41,6 @@ describe("loadClientConfig", () => {
 		const saved = {
 			backendMode: "local",
 			serverUrl: null,
-			lastView: "/bets",
 			windowState: {
 				x: 100,
 				y: 50,
@@ -56,7 +54,6 @@ describe("loadClientConfig", () => {
 
 		const result = loadClientConfig(configPath);
 		expect(result.backendMode).toBe("local");
-		expect(result.lastView).toBe("/bets");
 		expect(result.windowState.x).toBe(100);
 		expect(result.windowState.y).toBe(50);
 		expect(result.windowState.width).toBe(1440);
@@ -125,16 +122,15 @@ describe("saveClientConfig", () => {
 		// First save sets initial state
 		saveClientConfig(configPath, {
 			backendMode: "local",
-			lastView: "/tasks",
 			windowState: { width: 1440, height: 900, isMaximized: false, isFullScreen: false },
 		});
 
-		// Second save updates only lastView
-		saveClientConfig(configPath, { lastView: "/bets" });
+		// Second save updates only serverUrl
+		saveClientConfig(configPath, { serverUrl: "https://example.com" });
 
 		const result = loadClientConfig(configPath);
 		expect(result.backendMode).toBe("local");
-		expect(result.lastView).toBe("/bets");
+		expect(result.serverUrl).toBe("https://example.com");
 		expect(result.windowState.width).toBe(1440);
 	});
 
@@ -227,71 +223,5 @@ describe("migrateWindowState", () => {
 
 		migrateWindowState(windowStatePath, configPath);
 		expect(fs.existsSync(configPath)).toBe(true);
-	});
-});
-
-describe("ClientConfig worker fields", () => {
-	it("default workerEnabled is false", () => {
-		const configPath = path.join(tmpDir, "config.json");
-		const result = loadClientConfig(configPath);
-		expect(result.workerEnabled).toBe(false);
-	});
-
-	it("default workerMaxConcurrent is 1", () => {
-		const configPath = path.join(tmpDir, "config.json");
-		const result = loadClientConfig(configPath);
-		expect(result.workerMaxConcurrent).toBe(1);
-	});
-
-	it("default workerDeviceId is null", () => {
-		const configPath = path.join(tmpDir, "config.json");
-		const result = loadClientConfig(configPath);
-		expect(result.workerDeviceId).toBeNull();
-	});
-
-	it("round-trip: save all three worker fields and reload", () => {
-		const configPath = path.join(tmpDir, "config.json");
-		const deviceId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
-		saveClientConfig(configPath, {
-			workerEnabled: true,
-			workerMaxConcurrent: 8,
-			workerDeviceId: deviceId,
-		});
-
-		const result = loadClientConfig(configPath);
-		expect(result.workerEnabled).toBe(true);
-		expect(result.workerMaxConcurrent).toBe(8);
-		expect(result.workerDeviceId).toBe(deviceId);
-	});
-
-	it("old config without worker fields loads with defaults (backward compat)", () => {
-		const configPath = path.join(tmpDir, "config.json");
-		const legacyConfig = {
-			backendMode: "shared",
-			serverUrl: "https://example.com",
-			lastView: "/work/portfolio",
-			windowState: { width: 1440, height: 900, isMaximized: false, isFullScreen: false },
-		};
-		fs.writeFileSync(configPath, JSON.stringify(legacyConfig));
-
-		const result = loadClientConfig(configPath);
-		expect(result.backendMode).toBe("shared");
-		expect(result.workerEnabled).toBe(false);
-		expect(result.workerMaxConcurrent).toBe(1);
-		expect(result.workerDeviceId).toBeNull();
-	});
-
-	it("worker fields do not overwrite existing config keys when patching", () => {
-		const configPath = path.join(tmpDir, "config.json");
-		saveClientConfig(configPath, {
-			backendMode: "shared",
-			serverUrl: "https://remote.example.com",
-		});
-		saveClientConfig(configPath, { workerEnabled: true });
-
-		const result = loadClientConfig(configPath);
-		expect(result.backendMode).toBe("shared");
-		expect(result.serverUrl).toBe("https://remote.example.com");
-		expect(result.workerEnabled).toBe(true);
 	});
 });

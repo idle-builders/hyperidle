@@ -102,7 +102,6 @@ vi.mock("../src/app-menu.js", () => ({
 vi.mock("../src/safe-credentials.js", () => ({
 	createSafeCredentialsManager: vi.fn(() => ({
 		registerHandlers: vi.fn(),
-		unregisterHandlers: vi.fn(),
 	})),
 }));
 
@@ -110,7 +109,6 @@ vi.mock("../src/client-config.js", () => ({
 	loadClientConfig: vi.fn(() => ({
 		backendMode: null,
 		serverUrl: null,
-		lastView: null,
 		windowState: {
 			x: undefined,
 			y: undefined,
@@ -125,7 +123,6 @@ vi.mock("../src/client-config.js", () => ({
 	DEFAULTS: {
 		backendMode: null,
 		serverUrl: null,
-		lastView: null,
 		windowState: { width: 1280, height: 800, isMaximized: false, isFullScreen: false },
 	},
 }));

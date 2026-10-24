@@ -124,17 +124,6 @@ describe("createSafeCredentialsManager", () => {
 		const channels = handleMock.mock.calls.map((c) => c[0] as string);
 		expect(channels).toEqual(["credentials:set"]);
 	});
-
-	it("unregisterHandlers() removes only credentials:set", async () => {
-		const { ipcMain } = await import("electron");
-		const manager = createSafeCredentialsManager(path.join(tmpDir, "credentials.json"));
-		manager.registerHandlers();
-		manager.unregisterHandlers();
-
-		const removeHandlerMock = ipcMain.removeHandler as ReturnType<typeof vi.fn>;
-		const channels = removeHandlerMock.mock.calls.map((c) => c[0] as string);
-		expect(channels).toEqual(["credentials:set"]);
-	});
 });
 
 describe("credentials:set handler", () => {
