@@ -251,42 +251,7 @@ describe("E2E API integration", () => {
 	// exercise are gone — those doors are actions now
 	// (edit_document/edit_task/search_users/send_message/edit_user), proven
 	// in document-actions/task-actions/user-actions/thread-actions. What
-	// remains here is what was never about a CRUD route: the global search
-	// endpoint and 404 handling.
-	describe("Document search", () => {
-		test("GET /api/search?scope=document&q=test returns search results", async ({ db, app }) => {
-			await seedBase(db);
-			// First create a document so search has something to find
-			await app.request("/api/actions/edit_document", {
-				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({
-					title: "Searchable decision",
-					body: "This is a test item for search",
-					format: "markdown",
-					scopeKind: "factory",
-				}),
-			});
-
-			const res = await app.request("/api/search?q=Searchable&scope=document", {
-				headers: auth(),
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { results: Array<{ title: string }> };
-			expect(Array.isArray(body.results)).toBe(true);
-			expect(body.results.length).toBeGreaterThanOrEqual(1);
-			expect(body.results.some((r) => r.title === "Searchable decision")).toBe(true);
-		});
-
-		test("GET /api/search?scope=document requires query param q", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/search?scope=document", { headers: auth() });
-			expect(res.status).toBe(400);
-			const body = (await res.json()) as { code: string };
-			expect(body.code).toBe("VALIDATION_ERROR");
-		});
-	});
-
+	// remains here is what was never about a CRUD route: 404 handling.
 	describe("404 handling", () => {
 		test("returns 404 JSON for unknown /api routes", async ({ db, app }) => {
 			await seedBase(db);

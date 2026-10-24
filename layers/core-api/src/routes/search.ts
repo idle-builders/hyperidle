@@ -13,11 +13,12 @@ import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import * as work from "@hyperidle/task";
-import { listMessages, listThreads, searchConversations } from "@hyperidle/thread";
+import { listMessages, searchConversations } from "@hyperidle/thread";
 import { listTeams } from "@hyperidle/user";
 import { Hono } from "hono";
 import z from "zod";
 import type { ActionContext } from "../actions/action.js";
+import { excerpt } from "./excerpt.js";
 
 type SearchDocumentsRunFn = (
 	ctx: ActionContext,
@@ -27,17 +28,17 @@ type SearchDocumentsRunFn = (
 /** Max results per category */
 const MAX_PER_CATEGORY = 5;
 
-function hostKindToConversationKind(hostKind: string): "review" | "chat" {
-	switch (hostKind) {
-		case "task":
-		case "document":
-			return "review";
-		default:
-			return "chat";
-	}
+/** One hit in find: what it is, the stretch of its text that matched, and where it lives. */
+interface Hit {
+	readonly id: string;
+	readonly title: string;
+	readonly snippet: string;
+	/** The team it belongs to, by name; a conversation belongs to no team. */
+	readonly team: string | null;
+	readonly at: string;
 }
 
-function extractPayloadText(payloadJson: string): string {
+function payloadText(payloadJson: string): string {
 	try {
 		const parsed = JSON.parse(payloadJson) as unknown;
 		if (typeof parsed === "object" && parsed !== null && "text" in parsed) {
@@ -48,6 +49,15 @@ function extractPayloadText(payloadJson: string): string {
 	} catch {
 		return "";
 	}
+}
+
+/** The first of `texts` that matches, as its excerpt; empty when only something unshown matched. */
+function firstExcerpt(texts: readonly (string | null | undefined)[], query: string): string {
+	for (const text of texts) {
+		const found = text ? excerpt(text, query) : null;
+		if (found) return found;
+	}
+	return "";
 }
 
 export function createSearchRoutes(
@@ -77,21 +87,6 @@ export function createSearchRoutes(
 		const query = parsed.data;
 		const ctx: ActionContext = { actor: userId, db, eventBus, now: new Date().toISOString() };
 
-		const scope = c.req.query("scope");
-		if (scope === "document") {
-			const rawLimit = c.req.query("limit");
-			const parsedLimit = rawLimit !== undefined ? Number.parseInt(rawLimit, 10) : undefined;
-			const limit =
-				parsedLimit !== undefined && Number.isFinite(parsedLimit) && parsedLimit > 0
-					? parsedLimit
-					: undefined;
-			const result = await searchDocuments(ctx, {
-				text: query,
-				...(limit !== undefined ? { limit } : {}),
-			});
-			return c.json({ results: result.ok ? result.data : [] });
-		}
-
 		// Escape LIKE wildcards so user's literal chars do not become SQL operators.
 		const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
 
@@ -108,74 +103,39 @@ export function createSearchRoutes(
 		);
 
 		// JS-verify exact participant membership and deduplicate threads
-		const seenThreadIds = new Set<string>();
-		const verifiedThreadIds: string[] = [];
+		const verified = new Map<string, (typeof matchingThreadRows)[number]>();
 		for (const row of matchingThreadRows) {
-			if (seenThreadIds.has(row.id)) continue;
-			seenThreadIds.add(row.id);
-			// Parse participants and check for exact userId membership
+			if (verified.has(row.id)) continue;
 			try {
 				const parts = JSON.parse(row.participants) as unknown;
-				if (Array.isArray(parts) && parts.includes(userId)) {
-					verifiedThreadIds.push(row.id);
-				}
+				if (Array.isArray(parts) && parts.includes(userId)) verified.set(row.id, row);
 			} catch {
 				// Malformed participants JSON — skip this thread
 			}
-			if (verifiedThreadIds.length >= MAX_PER_CATEGORY) break;
+			if (verified.size >= MAX_PER_CATEGORY) break;
 		}
 
-		// Three batch queries replace N+1: thread rows, first messages, latest messages.
-		const conversationResults: Array<{
-			id: string;
-			title: string;
-			snippet: string;
-			timestamp: string;
-			kind: "review" | "chat";
-		}> = [];
-
-		if (verifiedThreadIds.length > 0) {
-			const threadRowMap = new Map<string, { hostKind: string; lastActiveAt: string }>();
-			// Id ASC tiebreaker for deterministic order on tied lastActiveAt.
-			const threadRowsBatch = await listThreads(db, {
-				ids: verifiedThreadIds,
-				order: "lastActive",
-			});
-			for (const row of threadRowsBatch) {
-				threadRowMap.set(row.id, { hostKind: row.hostKind, lastActiveAt: row.lastActiveAt });
-			}
-
+		const threadIds = [...verified.keys()];
+		const texts = new Map<string, string[]>();
+		if (threadIds.length > 0) {
 			const allMsgs = await listMessages(db, {
-				threadIds: verifiedThreadIds,
+				threadIds,
 				includeDeleted: false,
 				order: "createdAt",
 			});
-
-			const firstMsgMap = new Map<string, string>();
-			const latestMsgMap = new Map<string, string>();
-			for (const msg of allMsgs) {
-				if (!firstMsgMap.has(msg.threadId)) {
-					firstMsgMap.set(msg.threadId, msg.payload);
-				}
-				latestMsgMap.set(msg.threadId, msg.payload); // always overwrite → last wins
-			}
-
-			for (const threadRow of threadRowsBatch) {
-				const thread = threadRowMap.get(threadRow.id);
-				if (!thread) continue;
-
-				const titleText = extractPayloadText(firstMsgMap.get(threadRow.id) ?? "");
-				const snippetText = extractPayloadText(latestMsgMap.get(threadRow.id) ?? "");
-
-				conversationResults.push({
-					id: threadRow.id,
-					title: titleText.slice(0, 80) || threadRow.id,
-					snippet: snippetText.slice(0, 120),
-					timestamp: thread.lastActiveAt,
-					kind: hostKindToConversationKind(thread.hostKind),
-				});
-			}
+			for (const msg of allMsgs)
+				texts.set(msg.threadId, [...(texts.get(msg.threadId) ?? []), payloadText(msg.payload)]);
 		}
+		const conversations: Hit[] = [...verified.values()].map((row) => {
+			const said = texts.get(row.id) ?? [];
+			return {
+				id: row.id,
+				title: row.title ?? (said[0] ?? "").slice(0, 80),
+				snippet: firstExcerpt([...said, row.title], query),
+				team: null,
+				at: row.lastActiveAt,
+			};
+		});
 
 		// ── Work ───────────────────────────────────────────────────────────────
 		const taskRows = await work.list(db, "task", {
@@ -183,33 +143,34 @@ export function createSearchRoutes(
 			parentTaskId: null,
 			limit: MAX_PER_CATEGORY,
 		});
-		const taskTeamRows =
-			taskRows.length > 0 ? await listTeams(db, { ids: taskRows.map((t) => t.teamId) }) : [];
-		const teamNameMap = new Map(taskTeamRows.map((t) => [t.id, t.name]));
-
-		const workResults = taskRows.map((row) => ({
-			id: row.id,
-			title: row.title,
-			team: teamNameMap.get(row.teamId) ?? row.teamId,
-			status: row.state,
-		}));
 
 		// ── Documents ──────────────────────────────────────────────────────────
 		const documentResult = await searchDocuments(ctx, { text: query, limit: MAX_PER_CATEGORY });
 		const documentRows = documentResult.ok ? documentResult.data : [];
 
-		const documentResults = documentRows.map((row) => ({
+		const teamIds = [
+			...taskRows.map((t) => t.teamId),
+			...documentRows.flatMap((d) => (d.scopeKind === "team" && d.scopeId ? [d.scopeId] : [])),
+		];
+		const teamRows = teamIds.length > 0 ? await listTeams(db, { ids: [...new Set(teamIds)] }) : [];
+		const teamName = new Map(teamRows.map((t) => [t.id, t.name]));
+
+		const workHits: Hit[] = taskRows.map((row) => ({
 			id: row.id,
 			title: row.title,
-			status: row.status,
-			timestamp: row.updatedAt,
+			snippet: firstExcerpt([row.description, row.doneWhen, row.title], query),
+			team: teamName.get(row.teamId) ?? null,
+			at: row.updatedAt,
+		}));
+		const documentHits: Hit[] = documentRows.map((row) => ({
+			id: row.id,
+			title: row.title,
+			snippet: firstExcerpt([row.body, row.title], query),
+			team: row.scopeKind === "team" ? (teamName.get(row.scopeId ?? "") ?? null) : null,
+			at: row.updatedAt,
 		}));
 
-		return c.json({
-			conversations: conversationResults,
-			work: workResults,
-			documents: documentResults,
-		});
+		return c.json({ conversations, work: workHits, documents: documentHits });
 	});
 
 	return router;
