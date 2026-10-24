@@ -20,6 +20,7 @@ import { buildCoreActions, runnerFor } from "./actions/compose.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { authHealth } from "./routes/health.js";
 import { createSearchRoutes } from "./routes/search.js";
+import { createStartRoutes } from "./routes/start.js";
 import {
 	buildSeamBackedReviewVerdictRecorder,
 	buildSeamBackedWorkIntentRecorder,
@@ -431,6 +432,12 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		>(actions, "edit_user");
 		// user module: search_users/open_user/edit_user under /api/actions/<name>
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
+		api.route(
+			"/start",
+			createStartRoutes(options.db, eventBus, actions, async () => {
+				await Promise.all([options.adapterPool?.refresh(), options.onHarnessRedetect?.()]);
+			}),
+		);
 		// Plugin management: `search_plugins`/`edit_plugin`, mounted generically by
 		// `createActionsRouter` above (`compose.ts`'s fourth action group).
 
