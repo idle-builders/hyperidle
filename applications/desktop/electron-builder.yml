@@ -48,8 +48,8 @@ extraResources:
       - "meta/**/*"
   - from: "../../layers/core-ui/dist"
     to: "web-dist"
-  # The plugins that ship inside the app — Settings › Plugins lists them as
-  # available; main.ts points HYPERIDLE_BUNDLED_PLUGINS_DIR here.
+  # The plugins that ship inside the app — the team page's "Add a plugin" lists them to
+  # install; main.ts points HYPERIDLE_BUNDLED_PLUGINS_DIR here.
   - from: "../../plugins"
     to: "plugins"
 

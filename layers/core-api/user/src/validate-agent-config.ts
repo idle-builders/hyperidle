@@ -70,7 +70,7 @@ export function validateAgentConfig(
 		descriptor = registeredDescriptor(pool, effectiveHarnessType);
 		if (!descriptor) {
 			return {
-				error: `Harness type '${effectiveHarnessType}' is not registered. Check Settings → Agents.`,
+				error: `Harness type '${effectiveHarnessType}' is not registered. Pick another program under Runs on in the agent's Edit dialog.`,
 				code: "UNKNOWN_HARNESS",
 			};
 		}
@@ -92,7 +92,7 @@ export function validateAgentConfig(
 		const stated = descriptor.models ?? [];
 		if (stated.length > 0 && !stated.some((m) => m.id === modelId)) {
 			return {
-				error: `Model '${modelId}' is not one '${effectiveHarnessType}' offers. Pick one from its list in Settings → Agents.`,
+				error: `Model '${modelId}' is not one '${effectiveHarnessType}' offers. Pick one from its list under Runs on in the agent's Edit dialog.`,
 				code: "UNKNOWN_MODEL",
 			};
 		}
