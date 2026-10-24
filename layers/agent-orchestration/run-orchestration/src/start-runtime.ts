@@ -105,7 +105,7 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 		} catch (error) {
 			const failure = classifyAdmissionFailure(error);
 			// @lore: catch block — runClaimedRequest terminalizes before rethrowing; ConcurrencyLimitError → pending, others → failed; retrying would double-terminalize
-			// @lore: ConcurrencyLimitError — skip that agent for the rest of this pass so its waiting request never blocks other agents; reclaiming it here busy-spins at 100% CPU; the next wake() retries it after 1s
+			// @lore: ConcurrencyLimitError — skip that agent for this pass so it never blocks others; reclaiming it here busy-spins at 100% CPU; next wake() retries
 			if (failure.code === "CONCURRENCY_LIMIT") atLimit.add(request.agentId);
 		}
 	}
