@@ -19,21 +19,21 @@ A deep, whole-feature review of HyperIdle from the **user's** side. The pipeline
 1. Read `.pipeline/audits/product/ledger.json` (seed shape below if absent).
 2. `git rev-parse HEAD`.
 3. Classify each ledger feature: **CURRENT** if `git diff --name-only <last_reviewed_commit> HEAD -- <feature paths>` is empty, else **STALE**.
-4. Enumerate live features/routes (Phase 1) and mark any not in the ledger as **NEVER**.
+4. Enumerate live features/routes (Phase 1) and mark any not in the ledger as **NEVER**. A ledger feature whose paths no longer exist is **REMOVED** — drop it from the ledger with its open findings closed, and say so.
 5. Report coverage: `N current / M stale / K never (total T)`. Pick targets per `$ARGUMENTS`; state what you defer.
 
-A feature's "paths" are its routes/screens plus the server + web files that implement it — map them from the workpackage/track file and the route table.
+A feature's "paths" are its page addresses plus the server + web files that implement it — map them from the page addresses in `layers/core-ui/src/App.tsx` (one screen per file: `Thread.tsx`, `Judge.tsx`, `Shift.tsx`, `Think.tsx`, `People.tsx`, `Plugins.tsx`, `Start.tsx`, `Sidebar.tsx`, `Find.tsx`) and the actions they call (`framework/domain-model/src/actions/`).
 
 ---
 
 ## Phase 1 — Functionality: does it actually work?
 
-Drive the **real running app** (`npm run dev`), not the code. For the feature in scope:
+Drive the **real running app**, not the code: seed the Northwind demo world and start it as `/smoke-test` step 1 says (`npm run setup -- --profile laptop --demo`, then `npm run dev`; start the server with `topology: 'local'` when the feature needs agents to answer — `npm run dev` runs no agents). The page addresses are in `layers/core-ui/src/App.tsx`: `/conversations/:id` (a review at `?review=<message id>`), `/work/:id` (`?part=`), `/knowledge/:id`, `/people/:id` (`/people/me` is your page, which holds your settings — there is no settings screen), `/teams/:name`, `/plugins/:id`, `/start`. For the feature in scope:
 
 - **Every user journey** — walk each path a real user takes, start to finish. Does it complete? Does it persist?
 - **Every state** — empty, loading, populated, error, edge (long text, zero items, max items, concurrent edits). Trigger them, don't assume them.
 - **Error recovery** — break it on purpose (bad input, dropped network, stale data). Does it fail legibly and recover, or dead-end?
-- **The wedge** — HyperIdle's loop is plan → interact → review → repeat. Does the feature serve that loop, or sit beside it?
+- **The wedge** — HyperIdle's loop is plan in documents and conversations → hand off and watch the task move → check the result in a review. Does the feature serve that loop, or sit beside it?
 
 Record exactly what you did and what happened. "It works" without a traced journey is not a finding.
 
@@ -56,9 +56,9 @@ Prioritize findings by **user impact**, not code tidiness.
 
 Look at pixels, across states and breakpoints — not code.
 
-- Screenshot every meaningful state via Playwright (`cd layers/core-ui && npx playwright screenshot http://localhost:5173/<route> /tmp/pdr-<name>.png --wait-for-timeout=3000`), desktop first, then mobile (three-tab form factor).
-- Compare against the approved design reference where one exists — open the component story in the live TSX viewer (`npm run ds:serve`, navigate to `http://localhost:8098/#<ComponentName>`). The vitest DOM-snapshot net (`npm run test`) flags structural/class drift automatically; for painted-pixel comparison use the live viewer or `npx playwright screenshot http://localhost:8098/#<ComponentName> /tmp/pdr-ds.png`.
-- Judge against the Lucid design system: density (8-12px), token compliance, all states styled (hover/focus/active/disabled), motion (80/150/250ms), accessibility (focus order, aria, keyboard), and anti-slop (no oversized padding, purple gradients, hero sections, decorative icons).
+- Screenshot every meaningful state via Playwright (`cd layers/core-ui && npx playwright screenshot http://localhost:5173/<address> /tmp/pdr-<name>.png --wait-for-timeout=3000`), desktop first, in light and dark (Looks on your page). A narrow window or a phone is a later design — note what breaks, do not judge it against a design.
+- Compare against the design reference: the studio on branch `design/studio-recovery` (`applications/studio`), screen by screen, and the intent in `plans/design-restart/information-architecture.md`.
+- Judge against the Paper skin and its rules: tokens only (`layers/core-ui/src/tokens.css`), colour never carries status (one flag colour for "this one is yours", words for the rest), all states styled (hover/focus/active/disabled), accessibility (focus order, aria, keyboard), and anti-slop (no oversized padding, gradients, hero sections, decorative icons).
 - Read the PNGs. Cite screenshot paths in findings.
 
 ---
@@ -86,10 +86,10 @@ Open with the Phase 0 coverage line and a per-feature verdict (**SOLID** / **WOR
   "updated_at": "<ISO date>",          // pass via the agent; do not invent a clock
   "features": {
     "knowledge-detail": {
-      "paths": ["layers/core-ui/src/pages/KnowledgeDetail.tsx", "packages/server/src/routes/knowledge.ts"],
+      "paths": ["layers/core-ui/src/Think.tsx", "layers/core-ui/src/DocEditor.tsx", "layers/core-ui/src/doc-page.ts", "layers/core-api/document/src/document-actions.ts"],
       "routes": ["/knowledge/:id"],
       "last_reviewed_commit": "<HEAD sha at review>",
-      "blob_hashes": { "layers/core-ui/src/pages/KnowledgeDetail.tsx": "<git rev-parse HEAD:path>" },
+      "blob_hashes": { "layers/core-ui/src/Think.tsx": "<git rev-parse HEAD:path>" },
       "verdict": "works-but",          // solid | works-but | broken
       "open_findings": ["PDR-0003"],
       "reviewed_at": "<ISO date>"

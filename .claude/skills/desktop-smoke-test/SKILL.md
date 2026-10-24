@@ -21,7 +21,7 @@ Prove the **packaged desktop app** built from the current worktree still works e
 - **Electron's binary is often not downloaded** even after `npm install` (empty `node_modules/electron/dist/`). Run `node node_modules/electron/install.js` once to fetch it, or electron-builder and `electron .` both fail.
 - **electron-builder can't resolve a caret Electron version in a monorepo.** `electron` is hoisted to the ROOT `node_modules`, so electron-builder run from `applications/desktop/` sees only `"^43.x"` and dies with *"Electron version … is a range"*. Pass the exact version explicitly: `-c.electronVersion="$(node -p "require('electron/package.json').version")"`. `applications/desktop/__scripts__/build-local.sh` now does this — if it regressed, that's the fix.
 - **`scripts/` was renamed to `__scripts__/`** (prod/dev world split). Any `applications/desktop/scripts/…` path in a shell script is stale — the real dir is `__scripts__/`.
-- **Desktop DEV mode (`npm run dev:desktop`) cannot load a seeded world.** Electron loads `src/preload.js` outside tsx; the bundle only emits `dist/preload.js`, so the dev window has no API key, 401s, and lands in the `/setup` flow no matter what is in the DB. Dev desktop is for shell/render work only — test data-backed desktop via `build:local` + the packaged app.
+- **Desktop DEV mode (`npm run dev:desktop`) cannot load a seeded world.** Electron loads `src/preload.js` outside tsx; the bundle only emits `dist/preload.js`, so the dev window has no API key and 401s no matter what is in the DB. Dev desktop is for shell/render work only — test data-backed desktop via `build:local` + the packaged app.
 - **A leftover HyperIdle holds the single-instance lock.** A fresh launch then exits silently (exit 0, no window, no error line in the log). `pgrep -fl HyperIdle` before launching; kill stragglers (often a packaged app left over from another worktree's smoke test — it also holds the DB lock).
 
 ## The real userData / DB / logs live under `@hyperidle/desktop`, NOT `HyperIdle`
@@ -30,27 +30,23 @@ Prove the **packaged desktop app** built from the current worktree still works e
 - DB + config: `~/Library/Application Support/@hyperidle/desktop/` (PGlite dir `…/hyperidle-pg`, `secrets.json` holds the API key)
 - Logs: `~/Library/Logs/@hyperidle/desktop/server.log` (appended forever — filter to today; old entries are stale)
 
-Seeding demo data into `~/Library/Application Support/HyperIdle/…` does nothing. If you want the "Acme" demo world, seed into the `@hyperidle/desktop` dir **while the app is not running** (it holds the DB lock):
+Seeding demo data into `~/Library/Application Support/HyperIdle/…` does nothing. If you want the Northwind demo world, seed into the `@hyperidle/desktop` dir **while the app is not running** (it holds the DB lock):
 `npm run setup -- --demo --db-path "$HOME/Library/Application Support/@hyperidle/desktop/hyperidle-pg"`.
 Often the dir already holds real accumulated data — treat existing data as **read-only**; only add clearly-labeled test entities and clean them up.
 
-### Wiping / fresh-state behavior (learned 2026-08-10, round 2)
+### Wiping / fresh-state behavior
 
-- To wipe: quit the app (it holds the DB lock — `osascript -e 'quit app "HyperIdle"'`, then `kill -9` any survivors), then **move `hyperidle-pg` aside as a timestamped backup** (`mv hyperidle-pg hyperidle-pg.bak-$(date +%Y%m%d-%H%M%S)`) rather than hard-deleting — reversible, and preserves the user's real accumulated data. Keep `secrets.json`.
-- **A wiped (factory) DB boots into the `/setup` ONBOARDING flow, not the app.** This is the surface to test: name + Anthropic API key + agent-harness picker (Built-in gateway / Claude Code / Cursor Agent / CLI codex / opencode — each shows readiness) + optional project folder + a "What are you building?" team-type picker (Software/Eng+UX/Full team/Growth/Custom, previews the roles it creates). "Start HyperIdle" seeds a founder + team + agents + routines and lands in Work. Use a **fake** key (`sk-ant-…`) — onboarding stores it without a live validation call, so a dummy value completes the flow (never type a real credential).
-- **`--demo` seeds a founder too, so it SKIPS onboarding** and boots straight into the Acme team. The demo world is a lived-in six-week history, not a skeleton: two active bets (one with a review **blocking on the founder**), drafts, completed bets with verdicts, a killed bet, tasks in all eight states, ~15 threads (blocking + resolved reviews, DMs, assistant history), a ~40-item knowledge corpus with a 5-item triage queue, sessions (two live), five routines with run history, and two unread notifications. Every core surface has something to look at and click — use it to drive the read paths instead of hand-seeding. Agents still can't run (all credentials `absent`), so nothing auto-generates during the test.
+- To wipe: quit the app (it holds the DB lock — `osascript -e 'quit app "HyperIdle"'`, then `kill -9` the PIDs of any survivors you found with `pgrep -fl HyperIdle`), then **move `hyperidle-pg` aside as a timestamped backup** (`mv hyperidle-pg hyperidle-pg.bak-$(date +%Y%m%d-%H%M%S)`) rather than hard-deleting — reversible, and preserves the user's real accumulated data. Keep `secrets.json`. Also move `config.json` aside if the app was joined to a server (it then opens the server instead of its own database).
+- **A wiped (factory) DB boots into first start (`/start`), not the app.** This is the surface to test: "Found on this computer" lists the agent programs (Claude Code, Codex, OpenCode, Cursor Agent) each marked signed in / installed / not installed, with how to fix one and **Look again**; then **Your name** and **Name your team**, and **Start talking**. At least one program must be signed in for Start talking to work. It makes you, the team and a first agent, **Builder**, and lands in the conversation "Getting started" with Builder's hello and **Connect a folder / Connect GitHub / Not now**. No API key is ever typed. **Join a team on a server instead** asks for an address and a key — do not join a real server from a smoke test.
+- **`--demo` seeds a person too, so it SKIPS first start** and boots straight into Northwind: Finn Olsen (you, in Product and Support) and Maya Chen, agents Builder, Growth and Designer, Facilitation from the Team habits plugin, the task "Trials that convert without a call" with its parts graph, the conversation "Trial-end confusion, three tickets" with a two-round review, the knowledge tree with "How we price", and unread notifications. Every core surface has something to look at and click. The desktop app runs agents on the signed-in programs, so **@-mentioning or handing work to an agent starts a real session** — do it once on purpose for the wedge, not by accident.
 
-### Reaching data-detail surfaces when agents can't run (no credential)
+### Reaching surfaces with no address bar
 
-With a `--demo` seed, the read surfaces already have content: open the blocking "Build the new pricing page" thread in Conversations and follow **Open review** to the review page (full composed canvases + verdict buttons), or click any bet/task/knowledge row for its detail. The API-seed path below remains for proving WRITE paths (create/persist) without a live LLM credential — **write the entity through the embedded API, then click into it** (read path is what you're proving):
-- Task: `POST /api/tasks {betId,title,description?,doneCondition?}` → appears under the (active) bet's TASKS → click → `WorkTask` detail.
-- Artifact: `POST /api/artifacts {producingTaskId,kind:"text",label?,preview:{kind:"text",body,format:"markdown"}}` → appears in the bet/task ARTIFACTS list → click → `ArtifactPermalink` (renders the markdown). Also exercises the AE6 artifact-kind + preview-schema path.
-- Create a bet in the UI first (New bet → type description → Create → "…" menu → **Activate bet** = draft→active) so the task has an active parent that surfaces in the Work view. The empty-TASKS state only offers "Add an agent" (needs a credential) — there is no manual add-task button, hence the API seed.
-- Review page (`work/bet/:betId/review/:reviewId` → `ReviewPage`): with a `--demo` seed, reviews exist and are clickable from Conversations (blocking review → Open review). Without one, reviews only come from the agent `submit_review`/proposed-calls flow (session + credential), so none exist in a fresh seed. The GET has a **fixture path** — `GET /api/reviews/rev-1` returns a full fixture the page renders — but reaching `/review/rev-1` needs URL entry (no address bar in the packaged app). If no review is surfaced to click, verify the data path with the `rev-1` fixture curl + confirm `ReviewPage.tsx` compiles, and report it as data/nav-limited, not broken.
+The packaged app has no address bar, so every page is reached by clicking: the sidebar (Conversations / Work / Knowledge, Work's team switch and "The team ›", You at the bottom), rows inside pages, and "Look at it" on a review in its thread (the review opens at `/conversations/<thread>?review=<message id>`). A plugin's page opens from the team page.
 
 ### computer-use keyboard gotcha (macOS key-window theft)
 
-Character typing goes to whatever holds the macOS **key window**, which can silently become a background **Terminal.app** (its Dock icon shows a badge as your keystrokes land there) even while HyperIdle is frontmost and clickable. Symptoms: clicks work, but `type`/`key`(Escape) never reach the webview; a command-palette modal (⌘K) then can't be dismissed (Escape dead, no backdrop light-dismiss) — deadlock. `⌘K`/`⌘R` still fire because they're app accelerators, not DOM input. Mitigations, in order: (1) prefer the **API-seed-then-click** path above so you need no typing; (2) app-menu open→click-body to force key focus (unreliable); (3) **relaunch the app** to reset the modal + focus. The app's own inline page inputs (onboarding, bet composer) DO accept typing when HyperIdle holds key focus — so a typing failure is the environment, not an app defect. Don't type real credentials into any field regardless.
+Character typing goes to whatever holds the macOS **key window**, which can silently become a background **Terminal.app** (its Dock icon shows a badge as your keystrokes land there) even while HyperIdle is frontmost and clickable. Symptoms: clicks work, but `type`/`key`(Escape) never reach the webview; a command-palette modal (⌘K) then can't be dismissed (Escape dead, no backdrop light-dismiss) — deadlock. `⌘K`/`⌘R` still fire because they're app accelerators, not DOM input. Mitigations, in order: (1) prefer click-only checks where a write is not needed; (2) app-menu open→click-body to force key focus (unreliable); (3) **relaunch the app** to reset the modal + focus. The app's own inline page inputs (first start, the chat box, the document editor) DO accept typing when HyperIdle holds key focus — so a typing failure is the environment, not an app defect. Don't type real credentials into any field regardless.
 
 ---
 
@@ -85,28 +81,31 @@ Expect: `migrations complete` → `factory bootstrap complete` → `static dir �
 2. Load computer-use tools via ToolSearch (`{query:"computer-use", max_results:30}`) if deferred.
 3. Screenshot, then click through **every** surface. Screenshot after each navigation and actually read it.
 
-**Surface checklist** (routes in `layers/core-ui/src/router.tsx`):
+**Surface checklist** (addresses in `layers/core-ui/src/App.tsx`):
 
 | Surface | What to verify |
 |---|---|
-| Work → Teams | list renders; click each team → detail (capacity, status, bets, routines, agents roster). A clickable row that 500s is a bug. |
-| Bet detail | open a bet; **create a labeled test bet** (write path → persists, re-renders); **kill it** (state transition + reason modal). Clean up. |
-| Task detail | open a task under a committed bet if present. |
-| Conversations | thread list → open a thread (messages render, composer present). Avoid sending (spawns a real LLM session). |
-| Knowledge | list + filters/sort → open an item (body, metadata sidebar, discussion, backlinks). |
-| Agent profile | open an agent → config, harness capabilities, review track record, performance. |
-| Settings | Profile, Org chart, Agents, Agent behavior, Filesystems, Appearance, Credentials, Notifications, Backend. Toggle **theme** (live write path) and restore it. |
-| Notifications | opens without error. |
+| Window | Opens on the Paper canvas (light `#faf8f4` or dark `#141310`, following the computer); the splash matches; no dark flash in light mode. The app menu has no Settings item; Help has Open Logs Folder / Open Data Folder. |
+| Sidebar | Find or ask… ⌘K, the bell (Notifications panel, Mark all read), Conversations / Work / Knowledge switch the list, Work's team switch and "The team ›", "You · N waiting for you". |
+| Conversations | Thread list → open a thread (messages, chat box with the format bar, @ picker). "+ New conversation". |
+| Review | From "Trial-end confusion, three tickets", "Look at it" → parts, flags as pins, the questions list, round 1 link; add a comment pin (write path); Approve / Reject needs a reason. |
+| Work (task) | Open "Trials that convert without a call": parts graph, click a part and "‹ The whole task", decisions and assumptions, Done when, summary, conversation; the box (Follow, Put on hold / Take off hold, Stop / Start again, Ask for a review). |
+| Knowledge | The tree with team spaces → open a document: Edit / Done, format bar, a comment in the margin, Publish, Follow; + adds a document; change an icon. |
+| Your page | "You" → Waiting for you / Started by you; the box: Works in, Can reach, Notifications switches (toggle one and restore it — write path), About, This app, Agent programs (Look again), Looks (switch Light / Dark and restore). There is no settings screen. |
+| Agent page | Open Builder from a list or the team page: open tasks, Edit (dialog), Pause / Let it work (restore), Starts working when. |
+| Team + plugins | "The team ›" → people with their agents, agents of every team, the team's plugins → open Team habits: how it stands, what it added, Switch off / on (restore). |
+| First start | Only on a wiped DB (above). |
+| The wedge | Once, on purpose: @ an agent in a conversation with a small piece of work → it replies, the task shows in the thread and in Work. |
 
 **Computer-use tips:** after a dropdown selection or navigation, a `type` often lands nowhere — click firmly **inside** the field and re-type; verify with a screenshot before submitting. Prefer `computer_batch` only when the outcome is predictable; otherwise screenshot between steps.
 
 ## Phase 4 — Prove writes + scan for errors
 
-- After any create/kill/toggle, confirm via re-render AND either the embedded API (`curl -H "X-API-Key: <secrets.json apiKey>" http://127.0.0.1:<port>/api/…`) or the log.
-- Watch for reactive wiring: e.g. killing a bet fires the **Post-bet retro** routine and flips an agent to `active` — confirms event-bus → routine → dispatch works.
+- After any write (comment, switch, pause, publish, verdict), confirm via re-render AND either the embedded API (`curl -X POST -H "X-API-Key: <secrets.json apiKey>" -H "Content-Type: application/json" http://127.0.0.1:<port>/api/actions/<action> -d '{…}'`, e.g. `open_thread`, `open_task`, `open_document`, `open_user`) or the log.
+- Watch for live wiring: a change made in one place shows in the sidebar and on other open pages without a reload (the WebSocket topics).
 - Final error sweep — must be zero unhandled:
   `awk '/<today boot ts>/{f=1} f' ~/Library/Logs/@hyperidle/desktop/server.log | grep -iE "ERROR|Unhandled|did-fail|render-process-gone|FATAL|renderer console"`
-  Note: a controlled `ApiError(500,…)` returned to the client (e.g. a bad team) may not appear as an `ERROR` line — catch those by clicking, not just by grepping.
+  Note: a controlled `ApiError(500,…)` returned to the client (e.g. a bad id) may not appear as an `ERROR` line — catch those by clicking, not just by grepping.
 
 ## Phase 5 — Report
 
