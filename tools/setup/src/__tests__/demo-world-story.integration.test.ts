@@ -256,6 +256,21 @@ describe("the demo world tells the design's story", () => {
 		expect(inbox.filter((item) => item.readAt === null)).toHaveLength(2);
 	});
 
+	test("nothing claims to be running: every session has ended, and tasks under way keep its notes", async ({
+		db,
+	}) => {
+		await seedWorld(db);
+		expect(await count(db, "sessions", "WHERE state = 'active' OR ended_at IS NULL")).toBe(0);
+		const underWay = await rows<{ id: string; notes: string | null }>(
+			db,
+			`SELECT t.id, (SELECT s.notes FROM sessions s WHERE s.task_id = t.id ORDER BY s.started_at DESC LIMIT 1) AS notes
+			 FROM tasks t WHERE t.state = 'in_progress' AND t.owner_agent_id IS NOT NULL
+			 AND NOT EXISTS (SELECT 1 FROM tasks c WHERE c.parent_task_id = t.id)`,
+		);
+		expect(underWay.length).toBeGreaterThan(0);
+		for (const task of underWay) expect(task.notes, task.id).toEqual(expect.any(String));
+	});
+
 	test("seeding twice changes nothing", async ({ db }) => {
 		await seedWorld(db);
 		const tables = [

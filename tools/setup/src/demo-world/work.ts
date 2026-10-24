@@ -476,8 +476,8 @@ function trialsTree(clock: DemoClock): TaskSpec[] {
 				"An email three days before the trial ends that says the date and the amount of the first bill.",
 			state: "in_progress",
 			summary: [
-				"The email text is written. I am putting in the date and the amount from billing.",
-				"Next: send it to a test account.",
+				"The email text is written. The date and the amount from billing go in next.",
+				"Then: send it to a test account.",
 			],
 			createdAt: clock.at(0, "16:05"),
 			updatedAt: clock.at(0, "16:05"),
@@ -693,7 +693,9 @@ function otherRoots(clock: DemoClock): TaskSpec[] {
 			about:
 				"Meter what a team uses and bill it with the month, for the usage-based tier in Tiers and metering.",
 			state: "in_progress",
-			summary: ["Counting usage per team works on a test account. Now putting it on the invoice."],
+			summary: [
+				"Counting usage per team works on a test account. Putting it on the invoice is next.",
+			],
 			createdAt: clock.daysAgo(3),
 			updatedAt: clock.hoursAgo(2),
 		},

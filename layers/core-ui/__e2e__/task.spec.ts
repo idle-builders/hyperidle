@@ -15,9 +15,7 @@ test("the whole task shows its parts and their subtasks; a picked part is in the
 	await expect(
 		page.getByRole("heading", { name: "Trials that convert without a call" }),
 	).toBeVisible();
-	await expect(graph(page)).toContainText(
-		"Parts 6 of 12 done · 1 needs input · 1 needs review · 1 running",
-	);
+	await expect(graph(page)).toContainText("Parts 6 of 12 done · 1 needs input · 1 needs review");
 	for (const part of [
 		"Understand today",
 		"Pull last quarter's trial-to-paid numbers",
@@ -28,6 +26,8 @@ test("the whole task shows its parts and their subtasks; a picked part is in the
 		"Write up what we learned",
 	])
 		await expect(chip(page, part)).toBeVisible();
+	// Its last session ended and none runs now, so it is under way, not "on it".
+	await expect(chip(page, "Reminder email three days before")).toContainText("Under way");
 
 	await chip(page, "Build the day-12 path").click();
 	await expect(page).toHaveURL(/\/work\/demo-task-trials\?part=demo-task-trials-build$/);

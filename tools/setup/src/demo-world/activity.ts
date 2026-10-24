@@ -1,7 +1,8 @@
 /**
  * The sessions behind the work: one row per time an agent worked on a task,
- * with what it did. Two are running now — Builder's reminder email and the
- * metering — which fills Builder's two slots.
+ * with what it did. Every one has ended: a running session needs a program
+ * running it, and a seeded row has none. Tasks still under way keep their
+ * last session's notes.
  */
 
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
@@ -37,8 +38,8 @@ interface SessionSpec {
 	readonly taskId: string;
 	readonly agentId: string;
 	readonly startedAt: string;
-	/** Minutes it ran; a running session has none. */
-	readonly minutes?: number;
+	/** Minutes it ran. */
+	readonly minutes: number;
 	readonly notes: string;
 }
 
@@ -158,6 +159,7 @@ export async function seedActivity(db: HyperIdleDb, clock: DemoClock): Promise<v
 			taskId: TASK_REMINDER,
 			agentId: BUILDER_ID,
 			startedAt: clock.at(0, "16:05"),
+			minutes: 10,
 			notes:
 				"Read the Trials document for the wording we use. Wrote the email text. Asked billing for the date and amount of the first bill. Started putting both into the email.",
 		},
@@ -193,8 +195,9 @@ export async function seedActivity(db: HyperIdleDb, clock: DemoClock): Promise<v
 		{
 			taskId: TASK_METERING,
 			agentId: BUILDER_ID,
-			startedAt: clock.hoursAgo(2),
-			notes: "Putting the metered usage on the invoice.",
+			startedAt: clock.hoursAgo(3),
+			minutes: 60,
+			notes: "Counted usage per team on a test account. Started putting it on the invoice.",
 		},
 		{
 			taskId: TASK_REFUNDS,
@@ -221,7 +224,6 @@ export async function seedActivity(db: HyperIdleDb, clock: DemoClock): Promise<v
 	];
 
 	for (const [i, spec] of specs.entries()) {
-		const running = spec.minutes === undefined;
 		await db
 			.insert(sessions)
 			.values({
@@ -230,13 +232,9 @@ export async function seedActivity(db: HyperIdleDb, clock: DemoClock): Promise<v
 				agentId: spec.agentId,
 				modelTier: "workhorse",
 				startedAt: spec.startedAt,
-				endedAt: running
-					? null
-					: new Date(
-							new Date(spec.startedAt).getTime() + (spec.minutes ?? 0) * 60_000,
-						).toISOString(),
-				state: running ? "active" : "done",
-				outcome: running ? null : "completed",
+				endedAt: new Date(new Date(spec.startedAt).getTime() + spec.minutes * 60_000).toISOString(),
+				state: "done",
+				outcome: "completed",
 				notes: spec.notes,
 			})
 			.onConflictDoNothing();
