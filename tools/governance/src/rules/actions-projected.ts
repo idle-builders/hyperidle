@@ -210,7 +210,7 @@ const LEGACY_EVENTS: readonly string[] = [
  * subsequent commits). Only shrinks: once an action gains a UI call site,
  * its entry must be removed in the same PR. A wired action left here is a finding.
  */
-const UNIMPLEMENTED_UI_ACTIONS: readonly string[] = ["edit_plugin", "stop_session"];
+const UNIMPLEMENTED_UI_ACTIONS: readonly string[] = ["stop_session"];
 
 /** Path to the event-bus vocabulary this rule's clause 4 reads. */
 const EVENT_TYPES_FILE = "framework/event-bus/src/events.ts";

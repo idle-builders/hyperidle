@@ -3406,6 +3406,10 @@ button.tv-where:hover {
 	font: var(--t-meta);
 	color: var(--ink-2);
 }
+/* A folder path or an address has no spaces to break at. */
+.tbox-wrap {
+	overflow-wrap: anywhere;
+}
 .tbox-sec {
 	display: flex;
 	flex-direction: column;

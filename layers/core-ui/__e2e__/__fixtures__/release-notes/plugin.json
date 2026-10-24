@@ -1,0 +1,29 @@
+{
+	"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+	"name": "release-notes",
+	"version": "0.4.1",
+	"description": "Writes the weekly release note from what shipped.",
+	"extensions": {
+		"io.hyperidle": {
+			"agents": [
+				{
+					"id": "writer",
+					"name": "Release writer",
+					"discipline": "writer",
+					"agentCategory": "team",
+					"what": "Writes what shipped, for customers.",
+					"identity": "writer.md"
+				}
+			],
+			"subscriptions": [
+				{
+					"id": "weekly",
+					"name": "Every Thursday at 15:00",
+					"agentId": "writer",
+					"schedule": "0 15 * * 4",
+					"prompt": "Collect what was merged this week and write the release note."
+				}
+			]
+		}
+	}
+}

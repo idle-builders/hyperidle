@@ -99,8 +99,14 @@ working through the backend changes.
     dialog. Backend: who started a task (tasks.started_by), what someone does (users.what), a
     person's four reasons replace the nine raw events, a service kept from one agent
     (service_connection_withholds), new folders go to every agent of yours, a person's About is
-    their agent_file document (migrations 0105, 0106). Inviting a person stays later; plugin
-    pages keep the design's content until Plugins.
+    their agent_file document (migrations 0105, 0106). Inviting a person stays later.
+  - [x] Plugins: the plugin page on real data (how it stands, its agents, skills, reasons and
+    services, Switch off and on, Remove with Undo on the team page, Install for one that comes
+    with the app, where it came from, who it is for, who installed it, and what the team changed
+    since with "Put the plugin's version back") and the Add a plugin dialog. Backend: an install
+    keeps its source, description and who added it; an edit to a plugin's agent or reason marks
+    it changed like a document, with who; restore puts each kind back; remove only pauses, so
+    switching a removed plugin on undoes it (migration 0107).
 - [ ] Step 5 finish.
 
 

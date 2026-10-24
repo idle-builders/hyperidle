@@ -9,12 +9,13 @@ import type {
 } from "@hyperidle/domain-model";
 import { PERSON_REASONS } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { call, type InputOf } from "./api";
 import { disciplinesOf } from "./doc-page";
 import { LOOKS, useLooks } from "./looks";
 import { Avatar } from "./Msg";
 import { NeedIcon } from "./NeedIcon";
+import { AddPluginDialog } from "./Plugins";
 import {
 	agentJobs,
 	agentStand,
@@ -37,6 +38,7 @@ import {
 	startRows,
 	waitingJobs,
 } from "./people-page";
+import { pluginLine } from "./plugin-page";
 import { ReachDialog, type ReachRow, StartDialog, UserDialog } from "./Setup";
 import { age, initials, teamsOf } from "./sidebar-lists";
 import { useNow } from "./Thread";
@@ -198,23 +200,6 @@ function useTasks(): readonly Task[] {
 	return useAction("search_tasks", {}, ["tasks"]).data ?? NO_TASKS;
 }
 
-/** What a plugin says in a team's box: how it stands, then what it adds. */
-function pluginLine(p: PluginListing): string {
-	if (p.state === "available") return "Comes with HyperIdle · not installed";
-	if (p.state === "disabled") return "Off · what it added is paused";
-	const words = (
-		[
-			["agent", "agent", "agents"],
-			["document", "document", "documents"],
-			["subscription", "reason to start", "reasons to start"],
-			["mcp_server", "service", "services"],
-		] as const
-	).flatMap(([kind, one, many]) => {
-		const n = p.contributions.filter((c) => c.kind === kind).length;
-		return n === 0 ? [] : [`${n} ${n === 1 ? one : many}`];
-	});
-	return words.length > 0 ? `On · ${joinWords(words)}` : "On";
-}
 const forTeam = (p: PluginListing, teamId: string): boolean =>
 	p.state === "available" || p.scope.kind === "factory" || p.scope.teamId === teamId;
 
@@ -227,6 +212,9 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 	const tasks = useTasks();
 	const running = useRunning();
 	const [adding, setAdding] = useState(false);
+	const [addingPlugin, setAddingPlugin] = useState(false);
+	const location = useLocation();
+	const removed = (location.state as { removed?: { id: string; name: string } } | null)?.removed;
 
 	const you = me.data?.user?.id ?? "";
 	const everyone = users.data ?? NO_USERS;
@@ -327,6 +315,22 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 							<h4>
 								Plugins <span>ready-made agents and skills</span>
 							</h4>
+							{removed && (
+								<p className="cm-receipt">
+									{removed.name} is removed.{" "}
+									<button
+										type="button"
+										onClick={async () => {
+											await call("edit_plugin", { id: removed.id, state: "enabled" });
+											navigate(".", { replace: true, state: null });
+											plugins.reload();
+											users.reload();
+										}}
+									>
+										Undo
+									</button>
+								</p>
+							)}
 							{shown.length === 0 && <p className="tbox-none">No plugin yet.</p>}
 							{shown.map((p) => (
 								<button
@@ -343,6 +347,9 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 									<span className="pair-why">{pluginLine(p)}</span>
 								</button>
 							))}
+							<button type="button" className="tbox-more" onClick={() => setAddingPlugin(true)}>
+								Add a plugin
+							</button>
 						</section>
 					</aside>
 				</article>
@@ -354,6 +361,16 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 						users={everyone}
 						programs={me.data?.runsOn ?? []}
 						onClose={() => setAdding(false)}
+					/>
+				)}
+				{addingPlugin && (
+					<AddPluginDialog
+						teams={teamsOf([...everyone])}
+						team={name}
+						onClose={() => setAddingPlugin(false)}
+						onAdded={(id, forTeam) =>
+							navigate(`/plugins/${encodeURIComponent(id)}?team=${encodeURIComponent(forTeam)}`)
+						}
 					/>
 				)}
 			</div>
