@@ -36,7 +36,7 @@ release.sh <version>                 version bump (×3)          deploy.yml:
                                        else the PR is RED          dispatch → homebrew-tap cask
 ```
 
-The Release Guard also runs `test:full`, `test:integration:service`, and the full e2e suite on version-bump PRs.
+The Release Guard also runs `test:full` and `test:integration:service` on version-bump PRs. The e2e suite needs a signed-in agent program, so it runs locally as part of `npm run verify:release`.
 
 ### Cutting a release
 
@@ -61,7 +61,7 @@ gh pr create --base main --fill
 
 | Workflow | Trigger | Does |
 |---|---|---|
-| `release-guard.yml` | PR to main | If version bumped: require the staged DMG + matching sha256; run `test:full`, `test:integration:service`, full e2e. |
+| `release-guard.yml` | PR to main | If version bumped: require the staged DMG + matching sha256; run `test:full`, `test:integration:service`. |
 | `deploy.yml` | push to main (version bump) | Build image → GHCR → `helm upgrade` → cluster. |
 | `release.yml` | push to main (version bump) | Publish the staged draft release → emits `release: published`. |
 | `desktop-release.yml` | `release: published` | Mirror DMG → `hyperidle-releases`; dispatch cask update → `homebrew-tap`. |
