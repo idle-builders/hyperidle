@@ -4,24 +4,6 @@
 
 import type { JSSyntaxElement, Rule, Scope } from "eslint";
 import type { Node as ESTreeNode } from "estree";
-import type { JSXAttribute } from "estree-jsx";
-
-/**
- * Class-name string extractor: returns the literal text of `className="..."`.
- * Returns null if the JSXAttribute value is not a static string literal we can
- * parse.
- */
-export function getClassNameLiteral(attr: JSXAttribute | null): string | null {
-	if (!attr) return null;
-	if (attr.type !== "JSXAttribute") return null;
-	const v = attr.value;
-	if (!v) return null;
-	const vAny = v as { type?: string; value?: unknown };
-	if (vAny.type === "Literal" && typeof vAny.value === "string") {
-		return vAny.value as string;
-	}
-	return null;
-}
 
 /**
  * Resolves a bare `Identifier` to the initializer expression of the single
@@ -65,7 +47,7 @@ export function createRule(rule: Rule.RuleModule): Rule.RuleModule {
 }
 
 /**
- * Cast any ESTree / estree-jsx node to `JSSyntaxElement` for passing to
+ * Cast any ESTree node to `JSSyntaxElement` for passing to
  * `context.report({ node })`. This is the single audited boundary replacing
  * all `node as unknown as Rule.Node` casts in rule files.
  *

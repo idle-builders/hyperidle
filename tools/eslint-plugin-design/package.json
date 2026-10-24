@@ -19,7 +19,6 @@
 	"devDependencies": {
 		"@types/estree": "^1.0.0",
 		"@typescript-eslint/parser": "^8.62.0",
-		"estree-jsx": "^0.0.1",
 		"vitest": "^4.1.9"
 	}
 }
