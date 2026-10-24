@@ -463,7 +463,7 @@ describe("user-subscription seam — reach, wake, and pause", () => {
 
 			const nudge = waitForFrame(
 				ws,
-				(m) => m.type === "update" && m.topic === "user:seam-sub-person",
+				(m) => m.type === "update" && m.topic === "user:seam-sub-person" && m.kind === "inbox",
 			);
 
 			expectOk(
@@ -537,7 +537,7 @@ describe("user-subscription seam — reach, wake, and pause", () => {
 
 			const noNudge = assertNoFrame(
 				ws,
-				(m) => m.type === "update" && m.topic === "user:seam-sub-person",
+				(m) => m.type === "update" && m.topic === "user:seam-sub-person" && m.kind === "inbox",
 			);
 			expectOk(
 				await callAction(

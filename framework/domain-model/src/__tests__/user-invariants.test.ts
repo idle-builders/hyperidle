@@ -463,6 +463,7 @@ describe("UserRowSchema", () => {
 		ownerUserId: "u0",
 		health: null,
 		discipline: null,
+		what: null,
 		teams: [{ id: "t1", name: "Core" }],
 		edges: [{ id: "e1", mechanism: "direct" as const, target: "u0", resolvedUserIds: [] }],
 	};
