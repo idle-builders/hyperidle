@@ -1134,3 +1134,13 @@ All eight drawn at once, each as a walkthrough step:
 - Founder: "all looks fine". The open question (how a document is marked for a discipline) was
   drawn as suggested (Think 9): "For Growth ▾" in the document's header; a menu of Everyone and
   the disciplines in use, saying which agents get it; people read every document either way.
+
+## Session 19 — the cutover (2026-10-21 to 2026-10-24)
+
+One branch, `feature/ui-cutover`, replaced the whole UI: the old app purged first, the studio
+placed in `layers/core-ui`, the backend changes the screens needed, then every screen wired to
+real data one at a time (frame, conversations, task page, review, knowledge, people, plugins,
+first start and find or ask), then the cleanup (docs, skills, leftovers) and the smoke tests.
+The demo world now tells the design's story (Northwind), so each screen was compared with its
+design one to one. Pull request: ambrovia/hyperidle#576 (not merged). Still open: clicking
+through the desktop window by hand; the follow-ups in `cutover-plan.md` "After the merge".
