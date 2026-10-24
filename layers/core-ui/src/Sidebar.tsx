@@ -364,7 +364,8 @@ export function Sidebar() {
 		knowledge: docs.data && knowledgeItems(docs.data, you, names, teams, inbox),
 	};
 	const needs = (t: Spine) => (t === "work" ? 0 : (lists[t] ?? []).filter((i) => i.yours).length);
-	const waiting = needs("conversations") + needs("knowledge");
+	// The same count your page lists: questions and reviews waiting on you.
+	const waiting = (threads.data ?? []).filter((t) => t.need !== null).length;
 	const unread = inbox.filter((r) => r.readAt === null).length;
 	const all = lists[spine];
 	const items = all && spine === "work" && teamId ? all.filter((i) => i.team === teamId) : all;

@@ -17,6 +17,13 @@ test("the sidebar lists the demo world and every row is an address you can go ba
 
 	await expect(sidebar.getByRole("button", { name: "Notifications, 2 new" })).toBeVisible();
 
+	// "You" counts what your page lists as waiting for you, no more and no less.
+	await sidebar.getByText("4 waiting for you").click();
+	await expect(page).toHaveURL(/\/people\/me$/);
+	await expect(page.getByRole("heading", { name: /^Waiting for you\s*4$/ })).toBeVisible();
+	await page.goBack();
+	await expect(page).toHaveURL(/\/conversations\/demo-thread-trial-end$/);
+
 	await sidebar.getByRole("button", { name: /^Work/ }).click();
 	const trials = sidebar.getByRole("button", { name: /^Trials that convert without a call/ });
 	await expect(trials).toBeVisible();
