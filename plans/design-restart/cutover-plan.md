@@ -65,7 +65,7 @@ working through the backend changes.
   words (`need`, `openBelow`, live `task:<id>` / `tasks` topics); answer a question by option,
   verdict is approve or reject with a reason; a person in several teams, an agent in one, all
   knowledge readable by everyone.
-- [ ] Step 4 screens, wired to real data:
+- [x] Step 4 screens, wired to real data:
   - [x] the frame: the sidebar on real data and live, a URL per screen, the `call` / `useAction`
     client, Playwright back against the real server on a fresh demo world. A thread row says what
     it waits on from you (`need`: stuck, input or review), who spoke last, and whether you were
@@ -122,7 +122,17 @@ working through the backend changes.
     bridge, inspect-path, display helpers and the agent track record, two unwired lint rules), one
     home for the installed-plugins folder, the desktop window and splash on the Paper canvas, the
     docs and the skills that drive the app rewritten to the new app.
-  - [ ] the desktop and web smoke tests, and the pull request.
+  - [x] the web smoke test (2026-10-24), on the real server with real agents and the demo world:
+    every page loads, a reply persists, Find finds, missing ids say "did not load", and the wedge —
+    @Builder in a new conversation answered through a real Claude Code run, live on the page. It
+    found two defects, both fixed with tests: one busy agent held every other agent's work in the
+    queue (already on main), and the demo world seeded "running" sessions no program ran, which
+    filled Builder's slots for good.
+  - [x] the branch's migrations on a copy of a real desktop database from September: all ran, every
+    action answers, the people, team and plugin pages render it.
+  - [ ] the desktop window driven by hand: the packaged app builds and boots cleanly into the new
+    app; clicking through its window waits for the founder (computer access was declined).
+  - [ ] the pull request.
 
 
 ### Step 0: decisions (founder, 2026-10-20)
