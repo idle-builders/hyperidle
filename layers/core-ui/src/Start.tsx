@@ -84,10 +84,7 @@ function Join({ onBack }: { onBack: () => void }) {
 							onChange={(e) => setKey(e.target.value)}
 						/>
 					</label>
-					<p className="first-note">
-						Whoever runs the server gives you a key. Your agents keep running on this computer, with
-						the programs found here.
-					</p>
+					<p className="first-note">Whoever runs the server gives you a key.</p>
 					{problem && <p className="composer-problem">{problem}</p>}
 				</>
 			) : (

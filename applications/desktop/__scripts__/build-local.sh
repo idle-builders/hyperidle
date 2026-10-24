@@ -23,7 +23,7 @@ if [ ! -e "${WEB_BUNDLE_JS[0]}" ]; then
 fi
 if grep -l "ws://localhost" "${WEB_BUNDLE_JS[@]}" >/dev/null 2>&1; then
   echo "Error: the built web bundle hardcodes ws://localhost — a packaged app would never receive live updates."
-  echo "See layers/core-ui/src/services/ws-client.ts and its MODE-based dev/prod branch."
+  echo "See layers/core-ui/src/live.ts: the socket address must come from the page's own host."
   exit 1
 fi
 

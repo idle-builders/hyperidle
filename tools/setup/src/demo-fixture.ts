@@ -3,8 +3,8 @@
  *
  * @lore Demo data is opt-in at database creation (`npm run setup -- --demo`, or `--db-path` pointed at any PGlite data directory), never on a production boot path; nothing in the shipping roots may import this file.
  *
- * It tells the same story as the design's made-up data in `layers/core-ui`, so a
- * screen wired to real data can be compared with its design one to one: Finn
+ * It tells the story the designs were drawn with, so a screen can be compared with
+ * its design one to one: Finn
  * Olsen and Maya Chen at Northwind, their agents Builder, Growth and Designer,
  * Facilitation from the Team habits plugin, the task "Trials that convert
  * without a call", the hand-off "Trial-end confusion, three tickets", and the

@@ -999,8 +999,8 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 									Change what you are told about
 								</button>
 								<p className="pair-why">
-									{followWords ? `You follow ${followWords}. ` : ""}You follow a document, task or
-									thread from its own page.
+									{followWords ? `You follow ${followWords}. ` : ""}You follow a task or a document
+									from its own page.
 								</p>
 							</section>
 						)}
