@@ -2,7 +2,7 @@
 
 How a plugin adds to a running HyperIdle, and how the plugin service keeps track of what it added.
 
-Plugins are how the product gains opinions it does not ship with. The install itself ships empty — only the hidden `system:propagation` actor. The welcome screen (SetupFlow) creates the person's assistant with nine subscriptions, one per event, each with an empty prompt. Beyond that there is nothing else: no roster, no roles, no personas. A Builder, a Designer, a Document Librarian all arrive because somebody installed a plugin; the ones that ship with the app are listed in Settings › Plugins as available, one click from installed. A plugin brings its own agents and subscriptions; it never writes into the assistant's.
+Plugins are how the product gains opinions it does not ship with. The install itself ships empty — only the hidden `system:propagation` actor. First start (`/start`) makes one agent, Builder, with nine subscriptions, one per object event, and no prompt. Beyond that there is nothing else: no roster, no roles, no personas. A Designer, a Product Manager, a Document Librarian all arrive because somebody installed a plugin; the ones that ship with the app are listed on a team's page as available, one click from installed. A plugin brings its own agents and subscriptions; it never writes into another agent's.
 
 ## One install per team
 
@@ -49,9 +49,9 @@ Each install keeps its source as given — `source_kind` (`folder`, `git`, `zip`
 
 ## Where plugin files live
 
-Installing copies the plugin to `<dataDir>/installed-plugins/<installId>` — one folder per install, so one team's reinstall never removes the folder another team's restore reads — and records the path in `plugins.install_path`. Two features depend on it: restore reads the plugin's files from there, and a session reads the plugin's MCP servers from the `mcp.json` there, expanding `${PLUGIN_ROOT}` / `${PLUGIN_DATA}` against it. An install without a folder brings no MCP servers.
+Installing copies the plugin to `installed-plugins/<installId>` in the folder that holds the database (`installedPluginsDir`, `layers/core-api/src/installed-plugins-dir.ts`) — one folder per install, so one team's reinstall never removes the folder another team's restore reads — and records the path in `plugins.install_path`. Two features depend on it: restore reads the plugin's files from there, and a session reads the plugin's MCP servers from the `mcp.json` there, expanding `${PLUGIN_ROOT}` / `${PLUGIN_DATA}` against it. An install without a folder brings no MCP servers.
 
-> Not `<dataDir>/plugins`. Beside a development checkout's database that is the repository's own plugin **source** directory, and install removes the destination before copying.
+> Not `plugins`. Beside a development checkout's database that is the repository's own plugin **source** directory, and install removes the destination before copying.
 
 Nothing about a server is stored at install: the folder is the only copy, so an edited `mcp.json` reaches the next session, and a moved data directory never leaves a stale absolute path behind in the database.
 
@@ -59,7 +59,7 @@ Nothing about a server is stored at install: the folder is the only copy, so an 
 
 `plugins/` in the repository holds the plugins that ship with the app. The desktop build copies it into the app's resources beside the migrations (`electron-builder.yml`), and the desktop shell points the server at it with `HYPERIDLE_BUNDLED_PLUGINS_DIR`; the server image finds it in the repository it carries. Nothing is installed by default.
 
-`search_plugins` answers two kinds of rows: every install, and — as `state: "available"` — each bundled plugin not yet installed for every team the viewer is in. A factory install makes a plugin installed for everyone; a removed install makes it available again. Settings › Plugins shows the available rows with an Install button beside the installed ones.
+`search_plugins` answers two kinds of rows: every install, and — as `state: "available"` — each bundled plugin not yet installed for every team the viewer is in. A factory install makes a plugin installed for everyone; a removed install makes it available again. A team's page (`/teams/:name`) lists its plugins, the available ones too; an available plugin's page (`/plugins/:id`) has an Install button. "Add a plugin" on the team page installs one from a git address, a folder or a zip file.
 
 `edit_plugin` installs one with `source: { kind: "bundled", name, scope }`. The name is matched exactly against the manifest names the server read from its own bundled folder; the caller never supplies a path. The manifest's `extensions["io.hyperidle"].installScope` (`team` by default, or `factory`) decides the scope.
 

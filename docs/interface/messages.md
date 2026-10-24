@@ -1,47 +1,40 @@
 # Messages
 
-## Thread model
+How a thread page shows a conversation. The thread and message model — host kinds, message types,
+anchors, verdicts and answers, who may post, who is woken — is in
+[thread.md](../objects/thread.md). Code: `layers/core-ui/src/Thread.tsx`, `thread-timeline.ts`,
+`Composer.tsx`.
 
-A thread has a host kind, a title, a participants list, a pinned flag, and a soft-delete. Host kinds are a closed set: `document`, `agent`, `user`, `team`, `factory`. There is no task host — a task points to a team-hosted thread.
+## Reading a thread
 
-Messages are append-only. Redaction sets the payload to a redacted marker; the row stays. `client_key` provides idempotency — submitting the same key twice is a no-op.
+A thread reads top to bottom and opens at its newest message; new messages come in live.
 
-Message types: `plain`, `review`, `questionnaire`, `verdict`, `answer`.
+- **Messages** — one sender's messages close together (within five minutes) share one name and
+  time. A comment on a review part also says what it is "on". A removed message says so.
+- **Questions** — an ask with real options. Its card says "Stuck" when an agent asked and "Needs
+  input" when a person did. You answer by picking an option; the card then shows the choice in
+  place.
+- **Reviews** — a review card shows its title and what the sender says about it. Yours says "Needs
+  review" and has "Look at it", which opens the review (see [reviews.md](reviews.md)). Someone
+  else's shows in full, with who reviews it. A decided one says Approved or Rejected, with the
+  reason.
+- **Small events** — a verdict or an answer shows as one line ("Maya approved …", "Sam went with
+  …"), because the card it resolves already shows the result. A finished stretch of agent work is
+  one line too ("Worked 1h 20m · 3 sessions").
+- **Work items** — a task handed off in the thread sits where it started, names its owner, and
+  shows its state in words, with "Open ›" to its task page. It never posts status messages.
+- **The session line** — while an agent works, one line says so ("Builder is working · 12m · 8
+  steps"), with "Peek at session" to show its steps in place. The session itself never enters the
+  thread.
 
-A review is resolved by a verdict — `approve` or `reject`, and a reject says why. A questionnaire is resolved by an answer — one of its options, or the sender's own words. See [thread.md](../objects/thread.md#verdicts-and-answers).
+## Writing
 
-Who may post: any member of the thread. Agents post via the `send_message` action on a session.
+The chat box sends on ↵ (Shift+↵ for a new line). Its format bar sits beside Send: Mention, Link,
+Bold, Italic, List, Quote, Code. Typing `@` opens the mention picker: people and agents in one list,
+each with what they do and how busy they are right now.
 
-## Part model
+**Handing off** is a mention: @ an agent in a thread and it wakes and answers there. Work it takes
+on becomes a task that keeps that thread as its own; the task page says where it came from.
 
-A `Part` is the typed rendering unit of a conversation. Parts are **derived** from messages at render time and never stored. The renderer (`PartList`) imports only the `Part`/`Embed`/`OpenTarget` vocabulary — never the raw `Message` type. The adapters in `layers/core-ui/src/components/parts/part.ts` are the only place that know the source.
-
-This separation is enforced by a scoped `no-restricted-imports` ESLint rule (W1, `eslint.config.ts`).
-
-### Part kinds (closed)
-
-| Kind | What it is |
-|---|---|
-| `prose` | A text body |
-| `review` | A review message — shows what its sender says about it, links to the review |
-| `resolved` | A resolved verdict with label and summary |
-| `questionnaire` | A question with options |
-| `tool` | One tool call the agent made (compact row) |
-| `reasoning` | A span of agent thinking, collapsed until expanded |
-| `unknown` | Wire-unrecognised type or redacted payload |
-
-### Embed kinds (closed)
-
-| Kind | What it is |
-|---|---|
-| `diff` | A file diff from a tool call |
-| `session-reference` | A link to a session |
-| `entity-ref` | A link to a document, task, or agent |
-| `mention` | A user mention |
-| `unknown` | Unrecognised reference, label only |
-
-`InlineRef` in the domain model is `EntityRef | MentionRef | CanvasArtifactRef`. There is no block embed. Attaching a block now copies its text into a new document.
-
-### Two source adapters
-
-`messagesAdapter` converts `Message[]` into `Part[]`. The second adapter handles session activity entries. Both produce the same `Part` vocabulary; the renderer is source-agnostic.
+**A new conversation** starts empty: say what it is about and @mention who should be in it. Its first
+line, without the mentions, becomes its title.

@@ -44,11 +44,13 @@ describe("DOCS_NAV", () => {
 			"guides/user",
 			"guides/user/getting-started",
 			"guides/user/the-interface",
-			"guides/user/views",
+			"guides/user/conversations",
+			"guides/user/work",
+			"guides/user/knowledge",
 			"guides/user/agents",
-			"guides/user/running-your-team",
-			"guides/user/settings",
+			"guides/user/your-page",
 			"guides/user/connections",
+			"guides/user/running-your-team",
 		]);
 	});
 

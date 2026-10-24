@@ -1,12 +1,12 @@
 # Deployment
 
-HyperIdle ships as a signed, notarized macOS desktop app (Electron). The Hono server runs embedded in the Electron main process; PGlite at `userData/hyperidle-pg` is the database; a 256-bit API key is auto-generated into `userData/secrets.json` on first launch.
+HyperIdle ships as a signed, notarized macOS desktop app (Electron). The Hono server runs inside the Electron main process; PGlite at `userData/hyperidle-pg` is the database; a 256-bit API key is generated into `userData/secrets.json` on first launch.
 
-**First run — SetupFlow** collects your name, a harness to run the assistant on (the harness must already be installed and signed in), and an optional repo folder. No API key is entered. A team is created silently from the folder name or "My Team".
+**First start.** A fresh install opens `/start`. It shows the agent programs found on this computer (claude-code, codex, opencode, cursor-agent) and how to sign in to one, then asks your name and your team's name. Start talking makes you, the team, a first agent called Builder on a signed-in program, and a first conversation where Builder says hello. No API key is entered.
 
 Install via DMG, or via Homebrew after adding the tap (`brew tap ambrovia/homebrew-tap && brew install --cask hyperidle`). Node ≥ 24 required for dev.
 
-**Shared mode.** The desktop app can connect to a shared HyperIdle server instead of running its own embedded instance. Set the server URL and key in Settings → Backend. The key is stored in the OS keychain (`shared_backend_key` via safeStorage, `applications/desktop/src/safe-credentials.ts`). The app loads the server's URL and starts no embedded server or agents.
+**Joining a team's server.** At first start the desktop app can instead join a team that runs on a server: "Join a team on a server", then the server's address and the key its owner gave you. The app keeps the key encrypted on this computer (`shared_backend_key`, Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`), checks that the server answers, and reopens on the server's address. From then on it starts no server and runs no agents of its own. To leave the server, delete `config.json` in the app's data folder (Help → Open Data Folder).
 
 | Profile | Database | How to start |
 |---|---|---|
@@ -15,7 +15,9 @@ Install via DMG, or via Homebrew after adding the tap (`brew tap ambrovia/homebr
 | Cloud | Managed Postgres | see [self-hosting](self-hosting.md) |
 | Shared backend | Postgres on K8s cluster | see [shared-backend](shared-backend.md) |
 
-Dev setup steps and the command reference live in [guides/developer/getting-started](../guides/developer/getting-started.md). Agents run only in the desktop app (local topology) and on remote workers — the dev server (`npm run dev`) runs no agents.
+Dev setup steps and the command reference live in [guides/developer/getting-started](../guides/developer/getting-started.md).
+
+**Where agents run.** Only the desktop app on its own database runs agents: its server looks for the agent programs on this computer and starts them. A server started with `npm run dev`, `npm start` or the server image runs none. It can take sessions from a worker that connects over `/ws/worker` (`RemoteWorkerClient`, exported by `applications/remote-worker`), but no app in this repo runs that client — so a shared server, and a desktop app joined to it, run no agents.
 
 ---
 

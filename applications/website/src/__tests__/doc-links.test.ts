@@ -87,8 +87,8 @@ describe("mapDocHref", () => {
 	});
 
 	test("preserves anchors on rendered links", () => {
-		expect(mapDocHref("./settings.md#agent-backends", "docs/guides/user/agents.md", options)).toBe(
-			"/docs/guides/user/settings/#agent-backends",
+		expect(mapDocHref("./your-page.md#the-box", "docs/guides/user/agents.md", options)).toBe(
+			"/docs/guides/user/your-page/#the-box",
 		);
 	});
 

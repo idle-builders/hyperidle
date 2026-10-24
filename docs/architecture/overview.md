@@ -6,9 +6,9 @@ HyperIdle is one Node.js process with four layers and three shipped applications
 
 | App | What it is |
 |---|---|
-| `applications/desktop` | Electron shell — opens a browser window, manages the local database and the OS keychain |
+| `applications/desktop` | Electron shell — runs the server and its agents on this computer over a local database, or opens a team's server; keeps that server's key encrypted with the computer's keychain (Electron `safeStorage`) |
 | `applications/remote-server` | Node HTTP server for shared-backend deployments |
-| `applications/remote-worker` | A session-execution endpoint that connects to a remote server |
+| `applications/remote-worker` | Exports `RemoteWorkerClient`, the client a machine uses to take sessions from a remote server over `/ws/worker`. It has no start command, and no app in this repo runs it |
 
 The website (`applications/website`) is an Astro static site that publishes the user-facing docs.
 
@@ -18,7 +18,7 @@ The website (`applications/website`) is an Astro static site that publishes the 
 core-api          — task · thread · document · user · policy · changes · settings
 agent-orchestration — run-orchestration · session-requests · connections · filesystems · tool-handlers
 agent-execution   — harness-registry (adapter pool, MCP bridge, return gate)
-core-ui           — React + Vite front end
+core-ui           — React + Vite front end, plain CSS
 ```
 
 **`core-api`** owns the domain objects and the one database. Its modules are `task`, `thread`, `document`, `user`, `changes` (the event log), `policy` (lifecycle propagation, approval rate), and `settings` (server config, bundled plugins, plugin installer).
@@ -27,7 +27,7 @@ core-ui           — React + Vite front end
 
 **`agent-execution`** is the harness adapter layer: `harness-registry` holds the adapter pool, the MCP bridge, return-gate enforcement, and event normalization. It runs inside the same process as agent-orchestration and is the only code that spawns a harness subprocess.
 
-**`core-ui`** is the browser client. It talks to the server only through the action call service (`layers/core-ui/src/services/call.ts`).
+**`core-ui`** is the browser client: plain React and plain CSS with tokens. It reads and writes through one client, `call(action, input)` in `layers/core-ui/src/api.ts`, and one hook, `useAction` (`layers/core-ui/src/useAction.ts`), which asks again when a WebSocket topic it listens on changes. The only other requests are the WebSocket token, cross-object search and first start (below). How the screens look is in [interface/ui-design.md](../interface/ui-design.md).
 
 ## The 18 actions
 
@@ -46,7 +46,7 @@ Each declaration carries a name, a sentence description, a Zod input schema, a s
 
 - **HTTP routes** — `createActionsRouter` (`layers/core-api/src/actions/actions-router.ts`) mounts `POST /api/actions/<name>` for every action.
 - **MCP tools** — `actionsAsTools` (`layers/core-api/src/actions/actions-as-tools.ts`) registers a tool per action. Tools call the action in-process as the session's agent; no HTTP hop.
-- **UI client** — `layers/core-ui/src/services/call.ts` calls `POST /api/actions/<name>` for the same list.
+- **UI client** — `call` in `layers/core-ui/src/api.ts` posts to `POST /api/actions/<name>`; its types come from the same declarations.
 
 One governance lint rule verifies that every declared action is projected onto all three surfaces.
 
@@ -56,9 +56,10 @@ Alongside the 18 actions, agents have one extra tool: `return_status` (`layers/a
 
 The routes that fall outside the action loop remain as explicit Hono route files:
 
-- **Auth** — `GET /api/auth/ws-token` (WebSocket upgrade token), `GET /ws/worker` (worker registration)
-- **Health** — `GET /api/health`
+- **Auth** — `POST /api/auth/ws-token` (one-time token for the browser's socket at `/api/ws`), `POST /api/auth/worker-token` and `/ws/worker` (a remote worker registers)
+- **Health** — `GET /api/health` (no key), `GET /api/health/auth` (with the key)
 - **Cross-object search** — `GET /api/search` (hand-written; queries task, thread, document, user in one response)
+- **First start** — `POST /api/start/look` (look for the agent programs on this computer again), `POST /api/start` (make the first person, team, agent and conversation)
 - **MCP bridge** — `POST /api/mcp/:token` (stateful MCP bridge), `POST /api/mcp/:token/return-status` (return-gate adjudication)
 - **Agent-orchestration intake** — `POST /api/agent-orchestration/*` routes: work intents, review links, review verdicts, run config, filesystems, connections, sessions
 
@@ -87,7 +88,7 @@ propagation_applied  propagation_failed
 tool_call_recorded
 ```
 
-WebSocket pushes to the browser come from the bus. The socket serves topics `conversations`, `thread:<id>`, `documents`, `document:<id>`, and `session:<id>` — see [security.md](./security.md) §WS subscribe authorization for who may subscribe to each.
+WebSocket pushes to the browser come from the bus. The socket serves topics `conversations`, `tasks`, `documents`, `users`, `thread:<id>`, `task:<id>`, `document:<id>`, `user:<id>` and `session:<id>`. A push only says that something changed; the page asks again. Who may subscribe to each: [security.md](./security.md) §WS subscribe authorization.
 
 ## Subscriptions
 
@@ -96,7 +97,7 @@ A subscription row has an owner (`userId`), a trigger (exactly one of: an `Objec
 - **Agent owner** → a `subscription_run` work intent is written to `agent_work_intents`.
 - **Human owner** → an inbox row is written to `inbox`.
 
-Users manage their subscriptions through `edit_user`. The install itself creates only the hidden `system:propagation` actor. The person's assistant — subscribed to all nine object events — is created by the welcome screen (SetupFlow).
+Users manage their subscriptions through `edit_user`. The install itself creates only the hidden `system:propagation` actor. First start (`POST /api/start`, from the `/start` page) makes the person, their team, a first agent called Builder on a signed-in agent program — subscribed to all nine object events — and a first conversation where that agent says hello.
 
 ## Core → orchestration hand-off
 

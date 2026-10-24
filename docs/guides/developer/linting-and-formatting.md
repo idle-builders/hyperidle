@@ -10,23 +10,23 @@ Several steps, in order, all must pass:
 biome check . --error-on-warnings --max-diagnostics=none
 npx eslint . --max-warnings=0
 npm run lint:design-css
-npm run lint:design-profiles
 npx tsx tools/governance/src/governance-lint.ts --fixtures
 npx tsx tools/governance/src/governance-lint.ts --attacks
 npx tsx tools/governance/src/governance-lint.ts
 ```
 
-There are no domain guard scripts in the chain. The governance lint replaced them.
+Package boundaries are checked by the governance lint alone; there are no separate guard scripts.
 
-Individual legs: `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:governance`, `npm run lint:governance:fixtures`, `npm run lint:governance:attacks`, `npm run lint:design-css`, `npm run lint:design-profiles`. `npm run lint:fix` is `biome check --write .`.
+Individual legs: `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:design-css`, `npm run lint:governance`, `npm run lint:governance:fixtures`, `npm run lint:governance:attacks`. `npm run lint:fix` is `biome check --write .`.
 
 ## Biome + ESLint split
 
 **Biome** is the primary linter/formatter — tabs, 100-char line width (`biome.json`). **ESLint** covers what Biome can't:
 
-- React Hooks rules (`react-hooks/rules-of-hooks`, `react-hooks/exhaustive-deps`) and React Compiler safety (`react-compiler/react-compiler`)
-- Drizzle ORM safety on `framework/db/src/**` and `layers/core-api/*/src/**`: `drizzle/enforce-delete-with-where` and `drizzle/enforce-update-with-where` with `drizzleObjectName: "db"`
+- React Hooks rules (`react-hooks/rules-of-hooks`, `react-hooks/exhaustive-deps`) and React Compiler safety (`react-compiler/react-compiler`) on `layers/core-ui/src/**`
+- Drizzle ORM safety on `framework/db/src/**` and `layers/core-api/src/**`: `drizzle/enforce-delete-with-where` and `drizzle/enforce-update-with-where` with `drizzleObjectName: "db"`
 - The repo's own rule plugins, `tools/eslint-plugin-design` and `tools/eslint-plugin-authz`
+- Playwright rules on every `*.spec.ts`
 
 `eslint . --max-warnings=0` **prints every warning and fails on any of them.** Every rule is `error` or `off` — none are left at `warn`.
 
@@ -46,18 +46,23 @@ What is useful to know here:
 
 The governance lint classifies every file as production or development, and enforces one crossing rule: **a production file may never import a development file.** One direction, no exceptions.
 
-A file is **development** if its name declares it (`.stories.tsx`, `.test.ts(x)`, `.spec.ts(x)`), or a path segment starts with `__`, or it belongs to a wholly-development package. Otherwise it is production.
+A file is **development** if its name declares it (`.test.ts(x)`, `.spec.ts(x)`), or a path segment starts with `__`, or it belongs to a wholly-development package. Otherwise it is production.
 
 Enforced by `tools/governance/src/rules/no-production-imports-development.ts`.
 
+## Token check (`lint:design-css`)
+
+`tools/repo-gates/src/design-css-gate.ts` checks every CSS and TSX file in `layers/core-ui`. It fails on:
+
+- a raw colour (`#hex`, `rgb()`, `rgba()`, `hsl()`, `hsla()`) outside `layers/core-ui/src/tokens.css`, the one file that holds raw values;
+- a `var(--name)` that neither `tokens.css` nor the same file defines.
+
+It also fails when it finds no files to check. The UI is plain CSS — no Tailwind, no DaisyUI, no component library — so this check is the whole styling gate. How tokens and classes are laid out: [interface/ui-design.md](../../interface/ui-design.md).
+
 ## eslint-plugin-design
 
-`tools/eslint-plugin-design` houses the repo's design-system enforcement rules. They cover token scales (color, spacing, radius, font size, tracking, duration), page anatomy, mock-data policy, and a set of AI-aesthetic tells. Rules are at **error** across `framework/design-system/src/**` and `layers/core-ui/src/**`.
+Despite its name, `tools/eslint-plugin-design` holds the repo's own code and test rules, all at **error** (wired in `eslint.config.ts`):
 
-Two rules enforce the page-anatomy standard:
-
-**`design/no-handrolled-page-header`** — error on `layers/core-ui/src/pages/**/*.tsx`. Flags the literal class combination `text-[20px]` + `font-[600]` + `tracking-[-0.01em]` on any JSX element that is not `PageHeader`. `SettingsPage.tsx` and `SetupFlow.tsx` are exempted via block `ignores` pending their own migrations. Pages with an editable title `<input>` compose `pageTitleClassName` (exported from `layers/core-ui/src/ds/PageHeader.tsx`) as an identifier reference — compliant, because the rule inspects only string literals.
-
-**`design/no-undefined-font-heading`** — error across `layers/core-ui/src/**`. Flags two things: `font-heading` (an undefined Tailwind utility that silently does nothing) and `tracking-wider` inside `pages/**` (Tailwind's 0.05em default is off the Hearth caps scale — use `SectionLabel`, which applies `tracking-[var(--tracking-caps-sm)]` = 0.06em).
-
-The mock-data rules (`design/no-mock-data-import`, `design/no-mock-data-symbol`) are documented in the [mock-data policy](mock-data-policy.md).
+- `design/no-mock-data-import`, `design/no-mock-data-symbol` — on `layers/core-api/src/**`; see the [mock-data policy](mock-data-policy.md)
+- `design/no-unknown-cast`, `design/no-ungated-stream-drain`, `design/lore-format` — source files
+- `design/no-existence-only-test`, `design/no-repo-introspection-in-test`, `design/no-planning-id-in-test`, `design/no-dom-marker-assert` — tests

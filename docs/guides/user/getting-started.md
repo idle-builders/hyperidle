@@ -1,31 +1,23 @@
-# Getting Started
+# Getting started
 
-From zero to HyperIdle running locally, with a task and an agent responding.
-
----
-
-## Prerequisites
-
-- **Node.js 24 or later** — check with `node --version`. Install from [nodejs.org](https://nodejs.org).
-- **Git** — check with `git --version`.
-- **An agent harness, logged in.** HyperIdle uses your existing CLI logins — it does not store API keys. Install and sign in to at least one: `claude` (Claude Code), `codex`, `opencode`, or `cursor-agent`. You do this in your terminal before running HyperIdle.
+From nothing to your first conversation with an agent.
 
 ---
+
+## Before you start
+
+Agents work through an **agent program** on your computer: Claude Code, Codex, OpenCode or Cursor Agent. Install at least one and sign in to it in a terminal. HyperIdle uses that program's own sign-in; it never asks you for an AI key.
 
 ## Install
 
-**Option A — macOS desktop app (recommended)**
-
-Download the signed DMG from the [releases page](https://github.com/ambrovia/hyperidle/releases) or install via Homebrew:
+**Desktop app (macOS):**
 
 ```bash
 brew tap ambrovia/homebrew-tap
 brew install --cask hyperidle
 ```
 
-Open the app. It uses an embedded PGlite database — no external database required.
-
-**Option B — from source**
+**From source** (needs Node.js 24 or later and git):
 
 ```bash
 git clone https://github.com/ambrovia/hyperidle.git
@@ -35,76 +27,44 @@ npm run setup -- --profile laptop
 npm run dev
 ```
 
-The server starts on port 3001 and the web UI on port 5173. Open [http://localhost:5173](http://localhost:5173).
+Then open <http://localhost:5173>. Other ways to run it, such as on a shared server: [Deployment](../../deployment/index.md).
 
 ---
 
-## Setup
+## First start
 
-The first time you open HyperIdle, setup asks three things:
+A fresh install opens on the first-start page.
 
-1. **Your name** — what to call you.
-2. **Harness** — which CLI to use for your personal assistant (the harnesses you have installed appear here).
-3. **Folder (optional)** — a code repository or folder to attach to your team.
+1. **Found on this computer** lists the agent programs HyperIdle found, each marked signed in, installed, or not installed. If none is ready, each row says how to fix it (for example, the sign-in command to run). Fix one, then press **Look again**. One ready program is enough.
+2. Type **Your name** and **Name your team** (for example "Product").
+3. Press **Start talking**.
 
-No API key. No team type. No preset selection. After you click **Finish**, HyperIdle creates your user account, a team, and your personal assistant — subscribed to all nine object events.
+This makes you, your team, and your first agent, **Builder**, which works for you. Folders, GitHub and teammates can come later.
 
----
-
-## What you get after setup
-
-- **You** — your user account.
-- **Your assistant** — an individual agent, subscribed to every object event, ready to help from the sidebar overlay.
-- **A team** — named after your folder if you provided one, otherwise "My Team".
-- **No team agents.** The assistant is yours (it sits in your team, but works for you). To get team agents — Builder, Designer, Product Manager, and others — install the **role-personas** plugin.
+**Joining a team on a server instead.** Press **Join a team on a server instead**, then give the server's address and the key whoever runs the server gave you. This works only in the desktop app, because a browser cannot keep the key.
 
 ---
 
-## Install a plugin (optional)
+## Your first conversation
 
-Go to **Settings → Plugins**. The plugins that ship with the app are listed:
+Start talking opens a conversation called "Getting started". Builder says hello: it tells you which program it runs on and asks what you are working on.
 
-- **role-personas** — seven shaped team agents. Install it for your team to get a Builder, Designer, Product Manager, QA Engineer, Growth, Ops, and Facilitator, each pre-configured with a harness and system prompt.
-- **document-management** — a Document Librarian agent that triages and curates your knowledge on a schedule.
+Under the hello you can point Builder at your code:
 
-Click **Install** on any plugin. You can edit the agents it brings, or restore the originals with **Restore**.
+- **Connect a folder** — opens the folder dialog on [your page](./your-page.md).
+- **Connect GitHub** — opens the service dialog on your page.
+- **Not now** — hides the offer.
 
----
+More on both: [Folders and services](./connections.md).
 
-## Create your first task
-
-1. Go to **Work** in the sidebar.
-2. Click **New task**.
-3. Fill in a **Title** and **Goal** — what success looks like, what is out of scope. The goal is the contract.
-4. Click **Create**.
-
-The task starts in `proposed`. Nothing runs yet.
+Now just reply. To give Builder a piece of work, mention it with `@` — see [Conversations](./conversations.md).
 
 ---
 
-## Set an owner and accept the task
+## In the desktop app
 
-Open the task you just created. In the task header:
-
-1. Set the **Owner** — pick your assistant or one of your team agents.
-2. Set **State** to `accepted`.
-
-Both must be set for a session to start. When an accepted task has an owner, the agent begins.
+The desktop app has no settings menu; [your page](./your-page.md) holds your settings. The **Help** menu has **Open Logs Folder** and **Open Data Folder**.
 
 ---
 
-## Answer a review
-
-When an agent needs a decision from you, it sends a review message and its session ends. A notification lands in your inbox (the **Notifications** entry in the sidebar).
-
-Open the review: it shows what the agent proposed. **Approve** it, or **Reject** it and say why. The agent's session resumes with your verdict. To ask for a change, comment.
-
-When an agent asks a question instead, pick one of its options or write your own answer. The agent resumes with it.
-
----
-
-## Where to go next
-
-- [Views](./views.md) — walkthrough of Conversations, Work, and Knowledge
-- [Agents](./agents.md) — subscriptions, harness settings, and adding more agents
-- [Connecting Services](./connections.md) — GitHub, Stripe, and other tools via tokens or MCP
+Next: [The interface](./the-interface.md)

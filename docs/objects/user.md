@@ -45,7 +45,7 @@ Schedule subscriptions are agent-only (refused for humans at `edit_user`).
 
 **Reach.** Each subscription is scoped to what the subscriber can see, re-evaluated at fire time with the same `search_*` predicates as a normal query. A task or user change reaches the subscriber when it is theirs or in one of their teams; a subscriber in no team is reached by every team's.
 
-**Fresh install.** The person and their owned assistant are each subscribed to all 9 events.
+**First start.** The first agent (Builder) is subscribed to all 9 events. The person starts with none, and follows each task they start.
 
 Subscriptions are managed via `edit_user({ subscriptions: { add, remove, update } })`.
 
@@ -53,7 +53,7 @@ Subscriptions are managed via `edit_user({ subscriptions: { add, remove, update 
 
 The inbox is a list of pointers at `changes` rows. Each row has `seenAt` and `readAt`. Rows are read via `open_user({}).inbox` (self-only, newest 50).
 
-Seen: set when the popover opens. Read: set on click-through. Read rows older than 30 days are reaped by `inbox-reaper.ts` (reads the change's own timestamp, not an inbox timestamp).
+Read: set when you open a row from the bell's Notifications panel, or for every row with Mark all read (`edit_user({ inbox: { read } })`). `seenAt` is set only through `edit_user({ inbox: { seen } })`; the app does not set it. Read rows older than 30 days are reaped by `inbox-reaper.ts` (reads the change's own timestamp, not an inbox timestamp).
 
 Unread rows older than 30 days are NOT deleted — only read rows are swept.
 

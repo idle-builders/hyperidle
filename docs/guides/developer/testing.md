@@ -2,7 +2,7 @@
 
 Commands, affected-slice mechanics, and the E2E lanes. Test-writing rules — file naming, the fixture pattern, integration-test archetypes, conventions — live in [`.claude/rules/testing.md`](../../../.claude/rules/testing.md); this guide does not restate them.
 
-A test file's name decides its **world**: `.test.ts(x)`, `.spec.ts(x)`, `.stories.tsx` and anything under a `__` path segment are development, and a production file may never import one.
+A test file's name decides its **world**: `.test.ts(x)`, `.spec.ts(x)` and anything under a `__` path segment are development, and a production file may never import one.
 
 ## Test Commands
 
@@ -13,8 +13,7 @@ npm run test:integration         # ALL integration tests: service + harness proj
 npm run test:integration:service # service integration only (DB/API, vitest fixtures, PGlite)
 npm run test:integration:harness # harness integration only (real binaries + real LLM, serial)
 npm run test:all                 # ALL unit + component + integration sequentially
-npm run test:e2e                 # affected Playwright E2E (--only-changed=origin/main)
-npm run test:e2e:full            # ALL Playwright E2E specs
+npm run test:e2e                 # ALL Playwright E2E specs, against the real server (local only)
 npm run verify                   # check + lint + knip + knip:production + deps:check + mock-inventory:check + builds. No tests.
 npm run verify:release           # verify + test:full + test:integration (incl. harness) + full e2e — run before a version bump
 ```
@@ -30,12 +29,10 @@ npm run verify:release           # verify + test:full + test:integration (incl. 
 | Static gates | full | — | `npm run verify` |
 | Unit + component | affected | **full** | `npm run test:full` |
 | Service integration | affected | **full** | `npm run test:integration:service` |
-| E2E (Playwright) | — | **full** | `npm run test:e2e:full` |
+| E2E (Playwright) | — | — | `npm run test:e2e` |
 | Harness (real binaries + real LLM) | — | — | `npm run test:integration:harness` |
 
-The per-merge lane runs only the affected slice. The full unfiltered run at release is the backstop.
-
-**E2E under-selection note:** Playwright `--only-changed` selects by changed *spec files + their import graph*. Every e2e spec imports only `./fixtures` + Node builtins — zero imports from `layers/core-ui/src` — so a pure app-code change selects no e2e specs. This is not a coverage hole: the affected unit/component leg catches the component. Affected-e2e = "specs you edited"; full e2e at release covers all journeys.
+The per-merge lane runs only the affected slice. The full unfiltered run at release is the backstop. E2E runs only on your machine, as part of `verify:release` or by hand.
 
 ## Integration Tests
 
@@ -66,10 +63,12 @@ Matrix and locked test models: `SUPPORTED_HARNESSES` and `HARNESS_TEST_MODELS` i
 npm run test:e2e
 ```
 
-**Do not start `npm run dev` first.** Playwright's `webServer` (`layers/core-ui/playwright.config.ts`) boots its own Vite on port 5179 — deliberately not dev's 5173 — and the specs mock the API via `page.route`, so no API server is needed. A server already on port 3001 is the documented hang hazard for test boot. Chromium only.
+The specs in `layers/core-ui/__e2e__/` drive the real app against the real server — no mocked API. `layers/core-ui/playwright.config.ts` starts everything itself: a server on port 3102 over a freshly seeded demo world in a temp folder (`npm run setup -- --demo`), with Vite on 5182, so a `npm run dev` beside it is never the one under test. No agent runs there: work that would start an agent waits in the queue. Specs that change what others read (reviews, documents, people, plugins, Find) run after the rest on the same world.
 
-The full suite also runs nightly on `main` (`.github/workflows/e2e-nightly.yml`).
+First start (`start.spec.ts`) gets its own server on an empty database (3103, Vite on 5183) that looks for agent programs like the desktop app does, so at least one of claude-code, codex, opencode or cursor-agent must be installed and signed in on your machine.
+
+Chromium only; the installed Chrome stands in when Playwright's own browser was never downloaded. Local only — there is no CI job.
 
 ## Mock Data
 
-Mock data is allowed only inside the permitted-mock surface (tests, stories, `__fixtures__/`, e2e, seed scripts). See the [mock-data policy](./mock-data-policy.md).
+No made-up data in production code. Tests and `__fixtures__/` may hold their own; the demo world (`tools/setup/src/demo-world/`) holds the story the app and the e2e tests run against. See the [mock-data policy](./mock-data-policy.md).

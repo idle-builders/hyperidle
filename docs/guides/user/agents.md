@@ -1,69 +1,52 @@
-# Agents
+# People and agents
 
-How agents work, what wakes them, and how to add more.
-
-For agent identity and the full lifecycle, see [agent-layer/agent-model.md](../../agent-layer/agent-model.md).
+A person and an agent are the same kind of user in HyperIdle, so they share one kind of page. Open someone's page from [the team page](./running-your-team.md#the-team-page) or from a plugin's page. Your own page is **You** at the bottom of the sidebar; it also holds your settings — see [Your page](./your-page.md).
 
 ---
 
-## Your assistant
+## What a page shows
 
-Every HyperIdle user gets a personal **assistant** — created during setup, one per human. It is an individual agent: it works for you, and like every agent it is in exactly one team — one of yours. It can see what you can see and act on your behalf through the same tools any other agent uses.
+The page is that user's list of what is going on:
 
-Open the assistant as an overlay from the **Assistant** button in the sidebar's top row, next to search. Ask it to draft a task, look something up, or explain what's happening. You can see every change it makes.
+- **An agent** — **On now**: its open tasks and how each stands, plus what it finished today.
+- **A person** — **Waiting for** them (questions and reviews) and **Started by** them.
 
----
+A box on the right says how the user is set up, and holds the buttons.
 
-## Team agents
+## The box
 
-Team agents do the work on tasks. A fresh install has no team agents. You get them two ways:
+- **Open conversation** — a direct thread with them (on anyone but you).
+- **Edit** — on yourself, on your own agents, and on agents that work for a team.
+- **Pause** / **Let it work** — on those same agents. A paused agent does not start new work.
+- **Facts** — what they are and who an agent works for, their team, how long they have been here, their discipline (an agent gets the documents marked with it), and for an agent that came with a plugin, **Came with the plugin …**.
+- **Runs on** (agents) — the agent program and model it uses.
+- **Works in** — the folders it works in. **Can reach** — the services it can use. Both are explained in [Folders and services](./connections.md).
+- **Starts working when** (agents) — see below.
+- **Instructions, skills and memory** (agents) or **About** (people).
 
-**Install the role-personas plugin.** Go to **Settings → Plugins** and install **role-personas**. It brings seven shaped agents: Builder, Designer, Product Manager, QA Engineer, Growth, Ops, and Facilitator — each with a name, discipline, system prompt, and harness selection. Install it for your team. You can edit any of them afterward.
-
-**Add one by hand.** Go to the team page in Work and click **Add agent**, or use **Settings → Agents → + Add Agent**. Fill in a name, discipline, system prompt, harness, and max concurrent sessions.
-
----
-
-## What wakes an agent
-
-An agent runs when any of these happen:
-
-- **A task it owns is accepted.** Set `ownerAgentId` on a task and accept it — the agent starts a session.
-- **It is mentioned or messaged in a thread it's part of.**
-- **A subscription fires.** An event subscription wakes the agent when one of the nine object events occurs. A schedule subscription wakes it on a cron schedule.
+Changing anything opens a dialog over the page. Adding and editing use the same form.
 
 ---
 
-## Subscriptions
+## Adding an agent
 
-An agent's subscriptions live on its profile page (click the agent's name anywhere it appears). Each subscription is either an event (one of task/thread/document/user created or changed) or a cron schedule. A firing subscription starts a session.
+On a team's page, press **Add someone to …**. Give it a name and a discipline, pick the agent program it runs on, and say who it works for: you, or the team. An agent that works for the team can be handed work and changed by anyone in it. Inviting another person is not built yet.
 
-The role-personas plugin installs subscriptions on its agents automatically. You can inspect and adjust them.
+Its instructions are a document, written next: the new agent's page offers **Write its instructions**, which opens the document in edit mode. Anything an agent is told at length — instructions, skills, what one of its reasons makes it do — is a document like any other in [Knowledge](./knowledge.md).
 
----
+## Editing an agent
 
-## Harness, model, and concurrency
+**Edit** opens the form: name, discipline, **Runs on** (only signed-in programs can be picked), **Model** (or the program's default), **At a time** (how many tasks it works on at once), and a link to its instructions.
 
-Each agent has:
+## Starts working when
 
-- **Harness** — which CLI runs it: `claude` (Claude Code), `codex`, `opencode`, or `cursor-agent`. The harness uses its own login; no API key is set in HyperIdle.
-- **Model** — selected from the models the harness knows about. What is available depends on which harness you picked.
-- **Max concurrent sessions** — how many sessions this agent can run at once.
+Every agent starts when someone mentions it with `@` (it joins that thread) and when a task is handed to it (it starts when a session is free). You can add more reasons with **Add a time or an event**:
 
-Edit these in **Settings → Agents** or on the agent's profile page.
+- **At a time** — for example every week on Monday at 08:00.
+- **When something happens** — a task is created or changes, a thread starts or gets a message, a document is created or changes, someone joins the team.
 
----
-
-## Sessions
-
-A session is one bounded run of an agent on a task. It runs in a sandbox, reads the task and relevant knowledge, and writes back what it produces. You can watch it in the task's session view. Stop a session from the task page or session view.
+Name what these reasons make it do; that name becomes a document the agent reads each time, which you write next. Each reason has a switch to turn it off without removing it.
 
 ---
 
-## Approval rate
-
-The agent's profile shows its approval rate — the share of reviews where you approved without requesting changes. This is informational. It does not gate any action.
-
----
-
-Next: [Running Your Team](./running-your-team.md)
+Next: [Your page](./your-page.md)

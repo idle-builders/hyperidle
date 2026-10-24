@@ -2,14 +2,14 @@
 
 The **Shared Backend** is the headless HyperIdle server run as a single **tenant** on the team's shared Kubernetes cluster, so the whole team collaborates against **one dataset** instead of per-person embedded islands. It is for **internal usage only** — not a public cloud / SaaS offering.
 
-Desktop clients connect in **shared mode**: set a server URL in Settings → Backend; the desktop loads the server's URL, stores the key in the OS keychain (`shared_backend_key` via safeStorage, `applications/desktop/src/safe-credentials.ts`), and starts no embedded server. The server validates shared-mode clients against `GET /api/health/auth`.
+Desktop clients join at first start: "Join a team on a server" takes the server's address and the shared key. The app keeps the key encrypted on the computer (`shared_backend_key` via Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`), checks `GET /api/health`, then reopens on the server's address and starts no server of its own. Every request carries the key; `GET /api/health/auth` checks a key by hand. See [deployment](./index.md) for the desktop side.
 
 ## Shape
 
 - **Profile:** runs `HYPERIDLE_PROFILE=cloud` (Postgres via `DATABASE_URL`, network-exposed, mandatory `HYPERIDLE_API_KEY` — `applications/remote-server/src/validate-startup-env.ts`). No new profile is introduced.
 - **Stateless compute:** all durable state in Postgres; pod rootfs read-only, writes go only to the `/tmp` and `/data` emptyDir mounts (`HYPERIDLE_WORKSPACES_DIR=/data/workspaces`). Replicas are interchangeable.
-- **Serves SPA + API:** one Hono server serves the web bundle at `/` (`HYPERIDLE_STATIC_DIR=/app/layers/core-ui/dist`) and the API at `/api/*`. Runs **no agents** — agents stay on user machines or remote workers.
-- **Auth:** one **shared team `HYPERIDLE_API_KEY`** (K8s secret `app-secrets`), validated by clients against `GET /api/health/auth`.
+- **Serves SPA + API:** one Hono server serves the web bundle at `/` (`HYPERIDLE_STATIC_DIR=/app/layers/core-ui/dist`) and the API at `/api/*`. Runs **no agents** — it takes sessions only from a worker connected over `/ws/worker`, and no app in this repo runs one (see [where agents run](./index.md)).
+- **Auth:** one **shared team `HYPERIDLE_API_KEY`** (K8s secret `app-secrets`), sent with every request.
 
 ## "Always latest" = latest **release**, not latest commit
 
@@ -27,7 +27,7 @@ A Deploy **never provisions** — it consumes what provisioning created and appl
 
 ## Factory bootstrap
 
-`applyFactoryCoreState` (`layers/core-api/src/bootstrap/factory-state.ts`) writes the one row every HyperIdle instance needs: the hidden `system:propagation` actor. It seeds no agent, no roster and no personas — those come from the welcome screen and plugins. It is idempotent.
+`applyFactoryCoreState` (`layers/core-api/src/bootstrap/factory-state.ts`) writes the one row every HyperIdle instance needs: the hidden `system:propagation` actor. It seeds no agent, no roster and no personas — those come from first start and plugins. It is idempotent.
 
 The server calls it on every boot (`applications/remote-server/src/create-server.ts`), so both the VPS Docker Compose stack and the Helm chart get the required row without a separate bootstrap step.
 
@@ -46,7 +46,7 @@ The server calls it on every boot (`applications/remote-server/src/create-server
    kubectl create secret generic app-secrets -n hyperidle \
      --from-literal=HYPERIDLE_API_KEY=$(openssl rand -hex 32)
    ```
-   Distribute that key to each desktop client's shared-mode config.
+   Give that key to each person; they enter it with the server's address at the desktop app's first start.
 4. **Ingress host** — `ingress.enabled` is off by default. Add a real host to the tenant allowlist, set `ingress.host` + `ingress.enabled: true`.
 
 To ship a release: bump `version` in the root `package.json` and merge to `main`. `deploy.yml` builds, publishes, and deploys automatically.

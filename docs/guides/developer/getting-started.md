@@ -19,21 +19,20 @@ npm run dev            # server (3001) + web (5173)
 
 Open [http://localhost:5173](http://localhost:5173).
 
-`npm run setup` flags: `--db-path <dir>` (PGlite data directory, default `./hyperidle-pg`), `--demo` (seed the Northwind demo world — opt-in only, never seeded by default).
+`npm run setup` flags: `--db-path <dir>` (PGlite data directory, default `./hyperidle-pg`), `--demo` (seed the Northwind demo world — opt-in only, never seeded by default). On an empty database the app opens first start; with `--demo` you land in the demo world as Finn Olsen.
 
-### First run — what the welcome screen asks
+### First start — what `/start` asks
 
-SetupFlow (`layers/core-ui/src/pages/SetupFlow.tsx`) collects:
+A fresh database opens `/start` (`layers/core-ui/src/Start.tsx`). It shows:
 
-1. Your name
-2. Which harness to run the assistant on (claude-code, codex, opencode, or cursor-agent — the harness must already be installed and signed in; SetupFlow cannot accept a key)
-3. An optional repo folder (the team name is derived from the folder basename, or "My Team" if none)
+1. The agent programs found on this computer (claude-code, codex, opencode, cursor-agent), how to sign in to one, and Look again
+2. Your name and your team's name
 
-No API key is requested. Once submitted, a user row and an assistant agent are created.
+Start talking (`POST /api/start`, `layers/core-api/src/routes/start.ts`) makes you, the team, a first agent called Builder on a signed-in program, and the conversation "Getting started" with Builder's hello. It needs one program installed and signed in; no API key is asked. The desktop app can instead join a team's server (address and key).
 
 ### Dev server runs no agents
 
-`npm run dev` boots the server with `topology: "disabled"` (`applications/remote-server/src/index.ts`) — the harness pool is empty. To run agents in dev: build and launch the desktop app (`npm run build:desktop:local`) or start a `remote-worker` pointed at your local server.
+`npm run dev` boots the server with `topology: "disabled"` (`applications/remote-server/src/index.ts`) — the harness pool is empty, so no agent runs. To run agents in dev, use the desktop app: `npm run dev:desktop` (desktop shell + web dev server) or `npm run build:desktop:local`.
 
 The desktop app uses `topology: "local"` (`applications/desktop/src/boot-server.ts`) and runs agents on the host.
 
@@ -42,13 +41,13 @@ The desktop app uses `topology: "local"` (`applications/desktop/src/boot-server.
 The laptop profile auto-defaults both sides to `hyperidle-dev-local`:
 
 - Server: `applications/remote-server/src/validate-startup-env.ts` sets `HYPERIDLE_API_KEY=hyperidle-dev-local` when none is provided
-- Web client: `layers/core-ui/src/services/api-fetch.ts` falls back to the same value
+- Web client: in a dev build, `apiKey()` in `layers/core-ui/src/api.ts` falls back to the same value
 
 No env setup is needed unless you set your own key.
 
 ### Demo data
 
-`npm run setup -- --demo` fills a fresh database with the Northwind demo world — the same story as the design’s made-up data in `layers/core-ui`: two people, four agents, the trials task and its parts, the hand-off and its reviews, and the knowledge tree. Postgres: `npm run db:bootstrap:pg -- --demo`.
+`npm run setup -- --demo` fills a fresh database with the Northwind demo world (`tools/setup/src/demo-world/`): two people, four agents, the trials task and its parts, the hand-off and its reviews, and the knowledge tree. The app's code holds no made-up data — the demo world is where the story lives, and the e2e tests run against it. Postgres: `npm run db:bootstrap:pg -- --demo`.
 
 ## Database
 
@@ -62,17 +61,18 @@ No env setup is needed unless you set your own key.
 
 | Root | What lives there |
 |------|-----------------|
-| `layers/` | Shipping services: `core-ui` (React + Vite frontend), `core-api` (Hono API, per-domain services), `agent-orchestration` (sessions, connections, filesystems), `agent-execution` (harness registry, CLI/LLM adapters) |
-| `framework/` | One package per cross-cutting concern: `db`, `domain-model`, `api-contract`, `event-bus`, `diagnostics`, `harness-capability`, `harness-protocol`. Three directories (`design-system`, `http-middleware`, `tool-protocol`) exist in the repo but are not workspace packages. |
-| `applications/` | Entry points: `desktop` (Electron), `remote-server` (standalone Hono), `remote-worker`, `website` |
+| `layers/` | Shipping services: `core-ui` (React + Vite frontend, plain CSS with tokens), `core-api` (Hono API, per-domain services), `agent-orchestration` (sessions, connections, filesystems), `agent-execution` (harness registry, CLI/LLM adapters) |
+| `framework/` | One package per cross-cutting concern: `db`, `domain-model`, `api-contract`, `event-bus`, `diagnostics`, `harness-capability`, `harness-protocol` |
+| `applications/` | Entry points: `desktop` (Electron), `remote-server` (standalone Hono), `remote-worker` (the worker client library), `website` |
 | `tools/` | Build-time tools: `eslint-plugin-authz`, `eslint-plugin-design`, `eval`, `governance`, `repo-gates`, `setup`, `trace` |
 
 Cross-package imports use npm workspace aliases (`@hyperidle/db`, `@hyperidle/domain-model`, …).
 
-**Before you add a file, know which world it is in.** `layers/`, `framework/` and `applications/` hold shipping code; a file there is production unless its name says otherwise (`.test.ts(x)`, `.spec.ts(x)`, `.stories.tsx`, a `__` path segment, a test-runner config). Everything else is development. A production file may never import a development one. What may cross which *package* boundary is answered in [tools/governance/README.md](../../../tools/governance/README.md).
+**Before you add a file, know which world it is in.** `layers/`, `framework/` and `applications/` hold shipping code; a file there is production unless its name says otherwise (`.test.ts(x)`, `.spec.ts(x)`, a `__` path segment, a test-runner config). Everything else is development. A production file may never import a development one. What may cross which *package* boundary is answered in [tools/governance/README.md](../../../tools/governance/README.md).
 
 ## Next
 
 - [commands.md](commands.md) — full command reference
 - [testing.md](testing.md) — test commands and lanes
 - Coding conventions: [.claude/rules/typescript.md](../../../.claude/rules/typescript.md)
+- How the UI is built (plain CSS, tokens, the token check): [interface/ui-design.md](../../interface/ui-design.md)

@@ -61,6 +61,25 @@ A flag is a pin plus `says`: the sender's words — "I decided this without aski
 about this", "this touches customers". Agents are trusted to flag their own uncertain spots, so a
 review nobody reads still shows where to look.
 
+## The review page
+
+Code: `layers/core-ui/src/Judge.tsx`, `ReviewPart.tsx`, `Loop.tsx`.
+
+- **The top line** — "Review", its stage and round, who sent it, and the verdict buttons with the
+  count of open questions beside them.
+- **What the sender says**, a line each; on a later round, what changed since the one before, and a
+  link back to that round with its rejection reason and how many questions are still open there.
+- **The loop** — when the review is on a task, its "Done when" lines (what already checked itself,
+  and what waits for a person) and its decisions and assumptions sit above the work, so the reviewer
+  spends attention on the rest. See [task.md](../objects/task.md).
+- **The parts**, each with the width of the page: a live page you switch between desktop, tablet
+  and phone widths, code, an image, numbers, text, a batch of items. A preview, code or image has
+  "More space". Flags and comments are pins on the parts; clicking a spot makes a new pin and opens
+  its thread beside it.
+- **Questions on this review** — every pin as a row, so a comment is never lost on the page, with
+  whether it is open, answered or settled.
+- **Anything overall?** — a chat box for a comment on the whole review.
+
 ## Comments
 
 A comment on a part is a plain message in the review's thread with an `anchor`: a pin plus

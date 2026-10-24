@@ -6,7 +6,7 @@ Setup steps and the command reference live in [guides/developer/getting-started]
 
 1. **Database is a PGlite data directory at `<repo-root>/hyperidle-pg`.** The laptop profile default is `./hyperidle-pg` (`applications/remote-server/src/profiles.ts`), resolved repo-root-relative by `resolvePglitePath` in `applications/remote-server/src/create-server.ts`.
 2. **Setup before dev.** `npm run dev` does not migrate the database. Run `npm run setup` first — the setup CLI (`tools/setup/src/setup-cli.ts`) creates the PGlite directory and applies migrations. The desktop app migrates itself on boot (`applications/desktop/src/migrate.ts`); the dev server never does.
-3. **Laptop auto-defaults the API key.** When `HYPERIDLE_API_KEY` is not set, the laptop profile sets it to `hyperidle-dev-local` (`applications/remote-server/src/validate-startup-env.ts`). The web client falls back to the same value (`layers/core-ui/src/services/api-fetch.ts`). No env setup is needed for local dev.
+3. **Laptop auto-defaults the API key.** When `HYPERIDLE_API_KEY` is not set, the laptop profile sets it to `hyperidle-dev-local` (`applications/remote-server/src/validate-startup-env.ts`). In a dev build the web client falls back to the same value (`apiKey()` in `layers/core-ui/src/api.ts`). No env setup is needed for local dev.
 4. **Node ≥ 24** (root `package.json` engines).
 
 ## Running as a macOS background service
@@ -21,7 +21,7 @@ export HYPERIDLE_API_KEY=your-key-here
 ./deploy/bin/service uninstall  # remove
 ```
 
-The server entry point is `applications/remote-server/src/index.ts` (the real `@hyperidle/remote-server` application).
+The server entry point is `applications/remote-server/src/index.ts` (the `@hyperidle/remote-server` application). Like `npm run dev`, it runs no agents — see [where agents run](index.md).
 
 ## Other profiles
 

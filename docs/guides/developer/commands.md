@@ -32,8 +32,7 @@ Default test commands run the **affected slice** against `origin/main`; `:full` 
 | `npm run test:integration:service` | Service integration only (DB/API, vitest fixtures, PGlite) |
 | `npm run test:integration:harness` | Harness integration only (real binaries + real LLM, serial, **local-only — no CI job**) |
 | `npm run test:all` | ALL tests sequentially (`test:full && test:integration`) |
-| `npm run test:e2e` | Affected Playwright E2E (`playwright test --only-changed=origin/main`) |
-| `npm run test:e2e:full` | ALL Playwright E2E specs |
+| `npm run test:e2e` | All Playwright E2E specs against the real server on a fresh demo world (`layers/core-ui/__e2e__/`), local only — see [testing.md](testing.md) |
 | `npm run test:coverage` | Tests with coverage |
 | `npm run test:pg` | Test suite against Postgres (`framework/db/src/__testing__/pg-test-runner.ts`) |
 
@@ -43,16 +42,17 @@ Default test commands run the **affected slice** against `origin/main`; `:full` 
 |---------|---------|
 | `npm run verify` | Static gate chain: check + lint + knip + knip:production + deps:check + mock-inventory:check + builds (web, desktop). Runs **no tests** — CI runs the affected slice on every PR and push |
 | `npm run verify:quick` | check + lint + knip + knip:production + deps:check only — no tests or builds |
-| `npm run verify:release` | `verify` + `test:full` + `test:integration` (incl. the harness lane) + full e2e. The pre-version-bump checklist. CI re-runs `test:full`, `test:integration:service`, and full e2e on the bump PR (`.github/workflows/release-guard.yml`); the harness lane is local-only |
+| `npm run verify:release` | `verify` + `test:full` + `test:integration` (incl. the harness lane) + `test:e2e`. The pre-version-bump checklist. CI re-runs `test:full` and `test:integration:service` on the bump PR (`.github/workflows/release-guard.yml`); the harness lane and e2e are local-only |
 
 ## Typecheck and lint
 
 | Command | Purpose |
 |---------|---------|
 | `npm run check` | TypeScript type check — per-package fan-out gate (`tools/repo-gates/src/typecheck-gate.ts`) |
-| `npm run lint` | Biome + ESLint + governance-lint — see [linting-and-formatting.md](linting-and-formatting.md) |
+| `npm run lint` | Biome + ESLint + token check + governance-lint — see [linting-and-formatting.md](linting-and-formatting.md) |
 | `npm run lint:biome` | Biome only |
 | `npm run lint:eslint` | ESLint only |
+| `npm run lint:design-css` | Token check for `layers/core-ui` CSS and TSX (`tools/repo-gates/src/design-css-gate.ts`) |
 | `npm run lint:fix` | Auto-fix lint issues |
 | `npm run knip` | Find unused files/exports/dependencies |
 | `npm run knip:production` | Same, restricted to production files |
@@ -68,8 +68,9 @@ Package-boundary rules live in `tools/governance/` (`README.md`, `architecture.j
 |---------|---------|
 | `npm run lint:governance` | Run governance-lint against the live tree |
 | `npm run lint:governance:fixtures` | Run governance-lint against the fixture set |
+| `npm run lint:governance:attacks` | Break-test every governance rule against the live tree |
 
-Both also run inside `npm run lint`.
+All three also run inside `npm run lint`.
 
 ## Database
 

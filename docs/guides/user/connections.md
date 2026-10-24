@@ -1,79 +1,52 @@
-# Connecting services to your agents
+# Folders and services
 
-Your agents can use external services — GitHub, Stripe, Figma, databases, or any tool that exposes an MCP server. **Settings → Connections** is where you see and manage what's connected.
+Two things decide what an agent can do outside HyperIdle:
 
-How connections work under the hood (held vs inherited, spawn-time provisioning) is covered in [Connection model](../../architecture/connections.md).
+- **Works in** — the folders it works in, such as a code repository on your computer.
+- **Can reach** — the services it can use, such as GitHub, Stripe or a database.
 
----
+Both are on [your page](./your-page.md) and on each agent's page. Add a folder or service once: every agent of yours gets it. To keep one away from a single agent, untick it on that agent's page. An agent works best with only what it needs.
 
-## What you see
-
-Three groups in fixed order:
-
-**Inherited from your environment** — services your harness or PATH-level CLIs are already logged into. These appear automatically. HyperIdle stores nothing for them; the auth lives where you set it up (Claude Code, a CLI login, your OS keychain). You cannot add or remove these here — manage them in the relevant tool.
-
-**Connected with a token** — an API key or PAT you pasted. Stored encrypted on the server and resolved server-side. Your agents' tools use it to authenticate; it is never shown back in this UI.
-
-**Connected via an MCP server** — a remote MCP server you pointed at. The server owns its own sign-in. HyperIdle never appears on a consent screen.
-
-Each row shows:
-- The service name and where the tools come from
-- A health chip — **Working** or **Needs attention** (inherited connections suppress the chip when working; they are auto-detected and expected healthy)
+How this works underneath: [Connection model](../../architecture/connections.md).
 
 ---
 
-## Add a token connection (most common)
+## Add a folder
 
-1. Click **+ Add connection** in the top-right of the Connections section.
-2. Select **Paste a token (API key / PAT)**.
-3. Enter the service name (e.g. `Stripe`) and paste your token.
-4. Click **Add**.
+On your page, press **Add a folder**.
 
-The token is encrypted immediately. A new token connection starts with a **Needs attention** chip — it hasn't been validated yet. The chip is informational; it stays amber until the connection is used successfully.
+1. **Where** — the folder's path, for example `~/code/project`.
+2. **Agents may** — **Read and change**, or **Only read**.
+3. **Team** — if you are in more than one team. A folder belongs to one team.
+4. **Who works in it** — all of your agents, unless you untick one.
+5. Press **Save**.
 
-**Where to get your token:** look for "API key" or "Personal access token" in the service's developer or security settings.
-
----
-
-## Add an MCP server connection
-
-1. Click **+ Add connection**.
-2. Select **Point at an MCP server**.
-3. Paste the server URL (`https://mcp.example.com`). The service name fills from the URL; override it if you prefer.
-4. Click **Add**.
-
-The server must be reachable over HTTPS (URLs pointing at private addresses are rejected). The server owns auth — your agents send requests to it, and the server handles sign-in with the external service. HyperIdle registers no app and never handles a callback.
+The first conversation's **Connect a folder** opens this same dialog.
 
 ---
 
-## Inherited connections
+## Connect a service
 
-If you use Claude Code and have `gh` logged in, GitHub appears automatically in the Inherited group. The same applies to any MCP server configured in your Claude Code, Codex, or OpenCode setup.
+On your page, press **Connect a service**.
 
-To change what appears here, manage the connection in the relevant tool:
+1. **Service** — its name, for example `Stripe`.
+2. **Sign in with**:
+   - **A key** — paste an API key or personal access token. It is kept encrypted; nobody sees it again, not even you. Look for "API key" or "Personal access token" in the service's developer settings.
+   - **An MCP server** — give its address (`https://…`). The server handles its own sign-in.
+3. **Who gets it** — all of your agents, unless you untick one.
+4. Press **Save**.
 
-- **Claude Code MCP servers**: `claude mcp add` / `claude mcp remove`
-- **gh CLI**: `gh auth login` / `gh auth logout`
-- **Codex MCP servers**: edit `~/.codex/config.toml`
-
-After changing a harness's configuration, click **Refresh** in Settings → Agent backends to re-probe. The Connections list updates on next load.
-
----
-
-## Remove a connection
-
-Click **⋯** on any held connection (token or MCP) and select **Remove**. Confirm inline when prompted. The connection disappears and agents lose access immediately.
-
-Inherited connections cannot be removed here — remove them from the harness.
+The first conversation's **Connect GitHub** opens this same dialog.
 
 ---
 
-## Security notes
+## Services already signed in on this computer
 
-- Tokens are stored AES-256-GCM encrypted at rest. HyperIdle never returns a stored token in any API response.
-- Your agents use the token server-side to authenticate their tools. At session start the token is injected into the agent's session working directory (env vars per service, or an MCP bearer entry) — never into any response the browser sees.
-- HyperIdle never runs an OAuth flow on your behalf and never registers as an OAuth app on any external service. OAuth-protected services (Google, Microsoft) arrive inherited from your harness.
+Services that your agent programs or command-line tools are already signed in to show up by themselves, marked **Signed in on this computer** — for example MCP servers set up in Claude Code, Codex or OpenCode. HyperIdle stores nothing for them, and they cannot be unticked here. To change them, change them in that tool:
+
+- Claude Code MCP servers: `claude mcp add` / `claude mcp remove`
+- Codex MCP servers: edit `~/.codex/config.toml`
 
 ---
 
-Next: [Agent backends](./settings.md#agent-backends) — which execution environments are detected and ready to run your agents.
+Next: [Running your team](./running-your-team.md)

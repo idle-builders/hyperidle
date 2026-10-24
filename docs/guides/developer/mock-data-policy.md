@@ -1,8 +1,8 @@
 # Mock-data policy
 
-**TL;DR — No mock data in runtime production code.** Mock data is only legal in tests, stories, fixtures directories, e2e specs, and DB seed scripts. Lint guards fail the build when a runtime file declares or imports mock data, and `npm run mock-inventory:check` (in the verify chain) fails when the offender inventory is stale.
+**TL;DR — No made-up data in production code.** Screens and the server show only what the system of record holds; when a value is missing they say so. Made-up data lives in tests, `__fixtures__/`, e2e specs and the demo world (`tools/setup/src/demo-world/`), which holds the story the app is shown and tested with.
 
-This doc is the canonical human statement of the policy. The machine copy — the closed sets the lint rules and inventory script actually enforce — lives in `tools/eslint-plugin-design/src/mock-data-policy.ts`, which names this doc and embeds its path in lint error messages (`POLICY_DOC_URL`, mock-data-policy.ts:93). **Do not move or rename this file without updating that constant.**
+This doc is the human statement of the policy. The machine copy — the closed sets the lint rules and inventory script enforce — lives in `tools/eslint-plugin-design/src/mock-data-policy.ts`, which embeds this doc's path in its error messages (`POLICY_DOC_URL`). **Do not move or rename this file without updating that constant.**
 
 ---
 
@@ -16,69 +16,67 @@ Three properties, all required:
 2. Substitutes for data the production runtime would otherwise fetch.
 3. Reachable from a runtime production module (web bundle or server runtime).
 
-If any of the three is missing, it's not mock data. See "What is NOT mock data" below.
+If any of the three is missing, it's not mock data.
 
-## What IS NOT mock data
+## What is not mock data
 
 | Pattern | Why it's allowed |
 |---|---|
-| UI vocabulary constants (`HEALTH_DOT`, `SCOPE_LABELS`, `TIME_24H_RE`, tab labels, color maps) | Presentation vocabulary — no system-of-record alternative exists. |
-| Algorithm tuning constants (`DEFAULT_WEIGHTS`, `DEFAULT_RELEVANCE_WEIGHTS`, batch sizes) | Config, not stand-ins. Numeric-literal initializers are exempt from the `DEFAULT_*` guard. |
-| DB seed scripts (`layers/core-api/src/bootstrap/factory-state.ts`, `tools/setup/src/demo-fixture.ts`) | Bootstrap the system of record itself. |
-| Test / story / fixture data | Never ships in the bundle. |
-| Empty-state UI strings (`"No tasks yet"`, `"—"`) | Render-time vocabulary, not data. |
+| UI words and lookups (labels, a state-to-word map, the icon choices for a document) | Presentation vocabulary — no system-of-record alternative exists. |
+| Algorithm tuning constants (weights, batch sizes, timeouts) | Config, not stand-ins. Numeric-literal initializers are exempt from the `DEFAULT_*` guard. |
+| Seeding a database (`layers/core-api/src/bootstrap/factory-state.ts`, `tools/setup/src/demo-fixture.ts` and `tools/setup/src/demo-world/`) | Rows in a database are data, not code. The demo world is opt-in (`npm run setup -- --demo`), never on a normal boot path. |
+| Test and fixture data | Never ships in the bundle. |
+| Empty-state strings ("Nothing here yet", "—") | Render-time vocabulary, not data. |
 
 ## Permitted-mock surface (closed set)
 
-Mock data is legal in files matching (`mock-data-policy.ts:62-80`):
+Mock data is legal in files matching (`mock-data-policy.ts`):
 
 - Path contains `/__fixtures__/`, `/__tests__/`, or `/__e2e__/`
-- Suffix `.test.ts`, `.test.tsx`, `.spec.ts`, `.spec.tsx`, or `.stories.tsx`
-- Basename starts with `seed` (DB bootstrap only)
+- Suffix `.test.ts`, `.test.tsx`, `.spec.ts`, or `.spec.tsx`
+- Basename starts with `seed`
 
-The surface is verifiable by path alone — no content inspection. Adding a new permitted location means editing `tools/eslint-plugin-design/src/mock-data-policy.ts`, the single source of truth both the ESLint rules and the inventory script import from.
+The surface is decided by path alone. Adding a permitted location means editing `tools/eslint-plugin-design/src/mock-data-policy.ts`, which both the ESLint rules and the inventory script import.
 
 ## Hard rules
 
-1. **No mock data in runtime production code paths.** Enforced by `design/no-mock-data-import` + `design/no-mock-data-symbol` (error-level in `eslint.config.ts`) and the literal-id detector in `tools/repo-gates/src/mock-inventory.ts`.
-2. **Every surviving mock instance is tracked with its remediation plan** under [Tracked-out survivors](#tracked-out-survivors) below — the API, table, or context it stands in for.
-3. **Removing a mock removes its fallback.** The pattern `useFoo() ?? FALLBACK_FOO` is forbidden; the UI must render an honest empty / loading / error state when the source is silent.
-4. **Per-line `eslint-disable` for these rules requires a tracking issue id in the comment.** Convention only — nothing currently enforces it; none exist in the codebase today.
-5. **The inventory is machine-generated.** `tools/repo-gates/src/mock-inventory.ts` emits `tools/repo-gates/mock-inventory/inventory.json`; `npm run mock-inventory:check` (in `npm run verify`) exits non-zero when it's stale. PRs that change the offender set must commit the regenerated inventory.
+1. **No mock data in runtime production code.** Two checks enforce it:
+   - `design/no-mock-data-import` + `design/no-mock-data-symbol`, at error in `eslint.config.ts`, on `layers/core-api/src/**`.
+   - `tools/repo-gates/src/mock-inventory.ts`, which scans `layers/core-ui/src`, every `src/` under `layers/core-api`, `layers/agent-orchestration` and `layers/agent-execution`, and `applications/remote-server` and `applications/remote-worker`. It writes what it finds to `tools/repo-gates/mock-inventory/inventory.json`; `npm run mock-inventory:check` (in `npm run verify`) fails when that file no longer matches, so a new offender fails the build.
+2. **Every surviving offender is listed** under [Tracked-out survivors](#tracked-out-survivors) with what it stands in for.
+3. **No fabricated fallback.** `useFoo() ?? FALLBACK_FOO` is forbidden; the page shows an honest empty, loading or "did not load" state when the source is silent.
 
 ## Forbidden symbol-name prefixes (in runtime production code)
 
-`MOCK_`, `FAKE_`, `STUB_`, `SAMPLE_`, `DUMMY_`, `PLACEHOLDER_`, `FALLBACK_`, `DEMO_`, `LEGACY_`, `EXAMPLE_`, `HARDCODED_` (`FORBIDDEN_PREFIXES`, mock-data-policy.ts:10-22).
+`MOCK_`, `FAKE_`, `STUB_`, `SAMPLE_`, `DUMMY_`, `PLACEHOLDER_`, `FALLBACK_`, `DEMO_`, `LEGACY_`, `EXAMPLE_`, `HARDCODED_` (`FORBIDDEN_PREFIXES`).
 
-`DEFAULT_*` is conditionally forbidden: the guard fires when the file path contains a data-provider fragment (`/fixtures/`, `/data/`, `/services/`, `/routes/`, `/layouts/`, `/pages/`) or the symbol name ends in `_DATA`, `_SETTINGS`, or `_ID` — numeric-literal initializers are exempt. Theme and UI presentation defaults are allowed.
+`DEFAULT_*` is forbidden only when the file path contains a data-provider fragment (`/fixtures/`, `/data/`, `/services/`, `/routes/`, `/layouts/`, `/pages/`) or the symbol name ends in `_DATA`, `_SETTINGS`, or `_ID` — numeric-literal initializers are exempt.
+
+## Forbidden imports
+
+A runtime file may not import from `/__fixtures__/` or `/fixtures/` (`FORBIDDEN_IMPORT_FRAGMENTS`). A production file may never import a development file at all — governance enforces that in general.
 
 ## Banned fictional names
 
-`Nimmly` is a real, separate product — it must not appear anywhere in the HyperIdle codebase (code, tests, stories, docs, mockups).
+`Nimmly` is a real, separate product — it must not appear anywhere in the HyperIdle codebase (code, tests, docs).
 
-The sanctioned fictional name for demo data is **`Northwind`** (the demo company of the design and the demo world; its teams are `demo-team-product` and `demo-team-support`). Use it for:
-
-- Test fixtures and stories that need a believable team name
-- Setup-cli demo mode (`--demo` flag) — seeds the Northwind world — the same story as the design’s made-up data (tasks, threads/reviews, knowledge, sessions, subscriptions) into a fresh database; opt-in only, never on a normal boot path
-- Design mockups needing realistic example content
-
-Any other clearly-fictional placeholder (`ACME Corp`, `Test Team`, `Demo Co`) is fine too — as long as it is not `Nimmly`.
+The fictional company for demo data is **`Northwind`** — the company of the demo world, whose teams are `demo-team-product` and `demo-team-support`. Use it in tests that need a believable team name and in the demo world. Any other clearly fictional placeholder (`ACME Corp`, `Test Team`) is fine too — as long as it is not `Nimmly`.
 
 ## Forbidden literal-id strings (in runtime production code)
 
-The inventory script flags hardcoded identity strings used as stand-ins for the auth context: `"u-founder"`, `"agent-unassigned"`, `"founder@hyperidle.com"` (`LITERAL_ID_STRINGS`, mock-data-policy.ts:83-87). Tests / stories / e2e are exempt by path. Known tracked-out survivors (the server auth fallbacks) are listed with remediation plans under [Tracked-out survivors](#tracked-out-survivors) — an offender in a file not listed there is a real failure.
+The inventory script flags hardcoded identity strings used as stand-ins for the auth context: `"u-founder"`, `"agent-unassigned"`, `"founder@hyperidle.com"` (`LITERAL_ID_STRINGS`). Tests and e2e specs are exempt by path.
 
 ## Tracked-out survivors
 
 The offenders the inventory carries deliberately. An offender in a file not listed here is a real failure.
 
-**Server auth fallback** — `u-founder` in `layers/core-api/src/middleware/auth.ts`. The middleware substitutes the hardcoded user id when the database holds no `kind: "human"` row. The welcome screen's `edit_user` inserts that row — and runs as the placeholder itself, since nobody exists yet — so after the welcome screen every request resolves a real person. It goes when `userId` turns nullable and answers 401 instead of substituting a fake identity.
+**Server auth fallback** — `u-founder` in `layers/core-api/src/middleware/auth.ts`. The middleware substitutes the hardcoded user id when the database holds no `kind: "human"` row. First start (`POST /api/start`) makes that row with `edit_user` — and runs as the placeholder itself, since nobody exists yet — so after first start every request resolves a real person. It goes when `userId` turns nullable and answers 401 instead of substituting a fake identity.
 
-## When you legitimately need a mock
+## When you need made-up data
 
-1. Tests / stories: import or declare freely inside the permitted surface.
-2. Runtime needs a stable fallback URL or empty shape: render the empty state, don't fabricate data.
-3. You're prototyping a new feature: keep the mock in `__fixtures__/` and inject via prop or context — never co-locate in the page. Runtime imports from `/__fixtures__/` or `/fixtures/` are blocked (`FORBIDDEN_IMPORT_FRAGMENTS`, mock-data-policy.ts:90).
+1. In a test: declare it inside the permitted surface.
+2. To see a screen with real-looking content: add it to the demo world and run `npm run setup -- --demo`. The e2e tests run against the same world.
+3. When the runtime has nothing to show: render the empty state, don't fabricate data.
 
 ## Checking locally
 
@@ -92,5 +90,5 @@ Run the check before pushing; it also runs in `npm run verify`.
 ## Cross-references
 
 - Machine copy of the closed sets: `tools/eslint-plugin-design/src/mock-data-policy.ts`
-- Offender tracking: [Tracked-out survivors](#tracked-out-survivors), `tools/repo-gates/mock-inventory/inventory.json`
+- Offender list: `tools/repo-gates/mock-inventory/inventory.json`
 - Testing guide: [testing.md](testing.md)

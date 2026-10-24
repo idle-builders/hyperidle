@@ -92,11 +92,11 @@ When a task reaches `review`, a human may record an outcome. Four values: `met`,
 
 ## Source document
 
-`tasks.sourceDocumentId` points at the document a task was promoted from. The promotion is done in `DocumentDetail.tsx`; the field is set by `edit_task({ sourceDocumentId })`.
+`tasks.sourceDocumentId` points at the document a task was promoted from. It is set by `edit_task({ sourceDocumentId })`; the app does not set it.
 
 ## Token rollup
 
-`tasks.tokensActualJson` is a JSON string of per-tier token counts, merged by the session-end handler and written back via `edit_task({ tokensActualJson })`. Displayed as a rollup on the task page.
+`tasks.tokensActualJson` is a JSON string of per-tier token counts, merged by the session-end handler and written back via `edit_task({ tokensActualJson })`. The app does not show it.
 
 ## Derived need
 

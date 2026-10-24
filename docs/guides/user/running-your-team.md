@@ -1,45 +1,53 @@
-# Running Your Team
+# Running your team
 
-A short playbook for common situations. For what each view does, see [Views](views.md); for agent roles and subscriptions, see [Agents](agents.md).
-
----
-
-## Common situations
-
-### Nothing is running
-
-Check two things:
-
-1. Does the task have an owner? Open the task and look at the Owner field. If it is empty, set one.
-2. Is the task in `accepted` state? Both must be true for a session to start.
-
-If the task has an owner and is accepted, check that the owner's harness is signed in: **Settings → Agent backends**.
-
-### An agent is blocked
-
-Open the task. If state is `blocked`, read the thread — the agent should have left a message explaining what it needs.
-
-- If it sent a review, open the review page and give a verdict.
-- If it left a plain message, reply in the thread. The agent is subscribed to its thread and will resume.
-
-### You disagree with what an agent is doing
-
-Open the task thread and reply. The agent will see your message on its next turn. For a mid-session redirect, you can also send while the session is active — your message queues and delivers when the current turn ends.
-
-If the work has gone far enough the wrong way, **Reject** its next review and say why, or kill the task and start over with a clearer goal.
-
-### Stale-save conflict
-
-If you edit a document or task that another agent edited since you loaded the page, you will see a conflict notice. The server rejects the older version. Reload, review the newer state, then re-apply your changes.
-
-### Turning a document into a task
-
-Open the document in Knowledge. Click `···` → **Promote to task**. The task create page opens with the document's content pre-filled. Review, set an owner, then accept when ready.
-
-### Installing plugins for more agents
-
-Go to **Settings → Plugins**. The bundled **role-personas** plugin gives you seven shaped team agents. Install it, then go to the team page to see them. You can edit any agent the plugin brought.
+A team is a group inside your organisation: a product team, a function such as sales, or a group across functions. A person can be in several teams; an agent is in one. Conversations are across all teams. In Knowledge each team is a space, and Work can show one team's tasks.
 
 ---
 
-Next: [Settings](./settings.md)
+## The team page
+
+In the sidebar, open **Work**, pick a team in the team switch, then press **The team ›**.
+
+The page lists the team's people, each with the agents that work for them, then the agents that work for the whole team and those that work for every team. Each row says what that person or agent is doing now; click it to open their [page](./agents.md).
+
+**Add someone to …** adds an agent (see [Adding an agent](./agents.md#adding-an-agent)). Inviting another person is not built yet.
+
+The box on the right holds the team's **plugins**.
+
+---
+
+## Plugins
+
+A plugin is a ready-made pack of agents, skills, reasons to start, and services. What it adds are ordinary agents and documents, yours to change. Plugins live in the team page's box; there is no store.
+
+The list shows the plugins installed for the team, and the ones that come with HyperIdle ("Comes with HyperIdle · not installed"). Click one to open its page.
+
+**Add a plugin** brings one from elsewhere: **From** a git address, a folder or a zip file, **Where** it is, and **For** this team or every team.
+
+### A plugin's page
+
+The page shows how the plugin stands and what it adds: its agents (each opens its own page), skills, reasons to start and services. The box has:
+
+- **Install** — for one that comes with the app and is not installed yet.
+- **Switch off** / **Switch on** — off pauses its agents and their reasons to start.
+- **Remove** — takes its agents out of the team and archives its documents. The team page then offers **Undo**.
+- Its version, where it came from, who it is for, and when it was installed.
+- **Changed by the team** — what your team changed since installing it, each with **Put the plugin's version back**. A newer version of the plugin leaves your changes alone.
+
+---
+
+## When something is off
+
+**Nothing is happening on a task.** Open the task. If it says **On hold** or **Stopped**, press **Take off hold** or **Start again** in its box. Then open the owner's page: if it says **Paused**, press **Let it work**. If **Runs on** says no program is set, press **Edit** and pick one. If the program is not signed in, sign in to it in a terminal, then press **Look again** on [your page](./your-page.md).
+
+**An agent is stuck.** The thread shows **Stuck** at the top of your Conversations list. Open it and answer the question.
+
+**You disagree with what an agent is doing.** Write in the task's conversation; the agent reads it. If a result is wrong, **Reject** its review and say why. If the work has gone the wrong way, **Stop** the task.
+
+**A document says someone else saved it while you were writing.** Your text is still on the page. Copy it, reload to see theirs, then put your change back.
+
+**You want more agents.** Install a plugin, or add an agent with **Add someone to …** on the team page.
+
+---
+
+Back to the [user guide](./index.md).
