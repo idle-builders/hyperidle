@@ -37,13 +37,18 @@ function apiKey(): string {
 	);
 }
 
-/** POST with the API key; the one way this app talks to the server. */
+/** POST with the API key: every action, and the few other writes. */
 export function post(path: string, body?: unknown): Promise<Response> {
 	return fetch(path, {
 		method: "POST",
 		headers: { "X-API-Key": apiKey(), "Content-Type": "application/json" },
 		body: body === undefined ? undefined : JSON.stringify(body),
 	});
+}
+
+/** GET with the API key, for the few reads that are not actions. */
+export function get(path: string): Promise<Response> {
+	return fetch(path, { headers: { "X-API-Key": apiKey() } });
 }
 
 /** Run one action. A refusal outside the action (bad key, bad input) comes back as a problem too. */

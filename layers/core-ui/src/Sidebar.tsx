@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { call } from "./api";
 import { UNTITLED } from "./doc-page";
+import { FindOrAsk } from "./Find";
 import { listen } from "./live";
 import {
 	conversationItems,
@@ -325,6 +326,17 @@ export function Sidebar() {
 	useEffect(() => (you ? listen([`user:${you}`], me.reload) : undefined), [you, me.reload]);
 
 	const [notesOpen, setNotesOpen] = useState(false);
+	const [finding, setFinding] = useState(false);
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+				e.preventDefault();
+				setFinding(true);
+			}
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, []);
 	const [spine, setSpine] = useState<Spine>(routeSpine ?? "conversations");
 	const [teamId, setTeamId] = useState<string | null>(null);
 	const [menu, setMenu] = useState(false);
@@ -384,7 +396,7 @@ export function Sidebar() {
 		<nav className="nav nav--rel" aria-label="Sidebar">
 			<div className="nav-top">
 				<div className="nav-find">
-					<button type="button" className="find-btn">
+					<button type="button" className="find-btn" onClick={() => setFinding(true)}>
 						<span>Find or ask…</span>
 						<kbd>⌘K</kbd>
 					</button>
@@ -426,6 +438,7 @@ export function Sidebar() {
 			</div>
 			<hr className="nav-sep" />
 
+			{finding && <FindOrAsk onClose={() => setFinding(false)} />}
 			{notesOpen && (
 				<Notifications
 					you={you}

@@ -1921,6 +1921,27 @@ kbd {
 	margin-right: auto;
 	color: var(--ink-2);
 }
+/* what the overlay says when there is nothing to list yet */
+.pal-none {
+	padding: var(--sp-3);
+	font: var(--t-meta);
+	color: var(--ink-3);
+}
+.pal-ask .pal-none {
+	padding: 0;
+}
+/* a question you asked, above its answer */
+.pal-q {
+	font: var(--t-strong);
+	color: var(--ink-2);
+}
+.pal-asker {
+	display: flex;
+	align-items: center;
+	gap: var(--sp-2);
+	font: var(--t-meta);
+	color: var(--ink-3);
+}
 
 /* notifications — what happened in things you follow */
 .nav--rel {
@@ -4328,4 +4349,8 @@ button.item:hover {
 	border: 2px dashed var(--accent);
 	border-radius: var(--r-sm);
 	pointer-events: none;
+}
+/* the asker picks from the usual field, at its own width */
+.pal-asker .in {
+	width: auto;
 }

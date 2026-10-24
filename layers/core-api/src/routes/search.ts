@@ -158,7 +158,7 @@ export function createSearchRoutes(
 		const workHits: Hit[] = taskRows.map((row) => ({
 			id: row.id,
 			title: row.title,
-			snippet: firstExcerpt([row.description, row.doneWhen, row.title], query),
+			snippet: firstExcerpt([row.description, row.title], query),
 			team: teamName.get(row.teamId) ?? null,
 			at: row.updatedAt,
 		}));
