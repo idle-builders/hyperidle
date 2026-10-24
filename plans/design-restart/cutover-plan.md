@@ -107,6 +107,17 @@ working through the backend changes.
     keeps its source, description and who added it; an edit to a plugin's agent or reason marks
     it changed like a document, with who; restore puts each kind back; remove only pauses, so
     switching a removed plugin on undoes it (migration 0107).
+  - [x] Arrive: find or ask (⌘K; Find lists knowledge, conversations and work with the text that
+    matched; Tab asks your oldest agent, changeable, in a thread that answers in the overlay as it
+    is written, with its sources), first start at `/start` for a fresh install (no person yet: the
+    programs found here, how to fix one, Look again, your name and the team's, Start talking;
+    joining a server in the desktop app), the first conversation with the first agent's hello as
+    a real message and Connect a folder / GitHub / Not now, the "new since you started" note
+    while you edit, and one "did not load" line with Try again on every page. Backend: search
+    hits carry the matching text and their team; `POST /api/start` and `/api/start/look`; the
+    desktop's `backend:join`, and shared mode passes the kept key to the page. `Arrive.tsx` is
+    gone.
+- [ ] Step 4, the last item: the gaps step 1 kept.
 - [ ] Step 5 finish.
 
 
