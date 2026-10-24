@@ -1445,9 +1445,6 @@ kbd {
 	font: var(--t-meta);
 	color: var(--ink-3);
 }
-.first-go {
-	align-self: flex-start;
-}
 
 .opened-note {
 	font: var(--t-body);

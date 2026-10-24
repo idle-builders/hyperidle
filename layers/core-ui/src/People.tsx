@@ -967,6 +967,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 							<Section
 								title="Starts working when"
 								items={reasons.filter((r) => !r.paused)}
+								none="Only when someone hands it a task or names it in a thread."
 								add={mine ? "Add a time or an event" : undefined}
 								onAdd={() => setDialog("start")}
 							/>

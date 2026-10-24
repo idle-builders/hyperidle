@@ -135,6 +135,7 @@ export function PluginScreen({ id }: { id: string }): React.ReactElement {
 							Agents <span>{p.agents.length}</span>
 						</h3>
 						<div className="adds">
+							{p.agents.length === 0 && <p className="tbox-none">It adds no agents.</p>}
 							{p.agents.map((a) => (
 								<button
 									key={a.name}

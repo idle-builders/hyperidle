@@ -260,6 +260,9 @@ function Notifications({
 					✕
 				</button>
 			</header>
+			{inbox.length === 0 && (
+				<p className="nav-empty">Nothing yet. What happens in what you follow shows up here.</p>
+			)}
 			{inbox.map(({ change, readAt }) => (
 				<button
 					key={change.id}
