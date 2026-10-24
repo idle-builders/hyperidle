@@ -4,25 +4,21 @@ import { noDomMarkerAssert } from "./rules/no-dom-marker-assert.js";
 import { noExistenceOnlyTest } from "./rules/no-existence-only-test.js";
 import { noMockDataImport } from "./rules/no-mock-data-import.js";
 import { noMockDataSymbol } from "./rules/no-mock-data-symbol.js";
-import { noOpButton } from "./rules/no-op-button.js";
 import { noPlanningIdInTest } from "./rules/no-planning-id-in-test.js";
 import { noRepoIntrospectionInTest } from "./rules/no-repo-introspection-in-test.js";
 import { noUngatedStreamDrain } from "./rules/no-ungated-stream-drain.js";
 import { noUnknownCast } from "./rules/no-unknown-cast.js";
-import { requireFocusOnInteractive } from "./rules/require-focus-on-interactive.js";
 
 export const rules: Record<string, Rule.RuleModule> = {
 	"no-ungated-stream-drain": noUngatedStreamDrain,
 	"no-mock-data-import": noMockDataImport,
 	"no-mock-data-symbol": noMockDataSymbol,
-	"no-op-button": noOpButton,
 	"no-unknown-cast": noUnknownCast,
 	"no-dom-marker-assert": noDomMarkerAssert,
 	"no-existence-only-test": noExistenceOnlyTest,
 	"lore-format": loreFormat,
 	"no-planning-id-in-test": noPlanningIdInTest,
 	"no-repo-introspection-in-test": noRepoIntrospectionInTest,
-	"require-focus-on-interactive": requireFocusOnInteractive,
 };
 
 const plugin: ESLint.Plugin = {
