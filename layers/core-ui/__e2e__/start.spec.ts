@@ -1,5 +1,17 @@
 /** First start on a fresh install: the programs found here, your names, and your first conversation. */
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+function act(page: Page, name: string, body: unknown): Promise<unknown> {
+	return page.evaluate(
+		async ([n, b]) =>
+			fetch(`/api/actions/${n}`, {
+				method: "POST",
+				headers: { "X-API-Key": "hyperidle-dev-local", "Content-Type": "application/json" },
+				body: JSON.stringify(b),
+			}).then((r) => r.json()),
+		[name, body] as const,
+	);
+}
 
 test("a fresh install starts at first start, and Start talking lands in the first conversation", async ({
 	page,
@@ -23,6 +35,12 @@ test("a fresh install starts at first start, and Start talking lands in the firs
 	const thread = page.getByRole("log", { name: "Messages" });
 	await expect(thread.getByText("Builder", { exact: true })).toBeVisible();
 	await expect(thread.getByText(/^Hi\. I run on .+ on this computer/)).toBeVisible();
+
+	// Without a reload, the new conversation stays live: the first start made you, and the page now
+	// listens as you, so a message written elsewhere lands here as it is written.
+	const threadId = new URL(page.url()).pathname.split("/").pop() ?? "";
+	await act(page, "send_message", { threadId, text: "Written from elsewhere." });
+	await expect(thread.getByText("Written from elsewhere.")).toBeVisible();
 
 	// "Not now" puts the offer away; "Connect a folder" opens the folder dialog on your page.
 	const first = page.url();

@@ -21,6 +21,8 @@ const Think = lazy(() => import("./Think").then((m) => ({ default: m.Think })));
 function Shell() {
 	const me = useAction("open_user", {});
 	const [editing, setEditing] = useState(false);
+	// Nothing opens the live connection until a person exists: it speaks for whoever asked for it.
+	if (!(me.data || me.problems)) return null;
 	if (me.data && me.data.user === null) return <Navigate to="/start" replace />;
 	return (
 		<FocusContext.Provider value={{ editing, setEditing }}>
