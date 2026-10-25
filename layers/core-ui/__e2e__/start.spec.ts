@@ -41,6 +41,15 @@ test("a fresh install starts at first start, and Start talking lands in the firs
 	const threadId = new URL(page.url()).pathname.split("/").pop() ?? "";
 	await act(page, "send_message", { threadId, text: "Written from elsewhere." });
 	await expect(thread.getByText("Written from elsewhere.")).toBeVisible();
+	// The offer stays under Builder's hello, above what is said after it.
+	const offerFirst = await thread
+		.getByRole("button", { name: "Connect a folder" })
+		.evaluate(
+			(offer, later) =>
+				Boolean(offer.compareDocumentPosition(later as Node) & Node.DOCUMENT_POSITION_FOLLOWING),
+			await thread.getByText("Written from elsewhere.").elementHandle(),
+		);
+	expect(offerFirst).toBe(true);
 
 	// "Not now" puts the offer away; "Connect a folder" opens the folder dialog on your page.
 	const first = page.url();

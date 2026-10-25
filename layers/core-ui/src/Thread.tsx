@@ -9,7 +9,7 @@ import {
 	type Task,
 	type VerdictPayload,
 } from "@hyperidle/domain-model";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
@@ -389,6 +389,28 @@ export function ThreadPage({ id }: { id: string }) {
 			</section>
 		);
 
+	// The offer sits under the first agent's hello, however much is said after it.
+	const helloKey = entries.find((e) => e.kind === "said" && e.senderId === agent?.id)?.key;
+	const hint = first && agent && (
+		<div className="hint">
+			<span>Point {agent.name} at your code, and it can do more</span>
+			<span className="hint-acts">
+				<button type="button" className="btn" onClick={() => navigate("/people/me?open=folder")}>
+					Connect a folder
+				</button>
+				<button type="button" className="btn" onClick={() => navigate("/people/me?open=service")}>
+					Connect GitHub
+				</button>
+				<button
+					type="button"
+					className="hint-skip"
+					onClick={() => setSearch({}, { replace: true })}
+				>
+					Not now
+				</button>
+			</span>
+		</div>
+	);
 	return (
 		<section className="thread">
 			<header className="thread-head">
@@ -417,7 +439,7 @@ export function ThreadPage({ id }: { id: string }) {
 						);
 					const sender = people.get(e.senderId);
 					const spot = (e.messages[0]?.payload as PlainReadPayload | undefined)?.anchor?.label;
-					return (
+					const msg = (
 						<Msg
 							key={e.key}
 							who={initials(sender?.name ?? "")}
@@ -443,38 +465,18 @@ export function ThreadPage({ id }: { id: string }) {
 							))}
 						</Msg>
 					);
+					return e.key === helloKey && hint ? (
+						<Fragment key={e.key}>
+							{msg}
+							{hint}
+						</Fragment>
+					) : (
+						msg
+					);
 				})}
 				{running.map((s) => (
 					<SessionLine key={s.id} session={s} agent={firstName(s.agentId)} />
 				))}
-				{first && agent && (
-					<div className="hint">
-						<span>Point {agent.name} at your code, and it can do more</span>
-						<span className="hint-acts">
-							<button
-								type="button"
-								className="btn"
-								onClick={() => navigate("/people/me?open=folder")}
-							>
-								Connect a folder
-							</button>
-							<button
-								type="button"
-								className="btn"
-								onClick={() => navigate("/people/me?open=service")}
-							>
-								Connect GitHub
-							</button>
-							<button
-								type="button"
-								className="hint-skip"
-								onClick={() => setSearch({}, { replace: true })}
-							>
-								Not now
-							</button>
-						</span>
-					</div>
-				)}
 			</div>
 
 			{problem && <p className="composer-problem">{problem}</p>}
