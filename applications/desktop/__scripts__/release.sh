@@ -23,17 +23,23 @@ set -euo pipefail
 #   - APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID in .env or environment
 #   - gh CLI authenticated with write access to ambrovia/hyperidle
 #
-# Usage: ./__scripts__/release.sh <version>   (e.g. ./__scripts__/release.sh 0.5.0)
+# Usage: ./__scripts__/release.sh <version>   (e.g. 0.5.0, or 1.0.0-rc.1 for a pre-release)
+#
+# A pre-release (X.Y.Z-rc.N) is staged and published as a GitHub pre-release: it is mirrored to
+# ambrovia/hyperidle-releases for download, but never marked Latest, never sent to Homebrew and
+# never deployed to the shared cluster.
 
 VERSION="${1:-}"
 if [ -z "$VERSION" ]; then
   echo "Usage: $0 <version>   (e.g. $0 0.5.0)"
   exit 1
 fi
-if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-  echo "Error: version must be semver X.Y.Z (got '$VERSION')"
+if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$'; then
+  echo "Error: version must be X.Y.Z or X.Y.Z-rc.N (got '$VERSION')"
   exit 1
 fi
+PRERELEASE_FLAG=""
+case "$VERSION" in *-*) PRERELEASE_FLAG="--prerelease" ;; esac
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 DESKTOP_DIR="$REPO_ROOT/applications/desktop"
@@ -134,7 +140,7 @@ if gh release view "$TAG" --repo "$REPO" &>/dev/null; then
 else
   gh release create "$TAG" "$DMG" \
     --repo "$REPO" \
-    --draft \
+    --draft $PRERELEASE_FLAG \
     --title "HyperIdle $TAG" \
     --notes "Desktop release $TAG (arm64). Published automatically when the version-bump PR merges to main."
 fi

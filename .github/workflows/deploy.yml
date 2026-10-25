@@ -61,6 +61,13 @@ jobs:
 
           PREV=$(git show HEAD~1:package.json 2>/dev/null | jq -r .version || echo "")
           echo "version: $PREV -> $CURRENT"
+          case "$CURRENT" in
+            *-*)
+              # A pre-release (X.Y.Z-rc.N) is a desktop download for testing; the cluster stays put.
+              echo "pre-release $CURRENT — no cluster deploy"
+              echo "released=false" >> "$GITHUB_OUTPUT"
+              exit 0 ;;
+          esac
           if [ "$CURRENT" != "$PREV" ]; then
             echo "released=true" >> "$GITHUB_OUTPUT"
             echo "version=$CURRENT" >> "$GITHUB_OUTPUT"

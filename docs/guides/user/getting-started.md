@@ -17,6 +17,8 @@ brew tap ambrovia/homebrew-tap
 brew install --cask hyperidle
 ```
 
+To try a pre-release before it reaches Homebrew, see [Pre-releases](../../deployment/releases.md#pre-releases).
+
 **From source** (needs Node.js 24 or later and git):
 
 ```bash
