@@ -242,6 +242,16 @@ export function knowledgeTree(docs: readonly DocumentRow[], teams: readonly Team
 	}));
 }
 
+/** The first document down the tree, the way it reads top to bottom; team spaces are not pages. */
+export function firstDoc(tree: readonly Doc[]): string | undefined {
+	for (const d of tree) {
+		if (!d.space) return d.id;
+		const inside = firstDoc(d.children ?? []);
+		if (inside) return inside;
+	}
+	return undefined;
+}
+
 /** What a notification says happened, in words. */
 export function noteWhat(change: ChangeRow, names: Names): string {
 	const who = names.get(change.actor) ?? "Someone";

@@ -1,7 +1,7 @@
 /** How a person or agent is drawn in an avatar, how a task reads in Work, and what waits while you focus. */
 import type { Task } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
-import { countTasks, initials, newSince, workItems } from "./sidebar-lists";
+import { countTasks, firstDoc, initials, newSince, workItems } from "./sidebar-lists";
 
 test.each([
 	["Maya Chen", "MC"],
@@ -51,4 +51,21 @@ describe("countTasks", () => {
 	])("%i", (n, words) => {
 		expect(countTasks(n)).toBe(words);
 	});
+});
+
+test("knowledge opens on the first document in the tree, skipping empty team spaces", () => {
+	const tree = [
+		{ id: "growth", title: "Growth", team: "growth", space: true, children: [] },
+		{
+			id: "support",
+			title: "Support",
+			team: "support",
+			space: true,
+			children: [{ id: "refunds", title: "Refunds", team: "support" }],
+		},
+	];
+	expect(firstDoc(tree)).toBe("refunds");
+	expect(
+		firstDoc([{ id: "growth", title: "Growth", team: "growth", space: true }]),
+	).toBeUndefined();
 });

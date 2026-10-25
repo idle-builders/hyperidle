@@ -1045,6 +1045,14 @@ kbd {
 .nav-spines {
 	padding: 0 var(--sp-3);
 }
+/* In the desktop window the sidebar's top clears the window buttons and moves the window. */
+[data-shell="desktop"] .nav-top {
+	padding-top: 36px;
+	-webkit-app-region: drag;
+}
+[data-shell="desktop"] .nav-top button {
+	-webkit-app-region: no-drag;
+}
 .spine-count--flag {
 	background: var(--flag);
 	color: var(--flag-ink);
