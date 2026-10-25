@@ -289,7 +289,8 @@ export async function list(
 			return exec
 				.select()
 				.from(tasks)
-				.where(and(...idConds));
+				.where(and(...idConds))
+				.orderBy(tasks.position, tasks.createdAt, tasks.id);
 		}
 		if (f.dependencyId !== undefined) {
 			// `state` is OPTIONAL here on purpose — the `done` watcher only

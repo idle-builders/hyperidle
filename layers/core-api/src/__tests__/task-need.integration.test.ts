@@ -266,4 +266,31 @@ describe("task need computation — search_tasks and open_task", () => {
 		expect(childNode?.openBelow).toEqual({ input: 0, review: 0 });
 		expect(parentOpen.data.openBelow).toEqual({ input: 1, review: 0 });
 	});
+	test("open_task keeps parts in their set order after one of them changes", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedActor(db);
+		const { editTask, openTask } = makeRunners(agentOrchestration);
+		const ctx = makeCtx(db, eventBus);
+		const parent = await editTask(ctx, { title: "Parent", teamId: TEAM_ID });
+		expect(parent.ok).toBe(true);
+		if (!parent.ok) return;
+		const parentId = parent.data.task.id;
+		const ids: string[] = [];
+		for (const [i, title] of ["First", "Second", "Third"].entries()) {
+			const child = await editTask(ctx, { title, parentTaskId: parentId, position: i });
+			expect(child.ok).toBe(true);
+			if (child.ok) ids.push(child.data.task.id);
+		}
+		// Changing the first part must not move it.
+		await editTask(ctx, { id: ids[0] ?? "", description: "changed" });
+		await editTask(ctx, { id: ids[1] ?? "", description: "changed too" });
+
+		const opened = await openTask(ctx, { id: parentId });
+		expect(opened.ok).toBe(true);
+		if (!opened.ok) return;
+		expect(opened.data.children.map((c) => c.title)).toEqual(["First", "Second", "Third"]);
+	});
 });

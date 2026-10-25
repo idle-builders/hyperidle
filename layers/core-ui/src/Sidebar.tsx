@@ -7,6 +7,7 @@ import { useFocus } from "./focus";
 import { listen } from "./live";
 import {
 	conversationItems,
+	countTasks,
 	type Doc,
 	type Inbox,
 	type Item,
@@ -530,7 +531,7 @@ export function Sidebar() {
 										</span>
 										<span className="team-name">{t?.name ?? "All teams"}</span>
 										<span className="team-n">
-											{(all ?? []).filter((i) => t === null || i.team === t.id).length} tasks
+											{countTasks((all ?? []).filter((i) => t === null || i.team === t.id).length)}
 										</span>
 									</button>
 								))}

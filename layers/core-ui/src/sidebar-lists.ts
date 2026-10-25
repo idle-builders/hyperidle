@@ -53,6 +53,11 @@ const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 
 /** How long ago, the way a list row says it: now, 12m, 8h, yesterday, Mon, 3 Sep. */
+/** "1 task", "6 tasks". */
+export function countTasks(n: number): string {
+	return `${n} ${n === 1 ? "task" : "tasks"}`;
+}
+
 export function age(iso: string, now: number = Date.now()): string {
 	const at = new Date(iso);
 	const ms = now - at.getTime();
