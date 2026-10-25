@@ -36,6 +36,7 @@ function makeRow(overrides: Partial<DocumentRow> = {}): DocumentRow {
 		sessionUseCount: 0,
 		lastUsedAt: null,
 		discipline: null,
+		icon: null,
 		as: "document",
 		...overrides,
 	};
@@ -54,14 +55,21 @@ describe("createAgentIdentityPort", () => {
 				editInputs.push(input);
 				return {
 					ok: true,
-					data: { document: makeRow(), ancestors: [], children: [], siblings: [], scopeName: "" },
+					data: {
+						document: makeRow(),
+						ancestors: [],
+						children: [],
+						siblings: [],
+						scopeName: "",
+						followers: 0,
+					},
 				};
 			},
 		});
 
 		const id = await port.upsertAgentIdentity(FAKE_DB, {
 			agentId: "agent-1",
-			agentName: "Atlas",
+			title: "Atlas — identity",
 			body: "You are Atlas.",
 			updatedBy: "u-founder",
 		});
@@ -87,7 +95,7 @@ describe("createAgentIdentityPort", () => {
 
 		const id = await port.upsertAgentIdentity(FAKE_DB, {
 			agentId: "agent-1",
-			agentName: "Atlas",
+			title: "Atlas — identity",
 			body: "A freshly re-seeded body that must be discarded.",
 			updatedBy: "u-founder",
 		});
@@ -114,7 +122,14 @@ describe("createAgentIdentityPort", () => {
 				const row = makeRow({ id, status: "archived" });
 				return {
 					ok: true,
-					data: { document: row, ancestors: [], children: [], siblings: [], scopeName: "" },
+					data: {
+						document: row,
+						ancestors: [],
+						children: [],
+						siblings: [],
+						scopeName: "",
+						followers: 0,
+					},
 				};
 			},
 		});

@@ -1,15 +1,13 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from "electron";
 
 // @lore: Dirname — CJS output (esbuild) has __dirname; ESM (dev/tsx) requires fileURLToPath(import.meta.url)
 const Dirname =
 	typeof __dirname === "string" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
-import { RemoteWorkerClient } from "@hyperidle/agent-execution";
 import { buildAppMenuTemplate } from "./app-menu.js";
 import { getPort, startServer, waitForHealth } from "./boot-server.js";
 import { loadClientConfig, migrateWindowState, saveClientConfig } from "./client-config.js";
@@ -54,6 +52,11 @@ export async function waitForRemoteHealth(serverUrl: string, timeoutMs = 30_000)
 	throw new Error(
 		`Remote health check failed: server at ${url} did not respond within ${timeoutMs}ms`,
 	);
+}
+
+// @lore: the Paper canvas in core-ui's tokens.css, light or dark like the computer, painted before the page loads.
+function paperCanvas(): string {
+	return nativeTheme.shouldUseDarkColors ? "#141310" : "#faf8f4";
 }
 
 interface SecretsFile {
@@ -201,20 +204,26 @@ interface BootContext {
 	credentialsPath: string;
 }
 
-function registerCommonIpcHandlers(mainWindow: BrowserWindow, ctx: BootContext): void {
-	ipcMain.handle("shell:open-logs", async (): Promise<void> => {
-		await shell.openPath(ctx.logDir);
-	});
-	ipcMain.handle("shell:open-data", async (): Promise<void> => {
-		await shell.openPath(ctx.userDataDir);
-	});
-	ipcMain.handle("shell:select-folder", async (): Promise<string | null> => {
-		const result = await dialog.showOpenDialog(mainWindow, {
-			properties: ["openDirectory"],
-			title: "Select repository folder",
-		});
-		return result.canceled ? null : (result.filePaths[0] ?? null);
-	});
+function registerCommonIpcHandlers(ctx: BootContext): void {
+	// First start's "Join a team on a server": the key is already stored through
+	// credentials:set; this checks the server answers, then reopens the app in shared mode.
+	ipcMain.handle(
+		"backend:join",
+		async (_event: unknown, address: string): Promise<{ ok: boolean; problem?: string }> => {
+			const trimmed = address.trim().replace(/\/$/, "");
+			const serverUrl = /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
+			if (!URL.canParse(serverUrl)) return { ok: false, problem: "That is not a server address." };
+			try {
+				await waitForRemoteHealth(serverUrl, 10_000);
+			} catch {
+				return { ok: false, problem: `${serverUrl} did not answer.` };
+			}
+			saveClientConfig(ctx.configPath, { backendMode: "shared", serverUrl });
+			app.relaunch();
+			app.exit(0);
+			return { ok: true };
+		},
+	);
 }
 
 function bindWindowStatePersistence(mainWindow: BrowserWindow, configPath: string): void {
@@ -384,12 +393,12 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 		height: windowState.height,
 		titleBarStyle: "hiddenInset",
 		trafficLightPosition: { x: 12, y: 11 },
-		backgroundColor: "#242418",
+		backgroundColor: paperCanvas(),
 		webPreferences: {
 			preload: preloadPath,
 			contextIsolation: true,
 			sandbox: true,
-			additionalArguments: [`--api-key=${apiKey}`, "--backend-mode=local"],
+			additionalArguments: [`--api-key=${apiKey}`],
 		},
 		show: false,
 	});
@@ -447,15 +456,12 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 
 	const credManager = createSafeCredentialsManager(ctx.credentialsPath);
 	credManager.registerHandlers();
-	registerCommonIpcHandlers(mainWindow, ctx);
+	registerCommonIpcHandlers(ctx);
 
 	const menuTemplate = buildAppMenuTemplate({
 		isDev: IS_DEV,
 		logDir: ctx.logDir,
 		dataDir: ctx.userDataDir,
-		onOpenSettings: (): void => {
-			if (!mainWindow.isDestroyed()) mainWindow.webContents.send("open-settings");
-		},
 	});
 	Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
 	app.on("before-quit", getBeforeQuitHandler(serverHandle, logRotator));
@@ -478,12 +484,13 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		height: windowState.height,
 		titleBarStyle: "hiddenInset",
 		trafficLightPosition: { x: 12, y: 11 },
-		backgroundColor: "#242418",
+		backgroundColor: paperCanvas(),
 		webPreferences: {
 			preload: preloadPath,
 			contextIsolation: true,
 			sandbox: true,
-			additionalArguments: ["--backend-mode=shared"],
+			// The key the server's owner gave at joining, so the app can speak to it.
+			additionalArguments: [`--api-key=${readCredentialFromStore("shared_backend_key") ?? ""}`],
 		},
 		show: false,
 	});
@@ -516,16 +523,7 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 
 	const credManager = createSafeCredentialsManager(ctx.credentialsPath);
 	credManager.registerHandlers();
-	registerCommonIpcHandlers(mainWindow, ctx);
-
-	let workerClient: RemoteWorkerClient | null = null;
-	const workerIpcChannels = [
-		"worker:enable",
-		"worker:disable",
-		"worker:pause",
-		"worker:resume",
-		"worker:status",
-	] as const;
+	registerCommonIpcHandlers(ctx);
 
 	function readCredentialFromStore(name: string): string | null {
 		try {
@@ -539,119 +537,13 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		}
 	}
 
-	function createWorkerClient(maxConcurrent: number): RemoteWorkerClient | null {
-		const config = loadClientConfig(ctx.configPath);
-		const authKey = readCredentialFromStore("shared_backend_key");
-		if (!authKey) {
-			log("worker:enable — shared_backend_key not found in safeStorage; skipping");
-			return null;
-		}
-
-		let deviceId = config.workerDeviceId;
-		if (!deviceId) {
-			deviceId = crypto.randomUUID();
-			saveClientConfig(ctx.configPath, { workerDeviceId: deviceId });
-		}
-
-		const modelProviders: string[] = [];
-		const client = new RemoteWorkerClient({
-			serverUrl,
-			credentialsPath: ctx.credentialsPath,
-			authKey,
-			deviceId,
-			machineName: os.hostname(),
-			modelProviders,
-			maxConcurrent,
-		});
-
-		client.onStatusChange((status) => {
-			if (!mainWindow.isDestroyed()) {
-				mainWindow.webContents.send("worker:status-changed", status);
-			}
-		});
-
-		return client;
-	}
-
-	ipcMain.handle("worker:enable", async (_event: unknown, maxConcurrent: number): Promise<void> => {
-		if (workerClient) {
-			await workerClient.disconnect();
-		}
-		saveClientConfig(ctx.configPath, { workerEnabled: true, workerMaxConcurrent: maxConcurrent });
-		workerClient = createWorkerClient(maxConcurrent);
-		if (workerClient) {
-			await workerClient.connect();
-		}
-	});
-
-	ipcMain.handle("worker:disable", async (): Promise<void> => {
-		if (workerClient) {
-			await workerClient.disconnect();
-			workerClient = null;
-		}
-		saveClientConfig(ctx.configPath, { workerEnabled: false });
-	});
-
-	ipcMain.handle("worker:pause", (): void => {
-		workerClient?.pause();
-	});
-
-	ipcMain.handle("worker:resume", (): void => {
-		workerClient?.resume();
-	});
-
-	ipcMain.handle("worker:status", (): unknown => {
-		if (workerClient) {
-			return workerClient.getStatus();
-		}
-		const config = loadClientConfig(ctx.configPath);
-		return {
-			enabled: config.workerEnabled,
-			connected: false,
-			paused: false,
-			activeSessions: 0,
-			maxConcurrent: config.workerMaxConcurrent,
-			deviceId: config.workerDeviceId,
-			modelProviders: [],
-		};
-	});
-
-	// Auto-start worker on boot if configured
-	{
-		const config = loadClientConfig(ctx.configPath);
-		if (config.workerEnabled && config.workerDeviceId) {
-			workerClient = createWorkerClient(config.workerMaxConcurrent);
-			if (workerClient) {
-				void workerClient.connect().catch((err: unknown) => {
-					log("worker:auto-start failed", { error: (err as Error).message });
-				});
-			}
-		}
-	}
-
 	const menuTemplate = buildAppMenuTemplate({
 		isDev: IS_DEV,
 		logDir: ctx.logDir,
 		dataDir: ctx.userDataDir,
-		onOpenSettings: (): void => {
-			if (!mainWindow.isDestroyed()) mainWindow.webContents.send("open-settings");
-		},
 	});
 	Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
-	app.on("before-quit", (event) => {
-		if (workerClient) {
-			event.preventDefault();
-			void workerClient.disconnect().finally(() => {
-				workerClient = null;
-				for (const channel of workerIpcChannels) {
-					ipcMain.removeHandler(channel);
-				}
-				app.quit();
-			});
-		} else {
-			getBeforeQuitHandler(null, logRotator)();
-		}
-	});
+	app.on("before-quit", getBeforeQuitHandler(null, logRotator));
 	app.on("activate", (): void => {
 		if (BrowserWindow.getAllWindows().length === 0) void startApp();
 	});
@@ -695,7 +587,7 @@ async function startApp(): Promise<void> {
 			log("startApp shared mode FAILED — no serverUrl configured");
 			await showStartupError(
 				"Shared mode requires a server URL.",
-				"Go to Settings → Backend to configure the remote server URL.",
+				`Set serverUrl in ${configPath}, or delete that file to start over on this computer.`,
 				logDir,
 			);
 			return;

@@ -2,9 +2,9 @@
  * Unit coverage for `resolveMentionsForMessage`'s two output sets:
  * `mentionedIds` (every resolved mention minus the sender, used for wake)
  * must include an agent already a member, while `newParticipantIds` (used
- * only to grow membership) must not. Also covers the mention pool's
- * collision rule: a current participant wins a name collision over a
- * non-participant sharing the same name.
+ * only to grow membership) must not. The pool is the whole organisation;
+ * a current participant wins a name collision over a non-participant
+ * sharing the same name.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -15,14 +15,9 @@ import { resolveMentionsForMessage } from "../mention-resolver.js";
 const fakeDb = {} as HyperIdleDb;
 
 function depsFor(
-	rows: ReadonlyArray<{ id: string; name: string; teamId: string | null }>,
-	owned: ReadonlyArray<{ id: string; name: string; teamId: string | null }> = [],
+	rows: ReadonlyArray<{ id: string; name: string; role?: string }>,
 ): MentionResolverDeps {
-	return {
-		listByIds: async () => rows,
-		listByTeamIds: async () => rows,
-		listOwnedBy: async () => owned,
-	};
+	return { listEveryone: async () => rows.map((r) => ({ role: "member", ...r })) };
 }
 
 describe("resolveMentionsForMessage", () => {
@@ -33,8 +28,7 @@ describe("resolveMentionsForMessage", () => {
 			[],
 			["human-1"],
 			"human-1",
-			null,
-			depsFor([{ id: "human-1", name: "human-1", teamId: null }]),
+			depsFor([{ id: "human-1", name: "human-1" }]),
 		);
 		expect(result.newParticipantIds).toEqual([]);
 		expect(result.mentionedIds).toEqual([]);
@@ -47,10 +41,9 @@ describe("resolveMentionsForMessage", () => {
 			[],
 			["human-1"],
 			"human-1",
-			null,
 			depsFor([
-				{ id: "human-1", name: "human-1", teamId: null },
-				{ id: "agent-1", name: "agent-1", teamId: null },
+				{ id: "human-1", name: "human-1" },
+				{ id: "agent-1", name: "agent-1" },
 			]),
 		);
 		expect(result.newParticipantIds).toEqual(["agent-1"]);
@@ -64,10 +57,9 @@ describe("resolveMentionsForMessage", () => {
 			[],
 			["human-1", "agent-1"],
 			"human-1",
-			null,
 			depsFor([
-				{ id: "human-1", name: "human-1", teamId: null },
-				{ id: "agent-1", name: "agent-1", teamId: null },
+				{ id: "human-1", name: "human-1" },
+				{ id: "agent-1", name: "agent-1" },
 			]),
 		);
 		expect(result.newParticipantIds).toEqual([]);
@@ -81,8 +73,7 @@ describe("resolveMentionsForMessage", () => {
 			[],
 			["human-1"],
 			"human-1",
-			null,
-			depsFor([{ id: "human-1", name: "human-1", teamId: null }]),
+			depsFor([{ id: "human-1", name: "human-1" }]),
 		);
 		expect(result.newParticipantIds).toEqual([]);
 		expect(result.mentionedIds).toEqual([]);
@@ -95,18 +86,14 @@ describe("resolveMentionsForMessage", () => {
 			[],
 			["human-1", "z-participant-nova"],
 			"human-1",
-			null,
-			depsFor(
-				[
-					{ id: "human-1", name: "human-1", teamId: null },
-					// Sorts before the participant by id, and would win under a
-					// plain "sorted by id, first wins" rule — but the participant
-					// must win the collision.
-					{ id: "a-owned-nova", name: "nova", teamId: null },
-					{ id: "z-participant-nova", name: "nova", teamId: null },
-				],
-				[{ id: "a-owned-nova", name: "nova", teamId: null }],
-			),
+			depsFor([
+				{ id: "human-1", name: "human-1" },
+				// Sorts before the participant by id, and would win under a
+				// plain "sorted by id, first wins" rule — but the participant
+				// must win the collision.
+				{ id: "a-other-nova", name: "nova" },
+				{ id: "z-participant-nova", name: "nova" },
+			]),
 		);
 		expect(result.mentionedIds).toEqual(["z-participant-nova"]);
 	});
@@ -118,10 +105,9 @@ describe("resolveMentionsForMessage", () => {
 			[],
 			["human-1"],
 			"human-1",
-			null,
 			depsFor([
-				{ id: "human-1", name: "human-1", teamId: null },
-				{ id: "agent-team", name: "My Team Agent", teamId: null },
+				{ id: "human-1", name: "human-1" },
+				{ id: "agent-team", name: "My Team Agent" },
 			]),
 		);
 		expect(result.newParticipantIds).toEqual(["agent-team"]);
@@ -132,5 +118,35 @@ describe("resolveMentionsForMessage", () => {
 			identityId: "agent-team",
 			sourceText: "@My Team Agent",
 		});
+	});
+
+	test("anyone in the organisation is mentionable — no shared team, not in the thread", async () => {
+		const result = await resolveMentionsForMessage(
+			fakeDb,
+			"@Maya can you look",
+			[],
+			["human-1"],
+			"human-1",
+			depsFor([
+				{ id: "human-1", name: "human-1" },
+				{ id: "maya", name: "Maya" },
+			]),
+		);
+		expect(result.mentionedIds).toEqual(["maya"]);
+	});
+
+	test("the hidden system actor is never mentionable", async () => {
+		const result = await resolveMentionsForMessage(
+			fakeDb,
+			"@Propagation System hello",
+			[],
+			["human-1"],
+			"human-1",
+			depsFor([
+				{ id: "human-1", name: "human-1" },
+				{ id: "system:propagation", name: "Propagation System", role: "system" },
+			]),
+		);
+		expect(result.mentionedIds).toEqual([]);
 	});
 });

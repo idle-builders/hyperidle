@@ -8,6 +8,7 @@ import {
 	teams,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import { eq, sql } from "drizzle-orm";
@@ -40,7 +41,6 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 			name: "Builder",
 			role: "builder",
 			status: "active",
-			teamId: "prodintent-production-team",
 			createdAt: now,
 		},
 		// `changes.actor` FKs to `users` — the dependency watcher's edit_task
@@ -53,6 +53,9 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 			createdAt: now,
 		},
 	]);
+	await db
+		.insert(userTeams)
+		.values({ userId: "prodintent-production-agent", teamId: "prodintent-production-team" });
 	await db.insert(threads).values({
 		id: `thr-${"prodintent-production-bet"}`,
 		hostKind: "team",

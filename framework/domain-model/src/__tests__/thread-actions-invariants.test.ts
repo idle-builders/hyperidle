@@ -10,6 +10,8 @@ import {
 	agentsToWake,
 	canReadThread,
 	canWriteThread,
+	resolvesMessageInvariants,
+	type SendMessageInput,
 	sendMessageInvariants,
 } from "../actions/thread.js";
 
@@ -47,12 +49,33 @@ describe("sendMessageInvariants", () => {
 		expect(problems.map((p) => p.code)).toContain("two_bodies");
 	});
 
-	it("plain_fields_on_non_plain: refs/blockId/spotLabel without text", () => {
+	it("plain_fields_on_non_plain: refs or an anchor without text", () => {
 		const problems = sendMessageInvariants(
-			{ threadId: "t1", review: { title: "r", reasoning: [] }, blockId: "b1" },
+			{
+				threadId: "t1",
+				review: { title: "r", reasoning: [] },
+				anchor: { id: "p1", part: "page", label: "the heading" },
+			},
 			noCaller,
 		);
 		expect(problems.map((p) => p.code)).toContain("plain_fields_on_non_plain");
+	});
+
+	it("a review whose flag points at a part it does not have is refused", () => {
+		const problems = sendMessageInvariants(
+			{
+				threadId: "t1",
+				review: {
+					title: "r",
+					reasoning: [],
+					flags: [{ id: "a", part: "missing", label: "here", says: "Look." }],
+				},
+			},
+			noCaller,
+		);
+		expect(problems.map((p) => [p.code, p.path])).toEqual([
+			["pin_part_unknown", "review.flags.0.part"],
+		]);
 	});
 
 	it("overwrite_needs_thread: messageId without threadId", () => {
@@ -81,7 +104,189 @@ describe("sendMessageInvariants", () => {
 	});
 });
 
+describe("sendMessageInvariants — what a verdict and an answer must carry", () => {
+	const onThread = { threadId: "t1" } as const;
+	const cases: ReadonlyArray<{
+		readonly name: string;
+		readonly input: SendMessageInput;
+		readonly problem: string | null;
+	}> = [
+		{
+			name: "a reject with no note says nothing about why",
+			input: { ...onThread, verdict: { decision: "reject", resolvesMessageId: "m1" } },
+			problem: "reject_needs_reason",
+		},
+		{
+			name: "a reject whose note is only spaces says nothing about why",
+			input: { ...onThread, verdict: { decision: "reject", resolvesMessageId: "m1", note: "  " } },
+			problem: "reject_needs_reason",
+		},
+		{
+			name: "a reject with a reason is fine",
+			input: {
+				...onThread,
+				verdict: { decision: "reject", resolvesMessageId: "m1", note: "Wrong table." },
+			},
+			problem: null,
+		},
+		{
+			name: "an approve needs no note",
+			input: { ...onThread, verdict: { decision: "approve", resolvesMessageId: "m1" } },
+			problem: null,
+		},
+		{
+			name: "an answer with neither an option nor text answers nothing",
+			input: { ...onThread, answer: { resolvesMessageId: "q1" } },
+			problem: "answer_needs_one",
+		},
+		{
+			name: "an answer with both an option and text is two answers",
+			input: { ...onThread, answer: { resolvesMessageId: "q1", option: "Yes", text: "Maybe" } },
+			problem: "answer_needs_one",
+		},
+		{
+			name: "a written answer that is only spaces is empty",
+			input: { ...onThread, answer: { resolvesMessageId: "q1", text: "   " } },
+			problem: "answer_empty",
+		},
+		{
+			name: "a written answer is fine",
+			input: { ...onThread, answer: { resolvesMessageId: "q1", text: "Monthly, for now." } },
+			problem: null,
+		},
+		{
+			name: "a picked option is fine",
+			input: { ...onThread, answer: { resolvesMessageId: "q1", option: "Yes" } },
+			problem: null,
+		},
+		{
+			name: "an answer cannot open a new thread",
+			input: { recipients: ["u1"], answer: { resolvesMessageId: "q1", option: "Yes" } },
+			problem: "answer_on_new_thread",
+		},
+		{
+			name: "an answer and text together are two bodies",
+			input: { ...onThread, text: "hi", answer: { resolvesMessageId: "q1", option: "Yes" } },
+			problem: "two_bodies",
+		},
+	];
+
+	it.each(cases)("$name", ({ input, problem }) => {
+		const codes = sendMessageInvariants(input, { hasCallingThread: false }).map((p) => p.code);
+		expect(codes).toEqual(problem === null ? [] : [problem]);
+	});
+});
+
+describe("resolvesMessageInvariants — what a verdict or an answer may resolve", () => {
+	const review = { type: "review", payload: { title: "Ship it?", reasoning: [] } } as const;
+	const questionnaire = {
+		type: "questionnaire",
+		payload: { title: "Billing", question: "Monthly or yearly?", options: ["Monthly", "Yearly"] },
+	} as const;
+	const approve = { verdict: { decision: "approve", resolvesMessageId: "m1" } } as const;
+	const cases: ReadonlyArray<{
+		readonly name: string;
+		readonly input: SendMessageInput;
+		readonly target: { readonly type: string; readonly payload: unknown };
+		readonly problem: string | null;
+	}> = [
+		{ name: "a verdict resolves a review", input: approve, target: review, problem: null },
+		{
+			name: "a verdict cannot resolve a question",
+			input: approve,
+			target: questionnaire,
+			problem: "verdict_not_review",
+		},
+		{
+			name: "an answer picking one of the question's options resolves it",
+			input: { answer: { resolvesMessageId: "q1", option: "Yearly" } },
+			target: questionnaire,
+			problem: null,
+		},
+		{
+			name: "an answer naming an option the question does not have is refused",
+			input: { answer: { resolvesMessageId: "q1", option: "Weekly" } },
+			target: questionnaire,
+			problem: "answer_unknown_option",
+		},
+		{
+			name: "a written answer resolves a question",
+			input: { answer: { resolvesMessageId: "q1", text: "Monthly until March." } },
+			target: questionnaire,
+			problem: null,
+		},
+		{
+			name: "an answer cannot resolve a review",
+			input: { answer: { resolvesMessageId: "m1", text: "Sure." } },
+			target: review,
+			problem: "answer_not_questionnaire",
+		},
+		{
+			name: "an answer cannot pick an option on a redacted question",
+			input: { answer: { resolvesMessageId: "q1", option: "Yearly" } },
+			target: {
+				type: "questionnaire",
+				payload: { redacted: true, redactedBy: "u1", redactedAt: "2026-01-01", reason: "x" },
+			},
+			problem: "answer_unknown_option",
+		},
+	];
+
+	it.each(cases)("$name", ({ input, target, problem }) => {
+		const codes = resolvesMessageInvariants(input, target).map((p) => p.code);
+		expect(codes).toEqual(problem === null ? [] : [problem]);
+	});
+});
+
+describe("a change proposed in a comment", () => {
+	const noCaller = { hasCallingThread: false };
+	const onText = {
+		id: "c1",
+		part: "doc-1",
+		label: "day 13",
+		spot: { kind: "range", start: 4, end: 10 },
+	} as const;
+
+	it.each([
+		[
+			"with no anchor",
+			{ text: "", change: { from: "a", to: "b" } },
+			["change_needs_document_anchor"],
+		],
+		[
+			"on a review's part",
+			{ text: "", anchor: { ...onText, review: "r1" }, change: { from: "a", to: "b" } },
+			["change_needs_document_anchor"],
+		],
+		[
+			"that changes nothing",
+			{ text: "", anchor: onText, change: { from: "a", to: "a" } },
+			["change_same"],
+		],
+		[
+			"on a stretch of a document's text",
+			{ text: "", anchor: onText, change: { from: "a", to: "b" } },
+			[],
+		],
+	] as const)("%s", (_, body, codes) => {
+		const problems = sendMessageInvariants(
+			{ threadId: "t1", ...body } as SendMessageInput,
+			noCaller,
+		);
+		expect(problems.map((p) => p.code)).toEqual(codes);
+	});
+});
+
 describe("adjustThreadInvariants", () => {
+	it.each([
+		["with no thread", { message: { id: "m1", resolved: true } }, ["adjust_message_needs_thread"]],
+		["that says nothing", { id: "t1", message: { id: "m1" } }, ["adjust_message_empty"]],
+		["resolving a comment", { id: "t1", message: { id: "m1", resolved: true } }, []],
+		["applying its change", { id: "t1", message: { id: "m1", change: "applied" } }, []],
+	] as const)("a message adjusted %s", (_, input, codes) => {
+		expect(adjustThreadInvariants(input).map((p) => p.code)).toEqual(codes);
+	});
+
 	it("adjust_empty: an id with nothing else to change", () => {
 		const problems = adjustThreadInvariants({ id: "t1" });
 		expect(problems.map((p) => p.code)).toContain("adjust_empty");

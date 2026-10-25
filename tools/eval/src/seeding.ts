@@ -24,6 +24,7 @@ import {
 	teams,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import type { AgentCategory, ScopeKind, TaskState } from "@hyperidle/domain-model";
 import { evalHarnessModel, evalHarnessType } from "./eval-harness.js";
@@ -112,10 +113,10 @@ export async function seedAgent(
 		name: opts.name,
 		role: opts.role,
 		status: "active",
-		teamId: opts.teamId,
 		agentCategory: opts.agentCategory ?? "team",
 		createdAt: now,
 	});
+	await db.insert(userTeams).values({ userId: agentId, teamId: opts.teamId });
 	// @lore AU26 G1 (architecture §D-L): the run config moved off `users` into
 	// `agent_run_config`. `tools/eval` writes it directly for now; increment
 	// D2b routes every `tools/eval/src` table access through the owning
@@ -163,7 +164,7 @@ export async function seedRootTask(
 		rootTaskId?: string;
 		teamId: string;
 		description: string;
-		doneCondition?: string;
+		doneWhen?: string;
 		state?: TaskState;
 	},
 ): Promise<{ rootTaskId: string; threadId: string }> {
@@ -183,6 +184,12 @@ export async function seedRootTask(
 		createdAt: now,
 	});
 
+	const doneWhenJson = opts.doneWhen
+		? JSON.stringify([
+				{ id: `dw-${rootTaskId}`, what: opts.doneWhen, by: "check", state: "open", how: null },
+			])
+		: "[]";
+
 	await db.insert(tasks).values({
 		id: rootTaskId,
 		threadId,
@@ -191,7 +198,7 @@ export async function seedRootTask(
 		title:
 			opts.description.length > 120 ? `${opts.description.slice(0, 117)}...` : opts.description,
 		description: opts.description,
-		doneCondition: opts.doneCondition ?? null,
+		doneWhen: doneWhenJson,
 		state: opts.state ?? "in_progress",
 		createdAt: now,
 		updatedAt: now,
@@ -211,7 +218,7 @@ export async function seedTask(
 		ownerAgentId: string;
 		title: string;
 		description?: string;
-		doneCondition?: string;
+		doneWhen?: string;
 		state?: TaskState;
 	},
 ): Promise<{ taskId: string; threadId: string }> {
@@ -231,6 +238,12 @@ export async function seedTask(
 		createdAt: now,
 	});
 
+	const doneWhenJson = opts.doneWhen
+		? JSON.stringify([
+				{ id: `dw-${taskId}`, what: opts.doneWhen, by: "check", state: "open", how: null },
+			])
+		: "[]";
+
 	await db.insert(tasks).values({
 		id: taskId,
 		threadId,
@@ -239,7 +252,7 @@ export async function seedTask(
 		ownerAgentId: opts.ownerAgentId,
 		title: opts.title,
 		description: opts.description ?? null,
-		doneCondition: opts.doneCondition ?? null,
+		doneWhen: doneWhenJson,
 		state: opts.state ?? "accepted",
 		createdAt: now,
 		updatedAt: now,
@@ -344,7 +357,7 @@ export async function seedMinimalWorld(
 	const { rootTaskId } = await seedRootTask(db, {
 		teamId,
 		description: opts?.betDescription ?? "Eval scenario root task",
-		doneCondition: opts?.betDoneCondition ?? "Scenario objectives completed.",
+		doneWhen: opts?.betDoneCondition ?? "Scenario objectives completed.",
 	});
 
 	const { taskId } = await seedTask(db, {
@@ -353,7 +366,7 @@ export async function seedMinimalWorld(
 		ownerAgentId: agentId,
 		title: opts?.taskTitle ?? "Eval task",
 		description: opts?.taskDescription ?? "Complete the assigned task.",
-		doneCondition: opts?.betDoneCondition ?? "Task objectives completed.",
+		doneWhen: opts?.betDoneCondition ?? "Task objectives completed.",
 		state: "accepted",
 	});
 

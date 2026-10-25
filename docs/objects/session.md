@@ -19,7 +19,7 @@ Every session starts from a work intent. Four kinds (`AGENT_WORK_INTENT_KINDS`, 
 
 - `thread_turn` — an agent was woken by a message in a thread.
 - `task_run` — a task moved to `accepted` and a dispatch attempt was queued.
-- `session_resume` — a human gave a verdict on the agent's review; the session is resumed with the verdict.
+- `session_resume` — a human gave a verdict on the agent's review, or someone answered its question; the session is resumed with the verdict or the answer.
 - `subscription_run` — a scheduled or event subscription fired.
 
 Thread turns and resumes do not assemble a `knowledge/` tree — they get an empty manifest and only `context/session.toon`. Only `task_run` and `subscription_run` get documents.

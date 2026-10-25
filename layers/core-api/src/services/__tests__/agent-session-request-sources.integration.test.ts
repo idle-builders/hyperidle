@@ -10,6 +10,7 @@ import {
 	teams,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
 import type { DomainEvent } from "@hyperidle/event-bus";
@@ -68,7 +69,6 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 			name: "Builder",
 			role: "builder",
 			status: "active",
-			teamId: "team-src",
 			createdAt: now,
 		},
 		{
@@ -80,6 +80,7 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 			createdAt: now,
 		},
 	]);
+	await db.insert(userTeams).values({ userId: "agent-src", teamId: "team-src" });
 	await db.insert(agentRunConfig).values({
 		agentUserId: "agent-src",
 		harnessType: "recording",
@@ -101,7 +102,9 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 		teamId: "team-src",
 		title: "Agent layer execution",
 		description: "Agent layer execution",
-		doneCondition: "Tasks exist",
+		doneWhen: JSON.stringify([
+			{ id: "dw-bet-src", what: "Tasks exist", by: "check", state: "open", how: null },
+		]),
 		state: "in_progress",
 		createdAt: now,
 		updatedAt: now,

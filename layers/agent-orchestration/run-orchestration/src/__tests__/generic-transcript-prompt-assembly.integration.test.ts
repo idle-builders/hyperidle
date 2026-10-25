@@ -407,7 +407,7 @@ describe("generic transcript delivery", () => {
 		// comes.
 		expect(prompt, "the agent elects to ask; nothing stops it").toContain("Nothing here stops you");
 		expect(prompt, "a decline must not read as the task being refused").toContain(
-			"declines the approach you proposed, not the task",
+			"turns down the approach you proposed, not the task",
 		);
 	});
 
@@ -437,7 +437,8 @@ describe("generic transcript delivery", () => {
 					title: "Write the proof file",
 					description: "Create a file called proof.txt containing exactly OK.",
 					state: "in_progress",
-					doneCondition: null,
+					doneWhen: [],
+					reasons: [],
 				},
 				ancestors: [],
 				agent: { id: "agent-instruction-1", name: "Builder", role: "builder" },
@@ -488,7 +489,8 @@ describe("generic transcript delivery", () => {
 					title: "A task with a long description",
 					description: longDescription,
 					state: "in_progress",
-					doneCondition: null,
+					doneWhen: [],
+					reasons: [],
 				},
 				ancestors: [],
 				agent: { id: "agent-instruction-2", name: "Builder", role: "builder" },

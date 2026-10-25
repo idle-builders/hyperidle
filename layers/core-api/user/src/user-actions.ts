@@ -20,17 +20,10 @@
  * function seams.
  *
  */
-import type {
-	Change,
-	HyperIdleDb,
-	NewChange,
-	NewUser,
-	Team,
-	User,
-	WriteExecutor,
-} from "@hyperidle/db";
+import type { Change, HyperIdleDb, NewChange, NewUser, Team, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import {
+	type AddSubscriptionInput,
 	type AgentCategory,
 	type EditUserInput,
 	editUser as editUserDeclaration,
@@ -40,9 +33,11 @@ import {
 	type OpenUserInput,
 	type OrgEdgeMechanism,
 	openUser as openUserDeclaration,
+	PERSON_REASONS,
 	type Problem,
 	type SearchUsersInput,
 	searchUsers as searchUsersDeclaration,
+	teamMembershipProblems,
 	type UserKind,
 	type UserRow,
 	type UserStatus,
@@ -57,6 +52,7 @@ import type {
 	SearchDocumentsRunFn,
 } from "./action-types.js";
 import { type AgentIdentityPort, createAgentIdentityPort } from "./agent-identity.js";
+import { connectionOwnerFor } from "./connection-owner.js";
 import { nextCronMatch, parseCron } from "./cron.js";
 import { deleteOrgEdge, listOrgEdges, resolveDisciplineUsers, upsertOrgEdge } from "./org-edges.js";
 import {
@@ -68,8 +64,15 @@ import {
 	markInboxSeen,
 	updateSubscription,
 } from "./subscriptions-store.js";
-import { createTeam, getTeam } from "./team-lookup.js";
-import { findUser, insertUser, listUsers, updateUser } from "./user-store.js";
+import { createTeam, getTeam, listTeams } from "./team-lookup.js";
+import {
+	findUser,
+	insertUser,
+	listUsers,
+	setUserTeams,
+	type UserWithTeams,
+	updateUser,
+} from "./user-store.js";
 
 // ---------------------------------------------------------------------------
 // The deps bag — everything this module reaches outside its own tables.
@@ -114,6 +117,7 @@ export interface UserActionsConnectionView {
 	readonly authSource: "token" | "mcp" | "inherited";
 	readonly health: "working" | "needs-attention";
 	readonly removable: boolean;
+	readonly withheldFrom: readonly string[];
 }
 
 /** Mirrors `AgentOrchestrationConnectionCreateInput`'s discriminated union. */
@@ -174,6 +178,12 @@ export interface UserActionsDeps {
 			| { readonly ok: false; readonly code: "MISSING_ROOT_SECRET" | "DUPLICATE_CONNECTION" }
 		>;
 		remove(userId: string, id: string): Promise<UserActionsRemoveResult>;
+		withhold(
+			userId: string,
+			id: string,
+			agentUserId: string,
+			keep: boolean,
+		): Promise<UserActionsRemoveResult>;
 	};
 	/** Install-wide: this machine's harnesses. Absent when no adapter pool
 	 * is wired (a composition without agent execution). */
@@ -181,25 +191,20 @@ export interface UserActionsDeps {
 		describe(): readonly HarnessDescriptor[];
 		redetect(): Promise<void>;
 	};
-	/**
-	 * Agent only — a derived trust signal. Absent → `null` on
-	 * every agent's `reviewTrackRecord` (a composition without policy wired).
-	 */
-	readonly reviewTrackRecord?: (
-		db: HyperIdleDb,
-		agentId: string,
-	) => Promise<{
-		readonly approvalRate: number;
-		readonly totalVerdicts: number;
-		readonly recentVerdicts: ReadonlyArray<{
-			readonly decision: string;
-			readonly threadId: string;
-			readonly createdAt: string;
-		}>;
-		readonly windowDays: number;
-	}>;
 	readonly searchDocuments: SearchDocumentsRunFn;
 	readonly editDocument: EditDocumentRunFn;
+	/**
+	 * A person changed what a plugin may have added — an agent's name, discipline or what it
+	 * does, or a reason's trigger — so the plugin's version is no longer the one in use. Called
+	 * inside the edit's transaction; a row no plugin added is left alone by the binding.
+	 */
+	readonly onPluginPartEdited: (
+		exec: WriteExecutor,
+		kind: "agent" | "subscription",
+		entityId: string,
+		actor: string,
+		at: string,
+	) => Promise<void>;
 }
 
 type Result<T> = { ok: true; data: T } | { ok: false; problems: Problem[] };
@@ -220,12 +225,6 @@ function isRunnableAgent(kind: string, status: string): boolean {
 	return kind === "ai" && RUNNABLE_STATUSES.has(status);
 }
 
-function effectiveTeamId(user: User, ownerById: ReadonlyMap<string, User>): string | null {
-	if (user.teamId) return user.teamId;
-	if (user.ownerUserId) return ownerById.get(user.ownerUserId)?.teamId ?? null;
-	return null;
-}
-
 /** `internal: true`, actor stamped to the agent whose scoped document this
  * touches — the read-only, system-level lookups `open_user`/`edit_user` make
  * for an agent's identity/skill documents and a subscription's prompt
@@ -239,30 +238,58 @@ function internalCtx(ctx: ActionContext, subjectId: string): ActionContext {
 	return { ...ctx, actor: subjectId, internal: true };
 }
 
-/** `@hyperidle/user`'s own `getTeam`/`listTeams` only batch by id via
- * `listTeams` — this loops `getTeam({id})` instead of adding a third team
- * export, since the batch here is small (distinct effective team ids among
- * one page of users) and every other read in this module already goes
- * through the store's narrow surface. */
-async function listUsersTeams(db: HyperIdleDb, ids: ReadonlySet<string>): Promise<Team[]> {
-	const found = await Promise.all([...ids].map((teamId) => getTeam(db, { id: teamId })));
-	return found.filter((t): t is Team => t !== undefined);
+/** The teams named — each found by name (oldest), or created. */
+async function findOrCreateTeams(
+	tx: HyperIdleDb,
+	names: readonly string[],
+	now: string,
+): Promise<Array<{ id: string; name: string }>> {
+	const teams: Array<{ id: string; name: string }> = [];
+	for (const name of new Set(names)) {
+		const found = await getTeam(tx, { name });
+		if (found) {
+			teams.push({ id: found.id, name });
+			continue;
+		}
+		const teamId = `team-${crypto.randomUUID()}`;
+		await createTeam(tx, { id: teamId, name, createdAt: now });
+		teams.push({ id: teamId, name });
+	}
+	return teams;
 }
 
-/** Batch-builds `UserRow`s — the effective team and outgoing org edges of
- * every row, in two queries total regardless of how many rows. */
-async function toUserRows(db: HyperIdleDb, rows: readonly User[]): Promise<UserRow[]> {
-	if (rows.length === 0) return [];
-	const ownerIds = [...new Set(rows.flatMap((r) => (r.ownerUserId ? [r.ownerUserId] : [])))];
-	const owners = ownerIds.length > 0 ? await listUsers(db, { ids: ownerIds }) : [];
-	const ownerById = new Map(owners.map((o) => [o.id, o] as const));
+async function teamNames(db: HyperIdleDb, ids: readonly string[]): Promise<string[]> {
+	return (await listTeams(db, { ids })).map((t) => t.name);
+}
 
-	const teamIds = new Set<string>();
-	for (const r of rows) {
-		const tid = effectiveTeamId(r, ownerById);
-		if (tid) teamIds.add(tid);
-	}
-	const teamRows: Team[] = teamIds.size > 0 ? await listUsersTeams(db, teamIds) : [];
+/** `teamMembershipProblems` for a user about to be in `teams` (names) — read what the
+ * input alone cannot say: the owner's teams, and a person's own agents' teams. */
+async function membershipProblemsFor(
+	db: HyperIdleDb,
+	subject: {
+		readonly id: string | null;
+		readonly kind: string;
+		readonly ownerUserId: string | null;
+	},
+	teams: readonly string[],
+): Promise<Problem[]> {
+	const owner = subject.ownerUserId ? await findUser(db, { id: subject.ownerUserId }) : undefined;
+	const owned = subject.id !== null ? await listUsers(db, { ownerUserId: subject.id }) : [];
+	return teamMembershipProblems({
+		kind: subject.kind,
+		teams,
+		ownerTeams: owner ? await teamNames(db, owner.teamIds) : null,
+		ownedAgentTeams: await teamNames(db, [...new Set(owned.flatMap((a) => a.teamIds))]),
+	});
+}
+
+/** Batch-builds `UserRow`s — the teams and outgoing org edges of every row,
+ * in a fixed number of queries regardless of how many rows. */
+async function toUserRows(db: HyperIdleDb, rows: readonly UserWithTeams[]): Promise<UserRow[]> {
+	if (rows.length === 0) return [];
+	const teamRows: Team[] = await listTeams(db, {
+		ids: [...new Set(rows.flatMap((r) => r.teamIds))],
+	});
 	const teamById = new Map(teamRows.map((t) => [t.id, t] as const));
 
 	const edgeRows = await listOrgEdges(db, { fromUserIds: rows.map((r) => r.id) });
@@ -293,8 +320,10 @@ async function toUserRows(db: HyperIdleDb, rows: readonly User[]): Promise<UserR
 	}
 
 	return rows.map((r) => {
-		const tid = effectiveTeamId(r, ownerById);
-		const team = tid ? teamById.get(tid) : undefined;
+		const teams = r.teamIds.flatMap((id) => {
+			const team = teamById.get(id);
+			return team ? [{ id: team.id, name: team.name }] : [];
+		});
 		return {
 			id: r.id,
 			kind: r.kind as UserKind,
@@ -307,7 +336,8 @@ async function toUserRows(db: HyperIdleDb, rows: readonly User[]): Promise<UserR
 			ownerUserId: r.ownerUserId ?? null,
 			health: r.health ?? null,
 			discipline: r.discipline ?? null,
-			team: team ? { id: team.id, name: team.name } : null,
+			what: r.what ?? null,
+			teams,
 			edges: edgesByUser.get(r.id) ?? [],
 		};
 	});
@@ -338,12 +368,10 @@ async function searchUsersRun(
 		status: input.status,
 		nameContains: input.name,
 		discipline: input.discipline,
+		...(input.teamId !== undefined ? { teamIds: [input.teamId] } : {}),
 	});
 	const listed = rows.filter((r) => r.role !== "system" || (input.ids ?? []).includes(r.id));
-	let views = await toUserRows(ctx.db, listed);
-	if (input.teamId !== undefined) {
-		views = views.filter((v) => v.team?.id === input.teamId);
-	}
+	const views = await toUserRows(ctx.db, listed);
 	views.sort((a, b) => a.name.localeCompare(b.name));
 	const limit = input.limit ?? 500;
 	return { ok: true, data: views.slice(0, limit) };
@@ -356,7 +384,7 @@ async function searchUsersRun(
 async function buildUserView(
 	ctx: ActionContext,
 	deps: UserActionsDeps,
-	userRow: User | null,
+	userRow: UserWithTeams | null,
 	isSelf: boolean,
 ): Promise<UserView> {
 	const runsOn = deps.harnesses ? [...deps.harnesses.describe()] : [];
@@ -371,7 +399,6 @@ async function buildUserView(
 			subscriptions: [],
 			connections: null,
 			inbox: null,
-			reviewTrackRecord: null,
 		};
 	}
 
@@ -380,29 +407,21 @@ async function buildUserView(
 
 	const runConfig = userRow.kind === "ai" ? await deps.runConfig.read(userRow.id) : null;
 
-	const reviewTrackRecord =
-		userRow.kind === "ai" && deps.reviewTrackRecord
-			? await deps.reviewTrackRecord(ctx.db, userRow.id)
-			: null;
-
 	let documentIds: UserView["documentIds"] = [];
-	if (userRow.kind === "ai") {
-		const found = await deps.searchDocuments(internalCtx(ctx, userRow.id), {
-			parent: { kind: "agent", id: userRow.id },
-		});
-		if (found.ok) {
-			documentIds = found.data
-				.filter((d) => d.slot === "agent_file" || d.slot === "skill" || d.slot === "rule")
-				.map((d) => ({ slot: d.slot, id: d.id }));
-		}
+	const ownDocs = await deps.searchDocuments(internalCtx(ctx, userRow.id), {
+		parent: { kind: "agent", id: userRow.id },
+	});
+	if (ownDocs.ok) {
+		const slots = userRow.kind === "ai" ? ["agent_file", "skill", "rule"] : ["agent_file"];
+		documentIds = ownDocs.data
+			.filter((d) => slots.includes(d.slot) && d.status !== "archived")
+			.map((d) => ({ slot: d.slot, id: d.id }));
 	}
 
 	const folders =
 		userRow.kind === "ai"
 			? await deps.folders.list({ agentUserId: userRow.id })
-			: row.team
-				? await deps.folders.list({ teamId: row.team.id })
-				: [];
+			: (await Promise.all(userRow.teamIds.map((teamId) => deps.folders.list({ teamId })))).flat();
 
 	const subscriptionRows = await listSubscriptions(ctx.db, { userId: userRow.id });
 	const promptDocByParent = new Map<string, string>();
@@ -418,13 +437,19 @@ async function buildUserView(
 	const subscriptions = subscriptionRows.map((s) => ({
 		id: s.id,
 		event: s.event as ObjectEventName | null,
+		objectId: s.objectId,
 		schedule: s.schedule,
 		paused: s.paused,
 		documentId: promptDocByParent.get(s.id) ?? null,
 		nextRunAt: s.nextRunAt,
 	}));
 
-	const connections = isSelf ? await deps.connections.list(userRow.id) : null;
+	const connectionOwner = isSelf
+		? userRow.id
+		: userRow.kind === "ai"
+			? await connectionOwnerFor(ctx.db, userRow.id)
+			: null;
+	const connections = connectionOwner ? await deps.connections.list(connectionOwner) : null;
 
 	let inbox: UserView["inbox"] = null;
 	if (isSelf) {
@@ -458,7 +483,6 @@ async function buildUserView(
 		subscriptions,
 		connections,
 		inbox,
-		reviewTrackRecord,
 	} as UserView;
 }
 
@@ -488,6 +512,7 @@ function makeOpenUserRun(deps: UserActionsDeps) {
 
 interface SubscriptionAddLike {
 	readonly event?: string;
+	readonly title?: string;
 	readonly schedule?: string;
 	readonly prompt?: string | null;
 	readonly paused?: boolean;
@@ -506,6 +531,17 @@ function validateSubscriptionAdd(
 		return {
 			code: "schedule_for_agents_only",
 			message: "Only an agent can run on a schedule.",
+			path: "subscriptions",
+		};
+	}
+	if (
+		sub.event !== undefined &&
+		(PERSON_REASONS as readonly string[]).includes(sub.event) &&
+		targetKind === "ai"
+	) {
+		return {
+			code: "reason_for_people_only",
+			message: "This reason tells a person something; an agent starts on events or times.",
 			path: "subscriptions",
 		};
 	}
@@ -548,7 +584,7 @@ function nextRunAtFor(schedule: string, now: string): string {
 async function writeSubscriptionPrompt(
 	ctx: ActionContext,
 	deps: UserActionsDeps,
-	ownerName: string,
+	title: string,
 	agentId: string,
 	subscriptionId: string,
 	prompt: string,
@@ -564,7 +600,7 @@ async function writeSubscriptionPrompt(
 	}
 	await deps.editDocument(internalCtx(ctx, agentId), {
 		id: `doc_sp_${subscriptionId}`,
-		title: `${ownerName} — subscription prompt`,
+		title,
 		body: prompt,
 		slot: "prompt",
 		status: "active",
@@ -572,6 +608,11 @@ async function writeSubscriptionPrompt(
 		scopeId: agentId,
 		parent: { kind: "subscription", id: subscriptionId },
 	});
+}
+
+/** A prompt document is titled with the name of what it does, when it has one. */
+function promptTitle(agentName: string, title: string | undefined): string {
+	return title ?? `${agentName} — subscription prompt`;
 }
 
 async function archiveSubscriptionPrompt(
@@ -595,8 +636,9 @@ async function archiveSubscriptionPrompt(
 //
 // ---------------------------------------------------------------------------
 
-/** `give`'s team-consistency gate — checks the
- * team with `folders.list({teamId})`. A folder already given to this
+/** A folder is added to one of the user's teams — the one named, or their only
+ * one. `give`'s team-consistency gate checks the folder is one of those teams'
+ * with `folders.list({teamId})`. A folder already given to this
  * agent is CONFLICT from the port — its own code, `folder_already_given`,
  * distinct from a team mismatch.
  *
@@ -605,25 +647,38 @@ async function archiveSubscriptionPrompt(
 async function applyUserFolders(
 	deps: UserActionsDeps,
 	id: string,
-	teamId: string | null,
+	teams: readonly { readonly id: string; readonly name: string }[],
 	folders: NonNullable<EditUserInput["folders"]>,
+	recipients: (teamId: string) => Promise<readonly string[]>,
 ): Promise<Problem | null> {
-	for (const body of folders.add ?? []) {
-		if (!teamId) {
+	for (const { team: teamName, ...body } of folders.add ?? []) {
+		const team =
+			teamName !== undefined
+				? teams.find((t) => t.name === teamName)
+				: teams.length === 1
+					? teams[0]
+					: undefined;
+		if (!team) {
 			return {
-				code: "unknown_folder",
-				message: "This user has no team to add a folder to.",
+				code: "folder_team_required",
+				message:
+					teamName !== undefined
+						? `'${teamName}' is not one of this user's teams.`
+						: "Name which of this user's teams the folder belongs to.",
 				path: "folders",
 			};
 		}
 		let result: Awaited<ReturnType<typeof deps.folders.add>>;
 		try {
-			result = await deps.folders.add(teamId, body);
+			result = await deps.folders.add(team.id, body);
 		} catch {
 			return { code: "unknown_folder", message: "That team does not exist.", path: "folders" };
 		}
 		if (!result.ok) {
 			return { code: "unknown_folder", message: "That team does not exist.", path: "folders" };
+		}
+		for (const agentId of await recipients(team.id)) {
+			await deps.folders.give(result.folder.id, agentId);
 		}
 	}
 	for (const folderId of folders.remove ?? []) {
@@ -638,7 +693,7 @@ async function applyUserFolders(
 		}
 	}
 	for (const folderId of folders.give ?? []) {
-		if (!teamId) {
+		if (teams.length === 0) {
 			return {
 				code: "folder_other_team",
 				message: "This agent has no team to receive a folder.",
@@ -647,7 +702,9 @@ async function applyUserFolders(
 		}
 		let teamFolders: readonly UserActionsFolderView[];
 		try {
-			teamFolders = await deps.folders.list({ teamId });
+			teamFolders = (
+				await Promise.all(teams.map((team) => deps.folders.list({ teamId: team.id })))
+			).flat();
 		} catch {
 			return {
 				code: "folder_other_team",
@@ -701,6 +758,7 @@ async function applyUserFolders(
 }
 
 async function applyUserConnections(
+	db: HyperIdleDb,
 	deps: UserActionsDeps,
 	id: string,
 	connections: NonNullable<EditUserInput["connections"]>,
@@ -746,7 +804,48 @@ async function applyUserConnections(
 			};
 		}
 	}
+	const keeps = [
+		...(connections.give ?? []).map((connId) => [connId, false] as const),
+		...(connections.take ?? []).map((connId) => [connId, true] as const),
+	];
+	if (keeps.length > 0) {
+		const owner = await connectionOwnerFor(db, id);
+		for (const [connId, keep] of keeps) {
+			const result = owner
+				? await deps.connections.withhold(owner, connId, id, keep)
+				: ({ ok: false, code: "NOT_FOUND" } as const);
+			if (!result.ok) {
+				return {
+					code: "unknown_connection",
+					message: `No connection '${connId}' of this agent's owner.`,
+					path: "connections",
+				};
+			}
+		}
+	}
 	return null;
+}
+
+/**
+ * Who a new folder goes to: every agent of its owner in that team — a person's own agents, or an
+ * agent's owner's. An agent no one owns keeps it to itself.
+ */
+async function folderRecipients(
+	db: HyperIdleDb,
+	user: { readonly id: string; readonly kind: string; readonly ownerUserId: string | null },
+	teamId: string,
+): Promise<string[]> {
+	const owner = user.kind === "human" ? user.id : user.ownerUserId;
+	if (!owner) return [user.id];
+	const agents = await listUsers(db, { ownerUserId: owner, kind: "ai" });
+	return agents
+		.filter((a) => a.status !== "retired" && a.teamIds.includes(teamId))
+		.map((a) => a.id);
+}
+
+/** An agent's `agent_file` says who it is; a person's says what agents should know about them. */
+function identityTitle(kind: string, name: string): string {
+	return kind === "ai" ? `${name} — identity` : `About ${name}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -774,12 +873,18 @@ async function createUserRun(
 		}
 	}
 
-	let ownerRow: User | undefined;
 	if (input.ownerUserId !== undefined) {
-		ownerRow = await findUser(ctx.db, { id: input.ownerUserId });
+		const ownerRow = await findUser(ctx.db, { id: input.ownerUserId });
 		if (!ownerRow)
 			return problem("unknown_owner", `No user with id '${input.ownerUserId}'.`, "ownerUserId");
 	}
+	const teamNamesIn = input.teams ?? [];
+	const membership = await membershipProblemsFor(
+		ctx.db,
+		{ id: null, kind, ownerUserId: input.ownerUserId ?? null },
+		teamNamesIn,
+	);
+	if (membership.length > 0) return { ok: false, problems: membership };
 
 	// Only a "direct" edge's target is a userId — "team"'s is a teamId, and
 	// "discipline"'s is an open-vocabulary craft string nothing enumerates
@@ -816,52 +921,66 @@ async function createUserRun(
 		health: input.health ?? null,
 		// Explicit only — never inherited from anything.
 		discipline: input.discipline ?? null,
-		teamId: null,
+		what: input.what ?? null,
 	};
 
-	const addedSubscriptions: Array<{ id: string; prompt: string | null | undefined }> = [];
+	const addedSubscriptions: Array<{
+		id: string;
+		prompt: string | null | undefined;
+		title: string | undefined;
+	}> = [];
 	let mainChangeRow: Change | undefined;
+	let teams: Array<{ id: string; name: string }> = [];
 
 	await ctx.db.transaction(async (txRaw) => {
 		const tx = txRaw as HyperIdleDb;
-		if (input.ownerUserId === undefined && input.team) {
-			let teamRow = await getTeam(tx, { name: input.team.name });
-			if (!teamRow) {
-				const teamId = `team-${crypto.randomUUID()}`;
-				await createTeam(tx, {
-					id: teamId,
-					name: input.team.name,
-					createdAt: now,
-				});
-				teamRow = await getTeam(tx, { id: teamId });
-			}
-			values.teamId = teamRow?.id ?? null;
-		}
+		teams = await findOrCreateTeams(tx, teamNamesIn, now);
 		await insertUser(tx, values);
+		await setUserTeams(
+			tx,
+			id,
+			teams.map((t) => t.id),
+		);
 
 		for (const e of input.edges?.add ?? []) {
 			await upsertOrgEdge(tx, { fromUserId: id, mechanism: e.mechanism, target: e.target });
 		}
 
-		for (const sub of input.subscriptions?.add ?? []) {
+		// A new person is told about every reason until they switch one off.
+		const given = input.subscriptions?.add ?? [];
+		const reasons: AddSubscriptionInput[] =
+			kind === "human"
+				? PERSON_REASONS.filter((r) => !given.some((g) => g.event === r)).map((event) => ({
+						event,
+					}))
+				: [];
+		for (const sub of [...reasons, ...given]) {
 			const subId = crypto.randomUUID();
 			const nextRunAt = sub.schedule !== undefined ? nextRunAtFor(sub.schedule, now) : null;
 			await insertSubscription(tx, {
 				id: subId,
 				userId: id,
 				event: sub.event ?? null,
+				objectId: sub.objectId ?? null,
 				schedule: sub.schedule ?? null,
 				paused: sub.paused ?? false,
 				nextRunAt,
 				createdAt: now,
 				updatedAt: now,
 			});
-			addedSubscriptions.push({ id: subId, prompt: sub.prompt });
+			addedSubscriptions.push({ id: subId, prompt: sub.prompt, title: sub.title });
 		}
 
 		const { before, after } = stringifyChange({
 			before: null,
-			after: { kind, name, role, status, teamId: values.teamId, ownerUserId: values.ownerUserId },
+			after: {
+				kind,
+				name,
+				role,
+				status,
+				teamIds: teams.map((t) => t.id),
+				ownerUserId: values.ownerUserId,
+			},
 		});
 		mainChangeRow = await deps.changes.appendChange(tx, {
 			id: crypto.randomUUID(),
@@ -884,23 +1003,32 @@ async function createUserRun(
 
 	let stepProblem: Problem | null = null;
 	if (input.folders) {
-		const effectiveTeamId = values.teamId ?? ownerRow?.teamId ?? null;
-		stepProblem = await applyUserFolders(deps, id, effectiveTeamId, input.folders);
+		stepProblem = await applyUserFolders(deps, id, teams, input.folders, (teamId) =>
+			folderRecipients(ctx.db, { id, kind, ownerUserId: values.ownerUserId ?? null }, teamId),
+		);
 	}
 	if (!stepProblem && input.connections) {
-		stepProblem = await applyUserConnections(deps, id, input.connections);
+		stepProblem = await applyUserConnections(ctx.db, deps, id, input.connections);
 	}
 
-	if (kind === "ai" && input.identity !== undefined) {
+	if (input.identity !== undefined) {
 		await identity.upsertAgentIdentity(ctx.db, {
 			agentId: id,
-			agentName: name,
+			title: identityTitle(kind, name),
 			body: input.identity ?? "",
 			updatedBy: ctx.actor,
 		});
 	}
 	for (const sub of addedSubscriptions) {
-		if (sub.prompt) await writeSubscriptionPrompt(ctx, deps, name, id, sub.id, sub.prompt);
+		if (typeof sub.prompt === "string")
+			await writeSubscriptionPrompt(
+				ctx,
+				deps,
+				promptTitle(name, sub.title),
+				id,
+				sub.id,
+				sub.prompt,
+			);
 	}
 	if (input.redetectHarnesses && deps.harnesses) await deps.harnesses.redetect();
 
@@ -924,7 +1052,18 @@ async function createUserRun(
 // edit_user — edit an existing user
 // ---------------------------------------------------------------------------
 
-const IDENTITY_FIELDS = ["name", "role", "avatarUrl", "status", "health", "discipline"] as const;
+const IDENTITY_FIELDS = [
+	"name",
+	"role",
+	"avatarUrl",
+	"status",
+	"health",
+	"discipline",
+	"what",
+] as const;
+
+/** The agent fields a plugin's manifest declares, so the ones a plugin's version can be put back over. */
+const PLUGIN_AGENT_FIELDS = ["name", "discipline", "what"] as const;
 
 function touchesIdentityFields(input: EditUserInput): boolean {
 	return IDENTITY_FIELDS.some((f) => input[f] !== undefined);
@@ -955,11 +1094,19 @@ async function editExistingUserRun(
 	if (input.status === "retired" && (existing.kind === "human" || existing.role === "system")) {
 		return problem("cannot_retire", "A person or a system agent cannot be retired.", "status");
 	}
-	if (input.team !== undefined && existing.ownerUserId !== null) {
-		return problem("owned_agent_has_no_team", "An owned agent takes its owner's team.", "team");
+	if (input.teams !== undefined) {
+		const membership = await membershipProblemsFor(ctx.db, existing, input.teams);
+		if (membership.length > 0) return { ok: false, problems: membership };
 	}
-	if (input.connections !== undefined && ctx.actor !== id) {
-		return problem("yourself_only", "Connections are edited on your own view only.", "connections");
+	if ((input.connections?.add || input.connections?.remove) && ctx.actor !== id) {
+		return problem("yourself_only", "Connections are added on your own view only.", "connections");
+	}
+	if ((input.connections?.give || input.connections?.take) && existing.kind !== "ai") {
+		return problem(
+			"agents_only",
+			"A service is given to or kept from an agent; a person reaches their own.",
+			"connections",
+		);
 	}
 	if (input.inbox !== undefined && ctx.actor !== id) {
 		return problem("yourself_only", "Your inbox is edited on your own view only.", "inbox");
@@ -1015,7 +1162,7 @@ async function editExistingUserRun(
 		}
 	}
 
-	const touchesTeam = input.team !== undefined;
+	const touchesTeams = input.teams !== undefined;
 	const touchesEdges =
 		(input.edges?.add?.length ?? 0) > 0 || (input.edges?.remove?.length ?? 0) > 0;
 	const touchesSubscriptions =
@@ -1023,12 +1170,14 @@ async function editExistingUserRun(
 		(input.subscriptions?.change?.length ?? 0) > 0 ||
 		(input.subscriptions?.remove?.length ?? 0) > 0;
 	const touchesRunConfig = input.runConfig !== undefined;
+	const touchesReach = input.folders !== undefined || input.connections !== undefined;
 	const appendsChange =
 		touchesIdentityFields(input) ||
-		touchesTeam ||
+		touchesTeams ||
 		touchesEdges ||
 		touchesSubscriptions ||
-		touchesRunConfig;
+		touchesRunConfig ||
+		touchesReach;
 
 	const before: Record<string, unknown> = {};
 	const after: Record<string, unknown> = {};
@@ -1041,36 +1190,38 @@ async function editExistingUserRun(
 	if (touchesEdges) after.edges = true;
 	if (touchesSubscriptions) after.subscriptions = true;
 	if (touchesRunConfig) after.runConfig = input.runConfig;
+	if (touchesReach) after.reach = true;
 
-	let resolvedTeamId: string | null | undefined;
-	const addedSubscriptions: Array<{ id: string; prompt: string | null | undefined }> = [];
+	let teams: Array<{ id: string; name: string }> | undefined;
+	const addedSubscriptions: Array<{
+		id: string;
+		prompt: string | null | undefined;
+		title: string | undefined;
+	}> = [];
 	const changedSubscriptionPrompts: Array<{ id: string; prompt: string | null }> = [];
 	let mainChangeRow: Change | undefined;
 
 	await ctx.db.transaction(async (txRaw) => {
 		const tx = txRaw as HyperIdleDb;
-		if (touchesTeam && input.team) {
-			let teamRow = await getTeam(tx, { name: input.team.name });
-			if (!teamRow) {
-				const teamId = `team-${crypto.randomUUID()}`;
-				await createTeam(tx, {
-					id: teamId,
-					name: input.team.name,
-					createdAt: now,
-				});
-				teamRow = await getTeam(tx, { id: teamId });
-			}
-			resolvedTeamId = teamRow?.id ?? null;
-			before.teamId = existing.teamId;
-			after.teamId = resolvedTeamId;
+		if (input.teams !== undefined) {
+			teams = await findOrCreateTeams(tx, input.teams, now);
+			await setUserTeams(
+				tx,
+				id,
+				teams.map((t) => t.id),
+			);
+			before.teamIds = existing.teamIds;
+			after.teamIds = teams.map((t) => t.id);
 		}
 
 		const patch: Partial<NewUser> = {};
 		for (const f of IDENTITY_FIELDS) {
 			if (input[f] !== undefined) (patch as Record<string, unknown>)[f] = input[f];
 		}
-		if (resolvedTeamId !== undefined) patch.teamId = resolvedTeamId;
 		if (Object.keys(patch).length > 0) await updateUser(tx, id, patch);
+		if (PLUGIN_AGENT_FIELDS.some((f) => input[f] !== undefined && input[f] !== existing[f])) {
+			await deps.onPluginPartEdited(tx, "agent", id, ctx.actor, now);
+		}
 
 		for (const e of input.edges?.add ?? []) {
 			await upsertOrgEdge(tx, { fromUserId: id, mechanism: e.mechanism, target: e.target });
@@ -1086,13 +1237,14 @@ async function editExistingUserRun(
 				id: subId,
 				userId: id,
 				event: sub.event ?? null,
+				objectId: sub.objectId ?? null,
 				schedule: sub.schedule ?? null,
 				paused: sub.paused ?? false,
 				nextRunAt,
 				createdAt: now,
 				updatedAt: now,
 			});
-			addedSubscriptions.push({ id: subId, prompt: sub.prompt });
+			addedSubscriptions.push({ id: subId, prompt: sub.prompt, title: sub.title });
 		}
 		for (const change of input.subscriptions?.change ?? []) {
 			const subPatch: {
@@ -1114,6 +1266,9 @@ async function editExistingUserRun(
 			}
 			if (change.paused !== undefined) subPatch.paused = change.paused;
 			await updateSubscription(tx, change.id, subPatch);
+			if (Object.keys(subPatch).length > 1) {
+				await deps.onPluginPartEdited(tx, "subscription", change.id, ctx.actor, now);
+			}
 			if (change.prompt !== undefined)
 				changedSubscriptionPrompts.push({ id: change.id, prompt: change.prompt });
 		}
@@ -1149,23 +1304,48 @@ async function editExistingUserRun(
 
 	let stepProblem: Problem | null = null;
 	if (input.folders) {
-		// owned agent's teamId column is null; resolve via ownerRow?.teamId (same "effective team" open_user reports)
-		const ownerRow = existing.ownerUserId
-			? await findUser(ctx.db, { id: existing.ownerUserId })
-			: undefined;
-		const teamId = resolvedTeamId ?? existing.teamId ?? ownerRow?.teamId ?? null;
-		stepProblem = await applyUserFolders(deps, id, teamId, input.folders);
+		const folderTeams =
+			teams ??
+			(await listTeams(ctx.db, { ids: existing.teamIds })).map((t) => ({ id: t.id, name: t.name }));
+		stepProblem = await applyUserFolders(deps, id, folderTeams, input.folders, (teamId) =>
+			folderRecipients(ctx.db, existing, teamId),
+		);
 	}
 	if (!stepProblem && input.connections) {
-		stepProblem = await applyUserConnections(deps, id, input.connections);
+		stepProblem = await applyUserConnections(ctx.db, deps, id, input.connections);
 	}
 
 	for (const sub of addedSubscriptions) {
-		if (sub.prompt) await writeSubscriptionPrompt(ctx, deps, existing.name, id, sub.id, sub.prompt);
+		if (typeof sub.prompt === "string")
+			await writeSubscriptionPrompt(
+				ctx,
+				deps,
+				promptTitle(existing.name, sub.title),
+				id,
+				sub.id,
+				sub.prompt,
+			);
 	}
 	for (const change of changedSubscriptionPrompts) {
 		if (change.prompt === null) await archiveSubscriptionPrompt(ctx, deps, id, change.id);
-		else await writeSubscriptionPrompt(ctx, deps, existing.name, id, change.id, change.prompt);
+		else
+			await writeSubscriptionPrompt(
+				ctx,
+				deps,
+				promptTitle(existing.name, undefined),
+				id,
+				change.id,
+				change.prompt,
+			);
+	}
+
+	if (input.identity !== undefined) {
+		await identity.upsertAgentIdentity(ctx.db, {
+			agentId: id,
+			title: identityTitle(existing.kind, input.name ?? existing.name),
+			body: input.identity ?? "",
+			updatedBy: ctx.actor,
+		});
 	}
 
 	if (input.status === "retired" && existing.kind === "ai") {

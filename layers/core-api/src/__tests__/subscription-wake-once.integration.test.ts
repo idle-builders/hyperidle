@@ -18,6 +18,7 @@ import {
 	teams,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import type { ObjectChangeEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
@@ -57,9 +58,9 @@ async function seedFounder(db: HyperIdleDb, id: string, teamId: string): Promise
 		name: "Founder",
 		role: "founder",
 		status: "active",
-		teamId,
 		createdAt: EARLIER,
 	});
+	await db.insert(userTeams).values({ userId: id, teamId });
 }
 
 async function subscribe(
@@ -102,6 +103,7 @@ describe("an agent subscribed to everything wakes once per change", () => {
 			ownerUserId: "founder-once-dm",
 			createdAt: EARLIER,
 		});
+		await db.insert(userTeams).values({ userId: "assistant-once-dm", teamId: "team-once-dm" });
 		await subscribe(db, "assistant-once-dm", ["thread.created", "thread.message"]);
 		// A DM is only readable by its two participants, and `agentsToWake`
 		// auto-wakes the sole other party directly (never via a subscription)
@@ -123,6 +125,7 @@ describe("an agent subscribed to everything wakes once per change", () => {
 			ownerUserId: "founder-once-dm",
 			createdAt: EARLIER,
 		});
+		await db.insert(userTeams).values({ userId: "sentinel-once-dm", teamId: "team-once-dm" });
 		await subscribe(db, "sentinel-once-dm", ["thread.message"]);
 		await db.insert(users).values({
 			id: "third-party-once-dm",
@@ -130,9 +133,9 @@ describe("an agent subscribed to everything wakes once per change", () => {
 			name: "Third party",
 			role: "member",
 			status: "active",
-			teamId: "team-once-dm",
 			createdAt: EARLIER,
 		});
+		await db.insert(userTeams).values({ userId: "third-party-once-dm", teamId: "team-once-dm" });
 		await db.insert(threads).values({
 			id: "sentinel-thread-once-dm",
 			hostKind: "user",
@@ -164,9 +167,9 @@ describe("an agent subscribed to everything wakes once per change", () => {
 			role: "agent",
 			status: "active",
 			agentCategory: "team",
-			teamId: "team-once-task",
 			createdAt: EARLIER,
 		});
+		await db.insert(userTeams).values({ userId: "agent-once-task", teamId: "team-once-task" });
 		await subscribe(db, "agent-once-task", ["task.changed"]);
 		// A subscriber to the same event, unrelated to the handoff - its own
 		// wake is a real signal the subscription pass for THIS change has
@@ -180,9 +183,9 @@ describe("an agent subscribed to everything wakes once per change", () => {
 			role: "agent",
 			status: "active",
 			agentCategory: "team",
-			teamId: "team-once-task",
 			createdAt: EARLIER,
 		});
+		await db.insert(userTeams).values({ userId: "sentinel-once-task", teamId: "team-once-task" });
 		await subscribe(db, "sentinel-once-task", ["task.changed"]);
 		await db.insert(threads).values({
 			id: "thread-once-task",
@@ -238,6 +241,7 @@ describe("an agent subscribed to everything wakes once per change", () => {
 			ownerUserId: "founder-once-new",
 			createdAt: EARLIER,
 		});
+		await db.insert(userTeams).values({ userId: "sentinel-once-new", teamId: "team-once-new" });
 		await subscribe(db, "sentinel-once-new", ["user.created"]);
 
 		const created = await call<{ user: { id: string } | null }>(app, "edit_user", {
@@ -245,6 +249,7 @@ describe("an agent subscribed to everything wakes once per change", () => {
 			name: "Founder's Assistant",
 			role: "assistant",
 			ownerUserId: "founder-once-new",
+			teams: ["team-once-new"],
 			subscriptions: { add: [{ event: "user.created" }, { event: "user.changed" }] },
 		});
 
@@ -272,7 +277,6 @@ describe("an agent subscribed to everything wakes once per change", () => {
 				name: "Reviewer's agent",
 				role: "agent",
 				status: "active",
-				teamId: "team-once-verdict",
 				createdAt: EARLIER,
 			},
 			{
@@ -281,10 +285,15 @@ describe("an agent subscribed to everything wakes once per change", () => {
 				name: "Colleague",
 				role: "member",
 				status: "active",
-				teamId: "team-once-verdict",
 				createdAt: EARLIER,
 			},
 		]);
+		await db
+			.insert(userTeams)
+			.values({ userId: "agent-once-verdict", teamId: "team-once-verdict" });
+		await db
+			.insert(userTeams)
+			.values({ userId: "colleague-once-verdict", teamId: "team-once-verdict" });
 		await db.insert(threads).values({
 			id: "thread-once-verdict",
 			hostKind: "user",

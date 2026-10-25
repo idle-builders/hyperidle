@@ -139,7 +139,8 @@ jobs:
           fi
           echo "✓ staged DMG $DMG verified (sha256 $ACTUAL)"
 
-  # Full suite + e2e, on version-bump PRs only.
+  # Full suite, on version-bump PRs only. E2E needs a signed-in agent program, so it runs locally
+  # in `npm run verify:release`.
   release-tests:
     name: Release tests
     needs: release-guard
@@ -155,8 +156,6 @@ jobs:
       - run: npm ci
       - run: npm run test:full
       - run: npm run test:integration:service
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e:full
 
   # Required status check. The lanes above skip on non-bump PRs, and a required
   # context that never reports blocks the PR forever — so this always runs.

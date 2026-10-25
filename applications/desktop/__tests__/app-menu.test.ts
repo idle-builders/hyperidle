@@ -1,6 +1,6 @@
 /**
  * buildAppMenuTemplate() builds the 5 top-level menus (HyperIdle, Edit, View, Window, Help), with
- * dev-mode-only reload/toggleDevTools items on View, and onOpenSettings wired to the Settings... item.
+ * and dev-mode-only reload/toggleDevTools items on View.
  */
 
 import type { MenuItemConstructorOptions } from "electron";
@@ -25,7 +25,6 @@ const BASE_OPTIONS = {
 	isDev: false,
 	logDir: "/tmp/logs",
 	dataDir: "/tmp/data",
-	onOpenSettings: vi.fn(),
 };
 
 function findMenu(
@@ -55,23 +54,6 @@ describe("buildAppMenuTemplate — structure", () => {
 });
 
 describe("buildAppMenuTemplate — HyperIdle menu", () => {
-	it("contains Settings... item with CmdOrCtrl+, accelerator", () => {
-		const template = buildAppMenuTemplate(BASE_OPTIONS);
-		const appMenu = findMenu(template, "HyperIdle");
-		const settingsItem = appMenu?.submenu?.find((item) => item.label === "Settings...");
-		expect(settingsItem).toBeDefined();
-		expect(settingsItem?.accelerator).toBe("CmdOrCtrl+,");
-	});
-
-	it("wires Settings... click to onOpenSettings callback", () => {
-		const onOpenSettings = vi.fn();
-		const template = buildAppMenuTemplate({ ...BASE_OPTIONS, onOpenSettings });
-		const appMenu = findMenu(template, "HyperIdle");
-		const settingsItem = appMenu?.submenu?.find((item) => item.label === "Settings...");
-		settingsItem?.click?.();
-		expect(onOpenSettings).toHaveBeenCalledOnce();
-	});
-
 	it("contains about, hide, hideOthers, unhide, quit roles", () => {
 		const template = buildAppMenuTemplate(BASE_OPTIONS);
 		const appMenu = findMenu(template, "HyperIdle");

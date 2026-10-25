@@ -27,6 +27,7 @@ import {
 	type HyperIdleDb,
 	teams,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
@@ -67,7 +68,6 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 			name: "Owner",
 			role: "founder",
 			status: "active",
-			teamId: TEAM_ID,
 			createdAt: NOW,
 		},
 		{
@@ -76,10 +76,11 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 			name: "Target Agent",
 			role: "builder",
 			status: "active",
-			teamId: TEAM_ID,
 			createdAt: NOW,
 		},
 	]);
+	await db.insert(userTeams).values({ userId: HUMAN_ID, teamId: TEAM_ID });
+	await db.insert(userTeams).values({ userId: AGENT_ID, teamId: TEAM_ID });
 }
 
 /**

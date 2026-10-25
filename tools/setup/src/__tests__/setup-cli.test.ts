@@ -207,7 +207,7 @@ describe("--demo flag behavior", () => {
 		}
 	});
 
-	it("with --demo: setup produces the Acme demo team + demo founder", {
+	it("with --demo: setup produces the Product demo team + demo founder", {
 		timeout: 60_000,
 	}, async () => {
 		const dataDir = path.join(tmpdir, "hyperidle-pg-demo");
@@ -224,12 +224,12 @@ describe("--demo flag behavior", () => {
 		const client = new PGlite(dataDir);
 		await client.waitReady;
 		try {
-			// Demo team "Acme" must exist
+			// Demo team "Product" must exist
 			const teamsResult = await client.query<{ id: string; name: string }>(
-				"SELECT id, name FROM teams WHERE id = 'demo-team-acme'",
+				"SELECT id, name FROM teams WHERE id = 'demo-team-product'",
 			);
 			expect(teamsResult.rows.length).toBe(1);
-			expect(teamsResult.rows[0]?.name).toBe("Acme");
+			expect(teamsResult.rows[0]?.name).toBe("Product");
 
 			// Demo founder must exist
 			const founderResult = await client.query<{ id: string; kind: string }>(

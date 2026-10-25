@@ -14,10 +14,11 @@ import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { documents, type HyperIdleDb, subscriptions, teams, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, subscriptions, teams, users, userTeams } from "@hyperidle/db";
 import type { DocumentRow } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { agentItemId, skillItemId, subscriptionItemId } from "@hyperidle/settings";
+import { findUser } from "@hyperidle/user";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
@@ -147,10 +148,10 @@ describe("document-management plugin install", () => {
 		expect(body.data.id).toBe(PLUGIN_ID);
 
 		const agentId = agentItemId(PLUGIN_ID, "librarian", "factory", null);
-		const [agent] = await db.select().from(users).where(eq(users.id, agentId));
+		const agent = await findUser(db, { id: agentId });
 		expect(agent?.name).toBe("Document Librarian");
 		expect(agent?.kind).toBe("ai");
-		expect(agent?.teamId).toBeNull(); // factory-scoped — global, no team
+		expect(agent?.teamIds).toEqual([]); // factory-scoped — global, no team
 		expect(agent?.status).toBe("active");
 
 		const decayId = subscriptionItemId(PLUGIN_ID, "document-decay", "factory", null);
@@ -216,8 +217,7 @@ describe("document-management plugin — team-scope isolation", () => {
 			{ id: "team-alpha", name: "Alpha", createdAt: "2026-01-01T00:00:00.000Z" },
 			{ id: "team-beta", name: "Beta", createdAt: "2026-01-01T00:00:00.000Z" },
 		]);
-		// A real team member per team — the visibility rule reads the actor's
-		// own `teamId` off their `users` row, not off any header.
+		// A real team member per team.
 		await db.insert(users).values([
 			{
 				id: "u-alpha-member",
@@ -225,7 +225,6 @@ describe("document-management plugin — team-scope isolation", () => {
 				name: "Alpha Member",
 				role: "member",
 				status: "active",
-				teamId: "team-alpha",
 				createdAt: "2026-01-01T00:00:00Z",
 			},
 			{
@@ -234,10 +233,11 @@ describe("document-management plugin — team-scope isolation", () => {
 				name: "Beta Member",
 				role: "member",
 				status: "active",
-				teamId: "team-beta",
 				createdAt: "2026-01-01T00:00:00Z",
 			},
 		]);
+		await db.insert(userTeams).values({ userId: "u-alpha-member", teamId: "team-alpha" });
+		await db.insert(userTeams).values({ userId: "u-beta-member", teamId: "team-beta" });
 
 		const resAlpha = await installKmPluginForTeam(db, app, "team-alpha");
 		expect(resAlpha.status).toBe(200);
@@ -262,10 +262,10 @@ describe("document-management plugin — team-scope isolation", () => {
 		const idAlpha = agentItemId(PLUGIN_ID, "librarian", "team", "team-alpha");
 		const idBeta = agentItemId(PLUGIN_ID, "librarian", "team", "team-beta");
 		expect(idAlpha).not.toBe(idBeta);
-		const [agentAlpha] = await db.select().from(users).where(eq(users.id, idAlpha));
-		const [agentBeta] = await db.select().from(users).where(eq(users.id, idBeta));
-		expect(agentAlpha?.teamId).toBe("team-alpha");
-		expect(agentBeta?.teamId).toBe("team-beta");
+		const agentAlpha = await findUser(db, { id: idAlpha });
+		const agentBeta = await findUser(db, { id: idBeta });
+		expect(agentAlpha?.teamIds).toEqual(["team-alpha"]);
+		expect(agentBeta?.teamIds).toEqual(["team-beta"]);
 
 		// Subscription ids differ and neither team's install superseded the
 		// other's — both stay live.
@@ -284,8 +284,8 @@ describe("document-management plugin — team-scope isolation", () => {
 		expect(decayRowsBeta, "beta has its own install").toHaveLength(1);
 
 		// Skill documents: no collision, no shared row — alpha's edit survives
-		// beta's later install of the SAME plugin at its own team scope, and
-		// each team's session sees only its own copy.
+		// beta's later install of the SAME plugin at its own team scope. A
+		// person reads both teams' copies — every team's knowledge is everyone's.
 		const skillIdBeta = skillItemId(PLUGIN_ID, SKILL_DIR, "team", "team-beta");
 		expect(skillIdAlpha).not.toBe(skillIdBeta);
 		const alphaRows = await db.select().from(documents).where(eq(documents.id, skillIdAlpha));
@@ -302,6 +302,8 @@ describe("document-management plugin — team-scope isolation", () => {
 			eventBus,
 			agentOrchestration,
 		);
-		expect((alphaBody.data ?? []).map((d) => d.id)).toEqual([skillIdAlpha]);
+		expect((alphaBody.data ?? []).map((d) => d.id).sort()).toEqual(
+			[skillIdAlpha, skillIdBeta].sort(),
+		);
 	});
 });

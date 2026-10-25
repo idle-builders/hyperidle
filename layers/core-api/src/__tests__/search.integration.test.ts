@@ -180,7 +180,7 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns matching conversations with id, title, snippet, timestamp, kind", async ({
+	test("a matching conversation shows the message that matched, not its latest", async ({
 		app,
 		db,
 	}) => {
@@ -206,13 +206,7 @@ describe("GET /api/search — search backend", () => {
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
-			conversations: Array<{
-				id: string;
-				title: string;
-				snippet: string;
-				timestamp: string;
-				kind: "review" | "chat";
-			}>;
+			conversations: Array<{ id: string; title: string; snippet: string; at: string }>;
 			work: unknown[];
 			documents: unknown[];
 		};
@@ -221,10 +215,9 @@ describe("GET /api/search — search backend", () => {
 		const conv = body.conversations[0];
 		expect(conv).toBeDefined();
 		expect(conv?.id).toBe("th-conv-1");
-		expect(conv?.title).toBeTruthy();
-		expect(conv?.snippet).toBeTruthy();
-		expect(conv?.timestamp).toBeTruthy();
-		expect(["review", "chat"]).toContain(conv?.kind);
+		expect(conv?.title).toBe("Planning the widget deployment");
+		expect(conv?.snippet).toBe("Planning the widget deployment");
+		expect(conv?.at).toBe(NOW);
 		vi.unstubAllEnvs();
 	});
 
@@ -256,7 +249,7 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns matching root tasks with id, title, team name, status", async ({ app, db }) => {
+	test("a matching root task names its team", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		await seedTeam(db, "team-a", "Alpha Team");
@@ -267,7 +260,7 @@ describe("GET /api/search — search backend", () => {
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
-			work: Array<{ id: string; title: string; team: string; status: string }>;
+			work: Array<{ id: string; title: string; team: string; snippet: string }>;
 		};
 
 		expect(body.work).toHaveLength(1);
@@ -276,7 +269,7 @@ describe("GET /api/search — search backend", () => {
 		expect(workItem?.id).toBe("task-search-1");
 		expect(workItem?.title).toBe("Deploy the authentication module");
 		expect(workItem?.team).toBe("Alpha Team");
-		expect(workItem?.status).toBe("in_progress");
+		expect(workItem?.snippet).toBe("Deploy the authentication module");
 		vi.unstubAllEnvs();
 	});
 
@@ -285,8 +278,7 @@ describe("GET /api/search — search backend", () => {
 	// `work.list(..., { text })` primitive with the DEPENDENCY PICKER (`GET
 	// /api/tasks?q=`, covered by `task-search.integration.test.ts`), which
 	// excludes killed tasks — excluding `killed` unconditionally in that
-	// shared primitive would also hide it here, even though `status:
-	// row.state` below exists specifically to show state, killed included.
+	// shared primitive would also hide it here.
 	// ---------------------------------------------------------------------
 	test("a killed root task is still returned by global search", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
@@ -317,16 +309,14 @@ describe("GET /api/search — search backend", () => {
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
-			work: Array<{ id: string; status: string }>;
+			work: Array<{ id: string }>;
 		};
 
 		expect(body.work.map((w) => w.id)).toContain("task-search-killed");
-		const workItem = body.work.find((w) => w.id === "task-search-killed");
-		expect(workItem?.status).toBe("killed");
 		vi.unstubAllEnvs();
 	});
 
-	test("returns matching documents with id, title, status, timestamp", async ({ app, db }) => {
+	test("a matching document shows the stretch of its body that matched", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
@@ -339,17 +329,12 @@ describe("GET /api/search — search backend", () => {
 			updatedBy: userId,
 		});
 
-		const res = await app.request("/api/search?q=onboarding+checklist", {
+		const res = await app.request("/api/search?q=read+the+docs", {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
-			documents: Array<{
-				id: string;
-				title: string;
-				status: string;
-				timestamp: string;
-			}>;
+			documents: Array<{ id: string; title: string; snippet: string }>;
 		};
 
 		expect(body.documents).toHaveLength(1);
@@ -357,8 +342,7 @@ describe("GET /api/search — search backend", () => {
 		expect(doc).toBeDefined();
 		expect(doc?.id).toBe("ki-search-1");
 		expect(doc?.title).toContain("Onboarding");
-		expect(doc?.status).toBe("active");
-		expect(doc?.timestamp).toBeTruthy();
+		expect(doc?.snippet).toBe("Step 1: Read the docs");
 		vi.unstubAllEnvs();
 	});
 

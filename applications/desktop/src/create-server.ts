@@ -15,6 +15,7 @@ import {
 	composeApiApplication,
 	createInProcessAgentOrchestrationTransport,
 	health,
+	installedPluginsDir,
 	registerAgentLayerServices,
 	registerCoreDomainServices,
 } from "@hyperidle/core-api";
@@ -119,10 +120,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		const dbUrl = resolvePglitePath(rawDbUrl);
 		dbHandle = await createPgliteDb(dbUrl);
 		db = dbHandle.db;
-		// NOT "plugins": beside a dev checkout's database that is the repo's own
-		// plugin SOURCE directory, and install `rmSync`s the destination before
-		// copying — so installing would delete the sources it was built from.
-		pluginsBaseDir = path.join(path.dirname(dbUrl), "installed-plugins");
+		pluginsBaseDir = installedPluginsDir(dbUrl);
 	}
 	const bundledPluginsDir = deps.bundledPluginsDir ?? process.env.HYPERIDLE_BUNDLED_PLUGINS_DIR;
 	const eventBus = new EventBus();

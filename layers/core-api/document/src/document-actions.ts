@@ -55,7 +55,10 @@ export interface DocumentActionsDeps {
 		appendChange(exec: WriteExecutor, row: NewChange): Promise<unknown>;
 	};
 	readonly users: {
-		getUserById(exec: WriteExecutor, id: string): Promise<User | undefined>;
+		getUserById(
+			exec: WriteExecutor,
+			id: string,
+		): Promise<(User & { readonly teamIds: readonly string[] }) | undefined>;
 		/** agents owned by this person. */
 		listOwnedBy(exec: WriteExecutor, ownerId: string): Promise<readonly User[]>;
 	};
@@ -86,9 +89,11 @@ export interface DocumentActionsDeps {
 	) => Promise<boolean>;
 	/**
 	 * Bound in `compose.ts` to `markDetached`, called inside the
-	 * edit's transaction when `body` changed. The subscriptions item deletes it.
+	 * edit's transaction when `body` changed, with who changed it.
 	 */
-	readonly onBodyChanged: (exec: WriteExecutor, documentId: string) => Promise<void>;
+	readonly onBodyChanged: (exec: WriteExecutor, documentId: string, actor: string) => Promise<void>;
+	/** Who follows the document — the user module owns subscriptions. */
+	readonly followersOf: (exec: WriteExecutor, documentId: string) => Promise<readonly string[]>;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
 }
 
@@ -107,33 +112,16 @@ function toDocumentRow(row: DbDocumentRow): DomainDocumentRow {
 }
 
 /**
- * Resolves `:subjects`/`:viewerTeamId` once per call, exactly as
- * `thread` already resolves `listOwnedBy` (`thread-actions.ts:77`).
- * `:subjects` is the actor plus every agent that actor owns;
- * `:viewerTeamId` is the actor's own team, read off their own row — NOT
- * `deps.org.getTeam`, which looks a team up by id, not by member.
+ * Resolves `:subjects` once per call, exactly as `thread` already resolves
+ * `listOwnedBy` (`thread-actions.ts:77`): the actor plus every agent that
+ * actor owns. Team scope never limits who reads — everyone reads every team.
  */
 async function resolveViewer(
 	ctx: ActionContext,
 	deps: DocumentActionsDeps,
 ): Promise<DocumentSearchViewer> {
-	const [actorUser, owned] = await Promise.all([
-		deps.users.getUserById(ctx.db, ctx.actor),
-		deps.users.listOwnedBy(ctx.db, ctx.actor),
-	]);
-	// An owned agent carries no team of its
-	// own (`owned_agent_has_no_team`) — its effective team is its owner's,
-	// so a team-scoped document reaches an assistant the same way it
-	// reaches the person who owns it.
-	let viewerTeamId = actorUser?.teamId ?? null;
-	if (viewerTeamId === null && actorUser?.ownerUserId) {
-		const owner = await deps.users.getUserById(ctx.db, actorUser.ownerUserId);
-		viewerTeamId = owner?.teamId ?? null;
-	}
-	return {
-		subjects: [ctx.actor, ...owned.map((u) => u.id)],
-		viewerTeamId,
-	};
+	const owned = await deps.users.listOwnedBy(ctx.db, ctx.actor);
+	return { subjects: [ctx.actor, ...owned.map((u) => u.id)] };
 }
 
 // Resolve a scope display name. Nested Service reaches users/org through injected deps, not direct imports.
@@ -225,7 +213,7 @@ function visibleAncestors(
 	const nearestFirst = [...ancestorRows].reverse();
 	const kept: DbDocumentRow[] = [];
 	for (const ancestor of nearestFirst) {
-		if (!canReadDocument(viewer.subjects, viewer.viewerTeamId, ancestor)) break;
+		if (!canReadDocument(viewer.subjects, ancestor)) break;
 		kept.push(ancestor);
 	}
 	return kept.reverse(); // back to root-first
@@ -246,11 +234,12 @@ export async function assembleDocumentView(
 	row: DbDocumentRow,
 ): Promise<DocumentView> {
 	const viewer = await resolveViewer(ctx, deps);
-	const [ancestorRows, childRows, siblingRows, scopeName] = await Promise.all([
+	const [ancestorRows, childRows, siblingRows, scopeName, followers] = await Promise.all([
 		listAncestors(ctx.db, row.id),
 		searchDocumentRows(ctx.db, { parent: { kind: "document", id: row.id } }, viewer),
 		siblingsOf(ctx, viewer, row),
 		resolveScopeName(deps, ctx.db, row.scopeKind, row.scopeId),
+		deps.followersOf(ctx.db, row.id),
 	]);
 	return {
 		document: toDocumentRow(row),
@@ -258,6 +247,7 @@ export async function assembleDocumentView(
 		children: childRows.map(toDocumentRow),
 		siblings: siblingRows.map(toDocumentRow),
 		scopeName,
+		followers: new Set(followers.filter((id) => id !== ctx.actor)).size,
 	};
 }
 
@@ -387,15 +377,15 @@ function diffFields(
 }
 
 /**
- * Default-scope derivation — actor's team → calling task's team → factory. `viewer.viewerTeamId` is
- * the actor's own team. Only when that is absent does the calling task's own team apply.
+ * Default-scope derivation — the actor's team when they are in exactly one (an agent always
+ * is) → calling task's team → factory. A person in several teams has no one team to default to.
  */
 async function deriveDefaultScope(
 	ctx: ActionContext,
 	deps: DocumentActionsDeps,
-	viewer: DocumentSearchViewer,
 ): Promise<{ readonly scopeKind: string; readonly scopeId: string | null }> {
-	let teamId = viewer.viewerTeamId;
+	const actorTeamIds = (await deps.users.getUserById(ctx.db, ctx.actor))?.teamIds ?? [];
+	let teamId = actorTeamIds.length === 1 ? (actorTeamIds[0] ?? null) : null;
 	if (!teamId && ctx.caller?.taskId) {
 		const parent = await deps.openParent(ctx, "task", ctx.caller.taskId);
 		teamId = parent.teamId ?? null;
@@ -443,7 +433,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 	): Promise<{ ok: true; data: DocumentView } | { ok: false; problems: readonly Problem[] }> {
 		const row = await getDocument(ctx.db, input.id);
 		const viewer = await resolveViewer(ctx, deps);
-		if (!(row && canReadDocument(viewer.subjects, viewer.viewerTeamId, row))) {
+		if (!(row && canReadDocument(viewer.subjects, row))) {
 			return {
 				ok: false,
 				problems: [{ code: "not_found", message: `Document ${input.id} not found` }],
@@ -484,7 +474,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 
 		let prev: DbDocumentRow | null = null;
 		if (input.id && rawPrev) {
-			if (!canReadDocument(viewer.subjects, viewer.viewerTeamId, rawPrev)) {
+			if (!canReadDocument(viewer.subjects, rawPrev)) {
 				// an existing-but-invisible id answers exactly `not_found`
 				// and creates nothing (never a second row, never a leak).
 				return {
@@ -548,7 +538,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 			effectiveScopeKind = prev.scopeKind;
 			effectiveScopeId = prev.scopeId;
 		} else {
-			const derived = await deriveDefaultScope(ctx, deps, viewer);
+			const derived = await deriveDefaultScope(ctx, deps);
 			effectiveScopeKind = derived.scopeKind;
 			effectiveScopeId = derived.scopeId;
 		}
@@ -580,6 +570,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		// Explicit only — never inherited from a parent folder (founder ruling).
 		const effectiveDiscipline =
 			input.discipline !== undefined ? input.discipline : (prev?.discipline ?? null);
+		const effectiveIcon = input.icon !== undefined ? input.icon : (prev?.icon ?? null);
 		const bodyChanged = isCreate || (input.body !== undefined && input.body !== prev?.body);
 		// A parent is only actively (re-)established at create, or when the
 		// caller names one — an edit that omits `parent` never moves the
@@ -670,7 +661,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 								},
 							]);
 						}
-						if (!canReadDocument(viewer.subjects, viewer.viewerTeamId, parentRow)) {
+						if (!canReadDocument(viewer.subjects, parentRow)) {
 							throw new EditRefused([
 								{
 									code: "forbidden_parent",
@@ -737,6 +728,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 					scopeKind: effectiveScopeKind,
 					scopeId: effectiveScopeId,
 					discipline: effectiveDiscipline,
+					icon: effectiveIcon,
 					parentKind: effectiveParent?.kind ?? null,
 					parentId: effectiveParent?.id ?? null,
 					position,
@@ -865,7 +857,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 
 				// inside the same transaction, only when body changed.
 				if (bodyChanged) {
-					await deps.onBodyChanged(tx, id);
+					await deps.onBodyChanged(tx, id, ctx.actor);
 				}
 			});
 		} catch (error) {

@@ -46,7 +46,7 @@ describe("no harness or model is chosen on someone's behalf", () => {
 				kind: "ai",
 				name: "Unassigned Agent",
 				role: "builder",
-				team: { name: "No Default Team" },
+				teams: ["No Default Team"],
 			}),
 		});
 		expect(res.status).toBe(200);

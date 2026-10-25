@@ -62,7 +62,7 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 	});
 	await agentIdentity.upsertAgentIdentity(db, {
 		agentId: ASSISTANT_ID,
-		agentName: "Assistant",
+		title: "Assistant — identity",
 		body: "Original row persona — the app default.",
 		updatedBy: FOUNDER_ID,
 	});

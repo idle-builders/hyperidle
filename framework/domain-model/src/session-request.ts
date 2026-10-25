@@ -85,7 +85,7 @@ export const subscriptionSessionRequestInputSchema = baseInput.extend({
 	sourceKind: z.literal("subscription"),
 	promptMode: z.literal("subscription"),
 	taskId: z.null().optional(),
-	// The subscriber's effective team — absent for a factory-wide agent.
+	// The subscriber's team — absent for a factory-wide agent.
 	teamId: z.string().min(1).optional(),
 	sourceCorrelation: z.object({
 		subscriptionId: z.string().min(1),

@@ -34,6 +34,7 @@ import {
 	createConnectionForUser,
 	listConnectionsForUser,
 	removeConnectionForUser,
+	withholdConnectionForUser,
 } from "./connections.js";
 import { listFolders, registerFolder, removeFolder, takeFolder } from "./filesystems.js";
 
@@ -90,7 +91,9 @@ const gateLinkInputSchema = z.object({
 
 const gateVerdictInputSchema = z.object({
 	reviewMessageId: z.string().min(1),
-	decision: z.enum(["approve", "decline"]),
+	decision: z.enum(["approve", "decline", "answer"]),
+	note: z.string().optional(),
+	answer: z.union([z.object({ option: z.string() }), z.object({ text: z.string() })]).optional(),
 	decidedBy: z.string().min(1),
 	threadId: z.string().min(1),
 	// Carried opaque, like `bakedRequest` on the intent schema above. Declared
@@ -155,6 +158,8 @@ export function createAgentOrchestrationIntakeRoutes(
 			{
 				reviewMessageId: body.reviewMessageId,
 				decision: body.decision,
+				...(body.note !== undefined ? { note: body.note } : {}),
+				...(body.answer !== undefined ? { answer: body.answer } : {}),
 				decidedBy: body.decidedBy,
 				threadId: body.threadId,
 				...(body.agentConfig ? { agentConfig: body.agentConfig as BakedAgentRunnableConfig } : {}),
@@ -395,6 +400,23 @@ export function createAgentOrchestrationIntakeRoutes(
 		);
 		return c.json(result);
 	});
+
+	// ── connections.withhold — POST /agent-orchestration/connections/:userId/:id/withhold ──
+	router.post(
+		"/connections/:userId/:id/withhold",
+		validateBody(z.object({ agentUserId: z.string().min(1), keep: z.boolean() })),
+		async (c) => {
+			const { agentUserId, keep } = c.req.valid("json");
+			const result = await withholdConnectionForUser(
+				db,
+				c.req.param("userId"),
+				c.req.param("id"),
+				agentUserId,
+				keep,
+			);
+			return c.json(result);
+		},
+	);
 
 	// ── connections.remove — POST /agent-orchestration/connections/:userId/:id/remove ──
 	router.post("/connections/:userId/:id/remove", async (c) => {

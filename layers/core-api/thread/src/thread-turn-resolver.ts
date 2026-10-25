@@ -12,7 +12,11 @@ import { type BakedAgentRunnableConfig, bakeAgentRunnableConfig } from "@hyperid
 import { findMessage, listMessages } from "./thread-service.js";
 
 export interface ThreadTurnResolverDeps {
-	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+	/** The agent with its one team — `null` only for a factory-wide agent. */
+	requireRunnableAgent(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<User & { readonly teamId: string | null }>;
 	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
 }
 

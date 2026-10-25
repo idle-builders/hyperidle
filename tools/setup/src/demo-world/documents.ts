@@ -1,816 +1,194 @@
 /**
- * AX1 — demo world documents: a six-week corpus across scopes, kinds and
- * lifecycles — curated patterns, a triage queue, stale and archived documents,
- * plausible read/session-use counters, and the provenance loop
- * (completed task → retro document → promoted draft task).
+ * The knowledge tree: one space per team. A space is the team's scope — its
+ * top-level documents are the team's, nested under each other by parent. A
+ * draft is a `proposed` document. Comments on a document live in its own
+ * conversation (see conversations.ts).
  */
 
-import { documents, type HyperIdleDb } from "@hyperidle/db";
+import { documents, type HyperIdleDb, subscriptions } from "@hyperidle/db";
 import {
 	BUILDER_ID,
 	DESIGNER_ID,
-	DOC_CHURN_SIGNALS,
-	DOC_MOBILE_POSTMORTEM,
-	DOC_PRICING_PAGE,
-	DOC_PRICING_TIERS,
-	DOC_SEARCH_RANKING,
-	DOC_TRIAL_FLOW,
-	DOC_TRIAL_METRICS,
-	DOC_TRIAL_RETRO,
-	FACILITATOR_ID,
+	DOC_DEPLOY_RULE,
+	DOC_HOW_WE_PRICE,
+	DOC_JULY_THEMES,
+	DOC_TEN_DAYS,
+	FACILITATION_ID,
 	FOUNDER_ID,
 	GROWTH_ID,
 	MAYA_ID,
-	PM_ID,
-	QA_ID,
-	ROOT_TASK_MOBILE,
-	ROOT_TASK_SEARCH,
-	ROOT_TASK_TRIAL,
-	TASK_PRICING_PAGE,
-	TASK_SEARCH_RANKING,
-	TASK_TRIAL_FLOW,
-	TASK_TRIAL_MEASURE,
-	TEAM_ID,
+	PRODUCT_TEAM_ID,
+	SUPPORT_TEAM_ID,
 } from "./ids.js";
 import type { DemoClock } from "./time.js";
 
-/**
- * @lore nested-knowledge-items: the demo corpus is a real tree
- * (`parentKind`/`parentId`) under three grouping roots of its own —
- * Product, Practices (one folder per practice beneath it) and General. A
- * fresh install carries no folders at all (the migration-inserted roots of
- * the same names are gone), so the demo inserts its roots before anything
- * is filed under them.
- */
-const PRODUCT_ROOT_ID = "demo-doc-root-product";
-const PRACTICES_ROOT_ID = "demo-doc-root-practices";
-const GENERAL_ROOT_ID = "demo-doc-root-general";
-
-/** The demo's grouping roots: top-level factory folders, filed under nothing. */
-const ROOTS: ReadonlyArray<{ readonly id: string; readonly title: string; readonly body: string }> =
-	[
-		{ id: PRODUCT_ROOT_ID, title: "Product", body: "Product knowledge." },
-		{
-			id: PRACTICES_ROOT_ID,
-			title: "Practices",
-			body: "Practice knowledge, one folder per practice.",
-		},
-		{ id: GENERAL_ROOT_ID, title: "General", body: "Knowledge with no more specific home." },
-	];
-
-interface DocumentSpec {
+interface DocSpec {
 	readonly id: string;
-	readonly scopeKind: "factory" | "team" | "user";
-	readonly scopeId: string | null;
-	readonly parentKind: "document" | "task";
-	readonly parentId: string;
+	readonly team: string;
+	readonly parentId?: string;
 	readonly title: string;
 	readonly body: string;
-	readonly status: string;
-	readonly updatedBy: string;
-	readonly createdAt: string;
-	readonly updatedAt: string;
-	readonly version?: number;
+	readonly draft?: boolean;
+	readonly discipline?: string;
+	readonly icon?: string;
+	readonly createdBy: string;
+	readonly createdDaysAgo: number;
+	/** The last edit, when someone changed it after writing it. */
+	readonly edited?: { readonly by: string; readonly at: string };
 }
 
-/**
- * @lore BC4 §6.7: four documents whose usage predates the seed by more than
- * 90 days, active and ordinary-slotted, so the librarian's decay subscription
- * (`unusedSince` + `sort:"least_used"`) has something to find in the desktop
- * walk. Picked from the "practice" corpus rather than anything `ids.ts`
- * exports — nothing else keys off these ids by identity.
- */
-const LONG_UNUSED_IDS: ReadonlySet<string> = new Set([
-	"demo-doc-rounding",
-	"demo-doc-small-prs",
-	"demo-doc-email-deliverability",
-	"demo-doc-uptime-runbook",
-]);
+const DOC_ENGINEERING = "demo-doc-engineering";
 
-/** Deterministic [0, 2^31) hash of an id — same corpus on every seed run. */
-function usageHash(id: string): number {
-	let h = 0;
-	for (let i = 0; i < id.length; i++) {
-		h = (h * 31 + id.charCodeAt(i)) | 0;
-	}
-	return Math.abs(h);
-}
+export const TEN_DAYS_BODY =
+	"Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose.\n\n## What we know\n\n- Trials run 14 days, card up front.\n- Since the warning email, 27% more trials convert.\n- Most cancellations happen on day 13.\n\n## Decision\n\nNot yet.";
 
-interface UsageValues {
-	readonly readCount: number;
-	readonly lastReadAt: string | null;
-	readonly sessionUseCount: number;
-	readonly lastUsedAt: string | null;
-}
-
-/**
- * @lore Plausible `read_count`/`last_read_at`/`session_use_count`/`last_used_at` for
- * the demo corpus. Archived documents were never re-opened (all-zero, all-null — the
- * schema default). `LONG_UNUSED_IDS` gets pushed past the 90-day decay threshold;
- * everything else reads as "used recently, with varied counts" — an id-keyed hash,
- * not a fixed table, so the spread stays believable across ~35 documents without
- * hand-tuning each one.
- */
-function usageFor(spec: DocumentSpec, clock: DemoClock): UsageValues {
-	if (LONG_UNUSED_IDS.has(spec.id)) {
-		const h = usageHash(spec.id);
-		const lastReadDays = 95 + (h % 40); // 95-134 days ago
-		const lastUsedDays = lastReadDays + 3 + (h % 10);
-		return {
-			readCount: 1 + (h % 4),
-			lastReadAt: clock.daysAgo(lastReadDays),
-			sessionUseCount: 1 + (h % 2),
-			lastUsedAt: clock.daysAgo(lastUsedDays),
-		};
-	}
-	if (spec.status === "archived") {
-		return { readCount: 0, lastReadAt: null, sessionUseCount: 0, lastUsedAt: null };
-	}
-	const h = usageHash(spec.id);
-	// Cap offsets to the document's own age: a document can't have been read before it was created.
-	const ageDays = Math.floor(
-		(new Date(clock.now).getTime() - new Date(spec.createdAt).getTime()) / 86_400_000,
-	);
-	const maxOffset = Math.max(1, ageDays);
-	const sessionUseCount = h % 8;
-	return {
-		readCount: 1 + (h % 20),
-		lastReadAt: clock.daysAgo(h % Math.min(21, maxOffset + 1)),
-		sessionUseCount,
-		lastUsedAt: sessionUseCount > 0 ? clock.daysAgo((h >> 3) % Math.min(25, maxOffset + 1)) : null,
-	};
-}
-
-/** One document folder under Practices per practice, keyed by the old practice scopeId. */
-const PRACTICE_FOLDER_ID: Readonly<Record<string, string>> = {
-	builder: "demo-doc-practice-builder",
-	product_manager: "demo-doc-practice-product-manager",
-	designer: "demo-doc-practice-designer",
-	growth: "demo-doc-practice-growth",
-	qa_engineer: "demo-doc-practice-qa-engineer",
-	facilitator: "demo-doc-practice-facilitator",
-	ops: "demo-doc-practice-ops",
-};
-
-/** Looks up a practice's folder id, or throws — every practiceId used below is a known key. */
-function practiceFolderId(practiceId: string): string {
-	const id = PRACTICE_FOLDER_ID[practiceId];
-	if (!id) throw new Error(`demo-world/documents: unknown practice id "${practiceId}"`);
-	return id;
-}
-
-/**
- * Reverse of `PRACTICE_FOLDER_ID` — a document's `parentId` names its practice
- * folder, and `discipline` must carry that same practice id, so every spec
- * below is tagged by lookup rather than a second hand-typed literal that
- * could drift from the map.
- */
-const PRACTICE_ID_BY_FOLDER_ID: Readonly<Record<string, string>> = Object.fromEntries(
-	Object.entries(PRACTICE_FOLDER_ID).map(([practiceId, folderId]) => [folderId, practiceId]),
-);
-
-/** A spec's discipline: the practice its parent folder belongs to, or null when it isn't filed under Practices. */
-function disciplineFor(spec: DocumentSpec): string | null {
-	return PRACTICE_ID_BY_FOLDER_ID[spec.parentId] ?? null;
-}
+/** Finn wrote "Should trials be 10 days?" and Maya follows it: she is told when it is published. */
+const TEN_DAYS_FOLLOWERS = [FOUNDER_ID, MAYA_ID];
 
 export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<void> {
-	for (const [position, root] of ROOTS.entries()) {
-		await db
-			.insert(documents)
-			.values({
-				id: root.id,
-				scopeKind: "factory",
-				scopeId: null,
-				title: root.title,
-				body: root.body,
-				format: "markdown",
-				status: "active",
-				version: 1,
-				position,
-				updatedBy: "demo-seed",
-				createdAt: clock.daysAgo(45),
-				updatedAt: clock.daysAgo(45),
-			})
-			.onConflictDoNothing();
-	}
-	for (const [practiceId, folderId] of Object.entries(PRACTICE_FOLDER_ID)) {
-		await db
-			.insert(documents)
-			.values({
-				id: folderId,
-				scopeKind: "factory",
-				scopeId: null,
-				title: `${practiceId.replace(/_/g, " ")} practice`,
-				body: `Knowledge for the ${practiceId.replace(/_/g, " ")} practice.`,
-				format: "markdown",
-				status: "active",
-				version: 1,
-				parentKind: "document",
-				parentId: PRACTICES_ROOT_ID,
-				discipline: practiceId,
-				updatedBy: "demo-seed",
-				createdAt: clock.daysAgo(44),
-				updatedAt: clock.daysAgo(44),
-			})
-			.onConflictDoNothing();
-	}
-
-	const specs: readonly DocumentSpec[] = [
-		// ── Product scope (L2): what Pulse is and the decisions that shape it ──
+	const specs: readonly DocSpec[] = [
+		// ── Product ──────────────────────────────────────────────────────────
 		{
-			id: "demo-doc-pulse-brief",
-			scopeKind: "team",
-			scopeId: TEAM_ID,
-			parentKind: "document",
-			parentId: PRODUCT_ROOT_ID,
-			title: "Pulse — product brief",
-			body: '# Pulse\n\nCustomer-feedback analytics for small product teams. Connect a source, get dashboards that answer "what are users telling us", and share the answer without a meeting.\n\n**One-liner:** feedback in, decisions out.\n\n**Not for:** enterprise SSO buyers, teams over 50 seats, anyone needing on-prem.',
-			status: "active",
-			updatedBy: FOUNDER_ID,
-			createdAt: clock.daysAgo(43),
-			updatedAt: clock.daysAgo(12),
-			version: 3,
+			id: DOC_HOW_WE_PRICE,
+			team: PRODUCT_TEAM_ID,
+			title: "How we price",
+			icon: "💷",
+			body: "How we set our prices and what people pay. Each part is a document of its own: Trials, and Tiers and metering.",
+			createdBy: FOUNDER_ID,
+			createdDaysAgo: 90,
+			edited: { by: GROWTH_ID, at: clock.daysAgo(2) },
 		},
 		{
-			id: "demo-doc-render-boundary",
-			scopeKind: "team",
-			scopeId: TEAM_ID,
-			parentKind: "document",
-			parentId: PRODUCT_ROOT_ID,
-			title: "Decision: client-side rendering boundary",
-			body: "Dashboards render client-side; exports render server-side. The boundary exists because export templates are shared with the email pipeline and must never ship to browsers.\n\n**Consequence:** no export logic in the web bundle, ever.",
-			status: "active",
-			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(38),
-			updatedAt: clock.daysAgo(38),
+			id: "demo-doc-trials",
+			team: PRODUCT_TEAM_ID,
+			parentId: DOC_HOW_WE_PRICE,
+			title: "Trials",
+			icon: "⏳",
+			body: "Every plan starts with a 14-day trial. We ask for a card up front and say, before the trial ends, exactly when the first bill comes and how much it is.\n\nWe do not extend trials by hand.",
+			createdBy: FOUNDER_ID,
+			createdDaysAgo: 90,
+			edited: { by: GROWTH_ID, at: clock.daysAgo(2) },
 		},
 		{
-			id: "demo-doc-brand-voice",
-			scopeKind: "team",
-			scopeId: TEAM_ID,
-			parentKind: "document",
-			parentId: PRODUCT_ROOT_ID,
-			title: "Brand voice: plain, warm, precise",
-			body: 'Pulse sounds like a smart teammate, not a product tour.\n\n- Plain words over jargon ("answers", not "insights").\n- Warm but never cute.\n- Every claim carries a number or is cut.\n\nApplies to the site, the emails, and the empty states.',
-			status: "active",
-			updatedBy: GROWTH_ID,
-			createdAt: clock.daysAgo(36),
-			updatedAt: clock.daysAgo(9),
+			id: "demo-doc-tiers",
+			team: PRODUCT_TEAM_ID,
+			parentId: DOC_HOW_WE_PRICE,
+			title: "Tiers and metering",
+			icon: "📊",
+			body: "Three plans, side by side on the pricing page. The Team plan is £24 a month.\n\nA usage-based tier is being built: we meter what a team uses and bill it with the month.",
+			createdBy: FOUNDER_ID,
+			createdDaysAgo: 88,
 		},
 		{
-			id: DOC_PRICING_TIERS,
-			scopeKind: "team",
-			scopeId: TEAM_ID,
-			parentKind: "document",
-			parentId: PRODUCT_ROOT_ID,
-			title: "Decision: two-tier pricing structure",
-			body: "Starter and Team, nothing between.\n\n- **Starter** — 5 dashboards, 3 seats, weekly exports.\n- **Team** — unlimited dashboards and seats, continuous exports, priority support.\n\nThe comparison table answers the four questions support actually gets. Anything else stays out of the page.",
-			status: "active",
-			updatedBy: PM_ID,
-			createdAt: clock.daysAgo(13),
-			updatedAt: clock.daysAgo(11),
-			version: 3,
+			id: DOC_TEN_DAYS,
+			team: PRODUCT_TEAM_ID,
+			parentId: DOC_HOW_WE_PRICE,
+			title: "Should trials be 10 days?",
+			icon: "🤔",
+			body: TEN_DAYS_BODY,
+			draft: true,
+			discipline: "Growth",
+			createdBy: FOUNDER_ID,
+			createdDaysAgo: 1,
 		},
 		{
-			id: "demo-doc-annual-discount",
-			scopeKind: "team",
-			scopeId: TEAM_ID,
-			parentKind: "document",
-			parentId: PRODUCT_ROOT_ID,
-			title: "Annual discount policy — needs founder sign-off",
-			body: "Annual billing needs a discount percentage. Margin analysis says 10%, trial-task conversion data says users respond to visible savings (15-20%).\n\n**Open question posted to the founder** — this document updates with the decision.",
-			status: "archived",
-			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(2),
-			updatedAt: clock.hoursAgo(26),
+			id: "demo-doc-clean-feature",
+			team: PRODUCT_TEAM_ID,
+			title: "What a clean feature looks like",
+			body: "A clean feature does one thing and says what it did. It ships with its tests, it can be switched off, and a customer can tell what changed.",
+			createdBy: FOUNDER_ID,
+			createdDaysAgo: 85,
 		},
 		{
-			id: "demo-doc-rounding",
-			scopeKind: "team",
-			scopeId: TEAM_ID,
-			parentKind: "document",
-			parentId: PRODUCT_ROOT_ID,
-			title: "Decision: trial-day rounding rule",
-			body: "Trial extensions round UP to whole days in UTC. A trial that expires mid-day never expires mid-day after extension — users experience days, not timestamps.",
-			status: "active",
-			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(135),
-			updatedAt: clock.daysAgo(29),
-		},
-		// ── Practice scope (L3): patterns the team lives by ─────────────────
-		{
-			id: "demo-doc-review-before-deploy",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("builder"),
-			title: "Every deploy goes through a review thread",
-			body: "No production deploy without a review thread and a verdict. The two times we skipped this (search hotfix, June; email template, July) both needed a follow-up fix within 24 hours.",
-			status: "active",
-			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(34),
-			updatedAt: clock.daysAgo(34),
+			id: DOC_ENGINEERING,
+			team: PRODUCT_TEAM_ID,
+			title: "Engineering",
+			icon: "🛠️",
+			body: "How we build and ship.",
+			createdBy: FOUNDER_ID,
+			createdDaysAgo: 85,
 		},
 		{
-			id: "demo-doc-small-prs",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("builder"),
-			title: "Small changes, reviewed same day",
-			body: "Changes under ~200 lines get reviewed the same day. Larger changes get split. Review latency is the biggest hidden tax on a small team — the diff itself is rarely the problem.",
-			status: "active",
-			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(115),
-			updatedAt: clock.daysAgo(31),
+			id: DOC_DEPLOY_RULE,
+			team: PRODUCT_TEAM_ID,
+			parentId: DOC_ENGINEERING,
+			title: "Deploy rule",
+			body: "No deploys after 15:00 on a Friday. If something has to go out, the person who ships it stays until it is checked.\n\nComes from two Friday deploys that were rolled back in August.",
+			draft: true,
+			createdBy: FACILITATION_ID,
+			createdDaysAgo: 1,
+			edited: { by: FACILITATION_ID, at: clock.hoursAgo(4) },
 		},
 		{
-			id: "demo-doc-metric-before-build",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("product_manager"),
-			title: "Instrument the metric before building the feature",
-			body: "The trial task worked because the funnel was measured BEFORE the flow shipped — the done-condition was provable on day one. Search almost failed this; the eval loop got built mid-task and cost a week.",
-			status: "active",
-			updatedBy: PM_ID,
-			createdAt: clock.daysAgo(22),
-			updatedAt: clock.daysAgo(13),
+			id: "demo-doc-tracing",
+			team: PRODUCT_TEAM_ID,
+			parentId: DOC_ENGINEERING,
+			title: "Tracing the codebase",
+			body: "Start from the page a customer sees, follow the call to the server, then to the table it reads. Write down each step as you go.",
+			createdBy: BUILDER_ID,
+			createdDaysAgo: 60,
+		},
+		// ── Support ──────────────────────────────────────────────────────────
+		{
+			id: DOC_JULY_THEMES,
+			team: SUPPORT_TEAM_ID,
+			title: "July support themes",
+			body: "84 tickets in July. The top theme was trial-end billing: people could not tell what they would pay when the trial ended. Then invoices, then seats.",
+			createdBy: MAYA_ID,
+			createdDaysAgo: 5,
+			edited: { by: MAYA_ID, at: clock.daysAgo(3) },
 		},
 		{
-			id: "demo-doc-empty-state-first",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("designer"),
-			title: "Design the empty state first",
-			body: "Every new screen gets its empty state designed before its full state. Users meet the product empty — the full-state mockup is the exception, not the default.",
-			status: "active",
-			updatedBy: DESIGNER_ID,
-			createdAt: clock.daysAgo(27),
-			updatedAt: clock.daysAgo(27),
-		},
-		{
-			id: "demo-doc-feature-flag-rollout",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("builder"),
-			title: "Flag-gated rollouts for anything user-visible",
-			body: "User-visible changes ship behind a flag, enabled per-account first. Draft: needs the flag-cleanup rule written before this is treated as settled practice.",
-			status: "proposed",
-			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(5),
-			updatedAt: clock.daysAgo(5),
-		},
-		{
-			id: "demo-doc-email-deliverability",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("growth"),
-			title: "Deliverability checklist before any new email",
-			body: "1. DKIM/SPF verified on the sending domain.\n2. Plain-text part present.\n3. One link max per email.\n4. Suppression list checked against the send list.\n\nSkipped step 3 once — the welcome email landed in promotions for a week.",
-			status: "active",
-			updatedBy: GROWTH_ID,
-			createdAt: clock.daysAgo(140),
-			updatedAt: clock.daysAgo(24),
-		},
-		{
-			id: "demo-doc-subject-line-ab",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("growth"),
-			title: "Subject lines: behavior-referencing beats clever",
-			body: "Early A/B results: subject lines that reference what the user did ('your data connected') out-open generic ones ('welcome to Pulse') by ~2x. Sample is still small — keep provisional.",
-			status: "proposed",
-			updatedBy: GROWTH_ID,
-			createdAt: clock.daysAgo(18),
-			updatedAt: clock.hoursAgo(2),
-		},
-		{
-			id: DOC_CHURN_SIGNALS,
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("product_manager"),
-			title: "Churn early signals: the three that repeat",
-			body: "Churned accounts show the same three signals in their final two weeks:\n\n1. Dashboard usage drops below half its norm.\n2. Exports stop entirely.\n3. The admin stops inviting teammates.\n\nAll three live in the event stream. Validated against last quarter's churns — 9 of 11 showed at least two signals.",
-			status: "active",
-			updatedBy: MAYA_ID,
-			createdAt: clock.daysAgo(26),
-			updatedAt: clock.daysAgo(6),
-		},
-		{
-			id: "demo-doc-search-eval-loop",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("qa_engineer"),
-			title: "The 50-query search eval loop",
-			body: "Real queries, expected results, top-3 hit rate — runnable before every search change. Baseline 54%, post-re-rank 71%. The loop outlived the task that built it; every future ranking change gets measured here first.",
-			status: "active",
-			updatedBy: QA_ID,
-			createdAt: clock.daysAgo(21),
-			updatedAt: clock.daysAgo(20),
-		},
-		{
-			id: "demo-doc-staging-data",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("qa_engineer"),
-			title: "Anti-pattern: seeding staging with production exports",
-			body: "We tried seeding staging from a production export once. PII in test accounts, skewed metrics, and a support ticket from a customer who recognized their own data. Synthetic cohorts only.",
-			status: "active",
-			updatedBy: QA_ID,
-			createdAt: clock.daysAgo(26),
-			updatedAt: clock.daysAgo(26),
-		},
-		{
-			id: DOC_MOBILE_POSTMORTEM,
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "task",
-			parentId: ROOT_TASK_MOBILE,
-			title: "Postmortem: the mobile spike we killed",
-			body: "Hypothesis: meaningful Pulse usage happens away from a desk. Reality: mobile is 6% of sessions, mostly read-only, and the responsive app covers it.\n\n**What we keep:** the competitor teardown (they churn mobile users too), the usage numbers, and the discipline of research-before-prototype.\n\n**Cost of the lesson:** three agent-weeks. Worth it once, never again for this question.",
-			status: "active",
-			updatedBy: PM_ID,
-			createdAt: clock.daysAgo(28),
-			updatedAt: clock.daysAgo(8),
-		},
-		{
-			id: "demo-doc-discount-panic",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("growth"),
-			title: "Anti-pattern: discounting in response to a single loud request",
-			body: "A loud enterprise prospect asked for 40% off; we almost said yes before the pricing task ran. The research showed our real problem was clarity, not price. Provisional until the annual-discount decision lands.",
-			status: "proposed",
-			updatedBy: GROWTH_ID,
-			createdAt: clock.daysAgo(6),
-			updatedAt: clock.daysAgo(6),
-		},
-		{
-			id: "demo-doc-onboarding-dropoff",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("growth"),
-			title: "The onboarding cliff is source-connection, not signup",
-			body: "Funnel audit: signup→login keeps 91%, but login→connect-a-source keeps 58%. The connect screen assumes a data source exists. The value moment is the first saved dashboard — everything before it is friction budget.",
-			status: "active",
-			updatedBy: PM_ID,
-			createdAt: clock.daysAgo(6),
-			updatedAt: clock.daysAgo(6),
-		},
-		{
-			id: "demo-doc-session-notes",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("builder"),
-			title: "Session notes are the handoff contract",
-			body: "Every agent session that touches a task writes notes before it ends — what was done, what remains, what surprised. The two tasks that stalled this month both followed sessions with empty notes.",
-			status: "active",
-			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(22),
-			updatedAt: clock.daysAgo(22),
-		},
-		{
-			id: "demo-doc-retro-format",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("product_manager"),
-			title: "Retro format: hypothesis vs reality, one keeper, one drop",
-			body: "Every task retro answers three questions: what did the hypothesis say, what did reality deliver, and what is the one thing we keep plus the one thing we drop. Two paragraphs max — longer retros never get read.",
-			status: "active",
-			updatedBy: PM_ID,
-			createdAt: clock.daysAgo(13),
-			updatedAt: clock.daysAgo(13),
-		},
-		{
-			id: "demo-doc-copy-review-checklist",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("growth"),
-			title: "Copy review checklist",
-			body: "Before any user-visible copy ships: plain words check, one number per claim, brand-voice pass, and a read-aloud test. The read-aloud test catches 80% of the problems.",
-			status: "active",
-			updatedBy: GROWTH_ID,
-			createdAt: clock.daysAgo(18),
-			updatedAt: clock.daysAgo(18),
-		},
-		{
-			id: "demo-doc-search-weights",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("builder"),
-			title: "Decision: search weights live in config",
-			body: "Ranking weights (recency 0.45, title 0.35, body 0.2) live in config, not code — founder verdict on the ranking review. We tune weekly; a code change for a weight tweak is a smell.",
-			status: "active",
-			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(23),
-			updatedAt: clock.daysAgo(23),
-		},
-		// ── Task scope: retros attached to their tasks ────────────────────────
-		{
-			id: DOC_TRIAL_RETRO,
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "task",
-			parentId: ROOT_TASK_TRIAL,
-			title: "Retro: trial extension — validated, and the hidden labor",
-			body: "Hypothesis said 20% of expiring trials; reality delivered 27% taking the extension, 31% of those converting.\n\n**Keeper:** the one-time limit — it kept the offer honest and support load near zero.\n**Drop:** the reason dropdown — nobody used it; it added a step to a one-click flow.\n\nSurprise: support-granted extensions dropped 92%. We built back real hidden labor.",
-			status: "active",
-			updatedBy: PM_ID,
-			createdAt: clock.daysAgo(13),
-			updatedAt: clock.daysAgo(13),
-		},
-		{
-			id: "demo-doc-retro-search",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "task",
-			parentId: ROOT_TASK_SEARCH,
-			title: "Retro: search relevance — partial, and the eval loop wins",
-			body: "Top-3 hit rate moved 54% → 71%: real, short of the 80% target. Recency mattered more than expected; personalization was killed mid-task.\n\n**Keeper:** the eval loop — it outlives the task and measures every future change.\n**Drop:** chasing the last 9 points without new signal; that is diminishing returns.",
-			status: "active",
-			updatedBy: PM_ID,
-			createdAt: clock.daysAgo(19),
-			updatedAt: clock.daysAgo(19),
-		},
-		// ── Task scope: writeback from the work itself ─────────────────────
-		{
-			id: "demo-doc-trial-date-math",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "task",
-			parentId: TASK_TRIAL_FLOW,
-			title: "Trial entitlement date math is UTC end-to-end",
-			body: "The entitlement edge was timezone-sensitive: extending a trial that expires at 23:00 local could grant 6 or 8 days depending on the server's zone. All trial date math now runs in UTC and rounds up to whole days.",
-			status: "proposed",
-			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(28),
-			updatedAt: clock.daysAgo(28),
-		},
-		// ── User scope: private documents ─────────────────────────────────
-		{
-			id: "demo-doc-founder-focus",
-			scopeKind: "user",
-			scopeId: FOUNDER_ID,
-			parentKind: "document",
-			parentId: GENERAL_ROOT_ID,
-			title: "This quarter's focus",
-			body: "Activation first; pricing only where acquisition spend is leaking.\n\nThe pricing task is the exception that proves the rule — it plugs a leak, it does not chase expansion.",
-			status: "active",
-			updatedBy: FOUNDER_ID,
-			createdAt: clock.daysAgo(12),
-			updatedAt: clock.daysAgo(11),
-		},
-		{
-			id: "demo-doc-founder-notes",
-			scopeKind: "user",
-			scopeId: FOUNDER_ID,
-			parentKind: "document",
-			parentId: GENERAL_ROOT_ID,
-			title: "Hiring notes — when does ops get an agent?",
-			body: "Maya reviews every ops document by hand. If support volume keeps falling (onboarding task) there is room; if it does not, the roster needs an ops agent by next quarter. Decide at the portfolio retro.",
-			status: "proposed",
-			updatedBy: FOUNDER_ID,
-			createdAt: clock.daysAgo(7),
-			updatedAt: clock.daysAgo(7),
-		},
-		// ── Stale and archived: a corpus that ages ─────────────────────────
-		{
-			id: "demo-doc-old-pricing",
-			scopeKind: "team",
-			scopeId: TEAM_ID,
-			parentKind: "document",
-			parentId: PRODUCT_ROOT_ID,
-			title: "Three-tier pricing structure (superseded)",
-			body: "Launch-era three-tier structure: Free, Pro, Scale. Superseded by the two-tier decision — kept for the record of why the middle tier confused everyone.",
-			status: "stale",
-			updatedBy: PM_ID,
-			createdAt: clock.daysAgo(42),
-			updatedAt: clock.daysAgo(13),
-		},
-		{
-			id: "demo-doc-old-onboarding",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("growth"),
-			title: "Fixed-day onboarding emails (superseded)",
-			body: "The original plan sent emails on fixed days after signup. The funnel audit killed it — behavior triggers reach users where they actually are. Superseded by the onboarding-emails task.",
-			status: "stale",
-			updatedBy: GROWTH_ID,
-			createdAt: clock.daysAgo(40),
-			updatedAt: clock.daysAgo(6),
-		},
-		{
-			id: "demo-doc-legacy-slack",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("builder"),
-			title: "Archived: the Slack-webhook experiment",
-			body: "Early experiment piping task events to Slack. Retired when threads became the conversation surface — notifications now live in-app.",
-			status: "archived",
-			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(43),
-			updatedAt: clock.daysAgo(25),
-		},
-		{
-			id: "demo-doc-legacy-roadmap",
-			scopeKind: "team",
-			scopeId: TEAM_ID,
-			parentKind: "document",
-			parentId: PRODUCT_ROOT_ID,
-			title: "Archived: launch-quarter roadmap",
-			body: "The launch-quarter roadmap, archived when tasks replaced roadmaps. Interesting mostly as archaeology.",
-			status: "archived",
-			updatedBy: FOUNDER_ID,
-			createdAt: clock.daysAgo(44),
-			updatedAt: clock.daysAgo(30),
-		},
-		// ── More practice: breadth across roles ────────────────────────────
-		{
-			id: "demo-doc-regression-suite",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("qa_engineer"),
-			title: "The regression suite runs on every review verdict",
-			body: "Approve a review and the regression suite runs against the change before merge. It caught the timezone bug the trial flow originally had — the suite is cheaper than a postmortem.",
-			status: "active",
-			updatedBy: QA_ID,
-			createdAt: clock.daysAgo(25),
-			updatedAt: clock.daysAgo(25),
-		},
-		{
-			id: "demo-doc-design-tokens",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("designer"),
-			title: "New screens compose from tokens, never raw values",
-			body: "Every screen the pricing task shipped composed from design tokens; the one dialog that used raw hex values got caught in review. Tokens are the contract between design and build.",
-			status: "active",
-			updatedBy: DESIGNER_ID,
-			createdAt: clock.daysAgo(17),
-			updatedAt: clock.daysAgo(17),
-		},
-		{
-			id: "demo-doc-weekly-planning",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("product_manager"),
-			title: "Weekly planning: activate what is ready, kill what is stale",
-			body: "Fifteen minutes, once a week: look at drafts, activate the ones with a clear shape, kill or reshape the stale ones. Drafts should not age past two weeks without a decision.",
-			status: "active",
-			updatedBy: PM_ID,
-			createdAt: clock.daysAgo(20),
-			updatedAt: clock.daysAgo(20),
-		},
-		{
-			id: "demo-doc-knowledge-hygiene",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("facilitator"),
-			title: "Knowledge hygiene: triage weekly, archive without guilt",
-			body: "The triage queue should stay under five documents; archived is a respectable destination. A knowledge base that only grows is a landfill — the decay sweep exists for a reason.",
-			status: "active",
-			updatedBy: FACILITATOR_ID,
-			createdAt: clock.daysAgo(16),
-			updatedAt: clock.daysAgo(15),
-		},
-		{
-			id: "demo-doc-competitor-watch",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("growth"),
-			title: "Competitor teardowns: one page, kept current",
-			body: "One living page per competitor, updated when we notice something, not on a schedule. The mobile-spike teardown proved its worth — the kill decision took an afternoon because the research existed.",
-			status: "proposed",
-			updatedBy: GROWTH_ID,
-			createdAt: clock.daysAgo(8),
-			updatedAt: clock.daysAgo(8),
-		},
-		{
-			id: "demo-doc-uptime-runbook",
-			scopeKind: "factory",
-			scopeId: null,
-			parentKind: "document",
-			parentId: practiceFolderId("ops"),
-			title: "Incident runbook: the four first checks",
-			body: "When an alert fires: 1) is it the database or the app, 2) when did it start, 3) what changed last, 4) who is affected. Answer those four before touching anything.",
-			status: "active",
-			updatedBy: MAYA_ID,
-			createdAt: clock.daysAgo(145),
-			updatedAt: clock.daysAgo(15),
-		},
-		// ── Produced documents ─────────────────────────────────────────
-		// @lore Produced content (pages, code, dashboards) is a document parented to the
-		// task that generated it. Kind is derived at render from the blocks. A document
-		// whose body is a single fenced html block renders live in the sandbox frame.
-		//
-		// @lore nested-knowledge-items: scope is `team`/`TEAM_ID`, not the
-		// `task`-scope-kind + free-text `topic` these rows carried when #547
-		// wrote them — `SCOPE_KINDS` is reduced to factory|team|user (§2) and
-		// `topic`/`kind`/`layer` are deleted from the schema entirely. Task
-		// parentage (`parentKind: "task"`) is unaffected: architecture §3 says
-		// scope is never enforced against a task parent, so which of the three
-		// surviving kinds these carry doesn't change tree behavior.
-		{
-			id: DOC_PRICING_PAGE,
-			scopeKind: "team",
-			scopeId: TEAM_ID,
-			title: "Pricing page — two-tier rebuild",
-			body: '```html\n<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>Pulse Pricing</title>\n<style>\n*{box-sizing:border-box;margin:0;padding:0}\nbody{font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;background:#fafafa;color:#111;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 20px}\nh1{font-size:2rem;font-weight:800;letter-spacing:-0.03em;margin-bottom:8px}\n.sub{color:#555;font-size:1rem;margin-bottom:40px}\n.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;width:100%;max-width:700px}\n.plan{background:#fff;border:3px solid #111;padding:28px 24px;display:flex;flex-direction:column;gap:12px}\n.plan.featured{background:#111;color:#fff}\n.plan-name{font-size:0.75rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase}\n.plan-price{font-size:2.5rem;font-weight:800;letter-spacing:-0.04em}\n.plan-price span{font-size:1rem;font-weight:400;opacity:0.6}\n.plan-desc{font-size:0.875rem;opacity:0.7;line-height:1.5}\n.divider{border:none;border-top:1px solid currentColor;opacity:0.15}\n.features{list-style:none;display:flex;flex-direction:column;gap:8px;font-size:0.875rem}\n.features li::before{content:\'+ \';font-weight:700}\n.cta{margin-top:auto;padding-top:20px}\n.btn{display:block;text-align:center;padding:12px 20px;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.05em;text-decoration:none;border:3px solid currentColor;cursor:pointer;transition:background 0.1s,color 0.1s}\n.plan:not(.featured) .btn:hover{background:#111;color:#fff}\n.plan.featured .btn{background:#fff;color:#111}\n.plan.featured .btn:hover{background:#f0f0f0}\n.table-wrap{margin-top:48px;width:100%;max-width:700px;overflow-x:auto}\ntable{width:100%;border-collapse:collapse;font-size:0.875rem}\nth,td{padding:10px 14px;text-align:left;border-bottom:1px solid #e5e5e5}\nth{font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:#555}\ntd:not(:first-child){text-align:center}\n.check{font-weight:700;color:#111}\n.dash{color:#bbb}\n</style>\n</head>\n<body>\n<h1>Simple pricing. No surprises.</h1>\n<p class="sub">Start free. Upgrade when your team needs more.</p>\n<div class="plans">\n  <div class="plan">\n    <div class="plan-name">Starter</div>\n    <div class="plan-price">$29<span>/mo</span></div>\n    <p class="plan-desc">For solo founders and small teams exploring customer feedback.</p>\n    <hr class="divider">\n    <ul class="features">\n      <li>5 dashboards</li>\n      <li>3 team seats</li>\n      <li>Weekly exports</li>\n      <li>Email support</li>\n    </ul>\n    <div class="cta"><a class="btn" href="#">Start free trial</a></div>\n  </div>\n  <div class="plan featured">\n    <div class="plan-name">Team</div>\n    <div class="plan-price">$99<span>/mo</span></div>\n    <p class="plan-desc">For growing teams that need unlimited access and faster exports.</p>\n    <hr class="divider">\n    <ul class="features">\n      <li>Unlimited dashboards</li>\n      <li>Unlimited seats</li>\n      <li>Continuous exports</li>\n      <li>Priority support</li>\n    </ul>\n    <div class="cta"><a class="btn" href="#">Start free trial</a></div>\n  </div>\n</div>\n<div class="table-wrap">\n  <table>\n    <thead>\n      <tr><th>Feature</th><th>Starter</th><th>Team</th></tr>\n    </thead>\n    <tbody>\n      <tr><td>Dashboards</td><td class="dash">5</td><td class="check">Unlimited</td></tr>\n      <tr><td>Team seats</td><td class="dash">3</td><td class="check">Unlimited</td></tr>\n      <tr><td>Export frequency</td><td class="dash">Weekly</td><td class="check">Continuous</td></tr>\n      <tr><td>Priority support</td><td class="dash">—</td><td class="check">✓</td></tr>\n      <tr><td>Annual billing discount</td><td class="check">✓</td><td class="check">✓</td></tr>\n    </tbody>\n  </table>\n</div>\n</body>\n</html>\n```',
-			status: "active",
-			updatedBy: DESIGNER_ID,
-			createdAt: clock.daysAgo(5),
-			updatedAt: clock.daysAgo(5),
-			parentKind: "task",
-			parentId: TASK_PRICING_PAGE,
-		},
-		{
-			id: DOC_TRIAL_FLOW,
-			scopeKind: "team",
-			scopeId: TEAM_ID,
-			title: "Trial extension flow — implementation",
-			body: "```typescript\n// Trial extension entitlement — UTC end-to-end.\n// One-click, one-time, exactly seven calendar days.\n\nexport async function grantTrialExtension(\n  accountId: string,\n  db: Db,\n): Promise<{ granted: boolean; expiresAt: Date }> {\n  const account = await db.query.accounts.findFirst({\n    where: eq(accounts.id, accountId),\n  });\n  if (!account) throw new Error(`account not found: ${accountId}`);\n  if (account.trialExtendedAt !== null) {\n    // One-time only — second attempt declines gracefully.\n    return { granted: false, expiresAt: new Date(account.trialExpiresAt) };\n  }\n  // Round UP to whole UTC days so users experience days, not timestamps.\n  const base = new Date(account.trialExpiresAt);\n  const extended = new Date(\n    Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + 7),\n  );\n  await db\n    .update(accounts)\n    .set({ trialExpiresAt: extended.toISOString(), trialExtendedAt: new Date().toISOString() })\n    .where(eq(accounts.id, accountId));\n  return { granted: true, expiresAt: extended };\n}\n```",
-			status: "active",
-			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(30),
-			updatedAt: clock.daysAgo(30),
-			parentKind: "task",
-			parentId: TASK_TRIAL_FLOW,
-		},
-		{
-			id: DOC_TRIAL_METRICS,
-			scopeKind: "team",
-			scopeId: TEAM_ID,
-			title: "Trial extension metrics dashboard",
-			body: "# Trial extension metrics — week 2\n\n**Extensions taken:** 27% of expiring trials (hypothesis: 20%).\n\n**Of those, converting:** 31%.\n\n**Support-granted extensions:** −92% vs the same period before the flow shipped.\n\n## Daily trend\n\nExtension grants are still climbing. No plateau visible at day 14.\n\n## What this means\n\nThe one-time limit kept the offer honest — support load stayed near zero while voluntary conversions grew. The reason-dropdown had zero completions: cut in the next iteration.",
-			status: "active",
-			updatedBy: QA_ID,
-			createdAt: clock.daysAgo(15),
-			updatedAt: clock.daysAgo(13),
-			parentKind: "task",
-			parentId: TASK_TRIAL_MEASURE,
-		},
-		{
-			id: DOC_SEARCH_RANKING,
-			scopeKind: "team",
-			scopeId: TEAM_ID,
-			title: "Search re-ranking — implementation",
-			body: "```typescript\n// Search re-ranking weights — live in config, not code.\n// Tune weekly via the weights config; no deploy needed.\n\nexport interface RankWeights {\n  recency: number;   // default: 0.45\n  titleMatch: number; // default: 0.35\n  bodyMatch: number; // default: 0.20\n}\n\nexport function scoreDocument(\n  doc: { title: string; body: string; updatedAt: Date },\n  query: string,\n  weights: RankWeights,\n): number {\n  const recencyScore = Math.exp(\n    -((Date.now() - doc.updatedAt.getTime()) / (7 * 24 * 60 * 60 * 1000)),\n  );\n  const titleScore = titleMatchScore(doc.title, query);\n  const bodyScore = bodyMatchScore(doc.body, query);\n  return (\n    weights.recency * recencyScore +\n    weights.titleMatch * titleScore +\n    weights.bodyMatch * bodyScore\n  );\n}\n```",
-			status: "active",
-			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(25),
-			updatedAt: clock.daysAgo(25),
-			parentKind: "task",
-			parentId: TASK_SEARCH_RANKING,
+			id: "demo-doc-refund-wording",
+			team: SUPPORT_TEAM_ID,
+			title: "Refund wording",
+			body: "If you ask within 14 days of a payment, we refund it in full.\n\nAfter that, we refund the days you have not used.",
+			draft: true,
+			createdBy: DESIGNER_ID,
+			createdDaysAgo: 1,
+			edited: { by: DESIGNER_ID, at: clock.hoursAgo(2) },
 		},
 	];
 
-	for (const spec of specs) {
-		const usage = usageFor(spec, clock);
+	for (const [position, doc] of specs.entries()) {
+		const createdAt = clock.daysAgo(doc.createdDaysAgo);
 		await db
 			.insert(documents)
 			.values({
-				id: spec.id,
-				scopeKind: spec.scopeKind,
-				scopeId: spec.scopeId,
-				title: spec.title,
-				body: spec.body,
+				id: doc.id,
+				scopeKind: "team",
+				scopeId: doc.team,
+				title: doc.title,
+				body: doc.body,
 				format: "markdown",
-				status: spec.status,
-				version: spec.version ?? 1,
-				parentKind: spec.parentKind ?? null,
-				parentId: spec.parentId ?? null,
-				discipline: disciplineFor(spec),
-				confidence: spec.status === "active" ? "0.9" : "0.6",
-				updatedBy: spec.updatedBy,
-				createdAt: spec.createdAt,
-				updatedAt: spec.updatedAt,
-				readCount: usage.readCount,
-				lastReadAt: usage.lastReadAt,
-				sessionUseCount: usage.sessionUseCount,
-				lastUsedAt: usage.lastUsedAt,
+				status: doc.draft ? "proposed" : "active",
+				slot: "ordinary",
+				parentKind: doc.parentId ? "document" : null,
+				parentId: doc.parentId ?? null,
+				position,
+				version: doc.edited ? 2 : 1,
+				discipline: doc.discipline ?? null,
+				icon: doc.icon ?? null,
+				updatedBy: doc.edited?.by ?? doc.createdBy,
+				createdAt,
+				updatedAt: doc.edited?.at ?? createdAt,
 			})
 			.onConflictDoNothing();
 	}
+
+	for (const userId of TEN_DAYS_FOLLOWERS)
+		await db
+			.insert(subscriptions)
+			.values({
+				id: `demo-sub-follow-ten-days-${userId}`,
+				userId,
+				event: "document.changed",
+				objectId: DOC_TEN_DAYS,
+				schedule: null,
+				paused: false,
+				nextRunAt: null,
+				createdAt: clock.daysAgo(1),
+				updatedAt: clock.daysAgo(1),
+			})
+			.onConflictDoNothing();
 }

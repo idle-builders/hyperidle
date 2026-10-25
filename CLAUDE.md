@@ -53,7 +53,7 @@ Before any work is complete: `npm run check` (zero type errors) + `npm run lint`
 | **All tests** | `npm run test:all` | `test:full` + `test:integration` (unit + component + integration). |
 | **E2E tests** | `npm run test:e2e` | Playwright end-to-end tests (Chromium). |
 | **Typecheck** | `npm run check` | Per-package typecheck gate (`tools/repo-gates/src/typecheck-gate.ts`) — discovers all packages under `layers/`, `framework/`, `applications/`, `tools/`, runs `tsc --noEmit` per package, applies debt ratchet. |
-| **Lint** | `npm run lint` | Biome + ESLint + three governance-lint passes (fixtures, attacks, default). |
+| **Lint** | `npm run lint` | Biome + ESLint + the token check + three governance-lint passes (fixtures, attacks, default). |
 | **Quick verify** | `npm run verify:quick` | check + lint + knip + knip:production + deps:check. No tests or builds. |
 | **Full verify** | `npm run verify` | check + lint + knip + knip:production + deps:check + mock-inventory:check + web build + desktop build. No tests — CI runs those. |
 | **Release checklist** | `npm run verify:release` | `verify` + `test:full` + `test:integration` (incl. the harness lane) + full e2e. Run locally before a version bump. |
@@ -107,13 +107,13 @@ The one rule that is stated above rather than pointed at is which **world** a fi
 **Authoritative** — `docs/` (ground truth, split by topic):
 
 - `product/` — what HyperIdle is, how work flows, how knowledge compounds
-- `guides/user/` — end-user guide: interface, views, agents, team, settings, connections
+- `guides/user/` — end-user guide: the interface, conversations, work, knowledge, people and agents, folders and services, your page
 - `guides/developer/` — contributor guide: getting started, commands, testing, linting
 - `deployment/` — laptop, self-hosting, shared backend, releases
 - `architecture/` — layers, actions, events, security, connections, plugins
 - `agent-layer/` — agent model, harnesses, return gate
 - `objects/` — task, thread, document, user, session, folders
-- `interface/` — navigation, messages, reviews, blocks, UI design
+- `interface/` — navigation, messages, reviews, UI design
 
 Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipeline:architecture` identify which docs are relevant for a workpackage — downstream skills read the plan, not docs directly.
 
@@ -130,7 +130,7 @@ Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipel
 
 ## Tech Stack
 
-Node.js, npm, TypeScript strict, Hono, Drizzle ORM (PGlite locally / PostgreSQL server), React + Vite, Tailwind CSS + DaisyUI (hearth-light/hearth-dark themes), Vitest, Playwright, Biome, in-process `setInterval` schedulers (distributed across `layers/core-api/*/src/`, `layers/agent-orchestration/*/src/` — e.g. `core-api/user/src/subscription-clock.ts`).
+Node.js, npm, TypeScript strict, Hono, Drizzle ORM (PGlite locally / PostgreSQL server), React + Vite, plain CSS with tokens (Paper skin — no Tailwind, no DaisyUI), Vitest, Playwright, Biome, in-process `setInterval` schedulers (distributed across `layers/core-api/*/src/`, `layers/agent-orchestration/*/src/` — e.g. `core-api/user/src/subscription-clock.ts`).
 
 ---
 

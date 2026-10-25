@@ -28,7 +28,7 @@ Full transition map in `TASK_STATE_TRANSITIONS` (`actions/task.ts`). Key edges:
 - `proposed → hold` — entering the dependency-wait chain.
 - `hold → accepted` — dependency watcher fires when all deps are `done`.
 - `hold → proposed` — a dependency was killed; the task returns for re-planning.
-- `in_progress → review` or `→ done` — session ends, governed by `needsReview`.
+- `in_progress → review` or `→ done` — session ends; `review` when any `doneWhen` line has `by:"review"`, else `done`.
 - `done → killed` — only terminal edge; killing is always a subtree operation.
 
 ## Dependencies
@@ -37,22 +37,24 @@ Full transition map in `TASK_STATE_TRANSITIONS` (`actions/task.ts`). Key edges:
 
 A cycle, a self-dependency, or a dependency on a non-existent task is refused at the time it is set.
 
-## Finishing: done by default, review on request
+## Finishing: done by default, review when requested
 
-`tasks.needsReview` (boolean, default `false`) decides where a task goes when its work ends.
+`tasks.doneWhen` is a JSON array of `DoneWhenLine` objects. Each line has an `id`, a `what` description, a `by` field (`"check"` or `"review"`), a `state` (`"open"`, `"met"`, or `"failed"`), and an optional `how`.
 
-| Event | `needsReview = false` | `needsReview = true` |
+| Event | No `by:"review"` line | At least one `by:"review"` line |
 |---|---|---|
 | Session on task ends (`completed` outcome) | task → `done` | task → `review` |
 | All children reach terminal state | parent → `done` | parent → `review` |
 
-With most tasks going straight to `done`, completion cascades up the tree automatically. A task with `needsReview = true` is where the chain stops until a person acts.
+With most tasks going straight to `done`, completion cascades up the tree automatically. A task with a `by:"review"` line is where the chain stops until a person acts.
+
+`tasks.reasons` is a JSON array of `Reason` objects — decisions and assumptions the task records. Each reason has a `kind` (`"decision"` or `"assumption"`), a `what`, a `state` (decision: `"made"` or `"waiting"`; assumption: `"held"`, `"open"`, or `"broke"`), and an optional `why`.
 
 Code: `layers/core-api/policy/src/lifecycle-propagation.ts`.
 
 ## Upward propagation
 
-When a task reaches `done` or `killed`, `propagateTaskToParent` walks up the ancestor chain. At each level it checks whether all direct children are terminal. If yes, it transitions that ancestor (`done` or `review` per its own `needsReview`). The cascade continues upward until it reaches a `review`, terminal, or non-all-terminal ancestor.
+When a task reaches `done` or `killed`, `propagateTaskToParent` walks up the ancestor chain. At each level it checks whether all direct children are terminal. If yes, it transitions that ancestor (`done` or `review` depending on whether it has a `by:"review"` line in its `doneWhen`). The cascade continues upward until it reaches a `review`, terminal, or non-all-terminal ancestor.
 
 A race (two children finishing at once) produces an `InvalidTransitionError` from the second one — swallowed silently. The first finisher wins.
 
@@ -65,6 +67,16 @@ Code: `createShipConfirmationThread`, `lifecycle-propagation.ts`.
 ## Handoff
 
 Setting `ownerAgentId` on an `accepted` or `in_progress` task is a handoff. The previous owner's session ends, a new `task_dispatch_attempts` row with `occasion: "owner_handoff"` is inserted, and the new agent's run begins. Code: `task-actions.ts`.
+
+## Hold and stop
+
+A person pauses a task with `edit_task({ id, paused })`. `paused` is set on the task and on every part of it not done; the state stays as it was, so nothing is undone.
+
+- `"hold"` — the agents finish what they are doing, then wait. Nothing new starts in the subtree: moving a paused task to `accepted` is refused (`paused`), so the dependency watcher leaves its waiting parts in `hold`. A new part made under a paused task is paused with it.
+- `"stopped"` — the same, and the running sessions of the task and its subtree stop at once.
+- `null` — lifts it. Every waiting part whose dependencies are all `done` is accepted. After a stop, each leaf still `in_progress` that waits on nobody's answer or review gets a `task_dispatch_attempts` row with `occasion: "restart"`, so its agent picks up where it stopped. A restart may happen once per stop, so it is left out of the one-dispatch-per-occasion index.
+
+A finished task cannot be paused (`paused_closed`). Stop is not kill: `killed` is terminal; a stopped task starts again.
 
 ## Kill
 
@@ -80,8 +92,25 @@ When a task reaches `review`, a human may record an outcome. Four values: `met`,
 
 ## Source document
 
-`tasks.sourceDocumentId` points at the document a task was promoted from. The promotion is done in `DocumentDetail.tsx`; the field is set by `edit_task({ sourceDocumentId })`.
+`tasks.sourceDocumentId` points at the document a task was promoted from. It is set by `edit_task({ sourceDocumentId })`; the app does not set it.
 
 ## Token rollup
 
-`tasks.tokensActualJson` is a JSON string of per-tier token counts, merged by the session-end handler and written back via `edit_task({ tokensActualJson })`. Displayed as a rollup on the task page.
+`tasks.tokensActualJson` is a JSON string of per-tier token counts, merged by the session-end handler and written back via `edit_task({ tokensActualJson })`. The app does not show it.
+
+## Derived need
+
+`task.need` is a derived, never-stored field computed at read time from the task's state, thread messages, and reasons. It signals what kind of human attention the task requires right now.
+
+| Value | When |
+|---|---|
+| `"stuck"` | `state === "blocked"` |
+| `"input"` | An unresolved `questionnaire` message in the thread, OR a `decision` reason with `state: "waiting"` |
+| `"review"` | `state === "review"`, OR an unresolved `review` message in the thread |
+| `null` | None of the above |
+
+Precedence (highest first): `stuck > input > review > null`.
+
+Both `search_tasks` and `open_task` return `need` on every task item. `open_task` also returns `openBelow: { input: number, review: number }` on each `TaskNode` in the `children` subtree, counting descendants (not the node itself) whose need is `input` or `review` respectively. The opened task itself carries the same count for everything below it as `openBelow` at the top of the view. Work stays live through two WebSocket topics: `tasks` is nudged on any task change, and `task:<id>` on a change to that task, to any task below it, or a message in its thread.
+
+Source: `framework/domain-model/src/actions/task-need.ts` (pure logic), `layers/core-api/task/src/task-actions.ts` (wiring and batch message fetch).

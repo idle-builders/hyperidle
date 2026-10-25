@@ -8,7 +8,7 @@ Agents and humans are both `users` rows. The only difference is `users.kind`: `'
 
 Agent identity has two parts:
 
-- **Who the agent is** — `users`: the stable `users.id` (kind `'ai'`), plus `status`, `teamId`, `agentCategory`, and `health` (a freeform crash note, written by the orchestrator on session failure).
+- **Who the agent is** — `users`: the stable `users.id` (kind `'ai'`), plus `status`, its one team (`user_teams`), `agentCategory`, and `health` (a freeform crash note, written by the orchestrator on session failure).
 - **How the agent runs** — `agent_run_config`: one row per `agent_user_id`, holding `harness_type`, `model_id`, `model_provider`, `model_options_json`, and `max_concurrent_sessions` (default 1). An absent row is identical to an all-null row.
 
 ### Identity document
@@ -27,10 +27,10 @@ Every AI agent has exactly one category, stored in `users.agentCategory`:
 
 | Category | Binding | Typical source |
 |---|---|---|
-| `team` | Bound to a team (`teamId` non-null) | You or a plugin |
-| `individual` | Bound to a human user (`ownerUserId` non-null, `teamId` null), or a factory-wide plugin agent | Per-user at registration, or a plugin |
+| `team` | Works for a team | You or a plugin |
+| `individual` | Owned by a person (`ownerUserId` non-null), or a factory-wide plugin agent | Per-user at registration, or a plugin |
 
-A check constraint (`users_belonging_ck`) enforces: an agent with `ownerUserId` must have `teamId` null. A human row carries null in both.
+Every agent is in exactly one team — an owned agent in one of its owner's teams. A person may be in several. The only agents in no team are the ones a plugin brings for everyone. `edit_user` keeps these rules (see [User](../objects/user.md#teams)).
 
 Creating a team does not create an agent. You staff the team, or install a plugin that does.
 

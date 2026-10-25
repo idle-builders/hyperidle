@@ -4,14 +4,29 @@
   <meta charset="utf-8">
   <title>HyperIdle</title>
   <style>
+    /* The Paper canvas, ink and line colours from layers/core-ui/src/tokens.css, light and dark. */
+    :root {
+      --canvas: #faf8f4;
+      --ink: #1b1a17;
+      --line: #d3ccbf;
+      --ink-3: #7a746b;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --canvas: #141310;
+        --ink: #f5f1e8;
+        --line: #423d33;
+        --ink-3: #918b7f;
+      }
+    }
     body {
       margin: 0;
       display: flex;
       align-items: center;
       justify-content: center;
       height: 100vh;
-      background: #14140b;
-      color: #ecead9;
+      background: var(--canvas);
+      color: var(--ink);
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
       flex-direction: column;
       gap: 12px;
@@ -19,8 +34,8 @@
     .spinner {
       width: 24px;
       height: 24px;
-      border: 2px solid #333;
-      border-top-color: #888;
+      border: 2px solid var(--line);
+      border-top-color: var(--ink-3);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }

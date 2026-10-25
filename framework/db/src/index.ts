@@ -45,6 +45,7 @@ export {
 	type Session,
 	type Subscription,
 	serviceConnections,
+	serviceConnectionWithholds,
 	sessions,
 	subscriptions,
 	type Task,
@@ -56,5 +57,6 @@ export {
 	threads,
 	type User,
 	users,
+	userTeams,
 } from "./schema.js";
 export type { WriteExecutor } from "./write-executor.js";

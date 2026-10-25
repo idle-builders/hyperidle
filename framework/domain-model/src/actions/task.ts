@@ -23,6 +23,46 @@ export function canTransitionTaskState(from: TaskState, to: TaskState): boolean 
 	return TASK_STATE_TRANSITIONS[from].includes(to);
 }
 
+/** One completion criterion. `by:"check"` closes itself; `by:"review"` needs a person. */
+export const DoneWhenLineSchema = z.object({
+	id: z.string(),
+	what: z.string().min(1),
+	by: z.enum(["check", "review"]),
+	state: z.enum(["open", "met", "failed"]),
+	/** How it is or was checked, or who reviews it. */
+	how: z.string().nullable(),
+});
+
+export type DoneWhenLine = z.infer<typeof DoneWhenLineSchema>;
+
+/** Valid states for a decision reason. */
+export const DECISION_STATES = ["made", "waiting"] as const;
+/** Valid states for an assumption reason. */
+export const ASSUMPTION_STATES = ["held", "open", "broke"] as const;
+
+/** A decision or assumption recorded alongside the work. */
+export const ReasonSchema = z.discriminatedUnion("kind", [
+	z.object({
+		id: z.string(),
+		kind: z.literal("decision"),
+		what: z.string().min(1),
+		state: z.enum(DECISION_STATES),
+		why: z.string().nullable(),
+	}),
+	z.object({
+		id: z.string(),
+		kind: z.literal("assumption"),
+		what: z.string().min(1),
+		state: z.enum(ASSUMPTION_STATES),
+		why: z.string().nullable(),
+	}),
+]);
+
+export type Reason = z.infer<typeof ReasonSchema>;
+
+/** How a person paused a task: on hold, the agents finish what they are doing, then wait; stopped, they stop at once. */
+export const TASK_PAUSES = ["hold", "stopped"] as const;
+
 export const TaskSchema = z.object({
 	id: z.string(),
 	parentTaskId: z.string().nullable(),
@@ -30,7 +70,8 @@ export const TaskSchema = z.object({
 	ownerAgentId: z.string().nullable(),
 	title: z.string(),
 	description: z.string().nullable(),
-	doneCondition: z.string().nullable(),
+	/** Parsed done-when lines (stored as JSON text in the DB). */
+	doneWhen: z.array(DoneWhenLineSchema),
 	state: z.enum(TASK_STATES),
 	dependencies: z.string().nullable(),
 	threadId: z.string(),
@@ -45,7 +86,14 @@ export const TaskSchema = z.object({
 	sourceDocumentId: z.string().nullable(),
 	completedAt: z.string().nullable(),
 	position: z.number().int(),
-	needsReview: z.boolean(),
+	/** Parsed reasons (decisions and assumptions, stored as JSON text in the DB). */
+	reasons: z.array(ReasonSchema),
+	/** Set on the task a person paused and on every part of it not done; the state stays as it was. */
+	paused: z.enum(TASK_PAUSES).nullable(),
+	/** Who started it; null for a task from before this was kept. */
+	startedBy: z.string().nullable(),
+	/** Derived UI status — computed from state, thread messages and reasons; never stored. Defaults to null so DB rows parse without it. */
+	need: z.enum(["stuck", "input", "review"]).nullable().default(null),
 });
 
 export type Task = z.infer<typeof TaskSchema>;
@@ -53,10 +101,18 @@ export type Task = z.infer<typeof TaskSchema>;
 /** A task in the nested subtree returned by `open_task`, its own children alongside it. */
 export interface TaskNode extends Task {
 	readonly children: readonly TaskNode[];
+	/** Counts of descendants (not the node itself) whose need is input or review. */
+	readonly openBelow: { readonly input: number; readonly review: number };
 }
 
 const TaskNodeSchema: z.ZodType<TaskNode> = z.lazy(() =>
-	TaskSchema.extend({ children: z.array(TaskNodeSchema) }),
+	TaskSchema.extend({
+		children: z.array(TaskNodeSchema),
+		openBelow: z.object({
+			input: z.number().int().nonnegative(),
+			review: z.number().int().nonnegative(),
+		}),
+	}),
 );
 
 export const SearchTasksInputSchema = z
@@ -65,6 +121,8 @@ export const SearchTasksInputSchema = z
 		excludeIds: z.array(z.string()).optional(),
 		parentTaskId: z.string().nullable().optional(),
 		ownerAgentId: z.string().optional(),
+		/** The tasks this user started. */
+		startedBy: z.string().optional(),
 		state: z.enum(TASK_STATES).optional(),
 		teamId: z.string().optional(),
 		threadId: z.string().optional(),
@@ -94,6 +152,11 @@ export const TaskViewSchema = z.object({
 	ancestors: z.array(TaskSchema),
 	/** The whole nested subtree, not only direct children. */
 	children: z.array(TaskNodeSchema),
+	/** Open questions and reviews anywhere below the task, for its "Parts" tally. */
+	openBelow: z.object({
+		input: z.number().int().nonnegative(),
+		review: z.number().int().nonnegative(),
+	}),
 	tokensActualRollup: z.number().nullable(),
 	threadId: z.string(),
 	/** Document ids parented to this task. */
@@ -121,10 +184,18 @@ export const EditTaskInputSchema = z
 		ownerAgentId: z.string().nullable().optional(),
 		title: z.string().min(1).optional(),
 		description: z.string().nullable().optional(),
-		doneCondition: z.string().nullable().optional(),
+		/** Whole-list upsert — replaces the existing list. */
+		doneWhen: z.array(DoneWhenLineSchema).optional(),
 		state: z.enum(TASK_STATES).optional(),
 		position: z.number().int().nonnegative().optional(),
-		needsReview: z.boolean().optional(),
+		/** Whole-list upsert — replaces the existing list. */
+		reasons: z.array(ReasonSchema).optional(),
+		/**
+		 * Pause the task and every part of it not done (`stopped` also stops their running sessions),
+		 * or `null` to lift it: the parts that waited start once nothing holds them, and after a stop
+		 * each agent goes back to the part it was working on.
+		 */
+		paused: z.enum(TASK_PAUSES).nullable().optional(),
 		dependencies: z.array(z.string()).nullable().optional(),
 		outcome: z
 			.object({
@@ -169,6 +240,8 @@ export const TASK_ACTIONS = {
 
 // Server-only invariants (cycle, team capacity, owner exists, unmet deps at accept) are NOT here — DB-dependent, run inside edit_task.run.
 
+const TERMINAL_STATES: readonly TaskState[] = ["done", "killed"];
+
 export function taskInvariants(next: Task, prev: Task | null): Problem[] {
 	const problems: Problem[] = [];
 
@@ -182,6 +255,23 @@ export function taskInvariants(next: Task, prev: Task | null): Problem[] {
 			path: "teamId",
 		});
 	}
+	if (prev !== null && next.paused !== prev.paused && TERMINAL_STATES.includes(next.state)) {
+		problems.push({
+			code: "paused_closed",
+			message: "A finished task cannot be put on hold or stopped.",
+			path: "paused",
+		});
+	}
+	if (next.paused !== null && next.state === "accepted" && prev?.state !== "accepted") {
+		problems.push({
+			code: "paused",
+			message:
+				next.paused === "hold"
+					? "The task is on hold."
+					: "The task is stopped; start it again first.",
+			path: "state",
+		});
+	}
 	if (
 		prev !== null &&
 		next.state !== prev.state &&
@@ -192,6 +282,52 @@ export function taskInvariants(next: Task, prev: Task | null): Problem[] {
 			message: `A task cannot move from "${prev.state}" to "${next.state}".`,
 			path: "state",
 		});
+	}
+
+	// done-when: ids unique, what non-empty (enforced by schema min(1) but checked defensively)
+	const doneWhenIds = new Set<string>();
+	for (const line of next.doneWhen) {
+		if (doneWhenIds.has(line.id)) {
+			problems.push({
+				code: "done_when_duplicate_id",
+				message: `Duplicate id "${line.id}" in doneWhen.`,
+				path: "doneWhen",
+			});
+		}
+		doneWhenIds.add(line.id);
+	}
+
+	// reasons: ids unique; state must match kind
+	const reasonIds = new Set<string>();
+	for (const reason of next.reasons) {
+		if (reasonIds.has(reason.id)) {
+			problems.push({
+				code: "reasons_duplicate_id",
+				message: `Duplicate id "${reason.id}" in reasons.`,
+				path: "reasons",
+			});
+		}
+		reasonIds.add(reason.id);
+
+		if (reason.kind === "decision") {
+			const validDecisionStates: readonly string[] = DECISION_STATES;
+			if (!validDecisionStates.includes(reason.state)) {
+				problems.push({
+					code: "reason_state_mismatch",
+					message: `Decision reason "${reason.id}" has invalid state "${reason.state}".`,
+					path: "reasons",
+				});
+			}
+		} else {
+			const validAssumptionStates: readonly string[] = ASSUMPTION_STATES;
+			if (!validAssumptionStates.includes(reason.state)) {
+				problems.push({
+					code: "reason_state_mismatch",
+					message: `Assumption reason "${reason.id}" has invalid state "${reason.state}".`,
+					path: "reasons",
+				});
+			}
+		}
 	}
 
 	return problems;

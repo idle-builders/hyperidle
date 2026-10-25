@@ -32,4 +32,6 @@ export interface ServiceConnectionView {
 	health: ConnectionHealth;
 	/** false for inherited (HyperIdle stores nothing; no DELETE target exists). */
 	removable: boolean;
+	/** The agents it is kept from; every other agent of its owner reaches it. Always empty for an inherited one. */
+	withheldFrom: string[];
 }

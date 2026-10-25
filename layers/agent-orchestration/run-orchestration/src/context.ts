@@ -7,6 +7,8 @@ import type {
 	BakedContextBundle,
 	BakedContextDocument,
 	ChangeRow,
+	DoneWhenLine,
+	Reason,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { Manifest, ManifestEntry } from "./manifest-types.js";
@@ -38,14 +40,15 @@ interface SessionContextData {
 		title: string;
 		description: string | null;
 		state: string;
-		doneCondition: string | null;
+		doneWhen: readonly DoneWhenLine[];
+		reasons: readonly Reason[];
 	};
 	/** Root-first chain of ancestor tasks. ancestors[0] is the root task (the former "bet"). */
 	ancestors: readonly {
 		id: string;
 		title: string;
 		description: string | null;
-		doneCondition: string | null;
+		doneWhen: readonly DoneWhenLine[];
 	}[];
 	agent: {
 		id: string;
@@ -140,7 +143,7 @@ interface SubscriptionSessionContextData {
 		name: string;
 		role: string;
 	};
-	/** The subscriber's effective team, or null for a factory-wide agent. */
+	/** The subscriber's team, or null for a factory-wide agent. */
 	team: {
 		id: string;
 		name: string;
@@ -273,10 +276,10 @@ function buildToolsSection(tools: readonly ToolSummary[]): string {
 
 function buildTaskSection(context: SessionContextData): string {
 	const description = context.task.description ?? "No description provided.";
-	// Task's own doneCondition takes precedence; fall back to root ancestor's.
+	// Fall back to root ancestor's done-when lines when the task's own list is empty.
 	const rootAncestor = context.ancestors[0];
-	const doneCondition =
-		context.task.doneCondition ?? rootAncestor?.doneCondition ?? "Not specified.";
+	const effectiveDoneWhen =
+		context.task.doneWhen.length > 0 ? context.task.doneWhen : (rootAncestor?.doneWhen ?? []);
 
 	const parts = [
 		"## Task",
@@ -284,11 +287,41 @@ function buildTaskSection(context: SessionContextData): string {
 		`**Title:** ${context.task.title}`,
 		`**Description:** ${description}`,
 		"",
-		"### Done Condition",
-		"",
-		doneCondition,
-		"",
 	];
+
+	if (effectiveDoneWhen.length > 0) {
+		parts.push("### Done When", "");
+		for (const line of effectiveDoneWhen) {
+			const stateLabel =
+				line.state === "met" ? "[met]" : line.state === "failed" ? "[failed]" : "[ ]";
+			const byLabel = line.by === "review" ? "(needs review)" : "";
+			const howPart = line.how ? ` — ${line.how}` : "";
+			parts.push(`- ${stateLabel} ${line.what}${byLabel ? ` ${byLabel}` : ""}${howPart}`);
+		}
+		parts.push("");
+	} else {
+		parts.push("### Done When", "", "Not specified.", "");
+	}
+
+	if (context.task.reasons.length > 0) {
+		parts.push("### Decisions and Assumptions", "");
+		for (const reason of context.task.reasons) {
+			const kindLabel = reason.kind === "decision" ? "Decision" : "Assumption";
+			const stateLabel = (() => {
+				if (reason.kind === "decision") {
+					return reason.state === "made" ? "[made]" : "[waiting]";
+				}
+				return reason.state === "held" ? "[held]" : reason.state === "broke" ? "[broke]" : "[open]";
+			})();
+			const whyPart = reason.why ? ` — ${reason.why}` : "";
+			parts.push(`- ${stateLabel} ${kindLabel}: ${reason.what}${whyPart}`);
+		}
+		parts.push("");
+	}
+	parts.push(
+		"Record the decisions you make and the assumptions you rely on in this task's `reasons`. Mark an assumption held or broke once you have checked it.",
+		"",
+	);
 
 	if (context.ancestors.length > 0) {
 		parts.push("### Context");

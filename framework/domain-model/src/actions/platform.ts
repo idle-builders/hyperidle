@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { PLUGIN_CONTRIBUTION_KINDS } from "../configuration.js";
+import { PLUGIN_CONTRIBUTION_KINDS, PLUGIN_SOURCE_KINDS } from "../configuration.js";
 import type { ActionDeclaration, Problem } from "./action.js";
+import { DOCUMENT_SLOTS } from "./document.js";
 
 // `"removed"` (third PluginState member) is neither list state: a removed plugin is a tombstone search_plugins never returns.
 
@@ -37,23 +38,50 @@ export const PluginContributionViewSchema = z.object({
 	/** What `edit_plugin`'s restore names: the same as `entityId`. */
 	key: z.string(),
 	manifestKey: z.string(),
-	/** A person has edited it, so a reinstall leaves their version alone. */
-	detached: z.boolean(),
+	/** A document's slot: a skill, an agent's instructions (`agent_file`), a reason's prompt. */
+	slot: z.enum(DOCUMENT_SLOTS).nullable(),
+	/** The plugin's agent it belongs to: a reason's, an instructions document's, a reason prompt's. */
+	agentId: z.string().nullable(),
+	/** When a person edited it, and who: a reinstall leaves their version alone until restored. */
+	detachedAt: z.string().nullable(),
+	detachedBy: z.string().nullable(),
 });
 export type PluginContributionView = z.infer<typeof PluginContributionViewSchema>;
+
+/** Where an install came from: a folder or zip path or a repository URL as given, or the bundled plugin's name. */
+const PluginSourceViewSchema = z.object({
+	kind: z.enum(PLUGIN_SOURCE_KINDS),
+	address: z.string(),
+});
 
 export const PluginViewSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	version: z.string(),
+	description: z.string().nullable(),
 	state: z.enum(PLUGIN_LIST_STATES),
 	scope: PluginScopeSchema,
+	source: PluginSourceViewSchema,
+	/** Who added it; null for an install made before this was kept. */
+	installedBy: z.string().nullable(),
 	installedAt: z.string(),
 	updatedAt: z.string(),
 	disabledAt: z.string().nullable(),
 	contributions: z.array(PluginContributionViewSchema),
 });
 export type PluginView = z.infer<typeof PluginViewSchema>;
+
+/** One thing a bundled plugin would add, read from its manifest. */
+const PluginAddViewSchema = z.object({
+	kind: z.enum(PLUGIN_CONTRIBUTION_KINDS),
+	slot: z.enum(DOCUMENT_SLOTS).nullable(),
+	label: z.string(),
+	/** The name of the plugin's agent it belongs to, as for a contribution's `agentId`. */
+	agent: z.string().nullable(),
+	/** What an agent does, in a few words, when the manifest says. */
+	what: z.string().nullable(),
+});
+export type PluginAddView = z.infer<typeof PluginAddViewSchema>;
 
 /** A bundled plugin not installed for this viewer; `id` is its manifest name, the name `edit_plugin`'s `bundled` source takes. */
 const AvailablePluginViewSchema = z.object({
@@ -63,6 +91,7 @@ const AvailablePluginViewSchema = z.object({
 	description: z.string().nullable(),
 	state: z.literal("available"),
 	installScope: z.enum(PLUGIN_INSTALL_SCOPES),
+	adds: z.array(PluginAddViewSchema),
 });
 export type AvailablePluginView = z.infer<typeof AvailablePluginViewSchema>;
 
@@ -133,8 +162,9 @@ export const editPlugin: ActionDeclaration<EditPluginInput, PluginView> = {
 	sentence:
 		"Install, enable, disable, remove or restore a plugin. Give exactly one of: source (install " +
 		"from a folder, a repository URL, a zip, or a bundled plugin by name; scope for factory or " +
-		"team lives inside it), state (enable or disable), remove, or restore (bring back a " +
-		"person's edit of one detached contribution). Each team's install is its own; name it with " +
+		"team lives inside it), state (enable or disable; enabling a removed plugin undoes the " +
+		"remove), remove, or restore (put the plugin's version back over a person's edit of one " +
+		"contribution). Each team's install is its own; name it with " +
 		"its id (the plugin name for a factory install, name@teamId for a team install) for every " +
 		"change but a source install, which derives its own id.",
 	input: EditPluginInputSchema,

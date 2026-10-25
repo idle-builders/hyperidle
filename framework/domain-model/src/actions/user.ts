@@ -26,6 +26,24 @@ export const OBJECT_EVENTS = [
 ] as const;
 export type ObjectEventName = (typeof OBJECT_EVENTS)[number];
 
+/**
+ * What tells a person something, in their own words — each a subscription of theirs, fired by the
+ * object event it reads: a review raised for them, a message naming them, a task they started
+ * ending done or stuck, and a change to something they follow (their one-object follows are heard
+ * only while this one is on).
+ */
+export const PERSON_REASONS = [
+	"review.raised_for_me",
+	"mention.of_me",
+	"started.done_or_stuck",
+	"followed.changed",
+] as const;
+export type PersonReason = (typeof PERSON_REASONS)[number];
+
+/** What a subscription can be about: an object event, or one of a person's reasons. */
+export const SUBSCRIPTION_EVENTS = [...OBJECT_EVENTS, ...PERSON_REASONS] as const;
+export type SubscriptionEventName = (typeof SUBSCRIPTION_EVENTS)[number];
+
 /** Matches the `changes` table's `changes_kind_ck` check verbatim. */
 export const CHANGE_KINDS = ["created", "changed", "message"] as const;
 export type ChangeKind = (typeof CHANGE_KINDS)[number];
@@ -51,7 +69,7 @@ export const ChangeRowSchema = z.object({
 });
 export type ChangeRow = z.infer<typeof ChangeRowSchema>;
 
-// team is the effective team (own, else the owner's); edges are outgoing org_edges — the org chart needs one call.
+// teams are every team the user is in — a person may be in several, an agent in one; edges are outgoing org_edges — the org chart needs one call.
 
 export const UserRowSchema = z.object({
 	id: z.string(),
@@ -71,7 +89,9 @@ export const UserRowSchema = z.object({
 	 * own doc for the shared rule.
 	 */
 	discipline: z.string().nullable(),
-	team: z.object({ id: z.string(), name: z.string() }).nullable(),
+	/** What they do, in a few words, as everyone sees it. */
+	what: z.string().nullable(),
+	teams: z.array(z.object({ id: z.string(), name: z.string() })),
 	edges: z.array(
 		z.object({
 			id: z.string(),
@@ -93,7 +113,7 @@ export const SearchUsersInputSchema = z
 	.object({
 		ids: z.array(z.string()).optional(),
 		kind: z.enum(USER_KINDS).optional(),
-		/** Matches the effective team, not only an own one. */
+		/** Everyone in this team. */
 		teamId: z.string().optional(),
 		/** Case-insensitive contains. */
 		name: z.string().min(1).optional(),
@@ -195,6 +215,8 @@ export const ConnectionViewSchema = z.object({
 	authSource: z.enum(CONNECTION_AUTH_SOURCES),
 	health: z.enum(CONNECTION_HEALTH),
 	removable: z.boolean(),
+	/** The agents it is kept from; every other agent of its owner reaches it. Always empty for an inherited one. */
+	withheldFrom: z.array(z.string()),
 });
 export type ConnectionView = z.infer<typeof ConnectionViewSchema>;
 
@@ -219,7 +241,9 @@ export type FolderView = z.infer<typeof FolderViewSchema>;
 
 export const SubscriptionViewSchema = z.object({
 	id: z.string(),
-	event: z.enum(OBJECT_EVENTS).nullable(),
+	event: z.enum(SUBSCRIPTION_EVENTS).nullable(),
+	/** The one object it follows, or null for the event about anything the user reaches. */
+	objectId: z.string().nullable(),
 	schedule: z.string().nullable(),
 	paused: z.boolean(),
 	documentId: z.string().nullable(),
@@ -241,30 +265,18 @@ const RunConfigViewSchema = z.object({
 	modelOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).nullable(),
 });
 
-// derived trust signal, not a stored column
-const ReviewTrackRecordSchema = z.object({
-	/** (approve + approve-with-comments) / total. 0 when no verdicts. */
-	approvalRate: z.number(),
-	totalVerdicts: z.number().int(),
-	/** Newest first, capped at 10. */
-	recentVerdicts: z.array(
-		z.object({ decision: z.string(), threadId: z.string(), createdAt: z.string() }),
-	),
-	windowDays: z.number().int(),
-});
-
 export const UserViewSchema = z.object({
 	/** null only for a caller with no row — the first-run moment. */
 	user: UserRowSchema.nullable(),
 	/** Install-wide: this machine's harnesses, `discovery.disabled` stamped. */
 	runsOn: z.array(HarnessDescriptorSchema),
 	runConfig: RunConfigViewSchema.nullable(),
-	/** Agent-parented identity / skill / rule documents. */
+	/** An agent's identity, skill and rule documents; a person's About (their `agent_file`). */
 	documentIds: z.array(z.object({ slot: z.enum(DOCUMENT_SLOTS), id: z.string() })),
-	/** Agent: folders given to it. Person: their team's folders. */
+	/** Agent: folders given to it. Person: the folders of every team they are in. */
 	folders: z.array(FolderViewSchema),
 	subscriptions: z.array(SubscriptionViewSchema),
-	/** Self only. */
+	/** Yourself, or an agent: the services its sessions get — its owner's, or the first person's for an agent no one owns. */
 	connections: z
 		.object({
 			connections: z.array(ConnectionViewSchema),
@@ -276,12 +288,6 @@ export const UserViewSchema = z.object({
 		.nullable(),
 	/** Self only, newest 50. */
 	inbox: z.array(InboxRowViewSchema).nullable(),
-	/**
-	 * Agent only — derived trust signal from verdict-message history over a
-	 * fixed 30-day window. `null` for a person, or when the caller wired no
-	 * reviewTrackRecord reader.
-	 */
-	reviewTrackRecord: ReviewTrackRecordSchema.nullable(),
 });
 export type UserView = z.infer<typeof UserViewSchema>;
 
@@ -294,8 +300,6 @@ export const openUser: ActionDeclaration<OpenUserInput, UserView> = {
 	input: OpenUserInputSchema,
 	output: UserViewSchema,
 };
-
-const EditUserTeamRefSchema = z.object({ name: z.string().min(1) }).strict();
 
 const EditUserRunConfigSchema = z
 	.object({
@@ -320,11 +324,13 @@ const EditUserEdgesSchema = z
 
 const EditUserFoldersSchema = z
 	.object({
-		/** `POST /filesystems` body, minus `teamId` — implied by the caller. */
+		/** `POST /filesystems` body, with the team named rather than given by id. */
 		add: z
 			.array(
 				z
 					.object({
+						/** One of this user's teams, by name — needed only when they are in several. */
+						team: z.string().min(1).optional(),
 						kind: z.enum(["code", "doc_set"]),
 						resourceRef: FolderResourceRefSchema,
 						writeback: z.enum(["git", "file", "none"]),
@@ -358,14 +364,23 @@ const EditUserConnectionsSchema = z
 			)
 			.optional(),
 		remove: z.array(z.string().min(1)).optional(),
+		/** On an agent: let it reach these services of its owner again. */
+		give: z.array(z.string().min(1)).optional(),
+		/** On an agent: keep these services of its owner from it. */
+		take: z.array(z.string().min(1)).optional(),
 	})
 	.strict();
 
 const AddSubscriptionSchema = z
 	.object({
-		event: z.enum(OBJECT_EVENTS).optional(),
+		event: z.enum(SUBSCRIPTION_EVENTS).optional(),
+		/** Follow one task, thread or document: only the event about it fires. Needs `event`. */
+		objectId: z.string().min(1).optional(),
 		schedule: z.string().min(1).optional(),
+		/** What it makes an agent do, as a document; `""` makes the document empty, to be written next. */
 		prompt: z.string().nullable().optional(),
+		/** The name of what it does — the title of its prompt document. */
+		title: z.string().min(1).optional(),
 		paused: z.boolean().optional(),
 	})
 	.strict();
@@ -374,7 +389,7 @@ export type AddSubscriptionInput = z.infer<typeof AddSubscriptionSchema>;
 const ChangeSubscriptionSchema = z
 	.object({
 		id: z.string().min(1),
-		event: z.enum(OBJECT_EVENTS).optional(),
+		event: z.enum(SUBSCRIPTION_EVENTS).optional(),
 		schedule: z.string().min(1).optional(),
 		prompt: z.string().nullable().optional(),
 		paused: z.boolean().optional(),
@@ -406,16 +421,21 @@ export const EditUserInputSchema = z
 		role: z.string().optional(),
 		/** Someone's craft. Explicit only — never inherited. `null` clears it. */
 		discipline: z.string().nullable().optional(),
+		/** What they do, in a few words. `null` clears it. */
+		what: z.string().nullable().optional(),
 		avatarUrl: z.string().nullable().optional(),
 		status: z.enum(USER_STATUSES).optional(),
 		health: z.string().nullable().optional(),
-		/** Found by name (oldest), or created. */
-		team: EditUserTeamRefSchema.optional(),
+		/** Every team this user is in, by name — each found (oldest) or created. Replaces the whole list. */
+		teams: z.array(z.string().min(1)).optional(),
 		/** Create-only, agents. */
 		ownerUserId: z.string().min(1).optional(),
 		/** Create-only, agents; default: owned → "individual", else "team". */
 		agentCategory: z.enum(AGENT_CATEGORIES).optional(),
-		/** Create-only, agents. `null`/`undefined` distinguish "no document" from "not touched". */
+		/**
+		 * Who an agent is, or a person's About: their `agent_file` document. Makes it with this text
+		 * when there is none yet; never overwrites one that exists — that is edited as a document.
+		 */
 		identity: z.string().nullable().optional(),
 		runConfig: EditUserRunConfigSchema.optional(),
 		edges: EditUserEdgesSchema.optional(),
@@ -431,8 +451,9 @@ export type EditUserInput = z.infer<typeof EditUserInputSchema>;
 export const editUser: ActionDeclaration<EditUserInput, UserView> = {
 	name: "edit_user",
 	sentence:
-		"Write a user, new or existing: no id creates — a person, or an agent with an owner or a " +
-		"team. Name, role, team (by name — created if it does not exist), status, who they report " +
+		"Write a user, new or existing: no id creates — a person, or an agent, owned by a person " +
+		"or not. Name, role, teams (by name — created if they do not exist; a person may be in " +
+		"several, an agent in exactly one), status, who they report " +
 		"to, harness and model, folders given or taken, connections added or removed, subscriptions " +
 		"added, changed, paused or removed, inbox rows marked read.",
 	input: EditUserInputSchema,
@@ -447,7 +468,59 @@ export const USER_ACTIONS = {
 
 // Pure invariants — DB-dependent problems (not_found, unknown_actor, etc.) belong in edit_user.run, not here.
 
-/** `kind_required`, `name_required`, `belonging_required`, `owned_agent_has_no_team`,
+const BELONGING_REQUIRED: Problem = {
+	code: "belonging_required",
+	message: "Every user is in at least one team — name one.",
+	path: "teams",
+};
+
+const AGENT_ONE_TEAM: Problem = {
+	code: "agent_one_team",
+	message: "An agent is in exactly one team.",
+	path: "teams",
+};
+
+/** Who a team-membership check is about, once `edit_user.run` has read what the input alone cannot say. */
+export interface TeamMembershipSubject {
+	readonly kind: string;
+	/** The teams the user is in after this edit. */
+	readonly teams: readonly string[];
+	/** An owned agent's owner's teams; `null` for a person or an agent no one owns. */
+	readonly ownerTeams: readonly string[] | null;
+	/** A person's owned agents' teams — each must stay one of theirs. */
+	readonly ownedAgentTeams: readonly string[];
+}
+
+/** `belonging_required`, `agent_one_team`, `agent_team_not_owners` — every user is in at
+ * least one team, an agent in exactly one, and an owned agent only in one of its owner's. */
+export function teamMembershipProblems(subject: TeamMembershipSubject): Problem[] {
+	const teams = new Set(subject.teams);
+	if (teams.size === 0) return [BELONGING_REQUIRED];
+	if (subject.kind === "ai" && teams.size > 1) return [AGENT_ONE_TEAM];
+	const ownerTeams = subject.ownerTeams;
+	if (ownerTeams !== null && ![...teams].every((t) => ownerTeams.includes(t))) {
+		return [
+			{
+				code: "agent_team_not_owners",
+				message: "An owned agent is in one of its owner's teams.",
+				path: "teams",
+			},
+		];
+	}
+	if (subject.ownedAgentTeams.some((t) => !teams.has(t))) {
+		return [
+			{
+				code: "agent_team_not_owners",
+				message:
+					"One of this person's agents is in a team they would leave — move the agent first.",
+				path: "teams",
+			},
+		];
+	}
+	return [];
+}
+
+/** `kind_required`, `name_required`, `belonging_required`, `agent_one_team`,
  * `person_has_no_owner`, `agent_fields_for_agents` — only meaningful on a create (no `id`). */
 function createUserInvariants(input: EditUserInput): Problem[] {
 	const problems: Problem[] = [];
@@ -461,20 +534,8 @@ function createUserInvariants(input: EditUserInput): Problem[] {
 	if (input.name === undefined || input.name.trim().length === 0) {
 		problems.push({ code: "name_required", message: "A user needs a name.", path: "name" });
 	}
-	if (input.team === undefined && input.ownerUserId === undefined) {
-		problems.push({
-			code: "belonging_required",
-			message: "Every user is in a team, or owned by one who is — name one.",
-			path: "team",
-		});
-	}
-	if (input.ownerUserId !== undefined && input.team !== undefined) {
-		problems.push({
-			code: "owned_agent_has_no_team",
-			message: "An owned agent takes its owner's team — do not name one of its own.",
-			path: "team",
-		});
-	}
+	if (input.teams === undefined || input.teams.length === 0) problems.push(BELONGING_REQUIRED);
+	if (input.kind === "ai" && new Set(input.teams).size > 1) problems.push(AGENT_ONE_TEAM);
 	if (input.kind === "human" && input.ownerUserId !== undefined) {
 		problems.push({
 			code: "person_has_no_owner",
@@ -484,26 +545,24 @@ function createUserInvariants(input: EditUserInput): Problem[] {
 	}
 	if (
 		input.kind === "human" &&
-		(input.identity !== undefined ||
-			input.agentCategory !== undefined ||
-			input.runConfig !== undefined)
+		(input.agentCategory !== undefined || input.runConfig !== undefined)
 	) {
 		problems.push({
 			code: "agent_fields_for_agents",
-			message: "Identity, category and run config belong to an agent, not a person.",
-			path: "identity",
+			message: "Category and run config belong to an agent, not a person.",
+			path: "runConfig",
 		});
 	}
 	return problems;
 }
 
-/** `name_required`, `kind_is_create_only`, `owner_is_create_only`, `identity_is_create_only` —
- * only meaningful on an edit (`id` given). */
+/** `name_required`, `kind_is_create_only`, `owner_is_create_only` — only meaningful on an edit (`id` given). */
 function editExistingUserInvariants(input: EditUserInput): Problem[] {
 	const problems: Problem[] = [];
 	if (input.name !== undefined && input.name.trim().length === 0) {
 		problems.push({ code: "name_required", message: "A user needs a name.", path: "name" });
 	}
+	if (input.teams !== undefined && input.teams.length === 0) problems.push(BELONGING_REQUIRED);
 	if (input.kind !== undefined) {
 		problems.push({
 			code: "kind_is_create_only",
@@ -516,13 +575,6 @@ function editExistingUserInvariants(input: EditUserInput): Problem[] {
 			code: "owner_is_create_only",
 			message: "An agent's owner cannot change after it is created.",
 			path: "ownerUserId",
-		});
-	}
-	if (input.identity !== undefined) {
-		problems.push({
-			code: "identity_is_create_only",
-			message: "An agent's identity is set at creation; edit its identity document afterwards.",
-			path: "identity",
 		});
 	}
 	return problems;
@@ -538,6 +590,22 @@ function subscriptionInvariants(input: EditUserInput): Problem[] {
 			problems.push({
 				code: "event_or_schedule",
 				message: "A subscription fires on exactly one of an event or a schedule.",
+				path: "subscriptions",
+			});
+		}
+		if (subscription.objectId !== undefined && !hasEvent) {
+			problems.push({
+				code: "follow_needs_event",
+				message: "Following one object needs the event to hear about it.",
+				path: "subscriptions",
+			});
+		} else if (
+			subscription.objectId !== undefined &&
+			(PERSON_REASONS as readonly string[]).includes(subscription.event ?? "")
+		) {
+			problems.push({
+				code: "follow_needs_object_event",
+				message: "Following one object needs an event about objects, not a reason.",
 				path: "subscriptions",
 			});
 		}

@@ -17,7 +17,14 @@
  * reaction (session admission itself is a different layer, out of scope).
  */
 
-import { type HyperIdleDb, taskDispatchAttempts, tasks, teams, users } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	taskDispatchAttempts,
+	tasks,
+	teams,
+	users,
+	userTeams,
+} from "@hyperidle/db";
 import type { SessionStartedEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -93,10 +100,10 @@ async function seedRunnableAgent(db: HyperIdleDb, agentId: string, teamId: strin
 		kind: "ai",
 		name: "Runnable Agent",
 		role: "builder",
-		teamId,
 		status: "active",
 		createdAt: NOW,
 	});
+	await db.insert(userTeams).values({ userId: agentId, teamId });
 }
 
 describe("last dependency finishes, agent owns it -> in_progress with no human action", () => {

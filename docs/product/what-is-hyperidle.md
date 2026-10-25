@@ -1,8 +1,8 @@
 # What is HyperIdle?
 
-HyperIdle is an operating system for AI-first companies. It handles the organizational layer between "we have AI agents" and "the agents are shipping product" — teams, knowledge, human oversight. Agents execute. Humans validate. Knowledge compounds.
+HyperIdle is an operating system for AI-first companies. It handles what sits between "we have AI agents" and "the agents are shipping product": teams, knowledge, and people checking the work. Agents do the work. People check it. Knowledge builds up.
 
-It does not call models or execute tools — those belong to the agent harnesses, which are real CLIs you install and sign into yourself: `claude` (claude-code), `codex`, `opencode`, `cursor-agent`. HyperIdle manages the structure around them: who works on what, what they know, how they coordinate, and how humans stay in the loop. There is no API key to configure in HyperIdle — every harness uses its own login.
+It does not call models or run tools itself — that is the job of the agent programs, real command-line tools you install and sign in to yourself: `claude` (Claude Code), `codex`, `opencode`, `cursor-agent`. HyperIdle handles everything around them: who works on what, what they know, how they work together, and where people step in. There is no API key to set in HyperIdle — each program uses its own login.
 
 ---
 
@@ -18,9 +18,9 @@ HyperIdle solves the organizational problem.
 
 ## Three things the system does
 
-**Teams accumulate context.** A team is a named group of agents and humans. What they learn on one task is available the next time. The tenth task is faster than the first because the accumulated knowledge from nine previous tasks is present at session start.
+**Teams accumulate context.** There is one organisation; a team is a named group inside it — a product team, a function, or a group across functions. A person can be in several teams, an agent in one, and everyone reads every team's knowledge. What they learn on one task is available the next time. The tenth task is faster than the first because the accumulated knowledge from nine previous tasks is present at session start.
 
-**Humans validate, agents execute.** Agents handle execution. When an agent needs a decision from a human, it sends a review message and waits. Humans give verdicts — approve, request changes, reject — and the agent resumes. What each agent has done is visible; you see every change.
+**People check, agents work.** Agents do the work. When an agent needs a decision from a person, it sends a review or a question and waits. People give verdicts — approve, or reject with a reason — and the agent resumes. What each agent has done is visible; you see every change.
 
 **Knowledge compounds.** Documents are stored in one place, scoped by who can see them, and curated over time. Agents read and write the same store as humans. See [How Knowledge Compounds](./how-knowledge-compounds.md).
 
@@ -28,22 +28,34 @@ HyperIdle solves the organizational problem.
 
 ## How opinions come in: plugins
 
-A fresh HyperIdle install has you and one assistant. That assistant is subscribed to every object event and wakes up to help whenever something changes.
+A fresh install has you, your team and one agent, Builder, running on an agent program signed in on
+your computer. Builder is subscribed to every change, so anything that happens can wake it. It
+says hello in your first conversation.
 
-Opinionated team agents — a Builder, a Product Manager, a Designer — come from plugins. The bundled **role-personas** plugin (install from **Settings → Plugins**) brings seven shaped team agents ready to work. The **document-management** plugin adds a Document Librarian that triages and curates your knowledge on a schedule.
+Opinionated team agents — a Builder, a Product Manager, a Designer and more — come from plugins,
+added on a team's page. The bundled **role-personas** plugin brings seven team agents with set
+roles. The **document-management** plugin adds a Document Librarian that sorts and tidies your
+knowledge on a schedule. What a plugin adds are ordinary agents and documents, yours to change. See
+[plugins.md](../architecture/plugins.md).
 
-You are not locked to these. Any agent can be added by hand with a name, a discipline, and a harness.
+You are not tied to these. Any agent can be added by hand with a name, a discipline and the program
+it runs on.
 
 ---
 
 ## The app
 
-HyperIdle ships as a macOS desktop application (Electron) or as a self-hosted web server. Four entries in the sidebar:
+HyperIdle ships as a macOS desktop app or as a self-hosted web server. One sidebar, one page:
 
-- **Conversations** — threads where agents and humans collaborate; where reviews happen.
-- **Work** — tasks planned and tracked. What every agent is doing and what is blocked.
-- **Knowledge** — the team's shared document store.
-- **Notifications** — your inbox, fed by your own subscriptions.
+- **Find or ask** (⌘K) — find anything, or ask an agent.
+- **The bell** — what happened in things you follow.
+- **Conversations** — threads where agents and people work together; where questions and reviews
+  arrive.
+- **Work** — tasks, which agents own, per team.
+- **Knowledge** — the documents, one space per team.
+- **You** — your own page: what waits for you, and your settings.
+
+See [interface/overview.md](../interface/overview.md).
 
 ---
 
@@ -60,4 +72,4 @@ A bad fit: you want to automate a single workflow. Use n8n or Zapier.
 
 ---
 
-Next: [How Work Flows](./how-work-flows.md) — tasks, sessions, reviews, and subscriptions.
+Next: [How Work Flows](./how-work-flows.md) — tasks, sessions, reviews and subscriptions.

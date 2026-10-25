@@ -394,6 +394,7 @@ function projectFacts(facts: readonly InheritedConnectionFact[]): ServiceConnect
 			authSource: "inherited",
 			health: fact.health === "needs-attention" ? "needs-attention" : "working",
 			removable: false,
+			withheldFrom: [],
 		});
 	}
 	return result;

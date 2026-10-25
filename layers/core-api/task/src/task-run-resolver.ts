@@ -2,14 +2,51 @@ import type { HyperIdleDb, Task, Team, User } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
+	DoneWhenLine,
+	Reason,
 	SessionDocumentLike,
 } from "@hyperidle/domain-model";
-import { bakeAgentRunnableConfig, toBakedContextDocuments } from "@hyperidle/domain-model";
+import {
+	bakeAgentRunnableConfig,
+	DoneWhenLineSchema,
+	ReasonSchema,
+	toBakedContextDocuments,
+} from "@hyperidle/domain-model";
 import * as work from "./task-service.js";
 import { taskDispatchAttemptStore } from "./task-service.js";
 
+function parseDoneWhen(json: string): readonly DoneWhenLine[] {
+	try {
+		const parsed: unknown = JSON.parse(json);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.flatMap((item) => {
+			const r = DoneWhenLineSchema.safeParse(item);
+			return r.success ? [r.data] : [];
+		});
+	} catch {
+		return [];
+	}
+}
+
+function parseReasons(json: string): readonly Reason[] {
+	try {
+		const parsed: unknown = JSON.parse(json);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.flatMap((item) => {
+			const r = ReasonSchema.safeParse(item);
+			return r.success ? [r.data] : [];
+		});
+	} catch {
+		return [];
+	}
+}
+
 export interface TaskRunResolverDeps {
-	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+	/** The agent with its one team — `null` only for a factory-wide agent. */
+	requireRunnableAgent(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<User & { readonly teamId: string | null }>;
 	/** Required — a required port turns missing wiring into a compile error. */
 	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
 	getTeamById?(db: HyperIdleDb, id: string): Promise<Team | undefined>;
@@ -67,14 +104,15 @@ export async function bakeTaskContextBundle(
 			title: task.title,
 			description: task.description,
 			state: task.state,
-			doneCondition: task.doneCondition,
+			doneWhen: parseDoneWhen(task.doneWhen),
+			reasons: parseReasons(task.reasons),
 		},
 		// Root-first, so the agent reads the goal chain top-down.
 		ancestors: ancestors.map((a) => ({
 			id: a.id,
 			title: a.title,
 			description: a.description,
-			doneCondition: a.doneCondition,
+			doneWhen: parseDoneWhen(a.doneWhen),
 		})),
 		agent: { id: agent.id, name: agent.name, role: agent.role },
 		team: { id: team.id, name: team.name },

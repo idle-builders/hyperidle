@@ -17,6 +17,7 @@ import {
 	composeApiApplication,
 	createInProcessAgentOrchestrationTransport,
 	health,
+	installedPluginsDir,
 	registerAgentLayerServices,
 	registerCoreDomainServices,
 } from "@hyperidle/core-api";
@@ -144,10 +145,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			dbHandle = createPostgresDb(dbUrl);
 		}
 		db = dbHandle.db;
-		// NOT "plugins": beside a dev checkout's database that is the repo's own
-		// plugin SOURCE directory, and install `rmSync`s the destination before
-		// copying — so installing would delete the sources it was built from.
-		pluginsBaseDir = path.join(path.dirname(dbUrl), "installed-plugins");
+		pluginsBaseDir = installedPluginsDir(dbUrl);
 	}
 
 	// @lore: factory bootstrap — applyFactoryCoreState inserts system:propagation actor; idempotent; must run before any write

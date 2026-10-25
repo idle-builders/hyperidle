@@ -15,14 +15,6 @@ export const DOCUMENT_STATUS_LABEL: Record<DocumentStatus, string> = {
 export const DOCUMENT_SLOTS = ["ordinary", "skill", "rule", "agent_file", "prompt"] as const;
 export type DocumentSlot = (typeof DOCUMENT_SLOTS)[number];
 
-export const DOCUMENT_SLOT_LABEL: Record<DocumentSlot, string> = {
-	ordinary: "Knowledge",
-	skill: "Skill",
-	rule: "Rule",
-	agent_file: "Identity",
-	prompt: "Prompt",
-};
-
 export const DOCUMENT_PARENT_KINDS = [
 	"document",
 	"task",
@@ -64,6 +56,8 @@ export const DocumentRowSchema = z.object({
 	 * against an agent's own `discipline`.
 	 */
 	discipline: z.string().nullable(),
+	/** The emoji it shows in the tree and before its title; null shows the plain page mark. */
+	icon: z.string().nullable(),
 	/** Derived, never stored — see `documentAs` below. */
 	as: z.enum(DOCUMENT_AS),
 });
@@ -128,6 +122,8 @@ export const DocumentViewSchema = z.object({
 	siblings: z.array(DocumentRowSchema),
 	/** Human-readable scope: "Factory" / a team name / a person's name. Response-only. */
 	scopeName: z.string(),
+	/** How many others follow it — they are told when it changes. */
+	followers: z.number().int().nonnegative(),
 });
 export type DocumentView = z.infer<typeof DocumentViewSchema>;
 
@@ -157,6 +153,8 @@ export const EditDocumentInputSchema = z
 		 * parent folder. `null` clears it back to "reaches everyone".
 		 */
 		discipline: z.string().nullable().optional(),
+		/** One emoji; `null` clears it. */
+		icon: z.string().min(1).max(16).nullable().optional(),
 		/** A move. `null` ⇒ to the top of the tree. Absent ⇒ no move. */
 		parent: z
 			.object({
@@ -175,7 +173,7 @@ export type EditDocumentInput = z.infer<typeof EditDocumentInputSchema>;
 export const editDocument: ActionDeclaration<EditDocumentInput, DocumentView> = {
 	name: "edit_document",
 	sentence:
-		"Write a document, new or existing: its title, text, status, scope, where it sits. " +
+		"Write a document, new or existing: its title, text, icon, status, scope, where it sits. " +
 		'Say `as: "memory"` for a private note only you get back, `as: "artifact"` for output of ' +
 		'the task or conversation you are in, `as: "document"` for the shared tree. ' +
 		"Pass the version you read to be told if someone else saved first.",
@@ -211,9 +209,10 @@ export function documentAs(row: {
 
 // @lore: canReadDocument — shared with ws-subscribe-authorizer.ts; socket and read visibility must match; non-ordinary slot skips user-privacy check
 
+/** Everyone reads every team's documents; only a private, ordinary-slot user document is
+ * limited to its own user (and whoever owns that user). */
 export function canReadDocument(
 	subjects: readonly string[],
-	viewerTeamId: string | null,
 	row: {
 		readonly parentKind: string | null;
 		readonly scopeKind: string;
@@ -222,19 +221,11 @@ export function canReadDocument(
 	},
 ): boolean {
 	if (row.parentKind === "task" || row.parentKind === "thread") return true;
-	const notPrivateOrOwned =
+	return (
 		row.scopeKind !== "user" ||
 		row.slot !== "ordinary" ||
-		(row.scopeId !== null && subjects.includes(row.scopeId));
-	// Compared on a non-null `scopeId` — a `team`-scoped row with a NULL
-	// `scopeId` (a reconcile gap the migration can leave behind)
-	// must not read as "matches a team-less viewer" just because both sides
-	// are `null`. The SQL twin (`document-store.ts`'s `visibilityPredicate`)
-	// already gets this right via `eq(scopeId, viewerTeamId)`, which SQL NULL
-	// semantics turn false whenever either side is NULL.
-	const notTeamOrMatchesViewer =
-		row.scopeKind !== "team" || (row.scopeId !== null && row.scopeId === viewerTeamId);
-	return notPrivateOrOwned && notTeamOrMatchesViewer;
+		(row.scopeId !== null && subjects.includes(row.scopeId))
+	);
 }
 
 // Pure invariants — run in the browser and again on the server. DB-dependent invariants run inside edit_document.run.
@@ -250,6 +241,7 @@ const CONTENT_FIELDS = [
 	"scopeKind",
 	"scopeId",
 	"discipline",
+	"icon",
 	"parent",
 	"position",
 ] as const satisfies readonly (keyof EditDocumentInput)[];

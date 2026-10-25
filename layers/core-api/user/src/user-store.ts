@@ -5,12 +5,16 @@ import {
 	type NewUser,
 	type User,
 	users,
+	userTeams,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import { and, eq, inArray, ne, type SQL, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, ne, type SQL, sql } from "drizzle-orm";
 
 /** Per-column patch that also admits SQL expressions (e.g. cost coalesce). */
 type UserPatch = Partial<{ [K in keyof NewUser]: NewUser[K] | SQL }>;
+
+/** A user row with the ids of every team they are in, id order — one for an agent. */
+export type UserWithTeams = User & { readonly teamIds: readonly string[] };
 
 // ===========================================================================
 // Filter type + WHERE builder
@@ -24,7 +28,7 @@ type UserPatch = Partial<{ [K in keyof NewUser]: NewUser[K] | SQL }>;
  * - `id` — exact match on `users.id` (LIMIT 1 enforced by `findUser`)
  * - `ids` — `users.id IN (...)` — ignored when the array is empty (returns [])
  * - `kind` — exact match on `users.kind`
- * - `teamIds` — `users.teamId IN (...)` — ignored when the array is empty
+ * - `teamIds` — in any of these teams — ignored when the array is empty
  * - `role` — exact match on `users.role`
  * - `status` — exact match on `users.status`
  * - `nameContains` — case-insensitive substring match on `users.name`
@@ -52,8 +56,11 @@ function buildWhere(filter: UserFilter): SQL | undefined {
 	if (filter.id !== undefined) preds.push(eq(users.id, filter.id));
 	if (filter.ids !== undefined && filter.ids.length > 0) preds.push(inArray(users.id, filter.ids));
 	if (filter.kind !== undefined) preds.push(eq(users.kind, filter.kind));
-	if (filter.teamIds !== undefined && filter.teamIds.length > 0)
-		preds.push(inArray(users.teamId, filter.teamIds));
+	if (filter.teamIds !== undefined && filter.teamIds.length > 0) {
+		preds.push(
+			sql`${users.id} IN (SELECT ${userTeams.userId} FROM ${userTeams} WHERE ${inArray(userTeams.teamId, filter.teamIds)})`,
+		);
+	}
 	if (filter.role !== undefined) preds.push(eq(users.role, filter.role));
 	if (filter.status !== undefined) preds.push(eq(users.status, filter.status));
 	if (filter.ownerUserId !== undefined) preds.push(eq(users.ownerUserId, filter.ownerUserId));
@@ -76,26 +83,38 @@ function buildWhere(filter: UserFilter): SQL | undefined {
 // General read interface (subsumes all 14 former per-intent variants)
 // ===========================================================================
 
+// A correlated subquery, not a join: no GROUP BY, so rows keep the order callers already rely on.
+function selectUsersWithTeams(exec: HyperIdleDb, filter: UserFilter) {
+	const teamIds = sql<
+		string[]
+	>`(SELECT COALESCE(ARRAY_AGG(${userTeams.teamId} ORDER BY ${userTeams.teamId}), '{}') FROM ${userTeams} WHERE ${userTeams.userId} = ${users.id})`;
+	return exec
+		.select({ ...getTableColumns(users), teamIds })
+		.from(users)
+		.where(buildWhere(filter));
+}
+
 /**
  * Return the first user matching `filter` (LIMIT 1), or `undefined`.
-
  */
-export async function findUser(exec: HyperIdleDb, filter: UserFilter): Promise<User | undefined> {
-	const [row] = await exec.select().from(users).where(buildWhere(filter)).limit(1);
+export async function findUser(
+	exec: HyperIdleDb,
+	filter: UserFilter,
+): Promise<UserWithTeams | undefined> {
+	const [row] = await selectUsersWithTeams(exec, filter).limit(1);
 	return row;
 }
 
 /**
  * Return all users matching `filter` (no LIMIT).
  * Pass no filter (or `{}`) to list every user row.
-
  */
-export function listUsers(exec: HyperIdleDb, filter: UserFilter = {}): Promise<User[]> {
+export function listUsers(exec: HyperIdleDb, filter: UserFilter = {}): Promise<UserWithTeams[]> {
 	// Fast-path: an empty ids/teamIds array can never match any row.
 	if (filter.ids !== undefined && filter.ids.length === 0) return Promise.resolve([]);
 	if (filter.teamIds !== undefined && filter.teamIds.length === 0) return Promise.resolve([]);
 
-	const q = exec.select().from(users).where(buildWhere(filter));
+	const q = selectUsersWithTeams(exec, filter);
 	if (filter.orderById) return q.orderBy(users.id);
 	return q;
 }
@@ -106,6 +125,19 @@ export function listUsers(exec: HyperIdleDb, filter: UserFilter = {}): Promise<U
 
 export async function insertUser(exec: WriteExecutor, values: NewUser): Promise<void> {
 	await exec.insert(users).values(values);
+}
+
+/** Put a user in exactly these teams, replacing whatever they were in. */
+export async function setUserTeams(
+	exec: WriteExecutor,
+	userId: string,
+	teamIds: readonly string[],
+): Promise<void> {
+	await exec.delete(userTeams).where(eq(userTeams.userId, userId));
+	const unique = [...new Set(teamIds)];
+	if (unique.length > 0) {
+		await exec.insert(userTeams).values(unique.map((teamId) => ({ userId, teamId })));
+	}
 }
 
 export async function updateUser(exec: HyperIdleDb, id: string, patch: UserPatch): Promise<void> {
@@ -122,11 +154,11 @@ export async function getOrCreateUser(
 	exec: HyperIdleDb,
 	id: string,
 	create: NewUser,
-): Promise<User> {
-	const [existing] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
+): Promise<UserWithTeams> {
+	const existing = await findUser(exec, { id });
 	if (existing) return existing;
 	await insertUser(exec, create);
-	const [created] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
+	const created = await findUser(exec, { id });
 	if (!created) {
 		throw new Error(`getOrCreateUser: user ${id} missing immediately after insert`);
 	}

@@ -10,14 +10,26 @@
 
 import { type NewUser, users, type WriteExecutor } from "@hyperidle/db";
 import { inArray } from "drizzle-orm";
+import { setUserTeams } from "./user-store.js";
 
 /**
- * Insert a user row, doing nothing if a row with the same id already exists.
- * Idempotent counterpart to `insertUser` — factory bootstrap runs on every
- * launch and must not throw on an existing row.
+ * Insert a user row in `teamId`'s team (or no team, for the system actor and
+ * a factory-wide plugin agent), doing nothing if a row with the same id
+ * already exists — its teams included, so a reinstall never undoes a move to
+ * another team. Idempotent counterpart to `insertUser` — factory bootstrap
+ * runs on every launch and must not throw on an existing row.
  */
-export async function insertUserIfAbsent(exec: WriteExecutor, values: NewUser): Promise<void> {
-	await exec.insert(users).values(values).onConflictDoNothing();
+export async function insertUserIfAbsent(
+	exec: WriteExecutor,
+	values: NewUser,
+	teamId: string | null = null,
+): Promise<void> {
+	const inserted = await exec
+		.insert(users)
+		.values(values)
+		.onConflictDoNothing()
+		.returning({ id: users.id });
+	if (inserted.length > 0 && teamId !== null) await setUserTeams(exec, values.id, [teamId]);
 }
 
 /**

@@ -75,7 +75,8 @@ function describe(
 
 		return {
 			type,
-			name: meta.name,
+			// A program is named the way people know it, whatever the pool registered it as.
+			name: KNOWN_HARNESS_NAMES[type],
 			kind: meta.kind,
 			authAction: caps.authAction ?? {
 				kind: "native_cli_login",

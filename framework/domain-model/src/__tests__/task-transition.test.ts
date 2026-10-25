@@ -34,10 +34,10 @@ describe("task transition contract", () => {
 
 	/**
 	 * `done` must also be reachable from every non-terminal state.
-	 * When `task.needsReview = false`, the parent auto-completion cascade
-	 * transitions the parent directly to `done`, bypassing `review`. Without
-	 * these edges, a container in `accepted` with needsReview=false had no
-	 * legal path to `done` and the cascade threw InvalidTransitionError.
+	 * When a task has no doneWhen line with by:"review", the parent auto-completion
+	 * cascade transitions the parent directly to `done`, bypassing `review`. Without
+	 * these edges, a container in `accepted` with no review line had no legal path
+	 * to `done` and the cascade threw InvalidTransitionError.
 	 */
 	it("allows done from every non-terminal state (parent auto-completion)", () => {
 		const nonTerminal = ["proposed", "accepted", "hold", "in_progress", "blocked"] as const;

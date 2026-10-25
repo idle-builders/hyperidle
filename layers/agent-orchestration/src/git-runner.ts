@@ -57,10 +57,6 @@ interface GitRunner {
 	 * Restores tracked files to HEAD state in the index (unstage).
 	 */
 	restoreStaged(paths: readonly string[]): Promise<void>;
-	/**
-	 * Returns the checked-out branch name, or `null` for detached HEAD, no commits, or git error. Never throws.
-	 */
-	currentBranch(): Promise<string | null>;
 }
 
 interface SpawnResult {
@@ -317,17 +313,6 @@ export function createGitRunner(repoPath: string): GitRunner {
 					throw new Error(`git restore --staged: path must not start with '-' (got: '${p}')`);
 			}
 			await runExpectOk(["restore", "--staged", "--", ...paths], localMs);
-		},
-		async currentBranch(): Promise<string | null> {
-			try {
-				const result = await run(["rev-parse", "--abbrev-ref", "HEAD"], localMs);
-				if (result.exitCode !== 0) return null;
-				const branch = result.stdout.trim();
-				if (branch === "" || branch === "HEAD") return null;
-				return branch;
-			} catch {
-				return null;
-			}
 		},
 	};
 }

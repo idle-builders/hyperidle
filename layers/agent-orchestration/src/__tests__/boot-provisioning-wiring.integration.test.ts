@@ -14,8 +14,10 @@ import {
 	filesystems,
 	type HyperIdleDb,
 	serviceConnections,
+	serviceConnectionWithholds,
 	teams,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import {
 	describe,
@@ -53,7 +55,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			name: "Owner",
 			role: "founder",
 			status: "active",
-			teamId: TEAM_ID,
 			createdAt: OWNER_CREATED_AT,
 		},
 		{
@@ -62,7 +63,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			name: "Other Human",
 			role: "member",
 			status: "active",
-			teamId: TEAM_ID,
 			createdAt: OTHER_CREATED_AT,
 		},
 		{
@@ -71,10 +71,12 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			name: "Target Agent",
 			role: "builder",
 			status: "active",
-			teamId: TEAM_ID,
 			createdAt: OWNER_CREATED_AT,
 		},
 	]);
+	await db.insert(userTeams).values({ userId: OWNER_ID, teamId: TEAM_ID });
+	await db.insert(userTeams).values({ userId: OTHER_HUMAN_ID, teamId: TEAM_ID });
+	await db.insert(userTeams).values({ userId: AGENT_ID, teamId: TEAM_ID });
 	await db.insert(serviceConnections).values([
 		{
 			id: "sc-provisioning-wiring-owner",
@@ -203,7 +205,9 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(db);
 		try {
 			const rows =
-				(await agentOrchestration.provisioning?.heldConnections?.listHeldForProvisioning()) ?? [];
+				(await agentOrchestration.provisioning?.heldConnections?.listHeldForProvisioning(
+					AGENT_ID,
+				)) ?? [];
 			expect(rows.map((row) => row.id)).toEqual(["sc-provisioning-wiring-owner"]);
 			expect(rows[0]?.userId).toBe(OWNER_ID);
 
@@ -222,13 +226,27 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 				updatedAt: OWNER_CREATED_AT,
 			});
 			const afterAdd =
-				(await agentOrchestration.provisioning?.heldConnections?.listHeldForProvisioning()) ?? [];
+				(await agentOrchestration.provisioning?.heldConnections?.listHeldForProvisioning(
+					AGENT_ID,
+				)) ?? [];
 			expect(afterAdd.map((row) => row.id).sort()).toEqual([
 				"sc-provisioning-wiring-added-after-boot",
 				"sc-provisioning-wiring-owner",
 			]);
 			// The second human's row is in neither read.
 			expect(afterAdd.some((row) => row.userId === OTHER_HUMAN_ID)).toBe(false);
+
+			// Taken from this agent: it is no longer in its sessions.
+			await db.insert(serviceConnectionWithholds).values({
+				connectionId: "sc-provisioning-wiring-owner",
+				agentUserId: AGENT_ID,
+				createdAt: OWNER_CREATED_AT,
+			});
+			const afterTake =
+				(await agentOrchestration.provisioning?.heldConnections?.listHeldForProvisioning(
+					AGENT_ID,
+				)) ?? [];
+			expect(afterTake.map((row) => row.id)).toEqual(["sc-provisioning-wiring-added-after-boot"]);
 		} finally {
 			await agentOrchestration.disposeRuntime?.();
 			agentOrchestration.dispose();

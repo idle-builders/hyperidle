@@ -4,10 +4,11 @@ import { createLogger } from "@hyperidle/diagnostics";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool } from "@hyperidle/harness-protocol";
-import { checkAndUnblockDependents } from "@hyperidle/task";
+import { checkAndUnblockDependents, registerTaskLiveUpdates } from "@hyperidle/task";
 import {
 	createUpgradeTokenStore,
 	registerSubscriptionFire,
+	registerUserLiveUpdates,
 	startSubscriptionClock,
 	type UpgradeTokenStore,
 } from "@hyperidle/user";
@@ -19,6 +20,7 @@ import { buildCoreActions, runnerFor } from "./actions/compose.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { authHealth } from "./routes/health.js";
 import { createSearchRoutes } from "./routes/search.js";
+import { createStartRoutes } from "./routes/start.js";
 import {
 	buildSeamBackedReviewVerdictRecorder,
 	buildSeamBackedWorkIntentRecorder,
@@ -295,7 +297,13 @@ function registerSubscriptionServices(
 		searchDocuments: runners.searchDocumentsRun,
 		assembleSessionDocuments,
 	});
-	return [unsubSubscriptionFire, subscriptionClock.stop];
+	return [
+		unsubSubscriptionFire,
+		subscriptionClock.stop,
+		...(wsPush
+			? [registerTaskLiveUpdates(db, eventBus, wsPush), registerUserLiveUpdates(eventBus, wsPush)]
+			: []),
+	];
 }
 
 // Create core-api's route table. Every path is RELATIVE — Application mounts at /api.
@@ -394,11 +402,12 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				readonly id: string;
 				readonly teamId: string;
 				readonly ownerAgentId: string | null;
+				readonly startedBy: string | null;
 			}[]
 		>(actions, "search_tasks");
 		const searchThreadsRun = runnerFor<
 			{ readonly ids: readonly string[] },
-			readonly { readonly id: string }[]
+			readonly { readonly id: string; readonly members: readonly string[] }[]
 		>(actions, "search_threads");
 		// edit_plugin writes documents through edit_document action — never document repository functions directly
 		const editDocumentAction = actions.find((a) => a.declaration.name === "edit_document");
@@ -423,6 +432,12 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		>(actions, "edit_user");
 		// user module: search_users/open_user/edit_user under /api/actions/<name>
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
+		api.route(
+			"/start",
+			createStartRoutes(options.db, eventBus, actions, async () => {
+				await Promise.all([options.adapterPool?.refresh(), options.onHarnessRedetect?.()]);
+			}),
+		);
 		// Plugin management: `search_plugins`/`edit_plugin`, mounted generically by
 		// `createActionsRouter` above (`compose.ts`'s fourth action group).
 

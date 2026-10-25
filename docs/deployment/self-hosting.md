@@ -1,6 +1,6 @@
 # Self-Hosting
 
-The **cloud** profile runs HyperIdle against a managed Postgres instance. The remote-server application boots with no embedded harness pool — agents come from desktop clients or a `remote-worker` pointed at the server.
+The **cloud** profile runs HyperIdle against a managed Postgres instance. The remote-server application boots with an empty harness pool, so it runs no agents itself; it takes sessions only from a worker connected over `/ws/worker`, and no app in this repo runs one (see [where agents run](index.md)).
 
 Profile defaults are in `applications/remote-server/src/profiles.ts`.
 
@@ -46,7 +46,7 @@ Companion commands:
 
 | Command | What it does |
 |---|---|
-| `npm run db:bootstrap:pg -- --demo` | Seeds the Acme demo world — only needed if you want demo data |
+| `npm run db:bootstrap:pg -- --demo` | Seeds the Northwind demo world — only needed if you want demo data |
 | `npm run db:seed:pg` | Factory bootstrap (the `system:propagation` actor) — not needed for normal deploys, server does it at boot |
 
 ## VPS (Docker Compose)

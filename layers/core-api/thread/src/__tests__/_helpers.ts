@@ -16,7 +16,10 @@ import {
 	tasks,
 	teams,
 	threads,
+	type User,
 	users,
+	userTeams,
+	type WriteExecutor,
 } from "@hyperidle/db";
 import type { ReviewVerdictOutcome } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
@@ -85,9 +88,9 @@ export async function seedHuman(db: HyperIdleDb, id: string, teamId?: string): P
 		name: id,
 		role: "member",
 		status: "active",
-		...(teamId ? { teamId } : {}),
 		createdAt: now,
 	});
+	if (teamId) await db.insert(userTeams).values({ userId: id, teamId });
 }
 
 export async function seedAgent(db: HyperIdleDb, agentId: string, teamId?: string): Promise<void> {
@@ -98,9 +101,19 @@ export async function seedAgent(db: HyperIdleDb, agentId: string, teamId?: strin
 		name: agentId,
 		role: "builder",
 		status: "active",
-		...(teamId ? { teamId } : {}),
 		createdAt: now,
 	});
+	if (teamId) await db.insert(userTeams).values({ userId: agentId, teamId });
+}
+
+/** A user row with every team they are in, read off the real tables. */
+async function withTeams(
+	exec: WriteExecutor,
+	row: User | undefined,
+): Promise<(User & { teamIds: string[] }) | undefined> {
+	if (!row) return undefined;
+	const memberships = await exec.select().from(userTeams).where(eq(userTeams.userId, row.id));
+	return { ...row, teamIds: memberships.map((m) => m.teamId) };
 }
 
 export async function seedThreadRow(
@@ -185,7 +198,8 @@ export function threadDeps(overrides: Partial<ThreadActionsDeps> = {}): ThreadAc
 			},
 		},
 		users: {
-			getUserById: async (exec, id) => (await exec.select().from(users).where(eq(users.id, id)))[0],
+			getUserById: async (exec, id) =>
+				withTeams(exec, (await exec.select().from(users).where(eq(users.id, id)))[0]),
 			listByIds: async (exec, ids) =>
 				ids.length
 					? exec
@@ -193,22 +207,23 @@ export function threadDeps(overrides: Partial<ThreadActionsDeps> = {}): ThreadAc
 							.from(users)
 							.where(inArray(users.id, [...ids]))
 					: [],
-			listByTeamIds: async (exec, teamIds) =>
-				teamIds.length
-					? exec
-							.select()
-							.from(users)
-							.where(inArray(users.teamId, [...teamIds]))
-					: [],
-			listOwnedBy: async (exec, ownerId) =>
-				exec.select().from(users).where(eq(users.ownerUserId, ownerId)),
+			listEveryone: async (exec) => exec.select().from(users),
 			// The moved tests seed at most one human, so any consistent pick
 			// answers the agent-fallback case without the production tie-break
 			// ladder (compose.ts's own soleHumanForAgent owns that rule).
 			soleHumanForAgent: async (exec, agentId) => {
-				const [agent] = await exec.select().from(users).where(eq(users.id, agentId));
-				const scope = agent?.teamId
-					? and(eq(users.kind, "human"), eq(users.teamId, agent.teamId))
+				const agentTeams = await exec.select().from(userTeams).where(eq(userTeams.userId, agentId));
+				const teamIds = agentTeams.map((m) => m.teamId);
+				const sameTeam = teamIds.length
+					? (
+							await exec
+								.select({ id: userTeams.userId })
+								.from(userTeams)
+								.where(inArray(userTeams.teamId, teamIds))
+						).map((r) => r.id)
+					: [];
+				const scope = sameTeam.length
+					? and(eq(users.kind, "human"), inArray(users.id, sameTeam))
 					: eq(users.kind, "human");
 				const [human] = await exec.select().from(users).where(scope);
 				return human;
@@ -221,10 +236,11 @@ export function threadDeps(overrides: Partial<ThreadActionsDeps> = {}): ThreadAc
 		agents: {
 			requireRunnableAgent: async (db, agentId) => {
 				const [row] = await db.select().from(users).where(eq(users.id, agentId));
-				if (row?.kind !== "ai" || !["active", "idle"].includes(row.status)) {
+				const agent = await withTeams(db, row);
+				if (agent?.kind !== "ai" || !["active", "idle"].includes(agent.status)) {
 					throw new Error(`Agent ${agentId} is not a runnable AI agent`);
 				}
-				return row;
+				return { ...agent, teamId: agent.teamIds[0] ?? null };
 			},
 			getAgentIdentity: async () => null,
 		},

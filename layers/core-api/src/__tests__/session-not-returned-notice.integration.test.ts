@@ -5,7 +5,15 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { agentWorkIntents, type HyperIdleDb, messages, teams, threads, users } from "@hyperidle/db";
+import {
+	agentWorkIntents,
+	type HyperIdleDb,
+	messages,
+	teams,
+	threads,
+	users,
+	userTeams,
+} from "@hyperidle/db";
 import type { ThreadView } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { describe } from "vitest";
@@ -75,9 +83,9 @@ async function seedAgent(db: HyperIdleDb, agentId: string, teamId: string): Prom
 		name: agentId,
 		role: "builder",
 		status: "active",
-		teamId,
 		createdAt: now,
 	});
+	await db.insert(userTeams).values({ userId: agentId, teamId });
 }
 
 /**

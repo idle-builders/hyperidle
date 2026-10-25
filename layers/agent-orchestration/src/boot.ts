@@ -3,6 +3,7 @@ import {
 	decryptCredentialValue,
 	type InheritedReach,
 	listConnections,
+	listWithholds,
 	resolveHeldToken,
 } from "@hyperidle/connections";
 import type { HyperIdleDb, ServiceConnectionRow } from "@hyperidle/db";
@@ -70,7 +71,8 @@ export interface AgentOrchestrationRuntimeOptions {
 	readonly writeback?: RuntimeDeps["composition"]["writeback"];
 	readonly reapers?: RuntimeDeps["composition"]["reapers"];
 	/** This layer owns no user state; absent means no held connections are provisioned. */
-	readonly resolveProvisioningOwnerUserId?: () => Promise<string | null>;
+	/** Whose held connections an agent's sessions get. */
+	readonly resolveProvisioningOwnerUserId?: (agentId: string) => Promise<string | null>;
 	/** Core-api action tools thunk — Application reassigns once this layer's own tools exist too; avoids construction cycle. */
 	readonly actionTools?: () => readonly RegisteredTool<HyperIdleDb>[];
 	/** Core's edit_document action, threaded like actionTools. Writeback binds directly — never open_document (a re-read must not count as a read). */
@@ -170,7 +172,7 @@ interface OrchestrationProvisioningReads {
 function buildProvisioningReads(
 	db: HyperIdleDb,
 	sandboxBasePath: string | undefined,
-	resolveProvisioningOwnerUserId: (() => Promise<string | null>) | undefined,
+	resolveProvisioningOwnerUserId: ((agentId: string) => Promise<string | null>) | undefined,
 	decrypt: (ciphertext: string) => string | null,
 ): OrchestrationProvisioningReads {
 	return {
@@ -184,12 +186,17 @@ function buildProvisioningReads(
 		...(resolveProvisioningOwnerUserId
 			? {
 					heldConnections: {
-						listHeldForProvisioning: async () => {
-							const ownerUserId = await resolveProvisioningOwnerUserId();
+						listHeldForProvisioning: async (agentId: string) => {
+							const ownerUserId = await resolveProvisioningOwnerUserId(agentId);
 							if (!ownerUserId) return [];
 							const rows = await listConnections(db, { userId: ownerUserId });
+							const kept = await listWithholds(
+								db,
+								rows.map((r) => r.id),
+							);
 							return rows
 								.filter((r) => (HELD_AUTH_SOURCES as readonly string[]).includes(r.authSource))
+								.filter((r) => !(kept.get(r.id) ?? []).includes(agentId))
 								.map((row) => ({
 									id: row.id,
 									userId: row.userId,

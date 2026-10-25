@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { BakedContextBundle } from "@hyperidle/domain-model";
+import type { BakedContextBundle, DoneWhenLine, Reason } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createContextAssembler } from "../context.js";
 
@@ -23,10 +23,24 @@ function sessionContext() {
 			title: "Ship the thing",
 			description: "Do the work",
 			state: "in_progress",
-			doneCondition: null,
+			doneWhen: [] as DoneWhenLine[],
+			reasons: [] as Reason[],
 		},
 		ancestors: [
-			{ id: "b1", title: "Root goal", description: "Ship it fast", doneCondition: "It ships" },
+			{
+				id: "b1",
+				title: "Root goal",
+				description: "Ship it fast",
+				doneWhen: [
+					{
+						id: "dw-b1",
+						what: "It ships",
+						by: "check" as const,
+						state: "open" as const,
+						how: null,
+					},
+				],
+			},
 		],
 		agent: { id: "a1", name: "Ada", role: "builder" },
 		team: { id: "team1", name: "Alpha" },
@@ -96,13 +110,36 @@ describe("buildTemplateVariables", () => {
 	});
 });
 
-describe("buildTaskSection: doneCondition source priority", () => {
-	it("uses task own doneCondition when present, ignoring ancestor", async () => {
+describe("buildTaskSection: decisions and assumptions", () => {
+	it("asks the agent to record its decisions and assumptions even before it has any", async () => {
+		const result = await assembler.assemblePrompt({
+			systemPromptText: "",
+			context: sessionContext(),
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+		expect(result.assembledPrompt).toContain(
+			"Record the decisions you make and the assumptions you rely on",
+		);
+	});
+});
+
+describe("buildTaskSection: doneWhen source priority", () => {
+	it("uses task own doneWhen lines when present, ignoring ancestor", async () => {
+		const base = sessionContext();
 		const ctx = {
-			...sessionContext(),
+			...base,
 			task: {
-				...sessionContext().task,
-				doneCondition: "Task-own condition",
+				...base.task,
+				doneWhen: [
+					{
+						id: "dw-t1",
+						what: "Task-own condition",
+						by: "check" as const,
+						state: "open" as const,
+						how: null,
+					},
+				],
 			},
 		};
 		const result = await assembler.assemblePrompt({
@@ -112,11 +149,11 @@ describe("buildTaskSection: doneCondition source priority", () => {
 			sandboxPath: "/tmp/unused",
 		});
 		expect(result.assembledPrompt).toContain("Task-own condition");
-		// Ancestor's doneCondition must NOT override the task's own.
+		// Ancestor's doneWhen must NOT override the task's own.
 		expect(result.assembledPrompt).not.toContain("It ships");
 	});
 
-	it("falls back to root ancestor doneCondition when task has none", async () => {
+	it("falls back to root ancestor doneWhen when task has none", async () => {
 		const result = await assembler.assemblePrompt({
 			systemPromptText: "",
 			context: sessionContext(),
@@ -294,7 +331,8 @@ describe("assembleAgentContext: previous session notes", () => {
 			title: "Ship it",
 			description: null,
 			state: "in_progress",
-			doneCondition: null,
+			doneWhen: [],
+			reasons: [],
 		},
 		ancestors: [],
 		agent: { id: "a1", name: "Ada", role: "builder" },

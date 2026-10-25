@@ -21,6 +21,7 @@ function ok(
 			children: [],
 			siblings: [],
 			scopeName: "Factory",
+			followers: 0,
 		} as DocumentView,
 	};
 }

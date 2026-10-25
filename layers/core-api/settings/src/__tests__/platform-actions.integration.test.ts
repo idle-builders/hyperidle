@@ -21,6 +21,7 @@ import {
 	subscriptions,
 	teams,
 	users,
+	userTeams,
 	type WriteExecutor,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
@@ -65,7 +66,9 @@ function realDocumentActions(): readonly Action[] {
 		users: {
 			getUserById: async (exec, id) => {
 				const [row] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
-				return row;
+				if (!row) return undefined;
+				const memberships = await exec.select().from(userTeams).where(eq(userTeams.userId, id));
+				return { ...row, teamIds: memberships.map((m) => m.teamId) };
 			},
 			listOwnedBy: async (exec, ownerId) =>
 				exec.select().from(users).where(eq(users.ownerUserId, ownerId)),
@@ -95,8 +98,14 @@ function realDocumentActions(): readonly Action[] {
 				.limit(1);
 			return row !== undefined;
 		},
-		onBodyChanged: (exec, documentId) =>
-			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
+		onBodyChanged: (exec, documentId, actor) =>
+			markDetached(exec, {
+				kind: "document",
+				entityId: documentId,
+				ts: new Date().toISOString(),
+				by: actor,
+			}),
+		followersOf: async () => [],
 	};
 	return createDocumentActions(deps) as readonly Action[];
 }
@@ -118,8 +127,15 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 	const documentActions = realDocumentActions();
 	return {
 		agents: {
-			insertIfAbsent: async (exec, values) => {
-				await exec.insert(users).values(values).onConflictDoNothing();
+			insertIfAbsent: async (exec, values, teamId) => {
+				const inserted = await exec
+					.insert(users)
+					.values(values)
+					.onConflictDoNothing()
+					.returning({ id: users.id });
+				if (inserted.length > 0 && teamId !== null) {
+					await exec.insert(userTeams).values({ userId: values.id, teamId });
+				}
 			},
 			setStatus: async (exec, ids, status) => {
 				if (ids.length === 0) return;
@@ -134,6 +150,9 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 					.select({ id: users.id, name: users.name })
 					.from(users)
 					.where(inArray(users.id, [...ids]));
+			},
+			restore: async (exec, id, values) => {
+				await exec.update(users).set(values).where(eq(users.id, id));
 			},
 		},
 		subscriptions: {
@@ -167,11 +186,18 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 			},
 			get: async (exec, id) => {
 				const [row] = await exec
-					.select({ event: subscriptions.event, schedule: subscriptions.schedule })
+					.select({
+						event: subscriptions.event,
+						schedule: subscriptions.schedule,
+						userId: subscriptions.userId,
+					})
 					.from(subscriptions)
 					.where(eq(subscriptions.id, id))
 					.limit(1);
-				return row ? { label: row.event ?? row.schedule ?? "" } : undefined;
+				return row ? { label: row.event ?? row.schedule ?? "", userId: row.userId } : undefined;
+			},
+			restore: async (exec, id, values) => {
+				await exec.update(subscriptions).set(values).where(eq(subscriptions.id, id));
 			},
 		},
 		editDocument: runnerFor(documentActions, "edit_document"),
@@ -183,7 +209,7 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 			read: async () => ({ harnessType: null }),
 			write: async () => {},
 		},
-		viewerTeamId: async () => null,
+		viewerTeamIds: async () => [],
 		teams: {
 			exists: async (exec, teamId) => {
 				const [row] = await exec
@@ -430,7 +456,7 @@ describe("createPlatformActions", () => {
 	});
 
 	describe("edit_plugin — remove", () => {
-		test("removes subscriptions, deactivates the agent, archives documents; the answer is the pre-remove view", async ({
+		test("pauses subscriptions, deactivates the agent, archives documents; the answer is the pre-remove view", async ({
 			db,
 		}) => {
 			await seedFounder(db);
@@ -455,10 +481,10 @@ describe("createPlatformActions", () => {
 				.select()
 				.from(subscriptions)
 				.where(eq(subscriptions.id, subscriptionId));
-			expect(subRow.length).toBe(0);
+			expect(subRow.map((r) => r.paused)).toEqual([true]);
 
-			// A second change on the now-removed plugin answers plugin_removed.
-			const again = await edit.run(ctxFor(db), { id: "remove-under-test", state: "enabled" });
+			// Removing the now-removed plugin again answers plugin_removed.
+			const again = await edit.run(ctxFor(db), { id: "remove-under-test", remove: true });
 			expect(again.ok).toBe(false);
 			if (again.ok) throw new Error("expected refusal");
 			expect(again.problems[0]?.code).toBe("plugin_removed");
@@ -506,7 +532,7 @@ describe("createPlatformActions", () => {
 			});
 			if (!restored.ok) throw new Error(`restore failed: ${JSON.stringify(restored.problems)}`);
 			const restoredDoc = restored.data.contributions.find((c) => c.entityId === skillId);
-			expect(restoredDoc?.detached).toBe(false);
+			expect(restoredDoc?.detachedAt).toBeNull();
 
 			const after = await searchDocs(ctxFor(db), { ids: [skillId] });
 			expect((after as unknown as { data: Array<{ body: string }> }).data[0]?.body).toBe(

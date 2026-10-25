@@ -21,6 +21,7 @@ import {
 	teams,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import type { ThreadView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -132,9 +133,9 @@ async function seedAgent(
 		name: "Agent",
 		role: "builder",
 		status: opts.status ?? "active",
-		teamId: opts.teamId,
 		createdAt: NOW,
 	});
+	if (opts.teamId) await db.insert(userTeams).values({ userId: id, teamId: opts.teamId });
 }
 
 describe("agent_run_admission_failed — per-kind core-api reactions", () => {

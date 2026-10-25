@@ -33,14 +33,22 @@ Host is immutable after creation.
 
 ## Message types (closed)
 
-`MESSAGE_TYPES` (`thread.ts`): `plain | review | questionnaire | verdict`.
+`MESSAGE_TYPES` (`thread.ts`): `plain | review | questionnaire | verdict | answer`.
 
-- **plain** — text, optional inline refs (entity refs, mention refs, canvas refs), optional `blockId` anchor.
-- **review** — agent submits evidence for a human to decide on; has a `title`, `reasoning`, optional `artifacts` (canvas payloads).
-- **questionnaire** — agent asks a constrained question; has a `title`, `question`, `options`.
-- **verdict** — human answers a review or questionnaire; carries `decision` and `resolvesMessageId`.
+- **plain** — text, optional inline refs (entity refs, mention refs), optional `anchor`: where a comment points — a pin on a part of a review, or on a stretch of the text of the thread's document (see [Comments on a document](#comments-on-a-document)), and optional `change`: a change to that text it proposes.
+- **review** — something produced, put to a person to judge; has a `title`, `reasoning`, and optionally `stage`, `parts`, `flags`, `previousReviewId` and `changed` (see below).
+- **questionnaire** — agent asks a constrained question; has a `title`, `question`, `options` (up to 16).
+- **verdict** — a human approves or rejects a review; carries `decision`, `resolvesMessageId` and an optional `note`.
+- **answer** — answers a questionnaire; carries `resolvesMessageId` and exactly one of `option` (one of the questionnaire's options, word for word) or `text` (the sender's own words).
 
 Messages are append-only. Payload is immutable after persistence. Soft-delete via `deletedAt`. Redaction replaces payload with `{ redacted: true, redactedBy, redactedAt, reason }`.
+
+## Comments on a document
+
+A comment on a document is a plain message in the document's thread (host kind `document`) whose `anchor` has no `review`: `part` is the document's id and `spot` a `range` — characters `start` up to `end` of its body, as they were when it was sent. `label` holds the covered words, so the page can find them again after the text around them changes. The server refuses such an anchor on a thread that is not a document's (`anchor_needs_review`), or a range outside the body (`pin_range_outside`). A reply repeats the pin, so each pin is its own little comment; the newest message's range is what it covers now.
+
+- **A proposed change** — `change: { from, to }`: the covered text as it was, and as it should become. Anyone proposes one, on a document anchor only (`change_needs_document_anchor`). Applying it puts `to` into the body through `edit_document`; `adjust_thread` with `message: { id, change: "applied" | "dismissed" }` then records who settled it (`change.settled: { state, by, at }`). It settles once (`change_settled`).
+- **Resolve** — `adjust_thread` with `message: { id, resolved: true }` on the comment's first message sets its `resolvedAt`; `resolved: false` reopens it.
 
 ## Inline refs
 
@@ -48,19 +56,17 @@ A plain message may carry `refs: InlineRef[]`. `InlineRef` is a discriminated un
 
 - `EntityRef` — kind `document | task | message`.
 - `MentionRef` — kind `mention`; carries `identityId`, `displayName`, `sourceText`.
-- `CanvasArtifactRef` — kind `artifact`; points to a `ReviewCanvasArtifact` id inside a review message payload, not a stored artifacts-table row.
 
-## Verdict grammar
+## Verdicts and answers
 
-Five decisions: `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`. Declared in `VERDICT_DECISIONS` (`thread.ts`).
+A review is resolved by a verdict; a questionnaire is resolved by an answer. Nothing else resolves either. Resolving sets `resolvedAt` on the resolved message.
 
-A verdict message carries `decision` + `resolvesMessageId` pointing at the review or questionnaire it terminates. Resolving sets `resolvedAt` on that message.
-
-Display labels: approve / approve-with-comments → APPROVED; reject → REJECTED; request-changes → CHANGES REQUESTED; edit → EDITED.
+- **Verdict** — two decisions, `approve` and `reject` (`VERDICT_DECISIONS`, `thread.ts`). A `reject` must carry a non-empty `note` saying why; `send_message` refuses one without (`reject_needs_reason`). There is no "request changes" verdict — to ask for a change, comment. Only a human gives a verdict, and never on their own review.
+- **Answer** — names one of the questionnaire's options (`answer_unknown_option` if it is not one of them) or gives non-empty text of its own. Humans and agents answer the same way.
 
 ## The review flow
 
-An agent asks for a human decision by sending a review message (`send_message({ review: ... })`). That session ends. The `review_sessions` table records the link between review message and session. When a human sends a verdict, the verdict handler (`thread-actions.ts`) calls `recordVerdictAndQueueResume` which queues a `session_resume` work intent. The agent's session is resumed with the verdict as input.
+An agent asks for a human decision by sending a review or a questionnaire (`send_message({ review: ... })` / `send_message({ questionnaire: ... })`). That session ends. The `review_sessions` table records the link between the asking message and the session. When the verdict or answer arrives, `send_message` (`thread-actions.ts`) calls the review-verdict recorder, which queues a `session_resume` work intent. The session resumes with a message that says what came back — approved (with the note), rejected (with the reason), or the option picked or words written (`verdict-message.ts`).
 
 No interception exists. The agent elects to ask; nothing blocks a tool call pending approval.
 
@@ -81,8 +87,14 @@ After a message lands, agents are woken if:
 
 The sender is never woken. Code: `agentsToWake`, `actions/thread.ts`.
 
-## Review canvas kinds
+## Review parts, pins, flags and rounds
 
-Nine kinds, declared in `REVIEW_CANVAS_KINDS` (`thread.ts`): `outcome_summary`, `field_change_set`, `action_operation`, `rendered_in_context`, `metrics_moved`, `visual_diff`, `code_diff`, `batch`, `browser_preview`. Plus an unknown fallback.
+Source: `framework/domain-model/src/review.ts`.
 
-See [interface/reviews.md](../interface/reviews.md) for how the review page renders these.
+- **Parts** — a review is made of parts of six kinds: `preview`, `code`, `image`, `numbers`, `text`, `items`. Each has an `id`, a `label` and a `title`.
+- **Pins** — where a flag or a comment points: a part, a few words naming the spot, and a `spot` pointed at the way that part is (an element, a line, a region, a figure, a range of text, an item).
+- **Flags** — the sender's own pointers, in the review payload: a pin and what it `says`.
+- **Comments** — plain messages whose `anchor` is a pin plus the `review` they are on; a reply repeats the pin, so each pin is its own little thread.
+- **Rounds** — a retry is a new review naming the one it follows in `previousReviewId`, in the same thread.
+
+See [interface/reviews.md](../interface/reviews.md) for the whole account.

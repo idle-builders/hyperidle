@@ -42,7 +42,7 @@ The bet: Launch a refreshed brand identity across all marketing channels (websit
 For each task you create, use create_task with:
 - title: a specific, action-oriented title
 - description: what needs to be done and any constraints
-- doneCondition: a concrete, measurable completion criteria
+- doneWhen: a concrete, measurable completion criteria (what: string, by: "check")
 
 Create at least 3 tasks. Good decompositions include: asset creation, copy review, channel deployment, analytics setup.`,
 			betDescription: "Q4 brand campaign launch",
@@ -68,11 +68,11 @@ Create at least 3 tasks. Good decompositions include: asset creation, copy revie
 			judgeSessionCompleted(),
 			judgeTasksCreatedCount(3),
 			{
-				id: "done_conditions_present",
+				id: "done_when_present",
 				label: "Tasks Have Done Conditions",
 				judge: async (ctx: JudgeContext) => {
 					const allTasks = await ctx.db
-						.select({ doneCondition: tasks.doneCondition })
+						.select({ doneWhen: tasks.doneWhen })
 						.from(tasks)
 						.where(
 							and(eq(tasks.teamId, ctx.seedResult.teamId), ne(tasks.id, ctx.seedResult.taskId)),
@@ -81,7 +81,7 @@ Create at least 3 tasks. Good decompositions include: asset creation, copy revie
 						return { score: 0.0, note: "No tasks created" };
 					}
 					const withDoneCondition = allTasks.filter(
-						(t: { doneCondition: string | null }) => t.doneCondition && t.doneCondition.length > 10,
+						(t: { doneWhen: string }) => t.doneWhen !== "[]",
 					).length;
 					const ratio = withDoneCondition / allTasks.length;
 					return {
@@ -101,7 +101,7 @@ Create at least 3 tasks. Good decompositions include: asset creation, copy revie
 						.select({
 							title: tasks.title,
 							description: tasks.description,
-							doneCondition: tasks.doneCondition,
+							doneWhen: tasks.doneWhen,
 						})
 						.from(tasks)
 						.where(
@@ -164,11 +164,11 @@ You must create at least 2 subtasks.`,
 			judgeSessionCompleted(),
 			judgeTasksCreatedCount(2),
 			{
-				id: "done_conditions_present",
+				id: "done_when_present",
 				label: "Subtasks Have Done Conditions",
 				judge: async (ctx: JudgeContext) => {
 					const subtasks = await ctx.db
-						.select({ doneCondition: tasks.doneCondition })
+						.select({ doneWhen: tasks.doneWhen })
 						.from(tasks)
 						.where(
 							and(eq(tasks.teamId, ctx.seedResult.teamId), ne(tasks.id, ctx.seedResult.taskId)),
@@ -177,7 +177,7 @@ You must create at least 2 subtasks.`,
 						return { score: 0.0, note: "No subtasks created" };
 					}
 					const withCondition = subtasks.filter(
-						(t: { doneCondition: string | null }) => t.doneCondition && t.doneCondition.length > 5,
+						(t: { doneWhen: string }) => t.doneWhen !== "[]",
 					).length;
 					return {
 						score: withCondition >= subtasks.length * 0.75 ? 1.0 : 0.5,
@@ -254,7 +254,7 @@ Key compliance areas to cover:
 For each task, create_task with:
 - title: specific and action-oriented
 - description: what needs to be done with the relevant regulation cited
-- doneCondition: must include a measurable compliance criterion
+- doneWhen: must include a measurable compliance criterion (what: string, by: "check")
 
 Create at least 3 tasks with regulatory references in their done conditions.`,
 			betDescription: "Annual HIPAA compliance audit",
@@ -280,11 +280,11 @@ Create at least 3 tasks with regulatory references in their done conditions.`,
 			judgeSessionCompleted(),
 			judgeTasksCreatedCount(3),
 			{
-				id: "done_conditions_present",
+				id: "done_when_present",
 				label: "Tasks Have Done Conditions",
 				judge: async (ctx: JudgeContext) => {
 					const allTasks = await ctx.db
-						.select({ doneCondition: tasks.doneCondition })
+						.select({ doneWhen: tasks.doneWhen })
 						.from(tasks)
 						.where(
 							and(eq(tasks.teamId, ctx.seedResult.teamId), ne(tasks.id, ctx.seedResult.taskId)),
@@ -293,7 +293,7 @@ Create at least 3 tasks with regulatory references in their done conditions.`,
 						return { score: 0.0, note: "No tasks created" };
 					}
 					const withDoneCondition = allTasks.filter(
-						(t: { doneCondition: string | null }) => t.doneCondition && t.doneCondition.length > 10,
+						(t: { doneWhen: string }) => t.doneWhen !== "[]",
 					).length;
 					const ratio = withDoneCondition / allTasks.length;
 					return {
@@ -310,7 +310,7 @@ Create at least 3 tasks with regulatory references in their done conditions.`,
 						.select({
 							title: tasks.title,
 							description: tasks.description,
-							doneCondition: tasks.doneCondition,
+							doneWhen: tasks.doneWhen,
 						})
 						.from(tasks)
 						.where(

@@ -51,7 +51,10 @@ export type AgentOrchestrationReviewVerdictOutcome =
 
 export interface AgentOrchestrationReviewVerdictInput {
 	readonly reviewMessageId: string;
-	readonly decision: "approve" | "decline";
+	/** Mirrors `SessionResumeReply` (`@hyperidle/domain-model`). */
+	readonly decision: "approve" | "decline" | "answer";
+	readonly note?: string;
+	readonly answer?: { readonly option: string } | { readonly text: string };
 	readonly decidedBy: string;
 	readonly threadId: string;
 	/**
@@ -152,6 +155,7 @@ export interface AgentOrchestrationConnectionView {
 	readonly authSource: "token" | "mcp" | "inherited";
 	readonly health: "working" | "needs-attention";
 	readonly removable: boolean;
+	readonly withheldFrom: readonly string[];
 }
 
 export interface AgentOrchestrationConnectionsListView {
@@ -179,6 +183,13 @@ export interface AgentOrchestrationConnectionsPort {
 		input: AgentOrchestrationConnectionCreateInput,
 	): Promise<AgentOrchestrationCreateConnectionResult>;
 	remove(userId: string, id: string): Promise<AgentOrchestrationRemoveResult>;
+	/** Keep one of the user's connections from one agent (`keep: true`), or let it reach it again. */
+	withhold(
+		userId: string,
+		id: string,
+		agentUserId: string,
+		keep: boolean,
+	): Promise<AgentOrchestrationRemoveResult>;
 }
 
 /** Mirrors `Filesystem` (`@hyperidle/filesystems`). */

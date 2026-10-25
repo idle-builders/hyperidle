@@ -6,14 +6,7 @@
  * `deps.changes`/`openParent`/`onBodyChanged` throw if called at all: the
  * read half must never reach them (that is the write half's job, B6a).
  */
-import {
-	changes,
-	type HyperIdleDb,
-	teams,
-	type User,
-	users,
-	type WriteExecutor,
-} from "@hyperidle/db";
+import { changes, type HyperIdleDb, teams, users, type WriteExecutor } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type {
 	DocumentRow,
@@ -29,7 +22,7 @@ import {
 	type DocumentActionsDeps,
 } from "../document-actions.js";
 import { insertDocument } from "../document-store.js";
-import { actionFor, ctxFor, docValues, readRow, seedUser } from "./_helpers.js";
+import { actionFor, ctxFor, docValues, readRow, readUserWithTeams, seedUser } from "./_helpers.js";
 
 /** Real queries against the real `users`/`teams` tables — never a stub of
  * the visibility predicate's own data. */
@@ -41,10 +34,7 @@ function readOnlyDeps(): DocumentActionsDeps {
 			},
 		},
 		users: {
-			getUserById: async (exec: WriteExecutor, id: string): Promise<User | undefined> => {
-				const [row] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
-				return row;
-			},
+			getUserById: readUserWithTeams,
 			listOwnedBy: async (exec: WriteExecutor, ownerId: string) =>
 				exec.select().from(users).where(eq(users.ownerUserId, ownerId)),
 		},
@@ -63,6 +53,7 @@ function readOnlyDeps(): DocumentActionsDeps {
 		onBodyChanged: async () => {
 			throw new Error("the read half never calls onBodyChanged");
 		},
+		followersOf: async () => [],
 	};
 }
 

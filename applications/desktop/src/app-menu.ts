@@ -5,11 +5,10 @@ export interface AppMenuOptions {
 	isDev: boolean;
 	logDir: string;
 	dataDir: string;
-	onOpenSettings: () => void;
 }
 
 export function buildAppMenuTemplate(options: AppMenuOptions): MenuItemConstructorOptions[] {
-	const { isDev, logDir, dataDir, onOpenSettings } = options;
+	const { isDev, logDir, dataDir } = options;
 
 	const viewSubmenu: MenuItemConstructorOptions[] = [
 		...(isDev ? [{ role: "reload" as const }, { role: "toggleDevTools" as const }] : []),
@@ -26,12 +25,6 @@ export function buildAppMenuTemplate(options: AppMenuOptions): MenuItemConstruct
 			label: app.name,
 			submenu: [
 				{ role: "about" as const },
-				{ type: "separator" },
-				{
-					label: "Settings...",
-					accelerator: "CmdOrCtrl+,",
-					click: onOpenSettings,
-				},
 				{ type: "separator" },
 				{ role: "hide" as const },
 				{ role: "hideOthers" as const },

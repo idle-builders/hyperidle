@@ -25,8 +25,9 @@ async function describeAgent(
 ): Promise<{ readonly name: string; readonly teamName: string | null } | undefined> {
 	const agent = await findUser(db, { id: agentId });
 	if (!agent) return undefined;
-	if (!agent.teamId) return { name: agent.name, teamName: null };
-	const team = await getTeam(db, { id: agent.teamId });
+	const teamId = agent.teamIds[0];
+	if (teamId === undefined) return { name: agent.name, teamName: null };
+	const team = await getTeam(db, { id: teamId });
 	return { name: agent.name, teamName: team?.name ?? null };
 }
 

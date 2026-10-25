@@ -26,7 +26,7 @@ import type {
 import { derivePrimaryHarness } from "@hyperidle/harness-capability";
 import { createPlatformActions, markDetached, type PlatformActionsDeps } from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
-import { createThreadActions, type ThreadActionsDeps } from "@hyperidle/thread";
+import { createThreadActions, listMessages, type ThreadActionsDeps } from "@hyperidle/thread";
 import {
 	createUserActions,
 	deleteSubscriptions,
@@ -35,6 +35,7 @@ import {
 	getTeam,
 	insertSubscription,
 	insertUserIfAbsent,
+	listSubscriptions,
 	listUsers,
 	nextCronMatch,
 	parseCron,
@@ -42,9 +43,10 @@ import {
 	setAgentsStatus,
 	setSubscriptionsPaused,
 	type UserActionsDeps,
+	updateSubscription,
+	updateUser,
 } from "@hyperidle/user";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
-import { computeApprovalRate } from "../services/policy-bindings.js";
 import {
 	buildTaskRunResolverDeps,
 	resolveAgentIdentityBody,
@@ -60,8 +62,8 @@ async function soleHumanForAgent(exec: WriteExecutor, agentId: string): Promise<
 	const byCreated = (a: User, b: User): number =>
 		a.createdAt === b.createdAt ? a.id.localeCompare(b.id) : a.createdAt.localeCompare(b.createdAt);
 	const agent = await findUser(exec, { id: agentId });
-	if (agent?.teamId) {
-		const teamHumans = await listUsers(exec, { kind: "human", teamIds: [agent.teamId] });
+	if (agent && agent.teamIds.length > 0) {
+		const teamHumans = await listUsers(exec, { kind: "human", teamIds: [...agent.teamIds] });
 		if (teamHumans.length > 0) return [...teamHumans].sort(byCreated)[0];
 	}
 	const anyHumans = await listUsers(exec, { kind: "human" });
@@ -82,8 +84,7 @@ function buildThreadActionsDeps(
 		users: {
 			getUserById: (exec, id) => findUser(exec, { id }),
 			listByIds: (exec, ids) => listUsers(exec, { ids: [...ids] }),
-			listByTeamIds: (exec, teamIds) => listUsers(exec, { teamIds: [...teamIds] }),
-			listOwnedBy: (exec, ownerId) => listUsers(exec, { ownerUserId: ownerId }),
+			listEveryone: (exec) => listUsers(exec),
 			soleHumanForAgent,
 		},
 		searchDocuments,
@@ -122,6 +123,14 @@ function buildTaskActionsDeps(
 		taskRunResolver: buildTaskRunResolverDeps(searchDocuments),
 		adjustThread,
 		openThread,
+		listUnresolvedMessagesForThreads: (db, threadIds) => {
+			if (threadIds.length === 0) return Promise.resolve([]);
+			return listMessages(db, {
+				threadIds: [...threadIds],
+				types: ["review", "questionnaire"],
+				unresolved: true,
+			});
+		},
 	};
 }
 
@@ -173,6 +182,10 @@ const systemParentExists: DocumentActionsDeps["systemParentExists"] = async (exe
 	return (await getSubscription(exec, id)) !== undefined;
 };
 
+// document's followersOf port — who follows one document, read from the user module's subscriptions.
+const followersOf: DocumentActionsDeps["followersOf"] = async (exec, documentId) =>
+	(await listSubscriptions(exec, { objectId: documentId })).map((s) => s.userId);
+
 // document's deps. wsPush is optional — absent in test compositions that don't need WS pushes.
 function buildDocumentActionsDeps(
 	taskActions: readonly Action[],
@@ -188,10 +201,16 @@ function buildDocumentActionsDeps(
 		org: { getTeam: (exec, q) => getTeam(exec, q) },
 		openParent: buildOpenParent(taskActions, threadActions),
 		systemParentExists,
+		followersOf,
 		// bound to the settings package's contribution tracker — a
 		// document's `body` changing detaches it from the plugin that seeded it.
-		onBodyChanged: (exec, documentId) =>
-			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
+		onBodyChanged: (exec, documentId, actor) =>
+			markDetached(exec, {
+				kind: "document",
+				entityId: documentId,
+				ts: new Date().toISOString(),
+				by: actor,
+			}),
 		...(wsPush ? { wsPush } : {}),
 	};
 }
@@ -218,19 +237,13 @@ function buildPlatformActionsDeps(
 		...(adapterPool
 			? { firstAvailableHarness: (db: HyperIdleDb) => firstAvailableHarness(db, adapterPool) }
 			: {}),
-		// effective team: agent's own if set, else owner's — a new plugin's sole agent has no team, must reach owner's team to offer team plugins
 		teams: { exists: async (exec, teamId) => (await getTeam(exec, { id: teamId })) !== undefined },
-		viewerTeamId: async (exec, actorId) => {
-			const viewer = await findUser(exec, { id: actorId });
-			if (!viewer) return null;
-			if (viewer.teamId) return viewer.teamId;
-			if (!viewer.ownerUserId) return null;
-			return (await findUser(exec, { id: viewer.ownerUserId }))?.teamId ?? null;
-		},
+		viewerTeamIds: async (exec, actorId) => (await findUser(exec, { id: actorId }))?.teamIds ?? [],
 		agents: {
-			insertIfAbsent: (exec, values) => insertUserIfAbsent(exec, values),
+			insertIfAbsent: (exec, values, teamId) => insertUserIfAbsent(exec, values, teamId),
 			setStatus: (exec, ids, status) => setAgentsStatus(exec, ids, status),
 			list: (exec, ids) => listUsers(exec, { ids: [...ids] }),
+			restore: (exec, id, values) => updateUser(exec as HyperIdleDb, id, values),
 		},
 		subscriptions: {
 			insert: async (exec, values, opts) => {
@@ -258,7 +271,18 @@ function buildPlatformActionsDeps(
 			remove: (exec, ids) => deleteSubscriptions(exec, ids),
 			get: async (exec, id) => {
 				const row = await getSubscription(exec, id);
-				return row ? { label: row.event ?? row.schedule ?? "" } : undefined;
+				return row ? { label: row.event ?? row.schedule ?? "", userId: row.userId } : undefined;
+			},
+			restore: (exec, id, values) => {
+				const now = new Date();
+				return updateSubscription(exec as HyperIdleDb, id, {
+					...values,
+					nextRunAt:
+						values.schedule === null
+							? null
+							: nextCronMatch(parseCron(values.schedule), now).toISOString(),
+					updatedAt: now.toISOString(),
+				});
 			},
 		},
 		editDocument: runnerFor<EditDocumentInput, DocumentView>(documentActions, "edit_document"),
@@ -332,25 +356,13 @@ function buildUserActionsDeps(
 					},
 				}
 			: {}),
-		// reviewTrackRecord: computeApprovalRate, 30-day window, 10-verdict cap
-		reviewTrackRecord: async (db, agentId) => {
-			const result = await computeApprovalRate(db, agentId, 30, 10);
-			return {
-				approvalRate: result.approvalRate,
-				totalVerdicts: result.totalVerdicts,
-				recentVerdicts: result.recentVerdicts.map((v) => ({
-					decision: v.decision,
-					threadId: v.threadId,
-					createdAt: v.createdAt,
-				})),
-				windowDays: 30,
-			};
-		},
 		editDocument: runnerFor<EditDocumentInput, DocumentView>(documentActions, "edit_document"),
 		searchDocuments: runnerFor<SearchDocumentsInput, DocumentRow[]>(
 			documentActions,
 			"search_documents",
 		),
+		onPluginPartEdited: (exec, kind, entityId, actor, at) =>
+			markDetached(exec, { kind, entityId, ts: at, by: actor }),
 	};
 }
 
@@ -411,10 +423,9 @@ export function buildCoreActions(bindings: {
 
 /**
  * A minimal, standalone document action list — never `buildCoreActions`'s
- * composed HTTP/MCP list — for the composition roots that need
- * `search_documents`/`edit_document` before or outside that list exists:
- * the pre-auth first-run setup route (called before any request has reached
- * `createCoreApiApp`). `openParent` is honestly
+ * composed HTTP/MCP list — for the callers that need
+ * `search_documents`/`edit_document` outside that list (the eval tools).
+ * `openParent` is honestly
  * unreachable here: it fires only from `edit_document` when the caller's
  * `parent.kind` is `"task"`/`"thread"`, and this caller never parents a
  * document that way (an agent identity document is agent-parented). Throws
@@ -434,15 +445,20 @@ function buildStandaloneDocumentActions(): readonly Action[] {
 			);
 		},
 		systemParentExists,
-		onBodyChanged: (exec, documentId) =>
-			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
+		followersOf,
+		onBodyChanged: (exec, documentId, actor) =>
+			markDetached(exec, {
+				kind: "document",
+				entityId: documentId,
+				ts: new Date().toISOString(),
+				by: actor,
+			}),
 	}) as readonly Action[];
 }
 
 /**
  * `search_documents` and `edit_document`, standalone (see
- * `buildStandaloneDocumentActions` above) — the pre-auth setup route feeds
- * both into `createAgentIdentityPort`.
+ * `buildStandaloneDocumentActions` above).
  */
 export function buildStandaloneDocumentRunners(): {
 	readonly searchDocuments: SearchDocumentsRunFn;

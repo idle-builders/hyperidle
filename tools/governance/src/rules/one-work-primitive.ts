@@ -48,7 +48,7 @@ const BANNED: readonly { readonly token: RegExp; readonly why: string }[] = [
 		why: "`appetite` was dead before the bet model was removed and is deleted",
 	},
 	{ token: /\batRisk\b|\bat_risk\b/, why: "`at_risk` was never written to true in production" },
-	{ token: /\bhypothesis\b/, why: "`hypothesis` is cut — a task's goal is its `doneCondition`" },
+	{ token: /\bhypothesis\b/, why: "`hypothesis` is cut — a task's goal is its `doneWhen` lines" },
 	{
 		token: /\brevisionLog\b|\brevision_log\b/,
 		why: "`revision_log` is cut — the `changes` table is the one audit mechanism",

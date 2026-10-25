@@ -5,17 +5,21 @@ import {
 	type AdjustThreadInput,
 	type AgentWorkIntentRecorderInput,
 	canTransitionTaskState,
+	computeTaskNeed,
 	type DocumentRow,
 	type Task as DomainTask,
+	DoneWhenLineSchema,
 	type EditTaskInput,
 	editTask as editTaskDeclaration,
 	type OpenThreadInput,
 	openTask as openTaskDeclaration,
 	type Problem,
+	ReasonSchema,
 	type SearchDocumentsInput,
 	type SearchTasksInput,
 	searchTasks as searchTasksDeclaration,
 	type TaskListItem,
+	type TaskNeed,
 	type TaskNode,
 	type TaskView,
 	type ThreadView,
@@ -29,6 +33,41 @@ import { resolveTaskRunRequest } from "./task-run-resolver.js";
 import type { Task } from "./task-service.js";
 import * as taskDb from "./task-service.js";
 import { taskDispatchAttemptStore } from "./task-service.js";
+
+/**
+ * Parse the JSON text columns `done_when` and `reasons` of a DB row into a domain Task.
+ * Invalid JSON or schema mismatches fall back to empty arrays rather than throwing — the
+ * rows were valid when written; a parse failure here means a schema gap, not corrupt data.
+ */
+function toTask(row: Task): DomainTask {
+	let doneWhen: DomainTask["doneWhen"] = [];
+	try {
+		const parsed: unknown = JSON.parse(row.doneWhen);
+		if (Array.isArray(parsed)) {
+			doneWhen = parsed.flatMap((item) => {
+				const r = DoneWhenLineSchema.safeParse(item);
+				return r.success ? [r.data] : [];
+			});
+		}
+	} catch {
+		// leave empty
+	}
+
+	let reasons: DomainTask["reasons"] = [];
+	try {
+		const parsed: unknown = JSON.parse(row.reasons);
+		if (Array.isArray(parsed)) {
+			reasons = parsed.flatMap((item) => {
+				const r = ReasonSchema.safeParse(item);
+				return r.success ? [r.data] : [];
+			});
+		}
+	} catch {
+		// leave empty
+	}
+
+	return { ...(row as unknown as DomainTask), doneWhen, reasons, need: null };
+}
 
 /** Task action dependencies — every one is a sibling Service or the seam; this module may not import any directly (service boundary). */
 export interface TaskActionsDeps {
@@ -63,6 +102,17 @@ export interface TaskActionsDeps {
 		ctx: ActionContext,
 		input: OpenThreadInput,
 	) => Promise<ActionResult<ThreadView>>;
+	/** Batch-fetch unresolved review/questionnaire messages for multiple threads — needed to compute `need` without N+1 queries. Injected from `@hyperidle/thread` via the composition root. */
+	readonly listUnresolvedMessagesForThreads: (
+		db: HyperIdleDb,
+		threadIds: readonly string[],
+	) => Promise<
+		ReadonlyArray<{
+			readonly threadId: string;
+			readonly type: string;
+			readonly resolvedAt: string | null;
+		}>
+	>;
 }
 
 /** Tasks a kill cascade never touches when it meets them BENEATH the root. */
@@ -113,14 +163,14 @@ async function dependsOnTransitively(
 
 /** A task-shaped candidate `taskInvariants` runs over — never written. */
 function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: string): DomainTask {
-	const base: DomainTask = (prev as unknown as DomainTask | null) ?? {
+	const base: DomainTask = (prev ? toTask(prev) : null) ?? {
 		id: input.id ?? randomUUID(),
 		parentTaskId: null,
 		teamId: "",
 		ownerAgentId: null,
 		title: "",
 		description: null,
-		doneCondition: null,
+		doneWhen: [],
 		state: "proposed",
 		dependencies: null,
 		threadId: "",
@@ -135,7 +185,10 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		sourceDocumentId: null,
 		completedAt: null,
 		position: 0,
-		needsReview: false,
+		reasons: [],
+		paused: null,
+		startedBy: null,
+		need: null,
 	};
 	return {
 		...base,
@@ -144,14 +197,15 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		...(input.ownerAgentId !== undefined ? { ownerAgentId: input.ownerAgentId } : {}),
 		...(input.title !== undefined ? { title: input.title } : {}),
 		...(input.description !== undefined ? { description: input.description } : {}),
-		...(input.doneCondition !== undefined ? { doneCondition: input.doneCondition } : {}),
+		...(input.doneWhen !== undefined ? { doneWhen: input.doneWhen } : {}),
 		...(input.position !== undefined ? { position: input.position } : {}),
-		...(input.needsReview !== undefined ? { needsReview: input.needsReview } : {}),
+		...(input.reasons !== undefined ? { reasons: input.reasons } : {}),
 		...(input.dependencies !== undefined
 			? { dependencies: input.dependencies ? JSON.stringify(input.dependencies) : null }
 			: {}),
 		...(input.sourceDocumentId !== undefined ? { sourceDocumentId: input.sourceDocumentId } : {}),
 		...(input.tokensActualJson !== undefined ? { tokensActualJson: input.tokensActualJson } : {}),
+		...(input.paused !== undefined ? { paused: input.paused } : {}),
 		state: resolvedState as DomainTask["state"],
 	};
 }
@@ -177,10 +231,47 @@ function diffFields(
 	return { before: { id, ...before }, after: { id, ...after } };
 }
 
-function buildChildren(all: readonly Task[], parentId: string): TaskNode[] {
+function buildChildren(
+	all: readonly Task[],
+	parentId: string,
+	needMap: ReadonlyMap<string, TaskNeed>,
+): TaskNode[] {
 	return all
 		.filter((t) => t.parentTaskId === parentId)
-		.map((t) => ({ ...(t as unknown as DomainTask), children: buildChildren(all, t.id) }));
+		.map((t) => {
+			const children = buildChildren(all, t.id, needMap);
+			const need = needMap.get(t.id) ?? null;
+			let openBelowInput = 0;
+			let openBelowReview = 0;
+			for (const child of children) {
+				if (child.need === "input") openBelowInput++;
+				if (child.need === "review") openBelowReview++;
+				openBelowInput += child.openBelow.input;
+				openBelowReview += child.openBelow.review;
+			}
+			return {
+				...toTask(t),
+				need,
+				children,
+				openBelow: { input: openBelowInput, review: openBelowReview },
+			};
+		});
+}
+
+/** Group message stubs by threadId for O(1) lookup per task. */
+function groupByThread<T extends { readonly threadId: string }>(
+	msgs: ReadonlyArray<T>,
+): Map<string, T[]> {
+	const map = new Map<string, T[]>();
+	for (const m of msgs) {
+		let arr = map.get(m.threadId);
+		if (!arr) {
+			arr = [];
+			map.set(m.threadId, arr);
+		}
+		arr.push(m);
+	}
+	return map;
 }
 
 function sumTokensActual(rows: readonly Task[]): number | null {
@@ -229,13 +320,44 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		const ancestorById = new Map(ancestorTasks.map((t) => [t.id, t]));
 		const ancestors: DomainTask[] = [...ancestorIds].reverse().flatMap((id) => {
 			const t = ancestorById.get(id);
-			return t ? [t as unknown as DomainTask] : [];
+			return t ? [toTask(t)] : [];
 		});
 
 		const subtreeIds = await taskDb.listSubtreeIds(ctx.db, input.id);
 		const subtreeTasks =
 			subtreeIds.length > 0 ? await taskDb.list(ctx.db, "task", { ids: subtreeIds }) : [task];
-		const children = buildChildren(subtreeTasks, input.id);
+
+		// Batch one message query for all threadIds in scope (ancestors + subtree).
+		const allThreadIds = [
+			...new Set([...ancestorTasks.map((t) => t.threadId), ...subtreeTasks.map((t) => t.threadId)]),
+		];
+		const unresolvedMsgs =
+			allThreadIds.length > 0
+				? await deps.listUnresolvedMessagesForThreads(ctx.db, allThreadIds)
+				: [];
+		const msgsByThread = groupByThread(unresolvedMsgs);
+
+		// Compute need for every task in scope.
+		const needMap = new Map<string, TaskNeed>();
+		for (const t of [...ancestorTasks, ...subtreeTasks]) {
+			const domainTask = toTask(t);
+			const msgs = msgsByThread.get(t.threadId) ?? [];
+			needMap.set(t.id, computeTaskNeed(t.state, msgs, domainTask.reasons));
+		}
+
+		const rootNeed = needMap.get(input.id) ?? null;
+		const children = buildChildren(subtreeTasks, input.id, needMap);
+
+		// Compute openBelow for the root task itself (sum of direct children + their descendants).
+		let rootOpenBelowInput = 0;
+		let rootOpenBelowReview = 0;
+		for (const child of children) {
+			if (child.need === "input") rootOpenBelowInput++;
+			if (child.need === "review") rootOpenBelowReview++;
+			rootOpenBelowInput += child.openBelow.input;
+			rootOpenBelowReview += child.openBelow.review;
+		}
+
 		const tokensActualRollup = sumTokensActual(subtreeTasks);
 		// searchDocuments, never a raw table read — an artifact's `parent_kind IN ('task','thread')` visibility arm means this never needs a separate scope check.
 		const artifactsResult = await deps.searchDocuments(ctx, {
@@ -243,17 +365,33 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		});
 		const attachments = artifactsResult.ok ? artifactsResult.data.map((d) => d.id) : [];
 
+		// Annotate ancestors with their computed need.
+		const ancestorsWithNeed = ancestors.map((a) => ({ ...a, need: needMap.get(a.id) ?? null }));
+
 		return {
 			ok: true,
 			data: {
-				task: task as unknown as DomainTask,
-				ancestors,
+				task: { ...toTask(task), need: rootNeed },
+				ancestors: ancestorsWithNeed,
 				children,
+				openBelow: { input: rootOpenBelowInput, review: rootOpenBelowReview },
 				tokensActualRollup,
 				threadId: task.threadId,
 				attachments: [...attachments],
 			},
 		};
+	}
+
+	/** Annotate a list of domain tasks with their computed `need` via one batched message query. */
+	async function withNeed(db: HyperIdleDb, domainTasks: DomainTask[]): Promise<DomainTask[]> {
+		if (domainTasks.length === 0) return domainTasks;
+		const threadIds = [...new Set(domainTasks.map((t) => t.threadId))];
+		const unresolvedMsgs = await deps.listUnresolvedMessagesForThreads(db, threadIds);
+		const msgsByThread = groupByThread(unresolvedMsgs);
+		return domainTasks.map((t) => ({
+			...t,
+			need: computeTaskNeed(t.state, msgsByThread.get(t.threadId) ?? [], t.reasons),
+		}));
 	}
 
 	async function searchTasksRun(
@@ -266,7 +404,10 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
 			});
 			const excluded = new Set(input.excludeIds ?? []);
-			return { ok: true, data: rows.filter((r) => !excluded.has(r.id)) as unknown as DomainTask[] };
+			return {
+				ok: true,
+				data: await withNeed(ctx.db, rows.filter((r) => !excluded.has(r.id)).map(toTask)),
+			};
 		}
 		if (input.text !== undefined) {
 			const rows = await taskDb.list(ctx.db, "task", {
@@ -276,18 +417,25 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				...(input.limit !== undefined ? { limit: input.limit } : {}),
 			});
 			const excluded = new Set(input.excludeIds ?? []);
-			return { ok: true, data: rows.filter((r) => !excluded.has(r.id)) as unknown as DomainTask[] };
+			return {
+				ok: true,
+				data: await withNeed(ctx.db, rows.filter((r) => !excluded.has(r.id)).map(toTask)),
+			};
 		}
 		const rows = await taskDb.list(ctx.db, "task", {
 			...(input.parentTaskId !== undefined ? { parentTaskId: input.parentTaskId } : {}),
 			...(input.ownerAgentId !== undefined ? { ownerAgentId: input.ownerAgentId } : {}),
+			...(input.startedBy !== undefined ? { startedBy: input.startedBy } : {}),
 			...(input.state !== undefined ? { state: input.state } : {}),
 			...(input.teamId !== undefined ? { teamId: input.teamId } : {}),
 			...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
 			...(input.limit !== undefined ? { limit: input.limit } : {}),
 		});
 		const excluded = new Set(input.excludeIds ?? []);
-		return { ok: true, data: rows.filter((r) => !excluded.has(r.id)) as unknown as DomainTask[] };
+		return {
+			ok: true,
+			data: await withNeed(ctx.db, rows.filter((r) => !excluded.has(r.id)).map(toTask)),
+		};
 	}
 
 	/**
@@ -353,6 +501,112 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		return [...killed, { id: rootTaskId, fromState: rootFromState, row: null }];
 	}
 
+	/**
+	 * Pause (or lift the pause on) every part below `rootTaskId`, inside the caller's transaction.
+	 * A pause skips parts already done or killed; lifting it clears every part that carries one.
+	 */
+	async function pauseSubtreeInTx(
+		tx: WriteExecutor,
+		rootTaskId: string,
+		paused: DomainTask["paused"],
+		actor: string,
+		now: string,
+	): Promise<readonly Change[]> {
+		const ids = (await taskDb.listSubtreeIds(tx, rootTaskId)).filter((id) => id !== rootTaskId);
+		if (ids.length === 0) return [];
+		const parts = await taskDb.list(tx, "task", { ids });
+		const moving = parts.filter((t) =>
+			paused === null
+				? t.paused !== null
+				: t.paused !== paused && !TERMINAL_TASK_STATES.includes(t.state),
+		);
+		const rows: Change[] = [];
+		for (const t of moving) {
+			const { before, after } = diffFields(t.id, t, { paused });
+			await taskDb.update(tx, "task", t.id, { paused, updatedAt: now });
+			rows.push(
+				await deps.changes.appendChange(tx, {
+					id: randomUUID(),
+					object: "task",
+					objectId: t.id,
+					kind: "changed",
+					actor,
+					before: JSON.stringify(before),
+					after: JSON.stringify(after),
+					at: now,
+				}),
+			);
+		}
+		return rows;
+	}
+
+	/**
+	 * After a pause is lifted: every part that waited only for finished parts starts, and after a
+	 * stop each agent goes back to the part it was working on — a leaf still under way that waits
+	 * on nobody's answer or review.
+	 */
+	async function resumeSubtree(
+		ctx: ActionContext,
+		rootTaskId: string,
+		wasStopped: boolean,
+	): Promise<void> {
+		const ids = await taskDb.listSubtreeIds(ctx.db, rootTaskId);
+		const waiting = (await taskDb.list(ctx.db, "task", { ids })).filter((t) => t.state === "hold");
+		for (const t of waiting) {
+			const waitsFor = parseDependencyIds(t.dependencies);
+			if (waitsFor.length > 0 && !(await hasUnfinishedDependency(ctx.db, waitsFor))) {
+				await editTaskRun(ctx, { id: t.id, state: "accepted" });
+			}
+		}
+		if (!wasStopped) return;
+		const view = await openTaskRun(ctx, { id: rootTaskId });
+		if (!view.ok) return;
+		const working = (nodes: readonly TaskNode[]): TaskNode[] =>
+			nodes.flatMap((n) =>
+				n.children.length > 0
+					? working(n.children)
+					: n.state === "in_progress" && n.need === null && n.ownerAgentId
+						? [n]
+						: [],
+			);
+		const top = view.data.task;
+		const leaves =
+			view.data.children.length > 0
+				? working(view.data.children)
+				: top.state === "in_progress" && top.need === null && top.ownerAgentId
+					? [top]
+					: [];
+		for (const leaf of leaves) await restart(ctx, leaf.id, leaf.ownerAgentId ?? "");
+	}
+
+	/** Send the owner back to a part a stop cut off; one restart per stop, so it is not one-per-occasion. */
+	async function restart(ctx: ActionContext, taskId: string, agentId: string): Promise<void> {
+		const dispatched = await ctx.db.transaction(async (tx) => {
+			const inserted = await taskDispatchAttemptStore.insertAttempt(tx, {
+				taskId,
+				occasion: "restart",
+				agentId,
+				now: ctx.now,
+			});
+			if (!inserted.id) return null;
+			const bakedRequest = await resolveTaskRunRequest(
+				tx as HyperIdleDb,
+				{ kind: "task_run", attemptId: inserted.id },
+				deps.taskRunResolver,
+			);
+			return { attemptId: inserted.id, bakedRequest };
+		});
+		if (!dispatched) return;
+		await deps.agentOrchestration.submitWorkIntent({
+			kind: "task_run",
+			sourceKind: "task_dispatch_attempt",
+			sourceId: dispatched.attemptId,
+			requestedBy: agentId,
+			idempotencyKey: `task-dispatch:${dispatched.attemptId}`,
+			bakedRequest: dispatched.bakedRequest,
+		});
+	}
+
 	async function editTaskRun(
 		ctx: ActionContext,
 		input: EditTaskInput,
@@ -367,6 +621,8 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		}
 
 		let teamId = input.teamId ?? prev?.teamId;
+		/** A new part of a paused task is paused with it. */
+		let parentPaused: DomainTask["paused"] = null;
 		if (!prev && input.parentTaskId) {
 			const parent = await taskDb.get(ctx.db, "task", input.parentTaskId);
 			if (!parent) {
@@ -378,6 +634,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				};
 			}
 			teamId ??= parent.teamId;
+			parentPaused = toTask(parent).paused;
 		}
 		if (input.sourceDocumentId !== undefined) {
 			const srcResult = await deps.searchDocuments(ctx, { ids: [input.sourceDocumentId] });
@@ -433,9 +690,10 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 
 		const next = candidateTask(prev, input, resolvedState);
 		if (teamId) next.teamId = teamId;
+		if (!prev && input.paused === undefined) next.paused = parentPaused;
 
 		// -- 2. pure invariants ---------------------------------------------------
-		const problems: Problem[] = [...taskInvariants(next, prev as unknown as DomainTask | null)];
+		const problems: Problem[] = [...taskInvariants(next, prev ? toTask(prev) : null)];
 
 		// -- 3. server invariants (need the database) ------------------------------
 		if (input.parentTaskId !== undefined && input.parentTaskId !== null && prev) {
@@ -579,6 +837,8 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			  }
 			| undefined;
 		let predecessorSessionId: string | undefined;
+		const pauseMoved = prev !== null && input.paused !== undefined && input.paused !== prev.paused;
+		let pausedParts: readonly Change[] = [];
 
 		await ctx.db.transaction(async (tx) => {
 			const taskId = prev?.id ?? next.id;
@@ -597,13 +857,14 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				ownerAgentId: next.ownerAgentId,
 				title: next.title,
 				description: next.description,
-				doneCondition: next.doneCondition,
+				doneWhen: JSON.stringify(next.doneWhen),
 				state: resolvedState,
 				dependencies: next.dependencies,
 				position: next.position,
-				needsReview: next.needsReview,
+				reasons: JSON.stringify(next.reasons),
 				sourceDocumentId: next.sourceDocumentId,
 				tokensActualJson: next.tokensActualJson,
+				paused: next.paused,
 				updatedAt: now,
 			};
 			if (input.outcome) {
@@ -621,15 +882,17 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					ownerAgentId: next.ownerAgentId,
 					title: next.title,
 					description: next.description,
-					doneCondition: next.doneCondition,
+					doneWhen: JSON.stringify(next.doneWhen),
 					state: resolvedState,
 					dependencies: next.dependencies,
 					threadId,
 					position:
 						next.position ||
 						(await taskDb.maxSiblingPosition(tx, next.parentTaskId, next.teamId)) + 1,
-					needsReview: next.needsReview,
+					reasons: JSON.stringify(next.reasons),
 					sourceDocumentId: next.sourceDocumentId,
+					paused: next.paused,
+					startedBy: ctx.actor,
 					createdAt: now,
 					updatedAt: now,
 				};
@@ -672,6 +935,9 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 
 			if (resolvedState === "killed" && prev?.state !== "killed") {
 				killedTasks = await killSubtreeInTx(tx, taskId, ctx.actor, now, prev?.state ?? "proposed");
+			}
+			if (pauseMoved && prev) {
+				pausedParts = await pauseSubtreeInTx(tx, taskId, next.paused, ctx.actor, now);
 			}
 
 			// -- the dispatch branch: an accept, or an owner change to an agent --
@@ -758,6 +1024,13 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			if (killed.row) {
 				ctx.eventBus.emit(objectEvent(killed.row, { cascade: true }));
 			}
+		}
+		for (const row of pausedParts) ctx.eventBus.emit(objectEvent(row));
+		if (prev && pauseMoved && next.paused === "stopped") {
+			await deps.agentOrchestration.stopRunsForTasks(await taskDb.listSubtreeIds(ctx.db, prev.id));
+		}
+		if (prev && pauseMoved && next.paused === null) {
+			await resumeSubtree(ctx, prev.id, prev.paused === "stopped");
 		}
 		if (dispatch) {
 			await deps.agentOrchestration.submitWorkIntent({

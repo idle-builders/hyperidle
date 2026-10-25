@@ -3,14 +3,12 @@ interface FilesystemsGitConfigInjection {
 	readonly value: string;
 }
 
-/** Minimal git-runner port: only the 3 verbs this package actually calls. */
+/** Minimal git-runner port: only the verb this package actually calls. */
 interface FilesystemsGitRunner {
-	revParseIsInsideWorkTree(): Promise<boolean>;
 	lsRemote(
 		url: string,
 		opts?: { tokenConfig?: FilesystemsGitConfigInjection },
 	): Promise<{ reachable: boolean; reason?: string }>;
-	currentBranch(): Promise<string | null>;
 }
 
 export type FilesystemsGitRunnerFactory = (cwd: string) => FilesystemsGitRunner;

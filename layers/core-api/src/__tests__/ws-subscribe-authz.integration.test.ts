@@ -19,7 +19,7 @@ import {
 } from "@hyperidle/db";
 import { getDocument } from "@hyperidle/document";
 import { findThread } from "@hyperidle/thread";
-import { findUser, listUsers } from "@hyperidle/user";
+import { listUsers } from "@hyperidle/user";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { type WsClient, WsConnectionHub } from "../ws-connection-hub.js";
@@ -50,7 +50,6 @@ const REALTIME_DEPS: SubscribeAuthorizerDeps = {
 			(await getDocument(db, id)) ?? undefined,
 	},
 	users: {
-		getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
 		listOwnedBy: (db: HyperIdleDb, ownerId: string) => listUsers(db, { ownerUserId: ownerId }),
 	},
 };
@@ -300,7 +299,7 @@ describe("WsConnectionHub — document subscribe authorization", () => {
 		expect(await hub.subscribe(client, "document:doc-agent-memory-1")).toBe("ok");
 	});
 
-	test("a team-scoped document admits only that team's own viewer", async ({ db }) => {
+	test("a team-scoped document admits every viewer, whatever team they are in", async ({ db }) => {
 		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		await db.insert(teamsTable).values({
 			id: "team-doc-1",
@@ -324,7 +323,7 @@ describe("WsConnectionHub — document subscribe authorization", () => {
 
 		const otherClient = createMockClient();
 		hub.addClient(otherClient, "other-team-member-1");
-		expect(await hub.subscribe(otherClient, "document:doc-team-1")).toBe("forbidden");
+		expect(await hub.subscribe(otherClient, "document:doc-team-1")).toBe("ok");
 	});
 
 	test("the global `documents` topic accepts any identity", async ({ db }) => {

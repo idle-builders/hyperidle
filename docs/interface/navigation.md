@@ -1,54 +1,56 @@
 # Navigation
 
-## Routes
+Code: `layers/core-ui/src/App.tsx` (addresses), `Sidebar.tsx`, `sidebar-lists.ts`, `Find.tsx`.
 
-| Path | Page |
+## Page addresses
+
+| Address | Page |
 |---|---|
-| `/setup` | SetupFlow (first-run wizard) |
-| `/` | Redirects to `/conversations` |
-| `/conversations` | Thread list |
-| `/conversations/:threadId` | Thread list with thread open |
-| `/work` | Work overview (1-team short-circuits to `/work/team/:id`) |
-| `/work/team/:teamId` | Team task board |
-| `/work/task/new` | New task form |
-| `/work/task/:taskId` | Task page |
-| `/reviews/:reviewId` | Review page (also accepts `?threadId=`) |
-| `/agents/:agentId` | Agent profile |
-| `/documents` | Document list |
-| `/documents/new` | New document |
-| `/documents/:documentId` | Document detail |
-| `/settings` | Settings (all sections, one scrollable page) |
+| `/conversations` | The sidebar, no page open |
+| `/conversations/new` | A new conversation: say what it is about and @mention who is in it; its first line becomes its title |
+| `/conversations/:id` | A thread |
+| `/conversations/:id?review=<message id>` | A review, at its thread's address |
+| `/work/:id` | A task; `?part=<id>` picks a part of it |
+| `/knowledge/:id` | A document |
+| `/people/:id` | A person or an agent; `/people/me` is your own page |
+| `/teams/:name` | A team's page |
+| `/plugins/:id` | A plugin's page; `?team=` names the team it was opened from |
+| `/start` | First start |
 
-Legacy paths `/conversations/review` and `/conversations/chat` redirect to the canonical forms.
+Any other address goes to `/conversations`. A fresh install — no person yet — goes to `/start`.
+Everything you pick is in the address, so back, forward and reload keep your place.
 
-## Open contract
+## The sidebar
 
-Any object reference in the UI is opened through a single `OpenHandler`. The renderer never calls `navigate()` directly — it dispatches an `OpenTarget` and the page binds the handler.
+Top to bottom:
 
-Three target kinds:
+1. **Find or ask… ⌘K** — opens the find-or-ask overlay (below).
+2. **The bell** — Notifications: a panel of what happened in things you follow, newest first. Each
+   item opens the thread, task, document or person it is about; Mark all read. Its footer says "You
+   get these for what you follow" and links to "Change what you are told about" on your page.
+3. **Conversations · Work · Knowledge**, stacked. Conversations and Knowledge show how many items
+   wait on you. Work never does: agents own work.
+4. A line, then the list for the one you chose. Every list is in priority order: what you owe
+   first, then what is new to you, then the rest. A row is a title and a time, then a few words of
+   status and who.
+   - **Conversations** — "+ New conversation", then every thread across all teams. The status words
+     say what a thread waits on from you (Stuck, Needs input, Needs review), or "Mentioned you",
+     "New reply", or the last message.
+   - **Work** — a team switch ("All teams" or one team, each with its task count) and, once a team
+     is picked, "The team ›", which opens the team page. Then the root tasks, with words such as
+     Running, Needs review, "3 of 7 done", On hold or Stopped.
+   - **Knowledge** — drafts someone else wrote ("Publish?") and documents edited since you looked,
+     then the document tree: one space per team, each document with its own icon (click it to
+     change it) and a + to add a document under it.
+5. **You · N waiting for you** — at the bottom; opens your own page, where your settings are.
 
-- **host** — resolves to a page via `resolveHostRoute(hostKind, hostId)`. Route host kinds: `task`, `document`, `agent`, `team`. `user` and `factory` resolve to null (no navigation). An optional `blockId` appends `#block-<encoded>` so the target page can scroll to the matching block.
-- **review** — navigates to `/reviews/:reviewId?threadId=<encoded>`.
-- **session** — fires a page-supplied callback to open a session pane; no URL navigation.
+While you edit a document, the conversation list holds still and says "N new since you started · it
+waits here".
 
-Opening intent maps to presentation:
-- `navigate` → full page
-- `inspect` → side pane
-- `act` → overlay
+## Find or ask
 
-## Settings
-
-`/settings` is a real route. `settingsOpen` in AppShell is derived from `location.pathname.startsWith("/settings")`, not local state. The page is one scrollable surface, max-width 720 px, with 11 sections: Profile, Org chart, Agents, Skills & rules, Plugins, Filesystems, Agent backends, Connections, Appearance, Notifications, Backend.
-
-## Sidebar and shell parts
-
-The sidebar Conversations entry carries a badge that counts threads with an unresolved review (not "blocking" threads — `ThreadItem.blocking` is always false in the live list).
-
-The shell also contains:
-- `NotificationPopover` — opens from the sidebar Notifications button
-- `AssistantOverlay` — opens via command-K
-- `ToastRegion` — transient feedback
-
-## Back vs Up
-
-Back returns to the previous history entry. Up moves to the parent in the object hierarchy (e.g. task → team). They are distinct — a breadcrumb provides Up; the browser button provides Back.
+One overlay, one box. **Find** lists knowledge, conversations and work that match, with the matching
+text; ↑↓ choose, ↵ opens. **Tab** switches to **Ask** and keeps what you typed: an agent answers —
+your own agents first, the one you have had longest first, then the team's; another can be picked
+before asking. The answer is written into the overlay as it comes, with its sources, and is saved
+as a conversation; ↵ asks a follow-up, ⌘↵ opens the conversation. Esc closes the overlay.

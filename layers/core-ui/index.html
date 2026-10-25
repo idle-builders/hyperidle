@@ -1,42 +1,13 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HyperIdle</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#f0c419" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
-    <script>
-      // Theme persistence — runs synchronously before React mounts.
-      // @lore: theme boot script — must set data-theme before first paint; delaying or removing it flashes the wrong theme
-      (() => {
-        let resolved = "light";
-        try {
-          const raw = window.localStorage.getItem("hyperidle-theme");
-          const theme =
-            raw === "light" || raw === "dark" || raw === "system" ? raw : "system";
-          resolved =
-            theme === "system"
-              ? window.matchMedia?.("(prefers-color-scheme: dark)").matches
-                ? "dark"
-                : "light"
-              : theme;
-        } catch (_e) {
-          /* localStorage blocked — fall back to light default */
-        }
-        document.documentElement.setAttribute(
-          "data-theme",
-          resolved === "dark" ? "hearth-dark" : "hearth-light",
-        );
-      })();
-    </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>HyperIdle</title>
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+	</head>
+	<body>
+		<div id="root"></div>
+		<script type="module" src="/src/main.tsx"></script>
+	</body>
 </html>

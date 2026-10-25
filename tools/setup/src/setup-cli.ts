@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { installedPluginsDir } from "@hyperidle/core-api";
 import { seedDemoWorld } from "./demo-fixture.js";
 import { runFactoryBootstrap } from "./factory-bootstrap-runner.js";
 
@@ -81,7 +82,7 @@ const USAGE = [
 	"  --db-path <path>              PGlite data directory (laptop profile). Default: ./hyperidle-pg",
 	"  --db-url <url>                Postgres URL (vps/cloud profile). Default from env DATABASE_URL.",
 	"  --root <path>                 Repo root override (used to locate docker-compose.yml).",
-	"  --demo                        Seed a demo 'Acme' team with example agents after factory bootstrap.",
+	"  --demo                        Seed the Northwind demo world (people, agents, work) after factory bootstrap.",
 	"  --dry-run                     Print planned actions without executing.",
 	"  --help                        Show this message.",
 	"",
@@ -199,10 +200,10 @@ async function applyLaptopMigrations(
 	const handle = await createPgliteDb(dataDir);
 	try {
 		await runFactoryBootstrap(handle.db);
-		// @lore AF17: demo mode seeds the Acme demo team — opt-in only.
+		// @lore AF17: demo mode seeds the Northwind demo world — opt-in only.
 		// Without --demo, factory bootstrap only (no demo data in production DBs).
 		if (demo) {
-			await seedDemoWorld(handle.db);
+			await seedDemoWorld(handle.db, { pluginsBaseDir: installedPluginsDir(dataDir) });
 		}
 	} finally {
 		await handle.close();
@@ -244,7 +245,7 @@ async function runLaptop(
 	await applyLaptopMigrations(dataDir, migrationsFolder, args.demo);
 
 	if (args.demo) {
-		io.stdout("[setup] Demo mode: seeded Acme demo team with example agents.");
+		io.stdout("[setup] Demo mode: seeded the Northwind demo world.");
 	}
 	io.stdout(`[setup] Ready. PGlite data at ${dataDir}`);
 	io.stdout("[setup] Next: run `npm run dev` to start the server and web app.");

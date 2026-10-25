@@ -125,6 +125,12 @@ interface AgentOrchestrationHcClient {
 							readonly param: { readonly userId: string; readonly id: string };
 						}): Promise<Response>;
 					};
+					readonly withhold: {
+						$post(args: {
+							readonly param: { readonly userId: string; readonly id: string };
+							readonly json: { readonly agentUserId: string; readonly keep: boolean };
+						}): Promise<Response>;
+					};
 				};
 			};
 		};
@@ -364,6 +370,18 @@ export function buildAgentOrchestrationPort(
 					param: { userId, id },
 				});
 				if (!res.ok) return throwSeamError("connections.remove", res);
+				return (await res.json()) as AgentOrchestrationRemoveResult;
+			},
+			async withhold(
+				userId: string,
+				id: string,
+				agentUserId: string,
+				keep: boolean,
+			): Promise<AgentOrchestrationRemoveResult> {
+				const res = await client["agent-orchestration"].connections[":userId"][
+					":id"
+				].withhold.$post({ param: { userId, id }, json: { agentUserId, keep } });
+				if (!res.ok) return throwSeamError("connections.withhold", res);
 				return (await res.json()) as AgentOrchestrationRemoveResult;
 			},
 		},

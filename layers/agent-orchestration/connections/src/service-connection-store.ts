@@ -13,8 +13,9 @@ import {
 	type NewServiceConnectionRow,
 	type ServiceConnectionRow,
 	serviceConnections,
+	serviceConnectionWithholds,
 } from "@hyperidle/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 /**
  * List service connections matching the given filter.
@@ -78,6 +79,48 @@ export async function updateConnection(
 			updatedAt: patch.updatedAt,
 		})
 		.where(and(eq(serviceConnections.id, params.id), eq(serviceConnections.userId, params.userId)));
+}
+
+/** The agents each of these connections is kept from. */
+export async function listWithholds(
+	db: HyperIdleDb,
+	connectionIds: readonly string[],
+): Promise<Map<string, string[]>> {
+	const kept = new Map<string, string[]>();
+	if (connectionIds.length === 0) return kept;
+	const rows = await db
+		.select()
+		.from(serviceConnectionWithholds)
+		.where(inArray(serviceConnectionWithholds.connectionId, [...connectionIds]));
+	for (const row of rows)
+		kept.set(row.connectionId, [...(kept.get(row.connectionId) ?? []), row.agentUserId]);
+	return kept;
+}
+
+/** Keep a connection from one agent, or let that agent reach it again. */
+export async function setWithhold(
+	db: HyperIdleDb,
+	params: { connectionId: string; agentUserId: string; keep: boolean; at: string },
+): Promise<void> {
+	if (params.keep) {
+		await db
+			.insert(serviceConnectionWithholds)
+			.values({
+				connectionId: params.connectionId,
+				agentUserId: params.agentUserId,
+				createdAt: params.at,
+			})
+			.onConflictDoNothing();
+		return;
+	}
+	await db
+		.delete(serviceConnectionWithholds)
+		.where(
+			and(
+				eq(serviceConnectionWithholds.connectionId, params.connectionId),
+				eq(serviceConnectionWithholds.agentUserId, params.agentUserId),
+			),
+		);
 }
 
 /**

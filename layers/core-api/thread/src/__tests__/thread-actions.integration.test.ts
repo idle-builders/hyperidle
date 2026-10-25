@@ -12,12 +12,18 @@
  * layer that composes those modules together.
  */
 
-import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, messages, threads, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import type { SendMessageInput, ThreadView } from "@hyperidle/domain-model";
+import type {
+	DocumentRow,
+	ReviewVerdictOutcome,
+	SendMessageInput,
+	ThreadView,
+} from "@hyperidle/domain-model";
 import type { ObjectChangeEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
+import { vi } from "vitest";
 import type { Action } from "../action-types.js";
 import { createThreadActions } from "../thread-actions.js";
 import {
@@ -305,7 +311,10 @@ describe("send_message — verdict trio and races", () => {
 				db,
 				eventBus,
 				"send_message",
-				{ threadId, verdict: { decision: "reject", resolvesMessageId: reviewMessageId } },
+				{
+					threadId,
+					verdict: { decision: "reject", resolvesMessageId: reviewMessageId, note: "Not yet." },
+				},
 				"sm-human-vt4",
 			),
 		]);
@@ -318,6 +327,190 @@ describe("send_message — verdict trio and races", () => {
 		);
 		expect(oks).toHaveLength(1);
 		expect(races).toHaveLength(1);
+	});
+});
+
+describe("send_message — answering a question, approving or rejecting a review", () => {
+	/** An agent asks in a task thread from its session; the founder is the other member. */
+	async function seedAsk(db: HyperIdleDb, suffix: string) {
+		const reviewVerdictRecorder = vi.fn(
+			async (): Promise<ReviewVerdictOutcome> => ({ status: "queued" }),
+		);
+		const linkReviewToSession = vi.fn(async () => {});
+		const actions = createThreadActions(threadDeps({ reviewVerdictRecorder, linkReviewToSession }));
+		const eventBus = new EventBus();
+		const teamId = `sm-ans-${suffix}`;
+		const agentId = `sm-agent-ans-${suffix}`;
+		await seedTeam(db, teamId);
+		await seedAgent(db, agentId, teamId);
+		const threadId = await seedTaskWithThread(db, `sm-ans-task-${suffix}`, teamId);
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify([agentId, FOUNDER_ID]) })
+			.where(eq(threads.id, threadId));
+		const ask = async (body: Record<string, unknown>): Promise<string> => {
+			const result = await actionFor<Record<string, unknown>, { message: { id: string } }>(
+				actions,
+				"send_message",
+			).run(
+				ctxFor(db, agentId, {
+					eventBus,
+					caller: { sessionId: `sess-${suffix}`, taskId: `sm-ans-task-${suffix}`, threadId },
+				}),
+				{ threadId, ...body },
+			);
+			if (!result.ok) throw new Error(JSON.stringify(result.problems));
+			return result.data.message.id;
+		};
+		const reply = (body: Record<string, unknown>) =>
+			call(actions, db, eventBus, "send_message", { threadId, ...body });
+		const resolvedAt = async (id: string) =>
+			(await db.select().from(messages).where(eq(messages.id, id)))[0]?.resolvedAt ?? null;
+		return { ask, reply, resolvedAt, reviewVerdictRecorder, linkReviewToSession };
+	}
+
+	const billing = {
+		title: "Billing",
+		question: "Monthly or yearly?",
+		options: ["Monthly", "Yearly"],
+	};
+
+	test("picking one of the question's options resolves it and hands the pick to the agent's session", async ({
+		db,
+	}) => {
+		const { ask, reply, resolvedAt, reviewVerdictRecorder, linkReviewToSession } = await seedAsk(
+			db,
+			"1",
+		);
+		const questionId = await ask({ questionnaire: billing });
+		expect(linkReviewToSession).toHaveBeenCalledWith("sess-1", questionId);
+
+		const answered = await reply({ answer: { resolvesMessageId: questionId, option: "Yearly" } });
+
+		expect(answered.status).toBe(200);
+		expect(await resolvedAt(questionId)).not.toBeNull();
+		expect(reviewVerdictRecorder).toHaveBeenCalledWith(
+			expect.objectContaining({
+				reviewMessageId: questionId,
+				decision: "answer",
+				answer: { option: "Yearly" },
+			}),
+		);
+	});
+
+	test("naming an option the question does not have is refused and leaves it open", async ({
+		db,
+	}) => {
+		const { ask, reply, resolvedAt } = await seedAsk(db, "2");
+		const questionId = await ask({ questionnaire: billing });
+
+		const answered = await reply({ answer: { resolvesMessageId: questionId, option: "Weekly" } });
+
+		expect(answered.status).toBe(422);
+		expect(answered.body.problems?.[0]?.code).toBe("answer_unknown_option");
+		expect(await resolvedAt(questionId)).toBeNull();
+	});
+
+	test("a reject with no reason is refused and leaves the review open", async ({ db }) => {
+		const { ask, reply, resolvedAt } = await seedAsk(db, "3");
+		const reviewId = await ask({ review: { title: "Ship it?", reasoning: ["tests pass"] } });
+
+		const rejected = await reply({ verdict: { decision: "reject", resolvesMessageId: reviewId } });
+
+		expect(rejected.status).toBe(422);
+		expect(rejected.body.problems?.[0]?.code).toBe("reject_needs_reason");
+		expect(await resolvedAt(reviewId)).toBeNull();
+	});
+
+	test("a reject with a reason resolves the review and hands the reason to the agent's session", async ({
+		db,
+	}) => {
+		const { ask, reply, resolvedAt, reviewVerdictRecorder } = await seedAsk(db, "4");
+		const reviewId = await ask({ review: { title: "Ship it?", reasoning: ["tests pass"] } });
+
+		const rejected = await reply({
+			verdict: { decision: "reject", resolvesMessageId: reviewId, note: "Wrong table." },
+		});
+
+		expect(rejected.status).toBe(200);
+		expect(await resolvedAt(reviewId)).not.toBeNull();
+		expect(reviewVerdictRecorder).toHaveBeenCalledWith(
+			expect.objectContaining({
+				reviewMessageId: reviewId,
+				decision: "decline",
+				note: "Wrong table.",
+			}),
+		);
+	});
+
+	const explainer = {
+		title: "Trial-end explainer",
+		reasoning: ["The page says the date and the amount."],
+		parts: [
+			{
+				id: "mail",
+				kind: "text",
+				label: "Email",
+				title: "Three-day warning",
+				body: "Your trial ends on 1 September.",
+			},
+		],
+	};
+
+	test("a comment pinned to a review's part is kept with its pin; one pinned past the part is refused", async ({
+		db,
+	}) => {
+		const { ask, reply } = await seedAsk(db, "6");
+		const reviewId = await ask({ review: explainer });
+		const pin = { id: "c1", review: reviewId, part: "mail", label: "1 September" };
+
+		const fits = await reply({
+			text: "Both dates?",
+			anchor: { ...pin, spot: { kind: "range", start: 19, end: 30 } },
+		});
+		const past = await reply({
+			text: "And this?",
+			anchor: { ...pin, spot: { kind: "range", start: 19, end: 99 } },
+		});
+		const elsewhere = await reply({ text: "Here?", anchor: { ...pin, review: "no-such-review" } });
+
+		expect(fits.status).toBe(200);
+		expect(past.body.problems?.map((p) => p.code)).toEqual(["pin_range_outside"]);
+		expect(elsewhere.body.problems?.map((p) => p.code)).toEqual(["anchor_review_unknown"]);
+		const stored = await db.select().from(messages).where(eq(messages.type, "plain"));
+		expect(stored.map((m) => JSON.parse(m.payload).anchor)).toEqual([
+			{ ...pin, spot: { kind: "range", start: 19, end: 30 } },
+		]);
+	});
+
+	test("a second round names the review it retries, which must be a review in the same thread", async ({
+		db,
+	}) => {
+		const { ask, reply } = await seedAsk(db, "7");
+		const round1 = await ask({ review: explainer });
+		await reply({ verdict: { decision: "reject", resolvesMessageId: round1, note: "Email too." } });
+
+		const round2 = await ask({
+			review: { ...explainer, previousReviewId: round1, changed: ["New: the email"] },
+		});
+		const notAReview = ask({ review: { ...explainer, previousReviewId: "missing" } });
+
+		const [stored] = await db.select().from(messages).where(eq(messages.id, round2));
+		expect(JSON.parse(stored?.payload ?? "{}").previousReviewId).toBe(round1);
+		await expect(notAReview).rejects.toThrow(/previous_review_unknown/);
+	});
+
+	test("a verdict cannot resolve a question", async ({ db }) => {
+		const { ask, reply, resolvedAt } = await seedAsk(db, "5");
+		const questionId = await ask({ questionnaire: billing });
+
+		const verdict = await reply({
+			verdict: { decision: "approve", resolvesMessageId: questionId },
+		});
+
+		expect(verdict.status).toBe(422);
+		expect(verdict.body.problems?.[0]?.code).toBe("verdict_not_review");
+		expect(await resolvedAt(questionId)).toBeNull();
 	});
 });
 
@@ -558,7 +751,7 @@ describe("open_thread — computedTitle reads real ownership", () => {
 		await seedHuman(db, "tw-owner-1", "tw-1");
 		await seedHuman(db, "tw-other-1", "tw-1");
 		const now = new Date().toISOString();
-		// An owned agent (`users_belonging_ck`): ownerUserId set => teamId must be null.
+		// An owned agent, in one of its owner's teams.
 		await db.insert(users).values({
 			id: "tw-agent-1",
 			kind: "ai",
@@ -568,6 +761,7 @@ describe("open_thread — computedTitle reads real ownership", () => {
 			ownerUserId: "tw-owner-1",
 			createdAt: now,
 		});
+		await db.insert(userTeams).values({ userId: "tw-agent-1", teamId: "tw-1" });
 
 		// Production shape: a direct thread between a human and their own agent
 		// is hosted by the AGENT party (thread-actions.ts's single-agent
@@ -808,7 +1002,7 @@ describe("adjust_thread", () => {
 });
 
 describe("search_threads", () => {
-	test("mine returns only threads the actor is in, and carries hasUnresolvedReview correctly", async ({
+	test("mine returns only threads the actor is in, each saying what it waits on from the actor and whether its newest message names them", async ({
 		db,
 	}) => {
 		const eventBus = new EventBus();
@@ -816,12 +1010,17 @@ describe("search_threads", () => {
 		await seedTeam(db, "st-1");
 		await seedHuman(db, "st-outsider-1", "st-1");
 		await seedAgent(db, "st-agent-1", "st-1");
-		await seedThreadRow(db, "st-mine-1", {
-			hostKind: "user",
-			hostId: FOUNDER_ID,
-			initiatorId: FOUNDER_ID,
-			members: [FOUNDER_ID, "st-agent-1"],
-		});
+		const mineWith = (id: string, other: string) =>
+			seedThreadRow(db, id, {
+				hostKind: "user",
+				hostId: FOUNDER_ID,
+				initiatorId: FOUNDER_ID,
+				members: [FOUNDER_ID, other],
+			});
+		await mineWith("st-review-1", "st-agent-1");
+		await mineWith("st-asked-1", "st-agent-1");
+		await mineWith("st-mention-1", "st-outsider-1");
+		await mineWith("st-theirs-1", "st-agent-1");
 		await seedThreadRow(db, "st-not-mine-1", {
 			hostKind: "user",
 			hostId: "st-outsider-1",
@@ -829,39 +1028,123 @@ describe("search_threads", () => {
 			members: ["st-outsider-1"],
 		});
 
-		await call<{ message: { id: string } }>(actions, db, eventBus, "send_message", {
-			threadId: "st-mine-1",
-			review: { title: "open review", reasoning: ["x"] },
-		});
+		await call(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{ threadId: "st-review-1", review: { title: "open review", reasoning: ["x"] } },
+			"st-agent-1",
+		);
 		const resolvedReview = await call<{ message: { id: string } }>(
 			actions,
 			db,
 			eventBus,
 			"send_message",
-			{ threadId: "st-mine-1", review: { title: "resolved review", reasoning: ["y"] } },
+			{ threadId: "st-review-1", review: { title: "resolved review", reasoning: ["y"] } },
 			"st-agent-1",
 		);
 		await call(actions, db, eventBus, "send_message", {
-			threadId: "st-mine-1",
+			threadId: "st-review-1",
 			verdict: {
 				decision: "approve",
 				resolvesMessageId: resolvedReview.body.data?.message.id as string,
 			},
 		});
+		await call(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{
+				threadId: "st-asked-1",
+				questionnaire: { title: "Which?", question: "Which one?", options: ["A", "B"] },
+			},
+			"st-agent-1",
+		);
+		await call(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{ threadId: "st-mention-1", text: "@Founder can you read this?" },
+			"st-outsider-1",
+		);
+		await call(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{
+				threadId: "st-theirs-1",
+				review: { title: "theirs", reasoning: ["z"], reviewer: "st-outsider-1" },
+			},
+			"st-agent-1",
+		);
 
-		const res = await call<Array<{ id: string; hasUnresolvedReview: boolean }>>(
+		const res = await call<
+			Array<{ id: string; need: string | null; lastSenderId: string | null; mentionsYou: boolean }>
+		>(actions, db, eventBus, "search_threads", { mine: true });
+		expect(res.status).toBe(200);
+		const byId = new Map(res.body.data?.map((r) => [r.id, r]));
+		expect([...byId.keys()].sort()).toEqual([
+			"st-asked-1",
+			"st-mention-1",
+			"st-review-1",
+			"st-theirs-1",
+		]);
+		expect(byId.get("st-review-1")).toMatchObject({
+			need: "review",
+			lastSenderId: FOUNDER_ID,
+			mentionsYou: false,
+		});
+		expect(byId.get("st-asked-1")).toMatchObject({ need: "stuck", lastSenderId: "st-agent-1" });
+		expect(byId.get("st-mention-1")).toMatchObject({
+			need: null,
+			lastSenderId: "st-outsider-1",
+			mentionsYou: true,
+		});
+		expect(byId.get("st-theirs-1")).toMatchObject({ need: null });
+	});
+
+	test("member lists another user's threads that you can read, each saying what it waits on from them", async ({
+		db,
+	}) => {
+		const eventBus = new EventBus();
+		const actions = createThreadActions(threadDeps());
+		await seedTeam(db, "sm-1");
+		await seedHuman(db, "sm-maya", "sm-1");
+		await seedAgent(db, "sm-agent", "sm-1");
+		await seedThreadRow(db, "sm-team", {
+			hostKind: "team",
+			hostId: "sm-1",
+			initiatorId: "sm-agent",
+			members: ["sm-agent", "sm-maya"],
+		});
+		await seedThreadRow(db, "sm-direct", {
+			hostKind: "agent",
+			hostId: "sm-agent",
+			initiatorId: "sm-agent",
+			members: ["sm-agent", "sm-maya"],
+		});
+		for (const threadId of ["sm-team", "sm-direct"])
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId, review: { title: "Refund wording", reasoning: ["x"], reviewer: "sm-maya" } },
+				"sm-agent",
+			);
+
+		const res = await call<Array<{ id: string; need: string | null }>>(
 			actions,
 			db,
 			eventBus,
 			"search_threads",
-			{ mine: true },
+			{ member: "sm-maya" },
 		);
-		expect(res.status).toBe(200);
-		const ids = res.body.data?.map((r) => r.id) ?? [];
-		expect(ids).toContain("st-mine-1");
-		expect(ids).not.toContain("st-not-mine-1");
-		const mine = res.body.data?.find((r) => r.id === "st-mine-1");
-		expect(mine?.hasUnresolvedReview).toBe(true);
+		expect(res.body.data?.map((r) => [r.id, r.need])).toEqual([["sm-team", "review"]]);
 	});
 
 	test("an empty input ({}) takes the same mine branch as {mine:true} — the sentence's own promise", async ({
@@ -925,6 +1208,41 @@ describe("search_threads", () => {
 			text: "a latest",
 		});
 		await call(actions, db, eventBus, "send_message", { threadId: "st-preview-b", text: "b only" });
+		await seedThreadRow(db, "st-preview-d", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+		});
+		await db.insert(messages).values({
+			id: "st-preview-d-answer",
+			senderId: FOUNDER_ID,
+			threadId: "st-preview-d",
+			type: "answer",
+			payload: JSON.stringify({ resolvesMessageId: "asked", option: "B" }),
+			clientKey: "st-preview-d-answer",
+			createdAt: new Date().toISOString(),
+		});
+		for (const [id, verdict] of [
+			["st-preview-e", { decision: "approve", resolvesMessageId: "r" }],
+			["st-preview-f", { decision: "reject", resolvesMessageId: "r", note: "Email too." }],
+		] as const) {
+			await seedThreadRow(db, id, {
+				hostKind: "user",
+				hostId: FOUNDER_ID,
+				initiatorId: FOUNDER_ID,
+				members: [FOUNDER_ID],
+			});
+			await db.insert(messages).values({
+				id: `${id}-verdict`,
+				senderId: FOUNDER_ID,
+				threadId: id,
+				type: "verdict",
+				payload: JSON.stringify(verdict),
+				clientKey: `${id}-verdict`,
+				createdAt: new Date().toISOString(),
+			});
+		}
 		// st-preview-c gets no message at all.
 
 		const res = await call<Array<{ id: string; lastMessagePreview: string | null }>>(
@@ -932,13 +1250,25 @@ describe("search_threads", () => {
 			db,
 			eventBus,
 			"search_threads",
-			{ ids: ["st-preview-a", "st-preview-b", "st-preview-c"] },
+			{
+				ids: [
+					"st-preview-a",
+					"st-preview-b",
+					"st-preview-c",
+					"st-preview-d",
+					"st-preview-e",
+					"st-preview-f",
+				],
+			},
 		);
 		expect(res.status).toBe(200);
 		const byId = new Map(res.body.data?.map((r) => [r.id, r.lastMessagePreview]));
 		expect(byId.get("st-preview-a")).toBe("a latest");
 		expect(byId.get("st-preview-b")).toBe("b only");
 		expect(byId.get("st-preview-c")).toBeNull();
+		expect(byId.get("st-preview-d")).toBe("B");
+		expect(byId.get("st-preview-e")).toBe("Approved");
+		expect(byId.get("st-preview-f")).toBe("Rejected: Email too.");
 	});
 
 	test("text matches message content across threads the actor can read, and canReadThread still filters a DM they are not in", async ({
@@ -1063,5 +1393,130 @@ describe("send_message / adjust_thread — object events fire from the change ro
 		expect(createdEvent?.change.objectId).toBe(threadId);
 		expect(changedEvent?.change.objectId).toBe(threadId);
 		expect(changedEvent?.change.after).toMatchObject({ pinned: true });
+	});
+});
+
+describe("comments on a document's text, and the changes they propose", () => {
+	const BODY = "Trials run 14 days.\n\n- Most cancellations happen on day 13.";
+	const doc: DocumentRow = {
+		id: "doc-c-1",
+		title: "Should trials be 10 days?",
+		body: BODY,
+		format: "markdown",
+		status: "proposed",
+		slot: "ordinary",
+		scopeKind: "team",
+		scopeId: "cm-team",
+		parentKind: null,
+		parentId: null,
+		position: 0,
+		version: 1,
+		updatedBy: FOUNDER_ID,
+		createdAt: "2026-01-01T00:00:00.000Z",
+		updatedAt: "2026-01-01T00:00:00.000Z",
+		readCount: 0,
+		lastReadAt: null,
+		sessionUseCount: 0,
+		lastUsedAt: null,
+		discipline: null,
+		icon: null,
+		as: "document",
+	};
+	const start = BODY.indexOf("day 13");
+	const pin = {
+		id: "c1",
+		part: "doc-c-1",
+		label: "day 13",
+		spot: { kind: "range", start, end: start + 6 },
+	} as const;
+
+	async function seedDocThread(db: HyperIdleDb) {
+		const actions = createThreadActions(
+			threadDeps({ searchDocuments: async () => ({ ok: true, data: [doc] }) }),
+		);
+		const eventBus = new EventBus();
+		await seedTeam(db, "cm-team");
+		await seedHuman(db, "cm-other", "cm-team");
+		await seedThreadRow(db, "cm-thread", {
+			hostKind: "document",
+			hostId: doc.id,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+		});
+		const as = (actor: string) => (name: string, body: Record<string, unknown>) =>
+			call<{ message: { id: string } }>(actions, db, eventBus, name, body, actor);
+		const stored = async (id: string) => {
+			const [row] = await db.select().from(messages).where(eq(messages.id, id));
+			return { resolvedAt: row?.resolvedAt ?? null, payload: JSON.parse(row?.payload ?? "{}") };
+		};
+		return { you: as(FOUNDER_ID), other: as("cm-other"), stored };
+	}
+
+	test("a comment points at a stretch of the document's text; one past its end is refused", async ({
+		db,
+	}) => {
+		const { you, stored } = await seedDocThread(db);
+
+		const fits = await you("send_message", { threadId: "cm-thread", text: "Why?", anchor: pin });
+		const past = await you("send_message", {
+			threadId: "cm-thread",
+			text: "And here?",
+			anchor: { ...pin, spot: { kind: "range", start, end: 999 } },
+		});
+
+		expect(past.body.problems?.map((p) => p.code)).toEqual(["pin_range_outside"]);
+		const id = fits.body.data?.message.id ?? "";
+		expect((await stored(id)).payload.anchor).toEqual(pin);
+	});
+
+	test("a proposed change is applied once, by anyone, and says who applied it", async ({ db }) => {
+		const { you, other, stored } = await seedDocThread(db);
+		const sent = await you("send_message", {
+			threadId: "cm-thread",
+			text: "",
+			anchor: pin,
+			change: { from: "day 13", to: "day 13, and 1 in 5 decide on days 11–14" },
+		});
+		const id = sent.body.data?.message.id ?? "";
+
+		const applied = await other("adjust_thread", {
+			id: "cm-thread",
+			message: { id, change: "applied" },
+		});
+		const again = await you("adjust_thread", {
+			id: "cm-thread",
+			message: { id, change: "dismissed" },
+		});
+
+		expect(applied.status).toBe(200);
+		expect(again.body.problems?.map((p) => p.code)).toEqual(["change_settled"]);
+		const { payload } = await stored(id);
+		expect(payload.change.settled).toMatchObject({ state: "applied", by: "cm-other" });
+		expect(payload.change.to).toBe("day 13, and 1 in 5 decide on days 11–14");
+	});
+
+	test("a message with no change has nothing to apply", async ({ db }) => {
+		const { you } = await seedDocThread(db);
+		const sent = await you("send_message", { threadId: "cm-thread", text: "Hm", anchor: pin });
+
+		const applied = await you("adjust_thread", {
+			id: "cm-thread",
+			message: { id: sent.body.data?.message.id ?? "", change: "applied" },
+		});
+
+		expect(applied.body.problems?.map((p) => p.code)).toEqual(["no_change"]);
+	});
+
+	test("resolving a comment marks its first message, and undo clears it", async ({ db }) => {
+		const { you, stored } = await seedDocThread(db);
+		const sent = await you("send_message", { threadId: "cm-thread", text: "Why?", anchor: pin });
+		const id = sent.body.data?.message.id ?? "";
+
+		await you("adjust_thread", { id: "cm-thread", message: { id, resolved: true } });
+		const resolved = (await stored(id)).resolvedAt;
+		await you("adjust_thread", { id: "cm-thread", message: { id, resolved: false } });
+
+		expect(resolved).not.toBeNull();
+		expect((await stored(id)).resolvedAt).toBeNull();
 	});
 });

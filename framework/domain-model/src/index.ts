@@ -16,7 +16,6 @@ export {
 	DOCUMENT_ACTIONS,
 	DOCUMENT_AS,
 	DOCUMENT_PARENT_KINDS,
-	DOCUMENT_SLOT_LABEL,
 	DOCUMENT_SLOTS,
 	DOCUMENT_STATUS_LABEL,
 	DOCUMENT_STATUSES,
@@ -37,6 +36,7 @@ export type {
 	AvailablePluginView,
 	EditPluginInput,
 	EditPluginSource,
+	PluginAddView,
 	PluginContributionView,
 	PluginListing,
 	PluginListState,
@@ -81,7 +81,9 @@ export {
 	watchSession,
 } from "./actions/session.js";
 export type {
+	DoneWhenLine,
 	EditTaskInput,
+	Reason,
 	SearchTasksInput,
 	Task,
 	TaskListItem,
@@ -89,10 +91,14 @@ export type {
 	TaskView,
 } from "./actions/task.js";
 export {
+	ASSUMPTION_STATES,
 	canTransitionTaskState,
+	DECISION_STATES,
+	DoneWhenLineSchema,
 	EditTaskInputSchema,
 	editTask,
 	openTask,
+	ReasonSchema,
 	SearchTasksInputSchema,
 	searchTasks,
 	TASK_ACTIONS,
@@ -101,13 +107,17 @@ export {
 	TaskViewSchema,
 	taskInvariants,
 } from "./actions/task.js";
+export type { TaskNeed } from "./actions/task-need.js";
+export { computeTaskNeed } from "./actions/task-need.js";
 export type {
 	AdjustThreadInput,
+	AnswerPayload,
 	Identity,
 	Message,
 	OpenThreadInput,
 	PlainPayload,
 	PlainReadPayload,
+	ProposedChange,
 	QuestionnairePayload,
 	ReviewPayload,
 	SearchThreadsInput,
@@ -134,7 +144,9 @@ export {
 	openThread,
 	parseMessagePayload,
 	plainPayloadSchema,
+	proposedChangeSchema,
 	questionnairePayloadSchema,
+	resolvesMessageInvariants,
 	reviewPayloadSchema,
 	SearchThreadsInputSchema,
 	SendMessageInputSchema,
@@ -149,6 +161,8 @@ export {
 	threadParticipantsSchema,
 	verdictPayloadSchema,
 } from "./actions/thread.js";
+export type { ThreadNeed } from "./actions/thread-need.js";
+export { computeThreadNeed } from "./actions/thread-need.js";
 export type {
 	AddSubscriptionInput,
 	ChangeKind,
@@ -160,8 +174,11 @@ export type {
 	HarnessDescriptor,
 	ObjectEventName,
 	OpenUserInput,
+	PersonReason,
 	SearchUsersInput,
+	SubscriptionEventName,
 	SubscriptionView,
+	TeamMembershipSubject,
 	UserKind,
 	UserRow,
 	UserStatus,
@@ -180,26 +197,24 @@ export {
 	OBJECT_EVENTS,
 	OpenUserInputSchema,
 	openUser,
+	PERSON_REASONS,
 	SearchUsersInputSchema,
+	SUBSCRIPTION_EVENTS,
 	SubscriptionViewSchema,
 	searchUsers,
+	teamMembershipProblems,
 	USER_ACTIONS,
 	USER_KINDS,
 	USER_STATUSES,
 	UserRowSchema,
 	UserViewSchema,
 } from "./actions/user.js";
-export type {
-	AgentHarnessCapabilities,
-	AgentProfileResponse,
-	AgentReviewTrackRecord,
-	AgentVerdictEntry,
-} from "./agent-profile.js";
 export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
 export type {
 	PluginContributionKind,
 	PluginScopeKind,
+	PluginSourceKind,
 	PluginState,
 	StoredPluginContributionKind,
 } from "./configuration.js";
@@ -236,6 +251,8 @@ export {
 } from "./mention.js";
 export type { ModelProvider } from "./model-provider.js";
 export { MODEL_PROVIDERS } from "./model-provider.js";
+export type { Anchor, Flag, Pin, ReviewPart, Spot } from "./review.js";
+export { documentAnchorProblems, pinProblems } from "./review.js";
 export type {
 	ActivityEntry,
 	AnswerDeltaData,
@@ -262,16 +279,8 @@ export {
 	subscriptionSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
-export type { AgentHealthLevel, AgentOperationalStatus } from "./team.js";
 export type {
-	AgentSessionStateSnapshot,
-	AnchorRef,
-	AssistantNotice,
-	BlockHostKind,
-	BlockId,
-	CanvasArtifactRef,
 	EntityRef,
-	HeadCollapseResult,
 	HostKind,
 	IdentityId,
 	InlineRef,
@@ -279,51 +288,37 @@ export type {
 	MentionRef,
 	MessageId,
 	MessageType,
-	PlainPayloadWithBlockId,
 	RedactedPayload,
-	ReviewCanvasArtifact,
-	ReviewCanvasKind,
 	ThreadId,
 	VerdictDecision,
 } from "./thread.js";
 export {
 	HOST_KINDS,
-	headCollapsePredicate,
-	isBlocking,
 	isRedactedPayload,
 	MESSAGE_TYPES,
-	REVIEW_CANVAS_KINDS,
 	VERDICT_DECISIONS,
-	verdictDecisionLabel,
 } from "./thread.js";
 export type { TierTokenCount, TokenUsage } from "./types/money.js";
 export type {
 	AgentCategory,
 	HarnessType,
 	HealthResponse,
-	KernelDocumentStatus,
 	ModelTier,
-	ModelTier as MoneyModelTier,
 	OrgEdgeMechanism,
 	ScopeKind,
 	SessionOutcome,
 	TaskOutcomeVerdict,
 	TaskState,
-	TriggerType,
 } from "./types.js";
 export {
 	AGENT_CATEGORIES,
-	AGENT_OPERATIONAL_STATUS_LABEL,
 	HARNESS_TYPES,
-	KERNEL_DOCUMENT_STATUSES,
 	MODEL_TIERS,
 	ORG_EDGE_MECHANISMS,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	scopeKindToLabel,
-	TASK_OUTCOME_VERDICT_LABEL,
 	TASK_OUTCOME_VERDICTS,
-	TASK_STATE_LABEL,
 	TASK_STATES,
 } from "./types.js";
 export type {
@@ -337,5 +332,6 @@ export type {
 	ReviewVerdictOutcome,
 	ReviewVerdictRecorderFn,
 	SessionDocumentLike,
+	SessionResumeReply,
 } from "./work-intent.js";
 export { bakeAgentRunnableConfig, toBakedContextDocuments } from "./work-intent.js";

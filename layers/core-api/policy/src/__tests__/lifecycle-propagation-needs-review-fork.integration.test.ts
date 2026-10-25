@@ -1,10 +1,10 @@
 /**
- * Parent auto-completion with the needsReview fork: when every child of a
+ * Parent auto-completion with the doneWhen review fork: when every child of a
  * task reaches a terminal state (`done`/`killed`), the parent advances —
- * `needsReview:false` moves it straight to `done` and the cascade continues
- * upward in the same pass; `needsReview:true` moves it to `review` and the
- * cascade stops there until a human gives a verdict. Session completion
- * drives the same fork one level down (task, not parent).
+ * no review line moves it straight to `done` and the cascade continues
+ * upward in the same pass; a doneWhen line with `by:"review"` moves it to
+ * `review` and the cascade stops there until a human gives a verdict.
+ * Session completion drives the same fork one level down (task, not parent).
  */
 
 import {
@@ -193,13 +193,21 @@ async function seedTask(
 		lastActiveAt: NOW,
 		createdAt: NOW,
 	});
+	// needsReview=true → a doneWhen line with by:"review"; false → by:"check".
+	const doneWhenLine = {
+		id: `dw-${id}`,
+		what: "Task complete",
+		by: needsReview ? "review" : "check",
+		state: "open",
+		how: null,
+	};
 	await db.insert(tasks).values({
 		id,
 		parentTaskId,
 		teamId,
 		title: `Task ${id}`,
 		state,
-		needsReview,
+		doneWhen: JSON.stringify([doneWhenLine]),
 		threadId: `thr-${id}`,
 		createdAt: NOW,
 		updatedAt: NOW,
@@ -249,8 +257,8 @@ async function completeTask(
 
 // ─── Session → Task propagation tests ────────────────────────────────────────
 
-describe("session→task propagation (needsReview fork)", () => {
-	dbTest("session ends on needsReview=false task → task reaches done", async ({ db }) => {
+describe("session→task propagation (doneWhen review fork)", () => {
+	dbTest("session ends on task with no review line → task reaches done", async ({ db }) => {
 		const teamId = "bb1-s1-team";
 		await seedTeam(db, teamId);
 		await seedTask(db, {
@@ -292,61 +300,64 @@ describe("session→task propagation (needsReview fork)", () => {
 		}
 	});
 
-	dbTest("session ends on needsReview=true task → task reaches review", async ({ db }) => {
-		const teamId = "bb1-s2-team";
-		await seedTeam(db, teamId);
-		await seedTask(db, {
-			id: "bb1-s2-task",
-			teamId,
-			parentTaskId: null,
-			state: "in_progress",
-			needsReview: true,
-		});
-
-		const eventBus = new EventBus();
-		const policyDeps: PolicyDeps = {
-			work: makeWorkPort(),
-			conversation: conversationStub,
-			sendMessage: sendMessageStub,
-			editTask: makeEditTask(),
-		};
-		const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
-
-		try {
-			eventBus.emit({
-				type: "session_ended",
-				streamId: "sess-2",
-				sessionId: "sess-2",
-				agentId: "agent-2",
-				taskId: "bb1-s2-task",
-				outcome: "completed",
-				timestamp: Date.now(),
+	dbTest(
+		"session ends on task with review line in doneWhen → task reaches review",
+		async ({ db }) => {
+			const teamId = "bb1-s2-team";
+			await seedTeam(db, teamId);
+			await seedTask(db, {
+				id: "bb1-s2-task",
+				teamId,
+				parentTaskId: null,
+				state: "in_progress",
+				needsReview: true,
 			});
 
-			await vi.waitFor(
-				async () => {
-					expect(await getTaskState(db, "bb1-s2-task")).toBe("review");
-				},
-				{ timeout: 5000 },
-			);
-		} finally {
-			unregister();
-		}
-	});
+			const eventBus = new EventBus();
+			const policyDeps: PolicyDeps = {
+				work: makeWorkPort(),
+				conversation: conversationStub,
+				sendMessage: sendMessageStub,
+				editTask: makeEditTask(),
+			};
+			const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
+
+			try {
+				eventBus.emit({
+					type: "session_ended",
+					streamId: "sess-2",
+					sessionId: "sess-2",
+					agentId: "agent-2",
+					taskId: "bb1-s2-task",
+					outcome: "completed",
+					timestamp: Date.now(),
+				});
+
+				await vi.waitFor(
+					async () => {
+						expect(await getTaskState(db, "bb1-s2-task")).toBe("review");
+					},
+					{ timeout: 5000 },
+				);
+			} finally {
+				unregister();
+			}
+		},
+	);
 });
 
 // ─── Task → Parent propagation tests ─────────────────────────────────────────
 
-describe("parent auto-completion cascade (needsReview fork)", () => {
-	// A 3-level tree, parent in `accepted` (never worked) with needsReview=false at
+describe("parent auto-completion cascade (doneWhen review fork)", () => {
+	// A 3-level tree, parent in `accepted` (never worked) with no review line at
 	// every ancestor: all children terminal cascades all the way to root in one pass.
 	dbTest(
-		"parent in accepted (needsReview=false): all children terminal → cascade continues to root in one pass",
+		"parent with no review line: all children terminal → cascade continues to root in one pass",
 		async ({ db }) => {
 			const teamId = "bb1-p3-team";
 			await seedTeam(db, teamId);
 
-			// 3-level tree: root and middle both in `accepted`, both needsReview=false.
+			// 3-level tree: root and middle both in `accepted`, no review line.
 			// When leaf finishes, middle → done in the first propagation pass,
 			// which then emits task.changed(done) for middle, triggering
 			// propagateTaskToParent(middle) → root → done.
@@ -398,12 +409,12 @@ describe("parent auto-completion cascade (needsReview fork)", () => {
 	);
 
 	dbTest(
-		"parent in accepted (needsReview=true): all children terminal → parent review, cascade stops",
+		"parent with review line in doneWhen: all children terminal → parent review, cascade stops",
 		async ({ db }) => {
 			const teamId = "bb1-p4-team";
 			await seedTeam(db, teamId);
 
-			// middle has needsReview=true — the cascade should stop here.
+			// middle has a review doneWhen line — the cascade should stop here.
 			await seedTask(db, {
 				id: "bb1-p4-root",
 				teamId,

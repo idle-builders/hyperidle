@@ -1,9 +1,10 @@
 /**
- * Which session filed which review.
+ * Which session filed which review or question.
  *
- * A review is how an agent asks a human for agreement, and its session ends
- * there. When the human answers, this record says which session to bring back.
- * Nothing else about the review needs remembering.
+ * A review is how an agent asks a human for agreement, and a questionnaire how
+ * it asks a question; its session ends there. When the human answers, this
+ * record says which session to bring back. A questionnaire is linked here the
+ * same way, under `reviewMessageId`. Nothing else about either needs remembering.
  */
 
 import { randomUUID } from "node:crypto";
@@ -12,6 +13,7 @@ import type {
 	BakedAgentRunnableConfig,
 	BakedSessionResumeRequest,
 	ReviewVerdictOutcome,
+	SessionResumeReply,
 } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 
@@ -84,7 +86,8 @@ export type ResumeIntentEnqueuer = (input: {
 }) => Promise<unknown>;
 
 /**
- * Record a human's verdict on a review and queue the resume that carries it back.
+ * Record a person's verdict on a review, or answer to a question, and queue the
+ * resume that carries it back.
  *
  * Three outcomes, each a fact the caller may have to act on:
  *
@@ -96,9 +99,8 @@ export type ResumeIntentEnqueuer = (input: {
  */
 export async function recordReviewVerdict(
 	db: HyperIdleDb,
-	input: {
+	input: SessionResumeReply & {
 		readonly reviewMessageId: string;
-		readonly decision: "approve" | "decline";
 		readonly decidedBy: string;
 		readonly threadId: string;
 		readonly agentConfig?: BakedAgentRunnableConfig;
@@ -137,6 +139,8 @@ export async function recordReviewVerdict(
 			// path and silently loses all context without it.
 			sandboxPath: session.sandboxSnapshot,
 			decision: input.decision,
+			...(input.note !== undefined ? { note: input.note } : {}),
+			...(input.answer !== undefined ? { answer: input.answer } : {}),
 			threadId: input.threadId,
 			agentId: session.agentId,
 			...(input.agentConfig ? { agentConfig: input.agentConfig } : {}),

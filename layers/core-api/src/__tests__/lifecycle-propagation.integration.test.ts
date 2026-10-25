@@ -266,7 +266,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		await vi.waitFor(async () => {
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			// `done`, not `review` — a finished task closes to `done` unless it
-			// asked for a verdict via `needsReview`.
+			// has a doneWhen line with by:"review".
 			expect(task?.state).toBe("done");
 		});
 	});

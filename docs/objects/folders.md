@@ -44,7 +44,7 @@ The `knowledge/` tree inside the sandbox is not a folder. Folders are separate m
 
 ## Giving and taking
 
-`edit_user({ folders: { give: [id], take: [id] } })` assigns or removes a folder from an agent. `add` creates a new folder in the team registry; `remove` deletes it from the registry.
+`edit_user({ folders: { give: [id], take: [id] } })` assigns or removes a folder from an agent; a folder can only be given to an agent of the folder's team. `add` creates a new folder in the team registry — the user's only team, or the one named by `team` when they are in several; `remove` deletes it from the registry.
 
 ## Difference from tools and documents
 

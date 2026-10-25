@@ -69,8 +69,8 @@ function scanDeclaredActionNames(
 }
 
 /**
- * The twenty-six registrations that realise the twenty-six plumbing doors —
- * internal seams, auth, health. A route, never an action.
+ * The registrations that realise the plumbing doors — internal seams, auth,
+ * health, first start. A route, never an action.
  *
  * @lore `GET /sessions/:sessionId` (a live core-api caller,
  * `port.sessions.getById`) and `POST /runs/stop-for-tasks` (a live core-api
@@ -113,10 +113,11 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /connections/:userId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId/:id/remove",
-	// @lore BC5 T11 (architecture.md §0.1 clause 3): `SetupFlow.tsx` needs
-	// folder detail (git repo? which branch?) BEFORE a folder exists to
-	// register — a plumbing lookup, not an action. Moved from LEGACY_ROUTES.
-	"layers/agent-orchestration/src/routes/filesystems.ts|POST /inspect-path",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId/:id/withhold",
+	// First start runs before anyone has a row, so there is no one to run an action as: a
+	// bootstrap door like auth, not an action.
+	"layers/core-api/src/routes/start.ts|POST /look",
+	"layers/core-api/src/routes/start.ts|POST /",
 ];
 
 /** The nine object events — task/thread/document/user, edit-in/changed-out. */
@@ -201,6 +202,15 @@ const LEGACY_EVENTS: readonly string[] = [
 	"session_ended",
 	"session_not_returned",
 ];
+
+/**
+ * Actions declared in `framework/domain-model/src/actions/` that are not yet
+ * wired to a `call(...)` or `useAction(...)` site in the UI (core-ui is a static preview in the
+ * design-restart branch; wiring to live data happens screen by screen in
+ * subsequent commits). Only shrinks: once an action gains a UI call site,
+ * its entry must be removed in the same PR. A wired action left here is a finding.
+ */
+const UNIMPLEMENTED_UI_ACTIONS: readonly string[] = ["stop_session"];
 
 /** Path to the event-bus vocabulary this rule's clause 4 reads. */
 const EVENT_TYPES_FILE = "framework/event-bus/src/events.ts";
@@ -310,9 +320,9 @@ function scanEventTypes(readFile: (path: string) => string): readonly string[] {
 	return [...block[1].matchAll(/["'`]([a-z_.]+)["'`]/g)].map((m) => m[1] ?? "");
 }
 
-/** A `call("<name>"` reference, the UI's one way of reaching an action. */
+/** A `call("<name>"` or `useAction("<name>"` reference — the UI's two ways of reaching an action. */
 function buildCallSiteMatcher(name: string): RegExp {
-	return new RegExp(`call\\(\\s*["'\`]${name}["'\`]`);
+	return new RegExp(`(?:\\bcall|\\buseAction)\\(\\s*["'\`]${name}["'\`]`);
 }
 
 export function actionsProjected(input: ActionsProjectedInput): Rule {
@@ -339,6 +349,17 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 					f.path.startsWith("layers/core-ui/src/") &&
 					/\.tsx?$/.test(f.path),
 			);
+			const unimplementedUiSet = new Set(UNIMPLEMENTED_UI_ACTIONS);
+			for (const name of UNIMPLEMENTED_UI_ACTIONS) {
+				if (!declaredActionNames.includes(name)) {
+					findings.push({
+						ruleId: "actions-projected",
+						severity: "error",
+						message: `UNIMPLEMENTED_UI_ACTIONS entry "${name}" is no longer a declared action — delete the entry in the same PR that removed the action`,
+						world: "production",
+					});
+				}
+			}
 			for (const name of declaredActionNames) {
 				const matcher = buildCallSiteMatcher(name);
 				const reachable = uiFiles.some((f) => {
@@ -349,7 +370,14 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 						throw error;
 					}
 				});
-				if (!reachable) {
+				if (reachable && unimplementedUiSet.has(name)) {
+					findings.push({
+						ruleId: "actions-projected",
+						severity: "error",
+						message: `action "${name}" is now reachable from the UI — remove it from UNIMPLEMENTED_UI_ACTIONS in actions-projected.ts`,
+						world: "production",
+					});
+				} else if (!(reachable || unimplementedUiSet.has(name))) {
 					findings.push({
 						ruleId: "actions-projected",
 						severity: "error",

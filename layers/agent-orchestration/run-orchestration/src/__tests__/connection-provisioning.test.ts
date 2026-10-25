@@ -85,7 +85,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 			{ id: "sc-gh", service: "github", authSource: "token", serverUrl: null, token: "ghs_abc" },
 		]);
 
-		const plan = await buildProvisioningPlan({ connections, resolver });
+		const plan = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 
 		expect(plan.envInjections).toMatchObject({ GH_TOKEN: "ghs_abc", GITHUB_TOKEN: "ghs_abc" });
 		expect(plan.mcpServers).toHaveLength(0);
@@ -106,7 +106,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 		);
 		const resolveSpy = vi.spyOn(resolver, "resolve");
 
-		const plan = await buildProvisioningPlan({ connections, resolver });
+		const plan = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 
 		expect(plan.mcpServers).toHaveLength(1);
 		expect(plan.mcpServers[0]).toMatchObject({
@@ -131,7 +131,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 			},
 		]);
 
-		const plan = await buildProvisioningPlan({ connections, resolver });
+		const plan = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 
 		expect(plan.mcpServers).toHaveLength(1);
 		expect(plan.mcpServers[0]).toMatchObject({ name: "figma", url: "https://mcp.figma.com" });
@@ -151,6 +151,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 		]);
 
 		const plan = await buildProvisioningPlan({
+			agentId: "agent",
 			connections,
 			resolver,
 			_ssrfLookup: async () => [{ address: "10.0.0.1", family: 4 }],
@@ -175,7 +176,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 			},
 		]);
 
-		await buildProvisioningPlan({ connections, resolver });
+		await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 
 		for (const msg of loggedMessages) {
 			expect(msg).not.toContain("sk_test_SUPERSECRET_XYZ");
@@ -194,7 +195,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 			},
 		]);
 
-		const plan = await buildProvisioningPlan({ connections, resolver });
+		const plan = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 
 		expect(plan.envInjections.GH_TOKEN).toBe("tok1");
 		expect(plan.mcpServers).toHaveLength(1);
@@ -219,7 +220,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 			},
 		]);
 
-		const plan = await buildProvisioningPlan({ connections, resolver });
+		const plan = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 
 		const names = plan.mcpServers.map((s) => s.name);
 		expect(names).toContain("stripe");
@@ -229,7 +230,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 	test("no held connections for the seam-resolved owner → empty plan, no throw", async () => {
 		const { connections, resolver } = buildPlanSeamDeps([]);
 
-		const plan = await buildProvisioningPlan({ connections, resolver });
+		const plan = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 
 		expect(plan.mcpServers).toHaveLength(0);
 		expect(Object.keys(plan.envInjections)).toHaveLength(0);

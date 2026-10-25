@@ -27,12 +27,8 @@ interface RealtimeDocumentReader {
 	getForSubscribe(db: HyperIdleDb, id: string): Promise<RealtimeDocumentRow | undefined>;
 }
 
-/** Port for subject/viewerTeamId resolution — the actor plus every agent they own, and the actor's team. */
+/** Port for subject resolution — the actor plus every agent they own. */
 interface RealtimeUserReader {
-	getUserById(
-		db: HyperIdleDb,
-		id: string,
-	): Promise<{ readonly teamId: string | null; readonly ownerUserId: string | null } | undefined>;
 	listOwnedBy(db: HyperIdleDb, ownerId: string): Promise<readonly { readonly id: string }[]>;
 }
 
@@ -45,7 +41,7 @@ export interface SubscribeAuthorizerDeps {
 
 /**
  * Build an authorizer:
- *  - global topics (`conversations`, `documents`): any authenticated identity
+ *  - global topics (`conversations`, `documents`, `tasks`, `users`): any authenticated identity
  *  - `thread:<id>`: exactly who `canReadThread` admits (host-scoped threads admit any signed-in identity; direct threads admit only members)
  *  - `document:<id>`: exactly who `canReadDocument`/`open_document` would admit
  *  - `session:<id>`: any signed-in identity, no DB read
@@ -55,7 +51,8 @@ export function createDbSubscribeAuthorizer(
 	db: HyperIdleDb,
 	deps: SubscribeAuthorizerDeps,
 ): SubscribeAuthorizer {
-	const GLOBAL_TOPICS = new Set(["conversations", "documents"]);
+	// @lore: tasks is global (any signed-in identity) — tasks have no per-row ACL; task:<id> likewise admits any authenticated identity (same rule as session:<id>)
+	const GLOBAL_TOPICS = new Set(["conversations", "documents", "tasks", "users"]);
 	async function senderInThread(senderId: string, threadId: string): Promise<boolean> {
 		const row = await deps.conversation.getThreadById(db, threadId);
 		if (!row) return false;
@@ -67,21 +64,12 @@ export function createDbSubscribeAuthorizer(
 			return false;
 		}
 	}
-	/** Same `:subjects`/`:viewerTeamId` resolution `document-actions.ts`'s `resolveViewer` does — uses `canReadDocument` so the socket and the read can never diverge. */
+	/** Same `:subjects` resolution `document-actions.ts`'s `resolveViewer` does — uses `canReadDocument` so the socket and the read can never diverge. */
 	async function senderCanReadDocument(senderId: string, documentId: string): Promise<boolean> {
 		const row = await deps.document.getForSubscribe(db, documentId);
 		if (!row) return false;
-		const [actorUser, owned] = await Promise.all([
-			deps.users.getUserById(db, senderId),
-			deps.users.listOwnedBy(db, senderId),
-		]);
-		const subjects = [senderId, ...owned.map((u) => u.id)];
-		let viewerTeamId = actorUser?.teamId ?? null;
-		if (viewerTeamId === null && actorUser?.ownerUserId) {
-			const owner = await deps.users.getUserById(db, actorUser.ownerUserId);
-			viewerTeamId = owner?.teamId ?? null;
-		}
-		return canReadDocument(subjects, viewerTeamId, row);
+		const owned = await deps.users.listOwnedBy(db, senderId);
+		return canReadDocument([senderId, ...owned.map((u) => u.id)], row);
 	}
 	return {
 		canSubscribe(senderId: string, topic: string): Promise<boolean> {
@@ -106,6 +94,10 @@ export function createDbSubscribeAuthorizer(
 			if (topic.startsWith("user:")) {
 				const userId = topic.slice("user:".length);
 				return Promise.resolve(userId.length > 0 && userId === senderId);
+			}
+			if (topic.startsWith("task:")) {
+				const taskId = topic.slice("task:".length);
+				return Promise.resolve(Boolean(taskId));
 			}
 			return Promise.resolve(false);
 		},

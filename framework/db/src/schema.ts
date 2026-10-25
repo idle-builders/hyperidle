@@ -1,4 +1,8 @@
-import type { PluginState, StoredPluginContributionKind } from "@hyperidle/domain-model";
+import type {
+	PluginSourceKind,
+	PluginState,
+	StoredPluginContributionKind,
+} from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
 import {
 	type AnyPgColumn,
@@ -20,41 +24,47 @@ export const teams = pgTable("teams", {
 	createdAt: text("created_at").notNull(),
 });
 
-export const users = pgTable(
-	"users",
+export const users = pgTable("users", {
+	id: text("id").primaryKey(),
+	/** "human" | "ai" */
+	kind: text("kind").notNull().default("ai"),
+	name: text("name").notNull(),
+	role: text("role").notNull(),
+	status: text("status").notNull(),
+	/** Null for AI users. */
+	avatarUrl: text("avatar_url"),
+	createdAt: text("created_at").notNull(),
+	/** Agent category — team | individual. Null for human users and system users. */
+	agentCategory: text("agent_category"),
+	/** The person an agent works for. Null for a person and for an agent no one owns. */
+	ownerUserId: text("owner_user_id").references((): AnyPgColumn => users.id, {
+		onDelete: "set null",
+	}),
+	health: text("health"),
+	// @lore: discipline — an open craft string on a human or agent, matched case-insensitively; it clusters a context bundle, never gates access (`role` does).
+	discipline: text("discipline"),
+	/** What they do, in a few words, as everyone sees it. Never access: that is `role`. */
+	what: text("what"),
+});
+
+/**
+ * Which teams a user is in. A person may be in several; an agent in exactly
+ * one, and an owned agent's team is one of its owner's (`edit_user` keeps
+ * both rules). A team is a name only — see `teams`.
+ */
+export const userTeams = pgTable(
+	"user_teams",
 	{
-		id: text("id").primaryKey(),
-		/** "human" | "ai" */
-		kind: text("kind").notNull().default("ai"),
-		name: text("name").notNull(),
-		teamId: text("team_id").references(() => teams.id, { onDelete: "restrict" }),
-		role: text("role").notNull(),
-		status: text("status").notNull(),
-		/** Null for AI users. */
-		avatarUrl: text("avatar_url"),
-		createdAt: text("created_at").notNull(),
-		/** Agent category — team | individual. Null for human users and system users. */
-		agentCategory: text("agent_category"),
-		/**
-		 * Who an agent belongs to, as a real column — a team (`teamId`),
-		 * a person (`ownerUserId`), or neither. Null for human users (the
-		 * `users_belonging_ck` check below is trivially satisfied by them).
-		 * Written only when the agent is created, through `@hyperidle/user`'
-		 * `insertUser`; `updateUser` deliberately never changes it. An owned
-		 * agent takes its owner's team.
-		 */
-		ownerUserId: text("owner_user_id").references((): AnyPgColumn => users.id, {
-			onDelete: "set null",
-		}),
-		health: text("health"),
-		// @lore: discipline — an open craft string on a human or agent, matched case-insensitively; it clusters a context bundle, never gates access (`role` does).
-		discipline: text("discipline"),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		teamId: text("team_id")
+			.notNull()
+			.references(() => teams.id, { onDelete: "restrict" }),
 	},
 	(table) => [
-		check(
-			"users_belonging_ck",
-			sql`${table.ownerUserId} IS NULL OR (${table.kind} = 'ai' AND ${table.teamId} IS NULL)`,
-		),
+		primaryKey({ columns: [table.userId, table.teamId] }),
+		index("user_teams_team_idx").on(table.teamId),
 	],
 );
 
@@ -101,7 +111,8 @@ export const tasks = pgTable(
 		ownerAgentId: text("owner_agent_id").references(() => users.id, { onDelete: "restrict" }),
 		title: text("title").notNull(),
 		description: text("description"),
-		doneCondition: text("done_condition"),
+		/** JSON array of DoneWhenLine objects. */
+		doneWhen: text("done_when").notNull().default("[]"),
 		state: text("state").notNull(),
 		dependencies: text("dependencies"),
 		threadId: text("thread_id")
@@ -134,15 +145,15 @@ export const tasks = pgTable(
 		 *
 		 */
 		position: integer("position").notNull().default(0),
-		/**
-		 * Does finishing this task need a human verdict?
-		 *
-		 * `false` (the default) means the task closes straight to `done`; `true` sends it to `review` instead.
-		 *
-		 */
-		needsReview: boolean("needs_review").notNull().default(false),
+		/** JSON array of Reason objects (decisions and assumptions). */
+		reasons: text("reasons").notNull().default("[]"),
+		/** A person paused it, and every part not done with it: "hold" or "stopped". The state stays as it was. */
+		paused: text("paused"),
+		/** Who started it: whoever made it. */
+		startedBy: text("started_by").references(() => users.id, { onDelete: "set null" }),
 	},
 	(table) => [
+		check("tasks_paused_ck", sql`${table.paused} IS NULL OR ${table.paused} IN ('hold','stopped')`),
 		index("tasks_parent_task_id_idx").on(table.parentTaskId),
 		index("tasks_team_id_idx").on(table.teamId),
 		// no index on state — too few distinct values to be selective
@@ -342,7 +353,7 @@ export const taskDispatchAttempts = pgTable(
 		index("task_dispatch_attempts_status_idx").on(table.status, table.createdAt),
 		check(
 			"task_dispatch_attempts_occasion_ck",
-			sql`${table.occasion} in ('accepted','retry','owner_handoff')`,
+			sql`${table.occasion} in ('accepted','retry','owner_handoff','restart')`,
 		),
 		check(
 			"task_dispatch_attempts_status_ck",
@@ -440,14 +451,11 @@ export const messages = pgTable(
 		redactedAt: text("redacted_at"),
 		resolvedAt: text("resolved_at"),
 		createdAt: text("created_at").notNull(),
-		/** Structured, queryable block anchor. Dual-written alongside payload.blockId. */
-		blockId: text("block_id"),
 	},
 	(table) => [
 		index("messages_thread_id_idx").on(table.threadId, table.createdAt),
 		uniqueIndex("messages_idempotency_uq").on(table.threadId, table.senderId, table.clientKey),
 		index("messages_unresolved_idx").on(table.threadId, table.resolvedAt),
-		index("messages_block_id_idx").on(table.blockId),
 	],
 );
 
@@ -486,6 +494,8 @@ export const subscriptions = pgTable(
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
 		event: text("event"),
+		/** The one task, thread or document this follows; null hears the event about anything it reaches. */
+		objectId: text("object_id"),
 		schedule: text("schedule"),
 		paused: boolean("paused").notNull().default(false),
 		nextRunAt: text("next_run_at"),
@@ -496,14 +506,20 @@ export const subscriptions = pgTable(
 		index("subscriptions_user_idx").on(table.userId),
 		index("subscriptions_event_idx").on(table.event).where(sql`${table.event} IS NOT NULL`),
 		check("subscriptions_trigger_ck", sql`(${table.event} IS NULL) <> (${table.schedule} IS NULL)`),
+		check("subscriptions_object_ck", sql`${table.objectId} IS NULL OR ${table.event} IS NOT NULL`),
 		check(
 			"subscriptions_event_ck",
 			sql`${table.event} IS NULL OR ${table.event} IN (
 				'task.created', 'task.changed',
 				'thread.created', 'thread.message', 'thread.changed',
 				'document.created', 'document.changed',
-				'user.created', 'user.changed'
+				'user.created', 'user.changed',
+				'review.raised_for_me', 'mention.of_me', 'started.done_or_stuck', 'followed.changed'
 			)`,
+		),
+		check(
+			"subscriptions_reason_ck",
+			sql`${table.objectId} IS NULL OR ${table.event} NOT IN ('review.raised_for_me', 'mention.of_me', 'started.done_or_stuck', 'followed.changed')`,
 		),
 		check(
 			"subscriptions_next_run_ck",
@@ -572,6 +588,8 @@ export const documents = pgTable(
 		updatedAt: text("updated_at").notNull(),
 		// @lore: discipline — who a document is for; clusters a context bundle only, never hides it in the document view. `agent_file` never carries one.
 		discipline: text("discipline"),
+		/** One emoji, shown in the tree and before the title. */
+		icon: text("icon"),
 	},
 	(table) => [
 		index("doc_scope_idx").on(table.scopeKind, table.scopeId),
@@ -716,6 +734,13 @@ export const plugins = pgTable(
 		 * at session materialisation time.
 		 */
 		installPath: text("install_path"),
+		/** Where it was added from; `sourceAddress` is the folder, repository URL or zip path as given, or the manifest name for a bundled one. */
+		sourceKind: text("source_kind").$type<PluginSourceKind>().notNull(),
+		sourceAddress: text("source_address").notNull(),
+		/** The manifest's description, as of the last install. */
+		description: text("description"),
+		/** Who added it; null only for an install made before this was kept. */
+		installedBy: text("installed_by"),
 		installedAt: text("installed_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 		disabledAt: text("disabled_at"),
@@ -724,6 +749,10 @@ export const plugins = pgTable(
 	(table) => [
 		check("plugins_state_ck", sql`${table.state} IN ('enabled', 'disabled', 'removed')`),
 		check("plugins_scope_kind_ck", sql`${table.scopeKind} IN ('factory', 'team')`),
+		check(
+			"plugins_source_kind_ck",
+			sql`${table.sourceKind} IN ('folder', 'git', 'zip', 'bundled')`,
+		),
 		uniqueIndex("plugins_name_scope_uq").on(table.name, table.scopeKind, table.scopeTeamId),
 	],
 );
@@ -747,6 +776,8 @@ export const pluginContributions = pgTable(
 		entityId: text("entity_id").notNull(),
 		/** Set when a person edited this contribution; a reinstall leaves their version alone. */
 		detachedAt: text("detached_at"),
+		/** Who made that edit. */
+		detachedBy: text("detached_by"),
 		createdAt: text("created_at").notNull(),
 	},
 	(table) => [
@@ -850,6 +881,21 @@ export const serviceConnections = pgTable(
 
 export type ServiceConnectionRow = typeof serviceConnections.$inferSelect;
 export type NewServiceConnectionRow = typeof serviceConnections.$inferInsert;
+
+/** A service reaches every agent of its owner; a row here keeps it from one of them. */
+export const serviceConnectionWithholds = pgTable(
+	"service_connection_withholds",
+	{
+		connectionId: text("connection_id")
+			.notNull()
+			.references(() => serviceConnections.id, { onDelete: "cascade" }),
+		agentUserId: text("agent_user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		createdAt: text("created_at").notNull(),
+	},
+	(t) => [primaryKey({ columns: [t.connectionId, t.agentUserId] })],
+);
 
 // --- Action rules (scoped items for agent action approval) ---
 

@@ -1,50 +1,46 @@
 # UI design
 
-## Stack
+The app is `layers/core-ui`: plain React with Vite and React Router, styled with plain CSS. No
+Tailwind, no DaisyUI, no component library, no CSS-in-JS. The document editor is TipTap, storing
+Markdown. Design intent lives in `plans/design-restart/information-architecture.md`.
 
-- **React** with Vite
-- **Tailwind CSS 4** — utility-first, token-driven
-- **DaisyUI 5** — component layer on top of Tailwind
-- **Tiptap 3** — rich text editing
+## Files
 
-## Themes
+- `src/App.tsx` — the page addresses (see [navigation.md](navigation.md)).
+- One file per screen: `Sidebar.tsx`, `Find.tsx`, `Thread.tsx`, `Judge.tsx` (a review),
+  `Shift.tsx` (a task), `Think.tsx` (a document), `People.tsx` (a person or a team), `Plugins.tsx`,
+  `Start.tsx` (first start), `Setup.tsx` (the dialogs on a person's page). Shared pieces sit beside
+  them: `Composer.tsx`, `FormatBar.tsx`, `MentionPicker.tsx`, `Msg.tsx`, `Loop.tsx`,
+  `ReviewPart.tsx`, `Failed.tsx`.
+- What a screen works out from data — lists, words, order — is in a plain `.ts` file beside it
+  (`sidebar-lists.ts`, `task-page.ts`, `review-page.ts`, …), with its unit tests next to it.
 
-Two themes: `hearth-light` (pale warm cream) and `hearth-dark` (deep warm with a lemon whisper). Light is the default. The active theme is stored in `localStorage` and applied as `data-theme` on the root. With no `data-theme`, `prefers-color-scheme` decides.
+## Tokens and the skin
 
-Token source of truth: `layers/core-ui/src/ds/tokens.css`.
+- `src/tokens.css` holds every raw value: colours, spacing, type, fonts. It is the only file allowed
+  a raw colour.
+- `src/app.css` holds the classes, written with `var(--…)` tokens only.
+- One skin, Paper, in light and dark: `data-skin="paper"` and `data-mode="light" | "dark"` on
+  `<html>`. Each viewer picks Light, Dark or Like this computer on their own page; the choice is
+  kept in that browser only (`looks.ts`).
+- The token check — `npm run lint:design-css`, part of `npm run lint`
+  (`tools/repo-gates/src/design-css-gate.ts`) — fails on a raw colour outside `tokens.css` or on a
+  token that is not defined. The rules for adding UI are in `.claude/rules/design-system.md`.
 
-## Components
+## Reading and writing data
 
-Design system components live in `layers/core-ui/src/ds/`, re-exported from `ds/index.ts`. Shell and region components live in `layers/core-ui/src/shell/`. There is no separate design-system package.
+- `api.ts` — one `call(action, input)` that posts to `/api/actions/<name>` with the API key. The
+  actions are declared in `@hyperidle/domain-model`.
+- `useAction.ts` — runs an action, keeps the last good answer, and runs it again when one of its
+  topics is nudged. There is no cache: each screen asks for what it shows.
+- `live.ts` — one WebSocket for the whole app. Topics: `conversations`, `tasks`, `documents`,
+  `thread:<id>`, `task:<id>`, `document:<id>`, `user:<id>`. After a dropped connection every
+  listener is nudged.
+- No made-up data in production code. The demo world (`tools/setup/src/demo-world`) holds the
+  story; it can be seeded into a database (`npm run setup -- --demo`) and the end-to-end tests run on it.
 
-Three tiers:
-- **Tier 1** — foundational primitives (e.g. `Row`, `PageScaffold`, `PageHeader`)
-- **Tier 2** — composed DS components
-- **Tier 3** — page-local components promoted to the design system
+## Tests
 
-Every DS component has a `.stories.tsx` file — that file is the design artifact.
-
-Before adding a component, read `ds/index.ts`. If an existing export does the job, use it.
-
-## PageScaffold and the scroll contract
-
-`PageScaffold` is the one place a page declares its scroll contract. Two body modes:
-
-- **`scroll`** (default) — the scaffold owns the scroll region
-- **`managed`** — the child owns its own scrolling (split panes, conversation surfaces)
-
-In both modes the scaffold guarantees the child a bounded flex column (`flex flex-col h-full`). The `AppShell` main area is `overflow-hidden`. A scrolling body must be a flex item of a bounded flex column — hand-writing the combination of classes that achieves this is an error (lint: `design/no-handrolled-page-scaffold`).
-
-`frame="page"` wraps children in a centred `PageFrame`. `frame="local"` (default) leaves layout to the child.
-
-One `h1` per page, always via `PageHeader`.
-
-## Status colour meaning
-
-`StatusChip` colour meanings: blue for calm/informational states, amber for attention states. Do not use colour to mean success/failure on neutral status rows — use the chip's text.
-
-## Lint rules
-
-The design lint rules live in `tools/eslint-plugin-design/`. Hard rules are documented in `.claude/rules/aesthetic-quality.md`. Component and token conventions are in `.claude/rules/design-system.md`. Do not restate them here — link to the rules.
-
-Two lint scopes: `ds/**` (building the system) and everything else in `layers/core-ui/src` (using it). Severity differs per scope. See `tools/eslint-plugin-design/src/hearth-config.ts` for the full table.
+Unit tests sit beside the `.ts` files they test. End-to-end tests (`layers/core-ui/__e2e__/`) drive
+the real server on a fresh demo world with Playwright, locally. How tests are written:
+`.claude/rules/testing.md`.

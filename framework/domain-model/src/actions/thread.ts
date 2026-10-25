@@ -1,9 +1,9 @@
 import { z } from "zod";
+import { anchorSchema, flagSchema, reviewInvariants, reviewPartSchema } from "../review.js";
 import {
 	HOST_KINDS,
 	type HostKind,
 	MESSAGE_TYPES,
-	REVIEW_CANVAS_KINDS,
 	type RedactedPayload,
 	VERDICT_DECISIONS,
 } from "../thread.js";
@@ -24,22 +24,7 @@ export const mentionRefSchema = z.object({
 	sourceText: z.string().min(1),
 });
 
-/**
- * Review canvas anchor ref — preserves `kind:"artifact"` on the wire so
- * `ReviewPage`'s `isArtifactEntityRef` guard can locate the anchor unchanged.
- * The id here is the id of
- * a `ReviewCanvasArtifact` inside a review message's `artifacts` array.
- */
-export const canvasArtifactRefSchema = z.object({
-	kind: z.literal("artifact"),
-	id: z.string().min(1),
-});
-
-export const inlineRefSchema = z.discriminatedUnion("kind", [
-	entityRefSchema,
-	mentionRefSchema,
-	canvasArtifactRefSchema,
-]);
+export const inlineRefSchema = z.discriminatedUnion("kind", [entityRefSchema, mentionRefSchema]);
 
 export const assistantNoticeSchema = z.object({
 	kind: z.enum(["missing_harness", "provider_error"]),
@@ -51,16 +36,6 @@ const toolCallSummarySchema = z.object({
 	input: z.record(z.string(), z.unknown()),
 	output: z.string(),
 	status: z.enum(["ok", "error"]),
-});
-
-const reviewCanvasArtifactSchema = z.object({
-	id: z.string().min(1),
-	tool: z.string().min(1),
-	app: z.string().min(1),
-	sourceHref: z.string().min(1),
-	title: z.string().min(1),
-	kind: z.enum(REVIEW_CANVAS_KINDS),
-	payload: z.record(z.string(), z.unknown()),
 });
 
 const redactedPayloadSchema = z.object({
@@ -78,11 +53,29 @@ export const threadParticipantsSchema = z.array(z.string().min(1));
 // production writes it); it stays on the READ side so historical rows still
 // render, via `plainReadPayloadSchema` below.
 
+/**
+ * A change proposed inside a comment on a document: the text the comment covers as it was, and
+ * as it should become. Anyone may apply or dismiss it, once; `settled` says who did, and when.
+ */
+export const proposedChangeSchema = z.object({
+	from: z.string().max(16_384),
+	to: z.string().max(16_384),
+	settled: z
+		.object({
+			state: z.enum(["applied", "dismissed"]),
+			by: z.string().min(1),
+			at: z.string().min(1),
+		})
+		.optional(),
+});
+export type ProposedChange = z.infer<typeof proposedChangeSchema>;
+
 export const plainPayloadSchema = z.object({
 	text: z.string().max(16_384),
 	refs: z.array(inlineRefSchema).optional(),
-	blockId: z.string().max(128).optional(),
-	spotLabel: z.string().max(128).optional(),
+	/** A comment on a review's part, or on a stretch of the text of the thread's document. */
+	anchor: anchorSchema.optional(),
+	change: proposedChangeSchema.optional(),
 });
 export type PlainPayload = z.infer<typeof plainPayloadSchema>;
 
@@ -97,9 +90,21 @@ export type PlainReadPayload = z.infer<typeof plainReadPayloadSchema>;
 
 export const reviewPayloadSchema = z.object({
 	title: z.string().min(1).max(512),
+	/** What the sender says about it, a line each. */
 	reasoning: z.array(z.string().max(1024)).max(16),
+	/** Which stage of the work this reviews, in a word or two: "Design", "Final". */
+	stage: z.string().min(1).max(64).optional(),
+	/** What there is to look at, composed for the question. */
+	parts: z.array(reviewPartSchema).max(12).optional(),
+	/** The sender's own pointers to where to look. */
+	flags: z.array(flagSchema).max(26).optional(),
+	/** The round this one retries, after it was rejected; its open questions stay there. */
+	previousReviewId: z.string().min(1).optional(),
+	/** What changed since the previous round, a line each. */
+	changed: z.array(z.string().min(1).max(512)).max(16).optional(),
 	producedItemId: z.string().optional(),
-	artifacts: z.array(reviewCanvasArtifactSchema).optional(),
+	/** The person who reviews it; absent ⇒ anyone in the thread but its sender. */
+	reviewer: z.string().min(1).optional(),
 	// server-stamped from ctx.caller.taskId — never accepted from the caller; SendMessageInputSchema.review omits it so a smuggled taskId is stripped by validation
 	taskId: z.string().optional(),
 });
@@ -116,6 +121,7 @@ export type QuestionnairePayload = z.infer<typeof questionnairePayloadSchema>;
 
 // ── verdict ──────────────────────────────────────────────────────────────
 
+// Resolves a review. A reject must say why in `note` — a pure invariant below.
 export const verdictPayloadSchema = z.object({
 	decision: z.enum(VERDICT_DECISIONS),
 	resolvesMessageId: z.string(),
@@ -123,10 +129,27 @@ export const verdictPayloadSchema = z.object({
 });
 export type VerdictPayload = z.infer<typeof verdictPayloadSchema>;
 
+// ── answer ───────────────────────────────────────────────────────────────
+
+// Resolves a questionnaire: exactly one of `option` (one of its options,
+// verbatim) or `text` (the person's own words) — a pure invariant below.
+export const answerPayloadSchema = z.object({
+	resolvesMessageId: z.string(),
+	option: z.string().optional(),
+	text: z.string().max(2048).optional(),
+});
+export type AnswerPayload = z.infer<typeof answerPayloadSchema>;
+
 export function parseMessagePayload(
 	type: (typeof MESSAGE_TYPES)[number],
 	payload: unknown,
-): PlainPayload | ReviewPayload | QuestionnairePayload | VerdictPayload | RedactedPayload {
+):
+	| PlainPayload
+	| ReviewPayload
+	| QuestionnairePayload
+	| VerdictPayload
+	| AnswerPayload
+	| RedactedPayload {
 	switch (type) {
 		case "plain":
 			return z.union([plainReadPayloadSchema, redactedPayloadSchema]).parse(payload);
@@ -136,6 +159,8 @@ export function parseMessagePayload(
 			return z.union([questionnairePayloadSchema, redactedPayloadSchema]).parse(payload);
 		case "verdict":
 			return z.union([verdictPayloadSchema, redactedPayloadSchema]).parse(payload);
+		case "answer":
+			return z.union([answerPayloadSchema, redactedPayloadSchema]).parse(payload);
 	}
 }
 
@@ -160,9 +185,8 @@ export const MessageSchema = z.object({
 	threadId: z.string(),
 	senderId: z.string(),
 	type: z.enum(MESSAGE_TYPES),
-	payload: z.unknown(), // one of the four payload shapes, or the redacted variant
+	payload: z.unknown(), // one of the five payload shapes, or the redacted variant
 	clientKey: z.string(),
-	blockId: z.string().nullable(),
 	resolvedAt: z.string().nullable(),
 	deletedAt: z.string().nullable(),
 	redactedAt: z.string().nullable(),
@@ -182,6 +206,8 @@ export type Identity = z.infer<typeof IdentitySchema>;
 export const SearchThreadsInputSchema = z
 	.object({
 		mine: z.boolean().optional(), // threads the actor is a member of
+		/** The threads this user is in, each saying what it waits on from them — only those you can read. */
+		member: z.string().min(1).optional(),
 		host: z.object({ kind: z.enum(HOST_KINDS), id: z.string().min(1) }).optional(),
 		text: z.string().min(1).optional(), // across message text and stored title
 		ids: z.array(z.string()).optional(),
@@ -191,8 +217,12 @@ export const SearchThreadsInputSchema = z
 export type SearchThreadsInput = z.infer<typeof SearchThreadsInputSchema>;
 
 export const ThreadListRowSchema = ThreadSchema.extend({
-	hasUnresolvedReview: z.boolean(), // sidebar badge; one batched query, never N+1
+	/** What it waits on from the caller — `computeThreadNeed`; one batched query, never N+1. */
+	need: z.enum(["stuck", "input", "review"]).nullable(),
 	lastMessagePreview: z.string().nullable(),
+	lastSenderId: z.string().nullable(),
+	/** The newest message, from someone else, mentions the caller. */
+	mentionsYou: z.boolean(),
 });
 export type ThreadListRow = z.infer<typeof ThreadListRowSchema>;
 
@@ -206,7 +236,6 @@ export const searchThreads: ActionDeclaration<SearchThreadsInput, ThreadListRow[
 export const OpenThreadInputSchema = z
 	.object({
 		id: z.string().min(1),
-		blockId: z.string().min(1).max(128).optional(), // the block-anchored comment filter, unchanged
 	})
 	.strict();
 export type OpenThreadInput = z.infer<typeof OpenThreadInputSchema>;
@@ -243,17 +272,19 @@ export const SendMessageInputSchema = z
 			.max(128)
 			.regex(/^[A-Za-z0-9_\-:.]+$/)
 			.optional(),
-		// exactly one of the four bodies below — a pure invariant, not a schema rule
+		// exactly one of the five bodies below — a pure invariant, not a schema rule
 		text: z.string().max(16_384).optional(),
 		refs: z.array(inlineRefSchema).optional(), // plain only
-		blockId: z.string().max(128).optional(), // plain only
-		spotLabel: z.string().max(128).optional(), // plain only
+		anchor: anchorSchema.optional(), // plain only
+		/** A change to the document text the anchor covers; plain only. */
+		change: proposedChangeSchema.omit({ settled: true }).optional(),
 		// `taskId` is server-stamped from `ctx.caller.taskId`, never caller
 		// input — omitted here so a smuggled `taskId` in the request body is
 		// stripped by validation rather than stored.
 		review: reviewPayloadSchema.omit({ taskId: true }).optional(),
 		questionnaire: questionnairePayloadSchema.optional(),
 		verdict: verdictPayloadSchema.optional(),
+		answer: answerPayloadSchema.optional(),
 	})
 	.strict();
 export type SendMessageInput = z.infer<typeof SendMessageInputSchema>;
@@ -268,7 +299,10 @@ export const sendMessage: ActionDeclaration<SendMessageInput, SendMessageOutput>
 	name: "send_message",
 	sentence:
 		"Send a message. Name a thread, or name recipients to start one; leave both out to answer in " +
-		"the conversation you were called from. Send text, a review, a question or a verdict. " +
+		"the conversation you were called from. Send text, a review (name its reviewer when one " +
+		"person owns it), a question, a verdict on a " +
+		"review (approve, or reject with the reason), or an answer to a question (one of its " +
+		"options, or your own words). " +
 		"Give a message id to replace what you already sent.",
 	input: SendMessageInputSchema,
 	output: SendMessageOutputSchema,
@@ -283,6 +317,15 @@ export const AdjustThreadInputSchema = z
 		resolved: z.boolean().optional(), // true ⇒ resolvedAt = now; false ⇒ reopen
 		pinned: z.boolean().optional(),
 		deleted: z.boolean().optional(), // true ⇒ deletedAt = now; false ⇒ restore
+		/** One message in it: resolve or reopen the comment it starts, apply or dismiss its change. */
+		message: z
+			.object({
+				id: z.string().min(1),
+				resolved: z.boolean().optional(),
+				change: z.enum(["applied", "dismissed"]).optional(),
+			})
+			.strict()
+			.optional(),
 	})
 	.strict();
 export type AdjustThreadInput = z.infer<typeof AdjustThreadInputSchema>;
@@ -291,7 +334,8 @@ export const adjustThread: ActionDeclaration<AdjustThreadInput, ThreadView> = {
 	name: "adjust_thread",
 	sentence:
 		"Adjust a conversation, new or existing: its title, who is in it, whether it is " +
-		"resolved, pinned, or deleted.",
+		"resolved, pinned, or deleted; resolve or reopen a comment in it, or apply or dismiss the " +
+		"change a message proposes.",
 	input: AdjustThreadInputSchema,
 	output: ThreadViewSchema, // same shape open_thread returns
 };
@@ -335,17 +379,18 @@ export function sendMessageInvariants(
 		input.review !== undefined,
 		input.questionnaire !== undefined,
 		input.verdict !== undefined,
+		input.answer !== undefined,
 	].filter(Boolean).length;
 	if (bodies === 0) {
 		problems.push({
 			code: "no_body",
-			message: "Send text, a review, a question or a verdict.",
+			message: "Send text, a review, a question, a verdict or an answer.",
 			path: "text",
 		});
 	} else if (bodies > 1) {
 		problems.push({
 			code: "two_bodies",
-			message: "Send exactly one of text, a review, a question or a verdict.",
+			message: "Send exactly one of text, a review, a question, a verdict or an answer.",
 			path: "text",
 		});
 	}
@@ -353,14 +398,32 @@ export function sendMessageInvariants(
 	const hasText = input.text !== undefined;
 	if (
 		!hasText &&
-		(input.refs !== undefined || input.blockId !== undefined || input.spotLabel !== undefined)
+		(input.refs !== undefined || input.anchor !== undefined || input.change !== undefined)
 	) {
 		problems.push({
 			code: "plain_fields_on_non_plain",
-			message: "refs/blockId/spotLabel only apply to a text message.",
+			message: "refs, anchor and change only apply to a text message.",
 			path: "text",
 		});
 	}
+	if (input.change !== undefined) {
+		if (input.anchor === undefined || input.anchor.review !== undefined)
+			problems.push({
+				code: "change_needs_document_anchor",
+				message: "A change is proposed on a stretch of a document's text: anchor it there.",
+				path: "change",
+			});
+		else if (input.change.from === input.change.to)
+			problems.push({
+				code: "change_same",
+				message: "The proposed text is the same as the text it would replace.",
+				path: "change.to",
+			});
+	}
+	if (input.review !== undefined)
+		problems.push(
+			...reviewInvariants(input.review).map((p) => ({ ...p, path: `review.${p.path}` })),
+		);
 
 	if (input.messageId !== undefined && !hasThreadId) {
 		problems.push({
@@ -383,8 +446,83 @@ export function sendMessageInvariants(
 			path: "verdict",
 		});
 	}
+	if (input.verdict?.decision === "reject" && (input.verdict.note ?? "").trim() === "") {
+		problems.push({
+			code: "reject_needs_reason",
+			message: "Say why you reject it — the agent needs the reason to try another way.",
+			path: "verdict.note",
+		});
+	}
+
+	if (input.answer !== undefined) {
+		if (hasRecipients) {
+			problems.push({
+				code: "answer_on_new_thread",
+				message: "An answer cannot open a new thread.",
+				path: "answer",
+			});
+		}
+		const { option, text } = input.answer;
+		if ((option === undefined) === (text === undefined)) {
+			problems.push({
+				code: "answer_needs_one",
+				message: "Answer with one of the options or in your own words — exactly one of the two.",
+				path: "answer",
+			});
+		} else if (text !== undefined && text.trim() === "") {
+			problems.push({
+				code: "answer_empty",
+				message: "Your answer is empty.",
+				path: "answer.text",
+			});
+		}
+	}
 
 	return problems;
+}
+
+/**
+ * What a verdict or an answer may resolve, given the message it names: a
+ * verdict resolves a review, an answer resolves a questionnaire, and a picked
+ * option must be one the questionnaire offers.
+ */
+export function resolvesMessageInvariants(
+	input: Pick<SendMessageInput, "verdict" | "answer">,
+	target: { readonly type: string; readonly payload: unknown },
+): Problem[] {
+	if (input.verdict !== undefined && target.type !== "review") {
+		return [
+			{
+				code: "verdict_not_review",
+				message: "A verdict resolves a review. Answer a question with one of its options.",
+				path: "verdict.resolvesMessageId",
+			},
+		];
+	}
+	if (input.answer === undefined) return [];
+	if (target.type !== "questionnaire") {
+		return [
+			{
+				code: "answer_not_questionnaire",
+				message: "An answer resolves a question. Give a review a verdict.",
+				path: "answer.resolvesMessageId",
+			},
+		];
+	}
+	const { option } = input.answer;
+	if (option === undefined) return [];
+	const asked = questionnairePayloadSchema.safeParse(target.payload);
+	const options = asked.success ? asked.data.options : [];
+	if (!options.includes(option)) {
+		return [
+			{
+				code: "answer_unknown_option",
+				message: `"${option}" is not one of the options. Pick one of them, or answer in your own words.`,
+				path: "answer.option",
+			},
+		];
+	}
+	return [];
 }
 
 export function adjustThreadInvariants(input: AdjustThreadInput): Problem[] {
@@ -396,6 +534,7 @@ export function adjustThreadInvariants(input: AdjustThreadInput): Problem[] {
 		input.resolved !== undefined ||
 		input.pinned !== undefined ||
 		input.deleted !== undefined ||
+		input.message !== undefined ||
 		input.host !== undefined;
 	if (input.id !== undefined && !touchesAnyOtherField) {
 		problems.push({
@@ -409,6 +548,24 @@ export function adjustThreadInvariants(input: AdjustThreadInput): Problem[] {
 			code: "adjust_host_on_existing",
 			message: "Host may only be set when creating a thread.",
 			path: "host",
+		});
+	}
+	if (input.message !== undefined && input.id === undefined) {
+		problems.push({
+			code: "adjust_message_needs_thread",
+			message: "Name the thread the message is in.",
+			path: "message",
+		});
+	}
+	if (
+		input.message !== undefined &&
+		input.message.resolved === undefined &&
+		input.message.change === undefined
+	) {
+		problems.push({
+			code: "adjust_message_empty",
+			message: "Resolve or reopen the comment, or apply or dismiss its change.",
+			path: "message",
 		});
 	}
 	if (input.members !== undefined && input.members.length === 0) {

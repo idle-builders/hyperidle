@@ -1,10 +1,9 @@
 # Interface
 
-How the UI is built and how it works.
+How the app looks and works, and how its screens are built.
 
-- [overview.md](overview.md) — the shell, four sidebar destinations, what the layer is for
-- [navigation.md](navigation.md) — routes, the open contract, the Settings page, shortcuts
-- [messages.md](messages.md) — threads, message types, verdicts, the Part rendering model
-- [reviews.md](reviews.md) — the review page, nine canvas kinds, verdicts
-- [blocks.md](blocks.md) — blocks derived from markdown at read time
-- [ui-design.md](ui-design.md) — stack, themes, components, PageScaffold, lint rules
+- [overview.md](overview.md) — the frame (one sidebar, one page) and what each page holds
+- [navigation.md](navigation.md) — page addresses, the sidebar, find or ask, notifications
+- [messages.md](messages.md) — how a thread shows its messages, work and questions
+- [reviews.md](reviews.md) — what a review holds (parts, flags, pins), the review page, comments, rounds, verdicts
+- [ui-design.md](ui-design.md) — plain React and CSS, tokens, the Paper skin, how screens read data

@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { type HyperIdleDb, type PluginRow, plugins } from "@hyperidle/db";
-import type { PluginScopeKind, PluginState } from "@hyperidle/domain-model";
+import type { PluginScopeKind, PluginSourceKind, PluginState } from "@hyperidle/domain-model";
 import { and, asc, eq, isNotNull, ne, or } from "drizzle-orm";
 import type { FetchedPlugin, PluginSource } from "./plugin-fetch.js";
 import { fetchPlugin } from "./plugin-fetch.js";
@@ -33,8 +33,18 @@ export interface PluginScope {
 	readonly teamId: string | null;
 }
 
+/** Where an install came from, as the person gave it — a bundled one by its name, not its folder. */
+export interface RecordedPluginSource {
+	readonly kind: PluginSourceKind;
+	readonly address: string;
+}
+
 export interface InstallPluginInput {
 	readonly source: PluginSource;
+	/** Where to say it came from; absent → the source itself. A bundled install names itself here. */
+	readonly recordedSource?: RecordedPluginSource;
+	/** Who adds it; absent for an install no person made. */
+	readonly installedBy?: string;
 	readonly scope: PluginScope;
 	/** Override current timestamp — for deterministic tests only. */
 	readonly now?: string;
@@ -54,6 +64,9 @@ export interface InstalledPlugin {
 	readonly version: string;
 	readonly state: PluginState;
 	readonly scope: PluginScope;
+	readonly description: string | null;
+	readonly source: RecordedPluginSource;
+	readonly installedBy: string | null;
 	readonly installedAt: string;
 	readonly updatedAt: string;
 	readonly disabledAt: string | null;
@@ -99,6 +112,12 @@ function pluginInstallId(name: string, scope: PluginScope): string {
 	return scope.kind === "team" && scope.teamId ? `${name}@${scope.teamId}` : name;
 }
 
+function recordOf(source: PluginSource): RecordedPluginSource {
+	return source.kind === "git"
+		? { kind: "git", address: source.url }
+		: { kind: source.kind, address: source.path };
+}
+
 function scopeFromRow(row: PluginRow): PluginScope {
 	return {
 		kind: row.scopeKind as PluginScopeKind,
@@ -113,6 +132,9 @@ function pluginFromRow(row: PluginRow, warnings: ManifestWarning[] = []): Instal
 		version: row.version,
 		state: row.state as PluginState,
 		scope: scopeFromRow(row),
+		description: row.description ?? null,
+		source: { kind: row.sourceKind, address: row.sourceAddress },
+		installedBy: row.installedBy ?? null,
 		installedAt: row.installedAt,
 		updatedAt: row.updatedAt,
 		disabledAt: row.disabledAt ?? null,
@@ -248,6 +270,8 @@ export async function installPlugin(
 
 		const { manifest } = parseResult;
 		const ts = nowIso(input.now);
+		const recorded = input.recordedSource ?? recordOf(input.source);
+		const installedBy = input.installedBy ?? null;
 
 		// Check scope consistency
 		if (input.scope.kind === "team" && !input.scope.teamId) {
@@ -279,6 +303,10 @@ export async function installPlugin(
 				scopeKind: input.scope.kind,
 				scopeTeamId: input.scope.teamId ?? null,
 				installPath,
+				sourceKind: recorded.kind,
+				sourceAddress: recorded.address,
+				description: manifest.description,
+				installedBy,
 				installedAt: ts,
 				updatedAt: ts,
 				disabledAt: null,
@@ -293,6 +321,10 @@ export async function installPlugin(
 					scopeKind: input.scope.kind,
 					scopeTeamId: input.scope.teamId ?? null,
 					installPath,
+					sourceKind: recorded.kind,
+					sourceAddress: recorded.address,
+					description: manifest.description,
+					installedBy,
 					updatedAt: ts,
 					disabledAt: null,
 					removedAt: null,
@@ -351,8 +383,18 @@ export async function getInstalledPlugin(
 	return row ? pluginFromRow(row) : null;
 }
 
+/** One install by id, a removed one too — what switching a removed plugin back on reads. */
+export async function getPluginEvenRemoved(
+	db: HyperIdleDb,
+	pluginId: string,
+): Promise<InstalledPlugin | null> {
+	const [row] = await db.select().from(plugins).where(eq(plugins.id, pluginId)).limit(1);
+	return row ? pluginFromRow(row) : null;
+}
+
 /**
- * Disable a plugin — its MCP servers stop reaching sessions at once.
+ * Disable a plugin — its MCP servers stop reaching sessions at once. A removed
+ * plugin comes back, switched off.
  */
 export async function disablePlugin(
 	db: HyperIdleDb,
@@ -362,18 +404,16 @@ export async function disablePlugin(
 	const ts = nowIso(now);
 	await db
 		.update(plugins)
-		.set({ state: "disabled", disabledAt: ts, updatedAt: ts })
+		.set({ state: "disabled", disabledAt: ts, removedAt: null, updatedAt: ts })
 		.where(eq(plugins.id, pluginId));
 }
 
-/**
- * Enable a previously disabled plugin.
- */
+/** Enable a disabled plugin, or bring a removed one back. */
 export async function enablePlugin(db: HyperIdleDb, pluginId: string, now?: string): Promise<void> {
 	const ts = nowIso(now);
 	await db
 		.update(plugins)
-		.set({ state: "enabled", disabledAt: null, updatedAt: ts })
+		.set({ state: "enabled", disabledAt: null, removedAt: null, updatedAt: ts })
 		.where(eq(plugins.id, pluginId));
 }
 

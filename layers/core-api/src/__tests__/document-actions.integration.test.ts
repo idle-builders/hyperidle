@@ -20,6 +20,7 @@ import {
 	teams,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import type { DocumentRow, DocumentView, SearchDocumentsInput } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -201,9 +202,9 @@ async function seedHuman(db: HyperIdleDb, id: string, teamId?: string): Promise<
 		name: id,
 		role: "member",
 		status: "active",
-		...(teamId ? { teamId } : {}),
 		createdAt: now,
 	});
+	if (teamId) await db.insert(userTeams).values({ userId: id, teamId });
 }
 
 async function seedAgent(
@@ -218,10 +219,10 @@ async function seedAgent(
 		name: agentId,
 		role: "builder",
 		status: "active",
-		...(opts?.teamId ? { teamId: opts.teamId } : {}),
 		...(opts?.ownerUserId ? { ownerUserId: opts.ownerUserId } : {}),
 		createdAt: now,
 	});
+	if (opts?.teamId) await db.insert(userTeams).values({ userId: agentId, teamId: opts.teamId });
 }
 
 async function seedThreadRow(db: HyperIdleDb, id: string, teamId: string): Promise<void> {
@@ -278,6 +279,8 @@ async function seedPluginContribution(db: HyperIdleDb, documentId: string): Prom
 		version: "1.0.0",
 		state: "enabled",
 		scopeKind: "factory",
+		sourceKind: "folder",
+		sourceAddress: "/plugins/one",
 		installedAt: now,
 		updatedAt: now,
 	});
@@ -807,14 +810,12 @@ describe("case 5 — a tree: ancestors root-first, ordered children, siblings ex
 });
 
 // ---------------------------------------------------------------------------
-// Case 5b — `open_document`'s `ancestors` are filtered through the viewer's
-// own visibility, never the raw stored chain (review finding: a team-A
-// viewer opening a team-A child under a team-B parent must not receive the
-// parent's title/body just because it sits above a document they CAN read).
+// Case 5b — everyone reads every team's knowledge: a person opens and finds a
+// document of a team they are not in, ancestors included.
 // ---------------------------------------------------------------------------
 
-describe("case 5b — ancestors are filtered through the viewer's own visibility", () => {
-	test("a cross-team ancestor is absent from the path, exact length", async ({
+describe("case 5b — a person reads a document of a team they are not in", () => {
+	test("open_document and search_documents both reach it, its team-B ancestor included", async ({
 		db,
 		eventBus,
 		agentOrchestration,
@@ -825,9 +826,6 @@ describe("case 5b — ancestors are filtered through the viewer's own visibility
 		await seedHuman(db, "c5b-a-viewer", "c5b-a");
 		const actions = buildRealActions(agentOrchestration);
 
-		// The team-B owner can see their own team-B parent, so they may nest a
-		// narrower team-A-scoped child under it — the visibility check only
-		// compares scope RANK (architecture.md §4.2), and both are "team" rank.
 		const parent = requireDoc(
 			await callHumanAs<DocumentView>(
 				actions,
@@ -845,17 +843,15 @@ describe("case 5b — ancestors are filtered through the viewer's own visibility
 				eventBus,
 				"edit_document",
 				{
-					title: "team-A child",
+					title: "team-B child",
 					scopeKind: "team",
-					scopeId: "c5b-a",
+					scopeId: "c5b-b",
 					parent: { kind: "document", id: parent.id },
 				},
 				"c5b-b-owner",
 			),
 		).document;
 
-		// The team-A viewer CAN read the child itself (it is scoped to their
-		// own team) but must not see the team-B parent above it.
 		const opened = requireDoc(
 			await callHumanAs<DocumentView>(
 				actions,
@@ -866,8 +862,18 @@ describe("case 5b — ancestors are filtered through the viewer's own visibility
 				"c5b-a-viewer",
 			),
 		);
-		expect(opened.ancestors.map((a) => a.id)).not.toContain(parent.id);
-		expect(opened.ancestors).toHaveLength(0);
+		expect(opened.document.id).toBe(child.id);
+		expect(opened.ancestors.map((a) => a.id)).toEqual([parent.id]);
+
+		const found = await callHumanAs<DocumentRow[]>(
+			actions,
+			db,
+			eventBus,
+			"search_documents",
+			{ scopeKind: "team" },
+			"c5b-a-viewer",
+		);
+		expect(found.data?.map((d) => d.id).sort()).toEqual([child.id, parent.id].sort());
 	});
 });
 
@@ -1161,7 +1167,7 @@ describe("case 9b — forbidden_parent_kind refuses client doors, not the intern
 		});
 		const id = await identity.upsertAgentIdentity(db, {
 			agentId: "c9b3-agent",
-			agentName: "c9b3-agent",
+			title: "c9b3-agent — identity",
 			body: "identity body",
 			updatedBy: "system:propagation",
 		});

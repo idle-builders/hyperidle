@@ -10,6 +10,7 @@ import type {
 	BakedContextBundle,
 	BakedSessionResumeRequest,
 	ChangeRow,
+	DoneWhenLine,
 	ModelTier,
 	SessionOutcome,
 } from "@hyperidle/domain-model";
@@ -53,6 +54,7 @@ import { ensureSandboxGitRepo, type Filesystem, localTrustedPath } from "./mount
 import { sessionAwaitsVerdict } from "./review-sessions.js";
 import { fetchPreviousSessionNotes } from "./session-store.js";
 import { transitionRun } from "./transition-run.js";
+import { buildVerdictMessage } from "./verdict-message.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];
 type SessionContext = Extract<TransitionSpec, { target: "session" }>["context"];
@@ -314,14 +316,14 @@ interface SessionLifecycleSessionContextData {
 		readonly title: string;
 		readonly description: string | null;
 		readonly state: string;
-		readonly doneCondition: string | null;
+		readonly doneWhen: readonly DoneWhenLine[];
 	};
 	/** Root-first chain of ancestor tasks. ancestors[0] is the root task (the former "bet"). */
 	readonly ancestors: readonly {
 		readonly id: string;
 		readonly title: string;
 		readonly description: string | null;
-		readonly doneCondition: string | null;
+		readonly doneWhen: readonly DoneWhenLine[];
 	}[];
 	readonly agent: { readonly id: string; readonly name: string; readonly role: string };
 	readonly team: { readonly id: string; readonly name: string };
@@ -869,7 +871,7 @@ function reviewOrientation(sendMessageToolName: string): string {
 	return `
 
 ## When work needs a person
-Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask by calling \`${sendMessageToolName}\` with a \`review\`: a \`title\`, short \`reasoning\` points — what you have done, what you want to do next and why — and \`artifacts\` when you have real evidence a person needs to decide. It goes to the conversation you were called from, or else to your person. That call ends your session. A person approves or declines it, and you are brought back with their answer. A decline declines the approach you proposed, not the task — keep working toward the same goal another way.`;
+Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask by calling \`${sendMessageToolName}\` with a \`review\`: a \`title\`, short \`reasoning\` points — what you have done, what you want to do next and why — the \`parts\` a person should look at (a live page, a code diff, an image, numbers, a text, or a batch of items), and \`flags\` on the spots you decided without asking, are not sure about, or that touch customers. A person checks rather than reads, so the flags are where they look. It goes to the conversation you were called from, or else to your person. That call ends your session. A person approves or rejects it with a reason, and you are brought back with their answer; their comments on your parts are messages in that conversation, each with an \`anchor\` — reply with the same anchor. After a reject, send the next round as a new review with \`previousReviewId\` and what \`changed\`. A reject turns down the approach you proposed, not the task — keep working toward the same goal another way.`;
 }
 
 /**
@@ -1190,25 +1192,6 @@ async function admitSession(
  * PATCH/handoff can cooperatively abort it, and deregisters at teardown.
  */
 /**
- * What the human's verdict says to the agent when its session reopens.
- *
- * @lore: verdict wording — load-bearing; "Approved. Go ahead." hit 3/6; naming the mechanism hit 8/8; tune this; never route around a model that objects to it
- */
-function buildVerdictMessage(resume: BakedSessionResumeRequest): string {
-	if (resume.decision === "approve") {
-		return (
-			"A human read the review you submitted and approved it. Go ahead with what you proposed, " +
-			"then carry on with your work and decide when you are done."
-		);
-	}
-	return (
-		"A human read the review you submitted and declined it. What was declined is the approach you " +
-		"proposed, not the task itself — keep working toward the same goal another way, and submit " +
-		"another review if you want to make a different case."
-	);
-}
-
-/**
  * What the agent is being asked to do, for a session that has a task.
  *
  * @lore: task instruction — task IS the user prompt; assembled context goes to AGENTS.md; conflating them gave the agent a 200-char slice of the wrong prompt
@@ -1225,7 +1208,12 @@ function composeTaskInstruction(params: ProvisionSessionParams): string | undefi
 		// The goal chain this task serves, root first — a leaf task read alone can
 		// be followed to the letter and still miss the point of the work above it.
 		const chain = bundle.ancestors
-			.map((a) => (a.doneCondition ? `${a.title} (done when: ${a.doneCondition})` : a.title))
+			.map((a) => {
+				const openLines = a.doneWhen.filter((l) => l.state === "open" || l.state === "failed");
+				const summary =
+					openLines.length > 0 ? ` (done when: ${openLines.map((l) => l.what).join("; ")})` : "";
+				return `${a.title}${summary}`;
+			})
 			.join(" → ");
 		parts.push(`This serves: ${chain}`);
 	}
@@ -1507,6 +1495,7 @@ async function runSession(
 	if (serviceConnectionResolver) {
 		try {
 			const plan = await buildProvisioningPlan({
+				agentId: params.agentId,
 				...(heldConnections ? { connections: heldConnections } : {}),
 				resolver: serviceConnectionResolver,
 			});

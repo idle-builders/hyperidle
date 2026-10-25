@@ -680,6 +680,76 @@
 			"when": 1790677681807,
 			"tag": "0097_discipline_clusters_role_is_rbac",
 			"breakpoints": true
+		},
+		{
+			"idx": 98,
+			"version": "7",
+			"when": 1790764081807,
+			"tag": "0098_done_when_and_reasons",
+			"breakpoints": true
+		},
+		{
+			"idx": 99,
+			"version": "7",
+			"when": 1790850481807,
+			"tag": "0099_verdicts_approve_or_reject",
+			"breakpoints": true
+		},
+		{
+			"idx": 100,
+			"version": "7",
+			"when": 1790936881807,
+			"tag": "0100_user_teams",
+			"breakpoints": true
+		},
+		{
+			"idx": 101,
+			"version": "7",
+			"when": 1791023281807,
+			"tag": "0101_task_paused",
+			"breakpoints": true
+		},
+		{
+			"idx": 102,
+			"version": "7",
+			"when": 1791109681807,
+			"tag": "0102_follow_one_object",
+			"breakpoints": true
+		},
+		{
+			"idx": 103,
+			"version": "7",
+			"when": 1791196081807,
+			"tag": "0103_review_parts_and_anchors",
+			"breakpoints": true
+		},
+		{
+			"idx": 104,
+			"version": "7",
+			"when": 1791282481807,
+			"tag": "0104_document_icon",
+			"breakpoints": true
+		},
+		{
+			"idx": 105,
+			"version": "7",
+			"when": 1791368881807,
+			"tag": "0105_people_and_set_up",
+			"breakpoints": true
+		},
+		{
+			"idx": 106,
+			"version": "7",
+			"when": 1791455281807,
+			"tag": "0106_what_someone_does",
+			"breakpoints": true
+		},
+		{
+			"idx": 107,
+			"version": "7",
+			"when": 1791541681807,
+			"tag": "0107_plugin_provenance",
+			"breakpoints": true
 		}
 	]
 }

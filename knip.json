@@ -9,8 +9,6 @@
 		"tools/eslint-plugin-design/test-fixtures/**",
 		".pipeline/**",
 		"viewer/**",
-		"layers/core-ui/src/**/*.stories.tsx",
-		"layers/core-ui/src/__storybook__/**",
 		"**/vitest-setup.ts",
 		"**/vitest-integration-setup.ts",
 		"**/test-setup.ts",
@@ -20,9 +18,6 @@
 		"layers/agent-orchestration/connections/src/__tests__/require-binary.ts",
 		"layers/agent-execution/harness-registry/src/__tests__/require-harness.ts",
 		"layers/core-api/src/__testing__/test-fixtures.ts",
-		"layers/core-ui/__e2e__/fixtures.ts",
-		"layers/core-ui/src/pages/**/__fixtures__/**",
-		"layers/core-ui/src/__preview__/**",
 		"layers/agent-execution/harness-registry/src/re-engage.ts",
 		"layers/core-api/src/__tests__/AL7-no-kernel-executor.test.ts",
 		"layers/agent-orchestration/src/test-fixtures.ts",
@@ -30,9 +25,7 @@
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],
-	"ignoreIssues": {
-		"layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx": ["exports"]
-	},
+	"ignoreIssues": {},
 	"workspaces": {
 		".": {
 			"entry": ["vitest.integration.config.ts!"],
@@ -64,12 +57,7 @@
 			// standard POSIX system binary, never a project dependency.
 			"ignoreBinaries": ["codex", "opencode", "ps"]
 		},
-		"layers/core-ui": {
-			"entry": ["__scripts__/*.ts!", "vite.ah6.config.ts!"],
-			"playwright": {
-				"config": ["playwright.config.ts", "playwright.ah6.config.ts"]
-			}
-		},
+		"layers/core-ui": {},
 		"applications/website": {
 			// In the --production lane knip's Astro plugin registers astro.config.ts and
 			// src/content.config.ts as dev-only entries, so the graph never reaches the
@@ -101,7 +89,6 @@
 				"src/dep-manifest-lint.ts!",
 				"src/mock-inventory.ts!",
 				"src/design-css-gate.ts!",
-				"src/design-profile-census.ts!",
 				"src/knip-production-test-files.mjs!"
 			]
 		},

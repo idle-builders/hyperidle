@@ -25,7 +25,7 @@ Read the ledger and compute the real state. Never start blind.
 3. For each surface in the ledger, classify:
    - **CURRENT** — `git diff --name-only <last_reviewed_commit> HEAD -- <surface paths>` is empty.
    - **STALE** — that diff is non-empty. Note the changed files — they get priority.
-4. Enumerate the **live** attack surface (Phase 1) and diff against the ledger: any surface not in the ledger is **NEVER**.
+4. Enumerate the **live** attack surface (Phase 1) and diff against the ledger: any surface not in the ledger is **NEVER**. A ledger surface whose paths no longer exist is **REMOVED** — drop it, close its open findings, and say so.
 5. Report the coverage line: `N current / M stale / K never (total T)`. Pick targets per `$ARGUMENTS`.
 
 Do not proceed past a surface silently. If you scope to `stale`, say which `never` surfaces you are deferring.
@@ -36,7 +36,9 @@ Do not proceed past a surface silently. If you scope to `stale`, say which `neve
 
 Enumerate, don't guess. For each, record the files so the ledger can hash them.
 
-- **HTTP surface** — every Hono route: method, path, auth requirement, input shape. (`packages/server/src/**`)
+- **HTTP surface** — every Hono route: method, path, auth requirement, input shape. The actions (`POST /api/actions/<name>`, declared in `framework/domain-model/src/actions/`, run by `layers/core-api/*/src/*-actions.ts` and the actions router), the plumbing routes listed in `tools/governance/src/rules/actions-projected.ts` (`layers/core-api/src/routes/` — auth, health, first start `/api/start`, search, ws; `layers/agent-orchestration/src/routes/`), the MCP route (`layers/agent-execution/harness-registry/src/mcp/`), and the WebSocket topics (`layers/core-api/src/routes/ws.ts`, worker socket).
+- **Web client** — `layers/core-ui/src/`: everything that renders text someone else wrote (messages, Markdown in `RichText.tsx` and the TipTap editor in `DocEditor.tsx`, review parts in `ReviewPart.tsx` — including the live page shown in an `iframe`, and its `sandbox` flags), and the API key in the page (`api.ts`).
+- **Desktop bridge** — `applications/desktop/src/preload.ts` exposes `credentials.set` and `join` to the page; their handlers are in `applications/desktop/src/main.ts` (`backend:join`) and `safe-credentials.ts`.
 - **Trust boundaries** — every point where external/user/agent input enters: request bodies, query params, headers, file uploads, webhook payloads, MCP tool args, knowledge ingested into agent context.
 - **AuthN / AuthZ** — session issuance, identity resolution, and every authorization check (scoped to team/workspace vs "any valid session").
 - **Agent-layer surface** — tool definitions the agent can call, the sandbox/workspace boundary, prompt assembly (where human text reaches agent context), knowledge store reads/writes.
@@ -55,7 +57,7 @@ For each surface in scope, run **STRIDE** (Spoofing, Tampering, Repudiation, Inf
 - **Tool misuse / confused deputy** — can an agent be steered to call a tool outside the requesting actor's authority?
 - **Workspace / sandbox escape** — can agent-run code or paths reach another tenant's data or the host?
 - **Knowledge poisoning** — can untrusted input persist into shared knowledge and influence later agents?
-- **Cross-tenant / IDOR** — can actor A reach actor B's bets, threads, artifacts by ID?
+- **Cross-tenant / IDOR** — can actor A reach actor B's tasks, threads, documents, folders or services by ID? (Every team's knowledge is readable by everyone by design; check what is meant to be private — a person's own page, services, keys.)
 
 ---
 
@@ -99,10 +101,10 @@ This is what makes the next run coverage-aware. For every surface you actually r
   "domain": "security",
   "updated_at": "<ISO date>",          // pass via the agent; do not invent a clock
   "surfaces": {
-    "server/routes/auth": {
-      "paths": ["packages/server/src/routes/auth.ts"],
+    "core-api/routes/auth": {
+      "paths": ["layers/core-api/src/routes/auth.ts"],
       "last_reviewed_commit": "<HEAD sha at review>",
-      "blob_hashes": { "packages/server/src/routes/auth.ts": "<git rev-parse HEAD:path>" },
+      "blob_hashes": { "layers/core-api/src/routes/auth.ts": "<git rev-parse HEAD:path>" },
       "depth": "full",                  // full | spot
       "verdict": "pass",               // pass | findings
       "open_findings": ["SEC-0007"],

@@ -53,7 +53,7 @@ describe("registerSessionActivityGateway — session/harness streaming gateway",
 		});
 	});
 
-	test("session_started and session_ended each produce the same nudge shape on the same topic", async ({
+	test("session_started and session_ended nudge the session, and the task it works on, so a page showing the task sees it start and stop", async ({
 		eventBus,
 	}) => {
 		const { push, calls } = createRecordingPush();
@@ -76,17 +76,28 @@ describe("registerSessionActivityGateway — session/harness streaming gateway",
 			outcome: "completed",
 			timestamp: Date.now(),
 		});
+		eventBus.emit({
+			type: "session_started",
+			streamId: "sess-gw-4",
+			sessionId: "sess-gw-4",
+			agentId: "agent-gw-2",
+			taskId: null,
+			timestamp: Date.now(),
+		});
 
-		expect(calls).toHaveLength(2);
-		for (const call of calls) {
-			expect(call.topic).toBe("session:sess-gw-2");
-			expect(call.envelope).toEqual({
-				type: "update",
-				topic: "session:sess-gw-2",
-				kind: "session.activity",
-				data: { sessionId: "sess-gw-2" },
-			});
-		}
+		expect(calls.map((c) => c.topic)).toEqual([
+			"session:sess-gw-2",
+			"task:task-gw-2",
+			"session:sess-gw-2",
+			"task:task-gw-2",
+			"session:sess-gw-4",
+		]);
+		expect(calls[1]?.envelope).toEqual({
+			type: "update",
+			topic: "task:task-gw-2",
+			kind: "session.activity",
+			data: { sessionId: "sess-gw-2" },
+		});
 	});
 
 	test("the returned unregister function stops forwarding", async ({ eventBus }) => {

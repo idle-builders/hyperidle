@@ -18,9 +18,9 @@ const PROJECTS = [
 	"framework/harness-capability",
 	"framework/event-bus",
 	"framework/harness-protocol",
-	"layers/core-ui",
 	"tools/eslint-plugin-design",
 	"tools/eslint-plugin-authz",
+	"layers/core-ui",
 	"layers/core-api",
 	"layers/core-api/changes",
 	"layers/core-api/document",
@@ -71,7 +71,6 @@ const FORCE_RERUN_TRIGGERS = [
 	...PROJECTS.map((p) => join(import.meta.dirname, p, "vitest.config.ts")),
 	join(import.meta.dirname, "framework/db/src/__testing__/vitest-setup.ts"),
 	join(import.meta.dirname, "layers/core-api/src/__testing__/vitest-setup.ts"),
-	join(import.meta.dirname, "layers/core-ui/src/__testing__/test-setup.ts"),
 ];
 
 export default defineConfig({

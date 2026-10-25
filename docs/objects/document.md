@@ -7,9 +7,13 @@ Source: `framework/domain-model/src/actions/document.ts`, `layers/core-api/docum
 ## Fields
 
 - `id`, `title`, `body` (Markdown), `status`, `slot`, `scopeKind`, `scopeId`.
+- `icon` — one emoji, shown in the knowledge tree and before the title; null shows the plain page mark.
+- `discipline` — who it is for: agents of that discipline get it as they work; empty reaches every agent. People read every document either way.
 - `parentKind`, `parentId`, `position` — tree position; no FK, no cascade.
 - `confidence` (real, 0–1), `tags` (JSON), `version`, `lastReadAt`, `lastUsedAt`.
 - `createdAt`, `updatedAt`.
+
+`open_document` also says how many others follow the document (`followers`): a person follows it with a subscription on `document.changed` for its id, and is told when it changes — publishing included. Comments on it live in its thread (see [thread.md](thread.md#comments-on-a-document)).
 
 ## Statuses
 
@@ -31,7 +35,7 @@ Five: `ordinary`, `skill`, `rule`, `agent_file`, `prompt`.
 
 Three scope kinds: `factory`, `team`, `user`. `scopeId` holds the team id or user id; `factory`-scoped documents have no `scopeId`.
 
-Default scope when an author belongs to a team: `team`. When creating without a team: `user`.
+Default scope: the author's team when they are in exactly one (an agent always is); otherwise the calling task's team; otherwise `factory`.
 
 Scope-narrowing cascade: moving a document to a narrower scope (`factory → team → user`) narrows all its descendants. Widening is refused.
 
@@ -53,7 +57,7 @@ Clients may parent to `document`, `task`, or `thread`. `agent` and `subscription
 
 ## Visibility
 
-`canReadDocument`: factory scope → everyone; team scope → team members; user scope → only that user. Code: `layers/core-api/document/src/`.
+`canReadDocument`: factory and team scope → everyone (a team-scoped document sits in that team's space and reaches that team's agents' context, but every person reads it); user scope with the ordinary slot → only that user and whoever owns them; task- or thread-parented artifacts → everyone. Code: `framework/domain-model/src/actions/document.ts`, `layers/core-api/document/src/`.
 
 ## Unique slot per parent
 

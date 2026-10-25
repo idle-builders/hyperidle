@@ -29,7 +29,15 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { agentWorkIntents, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import {
+	agentWorkIntents,
+	type HyperIdleDb,
+	tasks,
+	teams,
+	threads,
+	users,
+	userTeams,
+} from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, vi } from "vitest";
@@ -217,10 +225,10 @@ async function seedHuman(db: HyperIdleDb, id: string, teamId: string): Promise<v
 			name: id,
 			role: "founder",
 			status: "active",
-			teamId,
 			createdAt: now,
 		})
 		.onConflictDoNothing();
+	await db.insert(userTeams).values({ userId: id, teamId }).onConflictDoNothing();
 }
 
 async function seedAgent(db: HyperIdleDb, id: string, teamId: string): Promise<void> {
@@ -234,10 +242,10 @@ async function seedAgent(db: HyperIdleDb, id: string, teamId: string): Promise<v
 			role: "builder",
 			status: "active",
 			agentCategory: "team",
-			teamId,
 			createdAt: now,
 		})
 		.onConflictDoNothing();
+	await db.insert(userTeams).values({ userId: id, teamId }).onConflictDoNothing();
 }
 
 /** A task needs a real thread (`tasks.thread_id` is `NOT NULL`). */
@@ -455,7 +463,7 @@ describe("user-subscription seam — reach, wake, and pause", () => {
 
 			const nudge = waitForFrame(
 				ws,
-				(m) => m.type === "update" && m.topic === "user:seam-sub-person",
+				(m) => m.type === "update" && m.topic === "user:seam-sub-person" && m.kind === "inbox",
 			);
 
 			expectOk(
@@ -529,7 +537,7 @@ describe("user-subscription seam — reach, wake, and pause", () => {
 
 			const noNudge = assertNoFrame(
 				ws,
-				(m) => m.type === "update" && m.topic === "user:seam-sub-person",
+				(m) => m.type === "update" && m.topic === "user:seam-sub-person" && m.kind === "inbox",
 			);
 			expectOk(
 				await callAction(

@@ -2,7 +2,7 @@
  * A fresh install, end to end, through the actions the app and its agents
  * call.
  *
- * Boot writes only the hidden system actor. The welcome screen's two calls
+ * Boot writes only the hidden system actor. Two calls — a person, and their own assistant —
  * leave the person, their team and one agent — their assistant, owned, on the
  * picked harness, with one empty subscription per object event — and nothing
  * else: no prompt documents, no documents, tasks or threads. A message to the
@@ -38,6 +38,7 @@ import {
 	tasks,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import {
 	type ActionResult,
@@ -184,7 +185,7 @@ function bundled(name: string, teamId: string | null): Record<string, unknown> {
 }
 
 describe("a fresh install, end to end", () => {
-	test("the welcome screen leaves one assistant; plugins bring every other agent, per team", async ({
+	test("a person and their assistant leave one agent; plugins bring every other agent, per team", async ({
 		db,
 		app,
 		eventBus,
@@ -193,14 +194,14 @@ describe("a fresh install, end to end", () => {
 		await applyFactoryCoreState(db);
 		const { search, edit, pluginsBaseDir } = pluginActions(agentOrchestration, db, eventBus);
 
-		// The welcome screen's two calls.
+		// A person, and their own assistant.
 		const ada = await call<UserView>(app, "edit_user", {
 			kind: "human",
 			name: "Ada",
-			team: { name: "Ada's Team" },
+			teams: ["Ada's Team"],
 		});
 		const adaId = ada.user?.id ?? "";
-		const teamA = ada.user?.team?.id ?? "";
+		const teamA = ada.user?.teams[0]?.id ?? "";
 		expect(adaId).not.toBe("");
 		expect(teamA).not.toBe("");
 		await call<UserView>(app, "edit_user", {
@@ -209,6 +210,7 @@ describe("a fresh install, end to end", () => {
 			role: "assistant",
 			agentCategory: "individual",
 			ownerUserId: adaId,
+			teams: ["Ada's Team"],
 			runConfig: { harnessType: "claude-code" },
 			subscriptions: { add: OBJECT_EVENTS.map((event) => ({ event })) },
 		});
@@ -223,7 +225,9 @@ describe("a fresh install, end to end", () => {
 		expect(assistant.subscriptions.map((s) => s.event).sort()).toEqual([...OBJECT_EVENTS].sort());
 		expect(assistant.subscriptions.every((s) => s.documentId === null && !s.paused)).toBe(true);
 		expect(assistant.documentIds).toEqual([]);
-		expect(await db.select().from(subscriptions)).toHaveLength(OBJECT_EVENTS.length);
+		expect(
+			(await db.select().from(subscriptions)).filter((r) => r.userId === assistantId),
+		).toHaveLength(OBJECT_EVENTS.length);
 
 		// Empty lists: no prompt documents, no documents, tasks or threads.
 		expect(await db.select().from(documents)).toEqual([]);
@@ -256,6 +260,7 @@ describe("a fresh install, end to end", () => {
 			ownerUserId: adaId,
 			createdAt: new Date().toISOString(),
 		});
+		await db.insert(userTeams).values({ userId: "sentinel-once-install", teamId: teamA });
 		await db.insert(subscriptions).values({
 			id: "sub-sentinel-once-install",
 			userId: "sentinel-once-install",
@@ -272,9 +277,9 @@ describe("a fresh install, end to end", () => {
 			name: "Third party",
 			role: "member",
 			status: "active",
-			teamId: teamA,
 			createdAt: new Date().toISOString(),
 		});
+		await db.insert(userTeams).values({ userId: "third-party-once-install", teamId: teamA });
 		const sentinelThreadId = "sentinel-thread-once-install";
 		await db.insert(threads).values({
 			id: sentinelThreadId,
@@ -328,10 +333,10 @@ describe("a fresh install, end to end", () => {
 		const bo = await call<UserView>(app, "edit_user", {
 			kind: "human",
 			name: "Bo",
-			team: { name: "Bo's Team" },
+			teams: ["Bo's Team"],
 		});
 		const boId = bo.user?.id ?? "";
-		const teamB = bo.user?.team?.id ?? "";
+		const teamB = bo.user?.teams[0]?.id ?? "";
 		expect(teamB).not.toBe("");
 		expect(teamB).not.toBe(teamA);
 
@@ -404,7 +409,7 @@ describe("a fresh install, end to end", () => {
 		});
 		expect(librarians).toHaveLength(1);
 		expect(librarians[0]?.status).toBe("active");
-		expect(librarians[0]?.team).toBeNull();
+		expect(librarians[0]?.teams).toEqual([]);
 		const librarian = await call<UserView>(app, "open_user", { id: librarians[0]?.id });
 		expect(librarian.runConfig?.harnessType).toBe("claude-code");
 	});

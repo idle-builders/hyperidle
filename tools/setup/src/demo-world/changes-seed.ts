@@ -1,222 +1,159 @@
 /**
- * AX1 — demo world changes: one "created" row per object kind so the
- * changes table is non-empty for every kind the app subscribes to.
- *
- * Only a representative sample is seeded — the full audit trail would be
- * hundreds of rows. `onConflictDoNothing` keeps this idempotent.
+ * What changed, and what Finn is told about. The `changes` rows are a sample
+ * — enough that every object kind has some, and that each notification points
+ * at the change it tells about. Finn's inbox: Proration done and How we price
+ * edited are new; July support themes published and the layout review raised
+ * he has read.
  */
 
 import { changes, type HyperIdleDb, inbox } from "@hyperidle/db";
 import {
-	ASSISTANT_ID,
+	BUILDER_ID,
+	DESIGNER_ID,
+	DOC_HOW_WE_PRICE,
+	DOC_JULY_THEMES,
 	FOUNDER_ID,
+	GROWTH_ID,
 	MAYA_ID,
-	PM_ID,
-	ROOT_TASK_PRICING,
-	ROOT_TASK_TRIAL,
-	TASK_PRICING_PAGE,
-	TASK_TRIAL_FLOW,
-	THREAD_ASSISTANT,
-	THREAD_PRICING_REVIEW,
-	THREAD_TRIAL_REVIEW,
+	MSG_LAYOUT_REVIEW,
+	TASK_LAYOUT,
+	TASK_PRORATION,
+	TASK_TRIALS,
+	TASK_UTC,
+	THREAD_TRIAL_END,
+	taskThreadId,
 } from "./ids.js";
 import type { DemoClock } from "./time.js";
 
+interface ChangeSpec {
+	readonly id: string;
+	readonly object: "task" | "thread" | "document" | "user";
+	readonly objectId: string;
+	readonly kind: "created" | "changed" | "message";
+	readonly actor: string;
+	readonly before?: Record<string, unknown>;
+	readonly after: Record<string, unknown>;
+	readonly at: string;
+	/** Finn's notification for it: unread, or read at this time. */
+	readonly told?: { readonly readAt: string | null };
+}
+
 export async function seedChanges(db: HyperIdleDb, clock: DemoClock): Promise<void> {
-	// ── user "created" rows ────────────────────────────────────────────────────
-	await db
-		.insert(changes)
-		.values({
-			id: "demo-ch-user-founder",
-			object: "user",
-			objectId: FOUNDER_ID,
-			kind: "created",
-			actor: FOUNDER_ID,
-			before: null,
-			after: JSON.stringify({ id: FOUNDER_ID }),
-			at: clock.daysAgo(45),
-		})
-		.onConflictDoNothing();
-
-	await db
-		.insert(changes)
-		.values({
-			id: "demo-ch-user-maya",
-			object: "user",
-			objectId: MAYA_ID,
-			kind: "created",
-			actor: FOUNDER_ID,
-			before: null,
-			after: JSON.stringify({ id: MAYA_ID }),
-			at: clock.daysAgo(31),
-		})
-		.onConflictDoNothing();
-
-	await db
-		.insert(changes)
-		.values({
-			id: "demo-ch-user-assistant",
-			object: "user",
-			objectId: ASSISTANT_ID,
-			kind: "created",
-			actor: FOUNDER_ID,
-			before: null,
-			after: JSON.stringify({ id: ASSISTANT_ID }),
-			at: clock.daysAgo(44),
-		})
-		.onConflictDoNothing();
-
-	// ── task "created" rows ────────────────────────────────────────────────────
-	await db
-		.insert(changes)
-		.values({
-			id: "demo-ch-task-pricing",
-			object: "task",
-			objectId: ROOT_TASK_PRICING,
-			kind: "created",
-			actor: PM_ID,
-			before: null,
-			after: JSON.stringify({ id: ROOT_TASK_PRICING }),
-			at: clock.daysAgo(21),
-		})
-		.onConflictDoNothing();
-
-	await db
-		.insert(changes)
-		.values({
-			id: "demo-ch-task-trial",
-			object: "task",
-			objectId: ROOT_TASK_TRIAL,
-			kind: "created",
-			actor: PM_ID,
-			before: null,
-			after: JSON.stringify({ id: ROOT_TASK_TRIAL }),
-			at: clock.daysAgo(44),
-		})
-		.onConflictDoNothing();
-
-	await db
-		.insert(changes)
-		.values({
-			id: "demo-ch-task-pricing-page",
-			object: "task",
-			objectId: TASK_PRICING_PAGE,
-			kind: "created",
-			actor: PM_ID,
-			before: null,
-			after: JSON.stringify({ id: TASK_PRICING_PAGE }),
-			at: clock.daysAgo(13),
-		})
-		.onConflictDoNothing();
-
-	await db
-		.insert(changes)
-		.values({
-			id: "demo-ch-task-trial-flow",
-			object: "task",
-			objectId: TASK_TRIAL_FLOW,
-			kind: "created",
-			actor: PM_ID,
-			before: null,
-			after: JSON.stringify({ id: TASK_TRIAL_FLOW }),
-			at: clock.daysAgo(38),
-		})
-		.onConflictDoNothing();
-
-	// ── thread "created" rows ──────────────────────────────────────────────────
-	await db
-		.insert(changes)
-		.values({
-			id: "demo-ch-thread-assistant",
-			object: "thread",
-			objectId: THREAD_ASSISTANT,
-			kind: "created",
-			actor: FOUNDER_ID,
-			before: null,
-			after: JSON.stringify({ id: THREAD_ASSISTANT }),
-			at: clock.daysAgo(44),
-		})
-		.onConflictDoNothing();
-
-	await db
-		.insert(changes)
-		.values({
-			id: "demo-ch-thread-pricing-review",
-			object: "thread",
-			objectId: THREAD_PRICING_REVIEW,
-			kind: "created",
-			actor: PM_ID,
-			before: null,
-			after: JSON.stringify({ id: THREAD_PRICING_REVIEW }),
-			at: clock.daysAgo(5),
-		})
-		.onConflictDoNothing();
-
-	await db
-		.insert(changes)
-		.values({
-			id: "demo-ch-thread-trial-review",
-			object: "thread",
-			objectId: THREAD_TRIAL_REVIEW,
-			kind: "created",
-			actor: PM_ID,
-			before: null,
-			after: JSON.stringify({ id: THREAD_TRIAL_REVIEW }),
-			at: clock.daysAgo(29),
-		})
-		.onConflictDoNothing();
-
-	// ── document "created" rows ────────────────────────────────────────────────
-	await db
-		.insert(changes)
-		.values({
-			id: "demo-ch-doc-pulse-brief",
-			object: "document",
-			objectId: "demo-doc-pulse-brief",
-			kind: "created",
-			actor: FOUNDER_ID,
-			before: null,
-			after: JSON.stringify({ id: "demo-doc-pulse-brief" }),
-			at: clock.daysAgo(44),
-		})
-		.onConflictDoNothing();
-
-	await db
-		.insert(changes)
-		.values({
-			id: "demo-ch-doc-pricing-tiers",
-			object: "document",
-			objectId: "demo-doc-two-tier-pricing",
-			kind: "created",
-			actor: PM_ID,
-			before: null,
-			after: JSON.stringify({ id: "demo-doc-two-tier-pricing" }),
-			at: clock.daysAgo(13),
-		})
-		.onConflictDoNothing();
-
-	// ── inbox rows for demo-founder ───────────────────────────────────────────
-	// Four unread (PM_ID authored — the founder hasn't seen them yet) and two
-	// seen-but-not-read (older threads the founder opened but left unactioned).
-	const founderInboxRows = [
-		{ userId: FOUNDER_ID, changeId: "demo-ch-task-pricing", seenAt: null, readAt: null },
-		{ userId: FOUNDER_ID, changeId: "demo-ch-task-trial", seenAt: null, readAt: null },
-		{ userId: FOUNDER_ID, changeId: "demo-ch-task-pricing-page", seenAt: null, readAt: null },
-		{ userId: FOUNDER_ID, changeId: "demo-ch-task-trial-flow", seenAt: null, readAt: null },
+	const specs: readonly ChangeSpec[] = [
+		...[
+			[FOUNDER_ID, 98],
+			[MAYA_ID, 97],
+			[BUILDER_ID, 98],
+			[GROWTH_ID, 87],
+			[DESIGNER_ID, 81],
+		].map(
+			([id, days]): ChangeSpec => ({
+				id: `demo-ch-user-${id}`,
+				object: "user",
+				objectId: String(id),
+				kind: "created",
+				actor: FOUNDER_ID,
+				after: { id },
+				at: clock.daysAgo(Number(days)),
+			}),
+		),
 		{
-			userId: FOUNDER_ID,
-			changeId: "demo-ch-thread-pricing-review",
-			seenAt: clock.daysAgo(3),
-			readAt: null,
+			id: "demo-ch-task-trials",
+			object: "task",
+			objectId: TASK_TRIALS,
+			kind: "created",
+			actor: FOUNDER_ID,
+			after: { id: TASK_TRIALS, state: "proposed" },
+			at: clock.daysAgo(14),
 		},
 		{
-			userId: FOUNDER_ID,
-			changeId: "demo-ch-thread-trial-review",
-			seenAt: clock.daysAgo(27),
-			readAt: null,
+			id: "demo-ch-task-utc",
+			object: "task",
+			objectId: TASK_UTC,
+			kind: "changed",
+			actor: BUILDER_ID,
+			before: { state: "in_progress" },
+			after: { state: "done" },
+			at: clock.at(0, "05:55"),
+		},
+		{
+			id: "demo-ch-task-proration",
+			object: "task",
+			objectId: TASK_PRORATION,
+			kind: "changed",
+			actor: BUILDER_ID,
+			before: { state: "in_progress" },
+			after: { state: "done" },
+			at: clock.at(0, "03:40"),
+			told: { readAt: null },
+		},
+		{
+			id: "demo-ch-thread-trial-end",
+			object: "thread",
+			objectId: THREAD_TRIAL_END,
+			kind: "created",
+			actor: MAYA_ID,
+			after: { id: THREAD_TRIAL_END },
+			at: clock.at(1, "08:12"),
+		},
+		{
+			id: "demo-ch-thread-layout-review",
+			object: "thread",
+			objectId: taskThreadId(TASK_LAYOUT),
+			kind: "message",
+			actor: DESIGNER_ID,
+			after: { messageId: MSG_LAYOUT_REVIEW, type: "review" },
+			at: clock.at(0, "11:10"),
+			told: { readAt: clock.at(0, "11:30") },
+		},
+		{
+			id: "demo-ch-doc-how-we-price",
+			object: "document",
+			objectId: DOC_HOW_WE_PRICE,
+			kind: "changed",
+			actor: GROWTH_ID,
+			before: { version: 1 },
+			after: { version: 2 },
+			at: clock.daysAgo(2),
+			told: { readAt: null },
+		},
+		{
+			id: "demo-ch-doc-july-themes",
+			object: "document",
+			objectId: DOC_JULY_THEMES,
+			kind: "changed",
+			actor: MAYA_ID,
+			before: { status: "proposed" },
+			after: { status: "active" },
+			at: clock.daysAgo(3),
+			told: { readAt: clock.daysAgo(3) },
 		},
 	];
-	for (const row of founderInboxRows) {
-		await db.insert(inbox).values(row).onConflictDoNothing();
+
+	for (const spec of specs) {
+		await db
+			.insert(changes)
+			.values({
+				id: spec.id,
+				object: spec.object,
+				objectId: spec.objectId,
+				kind: spec.kind,
+				actor: spec.actor,
+				before: spec.before ? JSON.stringify(spec.before) : null,
+				after: JSON.stringify(spec.after),
+				at: spec.at,
+			})
+			.onConflictDoNothing();
+		if (spec.told) {
+			await db
+				.insert(inbox)
+				.values({
+					userId: FOUNDER_ID,
+					changeId: spec.id,
+					seenAt: spec.told.readAt,
+					readAt: spec.told.readAt,
+				})
+				.onConflictDoNothing();
+		}
 	}
 }

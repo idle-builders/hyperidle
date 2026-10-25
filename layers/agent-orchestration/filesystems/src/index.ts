@@ -12,8 +12,6 @@ export {
 } from "./filesystem-registry.js";
 export type { Filesystem } from "./filesystem-shape.js";
 export { listInjectedFilesystemsForProvisioning } from "./injected-filesystems-for-provisioning.js";
-export type { LocalPathInfo } from "./inspect-local-path.js";
-export { inspectLocalPath } from "./inspect-local-path.js";
 export type {
 	FilesystemsGitRunnerFactory,
 	FilesystemTokenResolver,

@@ -47,7 +47,7 @@ export class NoEligibleHarnessError extends Error {
 	) {
 		super(
 			`No registered adapter matches harness type '${harnessType}'${reason ? ` — ${reason}` : ""}. ` +
-				`Check Settings → Agents or ensure the harness is registered at startup.`,
+				`Sign in to an agent program on this computer (Agent programs on your page), or pick another under Runs on in the agent's Edit dialog.`,
 		);
 		this.name = "NoEligibleHarnessError";
 	}

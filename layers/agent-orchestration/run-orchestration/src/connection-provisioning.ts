@@ -39,7 +39,8 @@ export interface HeldConnectionForProvisioning {
  * `serviceConnectionResolver` already has), not "read failed".
  */
 export interface HeldConnectionsReaderPort {
-	listHeldForProvisioning(): Promise<readonly HeldConnectionForProvisioning[]>;
+	/** The held connections one agent's session gets: its owner's, less those kept from it. */
+	listHeldForProvisioning(agentId: string): Promise<readonly HeldConnectionForProvisioning[]>;
 }
 
 /** The decrypt step — stays an Application-composed direct dependency, never routed through `CoreApiPort`. */
@@ -76,14 +77,15 @@ export interface ProvisioningPlan {
  *
  */
 export async function buildProvisioningPlan(deps: {
+	readonly agentId: string;
 	readonly connections?: HeldConnectionsReaderPort;
 	readonly resolver: ServiceConnectionResolverPort;
 	/** Injectable DNS resolver for tests (overrides real DNS lookup). */
 	readonly _ssrfLookup?: (host: string) => Promise<Array<{ address: string; family: 4 | 6 }>>;
 }): Promise<ProvisioningPlan> {
-	const { connections, resolver, _ssrfLookup } = deps;
+	const { agentId, connections, resolver, _ssrfLookup } = deps;
 	if (!connections) return { mcpServers: [], envInjections: {} };
-	const allConnections = await connections.listHeldForProvisioning();
+	const allConnections = await connections.listHeldForProvisioning(agentId);
 
 	// Defense in depth: the reader already filters to held auth sources
 	// (`token`|`mcp`) — re-assert it here so a future reader regression can't

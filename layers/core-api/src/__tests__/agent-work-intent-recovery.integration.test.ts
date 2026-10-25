@@ -11,6 +11,7 @@ import {
 	teams,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
@@ -30,9 +31,9 @@ async function seedTaskRunIntent(
 		name: "Agent",
 		role: "builder",
 		status: "active",
-		teamId: `${id}-team`,
 		createdAt: now,
 	});
+	await db.insert(userTeams).values({ userId: `${id}-agent`, teamId: `${id}-team` });
 	await db.insert(threads).values({
 		id: `thr-${`${id}-bet`}`,
 		hostKind: "team",

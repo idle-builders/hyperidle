@@ -1,23 +1,7 @@
 /**
- * Installing a plugin makes everything it contributed live again.
- *
- * Installing is a deliberate act. After it, the plugin's agent answers, its
- * subscriptions fire and its skills reach sessions — whatever state those
- * rows were left in by a previous disable or remove.
- *
- * Today that is true of skills only. `upsertPluginSkill` sets `status: "active"`
- * on conflict, so a skill comes back. The agent goes through
- * `insertUserIfAbsent` and the subscriptions through `insertSubscription(…,
- * { onConflictDoNothing: true })` — both no-ops on a row that already exists —
- * so a reinstall over a disabled plugin yields a plugin that reports `enabled`
- * with a dead agent and paused subscriptions, and no route short of manual
- * SQL fixes it. Remove is different now: a subscription has no soft-delete
- * column, so remove hard-deletes the row, and a reinstall's
- * `onConflictDoNothing` insert finds no conflict and creates a fresh live row.
- *
- * One lifecycle, one outcome: three operations that can disagree become one.
- *
- * Re-pointed onto `POST /api/actions/edit_plugin`.
+ * Installing a plugin makes everything it contributed live again, whatever a
+ * previous disable or remove left behind: its agent answers, its subscriptions
+ * fire and its skills reach sessions.
  */
 
 import { cpSync, mkdirSync, rmSync } from "node:fs";
@@ -166,13 +150,11 @@ describe("installing a plugin revives everything it contributed", () => {
 		const del = await editPlugin(app, { id: PLUGIN_ID, remove: true });
 		expect(del.status).toBe(200);
 
-		// Precondition: remove really did delete the subscriptions — no
-		// soft-delete column, so the rows are gone outright.
 		const afterRemove = await db
 			.select()
 			.from(subscriptions)
 			.where(inArray(subscriptions.id, contributedIds));
-		expect(afterRemove).toHaveLength(0);
+		expect(afterRemove.map((r) => r.paused)).toEqual(contributedIds.map(() => true));
 
 		await install(db, app);
 

@@ -10,10 +10,7 @@ export interface SetCredentialResult {
 
 export interface SafeCredentialsManager {
 	registerHandlers(): void;
-	unregisterHandlers(): void;
 }
-
-const CHANNELS = ["credentials:set"] as const;
 
 export function encryptCredential(value: string): string | null {
 	if (!safeStorage.isEncryptionAvailable()) {
@@ -72,11 +69,5 @@ export function createSafeCredentialsManager(credentialsPath: string): SafeCrede
 		);
 	}
 
-	function unregisterHandlers(): void {
-		for (const channel of CHANNELS) {
-			ipcMain.removeHandler(channel);
-		}
-	}
-
-	return { registerHandlers, unregisterHandlers };
+	return { registerHandlers };
 }

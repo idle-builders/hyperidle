@@ -150,4 +150,26 @@ describe("parsePluginManifest", () => {
 			).toHaveLength(0);
 		});
 	});
+
+	it.each([
+		[
+			"says what it does",
+			{ what: "Keeps how we work written down." },
+			"Keeps how we work written down.",
+		],
+		["says nothing", {}, null],
+	] as const)("an agent that %s reads its what from the manifest", (_desc, extra, what) => {
+		writeManifest({
+			$schema: VALID_SCHEMA,
+			name: "my-plugin",
+			extensions: {
+				"io.hyperidle": {
+					agents: [{ id: "a", name: "A", discipline: "ops", agentCategory: "team", ...extra }],
+				},
+			},
+		});
+		const result = parsePluginManifest(tempDir);
+		if (!result.ok) throw new Error(result.reason);
+		expect(result.manifest.agents.map((a) => a.what)).toEqual([what]);
+	});
 });

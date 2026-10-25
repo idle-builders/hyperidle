@@ -68,7 +68,7 @@ describe("seed script", () => {
 });
 
 describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
-	test("seed() produces factory layer (bootstrap) + demo world (Acme team)", async ({ db }) => {
+	test("seed() produces factory layer (bootstrap) + demo world (Product team)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
@@ -79,13 +79,13 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 		);
 		expect(propagation).toHaveLength(1);
 
-		// Demo world: Acme team exists
-		const acme = await queryRows<{ id: string; name: string }>(
+		// Demo world: the Product team exists
+		const product = await queryRows<{ id: string; name: string }>(
 			db,
-			"SELECT id, name FROM teams WHERE id = 'demo-team-acme'",
+			"SELECT id, name FROM teams WHERE id = 'demo-team-product'",
 		);
-		expect(acme).toHaveLength(1);
-		expect(acme[0]?.name).toBe("Acme");
+		expect(product).toHaveLength(1);
+		expect(product[0]?.name).toBe("Product");
 	});
 
 	test("runFactoryBootstrap alone produces no demo data — no teams, no human users, no plugins", async ({
@@ -109,19 +109,19 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 		expect(Number(pluginRows[0]?.count)).toBe(0);
 	});
 
-	test("seedDemoWorld alone produces Acme team + demo founder + demo agents", async ({ db }) => {
+	test("seedDemoWorld alone produces Product team + demo founder + demo agents", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		const { teamId, founderId } = await seedDemoWorld(db);
 
-		expect(teamId).toBe("demo-team-acme");
+		expect(teamId).toBe("demo-team-product");
 		expect(founderId).toBe("demo-founder");
 
-		const acme = await queryRows<{ id: string; name: string }>(
+		const product = await queryRows<{ id: string; name: string }>(
 			db,
 			`SELECT id, name FROM teams WHERE id = '${teamId}'`,
 		);
-		expect(acme).toHaveLength(1);
-		expect(acme[0]?.name).toBe("Acme");
+		expect(product).toHaveLength(1);
+		expect(product[0]?.name).toBe("Product");
 
 		const founder = await queryRows<{ id: string; kind: string }>(
 			db,
@@ -129,5 +129,37 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 		);
 		expect(founder).toHaveLength(1);
 		expect(founder[0]?.kind).toBe("human");
+	});
+
+	test("Finn is in Product and Support, Maya in Support, each owned agent in one team", async ({
+		db,
+	}) => {
+		await runFactoryBootstrap(db);
+		await seedDemoWorld(db);
+
+		const teamsOf = async (userId: string): Promise<string[]> =>
+			(
+				await queryRows<{ name: string }>(
+					db,
+					`SELECT t.name FROM user_teams ut JOIN teams t ON t.id = ut.team_id
+					  WHERE ut.user_id = '${userId}' ORDER BY t.name`,
+				)
+			).map((r) => r.name);
+		expect(await teamsOf("demo-founder")).toEqual(["Product", "Support"]);
+		expect(await teamsOf("demo-human-maya")).toEqual(["Support"]);
+
+		// An owned agent is in one of its owner's teams; the plugin's agent for everyone is in none.
+		const agentTeams = await queryRows<{ name: string; teams: string | null }>(
+			db,
+			`SELECT u.name, string_agg(t.name, ',') AS teams FROM users u
+			   LEFT JOIN user_teams ut ON ut.user_id = u.id LEFT JOIN teams t ON t.id = ut.team_id
+			  WHERE u.kind = 'ai' AND u.role <> 'system' GROUP BY u.name ORDER BY u.name`,
+		);
+		expect(agentTeams).toEqual([
+			{ name: "Builder", teams: "Product" },
+			{ name: "Designer", teams: "Support" },
+			{ name: "Facilitation", teams: null },
+			{ name: "Growth", teams: "Product" },
+		]);
 	});
 });

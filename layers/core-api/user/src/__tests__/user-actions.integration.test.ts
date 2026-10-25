@@ -7,7 +7,7 @@
  * `agent-orchestration`, a different Layer this package's own tests do not
  * boot.
  */
-import { changes, documents, type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { changes, documents, type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	type EditUserInput,
@@ -64,9 +64,11 @@ function buildDeps(): UserActionsDeps {
 			list: async () => ({ connections: [], inherited: [] }),
 			add: async () => ({ ok: false, code: "MISSING_ROOT_SECRET" }) as const,
 			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
+			withhold: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
 		},
 		searchDocuments: runnerFor(documentActions, "search_documents"),
 		editDocument: runnerFor(documentActions, "edit_document"),
+		onPluginPartEdited: async () => {},
 	};
 }
 
@@ -90,46 +92,99 @@ describe("edit_user — create a person with a team by name", () => {
 		const result = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Ada",
-			team: { name: "Alpha" },
+			teams: ["Alpha"],
 		});
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-		expect(result.data.user?.team?.name).toBe("Alpha");
+		expect(result.data.user?.teams[0]?.name).toBe("Alpha");
 
 		const [row] = await db.select().from(teams).where(eq(teams.name, "Alpha"));
 		expect(row).toBeDefined();
 	});
 });
 
-describe("edit_user — an owned agent's effective team", () => {
-	test("open_user reports the owner's team, not its own (it has none)", async ({ db }) => {
+describe("edit_user — a person in several teams, an agent in one", () => {
+	test("a person put in two teams is found by search_users in each, and open_user lists both", async ({
+		db,
+	}) => {
+		await seedFounder(db);
+		const { editUser, searchUsers, openUser } = actionsFor(buildDeps());
+		const created = await editUser(ctxFor(db, "u-founder"), {
+			kind: "human",
+			name: "Maya",
+			teams: ["Support"],
+		});
+		if (!created.ok) throw new Error("create failed");
+		const mayaId = created.data.user?.id as string;
+
+		const edited = await editUser(ctxFor(db, mayaId), {
+			id: mayaId,
+			teams: ["Support", "Product"],
+		});
+		expect(edited.ok).toBe(true);
+
+		const opened = await openUser(ctxFor(db, mayaId), { id: mayaId });
+		if (!opened.ok) throw new Error("open failed");
+		const teamsOfMaya = opened.data.user?.teams ?? [];
+		expect(teamsOfMaya.map((t) => t.name).sort()).toEqual(["Product", "Support"]);
+
+		for (const team of teamsOfMaya) {
+			const found = await searchUsers(ctxFor(db, mayaId), { teamId: team.id });
+			if (!found.ok) throw new Error("search failed");
+			expect((found.data as Array<{ id: string }>).map((u) => u.id)).toEqual([mayaId]);
+		}
+	});
+
+	test("agent_one_team: an agent given two teams is refused", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+		const agent = await editUser(ctxFor(db, "u-founder"), {
+			kind: "ai",
+			name: "Builder",
+			teams: ["Product"],
+		});
+		if (!agent.ok) throw new Error("create failed");
+
+		const result = await editUser(ctxFor(db, "u-founder"), {
+			id: agent.data.user?.id as string,
+			teams: ["Product", "Support"],
+		});
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.problems[0]?.code).toBe("agent_one_team");
+	});
+
+	test("agent_team_not_owners: an owned agent given a team its owner is not in is refused", async ({
+		db,
+	}) => {
 		await seedFounder(db);
 		const { editUser } = actionsFor(buildDeps());
 		const owner = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
-			name: "Owner",
-			team: { name: "Beta" },
+			name: "Maya",
+			teams: ["Support", "Product"],
 		});
-		expect(owner.ok).toBe(true);
-		if (!owner.ok) return;
+		if (!owner.ok) throw new Error("create failed");
 		const ownerId = owner.data.user?.id as string;
 
-		const deps = buildDeps();
-		const { editUser: editUser2, openUser } = actionsFor(deps);
-		const agent = await editUser2(ctxFor(db, ownerId), {
+		const refused = await editUser(ctxFor(db, ownerId), {
 			kind: "ai",
-			name: "Assistant",
+			name: "Designer",
 			ownerUserId: ownerId,
-			identity: "You help.",
+			teams: ["Sales"],
 		});
-		expect(agent.ok).toBe(true);
-		if (!agent.ok) return;
-		expect(agent.data.user?.team?.name).toBe("Beta");
+		expect(refused.ok).toBe(false);
+		if (refused.ok) return;
+		expect(refused.problems[0]?.code).toBe("agent_team_not_owners");
 
-		const reopened = await openUser(ctxFor(db, ownerId), { id: agent.data.user?.id });
-		expect(reopened.ok).toBe(true);
-		if (!reopened.ok) return;
-		expect(reopened.data.user?.team?.name).toBe("Beta");
+		const allowed = await editUser(ctxFor(db, ownerId), {
+			kind: "ai",
+			name: "Designer",
+			ownerUserId: ownerId,
+			teams: ["Support"],
+		});
+		if (!allowed.ok) throw new Error("create failed");
+		expect(allowed.data.user?.teams.map((t) => t.name)).toEqual(["Support"]);
 	});
 });
 
@@ -141,7 +196,7 @@ describe("edit_user — an agent created with run config, identity and subscript
 		const owner = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Owner",
-			team: { name: "Gamma" },
+			teams: ["Gamma"],
 		});
 		expect(owner.ok).toBe(true);
 		if (!owner.ok) return;
@@ -151,6 +206,7 @@ describe("edit_user — an agent created with run config, identity and subscript
 			kind: "ai",
 			name: "Librarian",
 			ownerUserId: ownerId,
+			teams: ["Gamma"],
 			status: "active",
 			identity: "You catalogue things.",
 			runConfig: { harnessType: "claude-code", modelId: "sonnet" },
@@ -174,7 +230,7 @@ describe("edit_user — kept guards", () => {
 		const other = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Other",
-			team: { name: "Delta" },
+			teams: ["Delta"],
 		});
 		expect(other.ok).toBe(true);
 		if (!other.ok) return;
@@ -205,9 +261,9 @@ describe("edit_user — kept guards", () => {
 			name: "System",
 			role: "system",
 			status: "active",
-			teamId: "team-x",
 			createdAt: NOW,
 		});
+		await db.insert(userTeams).values({ userId: "a-system", teamId: "team-x" });
 		const deps = buildDeps();
 		const { editUser } = actionsFor(deps);
 		const result = await editUser(ctxFor(db, "u-founder"), { id: "a-system", status: "retired" });
@@ -225,7 +281,7 @@ describe("edit_user — retire archives the identity", () => {
 		const owner = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Owner",
-			team: { name: "Epsilon" },
+			teams: ["Epsilon"],
 		});
 		expect(owner.ok).toBe(true);
 		if (!owner.ok) return;
@@ -235,6 +291,7 @@ describe("edit_user — retire archives the identity", () => {
 			kind: "ai",
 			name: "Helper",
 			ownerUserId: ownerId,
+			teams: ["Epsilon"],
 			identity: "You help.",
 		});
 		expect(agent.ok).toBe(true);
@@ -260,7 +317,7 @@ describe("edit_user — a subscription prompt document parented to the subscript
 		const owner = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Owner",
-			team: { name: "Zeta" },
+			teams: ["Zeta"],
 		});
 		expect(owner.ok).toBe(true);
 		if (!owner.ok) return;
@@ -270,6 +327,7 @@ describe("edit_user — a subscription prompt document parented to the subscript
 			kind: "ai",
 			name: "Watcher",
 			ownerUserId: ownerId,
+			teams: ["Zeta"],
 			subscriptions: { add: [{ event: "task.changed", prompt: "Check the task." }] },
 		});
 		expect(agent.ok).toBe(true);
@@ -287,6 +345,27 @@ describe("edit_user — a subscription prompt document parented to the subscript
 	});
 });
 
+describe("edit_user — following one object", () => {
+	test("a person follows a task and stops following it, read back on their page", async ({
+		db,
+	}) => {
+		await seedFounder(db);
+		const { editUser, openUser } = actionsFor(buildDeps());
+		const followed = await editUser(ctxFor(db, "u-founder"), {
+			id: "u-founder",
+			subscriptions: { add: [{ event: "task.changed", objectId: "task-1" }] },
+		});
+		expect(followed.ok && followed.data.subscriptions.map((s) => [s.event, s.objectId])).toEqual([
+			["task.changed", "task-1"],
+		]);
+		const id = followed.ok ? (followed.data.subscriptions[0]?.id ?? "") : "";
+
+		await editUser(ctxFor(db, "u-founder"), { id: "u-founder", subscriptions: { remove: [id] } });
+		const opened = await openUser(ctxFor(db, "u-founder"), { id: "u-founder" });
+		expect(opened.ok && opened.data.subscriptions).toEqual([]);
+	});
+});
+
 describe("edit_user — inbox marks", () => {
 	test("marking a change read stamps both readAt and seenAt", async ({ db }) => {
 		await seedFounder(db);
@@ -297,9 +376,9 @@ describe("edit_user — inbox marks", () => {
 			name: "Reader",
 			role: "member",
 			status: "active",
-			teamId: "team-inbox",
 			createdAt: NOW,
 		});
+		await db.insert(userTeams).values({ userId: "u-reader", teamId: "team-inbox" });
 		const [changeRow] = await db
 			.insert(changes)
 			.values({
@@ -354,7 +433,7 @@ describe("edit_user — every DB-dependent problem code", () => {
 		const result = await editUser(ctxFor(db, "u-nobody"), {
 			kind: "human",
 			name: "Second",
-			team: { name: "Rho" },
+			teams: ["Rho"],
 		});
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
@@ -368,41 +447,12 @@ describe("edit_user — every DB-dependent problem code", () => {
 			kind: "ai",
 			name: "Orphan",
 			ownerUserId: "ghost-owner",
+			teams: ["Ghost Team"],
 			identity: "hi",
 		});
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.problems[0]?.code).toBe("unknown_owner");
-	});
-
-	test("owned_agent_has_no_team: naming a team on an existing owned agent is refused", async ({
-		db,
-	}) => {
-		await seedFounder(db);
-		const deps = buildDeps();
-		const { editUser } = actionsFor(deps);
-		const owner = await editUser(ctxFor(db, "u-founder"), {
-			kind: "human",
-			name: "Owner",
-			team: { name: "Eta" },
-		});
-		expect(owner.ok).toBe(true);
-		if (!owner.ok) return;
-		const ownerId = owner.data.user?.id as string;
-		const agent = await editUser(ctxFor(db, ownerId), {
-			kind: "ai",
-			name: "A",
-			ownerUserId: ownerId,
-			identity: "hi",
-		});
-		expect(agent.ok).toBe(true);
-		if (!agent.ok) return;
-		const agentId = agent.data.user?.id as string;
-
-		const result = await editUser(ctxFor(db, ownerId), { id: agentId, team: { name: "Theta" } });
-		expect(result.ok).toBe(false);
-		if (result.ok) return;
-		expect(result.problems[0]?.code).toBe("owned_agent_has_no_team");
 	});
 
 	test("unknown_user: an org edge target that does not exist", async ({ db }) => {
@@ -411,7 +461,7 @@ describe("edit_user — every DB-dependent problem code", () => {
 		const result = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Ada",
-			team: { name: "Iota" },
+			teams: ["Iota"],
 			edges: { add: [{ mechanism: "direct", target: "ghost" }] },
 		});
 		expect(result.ok).toBe(false);
@@ -425,7 +475,7 @@ describe("edit_user — every DB-dependent problem code", () => {
 		const result = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Ada",
-			team: { name: "Kappa" },
+			teams: ["Kappa"],
 			subscriptions: { add: [{ schedule: "0 9 * * *" }] },
 		});
 		expect(result.ok).toBe(false);
@@ -439,7 +489,7 @@ describe("edit_user — every DB-dependent problem code", () => {
 		const result = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Ada",
-			team: { name: "Lambda" },
+			teams: ["Lambda"],
 			subscriptions: { add: [{ event: "task.changed", prompt: "hi" }] },
 		});
 		expect(result.ok).toBe(false);
@@ -454,7 +504,7 @@ describe("edit_user — every DB-dependent problem code", () => {
 		const owner = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Owner",
-			team: { name: "Mu" },
+			teams: ["Mu"],
 		});
 		expect(owner.ok).toBe(true);
 		if (!owner.ok) return;
@@ -463,6 +513,7 @@ describe("edit_user — every DB-dependent problem code", () => {
 			kind: "ai",
 			name: "A",
 			ownerUserId: ownerId,
+			teams: ["Mu"],
 			status: "inactive",
 			identity: "hi",
 			subscriptions: { add: [{ event: "task.changed" }] },
@@ -479,7 +530,7 @@ describe("edit_user — every DB-dependent problem code", () => {
 		const owner = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Owner",
-			team: { name: "Nu" },
+			teams: ["Nu"],
 		});
 		expect(owner.ok).toBe(true);
 		if (!owner.ok) return;
@@ -488,6 +539,7 @@ describe("edit_user — every DB-dependent problem code", () => {
 			kind: "ai",
 			name: "A",
 			ownerUserId: ownerId,
+			teams: ["Nu"],
 			identity: "hi",
 			subscriptions: { add: [{ schedule: "not a cron" }] },
 		});
@@ -503,7 +555,7 @@ describe("edit_user — every DB-dependent problem code", () => {
 		const owner = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Owner",
-			team: { name: "Xi" },
+			teams: ["Xi"],
 		});
 		expect(owner.ok).toBe(true);
 		if (!owner.ok) return;
@@ -524,7 +576,7 @@ describe("edit_user — every DB-dependent problem code", () => {
 		const owner = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Owner",
-			team: { name: "Omicron" },
+			teams: ["Omicron"],
 		});
 		expect(owner.ok).toBe(true);
 		if (!owner.ok) return;
@@ -562,6 +614,7 @@ describe("open_user — the declared output shape matches what the connections d
 							authSource: "inherited",
 							health: "working",
 							removable: false,
+							withheldFrom: [],
 						},
 					],
 				}),
@@ -588,7 +641,7 @@ describe("edit_user — a discipline edge resolves to the users holding it", () 
 		const designer = await editUser(ctxFor(db, "u-founder"), {
 			kind: "ai",
 			name: "Dana",
-			team: { name: "Design Team" },
+			teams: ["Design Team"],
 			discipline: "Design",
 		});
 		expect(designer.ok).toBe(true);
@@ -596,7 +649,7 @@ describe("edit_user — a discipline edge resolves to the users holding it", () 
 		const builder = await editUser(ctxFor(db, "u-founder"), {
 			kind: "ai",
 			name: "Bo",
-			team: { name: "Build Team" },
+			teams: ["Build Team"],
 			discipline: "builder",
 		});
 		expect(builder.ok).toBe(true);

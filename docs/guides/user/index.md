@@ -1,15 +1,15 @@
 # HyperIdle User Guide
 
-HyperIdle puts you at the head of a flat team of humans and AI agents. You shape work as tasks, agents execute, you review and redirect.
+HyperIdle is one app where a team of people and AI agents talk, hand off work and keep what they know. You talk with agents in conversations, they do the work as tasks, and you check the result in a review.
 
 ---
 
-## Walkthroughs
-
-- [Getting Started](./getting-started.md) — install, first-run setup, and running your first task
-- [The Interface](./the-interface.md) — sidebar, shortcuts, search, inbox, and the assistant overlay
-- [Views](./views.md) — Conversations, Work, and Knowledge walkthroughs
-- [Agents](./agents.md) — your assistant, team agents, subscriptions, and sessions
-- [Running Your Team](./running-your-team.md) — common situations and how to handle them
-- [Settings](./settings.md) — section-by-section reference
-- [Connecting Services](./connections.md) — adding tokens and MCP servers so agents can reach external tools
+- [Getting started](./getting-started.md) — install, first start, and your first conversation
+- [The interface](./the-interface.md) — the one sidebar, find or ask, and notifications
+- [Conversations](./conversations.md) — threads, handing work to an agent with @, questions and reviews
+- [Work](./work.md) — the task page: its parts, decisions, "Done when", and the box beside it
+- [Knowledge](./knowledge.md) — documents: writing, comments in the margin, proposed changes, publishing
+- [People and agents](./agents.md) — a person's or agent's page, adding and changing agents, pausing
+- [Your page](./your-page.md) — your own page, which holds your settings
+- [Folders and services](./connections.md) — where your agents work and what they can reach
+- [Running your team](./running-your-team.md) — the team page, plugins, and what to do when something is stuck

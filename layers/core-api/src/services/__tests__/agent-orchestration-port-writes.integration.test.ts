@@ -15,6 +15,7 @@ import {
 	teams,
 	threads,
 	users,
+	userTeams,
 } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
@@ -42,10 +43,10 @@ async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
 			name: "Agent",
 			role: "builder",
 			status: "idle",
-			teamId: `${prefix}-team-parent`,
 			createdAt: NOW,
 		},
 	]);
+	await db.insert(userTeams).values({ userId: `${prefix}-agent`, teamId: `${prefix}-team-parent` });
 	await db.insert(threads).values({
 		id: `thr-${`${prefix}-bet`}`,
 		hostKind: "team",

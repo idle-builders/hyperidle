@@ -4,17 +4,19 @@
  * Verifies: every seeded task parses against TaskSchema, every message payload
  * parses against its type's schema, every document has valid status/scopeKind,
  * and at least one changes row exists per object kind.
- *
- * RED on current code: root-task outcomeVerdict uses old vocabulary
- * (validated/partial/refuted) and no changes rows are seeded.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	DOCUMENT_STATUSES,
+	documentAnchorProblems,
 	parseMessagePayload,
+	pinProblems,
+	plainPayloadSchema,
+	reviewPayloadSchema,
 	SCOPE_KINDS,
+	sendMessageInvariants,
 	TaskSchema,
 } from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
@@ -38,16 +40,30 @@ describe("demo world schema validation", () => {
 		const taskRows = await rows<Record<string, unknown>>(
 			db,
 			`SELECT id, parent_task_id, team_id, owner_agent_id, title, description,
-			        done_condition, state, dependencies, thread_id, notes,
+			        done_when, reasons, state, dependencies, thread_id, notes,
 			        created_at, updated_at, outcome_verdict, outcome_summary,
 			        outcome_recorded_at, outcome_recorded_by, tokens_actual_json,
-			        source_document_id, completed_at, position, needs_review
+			        source_document_id, completed_at, position, paused, started_by
 			   FROM tasks`,
 		);
 		expect(taskRows.length).toBeGreaterThan(0);
 
 		const failures: string[] = [];
 		for (const row of taskRows) {
+			const doneWhenParsed: unknown = (() => {
+				try {
+					return JSON.parse(row.done_when as string);
+				} catch {
+					return [];
+				}
+			})();
+			const reasonsParsed: unknown = (() => {
+				try {
+					return JSON.parse(row.reasons as string);
+				} catch {
+					return [];
+				}
+			})();
 			const result = TaskSchema.safeParse({
 				id: row.id,
 				parentTaskId: row.parent_task_id ?? null,
@@ -55,7 +71,8 @@ describe("demo world schema validation", () => {
 				ownerAgentId: row.owner_agent_id ?? null,
 				title: row.title,
 				description: row.description ?? null,
-				doneCondition: row.done_condition ?? null,
+				doneWhen: doneWhenParsed,
+				reasons: reasonsParsed,
 				state: row.state,
 				dependencies: row.dependencies ?? null,
 				threadId: row.thread_id,
@@ -70,7 +87,8 @@ describe("demo world schema validation", () => {
 				sourceDocumentId: row.source_document_id ?? null,
 				completedAt: row.completed_at ?? null,
 				position: Number(row.position ?? 0),
-				needsReview: Boolean(row.needs_review),
+				paused: row.paused ?? null,
+				startedBy: row.started_by ?? null,
 			});
 			if (!result.success) {
 				failures.push(`task ${row.id as string}: ${result.error.message}`);
@@ -84,13 +102,13 @@ describe("demo world schema validation", () => {
 
 		const msgRows = await rows<{ id: string; type: string; payload: string }>(
 			db,
-			"SELECT id, type, payload FROM messages WHERE type IN ('review','plain','questionnaire','verdict')",
+			"SELECT id, type, payload FROM messages WHERE type IN ('review','plain','questionnaire','verdict','answer')",
 		);
 		expect(msgRows.length).toBeGreaterThan(0);
 
 		const failures: string[] = [];
 		for (const row of msgRows) {
-			const type = row.type as "plain" | "review" | "questionnaire" | "verdict";
+			const type = row.type as "plain" | "review" | "questionnaire" | "verdict" | "answer";
 			try {
 				const p = JSON.parse(row.payload) as unknown;
 				parseMessagePayload(type, p);
@@ -99,6 +117,62 @@ describe("demo world schema validation", () => {
 			}
 		}
 		expect(failures, failures.join("\n")).toHaveLength(0);
+	});
+
+	test("every review holds together, and every comment's pin fits a review in its own thread", async ({
+		db,
+	}) => {
+		await seedWorld(db);
+
+		const msgRows = await rows<{ id: string; thread_id: string; type: string; payload: string }>(
+			db,
+			"SELECT id, thread_id, type, payload FROM messages WHERE type IN ('review', 'plain')",
+		);
+		const reviews = new Map(
+			msgRows
+				.filter((m) => m.type === "review")
+				.map((m) => [
+					m.id,
+					{ threadId: m.thread_id, payload: reviewPayloadSchema.parse(JSON.parse(m.payload)) },
+				]),
+		);
+		const failures: string[] = [];
+		for (const [id, { payload }] of reviews) {
+			const { taskId: _, ...review } = payload;
+			for (const p of sendMessageInvariants({ threadId: "t", review }, { hasCallingThread: true }))
+				failures.push(`review ${id}: ${p.code} at ${p.path}`);
+		}
+		const anchored = msgRows.flatMap((m) => {
+			const anchor =
+				m.type === "plain" ? plainPayloadSchema.parse(JSON.parse(m.payload)).anchor : undefined;
+			return anchor?.review
+				? [{ id: m.id, threadId: m.thread_id, anchor, review: anchor.review }]
+				: [];
+		});
+		expect(anchored.length).toBeGreaterThan(0);
+		for (const { id, threadId, anchor, review } of anchored) {
+			const on = reviews.get(review);
+			if (on?.threadId !== threadId)
+				failures.push(`comment ${id}: its review is not in its thread`);
+			for (const p of pinProblems(anchor, on?.payload.parts ?? []))
+				failures.push(`comment ${id}: ${p.code}`);
+		}
+		const docs = new Map(
+			(await rows<{ id: string; body: string }>(db, "SELECT id, body FROM documents")).map((d) => [
+				d.id,
+				d,
+			]),
+		);
+		const onText = msgRows.flatMap((m) => {
+			const anchor =
+				m.type === "plain" ? plainPayloadSchema.parse(JSON.parse(m.payload)).anchor : undefined;
+			return anchor && !anchor.review ? [{ id: m.id, anchor }] : [];
+		});
+		expect(onText.length).toBeGreaterThan(0);
+		for (const { id, anchor } of onText)
+			for (const p of documentAnchorProblems(anchor, docs.get(anchor.part) ?? { id: "", body: "" }))
+				failures.push(`comment ${id}: ${p.code}`);
+		expect(failures, failures.join("\n")).toEqual([]);
 	});
 
 	test("every seeded document has valid status and scopeKind", async ({ db }) => {

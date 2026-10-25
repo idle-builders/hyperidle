@@ -7,11 +7,13 @@ import {
 	changes,
 	documents,
 	type HyperIdleDb,
+	subscriptions,
 	tasks,
 	teams,
 	threads,
 	type User,
 	users,
+	userTeams,
 	type WriteExecutor,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
@@ -42,10 +44,11 @@ export function docValues(overrides: Partial<Insertable> & { id: string }): Inse
 	};
 }
 
+/** A user row; `teamId` puts them in that team. */
 export async function seedUser(
 	db: HyperIdleDb,
 	id: string,
-	overrides: Partial<typeof users.$inferInsert> = {},
+	{ teamId, ...overrides }: Partial<typeof users.$inferInsert> & { teamId?: string } = {},
 ): Promise<void> {
 	await db.insert(users).values({
 		id,
@@ -56,6 +59,18 @@ export async function seedUser(
 		createdAt: "2026-01-01T00:00:00.000Z",
 		...overrides,
 	});
+	if (teamId !== undefined) await db.insert(userTeams).values({ userId: id, teamId });
+}
+
+/** A user row with every team they are in, read off the real tables. */
+export async function readUserWithTeams(
+	exec: WriteExecutor,
+	id: string,
+): Promise<(User & { teamIds: string[] }) | undefined> {
+	const [row] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
+	if (!row) return undefined;
+	const memberships = await exec.select().from(userTeams).where(eq(userTeams.userId, id));
+	return { ...row, teamIds: memberships.map((m) => m.teamId) };
 }
 
 export async function seedTeam(db: HyperIdleDb, id: string, name = id): Promise<void> {
@@ -138,10 +153,7 @@ export function writeDeps(opts: DepsOptions = {}): DocumentActionsDeps {
 			},
 		},
 		users: {
-			getUserById: async (exec: WriteExecutor, id: string): Promise<User | undefined> => {
-				const [row] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
-				return row;
-			},
+			getUserById: readUserWithTeams,
 			listOwnedBy: (exec: WriteExecutor, ownerId: string) => {
 				return exec.select().from(users).where(eq(users.ownerUserId, ownerId));
 			},
@@ -167,6 +179,13 @@ export function writeDeps(opts: DepsOptions = {}): DocumentActionsDeps {
 			(async () => {
 				// no-op stub: tests that don't assert on body-changed side effects
 			}),
+		followersOf: async (exec: WriteExecutor, documentId: string) =>
+			(
+				await exec
+					.select({ userId: subscriptions.userId })
+					.from(subscriptions)
+					.where(eq(subscriptions.objectId, documentId))
+			).map((r) => r.userId),
 		...(opts.wsPush ? { wsPush: opts.wsPush } : {}),
 	};
 }

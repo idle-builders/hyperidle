@@ -317,7 +317,17 @@ describe("resolveTaskRunRequest — contextBundle baking", () => {
 		await seedTeamAndRootTask(db, { teamId: "team-trun-ctx-1", rootTaskId: "bet-trun-ctx-1" });
 		await db
 			.update(tasks)
-			.set({ doneCondition: "Shipped to prod" })
+			.set({
+				doneWhen: JSON.stringify([
+					{
+						id: "dw-bet-trun-ctx-1",
+						what: "Shipped to prod",
+						by: "check",
+						state: "open",
+						how: null,
+					},
+				]),
+			})
 			.where(eq(tasks.id, "bet-trun-ctx-1"));
 		await seedAgent(db, "agent-trun-ctx-1");
 		await seedTask(db, {
@@ -380,7 +390,7 @@ describe("resolveTaskRunRequest — contextBundle baking", () => {
 					id: "bet-trun-ctx-1",
 					title: "Task-run resolver bet",
 					description: "Task-run resolver bet",
-					doneCondition: "Shipped to prod",
+					doneWhen: expect.arrayContaining([expect.objectContaining({ what: "Shipped to prod" })]),
 				},
 			],
 			agent: { id: "agent-trun-ctx-1", name: "Agent", role: "builder" },

@@ -12,7 +12,7 @@
  * sees the seeded inherited entries); switching an agent's harness type
  * A->B->A leaves `open_user({})`'s inherited reach byte-identical at every
  * step; the view JSON of inherited entries is exactly the connections
- * contract (id/service/via/authSource/health/removable); `probeInheritedReach:
+ * contract (id/service/via/authSource/health/removable/withheldFrom); `probeInheritedReach:
  * true` awaits the initial probe at boot, so facts are cached by serve time.
  */
 
@@ -65,6 +65,7 @@ function inheritedView(source: string, name: string): Record<string, unknown> {
 		// probe health "unknown" displays as "working" — unchanged contract
 		health: "working",
 		removable: false,
+		withheldFrom: [],
 	};
 }
 

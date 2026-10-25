@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { type HyperIdleDb, plugins, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, plugins, teams, users, userTeams } from "@hyperidle/db";
 import type {
 	ActionResult,
 	AvailablePluginView,
@@ -27,7 +27,8 @@ import type {
 import type { EventBus } from "@hyperidle/event-bus";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { agentItemId } from "@hyperidle/settings";
-import { and, eq, like } from "drizzle-orm";
+import { findUser, listUsers } from "@hyperidle/user";
+import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import type { ActionContext } from "../../actions/action.js";
@@ -129,7 +130,6 @@ async function seedPeople(db: HyperIdleDb): Promise<void> {
 			name: "Ada",
 			role: "founder",
 			status: "active",
-			teamId: "team-a",
 			createdAt: NOW,
 		},
 		{
@@ -138,7 +138,6 @@ async function seedPeople(db: HyperIdleDb): Promise<void> {
 			name: "Bo",
 			role: "founder",
 			status: "active",
-			teamId: "team-b",
 			createdAt: NOW,
 		},
 		{
@@ -151,6 +150,14 @@ async function seedPeople(db: HyperIdleDb): Promise<void> {
 			createdAt: NOW,
 		},
 		{
+			id: "u-both",
+			kind: "human",
+			name: "Both",
+			role: "member",
+			status: "active",
+			createdAt: NOW,
+		},
+		{
 			id: "u-loner",
 			kind: "ai",
 			name: "Loner",
@@ -158,6 +165,13 @@ async function seedPeople(db: HyperIdleDb): Promise<void> {
 			status: "active",
 			createdAt: NOW,
 		},
+	]);
+	await db.insert(userTeams).values({ userId: "u-ada", teamId: "team-a" });
+	await db.insert(userTeams).values({ userId: "u-bo", teamId: "team-b" });
+	await db.insert(userTeams).values({ userId: "u-ada-assistant", teamId: "team-a" });
+	await db.insert(userTeams).values([
+		{ userId: "u-both", teamId: "team-a" },
+		{ userId: "u-both", teamId: "team-b" },
 	]);
 }
 
@@ -180,8 +194,8 @@ function teamInstall(name: string, teamId: string): EditPluginInput {
 }
 
 async function pluginAgents(db: HyperIdleDb, teamId: string | null) {
-	const rows = await db.select().from(users).where(like(users.id, "pa_%"));
-	return rows.filter((r) => r.teamId === teamId);
+	const rows = await listUsers(db);
+	return rows.filter((r) => r.id.startsWith("pa_") && (r.teamIds[0] ?? null) === teamId);
 }
 
 describe("bundled plugins — listed as available per viewer", () => {
@@ -206,7 +220,7 @@ describe("bundled plugins — listed as available per viewer", () => {
 		expect(await search("u-ada", { state: "enabled" })).toEqual([]);
 	});
 
-	test("an owned agent judges availability by its owner's team; a no-team viewer only by factory", async ({
+	test("an owned agent judges availability by its own team; a person in two teams until both have it; a no-team viewer only by factory", async ({
 		db,
 		eventBus,
 		agentOrchestration,
@@ -222,6 +236,7 @@ describe("bundled plugins — listed as available per viewer", () => {
 
 		expect(available(await search("u-ada-assistant"))).toEqual(["document-management"]);
 		expect(available(await search("u-bo"))).toEqual(["document-management", "role-personas"]);
+		expect(available(await search("u-both"))).toEqual(["document-management", "role-personas"]);
 		expect(available(await search("u-loner"))).toEqual(["document-management"]);
 		// Installed rows are everyone's to see; the row's scope says whose.
 		expect(installed(await search("u-bo"))).toEqual(["role-personas@team-a"]);
@@ -330,8 +345,8 @@ describe("bundled plugins — install by name, per team", () => {
 		expect(result.data.id).toBe("document-management");
 
 		const librarian = agentItemId("document-management", "librarian", "factory", null);
-		const [row] = await db.select().from(users).where(eq(users.id, librarian));
-		expect(row?.teamId).toBeNull();
+		const row = await findUser(db, { id: librarian });
+		expect(row?.teamIds).toEqual([]);
 		expect(row?.status).toBe("active");
 		expect((await agentOrchestration.runConfig.read(librarian)).harnessType).toBe("claude-code");
 

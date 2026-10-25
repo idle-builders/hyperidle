@@ -20,21 +20,29 @@ import {
 	bakeAgentRunnableConfig,
 	canReadThread,
 	canWriteThread,
+	computeThreadNeed,
 	type DocumentRow,
+	documentAnchorProblems,
 	type HostKind,
 	type Identity,
 	IdentitySchema,
 	type Message,
 	MessageSchema,
+	type MessageType,
 	type OpenThreadInput,
 	openThread as openThreadDeclaration,
 	type Problem,
+	pinProblems,
+	proposedChangeSchema,
 	type ReviewVerdictOutcome,
 	type ReviewVerdictRecorderFn,
+	resolvesMessageInvariants,
+	reviewPayloadSchema,
 	type SearchDocumentsInput,
 	type SearchThreadsInput,
 	type SendMessageInput,
 	type SendMessageOutput,
+	type SessionResumeReply,
 	searchThreads as searchThreadsDeclaration,
 	sendMessage as sendMessageDeclaration,
 	sendMessageInvariants,
@@ -54,12 +62,18 @@ import { resolveThreadTitles } from "./title-ladder.js";
  * The thread module's outward-facing deps — every one a sibling Service, the
  * seam, or the websocket hub.
  */
+/** A user row with every team they are in — one for an agent. */
+type UserWithTeams = User & { readonly teamIds: readonly string[] };
+
+/** A runnable agent with its one team, `null` only for a factory-wide agent. */
+export type RunnableAgentRow = UserWithTeams & { readonly teamId: string | null };
+
 export interface ThreadActionsDeps {
 	readonly changes: {
 		appendChange(exec: WriteExecutor, row: NewChange): Promise<unknown>;
 	};
 	readonly users: {
-		getUserById(exec: WriteExecutor, id: string): Promise<User | undefined>;
+		getUserById(exec: WriteExecutor, id: string): Promise<UserWithTeams | undefined>;
 		listByIds(exec: WriteExecutor, ids: readonly string[]): Promise<readonly User[]>;
 		/**
 		 * The one human an agent answers to when it has no thread and named no
@@ -67,10 +81,8 @@ export interface ThreadActionsDeps {
 		 * (createdAt, id).
 		 */
 		soleHumanForAgent(exec: WriteExecutor, agentId: string): Promise<User | undefined>;
-		/** Team-scoped read `resolveMentionsForMessage` needs — a nested Service may not import `@hyperidle/user` directly; team-wide mentions require all team members. */
-		listByTeamIds(exec: WriteExecutor, teamIds: readonly string[]): Promise<readonly User[]>;
-		/** Agents owned by a user (`users.ownerUserId`) — addressable by @mention even with no team, so `resolveMentionsForMessage` always finds them. */
-		listOwnedBy(exec: WriteExecutor, ownerId: string): Promise<readonly User[]>;
+		/** Everyone — `resolveMentionsForMessage`'s pool; a nested Service may not import `@hyperidle/user` directly. */
+		listEveryone(exec: WriteExecutor): Promise<readonly User[]>;
 	};
 	/** The ONE door onto `document` — thread never imports `@hyperidle/document`, never opens a document, and never calls this inside its own open transaction (a runner call inside `ctx.db.transaction` hangs PGlite). */
 	readonly searchDocuments: (
@@ -79,7 +91,7 @@ export interface ThreadActionsDeps {
 	) => Promise<ActionResult<DocumentRow[]>>;
 	readonly org: { getTeam(exec: WriteExecutor, q: { id: string }): Promise<Team | undefined> };
 	readonly agents: {
-		requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+		requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<RunnableAgentRow>;
 		/** Via `searchDocuments` — needs the full ctx, not just `db`. */
 		getAgentIdentity(ctx: ActionContext, agentId: string): Promise<string | null>;
 	};
@@ -140,7 +152,6 @@ function rowToMessage(row: {
 	type: string;
 	payload: string;
 	clientKey: string;
-	blockId: string | null;
 	resolvedAt: string | null;
 	deletedAt: string | null;
 	redactedAt: string | null;
@@ -153,7 +164,6 @@ function rowToMessage(row: {
 		type: row.type,
 		payload: JSON.parse(row.payload) as unknown,
 		clientKey: row.clientKey,
-		blockId: row.blockId,
 		resolvedAt: row.resolvedAt,
 		deletedAt: row.deletedAt,
 		redactedAt: row.redactedAt,
@@ -176,6 +186,44 @@ function toIdentity(user: User): Identity {
  * A missing/invisible document has no entry in the returned map and the
  * ladder's own fallback ("Deleted document") takes over.
  */
+/** A review's named reviewer, when it has one. */
+function reviewerOf(m: { readonly type: string; readonly payload: string }): {
+	readonly reviewer?: string;
+} {
+	if (m.type !== "review") return {};
+	const parsed = reviewPayloadSchema.safeParse(JSON.parse(m.payload));
+	return parsed.success && parsed.data.reviewer ? { reviewer: parsed.data.reviewer } : {};
+}
+
+/** A message's one-line preview (an answer previews its option, a verdict its decision), and whether it mentions `viewer`. */
+function readPreview(
+	rawPayload: string,
+	viewer: string,
+): { readonly preview: string | null; readonly mentions: boolean } {
+	try {
+		const payload = JSON.parse(rawPayload) as {
+			text?: string;
+			title?: string;
+			option?: string;
+			decision?: string;
+			note?: string;
+			refs?: ReadonlyArray<{ kind?: string; identityId?: string }>;
+		};
+		const verdict =
+			payload.decision === "approve"
+				? "Approved"
+				: payload.decision === "reject"
+					? `Rejected: ${payload.note ?? ""}`
+					: undefined;
+		return {
+			preview: payload.text ?? payload.title ?? payload.option ?? verdict ?? null,
+			mentions: (payload.refs ?? []).some((r) => r.kind === "mention" && r.identityId === viewer),
+		};
+	} catch {
+		return { preview: null, mentions: false };
+	}
+}
+
 function documentTitleLookup(
 	ctx: ActionContext,
 	deps: ThreadActionsDeps,
@@ -349,12 +397,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 	async function assembleThreadView(
 		ctx: ActionContext,
 		row: Parameters<typeof rowToThread>[0],
-		blockId?: string,
 	): Promise<ThreadView> {
 		const members = parseParticipants(row.participants);
 		const messageRows = await store.listMessages(ctx.db, {
 			threadId: row.id,
-			...(blockId !== undefined ? { blockId } : {}),
 			order: "createdAt",
 			dir: "desc",
 			tiebreakId: true,
@@ -411,12 +457,43 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			};
 		}
 
-		return { ok: true, data: await assembleThreadView(ctx, row, input.blockId) };
+		return { ok: true, data: await assembleThreadView(ctx, row) };
 	}
 
 	// -----------------------------------------------------------------------
 	// search_threads
 	// -----------------------------------------------------------------------
+	/** Each thread's need for `viewer`, from its open questions and reviews — one query for all. */
+	async function threadNeeds(
+		ctx: ActionContext,
+		viewer: string,
+		threadIds: readonly string[],
+	): Promise<Map<string, ThreadListRow["need"]>> {
+		const open = await store.listMessages(ctx.db, {
+			threadIds: [...threadIds],
+			types: ["review", "questionnaire"],
+			unresolved: true,
+		});
+		const senders = await deps.users.listByIds(ctx.db, [...new Set(open.map((m) => m.senderId))]);
+		const agents = new Set(senders.filter((u) => u.kind === "ai").map((u) => u.id));
+		const byThread = new Map<string, typeof open>();
+		for (const m of open) byThread.set(m.threadId, [...(byThread.get(m.threadId) ?? []), m]);
+		return new Map(
+			[...byThread].map(([id, msgs]) => [
+				id,
+				computeThreadNeed(
+					viewer,
+					msgs.map((m) => ({
+						type: m.type,
+						senderId: m.senderId,
+						senderIsAgent: agents.has(m.senderId),
+						...reviewerOf(m),
+					})),
+				),
+			]),
+		);
+	}
+
 	async function searchThreadsRun(
 		ctx: ActionContext,
 		input: SearchThreadsInput,
@@ -449,6 +526,16 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			);
 			const ids = [...new Set([...byMessage.map((r) => r.id), ...byTitle.map((r) => r.id)])];
 			rows = ids.length > 0 ? await store.listThreads(ctx.db, { ids, includeDeleted: false }) : [];
+		} else if (input.member !== undefined) {
+			const probe = `%${JSON.stringify(input.member).replace(/[\\%_]/g, "\\$&")}%`;
+			const raw = await store.listThreads(ctx.db, {
+				participantProbe: probe,
+				order: "lastActive",
+				includeDeleted: false,
+				...(input.limit !== undefined ? { limit: input.limit } : {}),
+			});
+			const member = input.member;
+			rows = raw.filter((r) => parseParticipants(r.participants).includes(member));
 		} else if (input.mine !== false) {
 			// `mine` defaults to the sentence's own promise — "no parameter lists
 			// the ones you are in" — so an empty `{}` input (mine `undefined`)
@@ -475,12 +562,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		if (readable.length === 0) return { ok: true, data: [] };
 
 		const threadIds = readable.map((r) => r.id);
-		const unresolvedMsgs = await store.listMessages(ctx.db, {
-			threadIds,
-			types: ["review", "questionnaire"],
-			unresolved: true,
-		});
-		const unresolvedThreadIds = new Set(unresolvedMsgs.map((m) => m.threadId));
+		const needs = await threadNeeds(ctx, input.member ?? ctx.actor, threadIds);
 
 		const lastMessageRows = await store.listLastMessagePerThread(ctx.db, threadIds);
 		const lastMessageById = new Map(lastMessageRows.map((m) => [m.threadId, m]));
@@ -496,19 +578,13 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		const data: ThreadListRow[] = readable.map((row) => {
 			const thread = rowToThread(row, titles.get(row.id) ?? "Untitled conversation");
 			const last = lastMessageById.get(row.id);
-			let preview: string | null = null;
-			if (last) {
-				try {
-					const payload = JSON.parse(last.payload) as { text?: string; title?: string };
-					preview = payload.text ?? payload.title ?? null;
-				} catch {
-					preview = null;
-				}
-			}
+			const said = last ? readPreview(last.payload, ctx.actor) : null;
 			return {
 				...thread,
-				hasUnresolvedReview: unresolvedThreadIds.has(row.id),
-				lastMessagePreview: preview,
+				need: needs.get(row.id) ?? null,
+				lastMessagePreview: said?.preview ?? null,
+				lastSenderId: last?.senderId ?? null,
+				mentionsYou: last !== undefined && last.senderId !== ctx.actor && (said?.mentions ?? false),
 			};
 		});
 		return { ok: true, data };
@@ -789,30 +865,36 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			}
 		}
 
-		if (input.verdict !== undefined) {
-			resolvesMessageRow = await store.findMessage(ctx.db, {
-				id: input.verdict.resolvesMessageId,
-			});
+		const reviewProblems = await reviewLinkProblems(ctx, input, threadId);
+		if (reviewProblems.length > 0) return { ok: false, problems: reviewProblems };
+		const textProblems = await documentTextProblems(ctx, input, threadRow);
+		if (textProblems.length > 0) return { ok: false, problems: textProblems };
+
+		const resolvesMessageId = (input.verdict ?? input.answer)?.resolvesMessageId;
+		if (resolvesMessageId !== undefined) {
+			resolvesMessageRow = await store.findMessage(ctx.db, { id: resolvesMessageId });
 			if (!resolvesMessageRow) {
 				return {
 					ok: false,
 					problems: [
-						{ code: "not_found", message: "The message this verdict resolves was not found." },
+						{ code: "not_found", message: "The message this reply resolves was not found." },
 					],
 				};
 			}
-			const sender = await deps.users.getUserById(ctx.db, ctx.actor);
-			if (sender?.kind !== "human") {
-				return {
-					ok: false,
-					problems: [{ code: "verdict_not_human", message: "Only a human may give a verdict." }],
-				};
-			}
-			if (resolvesMessageRow.senderId === ctx.actor) {
-				return {
-					ok: false,
-					problems: [{ code: "verdict_self", message: "You cannot verdict your own review." }],
-				};
+			if (input.verdict !== undefined) {
+				const sender = await deps.users.getUserById(ctx.db, ctx.actor);
+				if (sender?.kind !== "human") {
+					return {
+						ok: false,
+						problems: [{ code: "verdict_not_human", message: "Only a human may give a verdict." }],
+					};
+				}
+				if (resolvesMessageRow.senderId === ctx.actor) {
+					return {
+						ok: false,
+						problems: [{ code: "verdict_self", message: "You cannot verdict your own review." }],
+					};
+				}
 			}
 			if (resolvesMessageRow.threadId !== effectiveThreadId) {
 				return {
@@ -820,11 +902,16 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					problems: [
 						{
 							code: "verdict_foreign_review",
-							message: "That review lives in a different thread.",
+							message: "That message lives in a different thread.",
 						},
 					],
 				};
 			}
+			const resolveProblems = resolvesMessageInvariants(input, {
+				type: resolvesMessageRow.type,
+				payload: JSON.parse(resolvesMessageRow.payload),
+			});
+			if (resolveProblems.length > 0) return { ok: false, problems: resolveProblems };
 		}
 
 		// -- 5. inside one transaction -----------------------------------------
@@ -912,7 +999,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 
 				// join the sender on a host-scoped thread it is not yet a member of.
 				const hostKind = (creatingThread?.hostKind ?? threadRow?.hostKind) as HostKind;
-				const hostId = (creatingThread?.hostId ?? threadRow?.hostId) as string;
 				if (
 					!finalMembers.includes(ctx.actor) &&
 					canWriteThread(ctx.actor, { hostKind, members: finalMembers })
@@ -933,12 +1019,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						(body.payload as { refs?: never[] }).refs ?? [],
 						finalMembers,
 						ctx.actor,
-						hostKind === "team" ? hostId : null,
-						{
-							listByIds: (d, ids) => deps.users.listByIds(d, ids),
-							listByTeamIds: (d, ids) => deps.users.listByTeamIds(d, ids),
-							listOwnedBy: (d, ownerId) => deps.users.listOwnedBy(d, ownerId),
-						},
+						{ listEveryone: (d) => deps.users.listEveryone(d) },
 					);
 					// @lore: wake reads every resolved mention (including existing member) — membership only grows for NEW ones.
 					mentionedIds.push(...resolvedMentionedIds);
@@ -966,7 +1047,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					await store.updateMessage(tx as HyperIdleDb, messageId, {
 						type: body.type,
 						payload: JSON.stringify(body.payload),
-						blockId: body.blockId ?? null,
 					});
 				} else {
 					const values: NewMessage = {
@@ -976,13 +1056,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						type: body.type,
 						payload: JSON.stringify(body.payload),
 						clientKey,
-						blockId: body.blockId ?? null,
 						createdAt: now,
 					};
 					await store.insertMessage(tx as HyperIdleDb, values);
 				}
 
-				if (input.verdict !== undefined && resolvesMessageRow) {
+				if (resolvesMessageRow) {
 					const updated = await store.resolveMessageIfUnresolved(
 						tx as HyperIdleDb,
 						resolvesMessageRow.id,
@@ -1016,7 +1095,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					type: body.type,
 					payload: body.payload,
 					clientKey: existingMessageRow?.clientKey ?? clientKey,
-					blockId: body.blockId ?? null,
 					createdAt: now,
 				};
 				if (membersChanged) messageAfter.members = finalMembers;
@@ -1095,21 +1173,21 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				isAgent,
 			});
 		}
-		const woke =
-			input.verdict !== undefined && resolvesMessageRow
-				? [...new Set([...woken, resolvesMessageRow.senderId])]
-				: woken;
+		const woke = resolvesMessageRow ? [...new Set([...woken, resolvesMessageRow.senderId])] : woken;
 
 		// Every row this call appended is one object event;
 		// `pushRows` already carries them all: the message,
 		// the create (if any) and the resolve/reopen (if any).
 		emitObjectEvents(ctx.eventBus, pushRows, woke);
 
-		if (body.type === "review" && ctx.caller?.sessionId) {
+		// A question ends the asking session the same way a review does, so it is
+		// linked the same way — the answer is what brings that session back.
+		if ((body.type === "review" || body.type === "questionnaire") && ctx.caller?.sessionId) {
 			await deps.linkReviewToSession(ctx.caller.sessionId, messageId);
 		}
 
-		if (input.verdict !== undefined && resolvesMessageRow) {
+		const reply = replyOf(input);
+		if (reply !== undefined && resolvesMessageRow) {
 			let verdictOutcome: ReviewVerdictOutcome;
 			try {
 				// The agent that asked is the review's own sender. Its runnable
@@ -1120,15 +1198,18 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					? await deps.agents.getAgentIdentity(ctx, askingAgent.id)
 					: null;
 				verdictOutcome = await deps.reviewVerdictRecorder({
+					...reply,
 					reviewMessageId: resolvesMessageRow.id,
-					decision:
-						input.verdict.decision === "approve" ||
-						input.verdict.decision === "approve-with-comments"
-							? "approve"
-							: "decline",
 					decidedBy: ctx.actor,
 					threadId: effectiveThreadId,
-					...(askingAgent ? { agentConfig: bakeAgentRunnableConfig(askingAgent, persona) } : {}),
+					...(askingAgent
+						? {
+								agentConfig: bakeAgentRunnableConfig(
+									{ ...askingAgent, teamId: askingAgent.teamIds[0] ?? null },
+									persona,
+								),
+							}
+						: {}),
 				});
 			} catch (gateErr) {
 				verdictOutcome = {
@@ -1141,7 +1222,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					{ actor: ctx.actor, db: ctx.db, eventBus: ctx.eventBus, now: ctx.now },
 					{
 						threadId: effectiveThreadId,
-						text: `This action was approved but could not be carried out: ${verdictOutcome.reason}. The agent has not been told, and the action has not run.`,
+						text:
+							reply.decision === "approve"
+								? `This action was approved but could not be carried out: ${verdictOutcome.reason}. The agent has not been told, and the action has not run.`
+								: `This ${reply.decision === "answer" ? "answer" : "rejection"} could not reach the agent: ${verdictOutcome.reason}. The agent has not been told.`,
 					},
 				);
 			}
@@ -1199,6 +1283,90 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				thread: rowToThread(finalThreadRow, computedTitle),
 			},
 		};
+	}
+
+	/**
+	 * A comment with no review points at the text of the document the thread is about, so the
+	 * thread must be a document's and the stretch must lie inside that document's text.
+	 */
+	async function documentTextProblems(
+		ctx: ActionContext,
+		input: SendMessageInput,
+		threadRow: { readonly hostKind: string; readonly hostId: string } | undefined,
+	): Promise<Problem[]> {
+		const anchor = input.anchor;
+		if (anchor === undefined || anchor.review !== undefined) return [];
+		const found =
+			threadRow?.hostKind === "document"
+				? await deps.searchDocuments(ctx, { ids: [threadRow.hostId] })
+				: undefined;
+		const doc = found?.ok ? found.data[0] : undefined;
+		if (!doc)
+			return [
+				{
+					code: "anchor_needs_review",
+					message:
+						"A comment points at a part of a review, or at the text of the document this conversation is about.",
+					path: "anchor",
+				},
+			];
+		return documentAnchorProblems(anchor, doc);
+	}
+
+	/**
+	 * What `adjust_thread` does to one message: resolve or reopen the comment it starts, or settle
+	 * the change it proposes — once, by anyone who can write the thread.
+	 */
+	async function adjustMessage(
+		ctx: ActionContext,
+		threadId: string,
+		input: NonNullable<AdjustThreadInput["message"]>,
+	): Promise<
+		| {
+				readonly ok: true;
+				readonly patch: Partial<NewMessage>;
+				readonly after: Record<string, unknown>;
+		  }
+		| { readonly ok: false; readonly problems: Problem[] }
+	> {
+		const row = await store.findMessage(ctx.db, { id: input.id });
+		if (!row || row.threadId !== threadId)
+			return {
+				ok: false,
+				problems: [{ code: "not_found", message: `Message ${input.id} not found in this thread` }],
+			};
+		const patch: Partial<NewMessage> = {};
+		const after: Record<string, unknown> = { messageId: row.id };
+		if (input.change !== undefined) {
+			const payload = JSON.parse(row.payload) as Record<string, unknown>;
+			const change = proposedChangeSchema.safeParse(payload.change);
+			if (row.type !== "plain" || !change.success)
+				return {
+					ok: false,
+					problems: [
+						{ code: "no_change", message: "That message proposes no change.", path: "message" },
+					],
+				};
+			if (change.data.settled)
+				return {
+					ok: false,
+					problems: [
+						{
+							code: "change_settled",
+							message: "This change was already applied or dismissed.",
+							path: "message.change",
+						},
+					],
+				};
+			const settled = { state: input.change, by: ctx.actor, at: ctx.now };
+			patch.payload = JSON.stringify({ ...payload, change: { ...change.data, settled } });
+			after.change = settled;
+		}
+		if (input.resolved !== undefined) {
+			patch.resolvedAt = input.resolved ? ctx.now : null;
+			after.resolvedAt = patch.resolvedAt;
+		}
+		return { ok: true, patch, after };
 	}
 
 	// -----------------------------------------------------------------------
@@ -1290,6 +1458,9 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		const before: Record<string, unknown> = {};
 		const after: Record<string, unknown> = {};
 		const patch: Partial<NewThread> = {};
+		const message = input.message ? await adjustMessage(ctx, input.id, input.message) : undefined;
+		if (message && !message.ok) return { ok: false, problems: message.problems };
+		if (message?.ok) after.message = message.after;
 		if (input.title !== undefined && input.title !== row.title) {
 			before.title = row.title;
 			after.title = input.title;
@@ -1332,7 +1503,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			const changeBefore = { id: input.id, ...before };
 			const changeAfter = { id: input.id, ...after };
 			await ctx.db.transaction(async (tx) => {
-				await store.updateThread(tx as HyperIdleDb, input.id as string, patch);
+				if (Object.keys(patch).length > 0)
+					await store.updateThread(tx as HyperIdleDb, input.id as string, patch);
+				if (message?.ok && input.message)
+					await store.updateMessage(tx as HyperIdleDb, input.message.id, message.patch);
 				await deps.changes.appendChange(tx, {
 					id: changeId,
 					object: "thread",
@@ -1378,11 +1552,67 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 	];
 }
 
-/** The one non-null body out of the four `send_message` may carry. */
+/**
+ * The review a message points into must be one in the same thread: a comment's pin must fit the
+ * part it names, and a round must follow a review that is there.
+ */
+async function reviewLinkProblems(
+	ctx: ActionContext,
+	input: SendMessageInput,
+	threadId: string | undefined,
+): Promise<Problem[]> {
+	const reviewIn = async (id: string) => {
+		const row = await store.findMessage(ctx.db, { id });
+		if (row?.type !== "review" || row.threadId !== threadId) return undefined;
+		const parsed = reviewPayloadSchema.safeParse(JSON.parse(row.payload));
+		return parsed.success ? parsed.data : undefined;
+	};
+	const anchored = input.anchor?.review;
+	if (anchored !== undefined) {
+		const review = await reviewIn(anchored);
+		if (!review)
+			return [
+				{
+					code: "anchor_review_unknown",
+					message: "That review is not in this thread.",
+					path: "anchor.review",
+				},
+			];
+		if (input.anchor) return pinProblems(input.anchor, review.parts ?? []);
+	}
+	const previous = input.review?.previousReviewId;
+	if (previous !== undefined && !(await reviewIn(previous)))
+		return [
+			{
+				code: "previous_review_unknown",
+				message: "The round this one follows must be a review in this thread.",
+				path: "review.previousReviewId",
+			},
+		];
+	return [];
+}
+
+/** What a verdict or an answer tells the agent whose review or question it resolves. */
+function replyOf(input: SendMessageInput): SessionResumeReply | undefined {
+	if (input.verdict !== undefined) {
+		const { decision, note } = input.verdict;
+		return {
+			decision: decision === "approve" ? "approve" : "decline",
+			...(note !== undefined ? { note } : {}),
+		};
+	}
+	if (input.answer !== undefined) {
+		const { option, text } = input.answer;
+		const answer = option !== undefined ? { option } : text !== undefined ? { text } : undefined;
+		return { decision: "answer", ...(answer !== undefined ? { answer } : {}) };
+	}
+	return undefined;
+}
+
+/** The one non-null body out of the five `send_message` may carry. */
 function messageBodyOf(input: SendMessageInput): {
-	type: "plain" | "review" | "questionnaire" | "verdict";
+	type: MessageType;
 	payload: Record<string, unknown>;
-	blockId?: string;
 } {
 	if (input.text !== undefined) {
 		return {
@@ -1390,10 +1620,9 @@ function messageBodyOf(input: SendMessageInput): {
 			payload: {
 				text: input.text,
 				...(input.refs !== undefined ? { refs: input.refs } : {}),
-				...(input.blockId !== undefined ? { blockId: input.blockId } : {}),
-				...(input.spotLabel !== undefined ? { spotLabel: input.spotLabel } : {}),
+				...(input.anchor !== undefined ? { anchor: input.anchor } : {}),
+				...(input.change !== undefined ? { change: input.change } : {}),
 			},
-			...(input.blockId !== undefined ? { blockId: input.blockId } : {}),
 		};
 	}
 	if (input.review !== undefined)
@@ -1403,5 +1632,7 @@ function messageBodyOf(input: SendMessageInput): {
 			type: "questionnaire",
 			payload: input.questionnaire as unknown as Record<string, unknown>,
 		};
-	return { type: "verdict", payload: input.verdict as unknown as Record<string, unknown> };
+	if (input.verdict !== undefined)
+		return { type: "verdict", payload: input.verdict as unknown as Record<string, unknown> };
+	return { type: "answer", payload: input.answer as unknown as Record<string, unknown> };
 }

@@ -12,7 +12,11 @@ import { resolveScopeName } from "../document-actions.js";
 const fakeExec = {} as WriteExecutor;
 
 const found = {
-	users: { getUserById: async () => ({ name: "Alice" }) as User, listOwnedBy: async () => [] },
+	users: {
+		getUserById: async () =>
+			({ name: "Alice", teamIds: [] }) as unknown as User & { teamIds: string[] },
+		listOwnedBy: async () => [],
+	},
 	org: { getTeam: async () => ({ name: "Team Nimmly" }) as Team },
 };
 const missing = {

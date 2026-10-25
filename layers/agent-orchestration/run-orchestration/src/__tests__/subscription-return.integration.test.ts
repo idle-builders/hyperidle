@@ -408,7 +408,7 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		expect(claude).toContain("`mcp__hyperidle__send_message`");
 		expect(claude).not.toContain("`send_message`");
 		expect(claude).not.toContain('type "review"');
-		for (const field of ["`review`", "`title`", "`reasoning`", "`artifacts`"]) {
+		for (const field of ["`review`", "`title`", "`reasoning`", "`parts`", "`flags`", "`anchor`"]) {
 			expect(claude).toContain(field);
 		}
 		expect(opencode).toContain("`hyperidle_send_message`");

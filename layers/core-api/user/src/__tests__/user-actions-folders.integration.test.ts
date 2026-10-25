@@ -13,7 +13,7 @@
  * `user.changed` never reached anyone in reach even though the row had
  * changed. This file proves the event still fires when `give` is refused.
  */
-import { changes, type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { changes, type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type {
 	EditUserInput,
@@ -114,9 +114,11 @@ function buildDeps(
 			list: async () => ({ connections: [], inherited: [] }),
 			add: async () => ({ ok: false, code: "MISSING_ROOT_SECRET" }) as const,
 			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
+			withhold: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
 		},
 		searchDocuments: runnerFor(documentActions, "search_documents"),
 		editDocument: runnerFor(documentActions, "edit_document"),
+		onPluginPartEdited: async () => {},
 	};
 }
 
@@ -141,9 +143,9 @@ async function seedTeamAgent(db: HyperIdleDb, teamId: string, agentId: string): 
 		name: agentId,
 		role: "agent",
 		status: "active",
-		teamId,
 		createdAt: NOW,
 	});
+	await db.insert(userTeams).values({ userId: agentId, teamId });
 }
 
 const codeFolder = (id: string, teamId: string): UserActionsFolderView => ({
@@ -217,41 +219,69 @@ describe("edit_user — folders.give team gate (B2)", () => {
 		expect(second.problems[0]?.code).not.toBe("folder_other_team");
 	});
 
-	test("an agent with no team cannot receive any folder", async ({ db }) => {
+	test("a factory-wide agent, in no team, cannot receive any folder", async ({ db }) => {
 		await seedFounder(db);
-		const owner = await (async () => {
-			const bus = new EventBus();
-			const { editUser } = actionsFor(buildDeps());
-			const result = await editUser(ctxFor(db, "u-founder", bus), {
-				kind: "human",
-				name: "Owner",
-				team: { name: "Owner Team" },
-			});
-			expect(result.ok).toBe(true);
-			if (!result.ok) throw new Error("setup failed");
-			return result.data.user?.id as string;
-		})();
-		const noTeamFolder = codeFolder("folder-1", "some-team");
-		const { port } = buildFoldersFake([noTeamFolder]);
-		const deps = buildDeps(port);
-		const { editUser } = actionsFor(deps);
-		const agent = await editUser(ctxFor(db, owner, new EventBus()), {
+		await db.insert(users).values({
+			id: "agent-everyone",
 			kind: "ai",
-			name: "Orphan",
-			ownerUserId: owner,
-			identity: "hi",
+			name: "Librarian",
+			role: "agent",
+			status: "active",
+			createdAt: NOW,
 		});
-		expect(agent.ok).toBe(true);
-		if (!agent.ok) return;
-		const agentId = agent.data.user?.id as string;
-		// This owner has no team either, so the agent's effective team is null.
-		const result = await editUser(ctxFor(db, agentId, new EventBus()), {
-			id: agentId,
+		const { port } = buildFoldersFake([codeFolder("folder-1", "some-team")]);
+		const { editUser } = actionsFor(buildDeps(port));
+
+		const result = await editUser(ctxFor(db, "agent-everyone", new EventBus()), {
+			id: "agent-everyone",
 			folders: { give: ["folder-1"] },
 		});
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.problems[0]?.code).toBe("folder_other_team");
+	});
+});
+
+describe("edit_user — a person in several teams names the team a folder belongs to", () => {
+	test("no team named is refused; the named team gets the folder", async ({ db }) => {
+		await seedFounder(db);
+		const addedTo: string[] = [];
+		const port: UserActionsDeps["folders"] = {
+			...buildFoldersFake().port,
+			add: async (teamId, body) => {
+				addedTo.push(teamId);
+				return { ok: true, folder: { ...codeFolder(`f-${teamId}`, teamId), ...body } };
+			},
+		};
+		const { editUser } = actionsFor(buildDeps(port));
+		const maya = await editUser(ctxFor(db, "u-founder", new EventBus()), {
+			kind: "human",
+			name: "Maya",
+			teams: ["Support", "Product"],
+		});
+		if (!maya.ok) throw new Error("setup failed");
+		const mayaId = maya.data.user?.id as string;
+		const supportId = maya.data.user?.teams.find((t) => t.name === "Support")?.id;
+		const folder = {
+			kind: "doc_set" as const,
+			resourceRef: { kind: "doc_set" as const, folder: "/support" },
+			writeback: "none" as const,
+		};
+
+		const unnamed = await editUser(ctxFor(db, mayaId, new EventBus()), {
+			id: mayaId,
+			folders: { add: [folder] },
+		});
+		expect(unnamed.ok).toBe(false);
+		if (unnamed.ok) return;
+		expect(unnamed.problems[0]?.code).toBe("folder_team_required");
+
+		const named = await editUser(ctxFor(db, mayaId, new EventBus()), {
+			id: mayaId,
+			folders: { add: [{ ...folder, team: "Support" }] },
+		});
+		expect(named.ok).toBe(true);
+		expect(addedTo).toEqual([supportId]);
 	});
 });
 
@@ -295,8 +325,8 @@ describe("edit_user — a thrown folder-port call is caught like a connection fa
 	});
 });
 
-describe("edit_user — create and edit give the same effective team for an owned agent (N7)", () => {
-	test("an owned agent can be given a folder belonging to its owner's team from Settings (edit)", async ({
+describe("edit_user — an owned agent's own team (N7)", () => {
+	test("an owned agent can be given a folder of its own team, one of its owner's, from Settings (edit)", async ({
 		db,
 	}) => {
 		await seedFounder(db);
@@ -307,27 +337,24 @@ describe("edit_user — create and edit give the same effective team for an owne
 		const owner = await editUser(ctxFor(db, "u-founder", bus), {
 			kind: "human",
 			name: "Owner",
-			team: { name: "Owner Team" },
+			teams: ["Owner Team"],
 		});
 		expect(owner.ok).toBe(true);
 		if (!owner.ok) return;
 		const ownerId = owner.data.user?.id as string;
-		const ownerTeamId = owner.data.user?.team?.id as string;
+		const ownerTeamId = owner.data.user?.teams[0]?.id as string;
 
 		const agent = await editUser(ctxFor(db, ownerId, bus), {
 			kind: "ai",
 			name: "Owned Assistant",
 			ownerUserId: ownerId,
+			teams: ["Owner Team"],
 			identity: "hi",
 		});
 		expect(agent.ok).toBe(true);
 		if (!agent.ok) return;
 		const agentId = agent.data.user?.id as string;
 
-		// The folder belongs to the OWNER's team, not to any team of the
-		// agent's own (an owned agent's own `teamId` column is always null —
-		// it takes its owner's team, exactly like `create` already resolves
-		// via `effectiveTeamId` when the SAME folder is given at creation).
 		const ownersTeamFolder = codeFolder("folder-1", ownerTeamId);
 		const { port } = buildFoldersFake([ownersTeamFolder]);
 		const deps2 = buildDeps(port);
