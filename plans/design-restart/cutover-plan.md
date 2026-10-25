@@ -130,8 +130,16 @@ working through the backend changes.
     filled Builder's slots for good.
   - [x] the branch's migrations on a copy of a real desktop database from September: all ran, every
     action answers, the people, team and plugin pages render it.
-  - [ ] the desktop window driven by hand: the packaged app builds and boots cleanly into the new
-    app; clicking through its window waits for the founder (computer access was declined).
+  - [x] the desktop window driven by hand (2026-10-25, packaged app): first start on an empty
+    database (programs found, join form, your names, Getting started), the wedge (@Builder answered
+    through a real Claude Code run), the demo world: thread, review (pins, a reply in a pin,
+    Approve), the task page (parts, hold, off hold), knowledge (Follow), your page (a reason off and
+    on, Dark and back), the team page, a plugin (off and on), find; menus. It found three defects,
+    each fixed with a test that was red first: the live connection opened before first start kept a
+    placeholder identity, so your own threads stopped updating; a task's parts moved when one
+    changed; the first conversation's offer slid under later messages. Plus "1 tasks".
+    Known, not fixed here: the app menu says "@hyperidle/desktop" (already on main; renaming the
+    app moves its data folder).
   - [ ] the pull request.
 
 
