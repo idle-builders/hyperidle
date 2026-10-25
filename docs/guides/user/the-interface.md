@@ -7,7 +7,7 @@ The app has one sidebar on the left and the page you opened on the right. There 
 ## The sidebar, top to bottom
 
 1. **Find or ask… ⌘K** and the **bell**.
-2. **Conversations · Work · Knowledge**, stacked. Conversations and Knowledge show a count of what waits on you. Work never does: agents own the work, and what they need from you shows up in Conversations.
+2. **Conversations · Work · Knowledge**, stacked. Conversations and Knowledge show a count of what waits on you. Work never does: agents own the work, and what they need from you shows up in Conversations. Picking one opens the page you last had open there, or its first item the first time.
 3. A line, then the list for the one you picked.
 4. **You · N waiting for you** at the bottom. It opens [your page](./your-page.md).
 

@@ -30,6 +30,8 @@ Top to bottom:
    get these for what you follow" and links to "Change what you are told about" on your page.
 3. **Conversations · Work · Knowledge**, stacked. Conversations and Knowledge show how many items
    wait on you. Work never does: agents own work.
+   Choosing one opens the page you last had open there, or its first row the first time; the app
+   starts on the first conversation. While you edit a document, choosing one only shows its list.
 4. A line, then the list for the one you chose. Every list is in priority order: what you owe
    first, then what is new to you, then the rest. A row is a title and a time, then a few words of
    status and who.
