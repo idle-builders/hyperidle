@@ -52,6 +52,25 @@ gh pr create --base main --fill
 #    backend → cluster, desktop → public release + Homebrew.
 ```
 
+### Pre-releases
+
+A version with an `-rc.N` suffix (for example `1.0.0-rc.1`) is a pre-release, for testing. Cut it the same way: `release.sh 1.0.0-rc.1`, PR, merge. On merge it is:
+
+- published as a GitHub **pre-release**, never marked Latest;
+- downloadable from this repo's releases page, like any public release;
+- **not** sent to Homebrew, so `brew` users stay on the last full release;
+- **not** deployed to the shared cluster.
+
+`release.sh` accepts only `X.Y.Z` or `X.Y.Z-rc.N`.
+
+**Installing a pre-release.** Download the DMG from the pre-release, open it and drag HyperIdle to Applications:
+
+```bash
+V=1.0.0-rc.1; curl -fL -o "/tmp/HyperIdle-$V.dmg" "https://github.com/idle-builders/hyperidle/releases/download/v$V/HyperIdle-$V-arm64.dmg" && open "/tmp/HyperIdle-$V.dmg"
+```
+
+All pre-releases are listed at <https://github.com/idle-builders/hyperidle/releases>. A pre-release replaces a `brew`-installed app in Applications and uses the same data folder; its database changes carry the data forward, and an older full release may not open that data again. To go back to the Homebrew build, run `brew reinstall --cask hyperidle`.
+
 ### Why this shape
 
 - **Notarization stays local.** Apple signing needs the Developer ID cert in the keychain; those creds stay off CI.
@@ -62,9 +81,9 @@ gh pr create --base main --fill
 | Workflow | Trigger | Does |
 |---|---|---|
 | `release-guard.yml` | PR to main | If version bumped: require the staged DMG + matching sha256; run `test:full`, `test:integration:service`. |
-| `deploy.yml` | push to main (version bump) | Build image → GHCR → `helm upgrade` → cluster. |
-| `release.yml` | push to main (version bump) | Publish the staged draft release → emits `release: published`. |
-| `desktop-release.yml` | `release: published` | Hash the release's DMG; dispatch cask update → `homebrew-tap`. |
+| `deploy.yml` | push to main (version bump) | Build image → GHCR → `helm upgrade` → cluster. Skipped for a pre-release. |
+| `release.yml` | push to main (version bump) | Publish the staged draft release (as a pre-release for `-rc.N`) → emits `release: published`. |
+| `desktop-release.yml` | `release: published` | Hash the release's DMG; dispatch cask update → `homebrew-tap` (full releases only). |
 
 ### Provisioning / secrets (one-time)
 

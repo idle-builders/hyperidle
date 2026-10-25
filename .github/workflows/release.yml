@@ -75,9 +75,14 @@ jobs:
           fi
           # Re-target the tag to the merge commit, then publish. Publishing a draft
           # creates the tag at --target and emits `release: published`.
-          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" --draft=false --latest
-          echo "Published $TAG → desktop-release.yml will update Homebrew"
+          # A pre-release (X.Y.Z-rc.N) is published as a GitHub pre-release and never becomes Latest.
+          case "$VERSION" in
+            *-*) gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+                   --target "$GITHUB_SHA" --draft=false --prerelease --latest=false ;;
+            *)   gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+                   --target "$GITHUB_SHA" --draft=false --latest ;;
+          esac
+          echo "Published $TAG → desktop-release.yml will update Homebrew (unless a pre-release)"
 
       - name: Summary
         run: |
