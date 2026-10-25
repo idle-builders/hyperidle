@@ -4,9 +4,9 @@ set -euo pipefail
 # STAGE step of the release pipeline (local, macOS).
 #
 # Builds + signs + notarizes the DMG and uploads it as an asset on a DRAFT
-# GitHub Release `v<version>` on the PRIVATE ambrovia/hyperidle repo. The draft
-# is hidden — the DMG only becomes public when CD publishes it on merge (which
-# mirrors it to ambrovia/hyperidle-releases and updates Homebrew).
+# GitHub Release `v<version>` on idle-builders/hyperidle. The draft is hidden —
+# the DMG only becomes public when CD publishes it on merge (which also updates
+# Homebrew).
 #
 # It also bumps the version (root + desktop + chart appVersion) and writes
 # applications/desktop/release-manifest.json (sha256) so the PR *carries proof* the
@@ -21,7 +21,7 @@ set -euo pipefail
 # Prerequisites:
 #   - Developer ID Application certificate in your keychain
 #   - APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID in .env or environment
-#   - gh CLI authenticated with write access to ambrovia/hyperidle
+#   - gh CLI authenticated with write access to idle-builders/hyperidle
 #
 # Usage: ./__scripts__/release.sh <version>   (e.g. ./__scripts__/release.sh 0.5.0)
 
@@ -37,7 +37,7 @@ fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 DESKTOP_DIR="$REPO_ROOT/applications/desktop"
-REPO="ambrovia/hyperidle"
+REPO="idle-builders/hyperidle"
 TAG="v$VERSION"
 DMG_NAME="HyperIdle-${VERSION}-arm64.dmg"
 DMG="$DESKTOP_DIR/release/$DMG_NAME"

@@ -4,7 +4,7 @@ HyperIdle ships as a signed, notarized macOS desktop app (Electron). The Hono se
 
 **First start.** A fresh install opens `/start`. It shows the agent programs found on this computer (claude-code, codex, opencode, cursor-agent) and how to sign in to one, then asks your name and your team's name. Start talking makes you, the team, a first agent called Builder on a signed-in program, and a first conversation where Builder says hello. No API key is entered.
 
-Install via DMG, or via Homebrew after adding the tap (`brew tap ambrovia/homebrew-tap && brew install --cask hyperidle`). Node ≥ 24 required for dev.
+Install via DMG, or via Homebrew after adding the tap (`brew tap idle-builders/tap && brew install --cask hyperidle`). Node ≥ 24 required for dev.
 
 **Joining a team's server.** At first start the desktop app can instead join a team that runs on a server: "Join a team on a server", then the server's address and the key its owner gave you. The app keeps the key encrypted on this computer (`shared_backend_key`, Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`), checks that the server answers, and reopens on the server's address. From then on it starts no server and runs no agents of its own. To leave the server, delete `config.json` in the app's data folder (Help → Open Data Folder).
 

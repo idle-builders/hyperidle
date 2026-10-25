@@ -2,9 +2,8 @@ name: Release — Publish desktop on merge
 
 # CD for the desktop release. When a version-bump PR merges to main, this
 # publishes the DRAFT release that was staged locally (build+notarize) — flipping
-# it from draft to published on this repo. That emits `release: published`, which
-# desktop-release.yml picks up to mirror the DMG to ambrovia/hyperidle-releases
-# and update the Homebrew tap.
+# it from draft to published on this repo, where the DMG is then public.
+# desktop-release.yml then updates the Homebrew tap.
 #
 # Pairs with deploy.yml (backend → cluster). Both trigger on the same version
 # bump, so one merge = backend deployed + desktop published + Homebrew updated.
@@ -78,12 +77,12 @@ jobs:
           # creates the tag at --target and emits `release: published`.
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" --draft=false --latest
-          echo "Published $TAG → desktop-release.yml will mirror + update Homebrew"
+          echo "Published $TAG → desktop-release.yml will update Homebrew"
 
       - name: Summary
         run: |
           echo "### Published desktop release v${VERSION}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- mirror + Homebrew handled by the distribute job" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Homebrew handled by the distribute job" >> "$GITHUB_STEP_SUMMARY"
 
   # Publishing via GITHUB_TOKEN does NOT emit `release: published` to other
   # workflows, so invoke the distribution workflow directly instead of relying

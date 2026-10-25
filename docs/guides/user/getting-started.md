@@ -13,14 +13,14 @@ Agents work through an **agent program** on your computer: Claude Code, Codex, O
 **Desktop app (macOS):**
 
 ```bash
-brew tap ambrovia/homebrew-tap
+brew tap idle-builders/tap
 brew install --cask hyperidle
 ```
 
 **From source** (needs Node.js 24 or later and git):
 
 ```bash
-git clone https://github.com/ambrovia/hyperidle.git
+git clone https://github.com/idle-builders/hyperidle.git
 cd hyperidle
 npm install
 npm run setup -- --profile laptop

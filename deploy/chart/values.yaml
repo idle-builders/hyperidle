@@ -8,7 +8,7 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/ambrovia/hyperidle
+  repository: ghcr.io/idle-builders/hyperidle
   # Overridden per-deploy by CI with the commit SHA (immutable). `latest`
   # tracks the newest tagged release for manual `helm upgrade` convenience.
   tag: latest
