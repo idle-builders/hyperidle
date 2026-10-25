@@ -37,6 +37,11 @@ jobs:
           fi
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          # X.Y.Z-rc.N is a pre-release: downloadable from the mirror, never sent to Homebrew.
+          case "$VERSION" in
+            *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT" ;;
+            *)   echo "prerelease=false" >> "$GITHUB_OUTPUT" ;;
+          esac
           echo "Distributing HyperIdle v$VERSION"
 
       - name: Download DMG from this release
@@ -62,10 +67,18 @@ jobs:
           DMG_NAME="HyperIdle-${VERSION}-arm64.dmg"
 
           if ! gh release view "$TAG" --repo ambrovia/hyperidle-releases &>/dev/null; then
-            gh release create "$TAG" \
-              --repo ambrovia/hyperidle-releases \
-              --title "HyperIdle $TAG" \
-              --notes "Desktop release $TAG (arm64)"
+            if [ "${{ steps.release.outputs.prerelease }}" = "true" ]; then
+              gh release create "$TAG" \
+                --repo ambrovia/hyperidle-releases \
+                --title "HyperIdle $TAG (pre-release)" \
+                --notes "Pre-release $TAG (arm64), for testing. Not on Homebrew. Download the DMG below, open it and drag HyperIdle to Applications." \
+                --prerelease --latest=false
+            else
+              gh release create "$TAG" \
+                --repo ambrovia/hyperidle-releases \
+                --title "HyperIdle $TAG" \
+                --notes "Desktop release $TAG (arm64)"
+            fi
           fi
 
           gh release upload "$TAG" "$DMG_NAME" --clobber \
@@ -81,6 +94,7 @@ jobs:
           echo "SHA256: ${ARM64_SHA}"
 
       - name: Dispatch cask update to Homebrew tap
+        if: steps.release.outputs.prerelease == 'false'
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
