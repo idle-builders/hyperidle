@@ -13,7 +13,7 @@ Desktop clients join at first start: "Join a team on a server" takes the server'
 
 ## "Always latest" = latest **release**, not latest commit
 
-A release is marked by **bumping the root `package.json` `version`** in a PR. When that PR merges to `main`, `deploy.yml` builds the image, publishes it to GHCR (`ghcr.io/ambrovia/hyperidle`), and rolls the new backend onto the cluster. Merges that don't change `version` are a no-op. See [releases.md](./releases.md).
+A release is marked by **bumping the root `package.json` `version`** in a PR. When that PR merges to `main`, `deploy.yml` builds the image, publishes it to GHCR (`ghcr.io/idle-builders/hyperidle`), and rolls the new backend onto the cluster. Merges that don't change `version` are a no-op. See [releases.md](./releases.md).
 
 ## Provisioning (once) vs Deploy (every release)
 
@@ -40,7 +40,7 @@ The server calls it on every boot (`applications/remote-server/src/create-server
 ## First deploy — one-time provisioning (founder/infra, NOT CI)
 
 1. **Tenant** — schema + role + secrets already created by infra Terraform. Confirm: `kubectl -n hyperidle get secret`.
-2. **Deployer creds → GitHub secrets:** `KUBE_TOKEN`, `KUBE_CA_CERT`, `KUBE_SERVER` on `ambrovia/hyperidle`.
+2. **Deployer creds → GitHub secrets:** `KUBE_TOKEN`, `KUBE_CA_CERT`, `KUBE_SERVER` on `idle-builders/hyperidle`.
 3. **Shared API key** (admin kubeconfig):
    ```bash
    kubectl create secret generic app-secrets -n hyperidle \

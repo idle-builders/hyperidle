@@ -34,7 +34,7 @@ export default defineConfig({
 						base,
 						repoRoot,
 						renderedSections,
-						github: { owner: "ambrovia", repo: "hyperidle", ref: "main" },
+						github: { owner: "idle-builders", repo: "hyperidle", ref: "main" },
 					},
 				],
 			],

@@ -10,7 +10,7 @@ One path from clone to running app. Command reference lives in [commands.md](com
 ## Quick Start
 
 ```bash
-git clone git@github.com:ambrovia/hyperidle.git
+git clone git@github.com:idle-builders/hyperidle.git
 cd hyperidle
 npm install
 npm run setup          # PGlite data dir + migrations + factory bootstrap
