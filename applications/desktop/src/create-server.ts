@@ -307,7 +307,12 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 
 			await runPhase("run-runtime", () => agentOrchestration.disposeRuntime?.());
 			await runPhase("app-domain", () => disposeApp(app));
-			await runPhase("websocket", () => coreApi.disposeWebSocket());
+			await runPhase("websocket", () => {
+				coreApi.disposeWebSocket();
+				// An open live connection would keep the HTTP server from ever closing.
+				for (const client of wss.clients) client.terminate();
+				wss.close();
+			});
 			await runPhase(
 				"http",
 				() =>
