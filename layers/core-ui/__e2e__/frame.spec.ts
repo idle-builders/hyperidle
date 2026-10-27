@@ -78,6 +78,16 @@ test("switching Conversations, Work and Knowledge opens the page you last had th
 	await expect(page).toHaveURL(/\/work\/demo-task-refund-wording$/);
 });
 
+test("a draft opens ready to write in, and switching lists still opens a page until you type", async ({
+	page,
+}) => {
+	const sidebar = page.getByRole("navigation", { name: "Sidebar" });
+	await page.goto("/knowledge/demo-doc-deploy-rule");
+	await expect(page.getByText("✎ Editing")).toBeVisible();
+	await sidebar.getByRole("button", { name: /^Work/ }).click();
+	await expect(page).toHaveURL(/\/work\/[^/]+$/);
+});
+
 test("a page whose id does not exist says it did not load, and Try again asks once more", async ({
 	page,
 }) => {

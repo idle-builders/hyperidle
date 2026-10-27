@@ -409,7 +409,7 @@ export function Sidebar() {
 	const picked = section === spine ? here : null;
 
 	// Each spine reopens the page you last had there; until then, the first row it lists. While you
-	// edit a document, a spine only shows its list, so the document stays open.
+	// write in a document, a spine only shows its list, so the document stays open.
 	const last = useRef<Partial<Record<Spine, string>>>({});
 	useEffect(() => {
 		if (routeSpine && rawId) last.current[routeSpine] = pathname + search;
