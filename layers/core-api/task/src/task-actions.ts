@@ -102,8 +102,8 @@ export interface TaskActionsDeps {
 		ctx: ActionContext,
 		input: OpenThreadInput,
 	) => Promise<ActionResult<ThreadView>>;
-	/** Batch-fetch unresolved review/questionnaire messages for multiple threads — needed to compute `need` without N+1 queries. Injected from `@hyperidle/thread` via the composition root. */
-	readonly listUnresolvedMessagesForThreads: (
+	/** Batch-fetch the review and question messages, answered ones too, for multiple threads — needed to compute `need` without N+1 queries. Injected from `@hyperidle/thread` via the composition root. */
+	readonly listAsksForThreads: (
 		db: HyperIdleDb,
 		threadIds: readonly string[],
 	) => Promise<
@@ -331,11 +331,9 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		const allThreadIds = [
 			...new Set([...ancestorTasks.map((t) => t.threadId), ...subtreeTasks.map((t) => t.threadId)]),
 		];
-		const unresolvedMsgs =
-			allThreadIds.length > 0
-				? await deps.listUnresolvedMessagesForThreads(ctx.db, allThreadIds)
-				: [];
-		const msgsByThread = groupByThread(unresolvedMsgs);
+		const asks =
+			allThreadIds.length > 0 ? await deps.listAsksForThreads(ctx.db, allThreadIds) : [];
+		const msgsByThread = groupByThread(asks);
 
 		// Compute need for every task in scope.
 		const needMap = new Map<string, TaskNeed>();
@@ -386,8 +384,8 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 	async function withNeed(db: HyperIdleDb, domainTasks: DomainTask[]): Promise<DomainTask[]> {
 		if (domainTasks.length === 0) return domainTasks;
 		const threadIds = [...new Set(domainTasks.map((t) => t.threadId))];
-		const unresolvedMsgs = await deps.listUnresolvedMessagesForThreads(db, threadIds);
-		const msgsByThread = groupByThread(unresolvedMsgs);
+		const asks = await deps.listAsksForThreads(db, threadIds);
+		const msgsByThread = groupByThread(asks);
 		return domainTasks.map((t) => ({
 			...t,
 			need: computeTaskNeed(t.state, msgsByThread.get(t.threadId) ?? [], t.reasons),
