@@ -100,6 +100,7 @@ function Section({
 	none,
 	add,
 	onAdd,
+	first,
 }: {
 	title: string;
 	sub?: string;
@@ -107,15 +108,19 @@ function Section({
 	none?: string;
 	add?: string;
 	onAdd?: () => void;
+	/** Show only this many until asked for the rest. */
+	first?: number;
 }) {
 	const navigate = useNavigate();
+	const [all, setAll] = useState(false);
+	const shown = first !== undefined && !all ? items.slice(0, first) : items;
 	return (
 		<section className="tbox-sec">
 			<h4>
 				{title} {sub && <span>{sub}</span>}
 			</h4>
 			{items.length === 0 && none && <p className="tbox-none">{none}</p>}
-			{items.map((x) =>
+			{shown.map((x) =>
 				x.href ? (
 					<button
 						key={x.what + x.why}
@@ -132,6 +137,11 @@ function Section({
 						{x.why && <span className="pair-why">{x.why}</span>}
 					</div>
 				),
+			)}
+			{shown.length < items.length && (
+				<button type="button" className="tbox-more" onClick={() => setAll(true)}>
+					Show all {items.length}
+				</button>
 			)}
 			{add && (
 				<button type="button" className="tbox-more" onClick={onAdd}>
@@ -958,6 +968,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 							<Section
 								title="Can reach"
 								items={reach}
+								first={5}
 								none="No service yet."
 								add={mine ? "Connect a service" : undefined}
 								onAdd={() => setDialog("service")}

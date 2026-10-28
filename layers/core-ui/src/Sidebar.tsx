@@ -354,6 +354,18 @@ export function Sidebar() {
 	const teams = teamsOf(users.data ?? []);
 	const inbox: Inbox = me.data?.inbox ?? NO_INBOX;
 	const newestFirst = [...inbox].sort((a, b) => b.change.at.localeCompare(a.change.at));
+	// Opening something reads what you were told about it.
+	const readHere = inbox
+		.filter(
+			(r) =>
+				r.readAt === null && r.change.objectId === here && ROUTE_OF[r.change.object] === section,
+		)
+		.map((r) => r.change.id)
+		.join(" ");
+	useEffect(() => {
+		if (you && readHere)
+			void call("edit_user", { id: you, inbox: { read: readHere.split(" ") } }).then(me.reload);
+	}, [you, readHere, me.reload]);
 
 	// The address decides the spine shown, and a team's page picks that team in Work.
 	useEffect(() => {

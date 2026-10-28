@@ -275,7 +275,7 @@ export function Judge({ threadId, reviewId }: { threadId: string; reviewId: stri
 				<section className="rev-act" aria-label="Verdict">
 					{!verdict && open > 0 && <span className="rev-open">{open} open</span>}
 					{verdict ? (
-						<span className={approved ? "chip chip--flag" : "chip chip--quiet"}>
+						<span className="chip chip--quiet">
 							{approved
 								? [
 										"Approved",

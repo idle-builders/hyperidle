@@ -118,7 +118,9 @@ export function conversationItems(
 	const items = threads.map((t): Item => {
 		const base = { id: t.id, title: t.computedTitle, age: age(t.lastActiveAt) };
 		const last = t.lastSenderId === you ? "You" : (names.get(t.lastSenderId ?? "") ?? "");
-		if (t.mentionsYou) return { ...base, state: "Mentioned you", who: last, yours: true };
+		// A mention waits on you until you have read what you were told about it.
+		if (t.mentionsYou && unread.has(t.id))
+			return { ...base, state: "Mentioned you", who: last, yours: true };
 		if (t.need === "review") return { ...base, state: NEED_WORDS.review, who: last, yours: true };
 		if (t.need) return { ...base, state: NEED_WORDS[t.need], who: `${last} asks`, yours: true };
 		const reply = unread.get(t.id);
