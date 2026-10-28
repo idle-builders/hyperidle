@@ -82,6 +82,18 @@ export function readOrGenerateApiKey(secretsPath: string): string {
 	return apiKey;
 }
 
+/**
+ * The menus say HyperIdle, not the package name. The data and logs folders were named after the
+ * package and stay there: renaming the app must not move anyone's database.
+ */
+export function nameTheApp(): void {
+	const userData = app.getPath("userData");
+	const logs = app.getPath("logs");
+	app.setName("HyperIdle");
+	app.setPath("userData", userData);
+	app.setPath("logs", logs);
+}
+
 // @lore: checkSingleInstanceLock — must be called BEFORE app.whenReady(); a second instance starts initialization before quitting otherwise
 export function checkSingleInstanceLock(): boolean {
 	const gotLock = app.requestSingleInstanceLock();
@@ -177,6 +189,7 @@ process.on("uncaughtException", (err: Error): void => {
 const isEntrypoint = "electron" in process.versions;
 
 if (isEntrypoint) {
+	nameTheApp();
 	// Single-instance lock must run before app.whenReady()
 	if (!checkSingleInstanceLock()) {
 		// nothing

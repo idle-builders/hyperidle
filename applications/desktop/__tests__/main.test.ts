@@ -22,6 +22,8 @@ vi.mock("electron", () => ({
 			return map[name] ?? `/tmp/test-${name}`;
 		}),
 		on: vi.fn(),
+		setName: vi.fn(),
+		setPath: vi.fn(),
 		name: "HyperIdle",
 		isPackaged: false,
 	},
@@ -133,6 +135,7 @@ vi.mock("../src/client-config.js", () => ({
 import {
 	checkSingleInstanceLock,
 	getBeforeQuitHandler,
+	nameTheApp,
 	readOrGenerateApiKey,
 	resolveDataDir,
 	waitForRemoteHealth,
@@ -341,5 +344,22 @@ describe("waitForRemoteHealth", () => {
 
 		expect(mockFetch).toHaveBeenCalledWith("http://remote-server:3001/api/health");
 		vi.unstubAllGlobals();
+	});
+});
+
+describe("nameTheApp", () => {
+	it("names the app HyperIdle and keeps its data and logs where they are", async () => {
+		const { app } = await import("electron");
+		const order: string[] = [];
+		vi.mocked(app.setName).mockImplementation((name) => {
+			order.push(`name ${name}`);
+		});
+		vi.mocked(app.setPath).mockImplementation((name, to) => {
+			order.push(`${name} ${to}`);
+		});
+
+		nameTheApp();
+
+		expect(order).toEqual(["name HyperIdle", "userData /tmp/test-userdata", "logs /tmp/test-logs"]);
 	});
 });
