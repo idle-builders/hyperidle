@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { githubDocUrl, mapDocHref, resolveRepoPath } from "../lib/doc-links.js";
 
-const github = { owner: "ambrovia", repo: "hyperidle", ref: "main" } as const;
+const github = { owner: "idle-builders", repo: "hyperidle", ref: "main" } as const;
 const renderedSections = [
 	"docs/product",
 	"docs/guides/user",
@@ -32,13 +32,13 @@ describe("resolveRepoPath", () => {
 describe("githubDocUrl", () => {
 	test("renders a blob URL for a file path", () => {
 		expect(githubDocUrl(github, "docs/agent-layer/agent-model.md")).toBe(
-			"https://github.com/ambrovia/hyperidle/blob/main/docs/agent-layer/agent-model.md",
+			"https://github.com/idle-builders/hyperidle/blob/main/docs/agent-layer/agent-model.md",
 		);
 	});
 
 	test("renders a tree URL for a directory path", () => {
 		expect(githubDocUrl(github, "docs/objects/")).toBe(
-			"https://github.com/ambrovia/hyperidle/tree/main/docs/objects",
+			"https://github.com/idle-builders/hyperidle/tree/main/docs/objects",
 		);
 	});
 });
@@ -95,7 +95,7 @@ describe("mapDocHref", () => {
 	test("rewrites docs outside the rendered set to their GitHub blob URL", () => {
 		expect(
 			mapDocHref("../../agent-layer/agent-model.md", "docs/guides/user/agents.md", options),
-		).toBe("https://github.com/ambrovia/hyperidle/blob/main/docs/agent-layer/agent-model.md");
+		).toBe("https://github.com/idle-builders/hyperidle/blob/main/docs/agent-layer/agent-model.md");
 	});
 
 	test("rewrites repo-root files to their GitHub blob URL, anchors intact", () => {
@@ -106,13 +106,13 @@ describe("mapDocHref", () => {
 				options,
 			),
 		).toBe(
-			"https://github.com/ambrovia/hyperidle/blob/main/CLAUDE.md#production-and-development-files",
+			"https://github.com/idle-builders/hyperidle/blob/main/CLAUDE.md#production-and-development-files",
 		);
 	});
 
 	test("rewrites directory links outside the rendered set to GitHub tree URLs", () => {
 		expect(mapDocHref("../objects/", "docs/product/how-knowledge-compounds.md", options)).toBe(
-			"https://github.com/ambrovia/hyperidle/tree/main/docs/objects",
+			"https://github.com/idle-builders/hyperidle/tree/main/docs/objects",
 		);
 	});
 

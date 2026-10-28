@@ -1,7 +1,7 @@
 name: Desktop Release — Distribute
 
 # Triggered when a release is published on this repo (by the local release script).
-# Downloads the signed+notarized DMG, mirrors it to the public releases repo,
+# Downloads the signed+notarized DMG from this release, computes its sha256,
 # and updates the Homebrew tap. Runs on ubuntu — no macOS minutes needed.
 on:
   # Direct trigger for manual/local PAT-published releases (back-compat).
@@ -37,7 +37,7 @@ jobs:
           fi
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          # X.Y.Z-rc.N is a pre-release: downloadable from the mirror, never sent to Homebrew.
+          # X.Y.Z-rc.N is a pre-release: downloadable from its release, never sent to Homebrew.
           case "$VERSION" in
             *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT" ;;
             *)   echo "prerelease=false" >> "$GITHUB_OUTPUT" ;;
@@ -58,32 +58,6 @@ jobs:
 
           echo "Downloaded: $DMG_NAME ($(du -sh "$DMG_NAME" | cut -f1))"
 
-      - name: Upload DMG to public releases repo
-        env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
-        run: |
-          TAG="${{ steps.release.outputs.tag }}"
-          VERSION="${{ steps.release.outputs.version }}"
-          DMG_NAME="HyperIdle-${VERSION}-arm64.dmg"
-
-          if ! gh release view "$TAG" --repo ambrovia/hyperidle-releases &>/dev/null; then
-            if [ "${{ steps.release.outputs.prerelease }}" = "true" ]; then
-              gh release create "$TAG" \
-                --repo ambrovia/hyperidle-releases \
-                --title "HyperIdle $TAG (pre-release)" \
-                --notes "Pre-release $TAG (arm64), for testing. Not on Homebrew. Download the DMG below, open it and drag HyperIdle to Applications." \
-                --prerelease --latest=false
-            else
-              gh release create "$TAG" \
-                --repo ambrovia/hyperidle-releases \
-                --title "HyperIdle $TAG" \
-                --notes "Desktop release $TAG (arm64)"
-            fi
-          fi
-
-          gh release upload "$TAG" "$DMG_NAME" --clobber \
-            --repo ambrovia/hyperidle-releases
-
       - name: Compute sha256 checksum
         id: sha
         run: |
@@ -98,7 +72,7 @@ jobs:
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          repository: ambrovia/homebrew-tap
+          repository: idle-builders/homebrew-tap
           event-type: update-cask
           client-payload: |
             {

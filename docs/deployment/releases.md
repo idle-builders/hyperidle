@@ -5,9 +5,9 @@
 One version bump, carried by one PR, releases **both** surfaces on merge:
 
 - **Backend** → built image to GHCR + deployed to the shared cluster (`deploy.yml`).
-- **Desktop** → notarized DMG published to `hyperidle-releases` + Homebrew (`release.yml` → `desktop-release.yml`).
+- **Desktop** → notarized DMG published on this repo's own release + Homebrew (`release.yml` → `desktop-release.yml`).
 
-The DMG is built + notarized **locally** (Apple signing must run on a Mac), but everything else — publish, mirror, Homebrew, cluster deploy — happens in **CI on merge**.
+The DMG is built + notarized **locally** (Apple signing must run on a Mac), but everything else — publish, Homebrew, cluster deploy — happens in **CI on merge**.
 
 ### Version source of truth
 
@@ -29,11 +29,11 @@ release.sh <version>                 version bump (×3)          deploy.yml:
   bump root+desktop+chart            release-manifest.json        build image → GHCR
   build+sign+notarize DMG    ─────►  (sha256 of the DMG)  ─────►  helm upgrade → cluster
   upload DMG to DRAFT                                           release.yml:
-    release v<version> (private,     Release Guard check:         publish the draft release
-    hidden)                            version bumped ⇒           → release: published
+    release v<version> (hidden)      Release Guard check:         publish the draft release
+                                       version bumped ⇒           → release: published
   write release-manifest.json          staged DMG must exist     desktop-release.yml:
-                                       + sha256 must match         mirror DMG → hyperidle-releases
-                                       else the PR is RED          dispatch → homebrew-tap cask
+                                       + sha256 must match         dispatch → homebrew-tap cask
+                                       else the PR is RED
 ```
 
 The Release Guard also runs `test:full` and `test:integration:service` on version-bump PRs. The e2e suite needs a signed-in agent program, so it runs locally as part of `npm run verify:release`.
@@ -49,7 +49,7 @@ git add -A && git commit -m "release: HyperIdle v<version>"
 gh pr create --base main --fill
 
 # 3. Merge once green. CD does the rest:
-#    backend → cluster, desktop → hyperidle-releases + Homebrew.
+#    backend → cluster, desktop → public release + Homebrew.
 ```
 
 ### Pre-releases
@@ -57,19 +57,19 @@ gh pr create --base main --fill
 A version with an `-rc.N` suffix (for example `1.0.0-rc.1`) is a pre-release, for testing. Cut it the same way: `release.sh 1.0.0-rc.1`, PR, merge. On merge it is:
 
 - published as a GitHub **pre-release**, never marked Latest;
-- mirrored to the public `hyperidle-releases` repo as a pre-release, so the DMG can be downloaded;
+- downloadable from this repo's releases page, like any public release;
 - **not** sent to Homebrew, so `brew` users stay on the last full release;
 - **not** deployed to the shared cluster.
 
 `release.sh` accepts only `X.Y.Z` or `X.Y.Z-rc.N`.
 
-**Installing a pre-release.** Download the DMG from the public mirror, open it and drag HyperIdle to Applications:
+**Installing a pre-release.** Download the DMG from the pre-release, open it and drag HyperIdle to Applications:
 
 ```bash
-V=1.0.0-rc.1; curl -fL -o "/tmp/HyperIdle-$V.dmg" "https://github.com/ambrovia/hyperidle-releases/releases/download/v$V/HyperIdle-$V-arm64.dmg" && open "/tmp/HyperIdle-$V.dmg"
+V=1.0.0-rc.1; curl -fL -o "/tmp/HyperIdle-$V.dmg" "https://github.com/idle-builders/hyperidle/releases/download/v$V/HyperIdle-$V-arm64.dmg" && open "/tmp/HyperIdle-$V.dmg"
 ```
 
-All pre-releases are listed at <https://github.com/ambrovia/hyperidle-releases/releases>. A pre-release replaces a `brew`-installed app in Applications and uses the same data folder; its database changes carry the data forward, and an older full release may not open that data again. To go back to the Homebrew build, run `brew reinstall --cask hyperidle`.
+All pre-releases are listed at <https://github.com/idle-builders/hyperidle/releases>. A pre-release replaces a `brew`-installed app in Applications and uses the same data folder; its database changes carry the data forward, and an older full release may not open that data again. To go back to the Homebrew build, run `brew reinstall --cask hyperidle`.
 
 ### Why this shape
 
@@ -83,9 +83,9 @@ All pre-releases are listed at <https://github.com/ambrovia/hyperidle-releases/r
 | `release-guard.yml` | PR to main | If version bumped: require the staged DMG + matching sha256; run `test:full`, `test:integration:service`. |
 | `deploy.yml` | push to main (version bump) | Build image → GHCR → `helm upgrade` → cluster. Skipped for a pre-release. |
 | `release.yml` | push to main (version bump) | Publish the staged draft release (as a pre-release for `-rc.N`) → emits `release: published`. |
-| `desktop-release.yml` | `release: published` | Mirror DMG → `hyperidle-releases`; dispatch cask update → `homebrew-tap` (full releases only). |
+| `desktop-release.yml` | `release: published` | Hash the release's DMG; dispatch cask update → `homebrew-tap` (full releases only). |
 
 ### Provisioning / secrets (one-time)
 
 - Backend: `KUBE_TOKEN`/`KUBE_CA_CERT`/`KUBE_SERVER` + namespace secrets — see [shared-backend.md](./shared-backend.md).
-- Desktop: `RELEASES_TOKEN` (push to `hyperidle-releases`), `HOMEBREW_TAP_TOKEN` (dispatch to `homebrew-tap`). Apple creds (`APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`) stay **local** in `.env`.
+- Desktop: `HOMEBREW_TAP_TOKEN` (dispatch to `homebrew-tap`). Apple creds (`APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`) stay **local** in `.env`.
