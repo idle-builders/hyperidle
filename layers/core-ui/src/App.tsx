@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useParams, useSearchParams } from "react-router";
 import { FocusContext } from "./focus";
 import { Judge } from "./Judge";
@@ -12,7 +12,10 @@ import { NewConversation, ThreadPage } from "./Thread";
 import { useAction } from "./useAction";
 
 /** The document page carries the editor, the largest piece of the app; it loads when a document is opened. */
-const Think = lazy(() => import("./Think").then((m) => ({ default: m.Think })));
+// The editor is its own download; it starts loading as soon as the app is up, so the first
+// document opens without a blank moment.
+const loadThink = () => import("./Think");
+const Think = lazy(() => loadThink().then((m) => ({ default: m.Think })));
 
 /**
  * The one shell: the sidebar, and the screen the address names beside it. A fresh install — no
@@ -77,6 +80,9 @@ function Plugin() {
 
 export function App() {
 	useAppLooks();
+	useEffect(() => {
+		void loadThink();
+	}, []);
 	return (
 		<Routes>
 			<Route path="/start" element={<Start />} />
