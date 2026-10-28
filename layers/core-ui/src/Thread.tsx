@@ -343,6 +343,9 @@ export function ThreadPage({ id }: { id: string }) {
 		[taskTopics, reloadTasks],
 	);
 	const sessions = useTaskSessions(tasks.map((t) => t.id));
+	// An agent answering a message here, rather than working on one of the thread's tasks.
+	const active = useAction("search_sessions", { state: "active" }, [`thread:${id}`]);
+	const answering = (active.data ?? []).filter((s) => s.threadId === id && s.taskId === null);
 	const [problem, setProblem] = useState<string | null>(null);
 	const scroll = useRef<HTMLDivElement>(null);
 	// The first conversation after first start offers what an agent can use next.
@@ -360,7 +363,10 @@ export function ThreadPage({ id }: { id: string }) {
 		.reverse();
 	const resolving = resolvingOf(messages);
 	const entries = timeline(messages, tasks, sessions, firstName);
-	const running = sessions.filter((s) => s.endedAt === null && s.state === "active");
+	const running = [
+		...sessions.filter((s) => s.endedAt === null && s.state === "active"),
+		...answering,
+	];
 
 	// A thread opens at its newest message, and follows new ones in.
 	const filled = entries.length + people.size + running.length;
