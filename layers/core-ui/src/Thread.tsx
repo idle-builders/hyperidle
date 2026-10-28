@@ -343,6 +343,9 @@ export function ThreadPage({ id }: { id: string }) {
 		[taskTopics, reloadTasks],
 	);
 	const sessions = useTaskSessions(tasks.map((t) => t.id));
+	// Parts share their task's conversation; an agent working on one is working here too.
+	const parts = (inThread.data ?? []).filter((t) => !tasks.includes(t));
+	const partSessions = useTaskSessions(parts.map((t) => t.id));
 	// An agent answering a message here, rather than working on one of the thread's tasks.
 	const active = useAction("search_sessions", { state: "active" }, [`thread:${id}`]);
 	const answering = (active.data ?? []).filter((s) => s.threadId === id && s.taskId === null);
@@ -364,7 +367,7 @@ export function ThreadPage({ id }: { id: string }) {
 	const resolving = resolvingOf(messages);
 	const entries = timeline(messages, tasks, sessions, firstName);
 	const running = [
-		...sessions.filter((s) => s.endedAt === null && s.state === "active"),
+		...[...sessions, ...partSessions].filter((s) => s.endedAt === null && s.state === "active"),
 		...answering,
 	];
 
