@@ -337,7 +337,7 @@ describe("send_message — answering a question, approving or rejecting a review
 			async (): Promise<ReviewVerdictOutcome> => ({ status: "queued" }),
 		);
 		const linkReviewToSession = vi.fn(async () => {});
-		const agentWorkIntentRecorder = vi.fn(async () => {});
+		const agentWorkIntentRecorder = vi.fn(async () => ({ id: "intent", idempotencyKey: "key" }));
 		const actions = createThreadActions(
 			threadDeps({ reviewVerdictRecorder, linkReviewToSession, agentWorkIntentRecorder }),
 		);
