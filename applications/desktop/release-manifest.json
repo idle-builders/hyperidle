@@ -1,6 +1,6 @@
 {
-	"version": "1.0.0-rc.1",
+	"version": "1.0.0-rc.2",
 	"arch": "arm64",
-	"dmgName": "HyperIdle-1.0.0-rc.1-arm64.dmg",
-	"sha256": "da233c31bee975011c7cd183a3dd06f9235505358e49f9c73aaeaf0712922aa5"
+	"dmgName": "HyperIdle-1.0.0-rc.2-arm64.dmg",
+	"sha256": "949ce65f9a69b2b9652dd8a2d1910c2e19637b14c26b2d9c613e3434f0e1c181"
 }
