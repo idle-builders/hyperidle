@@ -24,6 +24,10 @@ export const DOCUMENT_PARENT_KINDS = [
 ] as const;
 export type DocumentParentKind = (typeof DOCUMENT_PARENT_KINDS)[number];
 
+/** `html` is an app: the body is one whole page, run sealed off from everything around it. */
+export const DOCUMENT_FORMATS = ["markdown", "html"] as const;
+export type DocumentFormat = (typeof DOCUMENT_FORMATS)[number];
+
 /** The word an agent uses. Derived on read, never stored — see `documentAs` below. */
 export const DOCUMENT_AS = ["memory", "artifact", "document"] as const;
 export type DocumentAs = (typeof DOCUMENT_AS)[number];
@@ -32,7 +36,7 @@ export const DocumentRowSchema = z.object({
 	id: z.string(),
 	title: z.string(),
 	body: z.string(),
-	format: z.string(), // free text in the column; "markdown" in practice
+	format: z.enum(DOCUMENT_FORMATS),
 	status: z.enum(DOCUMENT_STATUSES),
 	slot: z.enum(DOCUMENT_SLOTS),
 	scopeKind: z.enum(SCOPE_KINDS), // factory | team | user
@@ -140,7 +144,7 @@ export const EditDocumentInputSchema = z
 		id: z.string().min(1).optional(),
 		title: z.string().min(1).optional(),
 		body: z.string().optional(),
-		format: z.string().min(1).optional(), // default "markdown" on create
+		format: z.enum(DOCUMENT_FORMATS).optional(), // default "markdown" on create
 		status: z.enum(DOCUMENT_STATUSES).optional(), // default "proposed" on create
 		/** What this is. Create-only; on an edit it must match what the row already is. */
 		as: z.enum(DOCUMENT_AS).optional(), // default "document"
@@ -176,7 +180,10 @@ export const editDocument: ActionDeclaration<EditDocumentInput, DocumentView> = 
 		"Write a document, new or existing: its title, text, icon, status, scope, where it sits. " +
 		'Say `as: "memory"` for a private note only you get back, `as: "artifact"` for output of ' +
 		'the task or conversation you are in, `as: "document"` for the shared tree. ' +
-		"Pass the version you read to be told if someone else saved first.",
+		"Pass the version you read to be told if someone else saved first. " +
+		'For an app, say `format: "html"` and write one whole HTML page as the text: its own styles ' +
+		"and scripts run, sealed off from the network, so put every image and font inside the page. " +
+		'Its `<meta name="description">` is the line people see before they open it.',
 	input: EditDocumentInputSchema,
 	output: DocumentViewSchema, // same shape open_document returns
 };

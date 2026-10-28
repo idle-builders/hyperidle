@@ -8,6 +8,7 @@ import {
 } from "@hyperidle/domain-model";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { AppFrame } from "./Apps";
 import { call, type InputOf } from "./api";
 import { activeFormat, addFormat, DocEditor, useDocText } from "./DocEditor";
 import {
@@ -520,17 +521,19 @@ export function Think({ id }: { id: string }) {
 	const [hover, setHover] = useState<{ top: number; index: number } | null>(null);
 	const [picked, setPicked] = useState<{ top: number; range: Range } | null>(null);
 	const [linking, setLinking] = useState(false);
+	const [source, setSource] = useState<string | null>(null);
 	const base = useRef(0);
 
 	const editing = edit === true;
 	// A draft opens in edit mode; you are writing once you have typed in it.
-	const writing = editing && (typed > 0 || title !== null);
+	const writing = editing && (typed > 0 || title !== null || source !== null);
 	const { setEditing } = useFocus();
 	useEffect(() => {
 		setEditing(writing);
 		return () => setEditing(false);
 	}, [writing, setEditing]);
-	const text = useDocText(doc?.body ?? null, editing, () => {
+	const app = doc?.format === "html";
+	const text = useDocText(app ? null : (doc?.body ?? null), editing, () => {
 		setDirty(true);
 		setTyped((t) => t + 1);
 	});
@@ -547,7 +550,8 @@ export function Think({ id }: { id: string }) {
 	// Drafts open in edit mode, published documents in view mode, unless the address asks to write.
 	const writeNow = search.has("edit");
 	useEffect(() => {
-		if (doc && edit === null) setEdit(writeNow || doc.status === "proposed");
+		if (doc && edit === null)
+			setEdit(writeNow || (doc.status === "proposed" && doc.format !== "html"));
 	}, [doc, edit, writeNow]);
 	// The version the text in the editor is built on; it moves only while nothing is unsaved.
 	useEffect(() => {
@@ -592,6 +596,8 @@ export function Think({ id }: { id: string }) {
 
 	const save = async (): Promise<boolean> => {
 		if (!doc) return false;
+		// An app's page is its own text, never what the document editor holds.
+		if (doc.format === "html") return true;
 		const next = text.markdown();
 		const named = (title ?? doc.title).trim() || doc.title;
 		if (next === doc.body && named === doc.title) {
@@ -807,6 +813,65 @@ export function Think({ id }: { id: string }) {
 	const untitled = doc?.title === UNTITLED && doc.body === "";
 	const choices = disciplinesOf(users.data ?? [], tree.data ?? []);
 	const coversOf = (r: Range | null) => (r ? body.slice(r.start, r.end) : undefined);
+
+	if (doc && app) {
+		const saveSource = async (publishToo: boolean) => {
+			const changed = source !== null && source !== doc.body;
+			if (changed || publishToo) {
+				const saved = await write({
+					...(changed ? { body: source } : {}),
+					...(publishToo ? { status: "active" as const } : {}),
+				});
+				if (!saved) return;
+			}
+			setSource(null);
+			setEdit(false);
+		};
+		return (
+			<section className="detail">
+				<header className="detail-head">
+					<span className="chip chip--app">App</span>
+					<h2>{doc.title}</h2>
+					<span className="doc-state">{state}</span>
+					<span className="doc-act">
+						{editing ? (
+							<>
+								<span className="doc-mode">✎ Editing the page</span>
+								<button type="button" className="btn" onClick={() => void saveSource(false)}>
+									Done
+								</button>
+							</>
+						) : (
+							<button type="button" className="btn" onClick={() => setEdit(true)}>
+								✎ Edit the page
+							</button>
+						)}
+						{!published && (
+							<button
+								type="button"
+								className="btn btn--accent"
+								onClick={() => void saveSource(true)}
+							>
+								Publish
+							</button>
+						)}
+					</span>
+				</header>
+				{problem && <p className="doc-problem">{problem}</p>}
+				{editing ? (
+					<textarea
+						className="app-source"
+						aria-label="The app's page"
+						spellCheck={false}
+						value={source ?? doc.body}
+						onChange={(e) => setSource(e.target.value)}
+					/>
+				) : (
+					<AppFrame html={doc.body} title={doc.title} />
+				)}
+			</section>
+		);
+	}
 
 	/** A block's whole text, or the words picked, start a new comment. */
 	const compose = (range: Range | null) => {

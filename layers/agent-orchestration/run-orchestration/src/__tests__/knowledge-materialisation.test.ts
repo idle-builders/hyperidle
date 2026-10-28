@@ -254,4 +254,50 @@ describe("writeContextBundle: nested materialisation", () => {
 			format: "markdown",
 		});
 	});
+
+	test("an app is handed to the agent as an .html file, so it reads and writes it as a page", async () => {
+		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "tree-materialisation-app-"));
+		const assembler = createContextAssembler(poisonedPorts());
+		const page = "<!doctype html><title>Trial price</title>";
+		const bundle: BakedContextBundle = {
+			...BUNDLE,
+			documents: [
+				{
+					id: "k-app-123456",
+					title: "Trial price",
+					body: page,
+					format: "html",
+					version: 1,
+					slot: "ordinary",
+					scopeKind: "team",
+					agentBindingId: null,
+					parentChain: [],
+				},
+			],
+		};
+
+		await assembler.assembleAgentContext({
+			sandboxPath,
+			sessionId: "session-app",
+			taskId: "task-tree-1",
+			agentId: "agent-tree-1",
+			teamId: "team-tree-1",
+			taskFree: false,
+			sourceKind: null,
+			sourceId: null,
+			sourceCorrelation: null,
+			contextBundle: bundle,
+		} as unknown as AssembleAgentContextInput);
+
+		const manifest = JSON.parse(
+			fs.readFileSync(path.join(sandboxPath, ".fabric/manifest.json"), "utf8"),
+		) as { items: Record<string, { source_path: string; format: string }> };
+		expect(manifest.items["k-app-123456"]).toMatchObject({
+			source_path: "knowledge/Trial_price_k-app-12.html",
+			format: "html",
+		});
+		expect(
+			fs.readFileSync(path.join(sandboxPath, "knowledge/Trial_price_k-app-12.html"), "utf8"),
+		).toBe(page);
+	});
 });

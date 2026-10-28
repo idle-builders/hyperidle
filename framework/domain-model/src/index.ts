@@ -1,6 +1,7 @@
 export type { ActionDeclaration, ActionResult, Problem } from "./actions/action.js";
 export type {
 	DocumentAs,
+	DocumentFormat,
 	DocumentListRow,
 	DocumentParentKind,
 	DocumentRow,
@@ -15,6 +16,7 @@ export {
 	canReadDocument,
 	DOCUMENT_ACTIONS,
 	DOCUMENT_AS,
+	DOCUMENT_FORMATS,
 	DOCUMENT_PARENT_KINDS,
 	DOCUMENT_SLOTS,
 	DOCUMENT_STATUS_LABEL,

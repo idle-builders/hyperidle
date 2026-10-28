@@ -38,7 +38,7 @@ The assembled documents are written as files into `knowledge/` inside the sessio
 
 - Ordinary documents are materialised shaped like the real tree: a folder per document with `index.md` for the document itself and its children as nested files or folders.
 - Rule and skill documents land in `knowledge/rules` regardless of tree position.
-- Each file is named `<title>_<id8>.md` (8-char id suffix for move detection).
+- Each file is named `<title>_<id8>.md` (8-char id suffix for move detection); an app is `<title>_<id8>.html`.
 - Skill/rule/agent_file documents are written read-only (chmod 0444).
 
 `context/session.toon` holds a flat key-value summary of task, ancestors, agent, and team. Written from the baked context bundle; no DB reads at session start.
@@ -53,7 +53,7 @@ Writeback rules by path:
 
 | Path | Action |
 |---|---|
-| `knowledge/<file>` | Create or update document via `edit_document` |
+| `knowledge/<file>` | Create or update document via `edit_document`; a new `.html` file becomes an app (`format: html`) |
 | `knowledge/<dir>/` | Create folder document |
 | `work/session-notes.md` or `work/task-notes.md` | Write `sessions.notes` directly |
 | Anything else in `work/` | Ignored |

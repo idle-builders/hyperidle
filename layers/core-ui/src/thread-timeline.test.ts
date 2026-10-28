@@ -1,5 +1,5 @@
 /** How a thread reads top to bottom, and how its work item says where it is. */
-import type { Message, SessionRow, Task } from "@hyperidle/domain-model";
+import type { DocumentRow, Message, SessionRow, Task } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
 import { clock, duration, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
 
@@ -59,6 +59,30 @@ const session = (start: string, end: string): SessionRow => ({
 	sourceKind: null,
 });
 const who = (id: string) => (id === "me" ? "You" : id === "maya" ? "Maya" : "Builder");
+const made = (id: string, hhmm: string): DocumentRow => ({
+	id,
+	title: "Trial-end price",
+	body: "<p>app</p>",
+	format: "html",
+	status: "active",
+	slot: "ordinary",
+	scopeKind: "team",
+	scopeId: "team",
+	parentKind: "thread",
+	parentId: "t",
+	position: 0,
+	version: 1,
+	updatedBy: "builder",
+	createdAt: at(hhmm),
+	updatedAt: at(hhmm),
+	readCount: 0,
+	lastReadAt: null,
+	sessionUseCount: 0,
+	lastUsedAt: null,
+	discipline: null,
+	icon: null,
+	as: "artifact",
+});
 
 describe("timeline", () => {
 	test("runs, events, the work item where it was minted, and one event per stretch of work", () => {
@@ -92,7 +116,9 @@ describe("timeline", () => {
 					? `${e.senderId}: ${e.messages.map((m) => m.id).join(",")}`
 					: e.kind === "task"
 						? `strip ${e.task.id}`
-						: e.text,
+						: e.kind === "event"
+							? e.text
+							: `made ${e.doc.id}`,
 			),
 		).toEqual([
 			"maya: 1",
@@ -106,6 +132,24 @@ describe("timeline", () => {
 			"Worked 20m · 1 session",
 			"You rejected Trial-end explainer",
 			"Maya approved Trial-end explainer",
+		]);
+	});
+
+	test("what an agent made in the thread sits where it was made, between what was said", () => {
+		const entries = timeline(
+			[
+				msg("1", "maya", "08:12", "plain", { text: "Can you show what people pay?" }),
+				msg("2", "builder", "09:30", "plain", { text: "Here it is" }),
+			],
+			[],
+			[],
+			who,
+			[made("app", "09:29")],
+		);
+		expect(entries.map((e) => (e.kind === "made" ? `made ${e.doc.id}` : e.key))).toEqual([
+			"1",
+			"made app",
+			"2",
 		]);
 	});
 

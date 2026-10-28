@@ -342,7 +342,7 @@ const WORKSPACE_SECTION = `## Workspace
 Your workspace is organized as follows:
 
 - \`context/\` -- Read-only. Your session context (session.toon: task, ancestors, agent, team data).
-- \`knowledge/\` -- Documents you can read, edit, and reorganize. It mirrors the real document tree: a folder holds an \`index.md\` (that item's own content) plus its children as files or nested folders. Create, edit, move, and nest items here -- changes save back automatically.
+- \`knowledge/\` -- Documents you can read, edit, and reorganize. It mirrors the real document tree: a folder holds an \`index.md\` (that item's own content) plus its children as files or nested folders. Create, edit, move, and nest items here -- changes save back automatically. An \`.html\` file is an app: one whole page with its own styles and scripts, which people open and use; it runs sealed off from the network, so keep every image and font inside the page, and give it a \`<meta name="description">\` saying what it does.
   - \`rules/\` -- Rules and guidelines that apply to your work.
 - \`work/\` -- Your working area.
   - \`artifacts/\` -- Output artifacts.
@@ -547,7 +547,7 @@ function assembleSubscriptionPrompt(
 
 // `ManifestEntry`/`Manifest` are shared with writeback-processor.ts's reader — see manifest-types.ts.
 
-function toFilename(title: string, itemId?: string): string {
+function toFilename(title: string, itemId?: string, extension = ".md"): string {
 	const suffix = itemId ? `_${itemId.slice(0, 8)}` : "";
 	if (/\.\w+$/.test(title)) {
 		const sanitized = title.replace(/[/\\:*?"<>|]/g, "_");
@@ -555,7 +555,7 @@ function toFilename(title: string, itemId?: string): string {
 		return `${sanitized.slice(0, dotIdx)}${suffix}${sanitized.slice(dotIdx)}`;
 	}
 	const slug = title.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/_+/g, "_");
-	return `${slug}${suffix}.md`;
+	return `${slug}${suffix}${extension}`;
 }
 
 function cleanDirectory(dirPath: string): void {
@@ -593,7 +593,7 @@ function createDirectoryStructure(sandboxPath: string, previousSessionNotes?: st
 }
 
 function writeItem(sandboxPath: string, item: BakedContextDocument, zone: string): string {
-	const filename = toFilename(item.title, item.id);
+	const filename = toFilename(item.title, item.id, item.format === "html" ? ".html" : ".md");
 	const relativePath = `${zone}/${filename}`;
 	const fullPath = path.join(sandboxPath, relativePath);
 

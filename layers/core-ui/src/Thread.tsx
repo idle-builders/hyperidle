@@ -1,5 +1,6 @@
 import {
 	type ActivityEntry,
+	type DocumentRow,
 	isRedactedPayload,
 	type Message,
 	type PlainReadPayload,
@@ -11,6 +12,7 @@ import {
 } from "@hyperidle/domain-model";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { MadeCard } from "./Apps";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
 import { Failed } from "./Failed";
@@ -33,6 +35,7 @@ interface Person {
 export type People = ReadonlyMap<string, Person>;
 
 const NO_MESSAGES: readonly Message[] = [];
+const NO_DOCS: readonly DocumentRow[] = [];
 
 /** Sessions of the tasks shown, asked again when a task says one started or ended. */
 function useTaskSessions(taskIds: readonly string[]): readonly SessionRow[] {
@@ -349,6 +352,10 @@ export function ThreadPage({ id }: { id: string }) {
 	// An agent answering a message here, rather than working on one of the thread's tasks.
 	const active = useAction("search_sessions", { state: "active" }, [`thread:${id}`]);
 	const answering = (active.data ?? []).filter((s) => s.threadId === id && s.taskId === null);
+	const madeHere = useAction("search_documents", { parent: { kind: "thread", id } }, [
+		`thread:${id}`,
+		"documents",
+	]);
 	const [problem, setProblem] = useState<string | null>(null);
 	const scroll = useRef<HTMLDivElement>(null);
 	// The first conversation after first start offers what an agent can use next.
@@ -365,7 +372,7 @@ export function ThreadPage({ id }: { id: string }) {
 		.filter((m) => m.deletedAt === null)
 		.reverse();
 	const resolving = resolvingOf(messages);
-	const entries = timeline(messages, tasks, sessions, firstName);
+	const entries = timeline(messages, tasks, sessions, firstName, madeHere.data ?? NO_DOCS);
 	const running = [
 		...[...sessions, ...partSessions].filter((s) => s.endedAt === null && s.state === "active"),
 		...answering,
@@ -430,6 +437,7 @@ export function ThreadPage({ id }: { id: string }) {
 			<div className="thread-scroll" ref={scroll} role="log" aria-label="Messages">
 				{entries.map((e) => {
 					if (e.kind === "event") return <Event key={e.key}>{e.text}</Event>;
+					if (e.kind === "made") return <MadeCard key={e.key} doc={e.doc} />;
 					if (e.kind === "task")
 						return (
 							<WorkItem
