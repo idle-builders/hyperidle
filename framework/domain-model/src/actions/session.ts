@@ -17,6 +17,8 @@ export const SessionRowSchema = z.object({
 	id: z.string(),
 	agentId: z.string(),
 	taskId: z.string().nullable(),
+	/** The conversation the session answered in, when a message there started it. */
+	threadId: z.string().nullable(),
 	startedAt: z.string(),
 	endedAt: z.string().nullable(),
 	state: z.string().nullable(),

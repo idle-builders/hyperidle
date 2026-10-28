@@ -4,6 +4,7 @@ import type {
 	SessionRow,
 	SubscriptionEventName,
 	Task,
+	ThreadListRow,
 	UserRow,
 	UserView,
 } from "@hyperidle/domain-model";
@@ -183,10 +184,27 @@ function PersonRow({ u, you }: { u: UserRow; you: string }) {
 	return <Row u={u} stand={personStand(waitingJobs(threads.data ?? [], now), u.id === you)} />;
 }
 
+/** What a running session works on: its task, else the conversation that started it. */
+function workingOn(
+	s: SessionRow,
+	tasks: ReadonlyMap<string, string>,
+	threads: ReadonlyMap<string, string>,
+): string {
+	return tasks.get(s.taskId ?? "") ?? threads.get(s.threadId ?? "") ?? "a conversation";
+}
+
+const NO_THREADS: readonly ThreadListRow[] = [];
+/** Every conversation's title by id, to name what a running session answers. */
+function useThreadTitles(): ReadonlyMap<string, string> {
+	const threads = useAction("search_threads", {}, ["conversations"]).data ?? NO_THREADS;
+	return new Map(threads.map((t) => [t.id, t.computedTitle]));
+}
+
 function agentRowStand(
 	u: UserRow,
 	tasks: readonly Task[],
 	running: readonly SessionRow[],
+	threadTitles: ReadonlyMap<string, string>,
 	now: number,
 ): string {
 	const titles = new Map(tasks.map((t) => [t.id, t.title]));
@@ -196,7 +214,7 @@ function agentRowStand(
 		running: running
 			.filter((s) => s.agentId === u.id && s.endedAt === null)
 			.map((s) => ({
-				title: titles.get(s.taskId ?? "") ?? "a conversation",
+				title: workingOn(s, titles, threadTitles),
 				startedAt: s.startedAt,
 			})),
 		asking: tasks.filter(
@@ -222,6 +240,7 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 	const plugins = useAction("search_plugins", {});
 	const tasks = useTasks();
 	const running = useRunning();
+	const threadTitles = useThreadTitles();
 	const [adding, setAdding] = useState(false);
 	const [addingPlugin, setAddingPlugin] = useState(false);
 	const location = useLocation();
@@ -247,7 +266,7 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 		);
 	const { crews, wholeTeam, everyTeam } = crewOf(everyone, team?.id ?? "", you);
 	const agents = crews.flatMap((c) => c.agents).length + wholeTeam.length;
-	const stand = (u: UserRow) => agentRowStand(u, tasks, running, now);
+	const stand = (u: UserRow) => agentRowStand(u, tasks, running, threadTitles, now);
 	const shown = (plugins.data ?? []).filter((p) => forTeam(p, team?.id ?? ""));
 	const yours = me.data?.user?.teams.some((t) => t.id === team?.id) ?? false;
 
@@ -589,7 +608,11 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 				paused,
 				unwritten,
 				running: mineRunning.map((s) => ({
-					title: titlesOfTasks.get(s.taskId ?? "") ?? "a conversation",
+					title: workingOn(
+						s,
+						titlesOfTasks,
+						new Map((myThreads.data ?? []).map((t) => [t.id, t.computedTitle])),
+					),
 					startedAt: s.startedAt,
 				})),
 				asking: tasks.filter(

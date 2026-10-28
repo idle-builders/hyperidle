@@ -112,6 +112,34 @@ describe("createSessionActions", () => {
 			expect(result.data.map((r) => r.id)).toEqual(["s-new", "s-old"]);
 		});
 
+		test("a session that answered in a conversation says which one", async ({ db }) => {
+			await seedAgent(db, "agent-thread");
+			await db.insert(sessions).values({
+				id: "s-thread",
+				agentId: "agent-thread",
+				modelTier: "workhorse",
+				startedAt: NOW,
+				state: "active",
+				sourceKind: "assistant",
+				sourceCorrelationJson: JSON.stringify({ threadId: "th-1", messageId: "m-1" }),
+			});
+			await seedSession(db, {
+				id: "s-plain",
+				agentId: "agent-thread",
+				state: "done",
+				startedAt: "2026-01-01T00:00:00.000Z",
+			});
+			const { search } = typedActions(buildDeps());
+
+			const result = await search.run({ actor: "u1", db, eventBus: new EventBus(), now: NOW }, {});
+
+			if (!result.ok) throw new Error("expected ok");
+			expect(result.data.map((r) => [r.id, r.threadId])).toEqual([
+				["s-thread", "th-1"],
+				["s-plain", null],
+			]);
+		});
+
 		test("filters by state", async ({ db }) => {
 			await seedAgent(db, "agent-search-2");
 			await seedSession(db, { id: "s-active", agentId: "agent-search-2", state: "active" });

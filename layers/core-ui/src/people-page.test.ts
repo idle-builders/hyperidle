@@ -66,6 +66,7 @@ const session = (taskId: string, hoursAgo: number): SessionRow => ({
 	id: `s-${taskId}`,
 	agentId: "builder",
 	taskId,
+	threadId: null,
 	startedAt: at(hoursAgo),
 	endedAt: null,
 	state: "active",
