@@ -29,15 +29,19 @@ afterEach(() => {
 
 // ── mountFilesystemsForAgent — reads the record LIVE, zero baked list ──────
 
-/** The reader port, recording which agent the mount step asked about. */
+/** The reader port, recording which agent the mount step asked about and every state it marked. */
 function reader(
 	rows: readonly FilesystemForProvisioning[],
 	asked: string[] = [],
+	marked: Array<[string, string]> = [],
 ): InjectedFilesystemsReaderPort {
 	return {
 		listInjectedForProvisioning: async (agentId: string) => {
 			asked.push(agentId);
 			return rows;
+		},
+		markState: async (id, state) => {
+			marked.push([id, state]);
 		},
 	};
 }
@@ -130,5 +134,26 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 		});
 
 		expect(result).toHaveLength(0);
+	});
+
+	test.each([
+		{ mounts: true, was: "attached", marked: [["fs-mark", "reachable"]] },
+		{ mounts: false, was: "attached", marked: [["fs-mark", "needs_attention"]] },
+		{ mounts: true, was: "reachable", marked: [] },
+	])("a folder that mounts: $mounts, marked $marked from $was", async ({ mounts, was, marked }) => {
+		const row = buildFilesystemRecord({ id: "fs-mark", state: was });
+		const states: Array<[string, string]> = [];
+		const mounter: FilesystemMounterPort = {
+			mount: async () => (mounts ? { success: true } : { success: false, error: "no such folder" }),
+		};
+
+		await mountFilesystemsForAgent({
+			agentId: "agent-mark",
+			filesystems: reader([row], [], states),
+			sandboxPath,
+			mounter,
+		});
+
+		expect(states).toEqual(marked);
 	});
 });

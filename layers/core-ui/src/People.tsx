@@ -25,6 +25,7 @@ import {
 	crewOf,
 	folderMay,
 	folderPath,
+	folderTrouble,
 	forWords,
 	givenTo,
 	type Job,
@@ -697,7 +698,9 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 		);
 	const worksIn: Pair[] = view.folders.map((f) => ({
 		what: folderPath(f),
-		why: isMe ? `given to ${folderGivenTo(f.id)}` : folderMay(f),
+		why: [folderTrouble(f), isMe ? `given to ${folderGivenTo(f.id)}` : folderMay(f)]
+			.filter(Boolean)
+			.join(" · "),
 	}));
 	const held = view.connections?.connections ?? [];
 	const inherited = view.connections?.inherited ?? [];

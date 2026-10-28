@@ -133,6 +133,24 @@ describe("resolveFilesystemState — pure reachability logic", () => {
 		expect(state).toBe("reachable");
 	});
 
+	it("a folder written from home (~) is checked at its real path", async () => {
+		const state = await resolveFilesystemState(
+			{
+				id: "fs-home",
+				teamId: "team-1",
+				source: "local",
+				kind: "doc_set",
+				connectionId: null,
+				resourceRef: JSON.stringify({ kind: "doc_set", folder: "~" }),
+				writeback: "file",
+				state: "attached",
+				createdAt: "2026-06-26T00:00:00.000Z",
+			},
+			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
+		);
+		expect(state).toBe("reachable");
+	});
+
 	it("bare-local doc_set (connectionId null) + missing folder → 'needs_attention'", async () => {
 		const state = await resolveFilesystemState(
 			{

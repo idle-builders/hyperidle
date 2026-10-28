@@ -375,6 +375,14 @@ export function folderPath(f: FolderView): string {
 	return f.resourceRef.kind === "code" ? f.resourceRef.repo : f.resourceRef.folder;
 }
 
+/** What went wrong the last time an agent opened a folder, or null when nothing did. */
+export function folderTrouble(f: FolderView): string | null {
+	if (f.state !== "needs_attention") return null;
+	return f.connectionId === null
+		? "Not found on this computer"
+		: "Cannot be reached with its service";
+}
+
 /** What may be done in a folder. */
 export function folderMay(f: FolderView): string {
 	return f.writeback === "none" ? "only reads" : "reads and changes";

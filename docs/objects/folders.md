@@ -26,7 +26,7 @@ Cloud sources (gdrive, dropbox, s3) are not implemented — mount attempts for t
 
 - `attached` — registered but not yet confirmed reachable.
 - `reachable` — accessible.
-- `needs_attention` — mount failed or the source is unreachable.
+- `needs_attention` — mount failed or the source is unreachable. Each session's mount sets `reachable` or `needs_attention` from what it found, and the folder's row on a user's page says "Not found on this computer" (or "Cannot be reached with its service").
 
 ## Mounting
 

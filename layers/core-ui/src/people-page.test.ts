@@ -1,4 +1,4 @@
-import type { SessionRow, Task, ThreadListRow, UserRow } from "@hyperidle/domain-model";
+import type { FolderView, SessionRow, Task, ThreadListRow, UserRow } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import {
 	agentJobs,
@@ -6,6 +6,7 @@ import {
 	crewOf,
 	cronOf,
 	cronWords,
+	folderTrouble,
 	personStand,
 	startedJobs,
 	waitingJobs,
@@ -218,5 +219,31 @@ describe("what an agent is doing now", () => {
 		[{ asking: 1 }, "Idle. It waits for an answer."],
 	] as const)("%o", (over, words) => {
 		expect(agentStand({ ...base, ...over })).toBe(words);
+	});
+});
+
+describe("folderTrouble", () => {
+	const folder = (f: Partial<FolderView>): FolderView => ({
+		id: "f",
+		teamId: "t",
+		source: "local",
+		kind: "code",
+		connectionId: null,
+		resourceRef: { kind: "code", repo: "~/code/northwind", branch: "main" },
+		writeback: "git",
+		state: "reachable",
+		createdAt: at(1),
+		...f,
+	});
+	it.each([
+		{ f: { state: "reachable" as const }, says: null },
+		{ f: { state: "attached" as const }, says: null },
+		{ f: { state: "needs_attention" as const }, says: "Not found on this computer" },
+		{
+			f: { state: "needs_attention" as const, connectionId: "c" },
+			says: "Cannot be reached with its service",
+		},
+	])("a $f.state folder says $says", ({ f, says }) => {
+		expect(folderTrouble(folder(f))).toBe(says);
 	});
 });
