@@ -1187,6 +1187,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 
 		const reply = replyOf(input);
+		// The agent whose own session a verdict or answer brings back; it gets no second run.
+		let resumed: string | null = null;
 		if (reply !== undefined && resolvesMessageRow) {
 			let verdictOutcome: ReviewVerdictOutcome;
 			try {
@@ -1217,6 +1219,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					reason: gateErr instanceof Error ? gateErr.message : "unknown error",
 				};
 			}
+			if (verdictOutcome.status === "queued") resumed = resolvesMessageRow.senderId;
 			if (verdictOutcome.status === "not_resumable") {
 				await sendMessageRun(
 					{ actor: ctx.actor, db: ctx.db, eventBus: ctx.eventBus, now: ctx.now },
@@ -1232,7 +1235,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 
 		// wake
-		for (const agentId of woken) {
+		for (const agentId of woken.filter((id) => id !== resumed)) {
 			try {
 				const bakedRequest = await resolveThreadTurnRequest(ctx.db, messageId, agentId, {
 					requireRunnableAgent: deps.agents.requireRunnableAgent,
