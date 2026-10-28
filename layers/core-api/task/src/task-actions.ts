@@ -331,8 +331,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		const allThreadIds = [
 			...new Set([...ancestorTasks.map((t) => t.threadId), ...subtreeTasks.map((t) => t.threadId)]),
 		];
-		const asks =
-			allThreadIds.length > 0 ? await deps.listAsksForThreads(ctx.db, allThreadIds) : [];
+		const asks = allThreadIds.length > 0 ? await deps.listAsksForThreads(ctx.db, allThreadIds) : [];
 		const msgsByThread = groupByThread(asks);
 
 		// Compute need for every task in scope.

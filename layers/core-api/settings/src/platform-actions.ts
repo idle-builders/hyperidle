@@ -1,6 +1,7 @@
 // search_plugins / edit_plugin platform actions. Action/ActionContext are local structural mirrors — nested Services cannot import the layer's own package.
 // @lore: doc reads/writes through injected runners only — never repository directly; edit_document owns its own tx — no nested tx here
 
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { type HyperIdleDb, type NewUser, plugins, type WriteExecutor } from "@hyperidle/db";
 import {
@@ -226,7 +227,11 @@ function toPluginView(
 		description: p.description,
 		state: toListState(p.state),
 		scope: toDeclaredScope(p.scope),
-		source: p.source,
+		source: {
+			...p.source,
+			found:
+				p.source.kind === "folder" || p.source.kind === "zip" ? existsSync(p.source.address) : true,
+		},
 		installedBy: p.installedBy,
 		installedAt: p.installedAt,
 		updatedAt: p.updatedAt,

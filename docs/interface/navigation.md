@@ -36,8 +36,8 @@ Top to bottom:
    first, then what is new to you, then the rest. A row is a title and a time, then a few words of
    status and who.
    - **Conversations** — "+ New conversation", then every thread across all teams. The status words
-     say what a thread waits on from you (Stuck, Needs input, Needs review), or "Mentioned you",
-     "New reply", or the last message.
+     say what a thread waits on from you (Stuck, Needs input, Needs review), or "Mentioned you"
+     (until you open the thread), "New reply", or the last message.
    - **Work** — a team switch ("All teams" or one team, each with its task count) and, once a team
      is picked, "The team ›", which opens the team page. Then the root tasks, with words such as
      Running, Needs review, "3 of 7 done", On hold or Stopped.
