@@ -10,7 +10,7 @@
  * crossing this module has, and the phase-discipline this whole module
  * exists to protect only means something against the real thing.
  */
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -295,6 +295,28 @@ describe("createPlatformActions", () => {
 			const result = await search.run(ctxFor(db), {});
 			if (!result.ok) throw new Error("expected ok");
 			expect(result.data).toEqual([]);
+		});
+
+		test("says whether the folder a plugin came from is still there", async ({ db }) => {
+			await seedFounder(db);
+			const { search, edit } = typedActions(
+				buildDeps({ pluginsBaseDir: mkdtempSync(join(tmpdir(), "platform-actions-store-")) }),
+			);
+			const dir = makePlugin("source-under-test");
+			const installed = await edit.run(ctxFor(db), {
+				source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+			});
+			if (!installed.ok) throw new Error(`install failed: ${JSON.stringify(installed.problems)}`);
+			const found = async () => {
+				const result = await search.run(ctxFor(db), {});
+				if (!result.ok) throw new Error("expected ok");
+				const plugin = result.data.find((p) => p.id === "source-under-test");
+				return plugin && "source" in plugin ? plugin.source.found : undefined;
+			};
+
+			expect(await found()).toBe(true);
+			rmSync(dir, { recursive: true, force: true });
+			expect(await found()).toBe(false);
 		});
 
 		test("lists an installed plugin with its contributions", async ({ db }) => {

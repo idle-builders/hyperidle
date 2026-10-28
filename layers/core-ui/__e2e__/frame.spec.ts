@@ -44,10 +44,48 @@ test("the sidebar lists the demo world and every row is an address you can go ba
 	);
 
 	await page.goBack();
+	await page.goBack();
 	await expect(page).toHaveURL(/\/conversations\/demo-thread-trial-end$/);
 	await expect(
 		page.getByRole("heading", { name: "Trial-end confusion, three tickets" }),
 	).toBeVisible();
+});
+
+test("switching Conversations, Work and Knowledge opens the page you last had there, else the first one", async ({
+	page,
+}) => {
+	const sidebar = page.getByRole("navigation", { name: "Sidebar" });
+	const spine = (name: string) => sidebar.getByRole("button", { name: new RegExp(`^${name}`) });
+	const firstRow = sidebar.locator(".nav-list .nrow").first();
+
+	await page.goto("/");
+	await expect(page).toHaveURL(/\/conversations\/[^/]+$/);
+	await expect(firstRow).toHaveAttribute("aria-current", "true");
+
+	await sidebar.getByRole("button", { name: /^Trial-end confusion, three tickets/ }).click();
+	await spine("Work").click();
+	await expect(page).toHaveURL(/\/work\/[^/]+$/);
+	await expect(firstRow).toHaveAttribute("aria-current", "true");
+	await sidebar.getByRole("button", { name: /^Refund wording/ }).click();
+
+	await spine("Knowledge").click();
+	await expect(page).toHaveURL(/\/knowledge\/[^/]+$/);
+	await expect(sidebar.locator('.nav-list [aria-current="true"]').first()).toBeVisible();
+
+	await spine("Conversations").click();
+	await expect(page).toHaveURL(/\/conversations\/demo-thread-trial-end$/);
+	await spine("Work").click();
+	await expect(page).toHaveURL(/\/work\/demo-task-refund-wording$/);
+});
+
+test("a draft opens ready to write in, and switching lists still opens a page until you type", async ({
+	page,
+}) => {
+	const sidebar = page.getByRole("navigation", { name: "Sidebar" });
+	await page.goto("/knowledge/demo-doc-deploy-rule");
+	await expect(page.getByText("✎ Editing")).toBeVisible();
+	await sidebar.getByRole("button", { name: /^Work/ }).click();
+	await expect(page).toHaveURL(/\/work\/[^/]+$/);
 });
 
 test("a page whose id does not exist says it did not load, and Try again asks once more", async ({

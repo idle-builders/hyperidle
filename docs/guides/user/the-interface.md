@@ -7,7 +7,7 @@ The app has one sidebar on the left and the page you opened on the right. There 
 ## The sidebar, top to bottom
 
 1. **Find or ask… ⌘K** and the **bell**.
-2. **Conversations · Work · Knowledge**, stacked. Conversations and Knowledge show a count of what waits on you. Work never does: agents own the work, and what they need from you shows up in Conversations.
+2. **Conversations · Work · Knowledge**, stacked. Conversations and Knowledge show a count of what waits on you. Work never does: agents own the work, and what they need from you shows up in Conversations. Picking one opens the page you last had open there, or its first item the first time.
 3. A line, then the list for the one you picked.
 4. **You · N waiting for you** at the bottom. It opens [your page](./your-page.md).
 
@@ -15,7 +15,7 @@ The app has one sidebar on the left and the page you opened on the right. There 
 
 Each list is in order of what matters to you: what you owe first, then what is new, then the rest. Status is in words on each row.
 
-- **Conversations** — **+ New conversation**, then every thread. A row shows the title and time, then a few words: **Mentioned you**, **Needs review**, **Needs input** or **Stuck** (with who asks), **New reply**, or the last message.
+- **Conversations** — **+ New conversation**, then every thread. A row shows the title and time, then a few words: **Mentioned you** (until you open it), **Needs review**, **Needs input** or **Stuck** (with who asks), **New reply**, or the last message.
 - **Work** — a team switch (**All teams**, or one team with its number of tasks). Once you pick a team, **The team ›** opens [the team's page](./running-your-team.md). Below it are the top-level tasks with how each stands: Queued, Running, "3 of 7 done", Needs input, Needs review, Stuck, On hold, Stopped, Done.
 - **Knowledge** — first, drafts someone else wrote (**Publish?**) and documents edited since you looked. Then the document tree: one space per team, documents nested inside. Click a document's icon to change it; the **+** on a row adds a new document under it.
 
@@ -36,7 +36,7 @@ One box, two uses. **Tab** switches between them and keeps what you typed.
 
 ## Notifications (the bell)
 
-The bell shows how many notifications are new. It opens a panel of what happened in things you follow: a task done, an agent stuck, a document published or edited, a new reply. Click one to open the thread, task or document. **Mark all read** clears the count.
+The bell shows how many notifications are new. It opens a panel of what happened in things you follow: a task done, an agent stuck, a document published or edited, a new reply. Click one to open the thread, task or document. Opening that thread, task or document any other way also reads its notifications. **Mark all read** clears the count.
 
 You get these for what you follow. You follow a task or a published document with **Follow** on its page; **Change what you are told about** at the bottom of the panel opens the switches on [your page](./your-page.md).
 

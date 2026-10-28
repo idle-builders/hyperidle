@@ -17,7 +17,10 @@ import {
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
-import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
+import {
+	listInjectedFilesystemsForProvisioning,
+	updateFilesystemState,
+} from "@hyperidle/filesystems";
 import type {
 	HarnessAdapter,
 	RegisteredTool,
@@ -211,6 +214,7 @@ function buildProvisioningReads(
 		injectedFilesystems: {
 			listInjectedForProvisioning: (agentId: string) =>
 				listInjectedFilesystemsForProvisioning(db, agentId),
+			markState: (id, state) => updateFilesystemState(db, id, state),
 		},
 		serviceConnectionResolver: {
 			resolve: (userId: string, connectionId: string) =>

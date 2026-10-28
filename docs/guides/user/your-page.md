@@ -11,8 +11,8 @@ There is no settings screen. Your own page holds your settings. Open it with **Y
 ## The box
 
 - **Edit** — your name, your discipline (your craft, such as Design or Support), and a link to **About you**.
-- **Works in** — your folders, and which of your agents each one is given to. **Add a folder** opens the dialog. See [Folders and services](./connections.md).
-- **Can reach** — your services, and who each one is given to. **Connect a service** opens the dialog.
+- **Works in** — your folders, and which of your agents each one is given to. A folder an agent could not open last time says **Not found on this computer**. **Add a folder** opens the dialog. See [Folders and services](./connections.md).
+- **Can reach** — your services, and who each one is given to; the first five, then **Show all**. **Connect a service** opens the dialog.
 - **Notifications** — switches for what you are told about. **Change what you are told about** adds more: a task is created or changes, a thread starts or gets a message, a document is created or changes, someone joins the team. To be told about one task or document, press **Follow** on its page; this section lists what you follow.
 - **About** — a document with what agents should know when they work with you. **Write what agents should know about you** starts it.
 - **This app** — where your work lives: **Lives on this computer** (only the people on it see this work) or **Lives on a shared server** (everyone sees the same work).

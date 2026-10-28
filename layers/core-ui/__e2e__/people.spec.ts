@@ -148,3 +148,34 @@ test("the bell's 'Change what you are told about' opens the dialog on your page"
 	await page.getByRole("button", { name: "Change what you are told about" }).first().click();
 	await expect(dialog(page, "What you are told about")).toBeVisible();
 });
+
+test("opening what a notification is about reads it, and the bell counts one fewer", async ({
+	page,
+}) => {
+	await page.goto("/people/me");
+	const address = await page.evaluate(async () => {
+		const res = await fetch("/api/actions/open_user", {
+			method: "POST",
+			headers: { "X-API-Key": "hyperidle-dev-local", "Content-Type": "application/json" },
+			body: "{}",
+		});
+		const { data } = (await res.json()) as {
+			data: { inbox: { change: { object: string; objectId: string }; readAt: string | null }[] };
+		};
+		const unread = data.inbox.filter((r) => r.readAt === null);
+		const route = { thread: "conversations", task: "work", document: "knowledge" } as const;
+		const first = unread.find((r) => r.change.object in route);
+		const where = first && route[first.change.object as keyof typeof route];
+		return { count: unread.length, to: first ? `/${where}/${first.change.objectId}` : "" };
+	});
+	expect(address.to).not.toBe("");
+	const sidebar = page.getByRole("navigation", { name: "Sidebar" });
+	await expect(
+		sidebar.getByRole("button", { name: `Notifications, ${address.count} new` }),
+	).toBeVisible();
+
+	await page.goto(address.to);
+	await expect(
+		sidebar.getByRole("button", { name: `Notifications, ${address.count - 1} new` }),
+	).toBeVisible();
+});

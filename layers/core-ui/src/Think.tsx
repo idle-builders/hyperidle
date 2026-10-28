@@ -523,11 +523,13 @@ export function Think({ id }: { id: string }) {
 	const base = useRef(0);
 
 	const editing = edit === true;
+	// A draft opens in edit mode; you are writing once you have typed in it.
+	const writing = editing && (typed > 0 || title !== null);
 	const { setEditing } = useFocus();
 	useEffect(() => {
-		setEditing(editing);
+		setEditing(writing);
 		return () => setEditing(false);
-	}, [editing, setEditing]);
+	}, [writing, setEditing]);
 	const text = useDocText(doc?.body ?? null, editing, () => {
 		setDirty(true);
 		setTyped((t) => t + 1);

@@ -52,6 +52,8 @@ export type PluginContributionView = z.infer<typeof PluginContributionViewSchema
 const PluginSourceViewSchema = z.object({
 	kind: z.enum(PLUGIN_SOURCE_KINDS),
 	address: z.string(),
+	/** Whether the folder or zip is still where it was installed from; always true for the others. */
+	found: z.boolean(),
 });
 
 export const PluginViewSchema = z.object({

@@ -1045,6 +1045,22 @@ kbd {
 .nav-spines {
 	padding: 0 var(--sp-3);
 }
+/* In the desktop window the sidebar's top clears the window buttons and moves the window. */
+[data-shell="desktop"] .nav-top {
+	padding-top: 36px;
+	-webkit-app-region: drag;
+}
+[data-shell="desktop"] .nav-top button {
+	-webkit-app-region: no-drag;
+}
+/* The same for the bar of a review part opened over the whole window. */
+[data-shell="desktop"] .wide-bar {
+	padding-left: 84px;
+	-webkit-app-region: drag;
+}
+[data-shell="desktop"] .wide-bar button {
+	-webkit-app-region: no-drag;
+}
 .spine-count--flag {
 	background: var(--flag);
 	color: var(--flag-ink);
@@ -1163,6 +1179,13 @@ kbd {
 	border-radius: var(--r);
 	background: var(--surface);
 	box-shadow: var(--sh-2);
+}
+/* In the desktop window the page around the card moves the window. */
+[data-shell="desktop"] .first {
+	-webkit-app-region: drag;
+}
+[data-shell="desktop"] .first-card {
+	-webkit-app-region: no-drag;
 }
 .first-card h1 {
 	font: var(--t-title);

@@ -21,6 +21,8 @@ export interface FilesystemForProvisioning {
 /** Application-composed from @hyperidle/filesystems. Absent → no filesystems mounted (not a read failure). */
 export interface InjectedFilesystemsReaderPort {
 	listInjectedForProvisioning(agentId: string): Promise<readonly FilesystemForProvisioning[]>;
+	/** Records what the last mount found, so the folder's page can say it is missing. */
+	markState(id: string, state: "reachable" | "needs_attention"): Promise<void>;
 }
 
 /**
@@ -67,6 +69,8 @@ export async function mountFilesystemsForAgent(params: {
 	for (const filesystem of fsList) {
 		try {
 			const result = await mounter.mount({ filesystem, sandboxPath });
+			const found = result.success ? "reachable" : "needs_attention";
+			if (filesystem.state !== found) await filesystems.markState(filesystem.id, found);
 			if (result.success) {
 				mounted.push(filesystem);
 			} else {

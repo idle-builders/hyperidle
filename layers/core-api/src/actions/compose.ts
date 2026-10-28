@@ -123,12 +123,11 @@ function buildTaskActionsDeps(
 		taskRunResolver: buildTaskRunResolverDeps(searchDocuments),
 		adjustThread,
 		openThread,
-		listUnresolvedMessagesForThreads: (db, threadIds) => {
+		listAsksForThreads: (db, threadIds) => {
 			if (threadIds.length === 0) return Promise.resolve([]);
 			return listMessages(db, {
 				threadIds: [...threadIds],
 				types: ["review", "questionnaire"],
-				unresolved: true,
 			});
 		},
 	};

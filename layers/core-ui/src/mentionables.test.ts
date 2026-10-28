@@ -23,6 +23,7 @@ const running = (agentId: string): SessionRow => ({
 	id: `s-${agentId}-${Math.random()}`,
 	agentId,
 	taskId: null,
+	threadId: null,
 	startedAt: "2026-10-21T08:00:00.000Z",
 	endedAt: null,
 	state: "active",

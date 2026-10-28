@@ -47,6 +47,7 @@ function buildDeps(
 				asked.push(agentId);
 				return injected;
 			},
+			markState: async () => undefined,
 		},
 		eventBus: new EventBus(),
 		adapterPool: {

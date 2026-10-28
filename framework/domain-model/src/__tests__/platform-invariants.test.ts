@@ -144,7 +144,7 @@ describe("PluginViewSchema", () => {
 			description: null,
 			state: "enabled",
 			scope: factoryScope,
-			source: { kind: "bundled", address: "document-management" },
+			source: { kind: "bundled", address: "document-management", found: true },
 			installedBy: null,
 			installedAt: "2026-09-22T00:00:00.000Z",
 			updatedAt: "2026-09-22T00:00:00.000Z",

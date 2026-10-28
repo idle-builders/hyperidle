@@ -53,7 +53,7 @@ const habits = (p: Partial<PluginView> = {}): PluginView => ({
 	description: "An agent that keeps how the team works written down.",
 	state: "enabled",
 	scope: { kind: "factory", teamId: null },
-	source: { kind: "folder", address: "/plugins/team-habits" },
+	source: { kind: "folder", address: "/plugins/team-habits", found: true },
 	installedBy: "me",
 	installedAt: daysAgo(98),
 	updatedAt: daysAgo(98),
@@ -112,13 +112,20 @@ describe("a plugin's page", () => {
 	});
 
 	it.each([
-		[{ kind: "bundled", address: "roles" }, "Comes with HyperIdle"],
+		[{ kind: "bundled", address: "roles", found: true }, "Comes with HyperIdle"],
 		[
-			{ kind: "git", address: "https://github.com/northwind/notes" },
+			{ kind: "git", address: "https://github.com/northwind/notes", found: true },
 			"From github.com/northwind/notes",
 		],
-		[{ kind: "folder", address: "/plugins/team-habits" }, "From the folder /plugins/team-habits"],
-		[{ kind: "zip", address: "/downloads/notes.zip" }, "From the zip file notes.zip"],
+		[
+			{ kind: "folder", address: "/plugins/team-habits", found: true },
+			"From the folder /plugins/team-habits",
+		],
+		[
+			{ kind: "folder", address: "/plugins/team-habits", found: false },
+			"From the folder /plugins/team-habits, no longer there",
+		],
+		[{ kind: "zip", address: "/downloads/notes.zip", found: true }, "From the zip file notes.zip"],
 	] as const)("says where it came from: %o", (source, words) => {
 		expect(pluginPage(habits({ source }), ctx).from).toBe(words);
 	});

@@ -115,12 +115,17 @@ function extractLocalPath(row: FilesystemRow): string | null {
 	if (ref.kind === "code") {
 		const repo = ref.repo;
 		if (/^(https?|git@|file:|ssh:)/.test(repo)) return null;
-		return repo;
+		return expandHome(repo);
 	}
 	if (ref.kind === "doc_set") {
-		return ref.folder;
+		return expandHome(ref.folder);
 	}
 	return null;
+}
+
+/** A folder is written the way people type it, `~/code/x`; the file system needs the real path. */
+function expandHome(p: string): string {
+	return p === "~" || p.startsWith("~/") ? path.join(os.homedir(), p.slice(1)) : p;
 }
 
 function repoToUrl(repo: string): string {

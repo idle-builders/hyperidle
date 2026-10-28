@@ -1,7 +1,15 @@
 /** How a person or agent is drawn in an avatar, how a task reads in Work, and what waits while you focus. */
-import type { Task } from "@hyperidle/domain-model";
+import type { Task, ThreadListRow } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
-import { countTasks, initials, newSince, workItems } from "./sidebar-lists";
+import {
+	conversationItems,
+	countTasks,
+	firstDoc,
+	type Inbox,
+	initials,
+	newSince,
+	workItems,
+} from "./sidebar-lists";
 
 test.each([
 	["Maya Chen", "MC"],
@@ -51,4 +59,54 @@ describe("countTasks", () => {
 	])("%i", (n, words) => {
 		expect(countTasks(n)).toBe(words);
 	});
+});
+
+test("knowledge opens on the first document in the tree, skipping empty team spaces", () => {
+	const tree = [
+		{ id: "growth", title: "Growth", team: "growth", space: true, children: [] },
+		{
+			id: "support",
+			title: "Support",
+			team: "support",
+			space: true,
+			children: [{ id: "refunds", title: "Refunds", team: "support" }],
+		},
+	];
+	expect(firstDoc(tree)).toBe("refunds");
+	expect(
+		firstDoc([{ id: "growth", title: "Growth", team: "growth", space: true }]),
+	).toBeUndefined();
+});
+
+test.each([
+	{ seen: "not read", readAt: null, words: "Mentioned you" },
+	{ seen: "read", readAt: "2026-10-21T10:00:00.000Z", words: "Maya:" },
+])("a mention you have $seen reads $words in Conversations", ({ readAt, words }) => {
+	const thread = {
+		id: "th",
+		computedTitle: "Refund wording",
+		lastActiveAt: "2026-10-21T09:00:00.000Z",
+		lastSenderId: "maya",
+		lastMessagePreview: "@Finn can you read it?",
+		mentionsYou: true,
+		need: null,
+	} as ThreadListRow;
+	const inbox: Inbox = [
+		{
+			change: {
+				id: "c1",
+				object: "thread",
+				objectId: "th",
+				kind: "message",
+				actor: "maya",
+				before: null,
+				after: {},
+				at: "2026-10-21T09:00:00.000Z",
+			},
+			seenAt: null,
+			readAt,
+		},
+	];
+	const names = new Map([["maya", "Maya"]]);
+	expect(conversationItems([thread], "finn", names, inbox)[0]?.state).toBe(words);
 });

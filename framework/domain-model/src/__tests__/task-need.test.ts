@@ -125,6 +125,28 @@ const rows: {
 		reasons: [],
 		expected: null,
 	},
+	// once you have answered, the agent has it: nothing waits on you
+	{
+		label: "review state, its review decided → null",
+		state: "review",
+		msgs: resolvedReview,
+		reasons: [],
+		expected: null,
+	},
+	{
+		label: "waiting decision, every question answered → null",
+		state: "in_progress",
+		msgs: resolvedQuestionnaire,
+		reasons: waitingDecision,
+		expected: null,
+	},
+	{
+		label: "review state, a later round still open → review",
+		state: "review",
+		msgs: [...resolvedReview, ...unresolvedReview],
+		reasons: [],
+		expected: "review",
+	},
 	// made decision doesn't count
 	{
 		label: "made decision → null",

@@ -53,7 +53,7 @@ Subscriptions are managed via `edit_user({ subscriptions: { add, remove, update 
 
 The inbox is a list of pointers at `changes` rows. Each row has `seenAt` and `readAt`. Rows are read via `open_user({}).inbox` (self-only, newest 50).
 
-Read: set when you open a row from the bell's Notifications panel, or for every row with Mark all read (`edit_user({ inbox: { read } })`). `seenAt` is set only through `edit_user({ inbox: { seen } })`; the app does not set it. Read rows older than 30 days are reaped by `inbox-reaper.ts` (reads the change's own timestamp, not an inbox timestamp).
+Read: set when you open the thread, task or document a row is about (from the bell or anywhere else), or for every row with Mark all read (`edit_user({ inbox: { read } })`). `seenAt` is set only through `edit_user({ inbox: { seen } })`; the app does not set it. Read rows older than 30 days are reaped by `inbox-reaper.ts` (reads the change's own timestamp, not an inbox timestamp).
 
 Unread rows older than 30 days are NOT deleted — only read rows are swept.
 

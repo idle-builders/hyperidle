@@ -45,7 +45,7 @@ Editing what a plugin added makes it the team's: the registry stamps `detached_a
 
 ## Where a plugin came from
 
-Each install keeps its source as given — `source_kind` (`folder`, `git`, `zip`, `bundled`) and `source_address` (the path, the URL, or the bundled plugin's name) — the manifest's `description`, and `installed_by`. `search_plugins` returns all three, and for a bundled plugin not installed yet, what it would add (`adds`), read from its manifest.
+Each install keeps its source as given — `source_kind` (`folder`, `git`, `zip`, `bundled`) and `source_address` (the path, the URL, or the bundled plugin's name) — the manifest's `description`, and `installed_by`. `search_plugins` returns all three, plus `source.found` — whether a folder or zip is still at that path on the server (always true for `git` and `bundled`); the plugin's page then says "no longer there". For a bundled plugin not installed yet, it returns what it would add (`adds`), read from its manifest.
 
 ## Where plugin files live
 

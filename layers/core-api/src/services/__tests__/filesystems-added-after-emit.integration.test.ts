@@ -30,7 +30,10 @@ import {
 	userTeams,
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
+import {
+	listInjectedFilesystemsForProvisioning,
+	updateFilesystemState,
+} from "@hyperidle/filesystems";
 import { mountFilesystemsForAgent, RegistryFilesystemMounter } from "@hyperidle/run-orchestration";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
@@ -163,6 +166,7 @@ async function provisionFilesystems(
 		filesystems: {
 			listInjectedForProvisioning: (agentId: string) =>
 				listInjectedFilesystemsForProvisioning(db, agentId),
+			markState: (id, state) => updateFilesystemState(db, id, state),
 		},
 		sandboxPath,
 		mounter,

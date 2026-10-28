@@ -291,7 +291,7 @@ describe("a plugin says where it came from", () => {
 		const dir = await install(app);
 
 		const plugin = await pluginOf(app);
-		expect(plugin?.source).toEqual({ kind: "folder", address: dir });
+		expect(plugin?.source).toEqual({ kind: "folder", address: dir, found: true });
 		expect(plugin?.installedBy).toBe(FOUNDER);
 		expect(plugin?.description).toBe(
 			"Document Librarian agent with decay, document triage, and post-task retro subscriptions.",

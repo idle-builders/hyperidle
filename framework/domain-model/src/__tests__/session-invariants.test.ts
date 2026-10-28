@@ -119,6 +119,7 @@ describe("SessionRowSchema", () => {
 		id: "s1",
 		agentId: "a1",
 		taskId: "t1",
+		threadId: null,
 		startedAt: "2026-09-22T00:00:00.000Z",
 		endedAt: null,
 		state: "active",

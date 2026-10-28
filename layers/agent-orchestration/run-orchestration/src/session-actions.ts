@@ -51,12 +51,19 @@ export interface SessionActionsDeps {
 
 const DEFAULT_SEARCH_LIMIT = 100;
 
-/** `Session` (the db row) and `SessionRow` (the declared wire shape) already share every field name — a structural copy, not a cast, so a real divergence fails at compile time on this function's own return type. */
+/** The thread named in a session's source, which every thread-started session records. */
+function threadOf(sourceCorrelationJson: string | null): string | null {
+	const source = JSON.parse(sourceCorrelationJson ?? "null") as { threadId?: unknown } | null;
+	return typeof source?.threadId === "string" ? source.threadId : null;
+}
+
+/** `Session` (the db row) to `SessionRow` (the declared wire shape): a structural copy, not a cast, so a real divergence fails at compile time on this function's own return type. */
 function toSessionRow(row: Session): SessionRow {
 	return {
 		id: row.id,
 		agentId: row.agentId,
 		taskId: row.taskId,
+		threadId: threadOf(row.sourceCorrelationJson),
 		startedAt: row.startedAt,
 		endedAt: row.endedAt,
 		state: row.state,

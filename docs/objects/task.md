@@ -105,11 +105,13 @@ When a task reaches `review`, a human may record an outcome. Four values: `met`,
 | Value | When |
 |---|---|
 | `"stuck"` | `state === "blocked"` |
-| `"input"` | An unresolved `questionnaire` message in the thread, OR a `decision` reason with `state: "waiting"` |
-| `"review"` | `state === "review"`, OR an unresolved `review` message in the thread |
+| `"input"` | An unresolved `questionnaire` message in the thread, OR a `decision` reason with `state: "waiting"` — unless the thread has questions and every one is answered |
+| `"review"` | An unresolved `review` message in the thread, OR `state === "review"` with no review message in the thread yet |
 | `null` | None of the above |
 
 Precedence (highest first): `stuck > input > review > null`.
+
+Once every question is answered and every review decided, nothing waits on a person: the agent has the task back, even before it records the decision or leaves the `review` state.
 
 Both `search_tasks` and `open_task` return `need` on every task item. `open_task` also returns `openBelow: { input: number, review: number }` on each `TaskNode` in the `children` subtree, counting descendants (not the node itself) whose need is `input` or `review` respectively. The opened task itself carries the same count for everything below it as `openBelow` at the top of the view. Work stays live through two WebSocket topics: `tasks` is nudged on any task change, and `task:<id>` on a change to that task, to any task below it, or a message in its thread.
 

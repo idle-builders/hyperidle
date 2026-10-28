@@ -122,11 +122,12 @@ function comesWords(agent: string, parts: readonly Part[]): string {
 
 function fromWords(listing: PluginListing): string {
 	if (listing.state === "available") return "Comes with HyperIdle";
-	const { kind, address } = listing.source;
+	const { kind, address, found } = listing.source;
+	const gone = found ? "" : ", no longer there";
 	if (kind === "bundled") return "Comes with HyperIdle";
 	if (kind === "git") return `From ${address.replace(/^[a-z+]+:\/\//, "").replace(/\.git$/, "")}`;
-	if (kind === "zip") return `From the zip file ${address.split(/[\\/]/).pop() ?? address}`;
-	return `From the folder ${address}`;
+	if (kind === "zip") return `From the zip file ${address.split(/[\\/]/).pop() ?? address}${gone}`;
+	return `From the folder ${address}${gone}`;
 }
 
 /** What someone changed, and how to say "it" for that kind. */

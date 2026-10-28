@@ -229,15 +229,20 @@ test("while you edit, a conversation that moves waits in place and the sidebar s
 	await page.goto("/knowledge/demo-doc-clean-feature");
 	await page.getByRole("button", { name: "✎ Edit" }).click();
 	await expect(page.getByText("✎ Editing")).toBeVisible();
+	await text(page)
+		.getByText(/^A clean feature does one thing/)
+		.click();
+	await page.keyboard.press("End");
+	await page.keyboard.type(" Still writing.");
 	const sidebar = page.getByRole("navigation", { name: "Sidebar" });
 	await sidebar.getByRole("button", { name: /^Conversations/ }).click();
-	const onboarding = sidebar.getByRole("button", { name: /^Onboarding emails/ });
-	const hiring = sidebar.getByRole("button", { name: /^Support hire, second round/ });
-	const above = async () =>
-		((await onboarding.boundingBox())?.y ?? 0) < ((await hiring.boundingBox())?.y ?? 0);
-	expect(await above()).toBe(false);
+	await expect(page).toHaveURL(/\/knowledge\/demo-doc-clean-feature$/);
+	// The oldest conversation gets the new message, so it would jump to the top if nothing held it.
+	const rows = sidebar.locator(".nav-list .nrow");
+	const lastTitle = async () => (await rows.last().locator(".nrow-title").textContent()) ?? "";
+	const oldest = await lastTitle();
 
-	await page.evaluate(async () => {
+	await page.evaluate(async (title) => {
 		const act = (name: string, body: unknown) =>
 			fetch(`/api/actions/${name}`, {
 				method: "POST",
@@ -247,13 +252,13 @@ test("while you edit, a conversation that moves waits in place and the sidebar s
 		const threads = (await act("search_threads", {})) as {
 			data: { id: string; computedTitle: string }[];
 		};
-		const id = threads.data.find((t) => t.computedTitle === "Onboarding emails")?.id;
+		const id = threads.data.find((t) => t.computedTitle === title)?.id;
 		await act("send_message", { threadId: id, text: "Picking this up again in November." });
-	});
+	}, oldest);
 	await expect(sidebar.getByText("1 new since you started · it waits here")).toBeVisible();
-	expect(await above()).toBe(false);
+	expect(await lastTitle()).toBe(oldest);
 
 	await page.getByRole("button", { name: "Done", exact: true }).click();
 	await expect(sidebar.getByText("1 new since you started · it waits here")).toHaveCount(0);
-	await expect.poll(above).toBe(true);
+	await expect.poll(lastTitle).not.toBe(oldest);
 });

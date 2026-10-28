@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { call } from "./api";
 import { UNTITLED } from "./doc-page";
@@ -9,6 +9,7 @@ import {
 	conversationItems,
 	countTasks,
 	type Doc,
+	firstDoc,
 	type Inbox,
 	type Item,
 	initials,
@@ -314,7 +315,7 @@ const NO_INBOX: Inbox = [];
 
 export function Sidebar() {
 	const navigate = useNavigate();
-	const { pathname } = useLocation();
+	const { pathname, search } = useLocation();
 	const [, section = "", rawId = ""] = pathname.split("/");
 	const here = decodeURIComponent(rawId);
 	const routeSpine: Spine | null = isSpine(section) ? section : section === "teams" ? "work" : null;
@@ -353,6 +354,18 @@ export function Sidebar() {
 	const teams = teamsOf(users.data ?? []);
 	const inbox: Inbox = me.data?.inbox ?? NO_INBOX;
 	const newestFirst = [...inbox].sort((a, b) => b.change.at.localeCompare(a.change.at));
+	// Opening something reads what you were told about it.
+	const readHere = inbox
+		.filter(
+			(r) =>
+				r.readAt === null && r.change.objectId === here && ROUTE_OF[r.change.object] === section,
+		)
+		.map((r) => r.change.id)
+		.join(" ");
+	useEffect(() => {
+		if (you && readHere)
+			void call("edit_user", { id: you, inbox: { read: readHere.split(" ") } }).then(me.reload);
+	}, [you, readHere, me.reload]);
 
 	// The address decides the spine shown, and a team's page picks that team in Work.
 	useEffect(() => {
@@ -407,6 +420,32 @@ export function Sidebar() {
 	const team = teams.find((t) => t.id === teamId) ?? null;
 	const picked = section === spine ? here : null;
 
+	// Each spine reopens the page you last had there; until then, the first row it lists. While you
+	// write in a document, a spine only shows its list, so the document stays open.
+	const last = useRef<Partial<Record<Spine, string>>>({});
+	useEffect(() => {
+		if (routeSpine && rawId) last.current[routeSpine] = pathname + search;
+	}, [routeSpine, rawId, pathname, search]);
+	const homeOf = (t: Spine): string | undefined => {
+		const remembered = last.current[t];
+		if (remembered) return remembered;
+		const rows = t === "work" && teamId ? lists.work?.filter((i) => i.team === teamId) : lists[t];
+		const first =
+			rows?.[0]?.id ??
+			(t === "knowledge" && docs.data ? firstDoc(knowledgeTree(docs.data, teams)) : undefined);
+		return first && `/${t}/${encodeURIComponent(first)}`;
+	};
+	const openSpine = (t: Spine) => {
+		setSpine(t);
+		const home = homeOf(t);
+		if (home && !editing && home !== pathname + search) navigate(home);
+	};
+	// The bare address the app starts on opens the first conversation too.
+	const startAt = section === "conversations" && !rawId ? homeOf("conversations") : undefined;
+	useEffect(() => {
+		if (startAt) navigate(startAt, { replace: true });
+	}, [startAt, navigate]);
+
 	const toggle = (id: string) =>
 		setOpen((prev) => {
 			const next = new Set(prev);
@@ -452,7 +491,7 @@ export function Sidebar() {
 						type="button"
 						className="spine"
 						aria-current={spine === t}
-						onClick={() => setSpine(t)}
+						onClick={() => openSpine(t)}
 					>
 						<span>{t[0].toUpperCase() + t.slice(1)}</span>
 						{needs(t) > 0 && <span className="spine-count spine-count--flag">{needs(t)}</span>}
