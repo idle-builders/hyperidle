@@ -218,6 +218,12 @@ export function knowledgeItems(
 	return [...drafts, ...edited];
 }
 
+/** What a tree row says beside its title: that it is an app, that it is a draft. */
+function noteOf(d: DocumentRow): { note?: string } {
+	const words = [d.format === "html" && "app", d.status === "proposed" && "draft"].filter(Boolean);
+	return words.length > 0 ? { note: words.join(" · ") } : {};
+}
+
 /** One space per team at the top, then each team's documents as they nest. */
 export function knowledgeTree(docs: readonly DocumentRow[], teams: readonly Team[]): Doc[] {
 	const sorted = [...docs].sort(
@@ -231,7 +237,7 @@ export function knowledgeTree(docs: readonly DocumentRow[], teams: readonly Team
 				title: d.title,
 				team: d.scopeId ?? "",
 				...(d.icon ? { icon: d.icon } : {}),
-				...(d.status === "proposed" ? { note: "draft" } : {}),
+				...noteOf(d),
 				...(children.length > 0 ? { children } : {}),
 			};
 		});

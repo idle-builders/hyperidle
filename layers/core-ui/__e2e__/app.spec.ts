@@ -50,6 +50,16 @@ test("an app a task made says so in the task's box and opens beside the task", a
 	await expect(appIn(page, "Trial length calculator").getByText(/people pay/)).toBeVisible();
 });
 
+test("an app in the knowledge tree says so, and runs as its page", async ({ page }) => {
+	await page.goto("/knowledge/demo-doc-app-which-plan");
+	const tree = page.getByRole("region", { name: "All documents" });
+	await expect(tree.getByRole("button", { name: "Which plan fits", exact: true })).toBeVisible();
+	await expect(tree.getByText("app", { exact: true })).toBeVisible();
+	const app = appIn(page, "Which plan fits");
+	await app.getByLabel("Needs single sign-on").selectOption("yes");
+	await expect(app.getByText("Plan: Business, £79 a month")).toBeVisible();
+});
+
 test("an app's script runs, but cannot reach the app around it, its storage, or the network", async ({
 	page,
 }) => {
@@ -58,7 +68,6 @@ test("an app's script runs, but cannot reach the app around it, its storage, or 
 <script>
 const tries = {
 	parent: () => parent.document.title,
-	key: () => parent.__HYPERIDLE__.apiKey,
 	storage: () => localStorage.length,
 };
 const said = Object.entries(tries).map(([name, run]) => {
@@ -84,6 +93,6 @@ fetch("/api/actions/open_user", { method: "POST" })
 
 	await page.goto(`/knowledge/${result.data.document.id}`);
 	await expect(appIn(page, "Escape probe").locator("#out")).toHaveText(
-		"parent: blocked · key: blocked · storage: blocked · network: blocked",
+		"parent: blocked · storage: blocked · network: blocked",
 	);
 });

@@ -1,11 +1,14 @@
 /**
- * Two apps agents made: Builder's price check in the trial-end conversation, and Growth's trial
- * length calculator on the task that pulled the numbers. An app is a document whose format is html.
+ * Three apps: Builder's price check in the trial-end conversation, Growth's trial length calculator
+ * on the task that pulled the numbers, and the founder's plan picker in the pricing tree. An app is
+ * a document whose format is html.
  */
 
 import { documents, type HyperIdleDb } from "@hyperidle/db";
 import {
 	BUILDER_ID,
+	DOC_HOW_WE_PRICE,
+	FOUNDER_ID,
 	GROWTH_ID,
 	PRODUCT_TEAM_ID,
 	SUPPORT_TEAM_ID,
@@ -84,6 +87,40 @@ show();
 </body>
 </html>`;
 
+const PLANS_PAGE = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Which plan fits</title>
+<meta name="description" content="Answer two questions and see which plan someone should be on">
+<style>
+body { font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 24px; color: #1d1b16; }
+h1 { font-size: 20px; margin: 0 0 16px; }
+label { display: block; margin: 0 0 12px; }
+select { font: inherit; margin-left: 8px; }
+.out { font-size: 22px; font-weight: 700; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Which plan fits</h1>
+<label>People on the team <select id="seats"><option value="1">1</option><option value="5">2–5</option><option value="20">6–20</option><option value="50">More than 20</option></select></label>
+<label>Needs single sign-on <select id="sso"><option value="no">No</option><option value="yes">Yes</option></select></label>
+<div class="out" id="out"></div>
+<script>
+const seats = document.getElementById("seats");
+const sso = document.getElementById("sso");
+const show = () => {
+	const n = Number(seats.value);
+	const plan = sso.value === "yes" || n > 20 ? "Business, £79" : n > 1 ? "Team, £29" : "Starter, £12";
+	document.getElementById("out").textContent = "Plan: " + plan + " a month";
+};
+seats.addEventListener("change", show);
+sso.addEventListener("change", show);
+show();
+</script>
+</body>
+</html>`;
+
 export async function seedApps(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 	const apps = [
 		{
@@ -105,6 +142,16 @@ export async function seedApps(db: HyperIdleDb, clock: DemoClock): Promise<void>
 			parentId: TASK_NUMBERS,
 			by: GROWTH_ID,
 			at: clock.at(10, "10:50"),
+		},
+		{
+			id: "demo-doc-app-which-plan",
+			title: "Which plan fits",
+			body: PLANS_PAGE,
+			team: PRODUCT_TEAM_ID,
+			parentKind: "document" as const,
+			parentId: DOC_HOW_WE_PRICE,
+			by: FOUNDER_ID,
+			at: clock.daysAgo(6),
 		},
 	];
 	for (const app of apps)
