@@ -165,6 +165,16 @@ describe("titleFrom", () => {
 		],
 		["@Builder can you take a look\nmore below", ["Builder"], "can you take a look"],
 		["@Maya Chen @Builder", ["Maya Chen", "Builder"], "With Maya Chen, Builder"],
+		[
+			"@Builder next for Streak, as one task with parts: a week view. Work on a branch.",
+			["Builder"],
+			"next for Streak, as one task with parts: a week view.",
+		],
+		[
+			"@Builder please add export and import of all the data so I can move it to another browser later",
+			["Builder"],
+			"please add export and import of all the data so I can move it…",
+		],
 	])("%s", (text, names, title) => {
 		expect(titleFrom(text, names)).toBe(title);
 	});

@@ -421,7 +421,7 @@ export function ThreadPage({ id }: { id: string }) {
 		<section className="thread">
 			<header className="thread-head">
 				<span className="chip chip--quiet">Thread</span>
-				<h2>{view.data?.thread.computedTitle ?? ""}</h2>
+				<h2 title={view.data?.thread.computedTitle}>{view.data?.thread.computedTitle ?? ""}</h2>
 			</header>
 
 			<div className="thread-scroll" ref={scroll} role="log" aria-label="Messages">

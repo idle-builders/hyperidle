@@ -157,6 +157,14 @@ export function clock(iso: string, now: number = Date.now()): string {
 export function titleFrom(text: string, names: readonly string[]): string {
 	let line = text.split("\n")[0] ?? "";
 	for (const name of names) line = line.split(`@${name}`).join("");
-	const title = line.replace(/\s+/g, " ").trim().slice(0, 512);
+	const said = line.replace(/\s+/g, " ").trim();
+	// A title is short: the first sentence, and no more than fits on one line.
+	const sentence = said.match(/^(.+?[.?!])(\s|$)/)?.[1] ?? said;
+	const title =
+		sentence.length <= TITLE_MAX
+			? sentence
+			: `${sentence.slice(0, TITLE_MAX).replace(/\s+\S*$/, "")}…`;
 	return title || `With ${names.join(", ")}`;
 }
+
+const TITLE_MAX = 64;
