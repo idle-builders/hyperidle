@@ -1263,16 +1263,26 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				// Deliver directly into a live run when possible — avoids spawning a
 				// new work intent for an agent that is already running and waiting.
 				if (deps.tryDeliverToActiveRun !== undefined && input.text !== undefined) {
-					if (deliverSenderName === undefined) {
-						deliverSenderName =
-							(await deps.users.getUserById(ctx.db, ctx.actor))?.name ?? ctx.actor;
+					try {
+						if (deliverSenderName === undefined) {
+							deliverSenderName =
+								(await deps.users.getUserById(ctx.db, ctx.actor))?.name ?? ctx.actor;
+						}
+						const deliveryResult = await deps.tryDeliverToActiveRun(
+							agentId,
+							effectiveThreadId,
+							`${deliverSenderName} wrote in the conversation: ${input.text}`,
+						);
+						if (deliveryResult === "delivered") continue;
+					} catch (deliverErr) {
+						// Deliver threw (e.g. adapter bug, unbound method) — log and fall through
+						// to the normal queue path so the message still reaches the agent.
+						logger.warn("deliver to active run failed, queuing instead", {
+							messageId,
+							agentId,
+							error: deliverErr instanceof Error ? deliverErr.message : String(deliverErr),
+						});
 					}
-					const deliveryResult = await deps.tryDeliverToActiveRun(
-						agentId,
-						effectiveThreadId,
-						`${deliverSenderName} wrote in the conversation: ${input.text}`,
-					);
-					if (deliveryResult === "delivered") continue;
 				}
 				const bakedRequest = await resolveThreadTurnRequest(ctx.db, messageId, agentId, {
 					requireRunnableAgent: deps.agents.requireRunnableAgent,

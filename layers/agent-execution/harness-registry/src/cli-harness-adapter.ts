@@ -286,7 +286,7 @@ interface CliSession {
 	 * True while stdin is open for json-stream delivery. Set at spawn, cleared
 	 * on the first result event (or process exit).
 	 *
-	 * @lore: stdinOpen — guards deliver() against writing to a closed stream; cleared on result because a deliver written before result is always incorporated by claude in that same turn
+	 * @lore: stdinOpen — guards deliver() against a closed stream; cleared on result because a pre-result deliver is batched into that same turn
 	 */
 	stdinOpen: boolean;
 }
@@ -629,7 +629,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			detached: true,
 		});
 
-		// @lore: cli-adapter-stdin — for json-stream delivery stdin stays open: prompt is written as a JSON line and subsequent delivers may follow; for all other adapters (codex/opencode/cursor-agent) stdin closes immediately because they deliver the prompt via argv
+		// @lore: cli-adapter-stdin — json-stream: stdin stays open for delivers; codex/opencode/cursor-agent: stdin closes at spawn, prompt via argv
 		if (this.config.stdinDelivery !== "json-stream") {
 			child.stdin?.end();
 		}
@@ -1374,7 +1374,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 						},
 						{ pending: true },
 					);
-					// @lore: json-stream stdin close — unconditional on result; a deliver written before result is batched into that same turn by claude, so the result already reflects it; a deliver written after result returns "unsupported" (stdinOpen=false) and falls back to the queue
+					// @lore: json-stream stdin close — unconditional on result; pre-result deliver batches into that turn; post-result returns "unsupported" and falls back to queue
 					if (session.stdinOpen) {
 						session.child.stdin?.end();
 						session.stdinOpen = false;

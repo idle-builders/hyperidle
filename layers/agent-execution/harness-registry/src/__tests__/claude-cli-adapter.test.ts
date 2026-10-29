@@ -11,6 +11,7 @@
 
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
 import type { HarnessEvent } from "@hyperidle/harness-protocol";
 import { describe, expect, it, vi } from "vitest";
 import { preMapClaudeEvent } from "../harness-event-normalization.js";
@@ -27,8 +28,15 @@ describe("CLAUDE_CLI_CONFIG shape", () => {
 		expect(CLAUDE_CLI_CONFIG.binary).toBe("claude");
 	});
 
-	it("args include -p (headless prompt flag)", () => {
-		expect(CLAUDE_CLI_CONFIG.args).toContain("-p");
+	it("args include --input-format stream-json (stdin delivery mode)", () => {
+		const args = CLAUDE_CLI_CONFIG.args;
+		const idx = args.indexOf("--input-format");
+		expect(idx).toBeGreaterThanOrEqual(0);
+		expect(args[idx + 1]).toBe("stream-json");
+	});
+
+	it("args include --replay-user-messages (enables mid-run stdin delivers)", () => {
+		expect(CLAUDE_CLI_CONFIG.args).toContain("--replay-user-messages");
 	});
 
 	it("args include --output-format stream-json", () => {
@@ -110,9 +118,11 @@ function makeFakeChild(): {
 	proc: ChildProcess;
 	emitExit: (code: number | null, signal: string | null) => void;
 } {
+	const stdin = new PassThrough();
 	const stdout = new EventEmitter() as NodeJS.ReadableStream & EventEmitter;
 	const stderr = new EventEmitter() as NodeJS.ReadableStream & EventEmitter;
 	const proc = new EventEmitter() as ChildProcess;
+	(proc as unknown as { stdin: unknown }).stdin = stdin;
 	(proc as unknown as { stdout: unknown }).stdout = stdout;
 	(proc as unknown as { stderr: unknown }).stderr = stderr;
 	(proc as unknown as { pid: number }).pid = 99999;
@@ -157,7 +167,7 @@ describe("CliHarnessAdapter(CLAUDE_CLI_CONFIG) spawn behavior", () => {
 		expect(spawnSpy).toHaveBeenCalledOnce();
 		const [binary, args] = spawnSpy.mock.calls[0] as [string, string[], unknown];
 		expect(binary).toBe("claude");
-		expect(args).toContain("-p");
+		expect(args).toContain("--input-format");
 		expect(args).toContain("--output-format");
 		expect(args).toContain("stream-json");
 		expect(args).toContain("--model");

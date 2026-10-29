@@ -14,7 +14,11 @@ describe("sessionRunRegistry — deliver", () => {
 			adapter: {
 				startSession: async () => ({ sessionId: "" }),
 				streamEvents: async function* () {},
-				stopSession: async () => ({ outcome: "completed" as const, metrics: undefined }),
+				stopSession: async () => ({
+					outcome: "completed" as const,
+					tokenUsage: { byTier: {} },
+					metrics: undefined,
+				}),
 				getCapabilities: () => ({
 					preCompactionTrigger: false,
 					subAgents: false,
@@ -43,7 +47,11 @@ describe("sessionRunRegistry — deliver", () => {
 			adapter: {
 				startSession: async () => ({ sessionId: "" }),
 				streamEvents: async function* () {},
-				stopSession: async () => ({ outcome: "completed" as const, metrics: undefined }),
+				stopSession: async () => ({
+					outcome: "completed" as const,
+					tokenUsage: { byTier: {} },
+					metrics: undefined,
+				}),
 				getCapabilities: () => ({
 					preCompactionTrigger: false,
 					subAgents: false,
@@ -69,7 +77,11 @@ describe("sessionRunRegistry — deliverToConversation", () => {
 			adapter: {
 				startSession: async () => ({ sessionId: "" }),
 				streamEvents: async function* () {},
-				stopSession: async () => ({ outcome: "completed" as const, metrics: undefined }),
+				stopSession: async () => ({
+					outcome: "completed" as const,
+					tokenUsage: { byTier: {} },
+					metrics: undefined,
+				}),
 				getCapabilities: () => ({
 					preCompactionTrigger: false,
 					subAgents: false,
@@ -101,7 +113,11 @@ describe("sessionRunRegistry — deliverToConversation", () => {
 			adapter: {
 				startSession: async () => ({ sessionId: "" }),
 				streamEvents: async function* () {},
-				stopSession: async () => ({ outcome: "completed" as const, metrics: undefined }),
+				stopSession: async () => ({
+					outcome: "completed" as const,
+					tokenUsage: { byTier: {} },
+					metrics: undefined,
+				}),
 				getCapabilities: () => ({
 					preCompactionTrigger: false,
 					subAgents: false,

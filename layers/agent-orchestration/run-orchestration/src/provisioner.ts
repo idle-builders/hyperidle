@@ -127,6 +127,8 @@ interface SessionLifecycleHarnessAdapter {
 			readonly mcpTokenEnv?: Readonly<Record<string, string>>;
 		},
 	): Promise<SessionHandle>;
+	/** Deliver a user message into an already-running session via stdin. Optional. */
+	deliver?(handle: SessionHandle, text: string): Promise<"delivered" | "unsupported">;
 }
 
 interface SessionLifecycleAdapterMeta {
@@ -1654,7 +1656,7 @@ async function runSession(
 				);
 			} else {
 				harnessHandle = await harness.startSession(sessionStartConfig as SessionConfig);
-				// @lore: immediate harnessSessionId write — claude assigns via --session-id before spawn, so getNativeSessionId works right away; write to DB now so review verdicts and deliver calls can find the session even if the stream is still running
+				// @lore: immediate harnessSessionId write — --session-id assigned before spawn so getNativeSessionId is sync; write to DB now so verdicts can find the session
 				const immediateNativeId = harness.getNativeSessionId?.(harnessHandle);
 				if (immediateNativeId) {
 					try {
@@ -1664,16 +1666,17 @@ async function runSession(
 							.where(eq(sessions.id, sessionId));
 					} catch (writeErr) {
 						logger.warn(
-							`[session-provisioning] immediate harnessSessionId write failed for session ${sessionId}:`,
-							writeErr,
+							`[session-provisioning] immediate harnessSessionId write failed for session ${sessionId}`,
+							{
+								error: writeErr instanceof Error ? writeErr.message : String(writeErr),
+							},
 						);
 					}
 				}
 			}
-			// Capture handle and deliver as consts — harnessHandle is non-null here (just set above)
+			// Capture handle as a const — harnessHandle is non-null here (just set above)
 			// but TypeScript sees it as SessionHandle | null since it's a `let`; consts narrow cleanly.
 			const registeredHandle = harnessHandle as SessionHandle;
-			const adapterDeliver = harness.deliver;
 			ports.sessionRequests.registerSessionRun(sessionId, {
 				signalAbort: (reason) => {
 					aborted = true;
@@ -1681,10 +1684,13 @@ async function runSession(
 				},
 				handle: registeredHandle,
 				adapter: harness,
-				// Pre-bind deliver so the registry holds a simple (text) => Promise fn
-				...(adapterDeliver !== undefined
+				// Pre-bind deliver so the registry holds a simple (text) => Promise fn.
+				// @lore: deliver binding — call as harness.deliver?.(…), never const fn=harness.deliver; fn(…); unbound fn loses `this` and crashes on this.config
+				...(harness.deliver !== undefined
 					? {
-							deliver: (text: string) => adapterDeliver(registeredHandle, text),
+							deliver: (text: string) =>
+								harness.deliver?.(registeredHandle, text) ??
+								Promise.resolve("unsupported" as const),
 							agentId: params.agentId,
 							...(params.callingThreadId ? { threadId: params.callingThreadId } : {}),
 						}
