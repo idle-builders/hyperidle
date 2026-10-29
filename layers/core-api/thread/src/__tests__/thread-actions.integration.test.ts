@@ -1548,3 +1548,107 @@ describe("comments on a document's text, and the changes they propose", () => {
 		expect((await stored(id)).resolvedAt).toBeNull();
 	});
 });
+
+// ============================================================================
+// mark_review_opened
+// ============================================================================
+
+describe("mark_review_opened", () => {
+	test("opening a review drops the 'review' need for that viewer", async ({ db }) => {
+		const eventBus = new EventBus();
+		const actions = createThreadActions(threadDeps());
+		await seedTeam(db, "mro-team");
+		await seedHuman(db, "mro-reviewer", "mro-team");
+		await seedAgent(db, "mro-agent", "mro-team");
+		await seedThreadRow(db, "mro-thread", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID, "mro-reviewer", "mro-agent"],
+		});
+
+		const sent = await call<{ message: { id: string } }>(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{ threadId: "mro-thread", review: { title: "Please review", reasoning: ["Looks good"] } },
+			"mro-agent",
+		);
+		const reviewId = sent.body.data?.message.id as string;
+
+		const before = await call<Array<{ id: string; need: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{ ids: ["mro-thread"] },
+			"mro-reviewer",
+		);
+		expect(before.body.data?.find((r) => r.id === "mro-thread")?.need).toBe("review");
+
+		await call(actions, db, eventBus, "mark_review_opened", { reviewMessageId: reviewId }, "mro-reviewer");
+
+		const after = await call<Array<{ id: string; need: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{ ids: ["mro-thread"] },
+			"mro-reviewer",
+		);
+		expect(after.body.data?.find((r) => r.id === "mro-thread")?.need).toBeNull();
+	});
+
+	test("opening the current round drops need even when an older round is still unresolved (superseded)", async ({
+		db,
+	}) => {
+		const eventBus = new EventBus();
+		const actions = createThreadActions(threadDeps());
+		await seedTeam(db, "mro2-team");
+		await seedAgent(db, "mro2-agent", "mro2-team");
+		await seedThreadRow(db, "mro2-thread", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID, "mro2-agent"],
+		});
+
+		const r1 = await call<{ message: { id: string } }>(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{ threadId: "mro2-thread", review: { title: "Round 1", reasoning: ["First pass"] } },
+			"mro2-agent",
+		);
+		const r1Id = r1.body.data?.message.id as string;
+
+		const r2 = await call<{ message: { id: string } }>(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{
+				threadId: "mro2-thread",
+				review: { title: "Round 2", reasoning: ["Second pass"], previousReviewId: r1Id },
+			},
+			"mro2-agent",
+		);
+		const r2Id = r2.body.data?.message.id as string;
+
+		// Viewer opens the current round. Need should drop to null because:
+		// - R2 is opened (not counted for this viewer)
+		// - R1 is superseded by R2 (not counted either)
+		await call(actions, db, eventBus, "mark_review_opened", { reviewMessageId: r2Id });
+
+		const after = await call<Array<{ id: string; need: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{ ids: ["mro2-thread"] },
+		);
+		expect(after.body.data?.find((r) => r.id === "mro2-thread")?.need).toBeNull();
+	});
+});

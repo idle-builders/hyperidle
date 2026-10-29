@@ -5,7 +5,14 @@
 
 export { createThreadActions, type ThreadActionsDeps } from "./thread-actions.js";
 export type { MessageFilter, ThreadFilter, ThreadSearchRow } from "./thread-service.js";
-export { findThread, listMessages, listThreads, searchConversations } from "./thread-service.js";
+export {
+	findThread,
+	listMessages,
+	listReviewsOpenedBy,
+	listThreads,
+	searchConversations,
+	upsertReviewOpened,
+} from "./thread-service.js";
 export { registerThreadSessionLiveUpdates } from "./thread-session-live-updates.js";
 export type { BakedThreadTurnRequest, ThreadTurnResolverDeps } from "./thread-turn-resolver.js";
 export { resolveThreadTurnRequest } from "./thread-turn-resolver.js";

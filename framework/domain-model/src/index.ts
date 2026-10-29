@@ -111,6 +111,7 @@ export type { TaskNeed } from "./actions/task-need.js";
 export { computeTaskNeed } from "./actions/task-need.js";
 export type {
 	AdjustThreadInput,
+	MarkReviewOpenedInput,
 	AnswerPayload,
 	Identity,
 	Message,
@@ -138,6 +139,8 @@ export {
 	entityRefSchema,
 	IdentitySchema,
 	inlineRefSchema,
+	MarkReviewOpenedInputSchema,
+	markReviewOpened,
 	MessageSchema,
 	mentionRefSchema,
 	OpenThreadInputSchema,

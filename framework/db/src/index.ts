@@ -39,6 +39,8 @@ export {
 	type PluginRow,
 	pluginContributions,
 	plugins,
+	type ReviewOpened,
+	reviewOpened,
 	type ReviewSessionRow,
 	reviewSessions,
 	type ServiceConnectionRow,
