@@ -1252,7 +1252,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						actor: resolvesMessageRow.senderId,
 						db: ctx.db,
 						eventBus: ctx.eventBus,
-						now: ctx.now,
+						// @lore: fresh now — the notice is sent after the verdict commits; using ctx.now ties their createdAt, making listLastMessagePerThread order non-deterministic
+						now: new Date().toISOString(),
 					},
 					{
 						threadId: effectiveThreadId,
