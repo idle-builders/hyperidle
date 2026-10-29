@@ -1304,7 +1304,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						actor: resolvesMessageRow.senderId,
 						db: ctx.db,
 						eventBus: ctx.eventBus,
-						now: ctx.now,
+						// @lore: the notice must sort after the verdict it answers; sharing ctx.now ties their createdAt and the newest-message pick goes random
+						now: new Date(Math.max(Date.now(), Date.parse(ctx.now) + 1)).toISOString(),
 					},
 					{
 						threadId: effectiveThreadId,
