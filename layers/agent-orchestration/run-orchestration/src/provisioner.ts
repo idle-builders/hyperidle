@@ -446,6 +446,10 @@ interface SessionLifecyclePorts {
 				signalAbort(reason: "stop" | "return"): void;
 				handle: SessionHandle;
 				adapter: SessionLifecycleHarnessAdapter;
+				/** Pre-bound deliver fn; absent when the adapter doesn't support stdin delivery. */
+				deliver?: (text: string) => Promise<"delivered" | "unsupported">;
+				agentId?: string;
+				threadId?: string;
 			},
 		): void;
 		deregisterSessionRun(sessionId: string): void;
@@ -1647,14 +1651,38 @@ async function runSession(
 				);
 			} else {
 				harnessHandle = await harness.startSession(sessionStartConfig as SessionConfig);
+				// @lore: immediate harnessSessionId write — claude assigns via --session-id before spawn, so getNativeSessionId works right away; write to DB now so review verdicts and deliver calls can find the session even if the stream is still running
+				const immediateNativeId = harness.getNativeSessionId?.(harnessHandle);
+				if (immediateNativeId) {
+					try {
+						await deps.db
+							.update(sessions)
+							.set({ harnessSessionId: immediateNativeId })
+							.where(eq(sessions.id, sessionId));
+					} catch {
+						// non-fatal — the phase-11 write will retry; resume-ability may be degraded
+					}
+				}
 			}
+			// Capture handle and deliver as consts — harnessHandle is non-null here (just set above)
+			// but TypeScript sees it as SessionHandle | null since it's a `let`; consts narrow cleanly.
+			const registeredHandle = harnessHandle as SessionHandle;
+			const adapterDeliver = harness.deliver;
 			ports.sessionRequests.registerSessionRun(sessionId, {
 				signalAbort: (reason) => {
 					aborted = true;
 					if (reason === "stop") stopRequested = true;
 				},
-				handle: harnessHandle,
+				handle: registeredHandle,
 				adapter: harness,
+				// Pre-bind deliver so the registry holds a simple (text) => Promise fn
+				...(adapterDeliver !== undefined
+					? {
+							deliver: (text: string) => adapterDeliver(registeredHandle, text),
+							agentId: params.agentId,
+							...(params.callingThreadId ? { threadId: params.callingThreadId } : {}),
+						}
+					: {}),
 			});
 		}
 		onHarnessStarted?.();

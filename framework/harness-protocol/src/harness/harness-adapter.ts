@@ -263,4 +263,14 @@ export interface HarnessAdapter {
 		message: string,
 		config: SessionResumeConfig,
 	): Promise<SessionHandle>;
+
+	/**
+	 * Optional: Deliver a new user message into an already-running session
+	 * without starting a new run. Only supported by adapters that keep stdin
+	 * open after spawn (stdinDelivery: "json-stream").
+	 *
+	 * Returns "delivered" on success, "unsupported" when the adapter or session
+	 * cannot accept in-flight messages.
+	 */
+	deliver?(handle: SessionHandle, text: string): Promise<"delivered" | "unsupported">;
 }

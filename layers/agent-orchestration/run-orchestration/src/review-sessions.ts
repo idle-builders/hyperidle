@@ -97,6 +97,16 @@ export type ResumeIntentEnqueuer = (input: {
  *   answered something that will not reach anyone, so they have to be told.
  * - **queued** — the resume is durable and the drain will carry it.
  */
+/**
+ * Optional: try delivering the verdict directly into a still-running session
+ * via stdin, bypassing the resume queue. Returns "delivered" on success,
+ * "not_found" or "unsupported" to fall through to the normal queue path.
+ */
+export type LiveSessionDeliverer = (
+	sessionId: string,
+	text: string,
+) => Promise<"delivered" | "unsupported" | "not_found">;
+
 export async function recordReviewVerdict(
 	db: HyperIdleDb,
 	input: SessionResumeReply & {
@@ -106,6 +116,7 @@ export async function recordReviewVerdict(
 		readonly agentConfig?: BakedAgentRunnableConfig;
 	},
 	enqueue: ResumeIntentEnqueuer,
+	tryDeliverToLive?: LiveSessionDeliverer,
 ): Promise<ReviewVerdictOutcome> {
 	const link = await findReviewSession(db, input.reviewMessageId);
 	if (!link) return { status: "not_a_review_session" };
@@ -117,6 +128,16 @@ export async function recordReviewVerdict(
 			reason: `the session that asked (${link.sessionId}) no longer exists`,
 		};
 	}
+
+	// Try delivering to an active run via stdin before queuing a resume intent.
+	if (tryDeliverToLive !== undefined) {
+		const verdictText = buildVerdictText(input);
+		const deliveryResult = await tryDeliverToLive(link.sessionId, verdictText);
+		if (deliveryResult === "delivered") {
+			return { status: "queued" };
+		}
+	}
+
 	if (!session.harnessSessionId) {
 		return {
 			status: "not_resumable",
@@ -147,4 +168,13 @@ export async function recordReviewVerdict(
 		},
 	});
 	return { status: "queued" };
+}
+
+function buildVerdictText(
+	input: SessionResumeReply & { readonly reviewMessageId: string; readonly decidedBy: string },
+): string {
+	const parts = [`Review verdict: ${input.decision}`];
+	if (input.note !== undefined) parts.push(`Note: ${input.note}`);
+	if (input.answer !== undefined) parts.push(`Answer: ${input.answer}`);
+	return parts.join(". ");
 }

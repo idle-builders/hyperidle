@@ -99,6 +99,17 @@ export interface ThreadActionsDeps {
 	readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
 	readonly linkReviewToSession: (sessionId: string, reviewMessageId: string) => Promise<void>;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
+	/**
+	 * Optional: deliver a message directly into a live agent run for the given
+	 * (agentId, threadId) pair, bypassing the work-intent queue.
+	 * Returns "delivered" when the message reached the running session,
+	 * "not_delivered" when no live session was found or delivery was unsupported.
+	 */
+	readonly tryDeliverToActiveRun?: (
+		agentId: string,
+		threadId: string,
+		text: string,
+	) => Promise<"delivered" | "not_delivered">;
 }
 
 // ---------------------------------------------------------------------------
@@ -1246,6 +1257,16 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		// wake
 		for (const agentId of woken.filter((id) => id !== resumed)) {
 			try {
+				// Deliver directly into a live run when possible — avoids spawning a
+				// new work intent for an agent that is already running and waiting.
+				if (deps.tryDeliverToActiveRun !== undefined && input.text !== undefined) {
+					const deliveryResult = await deps.tryDeliverToActiveRun(
+						agentId,
+						effectiveThreadId,
+						input.text,
+					);
+					if (deliveryResult === "delivered") continue;
+				}
 				const bakedRequest = await resolveThreadTurnRequest(ctx.db, messageId, agentId, {
 					requireRunnableAgent: deps.agents.requireRunnableAgent,
 					// `resolveThreadTurnRequest`'s dep shape only threads `db`,

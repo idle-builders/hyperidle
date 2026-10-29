@@ -145,6 +145,18 @@ interface CliAdapterConfig {
 	 * @lore: codex-stderr-filter — codex emits "Reading additional input from stdin..." on startup even with closed stdin; without filter: CliStderr → crashed=true
 	 */
 	readonly stderrIgnorePatterns?: readonly RegExp[];
+	/**
+	 * Stdin delivery mode for this adapter.
+	 *
+	 * "json-stream" — stdin stays open after spawn; the first user prompt and
+	 * any subsequent deliver() calls are written as JSON lines in the
+	 * claude --input-format stream-json format. The binary exits when stdin
+	 * is closed (triggered automatically after the result event).
+	 *
+	 * Absent — stdin is closed immediately after spawn (existing behaviour for
+	 * codex/opencode/cursor-agent, which deliver the prompt via argv).
+	 */
+	readonly stdinDelivery?: "json-stream";
 }
 
 /** Injected dependencies (for testing). */
@@ -270,6 +282,13 @@ interface CliSession {
 	 * emit one before the session ends).
 	 */
 	nativeSessionId?: string;
+	/**
+	 * True while stdin is open for json-stream delivery. Set at spawn, cleared
+	 * when stdin is closed (on result event or process exit).
+	 *
+	 * @lore: stdinOpen — guards deliver() against writing to a closed stream; cleared in parseStdoutLine on result
+	 */
+	stdinOpen: boolean;
 }
 
 /** Replace all template variables in a string. */
@@ -610,8 +629,10 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			detached: true,
 		});
 
-		// @lore: cli-adapter-stdin — prompt delivered via argv; leaving stdin open causes codex to block for EOF; all supported binaries use argv; none read stdin
-		child.stdin?.end();
+		// @lore: cli-adapter-stdin — for json-stream delivery stdin stays open: prompt is written as a JSON line and subsequent delivers may follow; for all other adapters (codex/opencode/cursor-agent) stdin closes immediately because they deliver the prompt via argv
+		if (this.config.stdinDelivery !== "json-stream") {
+			child.stdin?.end();
+		}
 
 		const sessionId = `cli-session-${nextId++}`;
 
@@ -656,9 +677,21 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// for claude, we assigned this at start time; for all other harnesses
 			// it is captured from the event stream (set in parseStdoutLine).
 			nativeSessionId: claudeAssignedSessionId,
+			stdinOpen: this.config.stdinDelivery === "json-stream",
 		};
 
 		this.sessions.set(sessionId, session);
+
+		// For json-stream delivery: write the first user message as a JSON line now that
+		// the session is registered. Stdin stays open for subsequent deliver() calls.
+		if (this.config.stdinDelivery === "json-stream") {
+			const promptText = config.instruction?.trim() ?? "proceed";
+			const line = JSON.stringify({
+				type: "user",
+				message: { role: "user", content: [{ type: "text", text: promptText }] },
+			});
+			child.stdin?.write(`${line}\n`);
+		}
 
 		// for claude, persist the assigned id immediately so getNativeSessionId
 		// works even after stopSession removes the session from `sessions`.
@@ -1230,6 +1263,19 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		return { sessionId };
 	}
 
+	deliver(handle: SessionHandle, text: string): Promise<"delivered" | "unsupported"> {
+		if (this.config.stdinDelivery !== "json-stream") return Promise.resolve("unsupported");
+		const session = this.sessions.get(handle.sessionId);
+		if (!session?.stdinOpen || session.child.stdin?.destroyed)
+			return Promise.resolve("unsupported");
+		const line = JSON.stringify({
+			type: "user",
+			message: { role: "user", content: [{ type: "text", text }] },
+		});
+		session.child.stdin?.write(`${line}\n`);
+		return Promise.resolve("delivered");
+	}
+
 	getCapabilities(): HarnessCapabilities {
 		return {
 			preCompactionTrigger: false, // External CLI tools don't expose compaction signals
@@ -1321,6 +1367,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 						},
 						{ pending: true },
 					);
+					// @lore: json-stream stdin close on result — one result event covers ALL messages including mid-run delivers; closing here lets claude exit cleanly
+					if (session.stdinOpen) {
+						session.child.stdin?.end();
+						session.stdinOpen = false;
+					}
 				}
 
 				if (obj.type === "step_finish" && session && shouldRecordMetrics) {
