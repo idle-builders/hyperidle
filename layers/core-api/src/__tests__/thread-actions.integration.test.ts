@@ -1704,7 +1704,10 @@ describe("send_message — review requires a task for agents", () => {
 			.where(eq(threads.id, threadId));
 
 		const actions = buildRealActions(agentOrchestration);
-		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(actions, "send_message");
+		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
+			actions,
+			"send_message",
+		);
 
 		// ctx.caller is set (agent session) but taskId is null — gate fires
 		const result = await sendRun(
@@ -1739,7 +1742,10 @@ describe("send_message — review requires a task for agents", () => {
 			.where(eq(threads.id, threadId));
 
 		const actions = buildRealActions(agentOrchestration);
-		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(actions, "send_message");
+		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
+			actions,
+			"send_message",
+		);
 
 		// ctx.caller.taskId is the task run's own task — stamped by the server
 		const result = await sendRun(
@@ -1777,7 +1783,10 @@ describe("send_message — review requires a task for agents", () => {
 		});
 
 		const actions = buildRealActions(agentOrchestration);
-		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(actions, "send_message");
+		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
+			actions,
+			"send_message",
+		);
 
 		// ctx.caller.taskId is null (conversation turn), but the agent names a taskId in the body
 		const result = await sendRun(

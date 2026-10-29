@@ -9,10 +9,7 @@ import { reviewOrientation } from "../provisioner.js";
 
 describe("reviewOrientation — tool names are harness-literal", () => {
 	it("uses the MCP-namespaced names for claude-code adapters", () => {
-		const text = reviewOrientation(
-			"mcp__hyperidle__send_message",
-			"mcp__hyperidle__create_task",
-		);
+		const text = reviewOrientation("mcp__hyperidle__send_message", "mcp__hyperidle__create_task");
 		expect(text).toContain("`mcp__hyperidle__send_message`");
 		expect(text).toContain("`mcp__hyperidle__create_task`");
 	});

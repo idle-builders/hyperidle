@@ -691,8 +691,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		// -- 2. pure invariants ---------------------------------------------------
 		const problems: Problem[] = [...taskInvariants(next, prev ? toTask(prev) : null)];
 
-		// @lore: state:"review" can only be reached via sendMessage review card (moveTaskToReview dep);
-		// edit_task is blocked for all external callers — the card is the gate.
+		// @lore: only a review card moves a task to review (internal path); edit_task refuses it for every outside caller
 		if (
 			next.state === "review" &&
 			(prev === null || (prev.state as string) !== "review") &&

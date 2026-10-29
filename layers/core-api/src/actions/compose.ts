@@ -161,7 +161,7 @@ function lazySearchDocuments(getDocumentActions: () => readonly Action[]): Searc
 		);
 }
 
-// @lore: lazy to break build-order cycle (task is built after thread, but a review card must move its task to review state) — do NOT eagerly resolve at build time
+// @lore: resolved lazily — task actions are built after thread actions, yet a review card must move its task to review
 function lazyMoveTaskToReview(
 	getTaskActions: () => readonly Action[],
 ): (taskId: string, ctx: ActionContext) => Promise<void> {

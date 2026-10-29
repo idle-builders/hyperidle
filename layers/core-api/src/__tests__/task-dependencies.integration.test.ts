@@ -486,10 +486,7 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 	// regardless of how the task reached review state.
 	// ---------------------------------------------------------------------
 	describe("the review -> in_progress door is closed while a dependency is unfinished", () => {
-		test("review -> in_progress is refused, dependency still unfinished", async ({
-			db,
-			app,
-		}) => {
+		test("review -> in_progress is refused, dependency still unfinished", async ({ db, app }) => {
 			await seedTeam(db, "dep-b1c3");
 			await insertTask(db, "dep-b1c3-dep", "dep-b1c3", "proposed");
 			// Seed directly in review state — edit_task blocks state:review (requires a card)

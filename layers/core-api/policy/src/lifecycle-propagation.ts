@@ -171,7 +171,14 @@ async function propagateTaskToParent(
 			if (needsHumanReview(ancestor.doneWhen)) {
 				if (ancestor.parentTaskId === null) {
 					// Root: send ship confirmation; the review card moves root to review state.
-					await createShipConfirmationThread(db, eventBus, ancestorId, ancestor.threadId, children, deps);
+					await createShipConfirmationThread(
+						db,
+						eventBus,
+						ancestorId,
+						ancestor.threadId,
+						children,
+						deps,
+					);
 				}
 				// @lore: stays in_progress until an agent sends the review card; non-root stops cascade naturally
 				continue;
