@@ -98,6 +98,8 @@ export interface ThreadActionsDeps {
 	readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
 	readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
 	readonly linkReviewToSession: (sessionId: string, reviewMessageId: string) => Promise<void>;
+	/** Move a task to `review` state after a review card is filed for it. Called after the message is committed. */
+	readonly moveTaskToReview: (taskId: string, ctx: ActionContext) => Promise<void>;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
 }
 
@@ -727,11 +729,27 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		const messageId = input.messageId ?? randomUUID();
 		const clientKey = input.clientKey ?? randomUUID();
 		const body = messageBodyOf(input);
-		// The review's task is stamped by the server from the calling session,
-		// never accepted from the caller's input — the input schema already
-		// omits `taskId` from `review`.
-		if (body.type === "review" && ctx.caller?.taskId) {
-			body.payload = { ...body.payload, taskId: ctx.caller.taskId };
+		// Resolve the review's taskId: from the session (task run) or from caller input (conversation turn).
+		// @lore: session callers (agents) without a taskId are refused — every review must live on a task
+		let reviewTaskId: string | null = null;
+		if (body.type === "review") {
+			reviewTaskId =
+				ctx.caller?.taskId ?? (input.review as { taskId?: string } | undefined)?.taskId ?? null;
+			if (ctx.caller !== undefined && reviewTaskId === null) {
+				return {
+					ok: false,
+					problems: [
+						{
+							code: "review_requires_task",
+							message:
+								"A review belongs to a task. Create the task first (create_task), do the work on it, then send the review with its taskId.",
+						},
+					],
+				};
+			}
+			if (reviewTaskId !== null) {
+				body.payload = { ...body.payload, taskId: reviewTaskId };
+			}
 		}
 
 		let threadRow: Awaited<ReturnType<typeof store.findThread>> | undefined;
@@ -769,15 +787,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			});
 			if (existing) {
 				const candidatePayload = messageBodyOf(input);
-				// The stored payload for a `review` carries the server-stamped
-				// `taskId` — the candidate must be stamped
-				// the same way before comparing, or a retry from a session (same
-				// review, same clientKey) mismatches its own prior write and
-				// answers `idempotency_conflict` instead of the original.
-				if (candidatePayload.type === "review" && ctx.caller?.taskId) {
+				// The stored payload for a `review` carries the resolved taskId —
+				// the candidate must carry the same so a retry matches its own prior write.
+				if (candidatePayload.type === "review" && reviewTaskId !== null) {
 					candidatePayload.payload = {
 						...candidatePayload.payload,
-						taskId: ctx.caller.taskId,
+						taskId: reviewTaskId,
 					};
 				}
 				const sameType = existing.type === candidatePayload.type;
@@ -1186,6 +1201,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			await deps.linkReviewToSession(ctx.caller.sessionId, messageId);
 		}
 
+		if (body.type === "review" && reviewTaskId !== null) {
+			await deps.moveTaskToReview(reviewTaskId, ctx);
+		}
+
 		const reply = replyOf(input);
 		// The agent whose own session a verdict or answer brings back; it gets no second run.
 		let resumed: string | null = null;
@@ -1233,8 +1252,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						actor: resolvesMessageRow.senderId,
 						db: ctx.db,
 						eventBus: ctx.eventBus,
-						// One tick after the verdict, so the notice reads as the answer to it rather than tying.
-						now: new Date(Date.parse(ctx.now) + 1).toISOString(),
+						// @lore: the notice must sort after the verdict it answers; sharing ctx.now ties their createdAt and the newest-message pick goes random
+						now: new Date(Math.max(Date.now(), Date.parse(ctx.now) + 1)).toISOString(),
 					},
 					{
 						threadId: effectiveThreadId,
