@@ -2,8 +2,8 @@
 	"tableOwners": true,
 	"note": "Every table names the ONE service that may read and write it. A table absent from this file is a build error, never a silently skipped row \u2014 completeness is the point. Owners are package names, never paths (Ruling 5).",
 	"totals": {
-		"tables": 23,
-		"owned": 23,
+		"tables": 24,
+		"owned": 24,
 		"unowned": 0
 	},
 	"owners": {
@@ -29,7 +29,8 @@
 		"agentRunConfig": "run-orchestration",
 		"taskDispatchAttempts": "task",
 		"sessions": "run-orchestration",
-		"reviewSessions": "run-orchestration"
+		"reviewSessions": "run-orchestration",
+		"reviewOpened": "thread"
 	},
 	"unowned": {
 		"note": "Ruling 6 \u2014 no unowned tables, and now there are none. This block stays because the registry's shape declares it and the loader reads it unconditionally; an entry here is a defect, not a category. A table with no owner is a table any package may invent invariants for and none is responsible for keeping.",

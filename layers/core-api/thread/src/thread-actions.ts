@@ -27,10 +27,10 @@ import {
 	type Identity,
 	IdentitySchema,
 	type MarkReviewOpenedInput,
-	markReviewOpened as markReviewOpenedDeclaration,
 	type Message,
 	MessageSchema,
 	type MessageType,
+	markReviewOpened as markReviewOpenedDeclaration,
 	type OpenThreadInput,
 	openThread as openThreadDeclaration,
 	type Problem,
@@ -506,7 +506,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		const agents = new Set(senders.filter((u) => u.kind === "ai").map((u) => u.id));
 		// Filter out opened and superseded reviews; questionnaires are unaffected.
 		const active = open.filter(
-			(m) => m.type !== "review" || (!openedIds.has(m.id) && !supersededIds.has(m.id)),
+			(m) => m.type !== "review" || !(openedIds.has(m.id) || supersededIds.has(m.id)),
 		);
 		const byThread = new Map<string, typeof active>();
 		for (const m of active) byThread.set(m.threadId, [...(byThread.get(m.threadId) ?? []), m]);

@@ -244,7 +244,12 @@ function Review({
 			)}
 			{previewUrl && (
 				<div className="review-thumb" aria-hidden="true">
-					<iframe src={previewUrl} title="" tabIndex={-1} className="review-thumb-frame" />
+					<iframe
+						src={previewUrl}
+						title="Review preview"
+						tabIndex={-1}
+						className="review-thumb-frame"
+					/>
 				</div>
 			)}
 			<div className="review-foot">

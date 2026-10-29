@@ -1587,7 +1587,14 @@ describe("mark_review_opened", () => {
 		);
 		expect(before.body.data?.find((r) => r.id === "mro-thread")?.need).toBe("review");
 
-		await call(actions, db, eventBus, "mark_review_opened", { reviewMessageId: reviewId }, "mro-reviewer");
+		await call(
+			actions,
+			db,
+			eventBus,
+			"mark_review_opened",
+			{ reviewMessageId: reviewId },
+			"mro-reviewer",
+		);
 
 		const after = await call<Array<{ id: string; need: string | null }>>(
 			actions,
