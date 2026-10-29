@@ -26,8 +26,8 @@ describe("isReturnAction — edit_task is gated on the session's own task moving
 		);
 	});
 
-	it("own task + state moves to review ⇒ terminal", () => {
-		expect(isReturnAction("edit_task", { id: "task-1", state: "review" }, "task-1")).toBe(true);
+	it("own task + state moves to review ⇒ NOT terminal (review requires a card, not edit_task)", () => {
+		expect(isReturnAction("edit_task", { id: "task-1", state: "review" }, "task-1")).toBe(false);
 	});
 
 	it("own task + state moves to done ⇒ terminal", () => {

@@ -1,10 +1,9 @@
 /**
- * Pure rule: computeTaskNeed(state, messages, reasons) → TaskNeed.
+ * Pure rule: computeTaskNeed(state, messages) → TaskNeed.
  * Table-driven; one row per distinct branch plus precedence checks.
  */
 
 import { describe, expect, it } from "vitest";
-import type { Reason } from "../actions/task.js";
 import { computeTaskNeed } from "../actions/task-need.js";
 
 type MsgStub = { type: string; resolvedAt: string | null };
@@ -17,18 +16,10 @@ const resolvedQuestionnaire: MsgStub[] = [
 const unresolvedReview: MsgStub[] = [{ type: "review", resolvedAt: null }];
 const resolvedReview: MsgStub[] = [{ type: "review", resolvedAt: "2026-01-01T00:00:00.000Z" }];
 
-const waitingDecision: Reason[] = [
-	{ id: "r1", kind: "decision", what: "Choose DB", state: "waiting", why: null },
-];
-const madeDecision: Reason[] = [
-	{ id: "r1", kind: "decision", what: "Choose DB", state: "made", why: null },
-];
-
 const rows: {
 	label: string;
 	state: string;
 	msgs: MsgStub[];
-	reasons: Reason[];
 	expected: ReturnType<typeof computeTaskNeed>;
 }[] = [
 	// a finished task waits on nobody, even when the conversation it shares still asks
@@ -36,38 +27,27 @@ const rows: {
 		label: "done + open review → none",
 		state: "done",
 		msgs: unresolvedReview,
-		reasons: [],
 		expected: null,
 	},
 	{
 		label: "killed + open question → none",
 		state: "killed",
 		msgs: unresolvedQuestionnaire,
-		reasons: waitingDecision,
 		expected: null,
 	},
 	// stuck
-	{ label: "blocked → stuck", state: "blocked", msgs: none, reasons: [], expected: "stuck" },
+	{ label: "blocked → stuck", state: "blocked", msgs: none, expected: "stuck" },
 	// stuck wins over everything
 	{
 		label: "blocked + questionnaire → stuck (precedence)",
 		state: "blocked",
 		msgs: unresolvedQuestionnaire,
-		reasons: [],
-		expected: "stuck",
-	},
-	{
-		label: "blocked + waiting decision → stuck (precedence)",
-		state: "blocked",
-		msgs: none,
-		reasons: waitingDecision,
 		expected: "stuck",
 	},
 	{
 		label: "blocked + review message → stuck (precedence)",
 		state: "blocked",
 		msgs: unresolvedReview,
-		reasons: [],
 		expected: "stuck",
 	},
 	// input
@@ -75,30 +55,25 @@ const rows: {
 		label: "unresolved questionnaire → input",
 		state: "in_progress",
 		msgs: unresolvedQuestionnaire,
-		reasons: [],
-		expected: "input",
-	},
-	{
-		label: "waiting decision → input",
-		state: "in_progress",
-		msgs: none,
-		reasons: waitingDecision,
 		expected: "input",
 	},
 	{
 		label: "input wins over review message (precedence)",
 		state: "in_progress",
 		msgs: [...unresolvedQuestionnaire, ...unresolvedReview],
-		reasons: [],
 		expected: "input",
 	},
-	// review
-	{ label: "state=review → review", state: "review", msgs: none, reasons: [], expected: "review" },
+	// review — only from an open card, never from state alone
+	{
+		label: "state=review alone → null (no open card)",
+		state: "review",
+		msgs: none,
+		expected: null,
+	},
 	{
 		label: "unresolved review message → review",
 		state: "in_progress",
 		msgs: unresolvedReview,
-		reasons: [],
 		expected: "review",
 	},
 	// null — no signal
@@ -106,23 +81,20 @@ const rows: {
 		label: "in_progress, nothing special → null",
 		state: "in_progress",
 		msgs: none,
-		reasons: [],
 		expected: null,
 	},
-	{ label: "proposed → null", state: "proposed", msgs: none, reasons: [], expected: null },
+	{ label: "proposed → null", state: "proposed", msgs: none, expected: null },
 	// resolved messages don't count
 	{
 		label: "resolved questionnaire → null",
 		state: "in_progress",
 		msgs: resolvedQuestionnaire,
-		reasons: [],
 		expected: null,
 	},
 	{
 		label: "resolved review message → null",
 		state: "in_progress",
 		msgs: resolvedReview,
-		reasons: [],
 		expected: null,
 	},
 	// once you have answered, the agent has it: nothing waits on you
@@ -130,37 +102,20 @@ const rows: {
 		label: "review state, its review decided → null",
 		state: "review",
 		msgs: resolvedReview,
-		reasons: [],
-		expected: null,
-	},
-	{
-		label: "waiting decision, every question answered → null",
-		state: "in_progress",
-		msgs: resolvedQuestionnaire,
-		reasons: waitingDecision,
 		expected: null,
 	},
 	{
 		label: "review state, a later round still open → review",
 		state: "review",
 		msgs: [...resolvedReview, ...unresolvedReview],
-		reasons: [],
 		expected: "review",
-	},
-	// made decision doesn't count
-	{
-		label: "made decision → null",
-		state: "in_progress",
-		msgs: none,
-		reasons: madeDecision,
-		expected: null,
 	},
 ];
 
 describe("computeTaskNeed", () => {
-	for (const { label, state, msgs, reasons, expected } of rows) {
+	for (const { label, state, msgs, expected } of rows) {
 		it(label, () => {
-			expect(computeTaskNeed(state, msgs, reasons)).toBe(expected);
+			expect(computeTaskNeed(state, msgs)).toBe(expected);
 		});
 	}
 });

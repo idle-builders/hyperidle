@@ -1265,7 +1265,7 @@ describe("send_message — review taskId stamping", () => {
 		expect((reviewMessage?.payload as { taskId?: string } | undefined)?.taskId).toBe("tid1-task");
 	});
 
-	test("a review sent over HTTP with a taskId smuggled into the input body is stored without it", async ({
+	test("a review sent over HTTP can carry a caller-supplied taskId (accepted and stored)", async ({
 		db,
 		app,
 	}) => {
@@ -1276,21 +1276,18 @@ describe("send_message — review taskId stamping", () => {
 			.set({ participants: JSON.stringify([FOUNDER_ID]) })
 			.where(eq(threads.id, threadId));
 
-		// No `caller` exists for an HTTP request (action.ts: "filled ONLY by
-		// the MCP loop... Absent for every HTTP call"), so a `taskId` in the
-		// wire body can only be caller-authored input, not a server stamp.
-		// `SendMessageInputSchema.review` omits `taskId`, and the non-strict
-		// nested schema strips an unknown key rather than rejecting the
-		// request — so this returns 200 with the field silently dropped.
+		// HTTP requests have no ctx.caller, so they are not subject to the
+		// agent gate; a taskId in the body is accepted and stored as-is
+		// (moveTaskToReview silently no-ops if the task doesn't exist).
 		const res = await call<{ message: { id: string } }>(app, "send_message", {
 			threadId,
-			review: { title: "smuggled", reasoning: ["x"], taskId: "smuggled-task" },
+			review: { title: "with task", reasoning: ["x"], taskId: "tid2-task" },
 		});
 		expect(res.status).toBe(200);
 		const messageId = res.body.data?.message.id as string;
 
 		const [row] = await db.select().from(messages).where(eq(messages.id, messageId));
-		expect(JSON.parse(row?.payload ?? "{}")).not.toHaveProperty("taskId");
+		expect((JSON.parse(row?.payload ?? "{}") as { taskId?: string }).taskId).toBe("tid2-task");
 	});
 });
 
@@ -1687,5 +1684,128 @@ describe("HTTP door — 422 problem lists", () => {
 		expect(res.status).toBe(422);
 		expect(Array.isArray((res.body as ActionEnvelope<unknown>).problems)).toBe(true);
 		expect((res.body as ActionEnvelope<unknown>).problems?.length ?? 0).toBeGreaterThan(0);
+	});
+});
+
+describe("send_message — review requires a task for agents", () => {
+	test("an agent (ctx.caller set, no taskId) sending a review without naming a task is refused", async ({
+		db,
+		agentOrchestration,
+		eventBus,
+	}) => {
+		await seedTeam(db, "rgt-1");
+		await seedAgent(db, "rgt-agent-1", "rgt-1");
+		const threadId = await seedTaskWithThread(db, "rgt1-task", "rgt-1", {
+			ownerAgentId: "rgt-agent-1",
+		});
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["rgt-agent-1", FOUNDER_ID]) })
+			.where(eq(threads.id, threadId));
+
+		const actions = buildRealActions(agentOrchestration);
+		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
+			actions,
+			"send_message",
+		);
+
+		// ctx.caller is set (agent session) but taskId is null — gate fires
+		const result = await sendRun(
+			{
+				actor: "rgt-agent-1",
+				db,
+				eventBus,
+				now: new Date().toISOString(),
+				caller: { sessionId: "rgt-sess-1", taskId: null, threadId },
+			},
+			{ threadId, review: { title: "My review", reasoning: ["done"] } },
+		);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.problems[0]?.code).toBe("review_requires_task");
+		}
+	});
+
+	test("an agent in a task run sends a review and the task moves to review state", async ({
+		db,
+		agentOrchestration,
+		eventBus,
+	}) => {
+		await seedTeam(db, "rgt-2");
+		await seedAgent(db, "rgt-agent-2", "rgt-2");
+		const threadId = await seedTaskWithThread(db, "rgt2-task", "rgt-2", {
+			ownerAgentId: "rgt-agent-2",
+		});
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["rgt-agent-2", FOUNDER_ID]) })
+			.where(eq(threads.id, threadId));
+
+		const actions = buildRealActions(agentOrchestration);
+		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
+			actions,
+			"send_message",
+		);
+
+		// ctx.caller.taskId is the task run's own task — stamped by the server
+		const result = await sendRun(
+			{
+				actor: "rgt-agent-2",
+				db,
+				eventBus,
+				now: new Date().toISOString(),
+				caller: { sessionId: "rgt-sess-2", taskId: "rgt2-task", threadId },
+			},
+			{ threadId, review: { title: "Done — please review", reasoning: ["shipped"] } },
+		);
+		expect(result.ok).toBe(true);
+
+		// After the review card is sent, moveTaskToReview runs and the task moves to review
+		const [taskRow] = await db.select().from(tasks).where(eq(tasks.id, "rgt2-task"));
+		expect(taskRow?.state).toBe("review");
+	});
+
+	test("an agent in a conversation turn naming a valid taskId moves that task to review", async ({
+		db,
+		agentOrchestration,
+		eventBus,
+	}) => {
+		await seedTeam(db, "rgt-3");
+		await seedAgent(db, "rgt-agent-3", "rgt-3");
+		// Seed a standalone task (no session running on it)
+		await seedTaskWithThread(db, "rgt3-task", "rgt-3");
+		// Seed the conversation thread the agent is currently in
+		await seedThreadRow(db, "rgt3-conv-thread", {
+			hostKind: "team",
+			hostId: "rgt-3",
+			initiatorId: "rgt-agent-3",
+			members: ["rgt-agent-3", FOUNDER_ID],
+		});
+
+		const actions = buildRealActions(agentOrchestration);
+		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
+			actions,
+			"send_message",
+		);
+
+		// ctx.caller.taskId is null (conversation turn), but the agent names a taskId in the body
+		const result = await sendRun(
+			{
+				actor: "rgt-agent-3",
+				db,
+				eventBus,
+				now: new Date().toISOString(),
+				caller: { sessionId: "rgt-sess-3", taskId: null, threadId: "rgt3-conv-thread" },
+			},
+			{
+				threadId: "rgt3-conv-thread",
+				review: { title: "Done — please review", reasoning: ["shipped"], taskId: "rgt3-task" },
+			},
+		);
+		expect(result.ok).toBe(true);
+
+		// The agent named rgt3-task via the review body; task moves to review
+		const [taskRow] = await db.select().from(tasks).where(eq(tasks.id, "rgt3-task"));
+		expect(taskRow?.state).toBe("review");
 	});
 });
