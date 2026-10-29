@@ -1205,9 +1205,10 @@ describe("send_message — review link and verdict resume", () => {
 		const noticeMessage = notice.find(
 			(m) =>
 				m.type === "plain" &&
-				(JSON.parse(m.payload) as { text?: string }).text?.includes("could not be carried out"),
+				(JSON.parse(m.payload) as { text?: string }).text?.includes("could not reach my session"),
 		);
-		expect(noticeMessage).toBeDefined();
+		// The notice speaks for the agent that asked, never as the person who approved.
+		expect(noticeMessage?.senderId).toBe("rl-agent-2");
 		const rows = await readChanges(db, threadId);
 		expect(
 			rows.some(

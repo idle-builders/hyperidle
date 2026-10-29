@@ -4,7 +4,6 @@ import {
 	API_ERROR_CODES,
 	type ApiErrorResponse,
 	type EditUserInput,
-	OBJECT_EVENTS,
 	type OpenUserInput,
 	type SendMessageInput,
 	type SendMessageOutput,
@@ -96,7 +95,6 @@ export function createStartRoutes(
 			runConfig: {
 				harnessType: program.type as NonNullable<EditUserInput["runConfig"]>["harnessType"],
 			},
-			subscriptions: { add: OBJECT_EVENTS.map((event) => ({ event })) },
 		});
 		const agentId = agent.ok ? agent.data.user?.id : undefined;
 		if (!agentId) throw new Error("first start: the first agent was not made");

@@ -599,6 +599,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 		(x) => initials(byId.get(x)?.name ?? ""),
 		running,
 		now,
+		new Set((myThreads.data ?? []).filter((t) => t.initiatorId === u.id).map((t) => t.id)),
 	);
 	const titlesOfTasks = new Map(tasks.map((t) => [t.id, t.title]));
 	const next = view.subscriptions

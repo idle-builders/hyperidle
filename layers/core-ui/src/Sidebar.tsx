@@ -595,7 +595,8 @@ export function Sidebar() {
 				{spine === "knowledge" && docs.data && (
 					<section className="tree-wrap" aria-label="All documents">
 						<div className="tree">
-							{docs.data.length === 0 ? (
+							{/* Each team's space shows even before its first document, so it can be made. */}
+							{teams.length === 0 ? (
 								<p className="nav-empty">{EMPTY.knowledge}</p>
 							) : (
 								<Tree

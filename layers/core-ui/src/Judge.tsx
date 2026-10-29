@@ -268,7 +268,7 @@ export function Judge({ threadId, reviewId }: { threadId: string; reviewId: stri
 					Thread
 				</button>
 				<span className="rev-stage">{stage}</span>
-				<h2>{r.title}</h2>
+				<h2 title={r.title}>{r.title}</h2>
 				<span className="rev-from">
 					{[people.get(sender)?.name, task?.title].filter(Boolean).join(" · ")}
 				</span>

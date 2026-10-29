@@ -18,7 +18,7 @@ import { listen } from "./live";
 import { Avatar, Event, Msg } from "./Msg";
 import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
-import { clock, duration, timeline, titleFrom, workState } from "./thread-timeline";
+import { clock, duration, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
 import { useAction } from "./useAction";
 
 /**
@@ -73,7 +73,7 @@ export function useNow(): number {
 export function stepWords(entry: ActivityEntry): string | null {
 	if (entry.type !== "tool_call") return null;
 	const d = entry.data;
-	return `${d.verb ?? d.toolName} ${d.target ?? d.argsSummary}`.trim();
+	return d.verb ? `${d.verb} ${d.target ?? ""}`.trim() : stepFrom(d.toolName, d.argsSummary ?? "");
 }
 
 /** One line while an agent works on the task; its steps show in place only when asked for. */
@@ -343,6 +343,12 @@ export function ThreadPage({ id }: { id: string }) {
 		[taskTopics, reloadTasks],
 	);
 	const sessions = useTaskSessions(tasks.map((t) => t.id));
+	// Parts share their task's conversation; an agent working on one is working here too.
+	const parts = (inThread.data ?? []).filter((t) => !tasks.includes(t));
+	const partSessions = useTaskSessions(parts.map((t) => t.id));
+	// An agent answering a message here, rather than working on one of the thread's tasks.
+	const active = useAction("search_sessions", { state: "active" }, [`thread:${id}`]);
+	const answering = (active.data ?? []).filter((s) => s.threadId === id && s.taskId === null);
 	const [problem, setProblem] = useState<string | null>(null);
 	const scroll = useRef<HTMLDivElement>(null);
 	// The first conversation after first start offers what an agent can use next.
@@ -360,7 +366,10 @@ export function ThreadPage({ id }: { id: string }) {
 		.reverse();
 	const resolving = resolvingOf(messages);
 	const entries = timeline(messages, tasks, sessions, firstName);
-	const running = sessions.filter((s) => s.endedAt === null && s.state === "active");
+	const running = [
+		...[...sessions, ...partSessions].filter((s) => s.endedAt === null && s.state === "active"),
+		...answering,
+	];
 
 	// A thread opens at its newest message, and follows new ones in.
 	const filled = entries.length + people.size + running.length;
@@ -415,7 +424,7 @@ export function ThreadPage({ id }: { id: string }) {
 		<section className="thread">
 			<header className="thread-head">
 				<span className="chip chip--quiet">Thread</span>
-				<h2>{view.data?.thread.computedTitle ?? ""}</h2>
+				<h2 title={view.data?.thread.computedTitle}>{view.data?.thread.computedTitle ?? ""}</h2>
 			</header>
 
 			<div className="thread-scroll" ref={scroll} role="log" aria-label="Messages">

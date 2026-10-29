@@ -169,6 +169,10 @@ code {
 }
 .thread-head h2 {
 	font: var(--t-title);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
 }
 .thread-scroll {
 	flex: 1;
@@ -602,6 +606,10 @@ kbd {
 .rev-head h2 {
 	font: var(--t-title);
 	white-space: nowrap;
+	/* a long title gives way, so Approve and Reject always stay on screen */
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
 }
 .rev-stage {
 	font: var(--t-label);

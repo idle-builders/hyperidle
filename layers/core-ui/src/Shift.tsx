@@ -16,6 +16,7 @@ import { Failed } from "./Failed";
 import { Closes, Reasons, toClose, toReason } from "./Loop";
 import { Event, Msg } from "./Msg";
 import { type Need, NeedIcon } from "./NeedIcon";
+import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
 import { Body, type People, peopleOf, resolvingOf, stepWords, useNow } from "./Thread";
 import {
@@ -27,6 +28,7 @@ import {
 	headWords,
 	indexTree,
 	needsBelow,
+	onePerAsk,
 	rootNode,
 	standLine,
 	type Tree,
@@ -107,7 +109,7 @@ function useAround(view: TaskView) {
 				new Set(sessions.ok ? sessions.data.flatMap((s) => (s.taskId ? [s.taskId] : [])) : []),
 			);
 			setDocs(found.ok ? found.data : []);
-			setAsks(open.flat());
+			setAsks(onePerAsk(open.flat()));
 		});
 		return () => {
 			current = false;
@@ -239,7 +241,7 @@ function TaskScreen({
 					<div className="tk-main">
 						<h1 className="page-title">{root.title}</h1>
 						<Stand tree={tree} n={root} running={around.running} owner={owner} />
-						{root.description && <p>{root.description}</p>}
+						{root.description && <RichText text={root.description} />}
 
 						{root.children.length > 0 && (
 							<section className="tk-map" aria-label="Parts of this task">
@@ -268,7 +270,7 @@ function TaskScreen({
 								<>
 									<h2 className="tk-part-title">{sel.title}</h2>
 									<Stand tree={tree} n={sel} running={around.running} owner={owner} />
-									{sel.description && <p>{sel.description}</p>}
+									{sel.description && <RichText text={sel.description} />}
 								</>
 							)}
 							{sel.reasons.length > 0 && <Reasons items={sel.reasons.map(toReason)} />}
@@ -882,7 +884,7 @@ function TaskBox({
 		`${owner(n)} owns this`,
 		done
 			? `Finished ${ago(n.completedAt ?? n.updatedAt)}`
-			: all.length > 0 || n.state === "in_progress"
+			: all.length > 0 || (n.state !== "proposed" && n.state !== "accepted")
 				? `Started ${ago(n.createdAt)}`
 				: "Not started",
 		all.length > 0 && `${duration(worked)} in ${plural(all.length, "session", "sessions")}`,

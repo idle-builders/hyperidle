@@ -337,7 +337,10 @@ describe("send_message — answering a question, approving or rejecting a review
 			async (): Promise<ReviewVerdictOutcome> => ({ status: "queued" }),
 		);
 		const linkReviewToSession = vi.fn(async () => {});
-		const actions = createThreadActions(threadDeps({ reviewVerdictRecorder, linkReviewToSession }));
+		const agentWorkIntentRecorder = vi.fn(async () => ({ id: "intent", idempotencyKey: "key" }));
+		const actions = createThreadActions(
+			threadDeps({ reviewVerdictRecorder, linkReviewToSession, agentWorkIntentRecorder }),
+		);
 		const eventBus = new EventBus();
 		const teamId = `sm-ans-${suffix}`;
 		const agentId = `sm-agent-ans-${suffix}`;
@@ -366,7 +369,15 @@ describe("send_message — answering a question, approving or rejecting a review
 			call(actions, db, eventBus, "send_message", { threadId, ...body });
 		const resolvedAt = async (id: string) =>
 			(await db.select().from(messages).where(eq(messages.id, id)))[0]?.resolvedAt ?? null;
-		return { ask, reply, resolvedAt, reviewVerdictRecorder, linkReviewToSession };
+		return {
+			ask,
+			reply,
+			resolvedAt,
+			reviewVerdictRecorder,
+			linkReviewToSession,
+			agentWorkIntentRecorder,
+			agentId,
+		};
 	}
 
 	const billing = {
@@ -396,6 +407,22 @@ describe("send_message — answering a question, approving or rejecting a review
 				answer: { option: "Yearly" },
 			}),
 		);
+	});
+
+	test("a reject the asking session takes back does not also start a second run of that agent", async ({
+		db,
+	}) => {
+		const { ask, reply, reviewVerdictRecorder, agentWorkIntentRecorder } = await seedAsk(db, "w");
+		const reviewId = await ask({ review: { title: "Ship it?", reasoning: ["tests pass"] } });
+		agentWorkIntentRecorder.mockClear();
+
+		const rejected = await reply({
+			verdict: { decision: "reject", resolvesMessageId: reviewId, note: "One more round." },
+		});
+
+		expect(rejected.status).toBe(200);
+		expect(reviewVerdictRecorder).toHaveBeenCalledOnce();
+		expect(agentWorkIntentRecorder).not.toHaveBeenCalled();
 	});
 
 	test("naming an option the question does not have is refused and leaves it open", async ({
@@ -1093,9 +1120,10 @@ describe("search_threads", () => {
 			"st-review-1",
 			"st-theirs-1",
 		]);
+		// The approval could not reach a session here, so the agent's notice is the newest message.
 		expect(byId.get("st-review-1")).toMatchObject({
 			need: "review",
-			lastSenderId: FOUNDER_ID,
+			lastSenderId: "st-agent-1",
 			mentionsYou: false,
 		});
 		expect(byId.get("st-asked-1")).toMatchObject({ need: "stuck", lastSenderId: "st-agent-1" });

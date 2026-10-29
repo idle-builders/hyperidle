@@ -85,6 +85,73 @@ describe("RegistryFilesystemMounter dispatch", () => {
 	});
 });
 
+describe("a local folder written from home", () => {
+	it("mounts a repo written as ~/repo, the way the folder dialog suggests", async () => {
+		const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "mount-home-")));
+		const repo = path.join(home, "repo");
+		execFileSync("git", ["init", "-q", repo]);
+		execFileSync("git", [
+			"-C",
+			repo,
+			"-c",
+			"user.name=t",
+			"-c",
+			"user.email=t@t",
+			"commit",
+			"-q",
+			"--allow-empty",
+			"-m",
+			"start",
+		]);
+		const runIn: string[] = [];
+		const realGit = {
+			gitRunnerFactory: (cwd: string) => ({
+				worktreeAdd: async (target: string, branch: string) => {
+					runIn.push(cwd);
+					execFileSync("git", ["-C", cwd, "worktree", "add", "-q", "-b", branch, target]);
+				},
+			}),
+		} as unknown as AdapterDeps;
+		const homeBefore = process.env.HOME;
+		process.env.HOME = home;
+		const result = await new RegistryFilesystemMounter(realGit).mount({
+			filesystem: filesystem({
+				kind: "code",
+				source: "local",
+				resourceRef: { kind: "code", repo: "~/repo", branch: "main" },
+			}),
+			sandboxPath: path.join(home, "sandbox"),
+		});
+		process.env.HOME = homeBefore;
+		fs.rmSync(home, { recursive: true, force: true });
+
+		expect(result).toEqual({ success: true });
+		expect(runIn).toEqual([repo]);
+	});
+
+	it("links a doc folder written as ~/notes", async () => {
+		const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "mount-home-")));
+		fs.mkdirSync(path.join(home, "notes"));
+		const sandbox = path.join(home, "sandbox");
+		fs.mkdirSync(sandbox);
+		const homeBefore = process.env.HOME;
+		process.env.HOME = home;
+		const result = await new RegistryFilesystemMounter(deps).mount({
+			filesystem: filesystem({
+				source: "local",
+				resourceRef: { kind: "doc_set", folder: "~/notes" },
+			}),
+			sandboxPath: sandbox,
+		});
+		process.env.HOME = homeBefore;
+		const linked = fs.realpathSync(path.join(sandbox, "notes"));
+		fs.rmSync(home, { recursive: true, force: true });
+
+		expect(result).toEqual({ success: true });
+		expect(linked).toBe(path.join(home, "notes"));
+	});
+});
+
 describe("localTrustedPath", () => {
 	it("expands a ~/ local repo path to an absolute path rather than the literal spelling", () => {
 		const fsRecord = filesystem({

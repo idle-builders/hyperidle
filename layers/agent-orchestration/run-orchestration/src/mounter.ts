@@ -60,15 +60,16 @@ class LocalFolderAdapter implements MountAdapter {
 				error: "Expected doc_set resourceRef",
 			});
 		try {
-			const link = path.join(ctx.sandboxPath, path.basename(ref.folder));
-			if (!fs.existsSync(ref.folder)) throw new Error(`folder does not exist: '${ref.folder}'`);
+			const folder = normalizeLocalPath(ref.folder);
+			const link = path.join(ctx.sandboxPath, path.basename(folder));
+			if (!fs.existsSync(folder)) throw new Error(`folder does not exist: '${ref.folder}'`);
 			if (fs.existsSync(link)) {
 				if (
 					!fs.lstatSync(link).isSymbolicLink() ||
-					fs.realpathSync(link) !== fs.realpathSync(ref.folder)
+					fs.realpathSync(link) !== fs.realpathSync(folder)
 				)
 					throw new Error(`mount path already exists: '${link}'`);
-			} else fs.symlinkSync(ref.folder, link);
+			} else fs.symlinkSync(folder, link);
 			return Promise.resolve({ success: true });
 		} catch (error) {
 			return Promise.resolve({
@@ -111,9 +112,11 @@ class GitWorktreeAdapter implements MountAdapter {
 	async mount(ctx: MountContext): Promise<MountResult> {
 		const ref = ctx.filesystem.resourceRef;
 		if (ref.kind !== "code") return { success: false, error: "Expected code resourceRef" };
+		// A folder is written the way people type it (`~/code/x`); git needs the real path.
+		const repo = normalizeLocalPath(ref.repo);
 		try {
 			await this.deps
-				.gitRunnerFactory(ref.repo)
+				.gitRunnerFactory(repo)
 				.worktreeAdd(ctx.sandboxPath, sanitizeBranch(`agent/${path.basename(ctx.sandboxPath)}`), {
 					createBranch: true,
 				});
@@ -123,7 +126,7 @@ class GitWorktreeAdapter implements MountAdapter {
 				.match(/^gitdir:\s*(.+)$/)?.[1];
 			if (pointer) {
 				const gitDir = fs.realpathSync(path.resolve(ctx.sandboxPath, pointer));
-				const common = resolveCommonGitDir(ref.repo);
+				const common = resolveCommonGitDir(repo);
 				if (gitDir.startsWith(`${path.join(common, "worktrees")}${path.sep}`)) writeExclude(gitDir);
 			}
 			return { success: true };
