@@ -1593,6 +1593,16 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		input: MarkReviewOpenedInput,
 	): Promise<ActionResult<Record<string, never>>> {
 		await store.upsertReviewOpened(ctx.db, input.reviewMessageId, ctx.actor, ctx.now);
+		// Nudge the conversation list so the sidebar and person page refetch without a reload.
+		if (deps.wsPush) {
+			const msg = await store.findMessage(ctx.db, { id: input.reviewMessageId });
+			if (msg) {
+				const threadTopic = `thread:${msg.threadId}`;
+				const nudge = { type: "update", topic: "conversations", kind: "thread.changed" };
+				deps.wsPush("conversations", nudge);
+				deps.wsPush(threadTopic, { ...nudge, topic: threadTopic });
+			}
+		}
 		return { ok: true, data: {} };
 	}
 
