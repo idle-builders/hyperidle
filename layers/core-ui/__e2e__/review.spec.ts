@@ -124,3 +124,45 @@ test("Approve shows the open count beside it and works; the conversation stops a
 		page.getByRole("button", { name: /^Explain what happens when a trial ends/ }),
 	).toContainText("Needs review · 1 review");
 });
+
+test("a preview of a page from HyperIdle's own address runs sealed off from HyperIdle", async ({
+	page,
+}) => {
+	await page.route("**/review-probe.html", (route) =>
+		route.fulfill({
+			contentType: "text/html; charset=utf-8",
+			body: `<body><script>
+const t = (f) => { try { f(); return "reached"; } catch { return "blocked"; } };
+document.body.textContent = "parent: " + t(() => parent.document.title) + " · storage: " + t(() => localStorage.length);
+</script></body>`,
+		}),
+	);
+	await page.goto(HAND_OFF);
+	const id = await page.evaluate(async () => {
+		const res = await fetch("/api/actions/send_message", {
+			method: "POST",
+			headers: { "X-API-Key": "hyperidle-dev-local", "Content-Type": "application/json" },
+			body: JSON.stringify({
+				threadId: "demo-thread-trial-end",
+				review: {
+					title: "Probe",
+					reasoning: [],
+					parts: [
+						{
+							id: "page",
+							kind: "preview",
+							label: "Live preview",
+							title: "Probe",
+							url: `${location.origin}/review-probe.html`,
+						},
+					],
+				},
+			}),
+		}).then((r) => r.json());
+		return res.data.message.id as string;
+	});
+	await page.goto(`${HAND_OFF}?review=${id}`);
+	await expect(page.frameLocator('iframe[title="Live preview"]').locator("body")).toHaveText(
+		"parent: blocked · storage: blocked",
+	);
+});

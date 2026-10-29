@@ -37,6 +37,10 @@ Each part has an `id` (unique in the review), a `label` (the kind of thing in th
 | `text` | Prose: an email, a piece of copy | `subject`, `to`, `body` |
 | `items` | A batch of the same kind of thing, such as three replies to customers | `items`: `id` (unique), `title` (a few words), `body` |
 
+A `data:text/html` preview shows without running its scripts, and a person can point into it. An
+http(s) preview runs as its own site; one from HyperIdle's own address runs as no site at all, so
+its scripts cannot reach into HyperIdle.
+
 ### Pins
 
 A pin says where a flag or a comment points: `id`, `part`, `label` (a few words naming the spot)

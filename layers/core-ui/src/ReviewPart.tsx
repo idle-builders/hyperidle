@@ -151,6 +151,8 @@ function Preview({
 }) {
 	const frame = useRef<HTMLIFrameElement>(null);
 	const inline = url.startsWith("data:");
+	// A page from our own address, given scripts and its origin, could lift its sandbox and reach into ours.
+	const ours = !inline && new URL(url, location.href).origin === location.origin;
 	const [page, setPage] = useState<string | null>(null);
 	const [height, setHeight] = useState(480);
 	const [reachable, setReachable] = useState(false);
@@ -209,7 +211,13 @@ function Preview({
 				title="Live preview"
 				style={{ height }}
 				{...(inline ? { srcDoc: page ?? "" } : { src: url })}
-				sandbox={inline ? "allow-same-origin" : "allow-same-origin allow-scripts allow-forms"}
+				sandbox={
+					inline
+						? "allow-same-origin"
+						: ours
+							? "allow-scripts allow-forms"
+							: "allow-same-origin allow-scripts allow-forms"
+				}
 				onLoad={fit}
 			/>
 			{reachable && (
