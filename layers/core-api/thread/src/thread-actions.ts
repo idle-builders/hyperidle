@@ -1233,7 +1233,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						actor: resolvesMessageRow.senderId,
 						db: ctx.db,
 						eventBus: ctx.eventBus,
-						now: ctx.now,
+						// One tick after the verdict, so the notice reads as the answer to it rather than tying.
+						now: new Date(Date.parse(ctx.now) + 1).toISOString(),
 					},
 					{
 						threadId: effectiveThreadId,
