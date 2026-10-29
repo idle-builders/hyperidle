@@ -499,43 +499,33 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		);
 		const supersededIds = new Set(openReviewIds.filter((id) => successorPreviousIds.has(id)));
 
-		// @lore: orphan check is per-thread; same sender, later resolved + later open → old draft superseded; cross-thread sender activity must not interfere.
-		for (const threadId of threadIds) {
-			const threadReviews = allReviews.filter((m) => m.threadId === threadId);
-			const threadOpenIds = new Set(
-				openReviewIds.filter((id) => threadReviews.some((r) => r.id === id)),
-			);
-			if (threadOpenIds.size < 2) continue; // need at least two open reviews for an orphan
-			const latestResolvedAtBySender = new Map<string, string>();
-			for (const m of threadReviews) {
-				if (m.resolvedAt !== null) {
-					const cur = latestResolvedAtBySender.get(m.senderId) ?? "";
-					if (m.createdAt > cur) latestResolvedAtBySender.set(m.senderId, m.createdAt);
-				}
+		// @lore: a review is superseded by a later verdict-bearing review from the same sender+thread+task; task scope keeps co-threaded tasks independent.
+		for (const id of openReviewIds) {
+			const m = allReviews.find((r) => r.id === id);
+			if (m === undefined) continue;
+			let mTaskId: string | null = null;
+			try {
+				const p = JSON.parse(m.payload) as { taskId?: unknown };
+				mTaskId = typeof p.taskId === "string" ? p.taskId : null;
+			} catch {
+				// malformed payload — treat as no task
 			}
-			const latestOpenAtBySender = new Map<string, string>();
-			for (const id of threadOpenIds) {
-				const m = threadReviews.find((r) => r.id === id);
-				if (m !== undefined) {
-					const cur = latestOpenAtBySender.get(m.senderId) ?? "";
-					if (m.createdAt > cur) latestOpenAtBySender.set(m.senderId, m.createdAt);
+			const isReplaced = allReviews.some((other) => {
+				if (other.id === m.id) return false;
+				if (other.threadId !== m.threadId) return false;
+				if (other.senderId !== m.senderId) return false;
+				if (other.createdAt <= m.createdAt) return false;
+				if (other.resolvedAt === null) return false;
+				let otherTaskId: string | null = null;
+				try {
+					const p = JSON.parse(other.payload) as { taskId?: unknown };
+					otherTaskId = typeof p.taskId === "string" ? p.taskId : null;
+				} catch {
+					// malformed payload — treat as no task
 				}
-			}
-			for (const id of threadOpenIds) {
-				const m = threadReviews.find((r) => r.id === id);
-				if (m !== undefined) {
-					const latestResolved = latestResolvedAtBySender.get(m.senderId);
-					const latestOpen = latestOpenAtBySender.get(m.senderId);
-					if (
-						latestResolved !== undefined &&
-						m.createdAt < latestResolved &&
-						latestOpen !== undefined &&
-						m.createdAt < latestOpen
-					) {
-						supersededIds.add(id);
-					}
-				}
-			}
+				return otherTaskId === mTaskId;
+			});
+			if (isReplaced) supersededIds.add(id);
 		}
 
 		// A review is no longer a need for the viewer once they have opened it.

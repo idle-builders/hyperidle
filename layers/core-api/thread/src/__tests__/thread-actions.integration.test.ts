@@ -1120,9 +1120,9 @@ describe("search_threads", () => {
 			"st-review-1",
 			"st-theirs-1",
 		]);
-		// The approval could not reach a session here, so the agent's notice is the newest message.
+		// The second review was approved (even via not_resumable), so the first is replaced — no need.
 		expect(byId.get("st-review-1")).toMatchObject({
-			need: "review",
+			need: null,
 			lastSenderId: "st-agent-1",
 			mentionsYou: false,
 		});
@@ -1685,105 +1685,232 @@ describe("mark_review_opened", () => {
 		expect(personAfter.body.data?.find((r) => r.id === "mros-thread")?.need).toBeNull();
 	});
 
-	test("orphaned earlier review (no previousReviewId, same sender as an already-resolved later review) is treated as superseded", async ({
-		db,
-	}) => {
-		// Reproduces the real pattern: agent sends Round-1-draft (no previousReviewId),
-		// then Round-1-v2 (also no previousReviewId, later, gets approved), then Round-2
-		// (previousReviewId: v2). After opening Round-2, need must be null because
-		// the draft is superseded by v2 being resolved after it.
-		const eventBus = new EventBus();
-		const actions = createThreadActions(threadDeps());
-		await seedTeam(db, "mro3-team");
-		await seedHuman(db, "mro3-reviewer", "mro3-team");
-		await seedAgent(db, "mro3-agent", "mro3-team");
-		await seedThreadRow(db, "mro3-thread", {
-			hostKind: "user",
-			hostId: FOUNDER_ID,
-			initiatorId: FOUNDER_ID,
-			members: [FOUNDER_ID, "mro3-reviewer", "mro3-agent"],
+	// Rule: an open review is replaced (treated as superseded) when a LATER review from
+	// the same sender, same thread, and same task (null taskId == null taskId) has received
+	// a verdict. Opening is not needed; the viewer never has to look at the old one.
+	describe("review replacement rule — later verdict, same sender/thread/task → replaced", () => {
+		test("later review from same sender receives a verdict → earlier open review replaced, need null without opening", async ({
+			db,
+		}) => {
+			const eventBus = new EventBus();
+			const actions = createThreadActions(threadDeps());
+			await seedTeam(db, "srt-team");
+			await seedHuman(db, "srt-reviewer", "srt-team");
+			await seedAgent(db, "srt-agent", "srt-team");
+			await seedThreadRow(db, "srt-thread", {
+				hostKind: "user",
+				hostId: FOUNDER_ID,
+				initiatorId: FOUNDER_ID,
+				members: [FOUNDER_ID, "srt-reviewer", "srt-agent"],
+			});
+
+			// Open review (older, no task)
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId: "srt-thread", review: { title: "Old draft", reasoning: ["pass 1"] } },
+				"srt-agent",
+			);
+
+			// Later review from same agent, gets approved (no task on either)
+			const r2 = await call<{ message: { id: string } }>(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId: "srt-thread", review: { title: "Revision", reasoning: ["pass 2"] } },
+				"srt-agent",
+			);
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{
+					threadId: "srt-thread",
+					verdict: { decision: "approve", resolvesMessageId: r2.body.data?.message.id as string },
+				},
+				"srt-reviewer",
+			);
+
+			// need is null without ever opening anything — the old draft is replaced
+			const result = await call<Array<{ id: string; need: string | null }>>(
+				actions,
+				db,
+				eventBus,
+				"search_threads",
+				{ ids: ["srt-thread"] },
+				"srt-reviewer",
+			);
+			expect(result.body.data?.find((r) => r.id === "srt-thread")?.need).toBeNull();
 		});
 
-		// Round 1 draft — no previousReviewId, never resolved (orphaned)
-		const draft = await call<{ message: { id: string } }>(
-			actions,
+		test("later review with a DIFFERENT task receives a verdict → earlier open review NOT replaced", async ({
 			db,
-			eventBus,
-			"send_message",
-			{ threadId: "mro3-thread", review: { title: "Draft", reasoning: ["First pass"] } },
-			"mro3-agent",
-		);
-		const draftId = draft.body.data?.message.id as string;
+		}) => {
+			const eventBus = new EventBus();
+			const actions = createThreadActions(threadDeps());
+			await seedTeam(db, "srt2-team");
+			await seedHuman(db, "srt2-reviewer", "srt2-team");
+			await seedAgent(db, "srt2-agent", "srt2-team");
+			await seedThreadRow(db, "srt2-thread", {
+				hostKind: "user",
+				hostId: FOUNDER_ID,
+				initiatorId: FOUNDER_ID,
+				members: [FOUNDER_ID, "srt2-reviewer", "srt2-agent"],
+			});
 
-		// Round 1 v2 — also no previousReviewId, later, gets approved by reviewer
-		const v2 = await call<{ message: { id: string } }>(
-			actions,
+			// Open review for task-A
+			const sendRun = runnerFor<Record<string, unknown>, { message: { id: string } }>(
+				actions,
+				"send_message",
+			);
+			await sendRun(
+				ctxFor(db, "srt2-agent", {
+					eventBus,
+					caller: { sessionId: "srt2-sess-a", taskId: "srt2-task-a", threadId: null },
+				}),
+				{ threadId: "srt2-thread", review: { title: "Task A review", reasoning: ["x"] } },
+			);
+
+			// Later review for task-B (different task), gets approved
+			const r2 = await sendRun(
+				ctxFor(db, "srt2-agent", {
+					eventBus,
+					caller: { sessionId: "srt2-sess-b", taskId: "srt2-task-b", threadId: null },
+				}),
+				{ threadId: "srt2-thread", review: { title: "Task B review", reasoning: ["y"] } },
+			);
+			if (!r2.ok) throw new Error("send_message failed");
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{
+					threadId: "srt2-thread",
+					verdict: { decision: "approve", resolvesMessageId: r2.data.message.id },
+				},
+				"srt2-reviewer",
+			);
+
+			// task-A review is still active
+			const result = await call<Array<{ id: string; need: string | null }>>(
+				actions,
+				db,
+				eventBus,
+				"search_threads",
+				{ ids: ["srt2-thread"] },
+				"srt2-reviewer",
+			);
+			expect(result.body.data?.find((r) => r.id === "srt2-thread")?.need).toBe("review");
+		});
+
+		test("later review from a DIFFERENT sender receives a verdict → earlier open review NOT replaced", async ({
 			db,
-			eventBus,
-			"send_message",
-			{ threadId: "mro3-thread", review: { title: "Better draft", reasoning: ["Second pass"] } },
-			"mro3-agent",
-		);
-		const v2Id = v2.body.data?.message.id as string;
+		}) => {
+			const eventBus = new EventBus();
+			const actions = createThreadActions(threadDeps());
+			await seedTeam(db, "srt3-team");
+			await seedHuman(db, "srt3-reviewer", "srt3-team");
+			await seedAgent(db, "srt3-agent-a", "srt3-team");
+			await seedAgent(db, "srt3-agent-b", "srt3-team");
+			await seedThreadRow(db, "srt3-thread", {
+				hostKind: "user",
+				hostId: FOUNDER_ID,
+				initiatorId: FOUNDER_ID,
+				members: [FOUNDER_ID, "srt3-reviewer", "srt3-agent-a", "srt3-agent-b"],
+			});
 
-		// Reviewer approves v2 — resolves it
-		await call(
-			actions,
+			// Agent A sends a review (unresolved)
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId: "srt3-thread", review: { title: "Agent A review", reasoning: ["a"] } },
+				"srt3-agent-a",
+			);
+
+			// Agent B sends a review later and it gets approved
+			const rb = await call<{ message: { id: string } }>(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId: "srt3-thread", review: { title: "Agent B review", reasoning: ["b"] } },
+				"srt3-agent-b",
+			);
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{
+					threadId: "srt3-thread",
+					verdict: { decision: "approve", resolvesMessageId: rb.body.data?.message.id as string },
+				},
+				"srt3-reviewer",
+			);
+
+			// Agent A's review is still active (different sender)
+			const result = await call<Array<{ id: string; need: string | null }>>(
+				actions,
+				db,
+				eventBus,
+				"search_threads",
+				{ ids: ["srt3-thread"] },
+				"srt3-reviewer",
+			);
+			expect(result.body.data?.find((r) => r.id === "srt3-thread")?.need).toBe("review");
+		});
+
+		test("later review from same sender is still open (no verdict yet) → earlier review NOT replaced", async ({
 			db,
-			eventBus,
-			"send_message",
-			{ threadId: "mro3-thread", verdict: { decision: "approve", resolvesMessageId: v2Id } },
-			"mro3-reviewer",
-		);
+		}) => {
+			const eventBus = new EventBus();
+			const actions = createThreadActions(threadDeps());
+			await seedTeam(db, "srt4-team");
+			await seedHuman(db, "srt4-reviewer", "srt4-team");
+			await seedAgent(db, "srt4-agent", "srt4-team");
+			await seedThreadRow(db, "srt4-thread", {
+				hostKind: "user",
+				hostId: FOUNDER_ID,
+				initiatorId: FOUNDER_ID,
+				members: [FOUNDER_ID, "srt4-reviewer", "srt4-agent"],
+			});
 
-		// Round 2 — references v2 as predecessor, unresolved
-		const round2 = await call<{ message: { id: string } }>(
-			actions,
-			db,
-			eventBus,
-			"send_message",
-			{
-				threadId: "mro3-thread",
-				review: { title: "Round 2", reasoning: ["Changes"], previousReviewId: v2Id },
-			},
-			"mro3-agent",
-		);
-		const round2Id = round2.body.data?.message.id as string;
+			// Two unresolved reviews, no verdict on either
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId: "srt4-thread", review: { title: "First", reasoning: ["a"] } },
+				"srt4-agent",
+			);
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId: "srt4-thread", review: { title: "Second", reasoning: ["b"] } },
+				"srt4-agent",
+			);
 
-		// Before opening: need=review (draft + round2 are both unresolved)
-		const before = await call<Array<{ id: string; need: string | null }>>(
-			actions,
-			db,
-			eventBus,
-			"search_threads",
-			{ ids: ["mro3-thread"] },
-			"mro3-reviewer",
-		);
-		expect(before.body.data?.find((r) => r.id === "mro3-thread")?.need).toBe("review");
-
-		// Reviewer opens round2 — this should be enough; draft is superseded
-		await call(
-			actions,
-			db,
-			eventBus,
-			"mark_review_opened",
-			{ reviewMessageId: round2Id },
-			"mro3-reviewer",
-		);
-
-		// After opening round2: need must be null — draft is superseded by v2 being resolved
-		const after = await call<Array<{ id: string; need: string | null }>>(
-			actions,
-			db,
-			eventBus,
-			"search_threads",
-			{ ids: ["mro3-thread"] },
-			"mro3-reviewer",
-		);
-		expect(after.body.data?.find((r) => r.id === "mro3-thread")?.need).toBeNull();
-
-		// draftId itself is never in review_opened — it's excluded via superseding, not opening.
-		void draftId;
+			// Both open reviews are still active — neither replaced the other
+			const result = await call<Array<{ id: string; need: string | null }>>(
+				actions,
+				db,
+				eventBus,
+				"search_threads",
+				{ ids: ["srt4-thread"] },
+				"srt4-reviewer",
+			);
+			expect(result.body.data?.find((r) => r.id === "srt4-thread")?.need).toBe("review");
+		});
 	});
 
 	test("opening the current round drops need even when an older round is still unresolved (superseded)", async ({
