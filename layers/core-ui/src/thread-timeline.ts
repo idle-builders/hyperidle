@@ -168,3 +168,34 @@ export function titleFrom(text: string, names: readonly string[]): string {
 }
 
 const TITLE_MAX = 64;
+
+/** A step an agent took, in words a person reads: what it did, and to which file. */
+export function stepFrom(tool: string, args: string): string {
+	// The arguments arrive as JSON cut at a length, so fields are read out one by one.
+	const field = (name: string): string | undefined => {
+		const raw = args.match(new RegExp(`"${name}":"((?:[^"\\\\]|\\\\.)*)"`))?.[1];
+		return raw === undefined ? undefined : (JSON.parse(`"${raw}"`) as string);
+	};
+	const file = field("file_path")?.split("/").pop();
+	const name = tool.replace(/^mcp__[^_]+__/, "");
+	switch (name) {
+		case "Bash": {
+			const command = field("command");
+			return field("description") ?? (command ? `Ran ${command.slice(0, 80)}` : "Ran a command");
+		}
+		case "Read":
+			return file ? `Read ${file}` : "Read a file";
+		case "Edit":
+		case "MultiEdit":
+			return file ? `Changed ${file}` : "Changed a file";
+		case "Write":
+			return file ? `Wrote ${file}` : "Wrote a file";
+		case "Grep":
+		case "Glob": {
+			const pattern = field("pattern");
+			return pattern ? `Searched for ${pattern}` : "Searched";
+		}
+		default:
+			return name;
+	}
+}

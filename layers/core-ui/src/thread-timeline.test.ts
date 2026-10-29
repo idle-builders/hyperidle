@@ -1,7 +1,7 @@
 /** How a thread reads top to bottom, and how its work item says where it is. */
 import type { Message, SessionRow, Task } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
-import { clock, duration, timeline, titleFrom, workState } from "./thread-timeline";
+import { clock, duration, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
 
 const at = (hhmm: string) => `2026-10-20T${hhmm}:00.000Z`;
 const msg = (id: string, senderId: string, hhmm: string, type: Message["type"], payload: unknown) =>
@@ -177,5 +177,23 @@ describe("titleFrom", () => {
 		],
 	])("%s", (text, names, title) => {
 		expect(titleFrom(text, names)).toBe(title);
+	});
+});
+
+describe("stepFrom", () => {
+	test.each([
+		[
+			"Bash",
+			'{"command":"sed -n \'1,70p\' styles.css","description":"Read round-3 palette"}',
+			"Read round-3 palette",
+		],
+		["Bash", '{"command":"npm test"}', "Ran npm test"],
+		["Read", '{"file_path":"/Users/x/code/streak/styles.css"}', "Read styles.css"],
+		["Edit", '{"file_path":"/tmp/a/app.js","old_string":"x"}', "Changed app.js"],
+		["Write", '{"file_path":"/tmp/a/test/browser.mjs","content":"…', "Wrote browser.mjs"],
+		["Grep", '{"pattern":"currentStreak","path":"."}', "Searched for currentStreak"],
+		["mcp__hyperidle__send_message", '{"threadId":"t"}', "send_message"],
+	])("%s %s → %s", (tool, args, words) => {
+		expect(stepFrom(tool, args)).toBe(words);
 	});
 });

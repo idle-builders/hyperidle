@@ -18,7 +18,7 @@ import { listen } from "./live";
 import { Avatar, Event, Msg } from "./Msg";
 import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
-import { clock, duration, timeline, titleFrom, workState } from "./thread-timeline";
+import { clock, duration, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
 import { useAction } from "./useAction";
 
 /**
@@ -73,7 +73,7 @@ export function useNow(): number {
 export function stepWords(entry: ActivityEntry): string | null {
 	if (entry.type !== "tool_call") return null;
 	const d = entry.data;
-	return `${d.verb ?? d.toolName} ${d.target ?? d.argsSummary}`.trim();
+	return d.verb ? `${d.verb} ${d.target ?? ""}`.trim() : stepFrom(d.toolName, d.argsSummary ?? "");
 }
 
 /** One line while an agent works on the task; its steps show in place only when asked for. */
