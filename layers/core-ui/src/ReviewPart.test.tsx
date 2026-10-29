@@ -28,7 +28,9 @@ describe("Preview use/comment switch", () => {
 		render(<Preview url="data:text/html,<p>hi</p>" onReady={vi.fn()} onPoint={vi.fn()} />);
 		fireEvent.click(screen.getByRole("button", { name: "Comment" }));
 		fireEvent.keyDown(document, { key: "Escape" });
-		expect(screen.getByRole("button", { name: "Use it" }).getAttribute("aria-pressed")).toBe("true");
+		expect(screen.getByRole("button", { name: "Use it" }).getAttribute("aria-pressed")).toBe(
+			"true",
+		);
 		expect(screen.queryByRole("button", { name: "Point at something on the page" })).toBeNull();
 	});
 });
