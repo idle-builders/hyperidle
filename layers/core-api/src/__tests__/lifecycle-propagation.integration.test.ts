@@ -239,7 +239,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		vi.restoreAllMocks();
 	});
 
-	test("transitions task to review when session ends with outcome=completed and task is in_progress with no other active sessions", async ({
+	test("transitions task to done when session ends with outcome=completed and task is in_progress", async ({
 		db,
 		eventBus,
 		agentOrchestration,

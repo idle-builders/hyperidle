@@ -15,6 +15,8 @@ export interface ActionContext {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	readonly now: string;
+	// @lore: true only for system-initiated calls; gates the state:review transition that must go via a review card
+	readonly internal?: boolean;
 }
 
 export interface Action<I = unknown, O = unknown> {
