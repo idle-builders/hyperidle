@@ -150,6 +150,8 @@ export async function seedApps(db: HyperIdleDb, clock: DemoClock): Promise<void>
 			team: PRODUCT_TEAM_ID,
 			parentKind: "document" as const,
 			parentId: DOC_HOW_WE_PRICE,
+			// After the hand-written documents, so it sits last under How we price.
+			position: 100,
 			by: FOUNDER_ID,
 			at: clock.daysAgo(6),
 		},
@@ -168,6 +170,7 @@ export async function seedApps(db: HyperIdleDb, clock: DemoClock): Promise<void>
 				slot: "ordinary",
 				parentKind: app.parentKind,
 				parentId: app.parentId,
+				position: "position" in app ? app.position : 0,
 				updatedBy: app.by,
 				createdAt: app.at,
 				updatedAt: app.at,

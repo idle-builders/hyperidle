@@ -227,6 +227,7 @@ describe("the demo world tells the design's story", () => {
 			{ team: "Product", title: "Engineering", parent: null, status: "active" },
 			{ team: "Product", title: "Deploy rule", parent: "Engineering", status: "proposed" },
 			{ team: "Product", title: "Tracing the codebase", parent: "Engineering", status: "active" },
+			{ team: "Product", title: "Which plan fits", parent: "How we price", status: "active" },
 			{ team: "Support", title: "July support themes", parent: null, status: "active" },
 			{ team: "Support", title: "Refund wording", parent: null, status: "proposed" },
 		]);
