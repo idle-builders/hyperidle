@@ -1767,7 +1767,7 @@ describe("send_message — review requires a task for agents", () => {
 		await seedTeam(db, "rgt-3");
 		await seedAgent(db, "rgt-agent-3", "rgt-3");
 		// Seed a standalone task (no session running on it)
-		const taskThreadId = await seedTaskWithThread(db, "rgt3-task", "rgt-3");
+		await seedTaskWithThread(db, "rgt3-task", "rgt-3");
 		// Seed the conversation thread the agent is currently in
 		await seedThreadRow(db, "rgt3-conv-thread", {
 			hostKind: "team",

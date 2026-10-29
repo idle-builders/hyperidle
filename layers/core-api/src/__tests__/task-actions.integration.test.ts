@@ -928,6 +928,41 @@ describe("edit_task — state:review guard", () => {
 			expect(result.problems.some((p) => p.code === "state_review_requires_card")).toBe(true);
 		}
 	});
+
+	test("setting state:review via edit_task is refused for an agent caller (requires a review card)", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "ta-rv-team-2");
+		await seedAgent(db, "ta-rv-agent-2", "ta-rv-team-2");
+
+		const threadId = await seedThread(db, "ta-rv-task-2", "ta-rv-team-2");
+		const now = new Date().toISOString();
+		await db.insert(tasks).values({
+			id: "ta-rv-task-2",
+			parentTaskId: null,
+			teamId: "ta-rv-team-2",
+			title: "review guard agent test",
+			state: "in_progress",
+			threadId,
+			ownerAgentId: "ta-rv-agent-2",
+			createdAt: now,
+			updatedAt: now,
+		});
+
+		// Agent calls edit_task state:review — must be refused just like a person
+		const ctx = ctxFor("ta-rv-agent-2", db, eventBus);
+		const actions = buildTestActions(agentOrchestration);
+		const editTask = actions.find((a) => a.declaration.name === "edit_task");
+		if (!editTask) throw new Error("edit_task not found");
+
+		const result = await editTask.run(ctx, { id: "ta-rv-task-2", state: "review" });
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.problems.some((p) => p.code === "state_review_requires_card")).toBe(true);
+		}
+	});
 });
 
 describe("edit_task — doneWhen and reasons round-trip", () => {

@@ -337,7 +337,6 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		// Compute need for every task in scope.
 		const needMap = new Map<string, TaskNeed>();
 		for (const t of [...ancestorTasks, ...subtreeTasks]) {
-			const domainTask = toTask(t);
 			const msgs = msgsByThread.get(t.threadId) ?? [];
 			needMap.set(t.id, computeTaskNeed(t.state, msgs));
 		}
