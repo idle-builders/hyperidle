@@ -284,9 +284,9 @@ interface CliSession {
 	nativeSessionId?: string;
 	/**
 	 * True while stdin is open for json-stream delivery. Set at spawn, cleared
-	 * when stdin is closed (on result event or process exit).
+	 * on the first result event (or process exit).
 	 *
-	 * @lore: stdinOpen — guards deliver() against writing to a closed stream; cleared in parseStdoutLine on result
+	 * @lore: stdinOpen — guards deliver() against writing to a closed stream; cleared on result because a deliver written before result is always incorporated by claude in that same turn
 	 */
 	stdinOpen: boolean;
 }
@@ -711,6 +711,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				if (bufferedLine !== undefined) {
 					this.parseStdoutLine(bufferedLine, session, i);
 				}
+			}
+			// Close stdin if still open (process exit is the final backstop).
+			if (session.stdinOpen) {
+				session.child.stdin?.end();
+				session.stdinOpen = false;
 			}
 			session.exitCode = code;
 			session.exitSignal = signal;
@@ -1233,6 +1238,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			reEngageOptionArgv: [],
 			// Resume sessions use the same native id we resumed into.
 			nativeSessionId,
+			// Resume sessions never use json-stream delivery.
+			stdinOpen: false,
 		};
 
 		this.sessions.set(sessionId, session);
@@ -1367,7 +1374,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 						},
 						{ pending: true },
 					);
-					// @lore: json-stream stdin close on result — one result event covers ALL messages including mid-run delivers; closing here lets claude exit cleanly
+					// @lore: json-stream stdin close — unconditional on result; a deliver written before result is batched into that same turn by claude, so the result already reflects it; a deliver written after result returns "unsupported" (stdinOpen=false) and falls back to the queue
 					if (session.stdinOpen) {
 						session.child.stdin?.end();
 						session.stdinOpen = false;

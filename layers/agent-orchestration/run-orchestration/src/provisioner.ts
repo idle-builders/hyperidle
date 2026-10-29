@@ -1659,8 +1659,12 @@ async function runSession(
 							.update(sessions)
 							.set({ harnessSessionId: immediateNativeId })
 							.where(eq(sessions.id, sessionId));
-					} catch {
-						// non-fatal — the phase-11 write will retry; resume-ability may be degraded
+					} catch (writeErr) {
+						// biome-ignore lint/suspicious/noConsole: graceful-degradation — phase-11 write will retry; resume-ability may be degraded
+						console.warn(
+							`[session-provisioning] immediate harnessSessionId write failed for session ${sessionId}:`,
+							writeErr,
+						);
 					}
 				}
 			}

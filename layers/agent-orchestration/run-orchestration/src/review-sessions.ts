@@ -16,6 +16,7 @@ import type {
 	SessionResumeReply,
 } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
+import { buildVerdictMessage } from "./verdict-message.js";
 
 export interface ReviewSessionLink {
 	readonly reviewMessageId: string;
@@ -131,7 +132,7 @@ export async function recordReviewVerdict(
 
 	// Try delivering to an active run via stdin before queuing a resume intent.
 	if (tryDeliverToLive !== undefined) {
-		const verdictText = buildVerdictText(input);
+		const verdictText = buildVerdictMessage(input);
 		const deliveryResult = await tryDeliverToLive(link.sessionId, verdictText);
 		if (deliveryResult === "delivered") {
 			return { status: "queued" };
@@ -168,13 +169,4 @@ export async function recordReviewVerdict(
 		},
 	});
 	return { status: "queued" };
-}
-
-function buildVerdictText(
-	input: SessionResumeReply & { readonly reviewMessageId: string; readonly decidedBy: string },
-): string {
-	const parts = [`Review verdict: ${input.decision}`];
-	if (input.note !== undefined) parts.push(`Note: ${input.note}`);
-	if (input.answer !== undefined) parts.push(`Answer: ${input.answer}`);
-	return parts.join(". ");
 }

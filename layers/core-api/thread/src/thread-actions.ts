@@ -1263,7 +1263,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					const deliveryResult = await deps.tryDeliverToActiveRun(
 						agentId,
 						effectiveThreadId,
-						input.text,
+						`User wrote in the conversation: ${input.text}`,
 					);
 					if (deliveryResult === "delivered") continue;
 				}

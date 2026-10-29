@@ -53,21 +53,19 @@ describe("CLI adapter deliver (real binary, claude only)", () => {
 			const events: HarnessEvent[] = [];
 
 			const collectEvents = async () => {
-				let elapsed = 0;
-				const tick = 500;
+				const startMs = Date.now();
 				for await (const ev of adapter.streamEvents(handle)) {
 					events.push(ev);
-					elapsed += tick;
-					if (!steered && elapsed >= 2000) {
+					if (!steered && Date.now() - startMs >= 2000) {
 						steered = true;
-						// Deliver mid-run: ask it to include a specific token
+						// Deliver mid-run while the bash sleep is running (2s into 8s sleep)
 						await adapter.deliver!(handle, "STEER: include the word KANGAROO in your final reply.");
 					}
 				}
 			};
 
 			await collectEvents();
-			await adapter.stopSession(handle);
+			const stopResult = await adapter.stopSession(handle);
 
 			// The final reply must include KANGAROO (delivered mid-run)
 			const text = events
@@ -75,7 +73,11 @@ describe("CLI adapter deliver (real binary, claude only)", () => {
 				.map((e) => (e as { type: "completion"; text: string }).text)
 				.join(" ");
 
+			// The delivered steer was used in the same run
 			expect(text, "delivered text must appear in the final response").toMatch(/KANGAROO/i);
+
+			// The process ended cleanly (not stopped or crashed)
+			expect(stopResult.outcome).toBe("completed");
 		} finally {
 			await sandbox.cleanup();
 		}

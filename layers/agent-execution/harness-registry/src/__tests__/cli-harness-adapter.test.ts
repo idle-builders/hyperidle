@@ -1014,7 +1014,7 @@ describe("CliHarnessAdapter — stdin delivery (json-stream)", () => {
 		expect(result).toBe("unsupported");
 	});
 
-	it("closes stdin after result event in ndjson mode", async () => {
+	it("closes stdin after result event when no delivers are pending", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChildWithStdin();
 		spawnSpy.mockReturnValue(fakeChild.proc);
@@ -1025,9 +1025,37 @@ describe("CliHarnessAdapter — stdin delivery (json-stream)", () => {
 		);
 		await adapter.startSession(makeSessionConfig());
 
-		// simulate a claude result line on stdout (stdinDelivery should close stdin after this)
 		fakeChild.emitStdout(
 			JSON.stringify({ type: "result", subtype: "success", result: "done", is_error: false }),
+		);
+		fakeChild.emitExit(0, null);
+
+		expect(fakeChild.stdinEndSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it("closes stdin on result even when a deliver was written before it", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChildWithStdin();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(
+			makeConfig({ stdinDelivery: "json-stream", eventDialect: "claude-stream-json" }),
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
+		);
+		const handle = await adapter.startSession(makeSessionConfig());
+
+		// Deliver is written before any result — claude batches it into the same turn.
+		await adapter.deliver!(handle, "steer: include KANGAROO");
+
+		// Result fires: stdin closes unconditionally because the deliver was already
+		// incorporated into this turn's response.
+		fakeChild.emitStdout(
+			JSON.stringify({
+				type: "result",
+				subtype: "success",
+				result: "KANGAROO done",
+				is_error: false,
+			}),
 		);
 		fakeChild.emitExit(0, null);
 
