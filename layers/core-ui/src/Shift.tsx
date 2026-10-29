@@ -28,6 +28,7 @@ import {
 	headWords,
 	indexTree,
 	needsBelow,
+	onePerAsk,
 	rootNode,
 	standLine,
 	type Tree,
@@ -108,7 +109,7 @@ function useAround(view: TaskView) {
 				new Set(sessions.ok ? sessions.data.flatMap((s) => (s.taskId ? [s.taskId] : [])) : []),
 			);
 			setDocs(found.ok ? found.data : []);
-			setAsks(open.flat());
+			setAsks(onePerAsk(open.flat()));
 		});
 		return () => {
 			current = false;
@@ -883,7 +884,7 @@ function TaskBox({
 		`${owner(n)} owns this`,
 		done
 			? `Finished ${ago(n.completedAt ?? n.updatedAt)}`
-			: all.length > 0 || n.state === "in_progress"
+			: all.length > 0 || (n.state !== "proposed" && n.state !== "accepted")
 				? `Started ${ago(n.createdAt)}`
 				: "Not started",
 		all.length > 0 && `${duration(worked)} in ${plural(all.length, "session", "sessions")}`,
