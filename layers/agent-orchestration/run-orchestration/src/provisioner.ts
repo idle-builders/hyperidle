@@ -867,11 +867,11 @@ interface ProvisionSessionResult {
 
 // @lore: gate push-back — deny carries only the blocked-rule fact; instruction lives in the prompt; deny with next-step refused by model as suspected injection
 
-function reviewOrientation(sendMessageToolName: string): string {
+export function reviewOrientation(sendMessageToolName: string, createTaskToolName: string): string {
 	return `
 
 ## When work needs a person
-Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask by calling \`${sendMessageToolName}\` with a \`review\`: a \`title\`, short \`reasoning\` points — what you have done, what you want to do next and why — the \`parts\` a person should look at (a live page, a code diff, an image, numbers, a text, or a batch of items), and \`flags\` on the spots you decided without asking, are not sure about, or that touch customers. A person checks rather than reads, so the flags are where they look. It goes to the conversation you were called from, or else to your person. That call ends your session. A person approves or rejects it with a reason, and you are brought back with their answer; their comments on your parts are messages in that conversation, each with an \`anchor\` — reply with the same anchor. After a reject, send the next round as a new review with \`previousReviewId\` and what \`changed\`. A reject turns down the approach you proposed, not the task — keep working toward the same goal another way. When you are about to build or change something, create a task first (create_task) and do the work on it before sending a review.`;
+Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask by calling \`${sendMessageToolName}\` with a \`review\`: a \`title\`, short \`reasoning\` points — what you have done, what you want to do next and why — the \`parts\` a person should look at (a live page, a code diff, an image, numbers, a text, or a batch of items), and \`flags\` on the spots you decided without asking, are not sure about, or that touch customers. A person checks rather than reads, so the flags are where they look. It goes to the conversation you were called from, or else to your person. That call ends your session. A person approves or rejects it with a reason, and you are brought back with their answer; their comments on your parts are messages in that conversation, each with an \`anchor\` — reply with the same anchor. After a reject, send the next round as a new review with \`previousReviewId\` and what \`changed\`. A reject turns down the approach you proposed, not the task — keep working toward the same goal another way. When you are about to build or change something, call \`${createTaskToolName}\` first and do the work on it before sending a review.`;
 }
 
 /**
@@ -994,6 +994,7 @@ async function admitSession(
 
 	const systemPromptText = `${persona}${reviewOrientation(
 		literalToolNamerForAdapterType(selectedAdapter.meta.type)("send_message"),
+		literalToolNamerForAdapterType(selectedAdapter.meta.type)("create_task"),
 	)}`;
 
 	// @lore: concurrency check — exclude the request's own correlated session; request-mediated admission already reserved it before this check runs
