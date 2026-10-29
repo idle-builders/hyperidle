@@ -62,5 +62,11 @@ test("a fresh install starts at first start, and Start talking lands in the firs
 
 	// Started once: first start sends you on.
 	await page.goto("/start");
-	await expect(page).toHaveURL(/\/conversations$/);
+	await expect(page).toHaveURL(/\/conversations\/[^/]+$/);
+
+	// With no documents yet, Knowledge still shows the team's space, so the first one can be made.
+	const sidebar = page.getByRole("navigation", { name: "Sidebar" });
+	await sidebar.getByRole("button", { name: /^Knowledge/ }).click();
+	await sidebar.getByRole("button", { name: "New document in Product" }).click();
+	await expect(page).toHaveURL(/\/knowledge\/[^/]+$/);
 });
