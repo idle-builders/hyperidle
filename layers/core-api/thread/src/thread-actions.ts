@@ -1221,14 +1221,23 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			}
 			if (verdictOutcome.status === "queued") resumed = resolvesMessageRow.senderId;
 			if (verdictOutcome.status === "not_resumable") {
+				// Said by the agent that asked: written as the person, it read as if they had typed it.
+				const what =
+					reply.decision === "approve"
+						? "approval"
+						: reply.decision === "answer"
+							? "answer"
+							: "rejection";
 				await sendMessageRun(
-					{ actor: ctx.actor, db: ctx.db, eventBus: ctx.eventBus, now: ctx.now },
+					{
+						actor: resolvesMessageRow.senderId,
+						db: ctx.db,
+						eventBus: ctx.eventBus,
+						now: ctx.now,
+					},
 					{
 						threadId: effectiveThreadId,
-						text:
-							reply.decision === "approve"
-								? `This action was approved but could not be carried out: ${verdictOutcome.reason}. The agent has not been told, and the action has not run.`
-								: `This ${reply.decision === "answer" ? "answer" : "rejection"} could not reach the agent: ${verdictOutcome.reason}. The agent has not been told.`,
+						text: `Your ${what} could not reach my session (${verdictOutcome.reason}), so I have not acted on it. Tell me again in a message if it still stands.`,
 					},
 				);
 			}

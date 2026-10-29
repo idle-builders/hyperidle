@@ -1120,9 +1120,10 @@ describe("search_threads", () => {
 			"st-review-1",
 			"st-theirs-1",
 		]);
+		// The approval could not reach a session here, so the agent's notice is the newest message.
 		expect(byId.get("st-review-1")).toMatchObject({
 			need: "review",
-			lastSenderId: FOUNDER_ID,
+			lastSenderId: "st-agent-1",
 			mentionsYou: false,
 		});
 		expect(byId.get("st-asked-1")).toMatchObject({ need: "stuck", lastSenderId: "st-agent-1" });
