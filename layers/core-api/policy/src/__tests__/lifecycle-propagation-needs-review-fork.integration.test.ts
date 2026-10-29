@@ -301,7 +301,7 @@ describe("session→task propagation (doneWhen review fork)", () => {
 	});
 
 	dbTest(
-		"session ends on task with review line in doneWhen → task reaches review",
+		"session ends on task with review line in doneWhen → task stays in_progress (card moves it)",
 		async ({ db }) => {
 			const teamId = "bb1-s2-team";
 			await seedTeam(db, teamId);
@@ -333,12 +333,9 @@ describe("session→task propagation (doneWhen review fork)", () => {
 					timestamp: Date.now(),
 				});
 
-				await vi.waitFor(
-					async () => {
-						expect(await getTaskState(db, "bb1-s2-task")).toBe("review");
-					},
-					{ timeout: 5000 },
-				);
+				// Give propagation time to settle — then assert it did NOT move the task.
+				await new Promise((r) => setTimeout(r, 300));
+				expect(await getTaskState(db, "bb1-s2-task")).toBe("in_progress");
 			} finally {
 				unregister();
 			}
@@ -409,12 +406,12 @@ describe("parent auto-completion cascade (doneWhen review fork)", () => {
 	);
 
 	dbTest(
-		"parent with review line in doneWhen: all children terminal → parent review, cascade stops",
+		"parent with review line in doneWhen: all children terminal → parent stays in_progress (card moves it), cascade stops",
 		async ({ db }) => {
 			const teamId = "bb1-p4-team";
 			await seedTeam(db, teamId);
 
-			// middle has a review doneWhen line — the cascade should stop here.
+			// middle has a review doneWhen line — the cascade should stop here without moving middle.
 			await seedTask(db, {
 				id: "bb1-p4-root",
 				teamId,
@@ -448,15 +445,11 @@ describe("parent auto-completion cascade (doneWhen review fork)", () => {
 			try {
 				await completeTask(db, eventBus, policyDeps, "bb1-p4-leaf", "in_progress", "done");
 
-				// Middle must reach review (needs a verdict).
-				await vi.waitFor(
-					async () => {
-						expect(await getTaskState(db, "bb1-p4-middle")).toBe("review");
-					},
-					{ timeout: 5000 },
-				);
+				// Give propagation time to settle — middle must NOT have moved (review card does it).
+				await new Promise((r) => setTimeout(r, 300));
+				expect(await getTaskState(db, "bb1-p4-middle")).toBe("accepted");
 
-				// Root must still be `accepted` — middle is not terminal (it is in review).
+				// Root must still be `accepted` — middle never became terminal.
 				expect(await getTaskState(db, "bb1-p4-root")).toBe("accepted");
 			} finally {
 				unregister();
