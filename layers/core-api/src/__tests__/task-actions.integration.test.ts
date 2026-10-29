@@ -377,7 +377,7 @@ describe("search_tasks — threadId filter", () => {
 
 		// Move t2 out of "proposed" — threadId + state must narrow, not replace:
 		// only t1 is still both in the shared thread AND proposed.
-		await call<TaskViewBody>(app, "edit_task", { id: t2Id, state: "review" });
+		await call<TaskViewBody>(app, "edit_task", { id: t2Id, state: "accepted" });
 
 		const narrowed = await call<TaskRow[]>(app, "search_tasks", {
 			threadId: sharedThreadId,
@@ -889,6 +889,44 @@ describe("dispatch", () => {
 		const childRow = await readTask(db, "ta-kill-live-child");
 		expect(rootRow?.state).toBe("killed");
 		expect(childRow?.state).toBe("killed");
+	});
+});
+
+describe("edit_task — state:review guard", () => {
+	test("setting state:review via edit_task is refused for external callers (requires a review card)", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "ta-rv-team-1");
+		await seedAgent(db, "ta-rv-agent-1", "ta-rv-team-1");
+
+		// Create a task in_progress
+		const threadId = await seedThread(db, "ta-rv-task-1", "ta-rv-team-1");
+		const now = new Date().toISOString();
+		await db.insert(tasks).values({
+			id: "ta-rv-task-1",
+			parentTaskId: null,
+			teamId: "ta-rv-team-1",
+			title: "review guard test",
+			state: "in_progress",
+			threadId,
+			ownerAgentId: "ta-rv-agent-1",
+			createdAt: now,
+			updatedAt: now,
+		});
+
+		// Try to move task to review via edit_task — must be refused
+		const ctx = ctxFor(FOUNDER_ID, db, eventBus);
+		const actions = buildTestActions(agentOrchestration);
+		const editTask = actions.find((a) => a.declaration.name === "edit_task");
+		if (!editTask) throw new Error("edit_task not found");
+
+		const result = await editTask.run(ctx, { id: "ta-rv-task-1", state: "review" });
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.problems.some((p) => p.code === "state_review_requires_card")).toBe(true);
+		}
 	});
 });
 

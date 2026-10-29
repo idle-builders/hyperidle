@@ -16,6 +16,7 @@ import type {
 	DocumentRow,
 	DocumentView,
 	EditDocumentInput,
+	EditTaskInput,
 	HarnessDescriptor,
 	OpenThreadInput,
 	ReviewVerdictRecorderFn,
@@ -78,6 +79,7 @@ function buildThreadActionsDeps(
 		readonly wsPush?: (topic: string, envelope: unknown) => void;
 	},
 	searchDocuments: SearchDocumentsRunFn,
+	moveTaskToReview: (taskId: string, ctx: ActionContext) => Promise<void>,
 ): ThreadActionsDeps {
 	return {
 		changes: { appendChange },
@@ -98,6 +100,7 @@ function buildThreadActionsDeps(
 		reviewVerdictRecorder: bindings.reviewVerdictRecorder,
 		linkReviewToSession: (sessionId, reviewMessageId) =>
 			bindings.agentOrchestration.gate.linkReview(sessionId, reviewMessageId),
+		moveTaskToReview,
 		...(bindings.wsPush ? { wsPush: bindings.wsPush } : {}),
 	};
 }
@@ -156,6 +159,17 @@ function lazySearchDocuments(getDocumentActions: () => readonly Action[]): Searc
 			ctx,
 			input,
 		);
+}
+
+// @lore: lazy to break build-order cycle (task is built after thread, but a review card must move its task to review state) — do NOT eagerly resolve at build time
+function lazyMoveTaskToReview(
+	getTaskActions: () => readonly Action[],
+): (taskId: string, ctx: ActionContext) => Promise<void> {
+	return async (taskId, ctx) => {
+		const editTask = runnerFor<EditTaskInput, TaskView>(getTaskActions(), "edit_task");
+		await editTask({ ...ctx, internal: true }, { id: taskId, state: "review" });
+		// non-ok silently ignored: task may already be in a terminal state
+	};
 }
 
 // document's openParent port — existence of a task/thread parent; task arm also reads teamId, thread arm does not.
@@ -389,15 +403,18 @@ export function buildCoreActions(bindings: {
 	readonly onHarnessRedetect?: () => Promise<void>;
 }): readonly Action[] {
 	let documentActions: readonly Action[] = [];
+	let taskActionsForThread: readonly Action[] = [];
 	const searchDocuments = lazySearchDocuments(() => documentActions);
+	const moveTaskToReview = lazyMoveTaskToReview(() => taskActionsForThread);
 	const threadActions = createThreadActions(
-		buildThreadActionsDeps(bindings, searchDocuments),
+		buildThreadActionsDeps(bindings, searchDocuments, moveTaskToReview),
 	) as readonly Action[];
 	const adjustThread = runnerFor<AdjustThreadInput, ThreadView>(threadActions, "adjust_thread");
 	const openThread = runnerFor<OpenThreadInput, ThreadView>(threadActions, "open_thread");
 	const taskActions = createTaskActions(
 		buildTaskActionsDeps(bindings.agentOrchestration, adjustThread, openThread, searchDocuments),
 	) as readonly Action[];
+	taskActionsForThread = taskActions;
 	documentActions = createDocumentActions(
 		buildDocumentActionsDeps(taskActions, threadActions, bindings.wsPush),
 	) as readonly Action[];

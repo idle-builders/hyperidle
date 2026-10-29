@@ -105,7 +105,7 @@ export const reviewPayloadSchema = z.object({
 	producedItemId: z.string().optional(),
 	/** The person who reviews it; absent ⇒ anyone in the thread but its sender. */
 	reviewer: z.string().min(1).optional(),
-	// server-stamped from ctx.caller.taskId — never accepted from the caller; SendMessageInputSchema.review omits it so a smuggled taskId is stripped by validation
+	// stamped by server from ctx.caller.taskId (task run) or supplied by agent from a conversation turn
 	taskId: z.string().optional(),
 });
 export type ReviewPayload = z.infer<typeof reviewPayloadSchema>;
@@ -278,10 +278,9 @@ export const SendMessageInputSchema = z
 		anchor: anchorSchema.optional(), // plain only
 		/** A change to the document text the anchor covers; plain only. */
 		change: proposedChangeSchema.omit({ settled: true }).optional(),
-		// `taskId` is server-stamped from `ctx.caller.taskId`, never caller
-		// input — omitted here so a smuggled `taskId` in the request body is
-		// stripped by validation rather than stored.
-		review: reviewPayloadSchema.omit({ taskId: true }).optional(),
+		// `taskId`: from a task-run session the server stamps it from ctx.caller.taskId;
+		// from a conversation turn an agent names the task by passing it here.
+		review: reviewPayloadSchema.optional(),
 		questionnaire: questionnairePayloadSchema.optional(),
 		verdict: verdictPayloadSchema.optional(),
 		answer: answerPayloadSchema.optional(),

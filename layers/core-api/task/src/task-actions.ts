@@ -339,7 +339,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		for (const t of [...ancestorTasks, ...subtreeTasks]) {
 			const domainTask = toTask(t);
 			const msgs = msgsByThread.get(t.threadId) ?? [];
-			needMap.set(t.id, computeTaskNeed(t.state, msgs, domainTask.reasons));
+			needMap.set(t.id, computeTaskNeed(t.state, msgs));
 		}
 
 		const rootNeed = needMap.get(input.id) ?? null;
@@ -387,7 +387,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		const msgsByThread = groupByThread(asks);
 		return domainTasks.map((t) => ({
 			...t,
-			need: computeTaskNeed(t.state, msgsByThread.get(t.threadId) ?? [], t.reasons),
+			need: computeTaskNeed(t.state, msgsByThread.get(t.threadId) ?? []),
 		}));
 	}
 
@@ -691,6 +691,20 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 
 		// -- 2. pure invariants ---------------------------------------------------
 		const problems: Problem[] = [...taskInvariants(next, prev ? toTask(prev) : null)];
+
+		// @lore: state:"review" can only be reached via sendMessage review card (moveTaskToReview dep);
+		// edit_task is blocked for all external callers — the card is the gate.
+		if (
+			next.state === "review" &&
+			(prev === null || (prev.state as string) !== "review") &&
+			!ctx.internal
+		) {
+			problems.push({
+				code: "state_review_requires_card",
+				message: "Reviewing a task requires sending a review card first.",
+				path: "state",
+			});
+		}
 
 		// -- 3. server invariants (need the database) ------------------------------
 		if (input.parentTaskId !== undefined && input.parentTaskId !== null && prev) {

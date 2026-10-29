@@ -94,10 +94,10 @@ async function propagateSessionToTask(
 		if (!task) return;
 		if (task.state !== "in_progress") return;
 
-		// Review fork: task goes to `review` when it has an open review line;
-		// otherwise completes directly to `done`, keeping the cascade moving.
-		const targetState: TaskState = needsHumanReview(task.doneWhen) ? "review" : "done";
-		await transitionTask(db, eventBus, taskId, targetState, deps);
+		// @lore: review line leaves task in_progress — propagation stops; an agent sends the review card and that card moves the task to review
+		if (needsHumanReview(task.doneWhen)) return;
+
+		await transitionTask(db, eventBus, taskId, "done", deps);
 
 		// Emit propagation_applied event
 		const appliedEvent: PropagationAppliedEvent = {
@@ -107,7 +107,7 @@ async function propagateSessionToTask(
 			sourceId: sessionId,
 			targetLevel: "task",
 			targetId: taskId,
-			targetTransition: `in_progress -> ${targetState}`,
+			targetTransition: "in_progress -> done",
 			timestamp: Date.now(),
 		};
 		eventBus.emit(appliedEvent);
@@ -168,9 +168,16 @@ async function propagateTaskToParent(
 
 			const fromState = ancestor.state;
 
-			// Review fork: ancestor goes to `review` if it has an open review line; otherwise done.
-			const targetState: TaskState = needsHumanReview(ancestor.doneWhen) ? "review" : "done";
-			await transitionTask(db, eventBus, ancestorId, targetState, deps);
+			if (needsHumanReview(ancestor.doneWhen)) {
+				if (ancestor.parentTaskId === null) {
+					// Root: send ship confirmation; the review card moves root to review state.
+					await createShipConfirmationThread(db, eventBus, ancestorId, ancestor.threadId, children, deps);
+				}
+				// @lore: stays in_progress until an agent sends the review card; non-root stops cascade naturally
+				continue;
+			}
+
+			await transitionTask(db, eventBus, ancestorId, "done", deps);
 
 			if (ancestor.parentTaskId === null) {
 				await createShipConfirmationThread(
@@ -190,7 +197,7 @@ async function propagateTaskToParent(
 					sourceId: ancestorId,
 					targetLevel: "team",
 					targetId: ancestor.teamId,
-					targetTransition: `${fromState} -> ${targetState}`,
+					targetTransition: `${fromState} -> done`,
 					timestamp: Date.now(),
 				};
 				eventBus.emit(teamEvent);
@@ -204,7 +211,7 @@ async function propagateTaskToParent(
 				sourceId: taskId,
 				targetLevel: "task",
 				targetId: ancestorId,
-				targetTransition: `${fromState} -> ${targetState}`,
+				targetTransition: `${fromState} -> done`,
 				timestamp: Date.now(),
 			};
 			eventBus.emit(appliedEvent);
@@ -256,6 +263,7 @@ async function createShipConfirmationThread(
 			threadId: rootThreadId,
 			clientKey: `propagation-ship-${rootTaskId}`,
 			review: {
+				taskId: rootTaskId,
 				title: "Confirm shipping?",
 				reasoning: [
 					`All subtasks on this task are complete: ${doneCount} done, ${killedCount} killed, ${totalCount} total.`,
