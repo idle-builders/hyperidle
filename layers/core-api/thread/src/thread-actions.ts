@@ -1255,15 +1255,22 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 
 		// wake
+		// Lazy lookup: only resolved when there is a live deliver target and text to
+		// send. Cached so one DB call covers all woken agents in this message.
+		let deliverSenderName: string | undefined;
 		for (const agentId of woken.filter((id) => id !== resumed)) {
 			try {
 				// Deliver directly into a live run when possible — avoids spawning a
 				// new work intent for an agent that is already running and waiting.
 				if (deps.tryDeliverToActiveRun !== undefined && input.text !== undefined) {
+					if (deliverSenderName === undefined) {
+						deliverSenderName =
+							(await deps.users.getUserById(ctx.db, ctx.actor))?.name ?? ctx.actor;
+					}
 					const deliveryResult = await deps.tryDeliverToActiveRun(
 						agentId,
 						effectiveThreadId,
-						`User wrote in the conversation: ${input.text}`,
+						`${deliverSenderName} wrote in the conversation: ${input.text}`,
 					);
 					if (deliveryResult === "delivered") continue;
 				}

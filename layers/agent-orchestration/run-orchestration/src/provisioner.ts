@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
@@ -62,6 +63,8 @@ type SessionContext = Extract<TransitionSpec, { target: "session" }>["context"];
 interface IngestionHandle {
 	dispose(): void;
 }
+
+const logger = createLogger({ pkg: "run-orchestration.session-provisioner" });
 
 // ---- ports ----
 
@@ -1660,8 +1663,7 @@ async function runSession(
 							.set({ harnessSessionId: immediateNativeId })
 							.where(eq(sessions.id, sessionId));
 					} catch (writeErr) {
-						// biome-ignore lint/suspicious/noConsole: graceful-degradation — phase-11 write will retry; resume-ability may be degraded
-						console.warn(
+						logger.warn(
 							`[session-provisioning] immediate harnessSessionId write failed for session ${sessionId}:`,
 							writeErr,
 						);

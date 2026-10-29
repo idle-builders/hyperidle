@@ -55,11 +55,11 @@ describe("send_message — tryDeliverToActiveRun", () => {
 
 		expect(result.ok).toBe(true);
 
-		// Agent has active run — deliver was called with sender prefix, intent was NOT recorded
+		// Agent has active run — deliver was called with sender's name, intent was NOT recorded
 		expect(deliverSpy).toHaveBeenCalledWith(
 			AGENT_ID,
 			threadId,
-			"User wrote in the conversation: hello from human",
+			"human-deliver wrote in the conversation: hello from human",
 		);
 		expect(intentSpy).not.toHaveBeenCalled();
 	});
