@@ -499,6 +499,45 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		);
 		const supersededIds = new Set(openReviewIds.filter((id) => successorPreviousIds.has(id)));
 
+		// @lore: orphan check is per-thread; same sender, later resolved + later open → old draft superseded; cross-thread sender activity must not interfere.
+		for (const threadId of threadIds) {
+			const threadReviews = allReviews.filter((m) => m.threadId === threadId);
+			const threadOpenIds = new Set(
+				openReviewIds.filter((id) => threadReviews.some((r) => r.id === id)),
+			);
+			if (threadOpenIds.size < 2) continue; // need at least two open reviews for an orphan
+			const latestResolvedAtBySender = new Map<string, string>();
+			for (const m of threadReviews) {
+				if (m.resolvedAt !== null) {
+					const cur = latestResolvedAtBySender.get(m.senderId) ?? "";
+					if (m.createdAt > cur) latestResolvedAtBySender.set(m.senderId, m.createdAt);
+				}
+			}
+			const latestOpenAtBySender = new Map<string, string>();
+			for (const id of threadOpenIds) {
+				const m = threadReviews.find((r) => r.id === id);
+				if (m !== undefined) {
+					const cur = latestOpenAtBySender.get(m.senderId) ?? "";
+					if (m.createdAt > cur) latestOpenAtBySender.set(m.senderId, m.createdAt);
+				}
+			}
+			for (const id of threadOpenIds) {
+				const m = threadReviews.find((r) => r.id === id);
+				if (m !== undefined) {
+					const latestResolved = latestResolvedAtBySender.get(m.senderId);
+					const latestOpen = latestOpenAtBySender.get(m.senderId);
+					if (
+						latestResolved !== undefined &&
+						m.createdAt < latestResolved &&
+						latestOpen !== undefined &&
+						m.createdAt < latestOpen
+					) {
+						supersededIds.add(id);
+					}
+				}
+			}
+		}
+
 		// A review is no longer a need for the viewer once they have opened it.
 		const openedIds = await store.listReviewsOpenedBy(ctx.db, viewer, openReviewIds);
 

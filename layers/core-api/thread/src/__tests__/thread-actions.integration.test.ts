@@ -1685,6 +1685,107 @@ describe("mark_review_opened", () => {
 		expect(personAfter.body.data?.find((r) => r.id === "mros-thread")?.need).toBeNull();
 	});
 
+	test("orphaned earlier review (no previousReviewId, same sender as an already-resolved later review) is treated as superseded", async ({
+		db,
+	}) => {
+		// Reproduces the real pattern: agent sends Round-1-draft (no previousReviewId),
+		// then Round-1-v2 (also no previousReviewId, later, gets approved), then Round-2
+		// (previousReviewId: v2). After opening Round-2, need must be null because
+		// the draft is superseded by v2 being resolved after it.
+		const eventBus = new EventBus();
+		const actions = createThreadActions(threadDeps());
+		await seedTeam(db, "mro3-team");
+		await seedHuman(db, "mro3-reviewer", "mro3-team");
+		await seedAgent(db, "mro3-agent", "mro3-team");
+		await seedThreadRow(db, "mro3-thread", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID, "mro3-reviewer", "mro3-agent"],
+		});
+
+		// Round 1 draft — no previousReviewId, never resolved (orphaned)
+		const draft = await call<{ message: { id: string } }>(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{ threadId: "mro3-thread", review: { title: "Draft", reasoning: ["First pass"] } },
+			"mro3-agent",
+		);
+		const draftId = draft.body.data?.message.id as string;
+
+		// Round 1 v2 — also no previousReviewId, later, gets approved by reviewer
+		const v2 = await call<{ message: { id: string } }>(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{ threadId: "mro3-thread", review: { title: "Better draft", reasoning: ["Second pass"] } },
+			"mro3-agent",
+		);
+		const v2Id = v2.body.data?.message.id as string;
+
+		// Reviewer approves v2 — resolves it
+		await call(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{ threadId: "mro3-thread", verdict: { decision: "approve", resolvesMessageId: v2Id } },
+			"mro3-reviewer",
+		);
+
+		// Round 2 — references v2 as predecessor, unresolved
+		const round2 = await call<{ message: { id: string } }>(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{
+				threadId: "mro3-thread",
+				review: { title: "Round 2", reasoning: ["Changes"], previousReviewId: v2Id },
+			},
+			"mro3-agent",
+		);
+		const round2Id = round2.body.data?.message.id as string;
+
+		// Before opening: need=review (draft + round2 are both unresolved)
+		const before = await call<Array<{ id: string; need: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{ ids: ["mro3-thread"] },
+			"mro3-reviewer",
+		);
+		expect(before.body.data?.find((r) => r.id === "mro3-thread")?.need).toBe("review");
+
+		// Reviewer opens round2 — this should be enough; draft is superseded
+		await call(
+			actions,
+			db,
+			eventBus,
+			"mark_review_opened",
+			{ reviewMessageId: round2Id },
+			"mro3-reviewer",
+		);
+
+		// After opening round2: need must be null — draft is superseded by v2 being resolved
+		const after = await call<Array<{ id: string; need: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{ ids: ["mro3-thread"] },
+			"mro3-reviewer",
+		);
+		expect(after.body.data?.find((r) => r.id === "mro3-thread")?.need).toBeNull();
+
+		// draftId itself is never in review_opened — it's excluded via superseding, not opening.
+		void draftId;
+	});
+
 	test("opening the current round drops need even when an older round is still unresolved (superseded)", async ({
 		db,
 	}) => {
