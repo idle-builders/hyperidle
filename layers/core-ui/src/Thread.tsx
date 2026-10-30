@@ -188,7 +188,7 @@ function Question({
 	);
 }
 
-/** A review: yours is raised with its action; someone else's shows in full with none. */
+/** A review card: title, first reasoning line, file count, preview thumbnail, "Look at it". */
 function Review({
 	message,
 	verdict,
@@ -208,6 +208,10 @@ function Review({
 	const reviewer = r.reviewer ? people.get(r.reviewer) : undefined;
 	const yours = open && message.senderId !== you && (!r.reviewer || r.reviewer === you);
 	const look = () => navigate(`/conversations/${threadId}?review=${message.id}`);
+	const parts = r.parts ?? [];
+	const codeFileCount = parts.reduce((n, p) => (p.kind === "code" ? n + p.files.length : n), 0);
+	const previewPart = parts.find((p) => p.kind === "preview");
+	const previewUrl = previewPart && previewPart.kind === "preview" ? previewPart.url : null;
 	return (
 		<div className={yours ? "review" : "review review--theirs"}>
 			<div className="review-head">
@@ -230,24 +234,29 @@ function Review({
 					)}
 				</span>
 			</div>
-			{r.reasoning.length > 0 && (
-				<div className="review-body">
-					<ul className="result-list">
-						{r.reasoning.map((line) => (
-							<li key={line}>{line}</li>
-						))}
-					</ul>
+			{r.reasoning[0] && <p className="review-first">{r.reasoning[0]}</p>}
+			{codeFileCount > 0 && (
+				<div className="review-meta">
+					<span className="review-files">
+						{codeFileCount} {codeFileCount === 1 ? "file" : "files"} changed
+					</span>
+				</div>
+			)}
+			{previewUrl && (
+				<div className="review-thumb" aria-hidden="true">
+					<iframe
+						src={previewUrl}
+						title="Review preview"
+						tabIndex={-1}
+						className="review-thumb-frame"
+					/>
 				</div>
 			)}
 			<div className="review-foot">
-				{yours ? (
-					<button type="button" className="btn btn--accent" onClick={look}>
+				{open ? (
+					<button type="button" className={yours ? "btn btn--accent" : "btn"} onClick={look}>
 						Look at it
 					</button>
-				) : open ? (
-					<span className="review-note">
-						{reviewer ? `Needs review by ${reviewer.name.split(" ")[0]}` : "Needs review"}
-					</span>
 				) : (
 					<>
 						<button type="button" className="btn" onClick={look}>
