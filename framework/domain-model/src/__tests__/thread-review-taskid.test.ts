@@ -1,7 +1,7 @@
 /**
- * A review message records the task its session ran on, stamped by the server:
- * `reviewPayloadSchema` (the stored/read shape) carries `taskId`; `SendMessageInputSchema.review`
- * must not accept it from the caller.
+ * A review message carries an optional taskId: stamped by the server from
+ * ctx.caller.taskId (task run) or supplied by the agent from a conversation
+ * turn. `SendMessageInputSchema.review` accepts it from the caller.
  */
 
 import { describe, expect, it } from "vitest";
@@ -27,13 +27,13 @@ describe("reviewPayloadSchema — stored/read shape", () => {
 });
 
 describe("SendMessageInputSchema.review — caller input shape", () => {
-	it("strips a taskId smuggled in by the caller rather than storing it", () => {
+	it("accepts a taskId provided by the caller (conversation-turn agent names its task)", () => {
 		const parsed = SendMessageInputSchema.parse({
 			threadId: "thread-1",
-			review: { title: "Review", reasoning: ["looks good"], taskId: "smuggled-task" },
+			review: { title: "Review", reasoning: ["looks good"], taskId: "task-xyz" },
 		});
 		expect(parsed.review).toBeDefined();
-		expect((parsed.review as { taskId?: string }).taskId).toBeUndefined();
+		expect((parsed.review as { taskId?: string }).taskId).toBe("task-xyz");
 	});
 
 	it("accepts a review with no taskId", () => {
@@ -41,6 +41,7 @@ describe("SendMessageInputSchema.review — caller input shape", () => {
 			threadId: "thread-1",
 			review: { title: "Review", reasoning: ["looks good"] },
 		});
-		expect(parsed.review).toEqual({ title: "Review", reasoning: ["looks good"] });
+		expect(parsed.review?.title).toBe("Review");
+		expect((parsed.review as { taskId?: string } | undefined)?.taskId).toBeUndefined();
 	});
 });
