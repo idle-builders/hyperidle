@@ -379,6 +379,14 @@ async function runClaimedRequest(
 			if (request.claimToken) {
 				await ports.sessionRequests.releaseClaim(deps.db, request.id, request.claimToken);
 			}
+			// @lore: thread nudge on bounce — emit after releaseClaim resolves; the thread page re-fetches and shows the waiting-line for the re-queued request
+			if (request.streamId.startsWith("thread:")) {
+				deps.eventBus.emit({
+					type: "session_request_queued",
+					streamId: request.streamId,
+					timestamp: Date.now(),
+				});
+			}
 			throw err;
 		}
 		logger.error("Agent run failed", {

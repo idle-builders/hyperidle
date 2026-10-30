@@ -411,10 +411,9 @@ export function ThreadPage({ id }: { id: string }) {
 		...[...sessions, ...partSessions].filter((s) => s.endedAt === null && s.state === "active"),
 		...answering,
 	];
-	// Show "waiting" when a request is queued but the agent is not yet running in this thread.
-	const waitingRows = waiting.data ?? [];
-	const agentIsWaiting = waitingRows.length > 0 && answering.length === 0;
-	const waitingBlocker = waitingRows[0]?.activeSession ?? null;
+	// A queued request whose agent is busy with other work; one with nothing blocking it is about to start.
+	const waitingOn =
+		answering.length === 0 ? (waiting.data ?? []).find((w) => w.activeSession) : undefined;
 
 	// A thread opens at its newest message, and follows new ones in.
 	const filled = entries.length + people.size + running.length;
@@ -533,10 +532,10 @@ export function ThreadPage({ id }: { id: string }) {
 						msg
 					);
 				})}
-				{agentIsWaiting && agent && (
+				{waitingOn && (
 					<WaitingLine
-						agentName={firstName(agent.id)}
-						activeSession={waitingBlocker}
+						agentName={firstName(waitingOn.agentId)}
+						activeSession={waitingOn.activeSession}
 						navigate={navigate}
 					/>
 				)}

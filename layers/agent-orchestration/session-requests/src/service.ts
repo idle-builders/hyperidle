@@ -702,6 +702,14 @@ async function processIntentsInternal(
 				await handOffInternal(db, intent, claimToken, now, (tx) =>
 					createFromBakedRequestInternal(tx, intent, baked),
 				);
+				// Nudge the thread so the waiting-line appears live without polling.
+				if (eventBus && baked.streamId.startsWith("thread:")) {
+					eventBus.emit({
+						type: "session_request_queued",
+						streamId: baked.streamId,
+						timestamp: now.getTime(),
+					});
+				}
 			} else {
 				throw new InvalidAgentWorkSourceError(
 					`Intent ${intent.id} (kind: ${intent.kind}) has no bakedRequestJson`,
