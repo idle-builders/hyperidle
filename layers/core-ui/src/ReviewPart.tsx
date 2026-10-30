@@ -137,8 +137,11 @@ function locate(body: HTMLElement, spot: Spot | undefined): At | null {
 	}
 }
 
-/** A live page in a frame, at a width. Pages that are from here can be pointed into. */
-function Preview({
+/**
+ * A live page in a frame, at a width. Two modes: "use" lets clicks and keys reach the page;
+ * "comment" shows the pin-pick overlay for pointing at elements.
+ */
+export function Preview({
 	url,
 	width,
 	onReady,
@@ -155,6 +158,7 @@ function Preview({
 	const [height, setHeight] = useState(480);
 	const [reachable, setReachable] = useState(false);
 	const [hover, setHover] = useState<DOMRect | null>(null);
+	const [mode, setMode] = useState<"use" | "comment">("use");
 
 	useEffect(() => {
 		if (!inline) return;
@@ -195,6 +199,28 @@ function Preview({
 		return () => clearTimeout(t);
 	}, [width, fit]);
 
+	// Keep height in step with the page's own content as it grows.
+	useEffect(() => {
+		if (!reachable) return;
+		const doc = frame.current?.contentDocument;
+		if (!doc?.body) return;
+		const obs = new ResizeObserver(fit);
+		obs.observe(doc.body);
+		return () => obs.disconnect();
+	}, [reachable, fit]);
+
+	// Escape always returns to use mode.
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "Escape" && mode === "comment") {
+				setMode("use");
+				setHover(null);
+			}
+		};
+		document.addEventListener("keydown", onKey);
+		return () => document.removeEventListener("keydown", onKey);
+	}, [mode]);
+
 	const under = (e: React.MouseEvent): Element | null => {
 		const f = frame.current;
 		if (!f) return null;
@@ -202,17 +228,43 @@ function Preview({
 		return f.contentDocument?.elementFromPoint(e.clientX - r.left, e.clientY - r.top) ?? null;
 	};
 
+	// Inline view gets a sensible max so a very tall page doesn't fill the whole screen.
+	const maxHeight = width == null ? 600 : undefined;
+
 	return (
 		<div className="preview-frame" style={{ width: width ?? "100%" }}>
+			<div className="preview-bar">
+				<span className="art-tools">
+					<button
+						type="button"
+						className="tool"
+						aria-pressed={mode === "use"}
+						onClick={() => {
+							setMode("use");
+							setHover(null);
+						}}
+					>
+						Use it
+					</button>
+					<button
+						type="button"
+						className="tool"
+						aria-pressed={mode === "comment"}
+						onClick={() => setMode("comment")}
+					>
+						Comment
+					</button>
+				</span>
+			</div>
 			<iframe
 				ref={frame}
 				title="Live preview"
-				style={{ height }}
+				style={{ height, ...(maxHeight !== undefined ? { maxHeight } : {}) }}
 				{...(inline ? { srcDoc: page ?? "" } : { src: url })}
 				sandbox={inline ? "allow-same-origin" : "allow-same-origin allow-scripts allow-forms"}
 				onLoad={fit}
 			/>
-			{reachable && (
+			{mode === "comment" && (
 				<button
 					type="button"
 					className="pin-pick"
@@ -233,7 +285,7 @@ function Preview({
 					}}
 				/>
 			)}
-			{hover && (
+			{hover && mode === "comment" && (
 				<span
 					className="pin-pick-hi"
 					style={{ top: hover.top, left: hover.left, width: hover.width, height: hover.height }}
