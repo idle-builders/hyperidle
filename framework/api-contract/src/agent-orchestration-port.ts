@@ -85,6 +85,16 @@ export interface AgentOrchestrationStoppedRun {
 export interface AgentOrchestrationRunsPort {
 	stopForTasks(taskIds: readonly string[]): Promise<ReadonlyArray<AgentOrchestrationStoppedRun>>;
 	endForHandoff(sessionId: string, endedAt: string): Promise<void>;
+	/**
+	 * Deliver a message into the live session for the given (agentId, threadId).
+	 * Returns "delivered" when the message reached a running session,
+	 * "not_delivered" when no live session was found or stdin delivery is unsupported.
+	 */
+	deliverToConversation(
+		agentId: string,
+		threadId: string,
+		text: string,
+	): Promise<"delivered" | "not_delivered">;
 }
 
 /** Mirrors `AgentRunConfig` (`@hyperidle/agent-run-config`). */

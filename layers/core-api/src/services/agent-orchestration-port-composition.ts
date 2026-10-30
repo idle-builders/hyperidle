@@ -65,6 +65,15 @@ interface AgentOrchestrationHcClient {
 					readonly json: { readonly agentId: string; readonly maxConcurrentSessions: number };
 				}): Promise<Response>;
 			};
+			readonly "deliver-to-conversation": {
+				$post(args: {
+					readonly json: {
+						readonly agentId: string;
+						readonly threadId: string;
+						readonly text: string;
+					};
+				}): Promise<Response>;
+			};
 		};
 		readonly "run-config": {
 			readonly ":agentId": {
@@ -233,6 +242,18 @@ export function buildAgentOrchestrationPort(
 					json: { sessionId, endedAt },
 				});
 				if (!res.ok) return throwSeamError("runs.endForHandoff", res);
+			},
+			async deliverToConversation(
+				agentId: string,
+				threadId: string,
+				text: string,
+			): Promise<"delivered" | "not_delivered"> {
+				const res = await client["agent-orchestration"].runs["deliver-to-conversation"].$post({
+					json: { agentId, threadId, text },
+				});
+				if (!res.ok) return "not_delivered";
+				const body = (await res.json()) as { readonly result: string };
+				return body.result === "delivered" ? "delivered" : "not_delivered";
 			},
 		},
 		runConfig: {

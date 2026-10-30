@@ -100,6 +100,14 @@ function buildThreadActionsDeps(
 		reviewVerdictRecorder: bindings.reviewVerdictRecorder,
 		linkReviewToSession: (sessionId, reviewMessageId) =>
 			bindings.agentOrchestration.gate.linkReview(sessionId, reviewMessageId),
+		tryDeliverToActiveRun: async (agentId, threadId, text) => {
+			const result = await bindings.agentOrchestration.runs.deliverToConversation(
+				agentId,
+				threadId,
+				text,
+			);
+			return result === "delivered" ? "delivered" : "not_delivered";
+		},
 		moveTaskToReview,
 		...(bindings.wsPush ? { wsPush: bindings.wsPush } : {}),
 	};

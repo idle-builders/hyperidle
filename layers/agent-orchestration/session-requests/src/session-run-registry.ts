@@ -25,17 +25,40 @@ interface SessionRunEntry {
 	readonly signalAbort: (reason: SessionAbortReason) => void;
 	readonly handle: SessionHandle;
 	readonly adapter: HarnessAdapter;
+	/**
+	 * Optional: deliver a new user message into the running session via stdin.
+	 * Pre-bound to the session's handle by the provisioner; returns "unsupported"
+	 * when the adapter doesn't support in-flight delivery.
+	 */
+	readonly deliver?: (text: string) => Promise<"delivered" | "unsupported">;
+	/** Agent id — used as the secondary index key for deliverToConversation. */
+	readonly agentId?: string;
+	/** Thread id — used as the secondary index key for deliverToConversation. */
+	readonly threadId?: string;
 }
 
 const entries = new Map<string, SessionRunEntry>();
 
+/**
+ * Secondary index: `${agentId}:${threadId}` → sessionId.
+ * Populated when both agentId and threadId are provided at register time.
+ */
+const conversationIndex = new Map<string, string>();
+
 /** Register a live session's runtime entry. Replaces any prior entry. */
 function register(sessionId: string, entry: SessionRunEntry): void {
 	entries.set(sessionId, entry);
+	if (entry.agentId !== undefined && entry.threadId !== undefined) {
+		conversationIndex.set(`${entry.agentId}:${entry.threadId}`, sessionId);
+	}
 }
 
 /** Remove a session's runtime entry (called at teardown). No-op if absent. */
 function deregister(sessionId: string): void {
+	const entry = entries.get(sessionId);
+	if (entry?.agentId !== undefined && entry?.threadId !== undefined) {
+		conversationIndex.delete(`${entry.agentId}:${entry.threadId}`);
+	}
 	entries.delete(sessionId);
 }
 
@@ -73,9 +96,40 @@ async function abort(sessionId: string, reason: SessionAbortReason): Promise<boo
 	return true;
 }
 
+/**
+ * Deliver a message to a live session by session id.
+ * Returns "not_found" when no entry exists, "unsupported" when the entry has
+ * no deliver fn, or "delivered" on success.
+ */
+async function deliverToSession(
+	sessionId: string,
+	text: string,
+): Promise<"delivered" | "unsupported" | "not_found"> {
+	const entry = entries.get(sessionId);
+	if (!entry) return "not_found";
+	if (!entry.deliver) return "unsupported";
+	return await entry.deliver(text);
+}
+
+/**
+ * Deliver a message to the live session for a given (agentId, threadId) pair.
+ * Returns "not_found" when no entry exists in the secondary index.
+ */
+async function deliverToConversation(
+	agentId: string,
+	threadId: string,
+	text: string,
+): Promise<"delivered" | "unsupported" | "not_found"> {
+	const sessionId = conversationIndex.get(`${agentId}:${threadId}`);
+	if (sessionId === undefined) return "not_found";
+	return await deliverToSession(sessionId, text);
+}
+
 export const sessionRunRegistry = {
 	register,
 	deregister,
 	has,
 	abort,
+	deliverToSession,
+	deliverToConversation,
 };

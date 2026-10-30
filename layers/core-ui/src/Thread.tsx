@@ -391,7 +391,11 @@ export function ThreadPage({ id }: { id: string }) {
 	const send = async (body: InputOf<"send_message">): Promise<boolean> => {
 		const sent = await call("send_message", body);
 		setProblem(sent.ok ? null : (sent.problems[0]?.message ?? "It did not send."));
-		if (sent.ok) view.reload();
+		if (sent.ok) {
+			view.reload();
+			// @lore: active reload on send — WS push travels separately from the HTTP response; explicit reload guards the running-session line if the push races or drops
+			active.reload();
+		}
 		return sent.ok;
 	};
 
