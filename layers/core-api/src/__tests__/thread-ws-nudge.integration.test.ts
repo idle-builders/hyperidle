@@ -18,6 +18,7 @@ import { type HyperIdleDb, teams, threads, users, userTeams } from "@hyperidle/d
 import type {
 	ActionResult,
 	AdjustThreadInput,
+	MarkReviewOpenedInput,
 	SendMessageInput,
 	SendMessageOutput,
 	ThreadView,
@@ -293,6 +294,57 @@ describe("send_message — the websocket nudge", () => {
 		expect(JSON.stringify(after)).not.toContain("secret text");
 		expect(before?.payload).toBeUndefined();
 		expect(after.payload).toBeUndefined();
+	});
+});
+
+describe("mark_review_opened — the websocket nudge", () => {
+	test("opening a review nudges conversations and thread:<id> so sidebar and person page refetch", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "mron-team");
+		await seedHuman(db, "mron-reviewer", "mron-team");
+		await seedThreadRow(db, "mron-thread", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID, "mron-reviewer"],
+		});
+
+		const broadcasts: CapturedBroadcast[] = [];
+		const actions = buildActionsWithHub(agentOrchestration, broadcasts);
+		const sendMessage = runnerFor<SendMessageInput, SendMessageOutput>(actions, "send_message");
+		const markReviewOpened = runnerFor<MarkReviewOpenedInput, Record<string, never>>(
+			actions,
+			"mark_review_opened",
+		);
+
+		const sent = await sendMessage(ctxFor(db, eventBus, FOUNDER_ID), {
+			threadId: "mron-thread",
+			review: { title: "Please look", reasoning: ["All good"] },
+		});
+		expect(sent.ok).toBe(true);
+		const reviewId = (sent as { ok: true; data: SendMessageOutput }).data.message.id;
+
+		broadcasts.length = 0; // clear setup broadcasts; only capture mark_review_opened
+
+		const opened = await markReviewOpened(ctxFor(db, eventBus, "mron-reviewer"), {
+			reviewMessageId: reviewId,
+		});
+		expect(opened.ok).toBe(true);
+
+		// conversations nudge — sidebar and person-page subscribe to this topic
+		const conv = broadcasts.find((b) => b.topic === "conversations");
+		expect(conv).toBeDefined();
+		expect(conv?.envelope.type).toBe("update");
+
+		// thread nudge — an open review page subscribes to this topic
+		const threadNudge = broadcasts.find(
+			(b) => b.topic === "mron-thread" || b.topic.startsWith("thread:"),
+		);
+		expect(threadNudge).toBeDefined();
+		expect(threadNudge?.envelope.type).toBe("update");
 	});
 });
 

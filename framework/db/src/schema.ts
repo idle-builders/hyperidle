@@ -545,6 +545,20 @@ export const inbox = pgTable(
 	(table) => [primaryKey({ columns: [table.userId, table.changeId] })],
 );
 
+export const reviewOpened = pgTable(
+	"review_opened",
+	{
+		reviewMessageId: text("review_message_id").notNull(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		openedAt: text("opened_at").notNull(),
+	},
+	(table) => [primaryKey({ columns: [table.reviewMessageId, table.userId] })],
+);
+export type ReviewOpened = typeof reviewOpened.$inferSelect;
+export type NewReviewOpened = typeof reviewOpened.$inferInsert;
+
 // --- Documents ---
 
 // Four real usage columns (readCount, lastReadAt, sessionUseCount, lastUsedAt) are never written by edit_document and never in a changes row.

@@ -351,11 +351,25 @@ export const adjustThread: ActionDeclaration<AdjustThreadInput, ThreadView> = {
 	output: ThreadViewSchema, // same shape open_thread returns
 };
 
+export const MarkReviewOpenedInputSchema = z.object({
+	/** The message id of the review to mark as opened. */
+	reviewMessageId: z.string().min(1),
+});
+export type MarkReviewOpenedInput = z.infer<typeof MarkReviewOpenedInputSchema>;
+
+export const markReviewOpened: ActionDeclaration<MarkReviewOpenedInput, Record<string, never>> = {
+	name: "mark_review_opened",
+	sentence: "Record that you have opened a review — it stops counting as waiting for you.",
+	input: MarkReviewOpenedInputSchema,
+	output: z.object({}),
+};
+
 export const THREAD_ACTIONS = {
 	search_threads: searchThreads,
 	open_thread: openThread,
 	send_message: sendMessage,
 	adjust_thread: adjustThread,
+	mark_review_opened: markReviewOpened,
 } as const;
 
 // Pure invariants — run in the browser and on the server; no database.

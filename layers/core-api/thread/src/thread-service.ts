@@ -4,6 +4,7 @@ import {
 	messages,
 	type NewMessage,
 	type NewThread,
+	reviewOpened,
 	type Thread,
 	threads,
 } from "@hyperidle/db";
@@ -342,4 +343,38 @@ export function searchThreadsByTitle(
 		.where(and(sql`${threads.title} ILIKE ${titlePattern} ESCAPE '\\'`, isNull(threads.deletedAt)))
 		.orderBy(desc(threads.lastActiveAt), threads.id)
 		.limit(limit);
+}
+
+// =============================================================================
+// review_opened — per-reviewer open tracking
+// =============================================================================
+
+export async function upsertReviewOpened(
+	exec: HyperIdleDb,
+	reviewMessageId: string,
+	userId: string,
+	openedAt: string,
+): Promise<void> {
+	await exec
+		.insert(reviewOpened)
+		.values({ reviewMessageId, userId, openedAt })
+		.onConflictDoNothing();
+}
+
+export async function listReviewsOpenedBy(
+	exec: HyperIdleDb,
+	userId: string,
+	reviewMessageIds: readonly string[],
+): Promise<Set<string>> {
+	if (reviewMessageIds.length === 0) return new Set();
+	const rows = await exec
+		.select({ reviewMessageId: reviewOpened.reviewMessageId })
+		.from(reviewOpened)
+		.where(
+			and(
+				eq(reviewOpened.userId, userId),
+				inArray(reviewOpened.reviewMessageId, [...reviewMessageIds]),
+			),
+		);
+	return new Set(rows.map((r) => r.reviewMessageId));
 }
