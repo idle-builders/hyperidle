@@ -20,6 +20,7 @@ function node(id: string, t: Partial<Task> = {}, children: TaskNode[] = []): Tas
 		ownerAgentId: "builder",
 		title: id,
 		description: null,
+		descriptionFormat: "markdown",
 		doneWhen: [],
 		state: "in_progress",
 		dependencies: null,

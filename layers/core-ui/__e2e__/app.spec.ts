@@ -50,6 +50,50 @@ test("an app a task made says so in the task's box and opens beside the task", a
 	await expect(appIn(page, "Trial length calculator").getByText(/people pay/)).toBeVisible();
 });
 
+test("a whole message can be an app: a card in the conversation, running beside it", async ({
+	page,
+}) => {
+	await page.goto("/conversations/demo-thread-pricing-q4");
+	const card = page.getByRole("button", { name: /^Pricing page, two options/ });
+	await expect(card).toContainText("Option A and option B side by side");
+	await card.click();
+	await expect(page).toHaveURL(/[?&]app=message%3Ademo-thread-pricing-q4%3Ademo-msg-q4-03$/);
+	await expect(page.getByRole("heading", { name: "Pricing page, Q4 pass" })).toBeVisible();
+	const app = appIn(page, "Pricing page, two options");
+	await app.getByRole("button", { name: "Option B" }).click();
+	await expect(app.getByText("10 days")).toBeVisible();
+});
+
+test("a task's description can be an app, with its parts, done when and the rest kept beside it", async ({
+	page,
+}) => {
+	await page.goto("/work/demo-task-trials?part=demo-task-trials-picker");
+	await expect(page.getByRole("heading", { name: "Plan picker", level: 2 })).toBeVisible();
+	await page.getByRole("button", { name: /^Plan picker sketch/ }).click();
+	await expect(page).toHaveURL(/[?&]app=task%3Ademo-task-trials-picker$/);
+	await expect(page.getByRole("heading", { name: "Plan picker", level: 2 })).toBeVisible();
+	const app = appIn(page, "Plan picker sketch");
+	await app.getByText("Business").click();
+	await expect(app.getByText("Picked: Business")).toBeVisible();
+});
+
+test("find lists apps, the ones made in conversations too, and opens one beside where it was made", async ({
+	page,
+}) => {
+	await page.goto("/conversations");
+	await expect(page.getByRole("button", { name: /^Trial-end confusion/ })).toBeVisible();
+	await page.keyboard.press("ControlOrMeta+k");
+	const overlay = page.getByRole("dialog", { name: "Find or ask" });
+	await overlay.getByRole("textbox", { name: "Find" }).fill("side by side");
+	const found = overlay.getByRole("listbox", { name: "Found" });
+	await expect(found.getByText("Apps", { exact: true })).toBeVisible();
+	await found.getByRole("option", { name: /^Pricing page, two options/ }).click();
+	await expect(page).toHaveURL(/\/conversations\/demo-thread-pricing-q4\?app=message/);
+	await expect(
+		appIn(page, "Pricing page, two options").getByRole("button", { name: "Option A" }),
+	).toBeVisible();
+});
+
 test("an app in the knowledge tree says so, and runs as its page", async ({ page }) => {
 	await page.goto("/knowledge/demo-doc-app-which-plan");
 	const tree = page.getByRole("region", { name: "All documents" });

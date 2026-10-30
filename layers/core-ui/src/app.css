@@ -1126,6 +1126,7 @@ kbd {
 	flex: 1 1 0;
 }
 .detail-scroll {
+	container-type: inline-size;
 	flex: 1;
 	overflow-y: auto;
 	min-height: 0;
@@ -2703,6 +2704,12 @@ button.tv-where:hover {
 	gap: var(--sp-6);
 	align-items: start;
 }
+/* With an app open beside it there is no room for the box at the side: it goes under the task. */
+@container (max-width: 760px) {
+	.tk-page {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
 .tk-main {
 	display: flex;
 	flex-direction: column;
@@ -4081,11 +4088,15 @@ button.item:hover {
 	box-shadow: var(--sh-1);
 	cursor: pointer;
 }
+.made--inline {
+	margin-left: 0;
+}
 .made:hover {
 	border-color: var(--line-strong);
 }
 .made-head {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--sp-2);
 }

@@ -1202,6 +1202,48 @@ describe("search_threads", () => {
 		expect(ids).not.toContain("st-not-mine-2");
 	});
 
+	test("a whole message can be an app: kept as a page, longer than any text message, and previewed by its title", async ({
+		db,
+	}) => {
+		const eventBus = new EventBus();
+		const actions = createThreadActions(threadDeps());
+		await seedTeam(db, "st-app-team");
+		await seedThreadRow(db, "st-app", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+		});
+		const page = `<!doctype html><html><head><title>Plan picker</title><style>@media (max-width: 400px) { p { margin: 0 } }</style></head><body>${"<p>row</p>".repeat(2000)}</body></html>`;
+
+		const tooLong = await call(actions, db, eventBus, "send_message", {
+			threadId: "st-app",
+			text: page,
+		});
+		expect(tooLong.body.problems?.map((p) => p.code)).toEqual(["text_too_long"]);
+
+		const sent = await call<{ message: { payload: unknown } }>(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{
+				threadId: "st-app",
+				text: page,
+				format: "html",
+			},
+		);
+		expect(sent.body.data?.message.payload).toEqual({ text: page, format: "html" });
+		const listed = await call<Array<{ id: string; lastMessagePreview: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{ ids: ["st-app"] },
+		);
+		expect(listed.body.data?.map((r) => r.lastMessagePreview)).toEqual(["App: Plan picker"]);
+	});
+
 	test("lastMessagePreview is batched, not one query per thread, and is null for a thread with no messages", async ({
 		db,
 	}) => {

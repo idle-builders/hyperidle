@@ -17,6 +17,7 @@ import {
 	adjustThread as adjustThreadDeclaration,
 	adjustThreadInvariants,
 	agentsToWake,
+	appTitle,
 	bakeAgentRunnableConfig,
 	canReadThread,
 	canWriteThread,
@@ -205,6 +206,7 @@ function readPreview(
 	try {
 		const payload = JSON.parse(rawPayload) as {
 			text?: string;
+			format?: string;
 			title?: string;
 			option?: string;
 			decision?: string;
@@ -217,6 +219,10 @@ function readPreview(
 				: payload.decision === "reject"
 					? `Rejected: ${payload.note ?? ""}`
 					: undefined;
+		if (payload.format === "html") {
+			const title = appTitle(payload.text ?? "");
+			return { preview: title ? `App: ${title}` : "An app", mentions: false };
+		}
 		return {
 			preview: payload.text ?? payload.title ?? payload.option ?? verdict ?? null,
 			mentions: (payload.refs ?? []).some((r) => r.kind === "mention" && r.identityId === viewer),
@@ -1022,7 +1028,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					membersChanged = true;
 				}
 
-				if (body.type === "plain") {
+				// An app's page is code: an "@media" in its styles names nobody.
+				if (body.type === "plain" && input.format !== "html") {
 					const text = (body.payload as { text: string }).text;
 					const {
 						refs,
@@ -1651,6 +1658,7 @@ function messageBodyOf(input: SendMessageInput): {
 			type: "plain",
 			payload: {
 				text: input.text,
+				...(input.format === "html" ? { format: "html" } : {}),
 				...(input.refs !== undefined ? { refs: input.refs } : {}),
 				...(input.anchor !== undefined ? { anchor: input.anchor } : {}),
 				...(input.change !== undefined ? { change: input.change } : {}),

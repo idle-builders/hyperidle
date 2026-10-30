@@ -1,18 +1,18 @@
-import type {
-	DocumentRow,
-	Message,
-	QuestionnairePayload,
-	ReviewPayload,
-	SessionRow,
-	Task,
-	TaskNode,
-	TaskView,
+import {
+	appSummary,
+	type DocumentRow,
+	type Message,
+	type QuestionnairePayload,
+	type ReviewPayload,
+	type SessionRow,
+	type Task,
+	type TaskNode,
+	type TaskView,
 } from "@hyperidle/domain-model";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useOpenApp } from "./Apps";
+import { AppCard, useOpenApp } from "./Apps";
 import { call, type InputOf } from "./api";
-import { appSummary } from "./app-frame";
 import { Composer } from "./Composer";
 import { Failed } from "./Failed";
 import { Closes, Reasons, toClose, toReason } from "./Loop";
@@ -243,7 +243,7 @@ function TaskScreen({
 					<div className="tk-main">
 						<h1 className="page-title">{root.title}</h1>
 						<Stand tree={tree} n={root} running={around.running} owner={owner} />
-						{root.description && <RichText text={root.description} />}
+						<Description task={root} />
 
 						{root.children.length > 0 && (
 							<section className="tk-map" aria-label="Parts of this task">
@@ -272,7 +272,7 @@ function TaskScreen({
 								<>
 									<h2 className="tk-part-title">{sel.title}</h2>
 									<Stand tree={tree} n={sel} running={around.running} owner={owner} />
-									{sel.description && <RichText text={sel.description} />}
+									<Description task={sel} />
 								</>
 							)}
 							{sel.reasons.length > 0 && <Reasons items={sel.reasons.map(toReason)} />}
@@ -462,6 +462,14 @@ function Conversation({
 			</div>
 		</>
 	);
+}
+
+/** What the task is after, in words, or as an app that opens beside the task. */
+function Description({ task }: { task: Task }) {
+	if (!task.description) return null;
+	if (task.descriptionFormat === "html")
+		return <AppCard page={task.description} of={{ kind: "task", id: task.id }} inline />;
+	return <RichText text={task.description} />;
 }
 
 function KindIcon({ kind }: { kind: Thing["kind"] }) {
@@ -872,7 +880,10 @@ function TaskBox({
 			kind: d.format === "html" ? "App" : "Document",
 			title: d.title,
 			why: d.format === "html" ? `App · ${summary ? `${summary} · ` : ""}${by}` : by,
-			open: () => (d.format === "html" ? openApp(d.id) : navigate(`/knowledge/${d.id}`)),
+			open: () =>
+				d.format === "html"
+					? openApp({ kind: "document", id: d.id })
+					: navigate(`/knowledge/${d.id}`),
 			...(d.parentId && d.parentId !== n.id ? { on: d.parentId } : {}),
 		};
 	};

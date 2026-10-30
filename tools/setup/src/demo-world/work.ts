@@ -13,6 +13,7 @@
 
 import { documents, type HyperIdleDb, subscriptions, tasks } from "@hyperidle/db";
 import type { ReviewPart, TaskState } from "@hyperidle/domain-model";
+import { PICKER_SKETCH } from "./apps.js";
 import {
 	BUILDER_ID,
 	DESIGNER_ID,
@@ -75,6 +76,8 @@ interface TaskSpec {
 	readonly owner: string;
 	readonly title: string;
 	readonly about: string;
+	/** `html`: `about` is an app, one whole page. */
+	readonly aboutFormat?: "html";
 	readonly state: TaskState;
 	/** Parts that must be done before this one starts. */
 	readonly after?: readonly string[];
@@ -340,7 +343,8 @@ function trialsTree(clock: DemoClock): TaskSpec[] {
 			parent: TASK_PAGE,
 			owner: BUILDER_ID,
 			title: "Plan picker",
-			about: "Show the plans side by side and let the person pick one.",
+			about: PICKER_SKETCH,
+			aboutFormat: "html",
 			state: "done",
 			summary: ["Three plans side by side, the one from the trial picked to start with."],
 			createdAt: clock.at(0, "08:50"),
@@ -972,6 +976,7 @@ export async function seedWork(db: HyperIdleDb, clock: DemoClock): Promise<void>
 					(task.parent ? specs.find((p) => p.id === task.parent)?.owner : task.owner),
 				title: task.title,
 				description: task.about,
+				descriptionFormat: task.aboutFormat ?? "markdown",
 				doneWhen: JSON.stringify(
 					(task.doneWhen ?? []).map((line, i) => ({ id: `${task.id}-dw-${i}`, ...line })),
 				),

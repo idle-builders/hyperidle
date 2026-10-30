@@ -86,6 +86,10 @@ Moving a task to `killed` via `edit_task` kills every task beneath it in the sam
 
 When a task reaches `review`, a human may record an outcome. Four values: `met`, `met_with_rework`, `partially_met`, `not_met`. Stored in `outcomeVerdict` + `outcomeSummary`. Not set automatically — always explicit.
 
+## Description
+
+`tasks.description` says what the task is after. `descriptionFormat` is `markdown`, or `html` to make it an app: one whole page that shows what the task is trying to do. The task page shows an app description as a card that opens beside the task; its parts, done when, decisions and assumptions stay as they are.
+
 ## Notes
 
 `tasks.notes` is only written via `edit_task({ appendNote })` — atomic append. It is not written by sessions; sessions write `sessions.notes`.

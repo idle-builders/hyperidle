@@ -212,7 +212,7 @@ export function FindOrAsk({ onClose }: { onClose: () => void }) {
 						aria-label={mode}
 						placeholder={
 							mode === "Find"
-								? "Find threads, tasks, documents…"
+								? "Find threads, tasks, documents, apps…"
 								: "Ask anything — an agent answers with sources"
 						}
 						onChange={(e) => {
@@ -236,7 +236,7 @@ export function FindOrAsk({ onClose }: { onClose: () => void }) {
 									<kbd>Tab</kbd>
 								</button>
 							)}
-							{(["Knowledge", "Conversations", "Work"] as const).map((group) => {
+							{(["Knowledge", "Apps", "Conversations", "Work"] as const).map((group) => {
 								const inGroup = rows.filter((r) => r.group === group);
 								if (inGroup.length === 0) return null;
 								return (
@@ -259,7 +259,7 @@ export function FindOrAsk({ onClose }: { onClose: () => void }) {
 									</div>
 								);
 							})}
-							{!q && <p className="pal-none">Type to find threads, tasks and documents.</p>}
+							{!q && <p className="pal-none">Type to find threads, tasks, documents and apps.</p>}
 							{q && found && rows.length === 0 && (
 								<p className="pal-none">Nothing found for “{q}”. Tab asks an agent instead.</p>
 							)}

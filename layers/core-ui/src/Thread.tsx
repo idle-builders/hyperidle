@@ -12,7 +12,7 @@ import {
 } from "@hyperidle/domain-model";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { MadeCard } from "./Apps";
+import { AppCard, MadeCard } from "./Apps";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
 import { Failed } from "./Failed";
@@ -309,6 +309,8 @@ export function Body({
 			</div>
 		);
 	const p = message.payload as PlainReadPayload;
+	if (p.format === "html")
+		return <AppCard page={p.text} of={{ kind: "message", threadId, id: message.id }} inline />;
 	const mentions = (p.refs ?? []).flatMap((r) => (r.kind === "mention" ? [r.sourceText] : []));
 	return <RichText text={p.text} mentions={mentions} />;
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FORMATS } from "../app-page.js";
 import { SCOPE_KINDS, SCOPES_REQUIRING_ID } from "../types.js";
 import type { ActionDeclaration, Problem } from "./action.js";
 
@@ -24,10 +25,6 @@ export const DOCUMENT_PARENT_KINDS = [
 ] as const;
 export type DocumentParentKind = (typeof DOCUMENT_PARENT_KINDS)[number];
 
-/** `html` is an app: the body is one whole page, run sealed off from everything around it. */
-export const DOCUMENT_FORMATS = ["markdown", "html"] as const;
-export type DocumentFormat = (typeof DOCUMENT_FORMATS)[number];
-
 /** The word an agent uses. Derived on read, never stored — see `documentAs` below. */
 export const DOCUMENT_AS = ["memory", "artifact", "document"] as const;
 export type DocumentAs = (typeof DOCUMENT_AS)[number];
@@ -36,7 +33,7 @@ export const DocumentRowSchema = z.object({
 	id: z.string(),
 	title: z.string(),
 	body: z.string(),
-	format: z.enum(DOCUMENT_FORMATS),
+	format: z.enum(FORMATS),
 	status: z.enum(DOCUMENT_STATUSES),
 	slot: z.enum(DOCUMENT_SLOTS),
 	scopeKind: z.enum(SCOPE_KINDS), // factory | team | user
@@ -144,7 +141,7 @@ export const EditDocumentInputSchema = z
 		id: z.string().min(1).optional(),
 		title: z.string().min(1).optional(),
 		body: z.string().optional(),
-		format: z.enum(DOCUMENT_FORMATS).optional(), // default "markdown" on create
+		format: z.enum(FORMATS).optional(), // default "markdown" on create
 		status: z.enum(DOCUMENT_STATUSES).optional(), // default "proposed" on create
 		/** What this is. Create-only; on an edit it must match what the row already is. */
 		as: z.enum(DOCUMENT_AS).optional(), // default "document"

@@ -1,7 +1,6 @@
 export type { ActionDeclaration, ActionResult, Problem } from "./actions/action.js";
 export type {
 	DocumentAs,
-	DocumentFormat,
 	DocumentListRow,
 	DocumentParentKind,
 	DocumentRow,
@@ -16,7 +15,6 @@ export {
 	canReadDocument,
 	DOCUMENT_ACTIONS,
 	DOCUMENT_AS,
-	DOCUMENT_FORMATS,
 	DOCUMENT_PARENT_KINDS,
 	DOCUMENT_SLOTS,
 	DOCUMENT_STATUS_LABEL,
@@ -213,6 +211,8 @@ export {
 } from "./actions/user.js";
 export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
+export type { Format } from "./app-page.js";
+export { appSummary, appTitle, FORMATS } from "./app-page.js";
 export type {
 	PluginContributionKind,
 	PluginScopeKind,

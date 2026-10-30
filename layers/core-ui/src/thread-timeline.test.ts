@@ -24,6 +24,7 @@ const task = (t: Partial<Task>): Task => ({
 	ownerAgentId: "builder",
 	title: "Explain the trial end",
 	description: null,
+	descriptionFormat: "markdown",
 	doneWhen: [],
 	state: "in_progress",
 	dependencies: null,

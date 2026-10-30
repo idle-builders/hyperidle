@@ -35,7 +35,7 @@ function Shell() {
 			<div className={app ? "frame frame--app" : "frame"}>
 				<Sidebar />
 				<Outlet />
-				{app && <AppPane key={app} id={app} />}
+				{app && <AppPane key={app} param={app} />}
 			</div>
 		</FocusContext.Provider>
 	);

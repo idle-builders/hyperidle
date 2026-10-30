@@ -1,7 +1,8 @@
 /**
- * Three apps: Builder's price check in the trial-end conversation, Growth's trial length calculator
- * on the task that pulled the numbers, and the founder's plan picker in the pricing tree. An app is
- * a document whose format is html.
+ * The demo's apps. Three are documents whose format is html: Builder's price check in the
+ * trial-end conversation, Growth's trial length calculator on the task that pulled the numbers,
+ * and the founder's plan picker in the pricing tree. `OPTIONS_PAGE` is a whole message that is an
+ * app, in the Q4 pricing conversation; `PICKER_SKETCH` is the plan picker task's description.
  */
 
 import { documents, type HyperIdleDb } from "@hyperidle/db";
@@ -117,6 +118,85 @@ const show = () => {
 seats.addEventListener("change", show);
 sso.addEventListener("change", show);
 show();
+</script>
+</body>
+</html>`;
+
+/** Growth's two pricing page options, sent as a message. */
+export const OPTIONS_PAGE = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pricing page, two options</title>
+<meta name="description" content="Option A and option B side by side: trial length, reminder, and what each costs us">
+<style>
+body { font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 24px; color: #1d1b16; }
+h1 { font-size: 20px; margin: 0 0 12px; }
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+button { font: inherit; padding: 8px 14px; border: 1.5px solid #1d1b16; border-radius: 8px; background: #fff; cursor: pointer; }
+button[aria-pressed="true"] { background: #f5d547; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+dt { color: #5c574c; }
+dd { margin: 0; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Pricing page, two options</h1>
+<div class="tabs">
+<button type="button" data-o="a" aria-pressed="true">Option A</button>
+<button type="button" data-o="b">Option B</button>
+</div>
+<dl id="out"></dl>
+<script>
+const options = {
+	a: [["Trial", "14 days"], ["Reminder", "None"], ["Paid after trial", "31%"], ["Pages to change", "1"]],
+	b: [["Trial", "10 days"], ["Reminder", "Day 7 email"], ["Paid after trial", "About 26%"], ["Pages to change", "2"]],
+};
+const show = (key) => {
+	for (const b of document.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.o === key));
+	document.getElementById("out").innerHTML = options[key].map(([k, v]) => "<dt>" + k + "</dt><dd>" + v + "</dd>").join("");
+};
+for (const b of document.querySelectorAll("button")) b.addEventListener("click", () => show(b.dataset.o));
+show("a");
+</script>
+</body>
+</html>`;
+
+/** The plan picker task's description: a sketch of the picker it is building. */
+export const PICKER_SKETCH = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plan picker sketch</title>
+<meta name="description" content="Three plans side by side, the trial's plan picked to start with">
+<style>
+body { font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 24px; color: #1d1b16; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+p { margin: 0 0 16px; color: #5c574c; }
+.plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+label { display: block; padding: 14px; border: 1.5px solid #1d1b16; border-radius: 10px; cursor: pointer; }
+label:has(input:checked) { background: #f5d547; }
+input { margin: 0 6px 0 0; }
+.price { display: block; font-size: 22px; font-weight: 700; margin-top: 6px; }
+#picked { margin-top: 16px; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Plan picker</h1>
+<p>What this part builds: the plans side by side, the one from the trial picked to start with.</p>
+<div class="plans">
+<label><input type="radio" name="plan" value="Starter">Starter<span class="price">£12</span></label>
+<label><input type="radio" name="plan" value="Team" checked>Team<span class="price">£29</span></label>
+<label><input type="radio" name="plan" value="Business">Business<span class="price">£79</span></label>
+</div>
+<div id="picked"></div>
+<script>
+const say = () => {
+	const plan = document.querySelector("input:checked").value;
+	document.getElementById("picked").textContent = "Picked: " + plan;
+};
+for (const input of document.querySelectorAll("input")) input.addEventListener("change", say);
+say();
 </script>
 </body>
 </html>`;

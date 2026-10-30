@@ -757,6 +757,13 @@
 			"when": 1793226668892,
 			"tag": "0108_first_agent_starts_when_asked",
 			"breakpoints": true
+		},
+		{
+			"idx": 109,
+			"version": "7",
+			"when": 1793344701018,
+			"tag": "0109_task_description_format",
+			"breakpoints": true
 		}
 	]
 }
