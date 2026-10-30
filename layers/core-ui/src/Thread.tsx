@@ -94,9 +94,7 @@ function WaitingLine({
 	return (
 		<div className="running">
 			<span className="dot dot--wait" />
-			<span className="running-txt">
-				{agentName} will start on this after its current work
-			</span>
+			<span className="running-txt">{agentName} will start on this after its current work</span>
 			{where && (
 				<button type="button" className="peek" onClick={() => navigate(where)}>
 					See current work
