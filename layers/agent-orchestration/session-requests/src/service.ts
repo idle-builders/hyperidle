@@ -89,6 +89,20 @@ function listRequestsSourceInternal(
 function listRunningRequestsInternal(db: HyperIdleDb) {
 	return db.select().from(agentSessionRequests).where(eq(agentSessionRequests.status, "running"));
 }
+function listPendingByStreamInternal(db: HyperIdleDb, streamId: string) {
+	return db
+		.select()
+		.from(agentSessionRequests)
+		.where(
+			and(
+				eq(agentSessionRequests.streamId, streamId),
+				inArray(agentSessionRequests.status, ["pending", "claimed"]),
+			),
+		);
+}
+export function listPendingByStream(db: HyperIdleDb, streamId: string) {
+	return listPendingByStreamInternal(db, streamId);
+}
 async function hasActiveRequestClaimInternal(
 	db: HyperIdleDb,
 	input: { readonly requestId: string; readonly claimToken: string; readonly now: Date },
@@ -688,6 +702,14 @@ async function processIntentsInternal(
 				await handOffInternal(db, intent, claimToken, now, (tx) =>
 					createFromBakedRequestInternal(tx, intent, baked),
 				);
+				// Nudge the thread so the waiting-line appears live without polling.
+				if (eventBus && baked.streamId.startsWith("thread:")) {
+					eventBus.emit({
+						type: "session_request_queued",
+						streamId: baked.streamId,
+						timestamp: now.getTime(),
+					});
+				}
 			} else {
 				throw new InvalidAgentWorkSourceError(
 					`Intent ${intent.id} (kind: ${intent.kind}) has no bakedRequestJson`,

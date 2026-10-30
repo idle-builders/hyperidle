@@ -58,16 +58,20 @@ export {
 	searchPlugins,
 } from "./actions/platform.js";
 export type {
+	ListWaitingRequestsInput,
 	SearchSessionsInput,
 	SessionRow,
 	SessionState,
 	StopSessionInput,
 	StopSessionOutput,
+	WaitingRequestRow,
 	WatchSessionInput,
 	WatchSessionOutput,
 } from "./actions/session.js";
 export {
 	ActivityEntrySchema,
+	ListWaitingRequestsInputSchema,
+	listWaitingRequests,
 	SESSION_ACTIONS,
 	SESSION_STATES,
 	SearchSessionsInputSchema,
@@ -76,6 +80,7 @@ export {
 	StopSessionOutputSchema,
 	searchSessions,
 	stopSession,
+	WaitingRequestRowSchema,
 	WatchSessionInputSchema,
 	WatchSessionOutputSchema,
 	watchSession,

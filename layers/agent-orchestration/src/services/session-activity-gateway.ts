@@ -1,11 +1,20 @@
-// Gateway: forwards session_started/session_ended/tool_call_recorded off the EventBus
-// as a content-free `session:<id>` nudge onto the browser's websocket. A start or end
-// also nudges `task:<id>`, so a page showing the task sees a session begin and stop.
+// Gateway: forwards session events off the EventBus as content-free nudges onto the
+// browser's websocket. A start or end nudges `session:<id>` and `task:<id>`. A queued
+// request nudges `thread:<id>` so the waiting-line appears without polling.
 
 import type { EventBus } from "@hyperidle/event-bus";
 
 // Push a {topic, envelope} frame onto the websocket — satisfied by wsHub.broadcast(topic, JSON.stringify(envelope)).
 export type SessionActivityPush = (topic: string, envelope: unknown) => void;
+
+function queueNudge(streamId: string): {
+	readonly type: "update";
+	readonly topic: string;
+	readonly kind: "session.queue";
+	readonly data: { readonly streamId: string };
+} {
+	return { type: "update", topic: streamId, kind: "session.queue", data: { streamId } };
+}
 
 function sessionTopic(sessionId: string): string {
 	return `session:${sessionId}`;
@@ -41,6 +50,11 @@ export function registerSessionActivityGateway(
 		eventBus.on("session_ended", startOrEnd),
 		eventBus.on("tool_call_recorded", (event) => {
 			push(sessionTopic(event.sessionId), activityNudge(event.sessionId));
+		}),
+		eventBus.on("session_request_queued", (event) => {
+			if (event.streamId.startsWith("thread:")) {
+				push(event.streamId, queueNudge(event.streamId));
+			}
 		}),
 	];
 

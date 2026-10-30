@@ -144,8 +144,9 @@ describe("SessionRowSchema", () => {
 });
 
 describe("SESSION_ACTIONS", () => {
-	it("names exactly search_sessions, watch_session, stop_session", () => {
+	it("names exactly list_waiting_requests, search_sessions, watch_session, stop_session", () => {
 		expect(Object.keys(SESSION_ACTIONS).sort()).toEqual([
+			"list_waiting_requests",
 			"search_sessions",
 			"stop_session",
 			"watch_session",

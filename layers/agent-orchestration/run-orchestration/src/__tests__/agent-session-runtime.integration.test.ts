@@ -2,6 +2,7 @@ import {
 	agentSessionRequests,
 	agentWorkIntents,
 	type HyperIdleDb,
+	sessions,
 	tasks,
 	teams,
 	threads,
@@ -14,7 +15,7 @@ import type { AgentRunAdmissionFailedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
-import { TargetAgentNotRunnableError } from "../errors.js";
+import { ConcurrencyLimitError, TargetAgentNotRunnableError } from "../errors.js";
 import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";
 
@@ -559,6 +560,73 @@ describe("agent session runtime consumer", () => {
 			.where(eq(agentSessionRequests.id, request.id));
 		expect(stored?.status).toBe("failed");
 		expect(stored?.sessionId).toBeNull();
+	});
+
+	test("ConcurrencyLimitError at admission ends the reserved session row", async ({ db }) => {
+		const now = new Date().toISOString();
+		await db.insert(users).values([
+			{
+				id: "agent-conc",
+				kind: "ai",
+				name: "Agent",
+				role: "builder",
+				status: "active",
+				createdAt: now,
+			},
+			{
+				id: "user-conc",
+				kind: "human",
+				name: "User",
+				role: "founder",
+				status: "active",
+				createdAt: now,
+			},
+		]);
+		const request = await createRequestForTest(db, {
+			sourceKind: "assistant",
+			sourceId: "conc-msg",
+			streamId: "thread:conc-thread",
+			agentId: "agent-conc",
+			userId: "user-conc",
+			promptMode: "conversation",
+			idempotencyKey: "assistant:conc-msg",
+			sourceCorrelation: {
+				threadId: "conc-thread",
+				messageId: "conc-msg",
+				userId: "user-conc",
+				agentId: "agent-conc",
+			},
+		});
+		const ports = buildTestPorts();
+		vi.mocked(ports.sessionProvisioner!.admitSession).mockRejectedValue(
+			new ConcurrencyLimitError("agent-conc", 1),
+		);
+
+		await expect(
+			runSession(
+				{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+				{
+					mode: "durable",
+					request,
+					sandboxBasePath: "/tmp/conc-test",
+				},
+			),
+		).rejects.toThrow("concurrency limit reached");
+
+		// The session row reserved before admission must not be left active.
+		const activeSessions = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.requestId, request.id));
+		const active = activeSessions.filter((s) => s.state === "active");
+		expect(active).toHaveLength(0);
+
+		// The request must be released back to pending so the drain can retry it.
+		const [stored] = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.id, request.id));
+		expect(stored?.status).toBe("pending");
 	});
 
 	test("all source kinds can enter the boundary from a durable request", async ({ db }) => {
