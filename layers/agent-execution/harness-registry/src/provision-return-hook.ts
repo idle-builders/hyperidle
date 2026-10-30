@@ -28,7 +28,8 @@ function installReturnHook(opts: ReturnHookOptions): void {
 			break;
 
 		case "settings-codex":
-			provisionCodexHome(sandboxPath, bridgeToken, mcpUrl);
+			// @lore: settings-codex gate — no file hook; CodexAppServerAdapter checks bridge in-process after each turn (hooks.json Stop requires opaque pre-computed hash)
+			provisionCodexHome(sandboxPath);
 			break;
 
 		case "process-reengage":
@@ -85,31 +86,14 @@ function provisionClaudeSettings(sandboxPath: string, bridgeToken: string, mcpUr
 }
 
 /**
- * settings-codex: Create per-session CODEX_HOME with a notify-based return gate.
- * Also writes .codex/hooks.json for backward-compat with unit tests.
- * @lore: codex hooks trust — hooks.json Stop hooks require a pre-computed SHA256 hash in config.toml; hash algorithm is opaque; notify fires without hash trust
+ * settings-codex: Create per-session CODEX_HOME (auth.json + config.toml only).
+ * No hook files — enforcement is in-process in CodexAppServerAdapter.
+ * @lore: codex copy — copy auth.json; skip config.toml if writeCodexToml already wrote it; strip approvals_reviewer (interactive hang in non-TTY)
  */
-function provisionCodexHome(sandboxPath: string, bridgeToken: string, mcpUrl: string): void {
-	const codexDir = path.join(sandboxPath, ".codex");
-	fs.mkdirSync(codexDir, { recursive: true });
-
-	const scriptPath = path.join(codexDir, "return-check.sh");
-	const scriptContent = buildCodexReturnCheckScript(bridgeToken, mcpUrl);
-	fs.writeFileSync(scriptPath, scriptContent, { encoding: "utf-8", mode: 0o755 });
-
-	const hooksConfig = buildCodexHooksConfig(codexDir);
-
-	fs.writeFileSync(
-		path.join(codexDir, "hooks.json"),
-		JSON.stringify(hooksConfig, null, 2),
-		"utf-8",
-	);
-
-	// .codex-home/ is the real enforcement path; CodexAppServerAdapter sets CODEX_HOME to it.
+function provisionCodexHome(sandboxPath: string): void {
 	const codexHomeDir = path.join(sandboxPath, ".codex-home");
 	fs.mkdirSync(codexHomeDir, { recursive: true });
 
-	// @lore: codex copy — copy auth.json + config.toml; SQLite files lock and crash codex; strip approvals_reviewer from config.toml (interactive hang in non-TTY)
 	const userCodexDir = path.join(process.env.HOME ?? process.env.USERPROFILE ?? "/root", ".codex");
 	for (const file of ["auth.json", "config.toml"]) {
 		const src = path.join(userCodexDir, file);
@@ -128,53 +112,12 @@ function provisionCodexHome(sandboxPath: string, bridgeToken: string, mcpUrl: st
 		let tomlContent = fs.readFileSync(perSessionConfigPath, "utf-8");
 		// Strip approvals_reviewer — let codex use its built-in headless default.
 		tomlContent = tomlContent.replace(/^approvals_reviewer\s*=\s*"[^"]*"\n?/gm, "");
-		// Strip any existing notify line — we inject our own below.
+		// Strip notify — user's notify binary is irrelevant in the per-session sandbox.
 		tomlContent = tomlContent.replace(/^notify\s*=\s*\[.*\]\n?/gm, "");
 		fs.writeFileSync(perSessionConfigPath, tomlContent, "utf-8");
 	} catch {
 		// config.toml absent — nothing to strip.
 	}
-
-	// @lore: realpath for trust — macOS /var/folders is a symlink to /private/var/folders; trust entry must use the real path
-	const realSandboxPath = fs.realpathSync(sandboxPath);
-	fs.appendFileSync(
-		perSessionConfigPath,
-		`\n[projects."${realSandboxPath}"]\ntrust_level = "trusted"\n`,
-		"utf-8",
-	);
-
-	// @lore: notify gate — inject notify at top level (before any [section]); fires on turn-ended without hash trust; hooks.json Stop requires pre-computed hash
-	const notifyScriptPath = path.join(codexHomeDir, "notify.sh");
-	const notifyScriptContent = buildCodexNotifyScript(bridgeToken, mcpUrl);
-	fs.writeFileSync(notifyScriptPath, notifyScriptContent, { encoding: "utf-8", mode: 0o755 });
-
-	const currentToml = fs.readFileSync(perSessionConfigPath, "utf-8");
-	const notifyLine = `notify = ["${notifyScriptPath}", "turn-ended"]\n`;
-	const firstSection = currentToml.indexOf("[");
-	const newToml =
-		firstSection === -1
-			? `${currentToml}\n${notifyLine}`
-			: `${currentToml.slice(0, firstSection)}${notifyLine}\n${currentToml.slice(firstSection)}`;
-	fs.writeFileSync(perSessionConfigPath, newToml, "utf-8");
-}
-
-/** Build the codex hooks.json config referencing a return-check.sh at an absolute path (so codex finds it regardless of working directory). */
-function buildCodexHooksConfig(scriptDir: string): Record<string, unknown> {
-	return {
-		hooks: {
-			Stop: [
-				{
-					hooks: [
-						{
-							type: "command",
-							command: path.join(scriptDir, "return-check.sh"),
-							timeout: 10,
-						},
-					],
-				},
-			],
-		},
-	};
 }
 
 /**
@@ -192,39 +135,6 @@ function buildReturnCheckScript(bridgeToken: string, mcpUrl: string): string {
 		'  printf "%s\\n" "$response" >&2',
 		"  exit 2",
 		"fi",
-	].join("\n");
-}
-
-/**
- * Build the Codex Stop hook script. Protocol: empty body → {"decision":"approve"}; forceMessage → {"decision":"block","reason":"..."}.
- * Used for .codex/hooks.json (unit test backward-compat path only).
- */
-function buildCodexReturnCheckScript(bridgeToken: string, mcpUrl: string): string {
-	return [
-		"#!/bin/sh",
-		"# HyperIdle return-enforcement hook (Codex) — auto-generated, do not edit.",
-		`response=$(curl -s -X POST '${mcpUrl}/return-status' \\`,
-		`  -H 'Authorization: Bearer ${bridgeToken}' \\`,
-		`  -H 'Content-Type: application/json' -d '{}' 2>&1)`,
-		'if [ -n "$response" ]; then',
-		'  printf \'{"decision":"block","reason":"%s"}\' "$response"',
-		"  exit 0",
-		"fi",
-		'printf \'{"decision":"approve"}\'',
-	].join("\n");
-}
-
-/**
- * Build the Codex notify script. Called by config.toml notify on "turn-ended".
- * Output is ignored by codex — this is a fire-and-forget notification to the bridge.
- */
-function buildCodexNotifyScript(bridgeToken: string, mcpUrl: string): string {
-	return [
-		"#!/bin/sh",
-		"# HyperIdle turn-ended notify script (Codex) — auto-generated, do not edit.",
-		`curl -s -X POST '${mcpUrl}/return-status' \\`,
-		`  -H 'Authorization: Bearer ${bridgeToken}' \\`,
-		`  -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1`,
 	].join("\n");
 }
 

@@ -1,5 +1,5 @@
 /**
- * Unit tests for CodexAppServerAdapter — JSON-RPC protocol behavior and deliver.
+ * Unit tests for CodexAppServerAdapter — JSON-RPC protocol behavior, deliver, and return gate.
  *
  * Uses a fake spawn with PassThrough streams so no real codex binary is needed.
  */
@@ -29,6 +29,8 @@ interface FakeServerParts {
 	adapter: CodexAppServerAdapter;
 	/** Written stdin lines (each already a complete JSON-RPC message string) */
 	stdinLines: string[];
+	/** Direct access to the fake stdout PassThrough for injecting notifications */
+	fakeStdout: PassThrough;
 	triggerExit(code: number, signal: string | null): void;
 }
 
@@ -37,7 +39,10 @@ interface FakeServerParts {
  * Responses come in synchronously via PassThrough, so await startSession
  * resolves with no real I/O.
  */
-function makeFakeServer(): FakeServerParts {
+function makeFakeServer(opts?: {
+	/** Optional fake fetch — injected so gate tests don't need a real HTTP server. */
+	fetchFn?: typeof globalThis.fetch;
+}): FakeServerParts {
 	const stdinLines: string[] = [];
 
 	const fakeStdout = new PassThrough();
@@ -106,11 +111,13 @@ function makeFakeServer(): FakeServerParts {
 		killFn: () => {
 			// no-op in unit tests
 		},
+		...(opts?.fetchFn ? { fetchFn: opts.fetchFn } : {}),
 	});
 
 	return {
 		adapter,
 		stdinLines,
+		fakeStdout,
 		triggerExit(code, signal) {
 			for (const h of exitHandlers) h(code, signal);
 		},
@@ -153,17 +160,8 @@ describe("CodexAppServerAdapter", () => {
 	test("streamEvents yields completion text from item/agentMessage/delta notifications", async () => {
 		const { adapter, triggerExit } = makeFakeServer();
 
-		const fakeStdout = adapter as unknown as {
-			sessions: Map<string, { child: ChildProcess }>;
-		} as unknown as never;
-		// We can't access sessions directly; drive via the fake server instead.
-		// Just test through the full flow: push a delta notification and collect it.
-		void fakeStdout; // unused — we drive via startSession + manual stdout write below
-
 		const handle = await adapter.startSession(BASE_CONFIG);
 
-		// Push an agent message delta and then complete the turn via exit
-		// Access the internal session's child stdout to push notifications
 		const session = (
 			adapter as unknown as {
 				sessions: Map<string, { child: { stdout: PassThrough; done: boolean } }>;
@@ -203,5 +201,185 @@ describe("CodexAppServerAdapter", () => {
 		triggerExit(0, null);
 
 		expect(events).toEqual(["hello world"]);
+	});
+});
+
+describe("CodexAppServerAdapter return gate", () => {
+	test("gate approves (empty response): session ends without a follow-up turn", async () => {
+		// Fake fetch: always approve (empty body).
+		const fakeFetch = async () =>
+			new Response("", { status: 200 }) as unknown as ReturnType<typeof globalThis.fetch>;
+
+		const { adapter, fakeStdout, stdinLines } = makeFakeServer({
+			fetchFn: fakeFetch as unknown as typeof globalThis.fetch,
+		});
+
+		const config: SessionConfig = {
+			...BASE_CONFIG,
+			sessionId: "gate-approve-session",
+			returnHook: { bridgeToken: "tok", mcpUrl: "http://fake-bridge", forceBudget: 2 },
+		};
+		const handle = await adapter.startSession(config);
+
+		const session = (
+			adapter as unknown as {
+				sessions: Map<string, { child: { stdout: PassThrough } }>;
+			}
+		).sessions.get(handle.sessionId);
+		expect(session).toBeDefined();
+
+		const streaming = (async () => {
+			for await (const _ev of adapter.streamEvents(handle)) {
+				// drain
+			}
+		})();
+
+		// Complete the turn — gate should approve and stream should end.
+		fakeStdout.push(
+			`${JSON.stringify({
+				method: "turn/completed",
+				params: { threadId: FAKE_THREAD_ID, turn: { id: FAKE_TURN_ID } },
+			})}\n`,
+		);
+
+		await streaming;
+
+		// No second turn/start should have been sent.
+		const turnStarts = stdinLines.filter((l) => l.includes('"turn/start"'));
+		expect(turnStarts).toHaveLength(1); // only the initial one
+
+		expect(adapter.getForceReturnCount("gate-approve-session")).toBe(0);
+	});
+
+	test("gate blocks (non-empty response): starts a follow-up turn then approves", async () => {
+		let callCount = 0;
+		const fakeFetch = async () => {
+			callCount++;
+			const body = callCount === 1 ? "summarize your work" : "";
+			return new Response(body, { status: 200 }) as unknown as ReturnType<typeof globalThis.fetch>;
+		};
+
+		const { adapter, fakeStdout, stdinLines } = makeFakeServer({
+			fetchFn: fakeFetch as unknown as typeof globalThis.fetch,
+		});
+
+		const config: SessionConfig = {
+			...BASE_CONFIG,
+			sessionId: "gate-block-session",
+			returnHook: { bridgeToken: "tok", mcpUrl: "http://fake-bridge", forceBudget: 2 },
+		};
+		const handle = await adapter.startSession(config);
+
+		const session = (
+			adapter as unknown as {
+				sessions: Map<string, { child: { stdout: PassThrough } }>;
+			}
+		).sessions.get(handle.sessionId);
+		expect(session).toBeDefined();
+
+		const streaming = (async () => {
+			for await (const _ev of adapter.streamEvents(handle)) {
+				// drain
+			}
+		})();
+
+		// Complete the first turn — gate will block and send follow-up turn/start.
+		fakeStdout.push(
+			`${JSON.stringify({
+				method: "turn/completed",
+				params: { threadId: FAKE_THREAD_ID, turn: { id: FAKE_TURN_ID } },
+			})}\n`,
+		);
+
+		// Wait briefly for the follow-up turn/start to be sent.
+		await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+		// Adapter should have sent a second turn/start with the force message.
+		const turnStarts = stdinLines.filter((l) => l.includes('"turn/start"'));
+		expect(turnStarts).toHaveLength(2);
+
+		const followUp = JSON.parse(turnStarts[1]!) as {
+			params: { input: Array<{ text: string }> };
+		};
+		expect(followUp.params.input[0]?.text).toBe("summarize your work");
+
+		// Complete the second turn — gate should now approve.
+		fakeStdout.push(
+			`${JSON.stringify({
+				method: "turn/completed",
+				params: { threadId: FAKE_THREAD_ID, turn: { id: FAKE_TURN_ID } },
+			})}\n`,
+		);
+
+		await streaming;
+
+		expect(adapter.getForceReturnCount("gate-block-session")).toBe(1);
+	});
+
+	test("gate respects forceBudget: stops forcing after budget is exhausted", async () => {
+		// Always return a force message — should stop after forceBudget turns.
+		const fakeFetch = async () =>
+			new Response("keep going", {
+				status: 200,
+			}) as unknown as ReturnType<typeof globalThis.fetch>;
+
+		const { adapter, fakeStdout, stdinLines } = makeFakeServer({
+			fetchFn: fakeFetch as unknown as typeof globalThis.fetch,
+		});
+
+		const config: SessionConfig = {
+			...BASE_CONFIG,
+			sessionId: "gate-budget-session",
+			returnHook: { bridgeToken: "tok", mcpUrl: "http://fake-bridge", forceBudget: 1 },
+		};
+		const handle = await adapter.startSession(config);
+
+		const session = (
+			adapter as unknown as {
+				sessions: Map<string, { child: { stdout: PassThrough } }>;
+			}
+		).sessions.get(handle.sessionId);
+		expect(session).toBeDefined();
+
+		const streaming = (async () => {
+			for await (const _ev of adapter.streamEvents(handle)) {
+				// drain
+			}
+		})();
+
+		// First turn completes — gate blocks (1st force).
+		fakeStdout.push(
+			`${JSON.stringify({
+				method: "turn/completed",
+				params: { threadId: FAKE_THREAD_ID, turn: { id: FAKE_TURN_ID } },
+			})}\n`,
+		);
+
+		await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+		// Second turn start should have been sent (budget = 1, so 1 force is allowed).
+		const turnStarts1 = stdinLines.filter((l) => l.includes('"turn/start"'));
+		expect(turnStarts1).toHaveLength(2);
+
+		// Second turn completes — budget exhausted, gate must approve now.
+		fakeStdout.push(
+			`${JSON.stringify({
+				method: "turn/completed",
+				params: { threadId: FAKE_THREAD_ID, turn: { id: FAKE_TURN_ID } },
+			})}\n`,
+		);
+
+		await streaming;
+
+		// No third turn/start should have been sent.
+		const turnStarts2 = stdinLines.filter((l) => l.includes('"turn/start"'));
+		expect(turnStarts2).toHaveLength(2);
+
+		expect(adapter.getForceReturnCount("gate-budget-session")).toBe(1);
+	});
+
+	test("getForceReturnCount returns count for unknown session id (zero)", () => {
+		const { adapter } = makeFakeServer();
+		expect(adapter.getForceReturnCount("never-started")).toBe(0);
 	});
 });

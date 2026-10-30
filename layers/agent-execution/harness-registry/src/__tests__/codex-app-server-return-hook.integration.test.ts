@@ -1,9 +1,9 @@
 /**
- * Proves the codex Stop hook fires when a session ends through
- * CodexAppServerAdapter (app-server path, not exec path).
+ * Proves the in-adapter return gate fires when a codex turn completes.
  *
- * The Stop hook is the return-gate for codex sessions. If it does not fire,
- * the enforcement channel ("settings-codex") is silently broken.
+ * CodexAppServerAdapter checks the bridge after each turn/completed.
+ * When the bridge returns a force message, the adapter starts a follow-up
+ * turn. When the bridge returns empty (approve), the session ends.
  *
  * HARNESS LANE: real binary, real LLM, requireHarness("codex").
  */
@@ -21,31 +21,38 @@ import { trackHarnessSessions } from "./session-handle-tracker.js";
 
 const { track } = trackHarnessSessions();
 
-describe("CodexAppServerAdapter Stop hook (real binary)", () => {
+describe("CodexAppServerAdapter in-adapter return gate (real binary)", () => {
 	requireHarness("codex");
 
-	test("Stop hook POSTs to the bridge when a session ends", async () => {
+	test("starts a follow-up turn when bridge blocks, ends session when bridge approves", async () => {
 		await requireHarnessAuthed("codex");
 
-		// Bridge stub — records any POST to /return-status.
-		let bridgePostReceived = false;
+		// Bridge: block once (return force message), then approve.
+		let bridgeCallCount = 0;
 		const bridge = http.createServer((req, res) => {
-			if (req.method === "POST" && req.url === "/return-status") {
-				bridgePostReceived = true;
+			if (req.method === "POST" && req.url?.endsWith("/return-status")) {
+				bridgeCallCount++;
+				res.writeHead(200, { "Content-Type": "text/plain" });
+				if (bridgeCallCount === 1) {
+					res.end("Summarize what you did in one sentence.");
+				} else {
+					res.end(""); // approve
+				}
+				return;
 			}
-			res.writeHead(200, { "Content-Type": "application/json" });
-			res.end("{}");
+			res.writeHead(404);
+			res.end();
 		});
 		await new Promise<void>((resolve) => bridge.listen(0, "127.0.0.1", resolve));
 		const bridgePort = (bridge.address() as AddressInfo).port;
 		const bridgeUrl = `http://127.0.0.1:${bridgePort}`;
-		const bridgeToken = "test-hook-token";
+		const bridgeToken = "test-gate-token";
 
-		const sandbox = createHarnessSandbox("codex-appserver-hook");
+		const sandbox = createHarnessSandbox("codex-appserver-gate");
 		try {
 			await ensureSandboxGitRepo(sandbox.path);
 
-			// Production provisioning: copies auth.json, writes .codex-home/hooks.json.
+			// Provision .codex-home/ (auth.json + config.toml); no hook files for settings-codex.
 			await provisionHarnessEnvironment({
 				sandboxPath: sandbox.path,
 				mcpUrl: bridgeUrl,
@@ -54,14 +61,19 @@ describe("CodexAppServerAdapter Stop hook (real binary)", () => {
 			});
 
 			const config: SessionConfig = {
-				sessionId: `codex-hook-${Math.random().toString(36).slice(2, 10)}`,
+				sessionId: `codex-gate-${Math.random().toString(36).slice(2, 10)}`,
 				sandboxPath: sandbox.path,
 				assembledPrompt: "You are a test assistant. Be brief.",
-				instruction: "Reply with exactly: HOOK_TEST",
+				instruction: "Reply with exactly: GATE_TEST",
 				modelTier: "workhorse" as const,
 				tools: [],
 				selectedModel: HARNESS_TEST_MODELS.codex.model,
 				mcpConnectionInfo: undefined,
+				returnHook: {
+					bridgeToken,
+					mcpUrl: bridgeUrl,
+					forceBudget: 2,
+				},
 			};
 
 			const adapter = new CodexAppServerAdapter();
@@ -69,16 +81,22 @@ describe("CodexAppServerAdapter Stop hook (real binary)", () => {
 			track(adapter, handle);
 
 			for await (const _event of adapter.streamEvents(handle)) {
+				// consume; gate logic is inside streamEvents
 			}
 
-			// notify fires on "turn-ended"; give the script time to POST before stopSession kills the process group.
-			await new Promise<void>((resolve) => setTimeout(resolve, 3000));
-			expect(bridgePostReceived, "notify must POST to the bridge when a turn ends").toBe(true);
+			// Bridge must have been called at least twice: once for the block, once for the approve.
+			expect(bridgeCallCount, "bridge must be checked after each turn").toBeGreaterThanOrEqual(2);
+
+			// Adapter must report the one forced follow-up turn.
+			expect(
+				adapter.getForceReturnCount?.(config.sessionId),
+				"getForceReturnCount must return 1 after one forced turn",
+			).toBe(1);
 
 			await adapter.stopSession(handle);
 		} finally {
 			await sandbox.cleanup();
 			await new Promise<void>((resolve) => bridge.close(() => resolve()));
 		}
-	}, 120_000);
+	}, 180_000);
 });

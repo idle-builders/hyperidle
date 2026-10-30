@@ -30,6 +30,14 @@ interface PendingRequest {
 	reject(err: Error): void;
 }
 
+/** Return gate config — present when SessionConfig.returnHook is set. */
+interface ReturnGate {
+	readonly bridgeToken: string;
+	readonly mcpUrl: string;
+	readonly forceBudget: number;
+	readonly fetchFn: typeof globalThis.fetch;
+}
+
 interface AppServerSession {
 	readonly child: ChildProcess;
 	/** JSON-RPC thread id, set after thread/start response. */
@@ -49,12 +57,19 @@ interface AppServerSession {
 	readonly pendingRequests: Map<number, PendingRequest>;
 	nextReqId: number;
 	readonly modelTier: SessionConfig["modelTier"];
+	/** External (config) session id, for getForceReturnCount. */
+	readonly configSessionId: string;
+	/** Return gate config; absent when no returnHook configured. */
+	readonly returnGate?: ReturnGate;
+	/** Count of forced follow-up turns started by the gate in this session. */
+	gateForceCount: number;
 }
 
 /** Injectable dependencies (for unit tests). */
 interface CodexAppServerAdapterDeps {
 	readonly spawnFn?: typeof spawn;
 	readonly killFn?: (pid: number, signal: NodeJS.Signals) => void;
+	readonly fetchFn?: typeof globalThis.fetch;
 }
 
 let nextSessionId = 1;
@@ -81,7 +96,7 @@ function buildEnv(config: SessionConfig): Record<string, string> {
 }
 
 function buildArgs(_config: SessionConfig): string[] {
-	// @lore: no --dangerously-bypass-hook-trust — app-server rejects it (only exec accepts it); return gate uses notify in config.toml instead
+	// @lore: no --dangerously-bypass-hook-trust — app-server rejects it (only exec accepts it); return gate is in-process (checkReturnGate after turn/completed)
 	return ["app-server", "--stdio"];
 }
 
@@ -168,11 +183,15 @@ function parseNotificationToEvent(line: string): HarnessEvent | null {
 export class CodexAppServerAdapter implements HarnessAdapter {
 	private readonly spawnFn: typeof spawn;
 	private readonly killFn: (pid: number, signal: NodeJS.Signals) => void;
+	private readonly fetchFn: typeof globalThis.fetch;
 	private readonly sessions = new Map<string, AppServerSession>();
+	/** Persists gateForceCount after a session is deleted from this.sessions. */
+	private readonly forceReturnCounts = new Map<string, number>();
 
 	constructor(deps?: CodexAppServerAdapterDeps) {
 		this.spawnFn = deps?.spawnFn ?? spawn;
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
+		this.fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
 	}
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
@@ -187,6 +206,15 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 		});
 
 		const sessionId = `codex-appserver-${nextSessionId++}`;
+		const returnGate: ReturnGate | undefined = config.returnHook
+			? {
+					bridgeToken: config.returnHook.bridgeToken,
+					mcpUrl: config.returnHook.mcpUrl,
+					forceBudget: config.returnHook.forceBudget,
+					fetchFn: this.fetchFn,
+				}
+			: undefined;
+
 		const session: AppServerSession = {
 			child,
 			threadId: undefined,
@@ -200,6 +228,9 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			pendingRequests: new Map(),
 			nextReqId: 1,
 			modelTier: config.modelTier,
+			configSessionId: config.sessionId,
+			returnGate,
+			gateForceCount: 0,
 		};
 
 		this.sessions.set(sessionId, session);
@@ -257,6 +288,8 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 
 	streamEvents(handle: SessionHandle): AsyncIterable<HarnessEvent> {
 		const sessions = this.sessions;
+		const checkGate = this.checkReturnGate.bind(this);
+		const sendReq = this.sendRequest.bind(this);
 		return (async function* generator(): AsyncGenerator<HarnessEvent> {
 			const session = sessions.get(handle.sessionId);
 			if (!session) return;
@@ -271,7 +304,26 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 					if (event) yield event;
 				}
 
-				if (session.done) break;
+				if (session.done) {
+					// In-process return gate: check bridge before allowing session to end.
+					if (session.returnGate) {
+						const forceMessage = await checkGate(session);
+						if (forceMessage !== null) {
+							// Bridge blocked — start a follow-up turn with the force message.
+							session.done = false;
+							const turnResult = (await sendReq(session, "turn/start", {
+								threadId: session.threadId,
+								input: [{ type: "text", text: forceMessage }],
+								approvalPolicy: "never",
+							})) as { turn: { id: string } };
+							if (turnResult.turn?.id) {
+								session.activeTurnId = turnResult.turn.id;
+							}
+							continue;
+						}
+					}
+					break;
+				}
 
 				await new Promise<void>((resolve) => {
 					if (cursor < session.notificationLines.length || session.done) {
@@ -293,6 +345,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 
 		if (session.done && session.exitCode !== null) {
 			const result = this.buildResult(session);
+			this.forceReturnCounts.set(session.configSessionId, session.gateForceCount);
 			this.sessions.delete(handle.sessionId);
 			return Promise.resolve(result);
 		}
@@ -309,11 +362,13 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 		return new Promise<SessionResult>((resolve) => {
 			if (session.done) {
 				const result = this.buildResult(session);
+				this.forceReturnCounts.set(session.configSessionId, session.gateForceCount);
 				this.sessions.delete(handle.sessionId);
 				resolve(result);
 				return;
 			}
 			session.resolveStop = (result) => {
+				this.forceReturnCounts.set(session.configSessionId, session.gateForceCount);
 				this.sessions.delete(handle.sessionId);
 				resolve(result);
 			};
@@ -344,14 +399,64 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: [],
 			mcpSupport: true,
-			// @lore: settings-codex — notify = [script, "turn-ended"] in config.toml fires without hash trust; hooks.json Stop requires opaque pre-computed hash
+			// @lore: settings-codex — in-process gate; adapter POSTs to bridge after turn/completed; hooks.json Stop requires opaque pre-computed hash (not feasible)
 			returnEnforcement: "settings-codex",
 			// @lore: codex-toml — MCP server appended to .codex-home/config.toml; token via HYPERIDLE_MCP_TOKEN
 			cliMcpDialect: "codex-toml",
 		};
 	}
 
+	/**
+	 * Count of enforcement-gate forced follow-up turns for the given external session id.
+	 * Returns 0 when no gate was configured or the session is unknown.
+	 */
+	getForceReturnCount(sessionId: string): number {
+		// Active session
+		for (const session of this.sessions.values()) {
+			if (session.configSessionId === sessionId) {
+				return session.gateForceCount;
+			}
+		}
+		// Completed session: count was saved in forceReturnCounts at stopSession time
+		return this.forceReturnCounts.get(sessionId) ?? 0;
+	}
+
 	// ── Private helpers ────────────────────────────────────────────────────────
+
+	/**
+	 * Check the bridge return-status endpoint. Returns the force message when the
+	 * bridge blocks (non-empty body), null when it approves (empty body) or is
+	 * unreachable, or when the forceBudget is exhausted.
+	 */
+	private async checkReturnGate(session: AppServerSession): Promise<string | null> {
+		const gate = session.returnGate;
+		if (!gate) return null;
+
+		// Exhaust budget → approve; avoids infinite forced loops.
+		if (session.gateForceCount >= gate.forceBudget) {
+			return null;
+		}
+
+		try {
+			const response = await gate.fetchFn(`${gate.mcpUrl}/return-status`, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${gate.bridgeToken}`,
+					"Content-Type": "application/json",
+				},
+				body: "{}",
+			});
+			const text = (await response.text()).trim();
+			if (text) {
+				session.gateForceCount++;
+				this.forceReturnCounts.set(session.configSessionId, session.gateForceCount);
+				return text;
+			}
+		} catch {
+			// Bridge unreachable — approve (drain-gate floor backstops)
+		}
+		return null;
+	}
 
 	private sendRequest(
 		session: AppServerSession,
