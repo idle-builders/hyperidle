@@ -81,7 +81,7 @@ function buildEnv(config: SessionConfig): Record<string, string> {
 }
 
 function buildArgs(_config: SessionConfig): string[] {
-	// @lore: no --dangerously-bypass-hook-trust — app-server subcommand rejects it on both homebrew and bundled binaries (only exec accepts it); trust is via config.toml trust_level written by provisionCodexHome
+	// @lore: no --dangerously-bypass-hook-trust — app-server rejects it (only exec accepts it); return gate uses notify in config.toml instead
 	return ["app-server", "--stdio"];
 }
 
@@ -204,7 +204,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 
 		this.sessions.set(sessionId, session);
 		this.wireStdout(session);
-		// @lore: stderr drain — prevents pipe buffer from filling and blocking the child process; all stderr output is discarded (same behavior as stderrIgnorePatterns:[/.*/] in the exec path)
+		// @lore: stderr drain — prevents pipe buffer blocking the child process; discards all stderr (same as stderrIgnorePatterns:[/.*/] on exec path)
 		child.stderr?.resume();
 
 		child.on("exit", (code, signal) => {
@@ -344,7 +344,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: [],
 			mcpSupport: true,
-			// @lore: settings-codex — same return-enforcement as codex exec; hooks.json Stop hook written by provisionReturnHook
+			// @lore: settings-codex — notify = [script, "turn-ended"] in config.toml fires without hash trust; hooks.json Stop requires opaque pre-computed hash
 			returnEnforcement: "settings-codex",
 			// @lore: codex-toml — MCP server appended to .codex-home/config.toml; token via HYPERIDLE_MCP_TOKEN
 			cliMcpDialect: "codex-toml",

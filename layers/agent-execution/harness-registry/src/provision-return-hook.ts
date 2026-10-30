@@ -85,9 +85,9 @@ function provisionClaudeSettings(sandboxPath: string, bridgeToken: string, mcpUr
 }
 
 /**
- * settings-codex: Create per-session CODEX_HOME and write hooks.json.
+ * settings-codex: Create per-session CODEX_HOME with a notify-based return gate.
  * Also writes .codex/hooks.json for backward-compat with unit tests.
- * @lore: codex hooks format — `{ "hooks": { "Stop": [{ "hooks": [{ "type":"command", "command":"..." }] }] } }`; flat top-level "Stop" is silently ignored
+ * @lore: codex hooks trust — hooks.json Stop hooks require a pre-computed SHA256 hash in config.toml; hash algorithm is opaque; notify fires without hash trust
  */
 function provisionCodexHome(sandboxPath: string, bridgeToken: string, mcpUrl: string): void {
 	const codexDir = path.join(sandboxPath, ".codex");
@@ -105,7 +105,7 @@ function provisionCodexHome(sandboxPath: string, bridgeToken: string, mcpUrl: st
 		"utf-8",
 	);
 
-	// .codex-home/ is the real enforcement path; CliHarnessAdapter sets CODEX_HOME to it.
+	// .codex-home/ is the real enforcement path; CodexAppServerAdapter sets CODEX_HOME to it.
 	const codexHomeDir = path.join(sandboxPath, ".codex-home");
 	fs.mkdirSync(codexHomeDir, { recursive: true });
 
@@ -128,20 +128,34 @@ function provisionCodexHome(sandboxPath: string, bridgeToken: string, mcpUrl: st
 		let tomlContent = fs.readFileSync(perSessionConfigPath, "utf-8");
 		// Strip approvals_reviewer — let codex use its built-in headless default.
 		tomlContent = tomlContent.replace(/^approvals_reviewer\s*=\s*"[^"]*"\n?/gm, "");
+		// Strip any existing notify line — we inject our own below.
+		tomlContent = tomlContent.replace(/^notify\s*=\s*\[.*\]\n?/gm, "");
 		fs.writeFileSync(perSessionConfigPath, tomlContent, "utf-8");
 	} catch {
 		// config.toml absent — nothing to strip.
 	}
 
-	const homeScriptPath = path.join(codexHomeDir, "return-check.sh");
-	fs.writeFileSync(homeScriptPath, scriptContent, { encoding: "utf-8", mode: 0o755 });
-
-	const homeHooksConfig = buildCodexHooksConfig(codexHomeDir);
-	fs.writeFileSync(
-		path.join(codexHomeDir, "hooks.json"),
-		JSON.stringify(homeHooksConfig, null, 2),
+	// @lore: realpath for trust — macOS /var/folders is a symlink to /private/var/folders; trust entry must use the real path
+	const realSandboxPath = fs.realpathSync(sandboxPath);
+	fs.appendFileSync(
+		perSessionConfigPath,
+		`\n[projects."${realSandboxPath}"]\ntrust_level = "trusted"\n`,
 		"utf-8",
 	);
+
+	// @lore: notify gate — inject notify at top level (before any [section]); fires on turn-ended without hash trust; hooks.json Stop requires pre-computed hash
+	const notifyScriptPath = path.join(codexHomeDir, "notify.sh");
+	const notifyScriptContent = buildCodexNotifyScript(bridgeToken, mcpUrl);
+	fs.writeFileSync(notifyScriptPath, notifyScriptContent, { encoding: "utf-8", mode: 0o755 });
+
+	const currentToml = fs.readFileSync(perSessionConfigPath, "utf-8");
+	const notifyLine = `notify = ["${notifyScriptPath}", "turn-ended"]\n`;
+	const firstSection = currentToml.indexOf("[");
+	const newToml =
+		firstSection === -1
+			? `${currentToml}\n${notifyLine}`
+			: `${currentToml.slice(0, firstSection)}${notifyLine}\n${currentToml.slice(firstSection)}`;
+	fs.writeFileSync(perSessionConfigPath, newToml, "utf-8");
 }
 
 /** Build the codex hooks.json config referencing a return-check.sh at an absolute path (so codex finds it regardless of working directory). */
@@ -183,6 +197,7 @@ function buildReturnCheckScript(bridgeToken: string, mcpUrl: string): string {
 
 /**
  * Build the Codex Stop hook script. Protocol: empty body → {"decision":"approve"}; forceMessage → {"decision":"block","reason":"..."}.
+ * Used for .codex/hooks.json (unit test backward-compat path only).
  */
 function buildCodexReturnCheckScript(bridgeToken: string, mcpUrl: string): string {
 	return [
@@ -196,6 +211,20 @@ function buildCodexReturnCheckScript(bridgeToken: string, mcpUrl: string): strin
 		"  exit 0",
 		"fi",
 		'printf \'{"decision":"approve"}\'',
+	].join("\n");
+}
+
+/**
+ * Build the Codex notify script. Called by config.toml notify on "turn-ended".
+ * Output is ignored by codex — this is a fire-and-forget notification to the bridge.
+ */
+function buildCodexNotifyScript(bridgeToken: string, mcpUrl: string): string {
+	return [
+		"#!/bin/sh",
+		"# HyperIdle turn-ended notify script (Codex) — auto-generated, do not edit.",
+		`curl -s -X POST '${mcpUrl}/return-status' \\`,
+		`  -H 'Authorization: Bearer ${bridgeToken}' \\`,
+		`  -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1`,
 	].join("\n");
 }
 
