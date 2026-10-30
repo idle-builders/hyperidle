@@ -104,6 +104,17 @@ export interface ThreadActionsDeps {
 	/** Move a task to `review` state after a review card is filed for it. Called after the message is committed. */
 	readonly moveTaskToReview: (taskId: string, ctx: ActionContext) => Promise<void>;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
+	/**
+	 * Optional: deliver a message directly into a live agent run for the given
+	 * (agentId, threadId) pair, bypassing the work-intent queue.
+	 * Returns "delivered" when the message reached the running session,
+	 * "not_delivered" when no live session was found or delivery was unsupported.
+	 */
+	readonly tryDeliverToActiveRun?: (
+		agentId: string,
+		threadId: string,
+		text: string,
+	) => Promise<"delivered" | "not_delivered">;
 }
 
 // ---------------------------------------------------------------------------
@@ -1332,8 +1343,35 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 
 		// wake
+		// Lazy lookup: only resolved when there is a live deliver target and text to
+		// send. Cached so one DB call covers all woken agents in this message.
+		let deliverSenderName: string | undefined;
 		for (const agentId of woken.filter((id) => id !== resumed)) {
 			try {
+				// Deliver directly into a live run when possible — avoids spawning a
+				// new work intent for an agent that is already running and waiting.
+				if (deps.tryDeliverToActiveRun !== undefined && input.text !== undefined) {
+					try {
+						if (deliverSenderName === undefined) {
+							deliverSenderName =
+								(await deps.users.getUserById(ctx.db, ctx.actor))?.name ?? ctx.actor;
+						}
+						const deliveryResult = await deps.tryDeliverToActiveRun(
+							agentId,
+							effectiveThreadId,
+							`${deliverSenderName} wrote in the conversation: ${input.text}`,
+						);
+						if (deliveryResult === "delivered") continue;
+					} catch (deliverErr) {
+						// Deliver threw (e.g. adapter bug, unbound method) — log and fall through
+						// to the normal queue path so the message still reaches the agent.
+						logger.warn("deliver to active run failed, queuing instead", {
+							messageId,
+							agentId,
+							error: deliverErr instanceof Error ? deliverErr.message : String(deliverErr),
+						});
+					}
+				}
 				const bakedRequest = await resolveThreadTurnRequest(ctx.db, messageId, agentId, {
 					requireRunnableAgent: deps.agents.requireRunnableAgent,
 					// `resolveThreadTurnRequest`'s dep shape only threads `db`,

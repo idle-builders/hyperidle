@@ -3945,6 +3945,12 @@ button.rejected-next:hover {
 	max-width: 100%;
 	margin: 0 auto;
 }
+.preview-bar {
+	display: flex;
+	align-items: center;
+	padding: var(--sp-2) var(--sp-3);
+	border-bottom: var(--line-w) solid var(--line);
+}
 .preview-frame iframe {
 	display: block;
 	width: 100%;
