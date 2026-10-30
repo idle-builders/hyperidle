@@ -165,6 +165,7 @@ export function createAgentOrchestrationIntakeRoutes(
 				...(body.agentConfig ? { agentConfig: body.agentConfig as BakedAgentRunnableConfig } : {}),
 			},
 			(input) => enqueueWorkIntent(db, input),
+			(sessionId, text) => sessionRunRegistry.deliverToSession(sessionId, text),
 		);
 		return c.json(outcome);
 	});
@@ -195,6 +196,28 @@ export function createAgentOrchestrationIntakeRoutes(
 			const body = c.req.valid("json");
 			await endRunForHandoff(db, body.sessionId, body.endedAt);
 			return c.json({ ok: true });
+		},
+	);
+
+	// ── runs.deliverToConversation — POST /agent-orchestration/runs/deliver-to-conversation ──
+	router.post(
+		"/runs/deliver-to-conversation",
+		validateBody(
+			z.object({
+				agentId: z.string().min(1),
+				threadId: z.string().min(1),
+				text: z.string().min(1),
+			}),
+		),
+		async (c) => {
+			const body = c.req.valid("json");
+			const deliveryResult = await sessionRunRegistry.deliverToConversation(
+				body.agentId,
+				body.threadId,
+				body.text,
+			);
+			const result = deliveryResult === "delivered" ? "delivered" : "not_delivered";
+			return c.json({ result });
 		},
 	);
 

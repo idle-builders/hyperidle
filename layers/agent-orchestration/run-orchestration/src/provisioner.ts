@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
@@ -62,6 +63,8 @@ type SessionContext = Extract<TransitionSpec, { target: "session" }>["context"];
 interface IngestionHandle {
 	dispose(): void;
 }
+
+const logger = createLogger({ pkg: "run-orchestration.session-provisioner" });
 
 // ---- ports ----
 
@@ -124,6 +127,8 @@ interface SessionLifecycleHarnessAdapter {
 			readonly mcpTokenEnv?: Readonly<Record<string, string>>;
 		},
 	): Promise<SessionHandle>;
+	/** Deliver a user message into an already-running session via stdin. Optional. */
+	deliver?(handle: SessionHandle, text: string): Promise<"delivered" | "unsupported">;
 }
 
 interface SessionLifecycleAdapterMeta {
@@ -446,6 +451,10 @@ interface SessionLifecyclePorts {
 				signalAbort(reason: "stop" | "return"): void;
 				handle: SessionHandle;
 				adapter: SessionLifecycleHarnessAdapter;
+				/** Pre-bound deliver fn; absent when the adapter doesn't support stdin delivery. */
+				deliver?: (text: string) => Promise<"delivered" | "unsupported">;
+				agentId?: string;
+				threadId?: string;
 			},
 		): void;
 		deregisterSessionRun(sessionId: string): void;
@@ -1648,14 +1657,45 @@ async function runSession(
 				);
 			} else {
 				harnessHandle = await harness.startSession(sessionStartConfig as SessionConfig);
+				// @lore: immediate harnessSessionId write — --session-id assigned before spawn so getNativeSessionId is sync; write to DB now so verdicts can find the session
+				const immediateNativeId = harness.getNativeSessionId?.(harnessHandle);
+				if (immediateNativeId) {
+					try {
+						await deps.db
+							.update(sessions)
+							.set({ harnessSessionId: immediateNativeId })
+							.where(eq(sessions.id, sessionId));
+					} catch (writeErr) {
+						logger.warn(
+							`[session-provisioning] immediate harnessSessionId write failed for session ${sessionId}`,
+							{
+								error: writeErr instanceof Error ? writeErr.message : String(writeErr),
+							},
+						);
+					}
+				}
 			}
+			// Capture handle as a const — harnessHandle is non-null here (just set above)
+			// but TypeScript sees it as SessionHandle | null since it's a `let`; consts narrow cleanly.
+			const registeredHandle = harnessHandle as SessionHandle;
 			ports.sessionRequests.registerSessionRun(sessionId, {
 				signalAbort: (reason) => {
 					aborted = true;
 					if (reason === "stop") stopRequested = true;
 				},
-				handle: harnessHandle,
+				handle: registeredHandle,
 				adapter: harness,
+				// Pre-bind deliver so the registry holds a simple (text) => Promise fn.
+				// @lore: deliver binding — call as harness.deliver?.(…), never const fn=harness.deliver; fn(…); unbound fn loses `this` and crashes on this.config
+				...(harness.deliver !== undefined
+					? {
+							deliver: (text: string) =>
+								harness.deliver?.(registeredHandle, text) ??
+								Promise.resolve("unsupported" as const),
+							agentId: params.agentId,
+							...(params.callingThreadId ? { threadId: params.callingThreadId } : {}),
+						}
+					: {}),
 			});
 		}
 		onHarnessStarted?.();
