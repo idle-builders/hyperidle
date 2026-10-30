@@ -14,6 +14,7 @@ import {
 	type CliAvailabilityDeps,
 	CliHarnessAdapter,
 } from "./cli-harness-adapter.js";
+import { CodexAppServerAdapter } from "./codex-app-server-adapter.js";
 import type { EnforcementRegistry } from "./enforcement-registry.js";
 import {
 	describeHarnessCapability,
@@ -407,7 +408,12 @@ async function registerCliAdaptersIfAvailable(
 	for (const [name, config] of Object.entries(CLI_TOOL_CONFIGS)) {
 		const available = await CliHarnessAdapter.checkAvailability(config.binary, availabilityDeps);
 		if (available) {
-			const adapter = new CliHarnessAdapter(config, { enforcement });
+			// codex uses CodexAppServerAdapter (JSON-RPC app-server protocol, supports mid-turn deliver)
+			// all other CLI tools use CliHarnessAdapter (one-shot subprocess)
+			const adapter =
+				name === "codex"
+					? new CodexAppServerAdapter()
+					: new CliHarnessAdapter(config, { enforcement });
 			pool.register(`local-cli-${name}`, adapter, {
 				name: `CLI: ${name}`,
 				kind: "local",
