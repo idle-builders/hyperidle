@@ -84,7 +84,9 @@ test("pointing at the page's heading makes a pin and a row; a reply lands in the
 	await reply.fill("Or only the bill date.");
 	await reply.press("Enter");
 	await expect(reply).toHaveValue("");
-	await expect(page.getByText("Or only the bill date.")).toBeVisible();
+	await expect(
+		page.getByRole("paragraph").filter({ hasText: "Or only the bill date." }),
+	).toBeVisible();
 	await expect(questions(page)).toContainText("3 open");
 });
 
@@ -106,19 +108,18 @@ test("a reject needs a reason, and goes back with it", async ({ page }) => {
 	).toBeVisible();
 });
 
-test("Approve shows the open count beside it and works; the conversation stops asking", async ({
+test("opening a review stops the conversation asking; Approve shows the open count and works", async ({
 	page,
 }) => {
 	await page.goto(ROUND_2);
 	const row = page
 		.getByRole("navigation", { name: "Sidebar" })
 		.getByRole("button", { name: /^Trial-end confusion, three tickets/ });
-	await expect(row).toContainText("Needs review");
+	await expect(row).not.toContainText("Needs review");
 	await expect(verdict(page)).toContainText("3 open");
 
 	await verdict(page).getByRole("button", { name: "Approve" }).click();
 	await expect(verdict(page)).toHaveText("Approved · 1 open");
-	await expect(row).not.toContainText("Needs review");
 	await expect(page.getByRole("button", { name: "Pin C on the warning email" })).toBeVisible();
 
 	await page.goto(HAND_OFF);

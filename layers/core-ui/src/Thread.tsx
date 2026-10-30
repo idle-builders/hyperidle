@@ -254,9 +254,16 @@ function Review({
 			)}
 			<div className="review-foot">
 				{open ? (
-					<button type="button" className={yours ? "btn btn--accent" : "btn"} onClick={look}>
-						Look at it
-					</button>
+					<>
+						<button type="button" className={yours ? "btn btn--accent" : "btn"} onClick={look}>
+							Look at it
+						</button>
+						{!yours && (
+							<span className="review-note">
+								{reviewer ? `Needs review by ${reviewer.name.split(" ")[0]}` : "Needs review"}
+							</span>
+						)}
+					</>
 				) : (
 					<>
 						<button type="button" className="btn" onClick={look}>
