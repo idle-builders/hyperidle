@@ -293,6 +293,19 @@ export function objectEvent(
 }
 
 /**
+ * Emitted when an agent session request enters or re-enters `pending` status —
+ * on first creation (drain handoff) and when released back from `claimed`
+ * (concurrency limit bounce). Subscribers that push WS nudges dispatch by
+ * stream prefix so thread pages re-fetch the waiting-line without polling.
+ */
+export interface SessionRequestQueuedEvent {
+	readonly type: "session_request_queued";
+	/** The stream this request is queued for (e.g. `thread:<threadId>`). */
+	readonly streamId: string;
+	readonly timestamp: number;
+}
+
+/**
  * Discriminated union of all domain events.
  *
  * To add an event: (1) define the interface with type literal discriminant, streamId, and timestamp, (2) add it to this union, (3) emit from the route/service after the DB write. The EventBus is generic — no bus changes needed.
@@ -308,7 +321,8 @@ export type DomainEvent =
 	| SandboxWritebackChangesDetectedEvent
 	| PropagationAppliedEvent
 	| PropagationFailedEvent
-	| ToolCallRecordedEvent;
+	| ToolCallRecordedEvent
+	| SessionRequestQueuedEvent;
 
 /** All valid event type strings. */
 export type EventType = DomainEvent["type"];
@@ -338,6 +352,7 @@ export const EVENT_TYPES = [
 	"propagation_applied",
 	"propagation_failed",
 	"tool_call_recorded",
+	"session_request_queued",
 ] as const satisfies readonly EventType[];
 // completeness: a new EventType not listed above is a compile error here.
 type EventTypesComplete =

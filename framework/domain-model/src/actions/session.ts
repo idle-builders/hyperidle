@@ -148,8 +148,30 @@ export const stopSession: ActionDeclaration<StopSessionInput, StopSessionOutput>
 	output: StopSessionOutputSchema,
 };
 
+export const ListWaitingRequestsInputSchema = z.object({ threadId: z.string().min(1) }).strict();
+export type ListWaitingRequestsInput = z.infer<typeof ListWaitingRequestsInputSchema>;
+
+export const WaitingRequestRowSchema = z.object({
+	agentId: z.string(),
+	/** The session currently blocking this request, or null if the agent is not yet running. */
+	activeSession: SessionRowSchema.nullable(),
+});
+export type WaitingRequestRow = z.infer<typeof WaitingRequestRowSchema>;
+
+export const listWaitingRequests: ActionDeclaration<ListWaitingRequestsInput, WaitingRequestRow[]> =
+	{
+		name: "list_waiting_requests",
+		sentence:
+			"List agents waiting to start work in a conversation — requests queued (pending or claimed) " +
+			"for the given thread. Each entry carries the agent and the session it is blocked behind, " +
+			"if one is running. Empty when no work is queued.",
+		input: ListWaitingRequestsInputSchema,
+		output: z.array(WaitingRequestRowSchema),
+	};
+
 export const SESSION_ACTIONS = {
 	search_sessions: searchSessions,
 	watch_session: watchSession,
 	stop_session: stopSession,
+	list_waiting_requests: listWaitingRequests,
 } as const;
