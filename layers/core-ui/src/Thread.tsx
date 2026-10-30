@@ -76,6 +76,36 @@ export function stepWords(entry: ActivityEntry): string | null {
 	return d.verb ? `${d.verb} ${d.target ?? ""}`.trim() : stepFrom(d.toolName, d.argsSummary ?? "");
 }
 
+/** One line while the agent waits its turn — it has a request queued but another run is blocking it. */
+function WaitingLine({
+	agentName,
+	activeSession,
+	navigate,
+}: {
+	agentName: string;
+	activeSession: SessionRow | null;
+	navigate: (to: string) => void;
+}) {
+	const where = activeSession?.taskId
+		? `/work/${activeSession.taskId}`
+		: activeSession?.threadId
+			? `/conversations/${activeSession.threadId}`
+			: null;
+	return (
+		<div className="running">
+			<span className="dot dot--wait" />
+			<span className="running-txt">
+				{agentName} will start on this after its current work
+				{where && (
+					<button type="button" className="peek" onClick={() => navigate(where)}>
+						see current work
+					</button>
+				)}
+			</span>
+		</div>
+	);
+}
+
 /** One line while an agent works on the task; its steps show in place only when asked for. */
 function SessionLine({ session, agent }: { session: SessionRow; agent: string }) {
 	const [peek, setPeek] = useState(false);
@@ -358,6 +388,8 @@ export function ThreadPage({ id }: { id: string }) {
 	// An agent answering a message here, rather than working on one of the thread's tasks.
 	const active = useAction("search_sessions", { state: "active" }, [`thread:${id}`]);
 	const answering = (active.data ?? []).filter((s) => s.threadId === id && s.taskId === null);
+	// Agents with a queued request for this thread that has not started running yet.
+	const waiting = useAction("list_waiting_requests", { threadId: id }, [`thread:${id}`]);
 	const [problem, setProblem] = useState<string | null>(null);
 	const scroll = useRef<HTMLDivElement>(null);
 	// The first conversation after first start offers what an agent can use next.
@@ -379,6 +411,10 @@ export function ThreadPage({ id }: { id: string }) {
 		...[...sessions, ...partSessions].filter((s) => s.endedAt === null && s.state === "active"),
 		...answering,
 	];
+	// Show "waiting" when a request is queued but the agent is not yet running in this thread.
+	const waitingRows = waiting.data ?? [];
+	const agentIsWaiting = waitingRows.length > 0 && answering.length === 0;
+	const waitingBlocker = waitingRows[0]?.activeSession ?? null;
 
 	// A thread opens at its newest message, and follows new ones in.
 	const filled = entries.length + people.size + running.length;
@@ -395,6 +431,7 @@ export function ThreadPage({ id }: { id: string }) {
 			view.reload();
 			// @lore: active reload on send — WS push travels separately from the HTTP response; explicit reload guards the running-session line if the push races or drops
 			active.reload();
+			waiting.reload();
 		}
 		return sent.ok;
 	};
@@ -496,6 +533,13 @@ export function ThreadPage({ id }: { id: string }) {
 						msg
 					);
 				})}
+				{agentIsWaiting && agent && (
+					<WaitingLine
+						agentName={firstName(agent.id)}
+						activeSession={waitingBlocker}
+						navigate={navigate}
+					/>
+				)}
 				{running.map((s) => (
 					<SessionLine key={s.id} session={s} agent={firstName(s.agentId)} />
 				))}

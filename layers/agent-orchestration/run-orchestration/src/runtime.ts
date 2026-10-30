@@ -375,6 +375,7 @@ async function runClaimedRequest(
 		return { mode: "completed", ...result };
 	} catch (err) {
 		if (err instanceof ConcurrencyLimitError) {
+			await endReservedSessionAfterFailedAdmission(deps.db, request.id);
 			if (request.claimToken) {
 				await ports.sessionRequests.releaseClaim(deps.db, request.id, request.claimToken);
 			}

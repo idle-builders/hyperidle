@@ -89,6 +89,20 @@ function listRequestsSourceInternal(
 function listRunningRequestsInternal(db: HyperIdleDb) {
 	return db.select().from(agentSessionRequests).where(eq(agentSessionRequests.status, "running"));
 }
+function listPendingByStreamInternal(db: HyperIdleDb, streamId: string) {
+	return db
+		.select()
+		.from(agentSessionRequests)
+		.where(
+			and(
+				eq(agentSessionRequests.streamId, streamId),
+				inArray(agentSessionRequests.status, ["pending", "claimed"]),
+			),
+		);
+}
+export function listPendingByStream(db: HyperIdleDb, streamId: string) {
+	return listPendingByStreamInternal(db, streamId);
+}
 async function hasActiveRequestClaimInternal(
 	db: HyperIdleDb,
 	input: { readonly requestId: string; readonly claimToken: string; readonly now: Date },

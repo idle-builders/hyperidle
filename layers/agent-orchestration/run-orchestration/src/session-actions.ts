@@ -5,12 +5,15 @@ import {
 	type ActionDeclaration,
 	type ActionResult,
 	type ActivityEntry,
+	type ListWaitingRequestsInput,
+	listWaitingRequests as listWaitingRequestsDeclaration,
 	type SearchSessionsInput,
 	type SessionRow,
 	type StopSessionInput,
 	type StopSessionOutput,
 	searchSessions as searchSessionsDeclaration,
 	stopSession as stopSessionDeclaration,
+	type WaitingRequestRow,
 	type WatchSessionInput,
 	type WatchSessionOutput,
 	watchSession as watchSessionDeclaration,
@@ -42,6 +45,10 @@ export interface SessionActionsDeps {
 	readonly sessions: {
 		list(db: HyperIdleDb, filter: SessionSearchFilter): Promise<readonly Session[]>;
 		getById(db: HyperIdleDb, id: string): Promise<Session | undefined>;
+	};
+	/** Pending/claimed requests by stream — bound at the layer composition root. */
+	readonly pendingRequests: {
+		listForStream(db: HyperIdleDb, streamId: string): Promise<readonly { agentId: string }[]>;
 	};
 	/** `stopSessionRun`, already bound to `abort`/the layer's own `eventBus`. */
 	readonly stop: (sessionId: string) => Promise<"aborted" | "marked" | "already_ended">;
@@ -136,9 +143,38 @@ export function createSessionActions(deps: SessionActionsDeps): readonly Action[
 		};
 	}
 
+	// -----------------------------------------------------------------------
+	// list_waiting_requests
+	// -----------------------------------------------------------------------
+	async function listWaitingRequestsRun(
+		ctx: ActionContext,
+		input: ListWaitingRequestsInput,
+	): Promise<ActionResult<WaitingRequestRow[]>> {
+		const pending = await deps.pendingRequests.listForStream(ctx.db, `thread:${input.threadId}`);
+		if (pending.length === 0) return { ok: true, data: [] };
+		const agentIds = [...new Set(pending.map((r) => r.agentId))];
+		const activeSessions = await deps.sessions.list(ctx.db, {
+			agentIds,
+			state: "active",
+			limit: agentIds.length + 1,
+		});
+		const activeByAgent = new Map(activeSessions.map((s) => [s.agentId, s]));
+		return {
+			ok: true,
+			data: pending.map((req) => {
+				const blocking = activeByAgent.get(req.agentId);
+				return {
+					agentId: req.agentId,
+					activeSession: blocking ? toSessionRow(blocking) : null,
+				};
+			}),
+		};
+	}
+
 	return [
 		{ declaration: searchSessionsDeclaration, run: searchSessionsRun } as Action,
 		{ declaration: watchSessionDeclaration, run: watchSessionRun } as Action,
 		{ declaration: stopSessionDeclaration, run: stopSessionActionRun } as Action,
+		{ declaration: listWaitingRequestsDeclaration, run: listWaitingRequestsRun } as Action,
 	];
 }

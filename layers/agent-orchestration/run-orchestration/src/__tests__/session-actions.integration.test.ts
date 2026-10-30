@@ -67,6 +67,7 @@ async function seedSession(
 function buildDeps(overrides: Partial<SessionActionsDeps> = {}): SessionActionsDeps {
 	return {
 		sessions: { list: listSessions, getById: findSessionById },
+		pendingRequests: { listForStream: vi.fn(async () => []) },
 		stop: vi.fn(async () => "already_ended" as const),
 		activity: () => [],
 		...overrides,
