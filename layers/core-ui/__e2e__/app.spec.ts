@@ -7,6 +7,13 @@ const PRICE_APP = "demo-doc-app-trial-end-price";
 const appIn = (page: Page, title: string): FrameLocator =>
 	page.frameLocator(`iframe[title="${title}"]`).frameLocator("iframe");
 
+/** Team in the trial-end price app shows its price. A click can land before the app's own script has wired its buttons; a person can't click that fast. */
+const pickTeam = (app: FrameLocator): Promise<void> =>
+	expect(async () => {
+		await app.getByRole("button", { name: "Team" }).click();
+		await expect(app.getByText("On day 15 you pay £29")).toBeVisible({ timeout: 1000 });
+	}).toPass();
+
 test("an app made in a thread is a card there; it runs beside the thread and opens as a page", async ({
 	page,
 }) => {
@@ -23,9 +30,7 @@ test("an app made in a thread is a card there; it runs beside the thread and ope
 		page.getByRole("heading", { name: "Trial-end confusion, three tickets" }),
 	).toBeVisible();
 
-	const app = appIn(page, "Trial-end price");
-	await app.getByRole("button", { name: "Team" }).click();
-	await expect(app.getByText("On day 15 you pay £29")).toBeVisible();
+	await pickTeam(appIn(page, "Trial-end price"));
 
 	await pane.getByRole("button", { name: "Close" }).click();
 	await expect(pane).toBeHidden();
@@ -37,8 +42,7 @@ test("an app made in a thread is a card there; it runs beside the thread and ope
 		.getByRole("button", { name: "Open as a page" })
 		.click();
 	await expect(page).toHaveURL(new RegExp(`/knowledge/${PRICE_APP}$`));
-	await appIn(page, "Trial-end price").getByRole("button", { name: "Team" }).click();
-	await expect(appIn(page, "Trial-end price").getByText("On day 15 you pay £29")).toBeVisible();
+	await pickTeam(appIn(page, "Trial-end price"));
 });
 
 test("an app a task made says so in the task's box and opens beside the task", async ({ page }) => {
@@ -60,6 +64,7 @@ test("a whole message can be an app: a card in the conversation, running beside 
 	await expect(page).toHaveURL(/[?&]app=message%3Ademo-thread-pricing-q4%3Ademo-msg-q4-03$/);
 	await expect(page.getByRole("heading", { name: "Pricing page, Q4 pass" })).toBeVisible();
 	const app = appIn(page, "Pricing page, two options");
+	await expect(app.getByText("14 days")).toBeVisible();
 	await app.getByRole("button", { name: "Option B" }).click();
 	await expect(app.getByText("10 days")).toBeVisible();
 });

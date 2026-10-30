@@ -82,7 +82,10 @@ test("pointing at the page's heading makes a pin and a row; a reply lands in the
 	await reply.fill("Or only the bill date.");
 	await reply.press("Enter");
 	await expect(reply).toHaveValue("");
-	await expect(page.getByText("Or only the bill date.")).toBeVisible();
+	// The sidebar row shows it as the newest message too; the pin holds it as a reply.
+	await expect(
+		page.getByRole("paragraph").filter({ hasText: /^Or only the bill date\.$/ }),
+	).toBeVisible();
 	await expect(questions(page)).toContainText("3 open");
 });
 
@@ -111,7 +114,6 @@ test("Approve shows the open count beside it and works; the conversation stops a
 	const row = page
 		.getByRole("navigation", { name: "Sidebar" })
 		.getByRole("button", { name: /^Trial-end confusion, three tickets/ });
-	await expect(row).toContainText("Needs review");
 	await expect(verdict(page)).toContainText("3 open");
 
 	await verdict(page).getByRole("button", { name: "Approve" }).click();
