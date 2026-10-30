@@ -25,21 +25,6 @@ import type {
 
 export type { CodexAppServerAdapterDeps };
 
-// @lore: bundled path — ChatGPT bundles a codex binary that supports app-server --stdio; homebrew codex only has daemon/proxy (no stdio mode)
-const CODEX_BUNDLED_BINARY =
-	"/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex";
-
-/**
- * Resolve the binary for `codex app-server --stdio`.
- * Priority: CODEX_APP_SERVER_BINARY env var → bundled ChatGPT binary → PATH "codex".
- */
-function resolveAppServerBinary(): string {
-	const fromEnv = process.env.CODEX_APP_SERVER_BINARY;
-	if (fromEnv) return fromEnv;
-	if (fs.existsSync(CODEX_BUNDLED_BINARY)) return CODEX_BUNDLED_BINARY;
-	return "codex";
-}
-
 interface PendingRequest {
 	resolve(result: unknown): void;
 	reject(err: Error): void;
@@ -70,8 +55,6 @@ interface AppServerSession {
 interface CodexAppServerAdapterDeps {
 	readonly spawnFn?: typeof spawn;
 	readonly killFn?: (pid: number, signal: NodeJS.Signals) => void;
-	/** Override the binary path (unit tests inject a fake; defaults to resolveAppServerBinary()). */
-	readonly binaryPath?: string;
 }
 
 let nextSessionId = 1;
@@ -98,17 +81,82 @@ function buildEnv(config: SessionConfig): Record<string, string> {
 }
 
 function buildArgs(_config: SessionConfig): string[] {
-	// @lore: no --dangerously-bypass-hook-trust — bundled binary rejects it; trust is via config.toml trust_level written by provisionCodexHome
+	// @lore: no --dangerously-bypass-hook-trust — app-server subcommand rejects it on both homebrew and bundled binaries (only exec accepts it); trust is via config.toml trust_level written by provisionCodexHome
 	return ["app-server", "--stdio"];
 }
 
 function parseNotificationToEvent(line: string): HarnessEvent | null {
 	try {
 		const msg = JSON.parse(line) as { method?: string; params?: unknown };
-		if (msg.method === "item/agentMessage/delta") {
-			const params = (msg.params ?? {}) as Record<string, unknown>;
-			if (typeof params.delta === "string") {
-				return { type: "completion", text: params.delta };
+		const params = (msg.params ?? {}) as Record<string, unknown>;
+
+		switch (msg.method) {
+			case "item/agentMessage/delta": {
+				if (typeof params.delta === "string") {
+					return { type: "completion", text: params.delta };
+				}
+				break;
+			}
+			case "item/started": {
+				const item = (params.item ?? {}) as Record<string, unknown>;
+				const itemType = typeof item.type === "string" ? item.type : "";
+				if (itemType === "commandExecution") {
+					const command = typeof item.command === "string" ? item.command : "unknown";
+					return { type: "tool_call", toolName: "bash", args: { command } };
+				}
+				if (itemType === "mcpToolCall") {
+					const toolName = typeof item.tool === "string" ? item.tool : "unknown";
+					const args =
+						item.arguments !== null &&
+						item.arguments !== undefined &&
+						typeof item.arguments === "object"
+							? (item.arguments as Record<string, unknown>)
+							: {};
+					return { type: "tool_call", toolName, args };
+				}
+				// reasoning, plan, agentMessage start, etc. — benign
+				return { type: "completion", text: "" };
+			}
+			case "item/completed": {
+				// agentMessage completions already streamed via delta; other item types are benign
+				return { type: "completion", text: "" };
+			}
+			case "item/commandExecution/outputDelta":
+			case "item/mcpToolCall/progress":
+			case "item/reasoning/textDelta": {
+				// Streaming sub-events — benign, avoids unknown-event errors
+				return { type: "completion", text: "" };
+			}
+			case "thread/tokenUsage/updated": {
+				const tokenUsage = (params.tokenUsage ?? {}) as Record<string, unknown>;
+				const last = (tokenUsage.last ?? {}) as Record<string, unknown>;
+				const inputTokens =
+					typeof last.inputTokens === "number" && Number.isFinite(last.inputTokens)
+						? last.inputTokens
+						: 0;
+				const outputTokens =
+					typeof last.outputTokens === "number" && Number.isFinite(last.outputTokens)
+						? last.outputTokens
+						: 0;
+				const event: HarnessEvent = { type: "token_usage", inputTokens, outputTokens };
+				const cachedInput =
+					typeof last.cachedInputTokens === "number" && last.cachedInputTokens >= 0
+						? last.cachedInputTokens
+						: undefined;
+				const cacheWrite =
+					typeof last.cacheWriteInputTokens === "number" && last.cacheWriteInputTokens >= 0
+						? last.cacheWriteInputTokens
+						: undefined;
+				const reasoningOutput =
+					typeof last.reasoningOutputTokens === "number" && last.reasoningOutputTokens >= 0
+						? last.reasoningOutputTokens
+						: undefined;
+				return {
+					...event,
+					...(cachedInput !== undefined ? { cachedInputTokens: cachedInput } : {}),
+					...(cacheWrite !== undefined ? { cacheCreationInputTokens: cacheWrite } : {}),
+					...(reasoningOutput !== undefined ? { reasoningOutputTokens: reasoningOutput } : {}),
+				};
 			}
 		}
 	} catch {
@@ -120,20 +168,18 @@ function parseNotificationToEvent(line: string): HarnessEvent | null {
 export class CodexAppServerAdapter implements HarnessAdapter {
 	private readonly spawnFn: typeof spawn;
 	private readonly killFn: (pid: number, signal: NodeJS.Signals) => void;
-	private readonly binaryPath: string;
 	private readonly sessions = new Map<string, AppServerSession>();
 
 	constructor(deps?: CodexAppServerAdapterDeps) {
 		this.spawnFn = deps?.spawnFn ?? spawn;
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
-		this.binaryPath = deps?.binaryPath ?? resolveAppServerBinary();
 	}
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		const env = buildEnv(config);
 		const args = buildArgs(config);
 
-		const child = this.spawnFn(this.binaryPath, args, {
+		const child = this.spawnFn("codex", args, {
 			cwd: config.sandboxPath,
 			env,
 			stdio: ["pipe", "pipe", "pipe"],
@@ -158,6 +204,8 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 
 		this.sessions.set(sessionId, session);
 		this.wireStdout(session);
+		// @lore: stderr drain — prevents pipe buffer from filling and blocking the child process; all stderr output is discarded (same behavior as stderrIgnorePatterns:[/.*/] in the exec path)
+		child.stderr?.resume();
 
 		child.on("exit", (code, signal) => {
 			// Reject all pending requests so awaiting code doesn't hang
