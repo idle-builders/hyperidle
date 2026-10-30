@@ -26,9 +26,11 @@ import {
 	type HostKind,
 	type Identity,
 	IdentitySchema,
+	type MarkReviewOpenedInput,
 	type Message,
 	MessageSchema,
 	type MessageType,
+	markReviewOpened as markReviewOpenedDeclaration,
 	type OpenThreadInput,
 	openThread as openThreadDeclaration,
 	type Problem,
@@ -476,10 +478,69 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			types: ["review", "questionnaire"],
 			unresolved: true,
 		});
+		const openReviewIds = open.filter((m) => m.type === "review").map((m) => m.id);
+
+		// A review is superseded when another review message names it as previousReviewId.
+		// Load all review messages (resolved + unresolved) to find successors.
+		const allReviews =
+			openReviewIds.length > 0
+				? await store.listMessages(ctx.db, {
+						threadIds: [...threadIds],
+						types: ["review"],
+					})
+				: [];
+		const successorPreviousIds = new Set(
+			allReviews.flatMap((m) => {
+				try {
+					const p = JSON.parse(m.payload) as { previousReviewId?: unknown };
+					return typeof p.previousReviewId === "string" ? [p.previousReviewId] : [];
+				} catch {
+					return [];
+				}
+			}),
+		);
+		const supersededIds = new Set(openReviewIds.filter((id) => successorPreviousIds.has(id)));
+
+		// @lore: a review is superseded by a later verdict-bearing review from the same sender+thread+task; task scope keeps co-threaded tasks independent.
+		for (const id of openReviewIds) {
+			const m = allReviews.find((r) => r.id === id);
+			if (m === undefined) continue;
+			let mTaskId: string | null = null;
+			try {
+				const p = JSON.parse(m.payload) as { taskId?: unknown };
+				mTaskId = typeof p.taskId === "string" ? p.taskId : null;
+			} catch {
+				// malformed payload — treat as no task
+			}
+			const isReplaced = allReviews.some((other) => {
+				if (other.id === m.id) return false;
+				if (other.threadId !== m.threadId) return false;
+				if (other.senderId !== m.senderId) return false;
+				if (other.createdAt <= m.createdAt) return false;
+				if (other.resolvedAt === null) return false;
+				let otherTaskId: string | null = null;
+				try {
+					const p = JSON.parse(other.payload) as { taskId?: unknown };
+					otherTaskId = typeof p.taskId === "string" ? p.taskId : null;
+				} catch {
+					// malformed payload — treat as no task
+				}
+				return otherTaskId === mTaskId;
+			});
+			if (isReplaced) supersededIds.add(id);
+		}
+
+		// A review is no longer a need for the viewer once they have opened it.
+		const openedIds = await store.listReviewsOpenedBy(ctx.db, viewer, openReviewIds);
+
 		const senders = await deps.users.listByIds(ctx.db, [...new Set(open.map((m) => m.senderId))]);
 		const agents = new Set(senders.filter((u) => u.kind === "ai").map((u) => u.id));
-		const byThread = new Map<string, typeof open>();
-		for (const m of open) byThread.set(m.threadId, [...(byThread.get(m.threadId) ?? []), m]);
+		// Filter out opened and superseded reviews; questionnaires are unaffected.
+		const active = open.filter(
+			(m) => m.type !== "review" || !(openedIds.has(m.id) || supersededIds.has(m.id)),
+		);
+		const byThread = new Map<string, typeof active>();
+		for (const m of active) byThread.set(m.threadId, [...(byThread.get(m.threadId) ?? []), m]);
 		return new Map(
 			[...byThread].map(([id, msgs]) => [
 				id,
@@ -1576,11 +1637,30 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		return { ok: true, data: await assembleThreadView(ctx, finalRow) };
 	}
 
+	async function markReviewOpenedRun(
+		ctx: ActionContext,
+		input: MarkReviewOpenedInput,
+	): Promise<ActionResult<Record<string, never>>> {
+		await store.upsertReviewOpened(ctx.db, input.reviewMessageId, ctx.actor, ctx.now);
+		// Nudge the conversation list so the sidebar and person page refetch without a reload.
+		if (deps.wsPush) {
+			const msg = await store.findMessage(ctx.db, { id: input.reviewMessageId });
+			if (msg) {
+				const threadTopic = `thread:${msg.threadId}`;
+				const nudge = { type: "update", topic: "conversations", kind: "thread.changed" };
+				deps.wsPush("conversations", nudge);
+				deps.wsPush(threadTopic, { ...nudge, topic: threadTopic });
+			}
+		}
+		return { ok: true, data: {} };
+	}
+
 	return [
 		{ declaration: searchThreadsDeclaration, run: searchThreadsRun } as Action,
 		{ declaration: openThreadDeclaration, run: openThreadRun } as Action,
 		{ declaration: sendMessageDeclaration, run: sendMessageRun } as Action,
 		{ declaration: adjustThreadDeclaration, run: adjustThreadRun } as Action,
+		{ declaration: markReviewOpenedDeclaration, run: markReviewOpenedRun } as Action,
 	];
 }
 
