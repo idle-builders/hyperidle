@@ -1,9 +1,8 @@
 /**
  * codex-app-server-deliver — real-binary test for mid-turn steer via app-server.
  *
- * Starts a codex session through CodexAppServerAdapter, waits a couple seconds,
- * then delivers a mid-turn message via adapter.deliver(). Verifies the delivered
- * text reaches the model's final response.
+ * Starts a codex session, waits 3 s on a timer, then delivers a mid-turn message.
+ * Verifies the delivered text reaches the model's final response.
  *
  * LOCAL-ONLY LANE — needs real codex binary + ChatGPT subscription auth.
  */
@@ -41,7 +40,7 @@ describe("CodexAppServerAdapter deliver (real binary)", () => {
 				sessionId: `codex-steer-${Math.random().toString(36).slice(2, 10)}`,
 				sandboxPath: sandbox.path,
 				assembledPrompt: "You are a test assistant.",
-				// Long bash sleep gives time to deliver a steer before turn completes
+				// Long bash sleep gives the timer time to deliver a steer before turn completes
 				instruction:
 					"Run exactly this bash command: `sleep 10 && echo DONE`. " +
 					"After it finishes, reply with a single sentence about what happened.",
@@ -55,28 +54,29 @@ describe("CodexAppServerAdapter deliver (real binary)", () => {
 			const handle = await adapter.startSession(config);
 			track(adapter, handle);
 
-			let steered = false;
 			const events: HarnessEvent[] = [];
 
-			const collectEvents = async () => {
-				const startMs = Date.now();
+			// Collect all events (completes when turn/completed arrives or process exits)
+			const collectEvents = async (): Promise<void> => {
 				for await (const ev of adapter.streamEvents(handle)) {
 					events.push(ev);
-					if (!steered && Date.now() - startMs >= 3000) {
-						steered = true;
-						// Deliver mid-run while bash sleep is still running
-						await adapter.deliver(handle, "STEER: include the word KANGAROO in your final reply.");
-					}
 				}
 			};
 
-			await collectEvents();
+			// Deliver steer 3 s after startSession — the bash sleep is 10 s so the
+			// turn is still running and activeTurnId is already set by the time this fires.
+			const deliverAfterDelay = async (): Promise<void> => {
+				await new Promise<void>((resolve) => setTimeout(resolve, 3000));
+				await adapter.deliver(handle, "STEER: include the word KANGAROO in your final reply.");
+			};
+
+			await Promise.all([collectEvents(), deliverAfterDelay()]);
 			const stopResult = await adapter.stopSession(handle);
 
 			const text = events
 				.filter((e) => e.type === "completion")
 				.map((e) => (e as { type: "completion"; text: string }).text)
-				.join(" ");
+				.join("");
 
 			expect(text, "delivered text must appear in the final response").toMatch(/KANGAROO/i);
 			expect(stopResult.outcome).toBe("completed");

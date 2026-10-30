@@ -25,6 +25,21 @@ import type {
 
 export type { CodexAppServerAdapterDeps };
 
+// @lore: bundled path — ChatGPT bundles a codex binary that supports app-server --stdio; homebrew codex only has daemon/proxy (no stdio mode)
+const CODEX_BUNDLED_BINARY =
+	"/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex";
+
+/**
+ * Resolve the binary for `codex app-server --stdio`.
+ * Priority: CODEX_APP_SERVER_BINARY env var → bundled ChatGPT binary → PATH "codex".
+ */
+function resolveAppServerBinary(): string {
+	const fromEnv = process.env.CODEX_APP_SERVER_BINARY;
+	if (fromEnv) return fromEnv;
+	if (fs.existsSync(CODEX_BUNDLED_BINARY)) return CODEX_BUNDLED_BINARY;
+	return "codex";
+}
+
 interface PendingRequest {
 	resolve(result: unknown): void;
 	reject(err: Error): void;
@@ -55,6 +70,8 @@ interface AppServerSession {
 interface CodexAppServerAdapterDeps {
 	readonly spawnFn?: typeof spawn;
 	readonly killFn?: (pid: number, signal: NodeJS.Signals) => void;
+	/** Override the binary path (unit tests inject a fake; defaults to resolveAppServerBinary()). */
+	readonly binaryPath?: string;
 }
 
 let nextSessionId = 1;
@@ -80,14 +97,9 @@ function buildEnv(config: SessionConfig): Record<string, string> {
 	return env;
 }
 
-function buildArgs(config: SessionConfig): string[] {
-	const args = ["app-server", "--stdio"];
-	// Bypass hook trust when CODEX_HOME is set (same lore as CliHarnessAdapter)
-	const codexHomeDir = path.join(config.sandboxPath, ".codex-home");
-	if (fs.existsSync(codexHomeDir)) {
-		args.push("--dangerously-bypass-hook-trust");
-	}
-	return args;
+function buildArgs(_config: SessionConfig): string[] {
+	// @lore: no --dangerously-bypass-hook-trust — bundled binary rejects it; trust is via config.toml trust_level written by provisionCodexHome
+	return ["app-server", "--stdio"];
 }
 
 function parseNotificationToEvent(line: string): HarnessEvent | null {
@@ -108,18 +120,20 @@ function parseNotificationToEvent(line: string): HarnessEvent | null {
 export class CodexAppServerAdapter implements HarnessAdapter {
 	private readonly spawnFn: typeof spawn;
 	private readonly killFn: (pid: number, signal: NodeJS.Signals) => void;
+	private readonly binaryPath: string;
 	private readonly sessions = new Map<string, AppServerSession>();
 
 	constructor(deps?: CodexAppServerAdapterDeps) {
 		this.spawnFn = deps?.spawnFn ?? spawn;
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
+		this.binaryPath = deps?.binaryPath ?? resolveAppServerBinary();
 	}
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		const env = buildEnv(config);
 		const args = buildArgs(config);
 
-		const child = this.spawnFn("codex", args, {
+		const child = this.spawnFn(this.binaryPath, args, {
 			cwd: config.sandboxPath,
 			env,
 			stdio: ["pipe", "pipe", "pipe"],
