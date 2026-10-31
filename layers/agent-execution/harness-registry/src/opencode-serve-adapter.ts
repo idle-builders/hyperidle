@@ -62,6 +62,8 @@ interface OpenCodeServeAdapterDeps {
 	readonly fetchFn?: typeof globalThis.fetch;
 	/** Override the per-adapter XDG data dir (for tests). */
 	readonly xdgDataHome?: string;
+	/** Override the per-adapter XDG config dir (for tests). */
+	readonly xdgConfigHome?: string;
 }
 
 /** Idle timeout when no step has started yet (handles LLM 401 / fast errors). */
@@ -88,7 +90,7 @@ function parseModel(selectedModel?: string): { id: string; providerID: string } 
  * Map a raw SSE event from the v2 serve API to a canonical HarnessEvent.
  * Returns null for lifecycle events that carry no content.
  *
- * @lore: preMapOpenCodeV2Event — v2 SSE types differ from JSONL run types; text events use session.next.text.delta|ended; tools use session.next.tool.called; without this all serve events are silently dropped
+ * @lore: serve SSE types differ from CLI JSONL; text uses text.delta|ended; tools use tool.called; without this mapping all serve events are silently dropped
  */
 function parseServeEvent(raw: { type: string; data?: unknown }): HarnessEvent | null {
 	const data = (raw.data ?? {}) as Record<string, unknown>;
@@ -135,15 +137,32 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 	private serverUrl?: string;
 	private serverReadyPromise?: Promise<string>;
 	private readonly xdgDataHome: string;
+	private readonly xdgConfigHome: string;
 
 	constructor(deps?: OpenCodeServeAdapterDeps) {
 		this.spawnFn = deps?.spawnFn ?? spawn;
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
 		this.fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
-		// @lore: XDG_DATA_HOME isolates opencode's SQLite db — without it concurrent adapter instances hang on write-lock
+
+		// @lore: XDG_DATA_HOME isolates SQLite db — concurrent instances hang on write-lock without it; auth.json copied so login is still found
 		this.xdgDataHome =
-			deps?.xdgDataHome ??
-			fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-opencode-xdg-"));
+			deps?.xdgDataHome ?? fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-opencode-xdg-data-"));
+
+		// @lore: XDG_CONFIG_HOME isolates opencode config — prevents user's global ~/.config/opencode plugins from loading into sessions; same isolation as the CLI path
+		this.xdgConfigHome =
+			deps?.xdgConfigHome ?? fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-opencode-xdg-cfg-"));
+
+		// Copy auth.json from the user's real opencode data home so sessions can authenticate.
+		// Fails silently when no auth file exists (test environments, or first-run).
+		const realDataHome = process.env.XDG_DATA_HOME ?? path.join(os.homedir(), ".local", "share");
+		const authSrc = path.join(realDataHome, "opencode", "auth.json");
+		const authDstDir = path.join(this.xdgDataHome, "opencode");
+		try {
+			fs.mkdirSync(authDstDir, { recursive: true });
+			fs.copyFileSync(authSrc, path.join(authDstDir, "auth.json"));
+		} catch {
+			// auth.json absent or unreadable — opencode will fall back to env-based keys.
+		}
 	}
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
@@ -168,14 +187,11 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 
 		// Deliver the opening instruction
 		const instruction = config.instruction?.trim() || "proceed";
-		const promptRes = await this.fetchFn(
-			`${serverUrl}/api/session/${opcodeSessionId}/prompt`,
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ prompt: { text: instruction }, resume: true }),
-			},
-		);
+		const promptRes = await this.fetchFn(`${serverUrl}/api/session/${opcodeSessionId}/prompt`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ prompt: { text: instruction }, resume: true }),
+		});
 		if (!promptRes.ok) {
 			throw new Error(
 				`opencode /api/session/${opcodeSessionId}/prompt failed: ${promptRes.status}`,
@@ -271,10 +287,9 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 
 		// Interrupt the running session and abort SSE
 		if (this.serverUrl) {
-			void this.fetchFn(
-				`${this.serverUrl}/api/session/${session.opcodeSessionId}/interrupt`,
-				{ method: "POST" },
-			);
+			void this.fetchFn(`${this.serverUrl}/api/session/${session.opcodeSessionId}/interrupt`, {
+				method: "POST",
+			});
 		}
 		session.sseAbort.abort();
 		clearTimeout(session.idleTimer ?? undefined);
@@ -320,8 +335,8 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: [],
 			mcpSupport: true,
-			// @lore: settings-codex channel — in-process gate; OpenCodeServeAdapter POSTs to bridge after each idle turn; no file hook needed (same channel as CodexAppServerAdapter)
-			returnEnforcement: "settings-codex",
+			// @lore: sdk-inprocess channel — gate runs entirely in streamEvents(); no file hook written to sandbox; no codex home, no opencode plugin
+			returnEnforcement: "sdk-inprocess",
 			// @lore: opencode-json — MCP server written to opencode.json in sandbox cwd; token is inline in headers.Authorization
 			cliMcpDialect: "opencode-json",
 		};
@@ -395,7 +410,12 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 			const val = process.env[key];
 			if (val !== undefined) env[key] = val;
 		}
+		// Isolated data dir: db lives here; auth.json was copied in during construction.
 		env.XDG_DATA_HOME = this.xdgDataHome;
+		// Isolated config dir: prevents user's global ~/.config/opencode plugins from loading.
+		env.XDG_CONFIG_HOME = this.xdgConfigHome;
+		// @lore: OPENCODE_PERMISSION — without it opencode asks before each tool call; non-TTY auto-rejects; {"*":"allow"} grants headless approval (same as CLI path)
+		env.OPENCODE_PERMISSION = '{"*":"allow"}';
 		return env;
 	}
 
@@ -409,10 +429,9 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 
 		return (async () => {
 			try {
-				const res = await this.fetchFn(
-					`${serverUrl}/api/session/${opcodeSessionId}/event`,
-					{ signal: session.sseAbort.signal },
-				);
+				const res = await this.fetchFn(`${serverUrl}/api/session/${opcodeSessionId}/event`, {
+					signal: session.sseAbort.signal,
+				});
 				const reader = res.body?.getReader();
 				if (!reader) {
 					this.markDone(session);
@@ -453,10 +472,7 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 		})();
 	}
 
-	private handleSseEvent(
-		session: ServeSession,
-		raw: { type: string; data?: unknown },
-	): void {
+	private handleSseEvent(session: ServeSession, raw: { type: string; data?: unknown }): void {
 		switch (raw.type) {
 			case "session.next.step.started":
 				session.stepActive = true;
@@ -506,23 +522,17 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 	 * Send a follow-up prompt for the return gate (re-engage after block).
 	 * Resets `session.done = false` and restarts the idle timer.
 	 */
-	private async sendFollowUpPrompt(
-		session: ServeSession,
-		forceMessage: string,
-	): Promise<void> {
+	private async sendFollowUpPrompt(session: ServeSession, forceMessage: string): Promise<void> {
 		if (!this.serverUrl) return;
 		session.done = false;
 		// Restart idle timer for the new turn
 		this.resetIdleTimer(session, IDLE_TIMEOUT_INITIAL_MS);
 		try {
-			await this.fetchFn(
-				`${this.serverUrl}/api/session/${session.opcodeSessionId}/prompt`,
-				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ prompt: { text: forceMessage }, resume: true }),
-				},
-			);
+			await this.fetchFn(`${this.serverUrl}/api/session/${session.opcodeSessionId}/prompt`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ prompt: { text: forceMessage }, resume: true }),
+			});
 		} catch {
 			// Prompt delivery failed — allow session to proceed to end
 			this.markDone(session);

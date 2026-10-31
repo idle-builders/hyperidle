@@ -52,12 +52,12 @@ describe("OpenCodeServeAdapter in-adapter return gate (real binary)", () => {
 		try {
 			await ensureSandboxGitRepo(sandbox.path);
 
-			// Provision opencode.json + settings-codex hook for the return gate.
+			// Provision opencode.json for MCP; gate is in-process — no channel file needed.
 			await provisionHarnessEnvironment({
 				sandboxPath: sandbox.path,
 				mcpUrl: bridgeUrl,
 				token: bridgeToken,
-				channel: "settings-codex",
+				dialect: "opencode-json",
 			});
 
 			const config: SessionConfig = {

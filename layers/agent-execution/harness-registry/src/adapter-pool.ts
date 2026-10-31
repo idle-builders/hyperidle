@@ -15,7 +15,6 @@ import {
 	CliHarnessAdapter,
 } from "./cli-harness-adapter.js";
 import { CodexAppServerAdapter } from "./codex-app-server-adapter.js";
-import { OpenCodeServeAdapter } from "./opencode-serve-adapter.js";
 import type { EnforcementRegistry } from "./enforcement-registry.js";
 import {
 	describeHarnessCapability,
@@ -23,6 +22,7 @@ import {
 } from "./harness-capability-descriptors.js";
 import type { HarnessDiscoveryInput, HarnessProbeDeps } from "./harness-discovery.js";
 import { discoverLocalHarnesses, type HarnessDiscoveryResult } from "./harness-discovery.js";
+import { OpenCodeServeAdapter } from "./opencode-serve-adapter.js";
 
 /** Internal pool entry. */
 interface PoolEntry {

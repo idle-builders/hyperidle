@@ -12,10 +12,7 @@ import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
 import { OpenCodeServeAdapter } from "../opencode-serve-adapter.js";
-import {
-	createHarnessSandbox,
-	requireHarnessAuthed,
-} from "./harness-sandbox.js";
+import { createHarnessSandbox, requireHarnessAuthed } from "./harness-sandbox.js";
 import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 

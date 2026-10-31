@@ -3,7 +3,7 @@
  * All process and network calls are injected fakes — no binary or server needed.
  */
 
-import type { ChildProcess } from "node:child_process";
+import type { ChildProcess, spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -82,34 +82,29 @@ function makeConfig(overrides?: {
 		sandboxPath: overrides?.sandboxPath ?? "/tmp/sandbox",
 		assembledPrompt: "test prompt",
 		instruction: overrides?.instruction ?? "say HELLO",
-		modelTier: "medium" as const,
+		modelTier: "workhorse" as const,
 		tools: [],
 		selectedModel: overrides?.selectedModel,
+		mcpConnectionInfo: undefined,
 		returnHook: overrides?.returnHook,
 	};
 }
 
 /** Build a fake spawn that immediately emits the port line on stdout (mirrors real opencode behavior). */
-function makeFakeSpawn(port = 19800) {
+function makeFakeSpawn(port = 19800): typeof spawn {
 	return vi.fn(() => {
-		const child = new EventEmitter() as ChildProcess & {
-			stdin: null;
-			stdout: EventEmitter;
-			stderr: null;
-			pid: number;
-		};
-		child.stdin = null;
-		child.stdout = new EventEmitter();
-		child.stderr = null;
-		child.pid = 99999;
-		setImmediate(() => {
-			child.stdout.emit(
-				"data",
-				Buffer.from(`opencode server listening on http://127.0.0.1:${port}\n`),
-			);
+		const stdout = new EventEmitter() as unknown as NonNullable<ChildProcess["stdout"]>;
+		const child = Object.assign(new EventEmitter() as unknown as ChildProcess, {
+			stdin: null,
+			stdout,
+			stderr: null,
+			pid: 99999,
 		});
-		return child as unknown as ChildProcess;
-	});
+		setImmediate(() => {
+			stdout.emit("data", Buffer.from(`opencode server listening on http://127.0.0.1:${port}\n`));
+		});
+		return child;
+	}) as unknown as typeof spawn;
 }
 
 /** Build a fake fetch that intercepts opencode API calls. */
@@ -119,18 +114,17 @@ function makeFakeFetch(sseStream: FakeSseStream) {
 
 		// Session create
 		if (urlStr.endsWith("/api/session") && init?.method === "POST") {
-			return new Response(
-				JSON.stringify({ data: { id: "ses_fake123" } }),
-				{ status: 200, headers: { "Content-Type": "application/json" } },
-			);
+			return new Response(JSON.stringify({ data: { id: "ses_fake123" } }), {
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			});
 		}
 
 		// Prompt
 		if (urlStr.includes("/api/session/ses_fake123/prompt") && init?.method === "POST") {
-			return new Response(
-				JSON.stringify({ data: { admittedSeq: 1, delivery: "steer" } }),
-				{ status: 200 },
-			);
+			return new Response(JSON.stringify({ data: { admittedSeq: 1, delivery: "steer" } }), {
+				status: 200,
+			});
 		}
 
 		// SSE event stream
@@ -154,13 +148,16 @@ function makeFakeFetch(sseStream: FakeSseStream) {
 
 describe("OpenCodeServeAdapter", () => {
 	let xdgDir: string;
+	let xdgCfgDir: string;
 
 	beforeEach(() => {
 		xdgDir = fs.mkdtempSync(path.join(os.tmpdir(), "oc-test-xdg-"));
+		xdgCfgDir = fs.mkdtempSync(path.join(os.tmpdir(), "oc-test-cfg-"));
 	});
 
 	afterEach(() => {
 		fs.rmSync(xdgDir, { recursive: true, force: true });
+		fs.rmSync(xdgCfgDir, { recursive: true, force: true });
 		vi.restoreAllMocks();
 	});
 
@@ -173,23 +170,20 @@ describe("OpenCodeServeAdapter", () => {
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
 			xdgDataHome: xdgDir,
+			xdgConfigHome: xdgCfgDir,
 		});
 
 		const handle = await adapter.startSession(makeConfig({ instruction: "say HELLO" }));
 		expect(handle.sessionId).toMatch(/^opencode-serve-/);
 
 		// Session create was called
-		const createCall = fakeFetch.mock.calls.find(([url]) =>
-			String(url).endsWith("/api/session"),
-		);
+		const createCall = fakeFetch.mock.calls.find(([url]) => String(url).endsWith("/api/session"));
 		expect(createCall).toBeDefined();
 		const createBody = JSON.parse(createCall?.[1]?.body as string);
 		expect(createBody.location.directory).toBe("/tmp/sandbox");
 
 		// Initial prompt was sent
-		const promptCall = fakeFetch.mock.calls.find(([url]) =>
-			String(url).includes("/prompt"),
-		);
+		const promptCall = fakeFetch.mock.calls.find(([url]) => String(url).includes("/prompt"));
 		expect(promptCall).toBeDefined();
 		const promptBody = JSON.parse(promptCall?.[1]?.body as string);
 		expect(promptBody.prompt.text).toBe("say HELLO");
@@ -207,6 +201,7 @@ describe("OpenCodeServeAdapter", () => {
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
 			xdgDataHome: xdgDir,
+			xdgConfigHome: xdgCfgDir,
 		});
 
 		const handle = await adapter.startSession(makeConfig());
@@ -238,6 +233,7 @@ describe("OpenCodeServeAdapter", () => {
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
 			xdgDataHome: xdgDir,
+			xdgConfigHome: xdgCfgDir,
 		});
 
 		const handle = await adapter.startSession(makeConfig());
@@ -273,6 +269,7 @@ describe("OpenCodeServeAdapter", () => {
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
 			xdgDataHome: xdgDir,
+			xdgConfigHome: xdgCfgDir,
 		});
 
 		const handle = await adapter.startSession(makeConfig());
@@ -280,9 +277,7 @@ describe("OpenCodeServeAdapter", () => {
 		expect(result).toBe("delivered");
 
 		// Check the steer call used delivery: "steer"
-		const steerCall = fakeFetch.mock.calls
-			.filter(([url]) => String(url).includes("/prompt"))
-			.pop();
+		const steerCall = fakeFetch.mock.calls.filter(([url]) => String(url).includes("/prompt")).pop();
 		const steerBody = JSON.parse(steerCall?.[1]?.body as string);
 		expect(steerBody.delivery).toBe("steer");
 		expect(steerBody.prompt.text).toBe("focus on the main task");
@@ -299,6 +294,7 @@ describe("OpenCodeServeAdapter", () => {
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
 			xdgDataHome: xdgDir,
+			xdgConfigHome: xdgCfgDir,
 		});
 
 		const handle = await adapter.startSession(makeConfig());
@@ -313,10 +309,10 @@ describe("OpenCodeServeAdapter", () => {
 		expect(result).toBe("unsupported");
 	});
 
-	test("getCapabilities returns settings-codex and opencode-json", () => {
-		const adapter = new OpenCodeServeAdapter({ xdgDataHome: xdgDir });
+	test("getCapabilities returns sdk-inprocess and opencode-json", () => {
+		const adapter = new OpenCodeServeAdapter({ xdgDataHome: xdgDir, xdgConfigHome: xdgCfgDir });
 		const caps = adapter.getCapabilities();
-		expect(caps.returnEnforcement).toBe("settings-codex");
+		expect(caps.returnEnforcement).toBe("sdk-inprocess");
 		expect(caps.cliMcpDialect).toBe("opencode-json");
 		expect(caps.mcpSupport).toBe(true);
 	});
@@ -330,6 +326,7 @@ describe("OpenCodeServeAdapter", () => {
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
 			xdgDataHome: xdgDir,
+			xdgConfigHome: xdgCfgDir,
 		});
 
 		const handle = await adapter.startSession(makeConfig());
@@ -346,15 +343,12 @@ describe("OpenCodeServeAdapter", () => {
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
 			xdgDataHome: xdgDir,
+			xdgConfigHome: xdgCfgDir,
 		});
 
-		await adapter.startSession(
-			makeConfig({ selectedModel: "openrouter/z-ai/glm-4.7-flash" }),
-		);
+		await adapter.startSession(makeConfig({ selectedModel: "openrouter/z-ai/glm-4.7-flash" }));
 
-		const createCall = fakeFetch.mock.calls.find(([url]) =>
-			String(url).endsWith("/api/session"),
-		);
+		const createCall = fakeFetch.mock.calls.find(([url]) => String(url).endsWith("/api/session"));
 		const createBody = JSON.parse(createCall?.[1]?.body as string);
 		expect(createBody.model).toEqual({
 			providerID: "openrouter",
@@ -397,6 +391,7 @@ describe("OpenCodeServeAdapter", () => {
 			spawnFn: fakeSpawn,
 			fetchFn: fetchFn as typeof globalThis.fetch,
 			xdgDataHome: xdgDir,
+			xdgConfigHome: xdgCfgDir,
 		});
 
 		const handle = await adapter.startSession(
@@ -424,5 +419,88 @@ describe("OpenCodeServeAdapter", () => {
 		expect(fetchCallCount).toBeGreaterThanOrEqual(2);
 		// Force return count was incremented
 		expect(adapter.getForceReturnCount("test-session-1")).toBeGreaterThanOrEqual(1);
+	});
+
+	test("spawn receives isolated XDG env — no full-env leak", async () => {
+		const sseStream = new FakeSseStream();
+		const fakeFetch = makeFakeFetch(sseStream);
+
+		let capturedEnv: Record<string, string> | undefined;
+		const fakeSpawn = vi.fn(
+			(_cmd: string, _args: string[], opts: { env?: Record<string, string> }) => {
+				capturedEnv = opts.env;
+				const stdout = new EventEmitter() as unknown as NonNullable<ChildProcess["stdout"]>;
+				const child = Object.assign(new EventEmitter() as unknown as ChildProcess, {
+					stdin: null,
+					stdout,
+					stderr: null,
+					pid: 99998,
+				});
+				setImmediate(() => {
+					stdout.emit("data", Buffer.from("opencode server listening on http://127.0.0.1:19900\n"));
+				});
+				return child;
+			},
+		);
+
+		const adapter = new OpenCodeServeAdapter({
+			spawnFn: fakeSpawn as unknown as typeof spawn,
+			fetchFn: fakeFetch as typeof globalThis.fetch,
+			xdgDataHome: xdgDir,
+			xdgConfigHome: xdgCfgDir,
+		});
+
+		await adapter.startSession(makeConfig());
+
+		// Env must have the isolation keys
+		expect(capturedEnv?.XDG_DATA_HOME).toBe(xdgDir);
+		expect(capturedEnv?.XDG_CONFIG_HOME).toBe(xdgCfgDir);
+		expect(capturedEnv?.OPENCODE_PERMISSION).toBe('{"*":"allow"}');
+
+		// Env must not contain random process env keys (no full-env passthrough)
+		const allowlist = [
+			"PATH",
+			"HOME",
+			"LANG",
+			"OPENROUTER_API_KEY",
+			"XDG_DATA_HOME",
+			"XDG_CONFIG_HOME",
+			"OPENCODE_PERMISSION",
+		];
+		const leakedKeys = Object.keys(process.env).filter(
+			(k) => !allowlist.includes(k) && capturedEnv?.[k] !== undefined,
+		);
+		expect(leakedKeys, "env must not leak process.env keys outside the allowlist").toHaveLength(0);
+
+		sseStream.close();
+	});
+
+	test("auth.json is copied into isolated XDG dir when present", () => {
+		// Write a fake auth.json into xdgDir/opencode/ (simulates real data home)
+		const fakeRealDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "oc-fake-real-xdg-"));
+		try {
+			const opencodeDir = path.join(fakeRealDataDir, "opencode");
+			fs.mkdirSync(opencodeDir, { recursive: true });
+			fs.writeFileSync(path.join(opencodeDir, "auth.json"), '{"providers":[]}', "utf-8");
+
+			// Inject the fake real data home via XDG_DATA_HOME env
+			const origXdg = process.env.XDG_DATA_HOME;
+			process.env.XDG_DATA_HOME = fakeRealDataDir;
+
+			const destDir = fs.mkdtempSync(path.join(os.tmpdir(), "oc-dest-xdg-"));
+			try {
+				new OpenCodeServeAdapter({ xdgDataHome: destDir, xdgConfigHome: xdgCfgDir });
+				// auth.json should be copied to the isolated dir
+				expect(
+					fs.existsSync(path.join(destDir, "opencode", "auth.json")),
+					"auth.json must be copied to isolated XDG_DATA_HOME",
+				).toBe(true);
+			} finally {
+				process.env.XDG_DATA_HOME = origXdg;
+				fs.rmSync(destDir, { recursive: true, force: true });
+			}
+		} finally {
+			fs.rmSync(fakeRealDataDir, { recursive: true, force: true });
+		}
 	});
 });
