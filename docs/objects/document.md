@@ -6,7 +6,8 @@ Source: `framework/domain-model/src/actions/document.ts`, `layers/core-api/docum
 
 ## Fields
 
-- `id`, `title`, `body` (Markdown), `status`, `slot`, `scopeKind`, `scopeId`.
+- `id`, `title`, `body`, `format`, `status`, `slot`, `scopeKind`, `scopeId`.
+- `format` — `markdown`, or `html` for an app (see below).
 - `icon` — one emoji, shown in the knowledge tree and before the title; null shows the plain page mark.
 - `discipline` — who it is for: agents of that discipline get it as they work; empty reaches every agent. People read every document either way.
 - `parentKind`, `parentId`, `position` — tree position; no FK, no cascade.
@@ -14,6 +15,14 @@ Source: `framework/domain-model/src/actions/document.ts`, `layers/core-api/docum
 - `createdAt`, `updatedAt`.
 
 `open_document` also says how many others follow the document (`followers`): a person follows it with a subscription on `document.changed` for its id, and is told when it changes — publishing included. Comments on it live in its thread (see [thread.md](thread.md#comments-on-a-document)).
+
+## Apps
+
+A document whose `format` is `html` is an app: its `body` is one whole HTML page with its own styles and scripts. It runs whole on its own page and in the pane beside a conversation or task (`?app=<id>`); where room is short — the conversation it was made in, its task's box — it shows as a card with its title and the page's `<meta name="description">` (else its `<title>`), read as text and never run.
+
+A document is not the only app. A whole message can be one (see [thread.md](thread.md#message-types-closed)), and so can a task's description (see [task.md](task.md#description)). Each shows as the same card and opens in the same pane; find lists them all under Apps.
+
+An app runs in a box sealed off from the app around it: a sandboxed frame with scripts allowed and nothing else, nested in a shell whose policy blocks every network request, embed and navigation away. It cannot reach HyperIdle's page, its key, storage or the network, so every image and font lives inside the page. The box is written once, in `layers/core-ui/src/app-frame.ts`.
 
 ## Statuses
 

@@ -482,21 +482,15 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 	});
 
 	// ---------------------------------------------------------------------
-	// The live route walk. Two calls (`hold -> review`, then `review ->
-	// in_progress`) must not reach `in_progress` with an unfinished
-	// dependency still attached.
+	// review -> in_progress is still guarded — the dependency check runs
+	// regardless of how the task reached review state.
 	// ---------------------------------------------------------------------
-	describe("the hold -> review -> in_progress door is closed", () => {
-		test("hold -> review succeeds, then review -> in_progress is refused, dependency still unfinished", async ({
-			db,
-			app,
-		}) => {
+	describe("the review -> in_progress door is closed while a dependency is unfinished", () => {
+		test("review -> in_progress is refused, dependency still unfinished", async ({ db, app }) => {
 			await seedTeam(db, "dep-b1c3");
 			await insertTask(db, "dep-b1c3-dep", "dep-b1c3", "proposed");
-			await insertTask(db, "dep-b1c3-task", "dep-b1c3", "hold", ["dep-b1c3-dep"]);
-
-			const toReview = await editTask(app, { id: "dep-b1c3-task", state: "review" });
-			expect(toReview.status).toBe(200);
+			// Seed directly in review state — edit_task blocks state:review (requires a card)
+			await insertTask(db, "dep-b1c3-task", "dep-b1c3", "review", ["dep-b1c3-dep"]);
 
 			const toInProgress = await editTask(app, { id: "dep-b1c3-task", state: "in_progress" });
 			expect(toInProgress.status).toBe(422);

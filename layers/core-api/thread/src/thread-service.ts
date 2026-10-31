@@ -4,6 +4,7 @@ import {
 	messages,
 	type NewMessage,
 	type NewThread,
+	reviewOpened,
 	type Thread,
 	threads,
 } from "@hyperidle/db";
@@ -283,6 +284,47 @@ export function searchConversations(
 		.limit(limit);
 }
 
+export interface AppMessageRow {
+	readonly id: string;
+	readonly threadId: string;
+	readonly payload: string;
+	readonly createdAt: string;
+	readonly participants: string;
+}
+
+/**
+ * Messages that are apps whose page matches `messagePattern`, in threads whose `participants`
+ * match `participantPattern` — newest first, up to `limit`.
+ */
+export function searchAppMessages(
+	exec: HyperIdleDb,
+	participantPattern: string,
+	messagePattern: string,
+	limit: number,
+): Promise<AppMessageRow[]> {
+	return exec
+		.select({
+			id: messages.id,
+			threadId: messages.threadId,
+			payload: messages.payload,
+			createdAt: messages.createdAt,
+			participants: threads.participants,
+		})
+		.from(messages)
+		.innerJoin(threads, eq(messages.threadId, threads.id))
+		.where(
+			and(
+				sql`${threads.participants} LIKE ${participantPattern} ESCAPE '\\'`,
+				sql`${messages.payload} LIKE '%"format":"html"%'`,
+				sql`${messages.payload} ILIKE ${messagePattern} ESCAPE '\\'`,
+				isNull(messages.deletedAt),
+				isNull(threads.deletedAt),
+			),
+		)
+		.orderBy(desc(messages.createdAt), messages.id)
+		.limit(limit);
+}
+
 /** Threads whose STORED title matches, independent of any message content. */
 export function searchThreadsByTitle(
 	exec: HyperIdleDb,
@@ -301,4 +343,38 @@ export function searchThreadsByTitle(
 		.where(and(sql`${threads.title} ILIKE ${titlePattern} ESCAPE '\\'`, isNull(threads.deletedAt)))
 		.orderBy(desc(threads.lastActiveAt), threads.id)
 		.limit(limit);
+}
+
+// =============================================================================
+// review_opened — per-reviewer open tracking
+// =============================================================================
+
+export async function upsertReviewOpened(
+	exec: HyperIdleDb,
+	reviewMessageId: string,
+	userId: string,
+	openedAt: string,
+): Promise<void> {
+	await exec
+		.insert(reviewOpened)
+		.values({ reviewMessageId, userId, openedAt })
+		.onConflictDoNothing();
+}
+
+export async function listReviewsOpenedBy(
+	exec: HyperIdleDb,
+	userId: string,
+	reviewMessageIds: readonly string[],
+): Promise<Set<string>> {
+	if (reviewMessageIds.length === 0) return new Set();
+	const rows = await exec
+		.select({ reviewMessageId: reviewOpened.reviewMessageId })
+		.from(reviewOpened)
+		.where(
+			and(
+				eq(reviewOpened.userId, userId),
+				inArray(reviewOpened.reviewMessageId, [...reviewMessageIds]),
+			),
+		);
+	return new Set(rows.map((r) => r.reviewMessageId));
 }

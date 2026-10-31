@@ -33,6 +33,7 @@ import {
 	claimSessionRequest,
 	drainIntents,
 	findSessionRequest,
+	listPendingByStream,
 	listSessionRequests,
 	reapExpired,
 	releaseClaim,
@@ -342,6 +343,7 @@ export function buildSessionActionsDeps(
 ): SessionActionsDeps {
 	return {
 		sessions: { list: listSessions, getById: findSessionById },
+		pendingRequests: { listForStream: listPendingByStream },
 		stop: (sessionId) =>
 			stopSessionRun(db, eventBus, sessionId, (id) => sessionRunRegistry.abort(id, "stop")),
 		activity: getRecentActivity,

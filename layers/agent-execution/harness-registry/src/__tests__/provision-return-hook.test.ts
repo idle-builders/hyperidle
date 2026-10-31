@@ -8,10 +8,6 @@
  *   - WARN-F1: trust marker is written for settings-claude and settings-codex
  *   - WARN-F1: hook content is not-vacuous (decision:block or exit-2 semantics present)
  *   - AC4: route-checklist — handles all declared channels without throwing
- *
- * Tests FAIL (red) until:
- *   - packages/server/src/harness/provision-return-hook.ts is created (green phase Task 4)
- *   - ReturnEnforcementChannel type exists in @hyperidle/harness-capability (green phase Task 1)
  */
 
 import { execFile } from "node:child_process";
@@ -20,7 +16,6 @@ import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
-// FAILS red: module does not exist yet
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { provisionHarnessEnvironment } from "../provision-harness-environment.js";
@@ -54,7 +49,6 @@ describe("provisionReturnHook", () => {
 
 	describe("settings-claude: writes .claude/settings.json with Stop hook", () => {
 		it("creates .claude/settings.json in the sandbox", async () => {
-			// FAILS red: provisionReturnHook does not exist
 			await provisionReturnHook({
 				sandboxPath,
 				channel: "settings-claude",
@@ -64,7 +58,6 @@ describe("provisionReturnHook", () => {
 			});
 
 			const settingsPath = path.join(sandboxPath, ".claude", "settings.json");
-			// FAILS red: file is not written because the module does not exist
 			expect(fs.existsSync(settingsPath)).toBe(true);
 		});
 
@@ -143,7 +136,6 @@ describe("provisionReturnHook", () => {
 		it("marks the sandbox as trusted so Claude Code loads the hook", async () => {
 			// Claude Code silently skips hooks in untrusted workspaces.
 			// The provisioning MUST establish trust or the hook is decorative.
-			// FAILS red until trust provisioning is implemented.
 			await provisionReturnHook({
 				sandboxPath,
 				channel: "settings-claude",
@@ -152,12 +144,6 @@ describe("provisionReturnHook", () => {
 				forceBudget,
 			});
 
-			// Trust can be established via:
-			// (a) a .claude/settings.local.json with trust:true, OR
-			// (b) the hooks object itself contains a trust marker, OR
-			// (c) the file includes the correct permissionMode setting, OR
-			// (d) another trust mechanism the green phase chooses.
-			// The test asserts ONE of these is present.
 			const claudeDir = path.join(sandboxPath, ".claude");
 			const settingsContent = JSON.parse(
 				fs.readFileSync(path.join(claudeDir, "settings.json"), "utf-8"),
@@ -170,58 +156,17 @@ describe("provisionReturnHook", () => {
 				// Or a separate trust file
 				fs.existsSync(path.join(claudeDir, "settings.local.json"));
 
-			// FAILS red: no trust mechanism implemented yet
 			expect(hasTrustIndicator).toBe(true);
 		});
 	});
 
 	// ── settings-codex channel ─────────────────────────────────────────────
+	// No hook files for settings-codex: enforcement is in-process in CodexAppServerAdapter.
+	// The only artifact is .codex-home/ (auth.json + config.toml), no hooks.json or return-check.sh.
 
-	describe("settings-codex: writes .codex/hooks.json with Stop hook", () => {
-		it("creates .codex/hooks.json in the sandbox", async () => {
-			await provisionReturnHook({
-				sandboxPath,
-				channel: "settings-codex",
-				bridgeToken,
-				mcpUrl,
-				forceBudget,
-			});
-
-			const hooksPath = path.join(sandboxPath, ".codex", "hooks.json");
-			expect(fs.existsSync(hooksPath)).toBe(true);
-		});
-
-		it("hooks.json contains a Stop entry with decision:block semantics (nested format)", async () => {
-			await provisionReturnHook({
-				sandboxPath,
-				channel: "settings-codex",
-				bridgeToken,
-				mcpUrl,
-				forceBudget,
-			});
-
-			const hooksPath = path.join(sandboxPath, ".codex", "hooks.json");
-			const content = JSON.parse(fs.readFileSync(hooksPath, "utf-8")) as Record<string, unknown>;
-
-			expect(content).toHaveProperty("hooks");
-			const hooksObj = content.hooks as Record<string, unknown>;
-			expect(hooksObj).toHaveProperty("Stop");
-			expect(Array.isArray(hooksObj.Stop)).toBe(true);
-
-			// The hook script must be referenced (URL is in the script, not hooks.json).
-			const hookStr = JSON.stringify(hooksObj.Stop);
-			expect(hookStr).toContain("return-check.sh");
-
-			// The script itself must contain the mcpUrl.
-			const scriptContent = fs.readFileSync(
-				path.join(sandboxPath, ".codex", "return-check.sh"),
-				"utf-8",
-			);
-			expect(scriptContent).toContain(mcpUrl);
-		});
-
-		it("codex trust is per-invocation (--dangerously-bypass-hook-trust), no sentinel file needed", async () => {
-			// @lore: codex trust flag — per-invocation (--dangerously-bypass-hook-trust); no sentinel trust file exists
+	describe("settings-codex: creates .codex-home/ but no hook files", () => {
+		it("codex trust is per-invocation — no .codex/hooks.json or return-check.sh written", async () => {
+			// @lore: settings-codex gate — no file hook; CodexAppServerAdapter checks bridge in-process after each turn (hooks.json Stop requires opaque pre-computed hash)
 			await provisionReturnHook({
 				sandboxPath,
 				channel: "settings-codex",
@@ -232,14 +177,8 @@ describe("provisionReturnHook", () => {
 
 			const codexDir = path.join(sandboxPath, ".codex");
 
-			// No bogus sentinel file should be written.
-			expect(fs.existsSync(path.join(codexDir, "trusted"))).toBe(false);
-
-			// The hooks.json MUST exist (that's the real mechanism).
-			expect(fs.existsSync(path.join(codexDir, "hooks.json"))).toBe(true);
-
-			// The return-check.sh script must exist (referenced by hooks.json).
-			expect(fs.existsSync(path.join(codexDir, "return-check.sh"))).toBe(true);
+			// No hook directory at all.
+			expect(fs.existsSync(codexDir)).toBe(false);
 		});
 	});
 
@@ -336,14 +275,7 @@ describe("provisionReturnHook", () => {
 		});
 	});
 
-	// ── AC4 route-checklist: all channels handled ─────────────────────────
-
 	// ── the generated scripts, actually run ────────────────────────────────
-	//
-	// Every test above inspects return-check.sh as text. None of them run it.
-	// A shell script that only ever gets read is not proven — it is asserted
-	// about. These spawn a real local bridge and execute the real script with
-	// `sh`, the way Claude Code / Codex actually invoke it.
 
 	async function withLocalBridge(
 		respond: () => string,
@@ -404,45 +336,7 @@ describe("provisionReturnHook", () => {
 		});
 	});
 
-	describe("return-check.sh (codex) — actually executed against a real bridge", () => {
-		it('prints {"decision":"approve"} and exits 0 when the bridge allows the stop', async () => {
-			await withLocalBridge(
-				() => "",
-				async (mcpUrl) => {
-					await provisionReturnHook({
-						sandboxPath,
-						channel: "settings-codex",
-						bridgeToken,
-						mcpUrl,
-						forceBudget,
-					});
-					const scriptPath = path.join(sandboxPath, ".codex", "return-check.sh");
-					const { stdout } = await execFileAsync("sh", [scriptPath]);
-					expect(JSON.parse(stdout)).toEqual({ decision: "approve" });
-				},
-			);
-		});
-
-		it("prints decision:block with the bridge reason and exits 0 when the bridge blocks the stop", async () => {
-			await withLocalBridge(
-				() => "finish the task before stopping",
-				async (mcpUrl) => {
-					await provisionReturnHook({
-						sandboxPath,
-						channel: "settings-codex",
-						bridgeToken,
-						mcpUrl,
-						forceBudget,
-					});
-					const scriptPath = path.join(sandboxPath, ".codex", "return-check.sh");
-					const { stdout } = await execFileAsync("sh", [scriptPath]);
-					const parsed = JSON.parse(stdout) as { decision: string; reason: string };
-					expect(parsed.decision).toBe("block");
-					expect(parsed.reason).toContain("finish the task before stopping");
-				},
-			);
-		});
-	});
+	// ── AC4 route-checklist: all channels handled ─────────────────────────
 
 	describe("provisionReturnHook handles every ReturnEnforcementChannel value", () => {
 		const allChannels: ReturnEnforcementChannel[] = [

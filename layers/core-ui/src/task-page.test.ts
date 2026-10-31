@@ -1,7 +1,7 @@
 /** How the task page says where a task and its parts stand, from what `open_task` returns. */
 import type { Task, TaskNode } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
-import { cameFrom, chipWords, closing, indexTree, standLine, tally } from "./task-page";
+import { cameFrom, chipWords, closing, indexTree, onePerAsk, standLine, tally } from "./task-page";
 
 const at = (day: number, hhmm = "09:00") =>
 	`2026-10-${String(day).padStart(2, "0")}T${hhmm}:00.000Z`;
@@ -20,6 +20,7 @@ function node(id: string, t: Partial<Task> = {}, children: TaskNode[] = []): Tas
 		ownerAgentId: "builder",
 		title: id,
 		description: null,
+		descriptionFormat: "markdown",
 		doneWhen: [],
 		state: "in_progress",
 		dependencies: null,
@@ -137,4 +138,23 @@ test.each([
 	["its own conversation, made with it", at(20), false],
 ])("came from: %s", (_, threadCreated, came) => {
 	expect(cameFrom(node("x", { createdAt: at(20) }), { createdAt: threadCreated })).toBe(came);
+});
+
+describe("onePerAsk", () => {
+	test("an ask found from several parts that share a conversation shows once, where it says it belongs", () => {
+		const review = (id: string, taskId?: string) => ({
+			id,
+			payload: taskId ? { taskId } : {},
+		});
+		const asks = [
+			{ task: "root", message: review("r1") },
+			{ task: "part-1", message: review("r1") },
+			{ task: "root", message: review("r2", "part-2") },
+			{ task: "part-2", message: review("r2", "part-2") },
+		];
+		expect(onePerAsk(asks).map((a) => [a.task, a.message.id])).toEqual([
+			["root", "r1"],
+			["part-2", "r2"],
+		]);
+	});
 });

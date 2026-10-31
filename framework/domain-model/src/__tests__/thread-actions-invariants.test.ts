@@ -23,6 +23,37 @@ describe("sendMessageInvariants", () => {
 		expect(problems.map((p) => p.code)).toContain("no_target");
 	});
 
+	it.each<[string, SendMessageInput, string | null]>([
+		[
+			"a long text message is refused",
+			{ threadId: "t1", text: "x".repeat(16_385) },
+			"text_too_long",
+		],
+		[
+			"an app may run longer than a text message",
+			{ threadId: "t1", text: "x".repeat(16_385), format: "html" },
+			null,
+		],
+		[
+			"an app cannot comment on a spot",
+			{
+				threadId: "t1",
+				text: "<p>hi</p>",
+				format: "html",
+				anchor: { review: "r", id: "p", part: "x", label: "l" },
+			},
+			"app_with_anchor",
+		],
+		[
+			"format only goes with text",
+			{ threadId: "t1", answer: { resolvesMessageId: "q", option: "a" }, format: "html" },
+			"plain_fields_on_non_plain",
+		],
+	])("%s", (_, input, code) => {
+		const codes = sendMessageInvariants(input, noCaller).map((p) => p.code);
+		expect(codes).toEqual(code ? [code] : []);
+	});
+
 	it("no_target does not fire when the caller has a calling thread to fall back to", () => {
 		const problems = sendMessageInvariants({ text: "hi" }, { hasCallingThread: true });
 		expect(problems.map((p) => p.code)).not.toContain("no_target");

@@ -4,7 +4,7 @@
  * The machine's programs are the one stand-in: a reader answering the descriptors given.
  */
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, messages, subscriptions, threads, users } from "@hyperidle/db";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -82,6 +82,9 @@ describe("first start", () => {
 		const agents = everyone.filter((u) => u.kind === "ai" && u.role !== "system");
 		expect(people.map((p) => p.name)).toEqual(["Ada"]);
 		expect(agents.map((a) => [a.name, a.ownerUserId])).toEqual([["Builder", people[0]?.id]]);
+		// Builder starts work when someone asks it, not on every change anywhere.
+		const reasons = await db.select().from(subscriptions);
+		expect(reasons.filter((r) => r.userId === agents[0]?.id)).toEqual([]);
 
 		const { threadId } = (await res.json()) as { threadId: string };
 		const [thread] = await db.select().from(threads);

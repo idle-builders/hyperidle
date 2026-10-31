@@ -278,8 +278,12 @@ export function startedJobs(
 	initialsOf: (id: string) => string,
 	sessions: readonly SessionRow[],
 	now: number,
+	/** Conversations they started: a task an agent made there is what they asked for. */
+	askedIn: ReadonlySet<string> = new Set(),
 ): Job[] {
 	const byId = new Map(tasks.map((t) => [t.id, t]));
+	const theirs = (t: Task | undefined) =>
+		t !== undefined && (t.startedBy === personId || askedIn.has(t.threadId));
 	const kids = new Map<string, Task[]>();
 	for (const t of tasks)
 		if (t.parentTaskId) kids.set(t.parentTaskId, [...(kids.get(t.parentTaskId) ?? []), t]);
@@ -288,12 +292,7 @@ export function startedJobs(
 		return under.length === 0 ? [t] : under.flatMap(leaves);
 	};
 	return tasks
-		.filter(
-			(t) =>
-				t.startedBy === personId &&
-				open(t) &&
-				byId.get(t.parentTaskId ?? "")?.startedBy !== personId,
-		)
+		.filter((t) => theirs(t) && open(t) && !theirs(byId.get(t.parentTaskId ?? "")))
 		.map((t) => {
 			const run = sessions.find((s) => s.taskId === t.id && s.endedAt === null);
 			const parts = kids.has(t.id) ? leaves(t) : [];

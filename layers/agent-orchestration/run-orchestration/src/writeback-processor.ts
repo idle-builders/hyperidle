@@ -388,7 +388,7 @@ async function handleCreate(
 	const result = await config.document.editDocument(caller, {
 		title,
 		body,
-		format: "markdown",
+		format: path.extname(relativePath) === ".html" ? "html" : "markdown",
 		status: "proposed",
 		as: "document",
 		// Directory placement wins when a wrapping directory exists — its

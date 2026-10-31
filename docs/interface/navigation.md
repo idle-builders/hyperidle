@@ -16,6 +16,7 @@ Code: `layers/core-ui/src/App.tsx` (addresses), `Sidebar.tsx`, `sidebar-lists.ts
 | `/teams/:name` | A team's page |
 | `/plugins/:id` | A plugin's page; `?team=` names the team it was opened from |
 | `/start` | First start |
+| any page `?app=<ref>` | An app in the pane beside the page: a document's id, `task:<id>` for a task's description, `message:<thread>:<id>` for a message |
 
 Any other address goes to `/conversations`. A fresh install — no person yet — goes to `/start`.
 Everything you pick is in the address, so back, forward and reload keep your place.
@@ -51,8 +52,9 @@ waits here".
 
 ## Find or ask
 
-One overlay, one box. **Find** lists knowledge, conversations and work that match, with the matching
-text; ↑↓ choose, ↵ opens. **Tab** switches to **Ask** and keeps what you typed: an agent answers —
+One overlay, one box. **Find** lists knowledge, apps, conversations and work that match, with the
+matching text; ↑↓ choose, ↵ opens. An app — a document or a message that is one — opens beside the
+conversation or task it was made in, or as its own page when it was made in neither. **Tab** switches to **Ask** and keeps what you typed: an agent answers —
 your own agents first, the one you have had longest first, then the team's; another can be picked
 before asking. The answer is written into the overlay as it comes, with its sources, and is saved
 as a conversation; ↵ asks a follow-up, ⌘↵ opens the conversation. Esc closes the overlay.

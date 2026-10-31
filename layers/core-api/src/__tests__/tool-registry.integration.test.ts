@@ -74,7 +74,7 @@ describe("buildToolRegistry", () => {
 		// Set equality, never toContain: proves the registered set is EXACTLY
 		// the composed action list, with nothing extra and nothing missing.
 		expect(names).toEqual(composedActionNames);
-		expect(composedActionNames.size).toBe(15);
+		expect(composedActionNames.size).toBe(16);
 		expect(registry.definitions).toHaveLength(composedActionNames.size);
 	});
 

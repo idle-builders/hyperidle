@@ -909,6 +909,160 @@ describe("CliHarnessAdapter stopSession — parent already exited (session.done)
 	}, 15_000);
 });
 
+// ── stdin delivery ───────────────────────────────────────────────────────────
+
+function makeFakeChildWithStdin(): ReturnType<typeof makeFakeChild> & {
+	stdinWriteSpy: ReturnType<typeof vi.fn>;
+	stdinEndSpy: ReturnType<typeof vi.fn>;
+	stdinDestroyedGetter: { destroyed: boolean };
+} {
+	const base = makeFakeChild();
+	const stdinWriteSpy = vi.fn();
+	const stdinEndSpy = vi.fn();
+	const stdinDestroyedGetter = { destroyed: false };
+	const fakeStdin = {
+		write: stdinWriteSpy,
+		end: () => {
+			stdinEndSpy();
+			stdinDestroyedGetter.destroyed = true;
+		},
+		get destroyed() {
+			return stdinDestroyedGetter.destroyed;
+		},
+	};
+	(base.proc as unknown as { stdin: unknown }).stdin = fakeStdin;
+	return { ...base, stdinWriteSpy, stdinEndSpy, stdinDestroyedGetter };
+}
+
+describe("CliHarnessAdapter — stdin delivery (json-stream)", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("does not close stdin at spawn when stdinDelivery is json-stream", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChildWithStdin();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(makeConfig({ stdinDelivery: "json-stream" }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
+		await adapter.startSession(makeSessionConfig());
+
+		expect(fakeChild.stdinEndSpy).not.toHaveBeenCalled();
+	});
+
+	it("writes first prompt as a json-stream user line to stdin", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChildWithStdin();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(makeConfig({ stdinDelivery: "json-stream" }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
+		await adapter.startSession(makeSessionConfig({ instruction: "hello world" }));
+
+		expect(fakeChild.stdinWriteSpy).toHaveBeenCalledTimes(1);
+		const written = fakeChild.stdinWriteSpy.mock.calls[0]?.[0] as string;
+		const parsed = JSON.parse(written.trim()) as {
+			type: string;
+			message: { role: string; content: [{ type: string; text: string }] };
+		};
+		expect(parsed.type).toBe("user");
+		expect(parsed.message.role).toBe("user");
+		expect(parsed.message.content[0]?.type).toBe("text");
+		expect(parsed.message.content[0]?.text).toBe("hello world");
+	});
+
+	it("deliver writes a json-stream line to stdin", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChildWithStdin();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(makeConfig({ stdinDelivery: "json-stream" }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
+		const handle = await adapter.startSession(makeSessionConfig());
+
+		const result = await adapter.deliver!(handle, "mid-run steer");
+		expect(result).toBe("delivered");
+
+		const written = fakeChild.stdinWriteSpy.mock.calls[1]?.[0] as string;
+		const parsed = JSON.parse(written.trim()) as {
+			type: string;
+			message: { content: [{ text: string }] };
+		};
+		expect(parsed.type).toBe("user");
+		expect(parsed.message.content[0]?.text).toBe("mid-run steer");
+	});
+
+	it("deliver returns unsupported for non-json-stream adapters", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChildWithStdin();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(makeConfig({ stdinDelivery: undefined }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
+		const handle = await adapter.startSession(makeSessionConfig());
+
+		const result = await adapter.deliver!(handle, "hello");
+		expect(result).toBe("unsupported");
+	});
+
+	it("closes stdin after result event when no delivers are pending", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChildWithStdin();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(
+			makeConfig({ stdinDelivery: "json-stream", eventDialect: "claude-stream-json" }),
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
+		);
+		await adapter.startSession(makeSessionConfig());
+
+		fakeChild.emitStdout(
+			JSON.stringify({ type: "result", subtype: "success", result: "done", is_error: false }),
+		);
+		fakeChild.emitExit(0, null);
+
+		expect(fakeChild.stdinEndSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it("closes stdin on result even when a deliver was written before it", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChildWithStdin();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(
+			makeConfig({ stdinDelivery: "json-stream", eventDialect: "claude-stream-json" }),
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
+		);
+		const handle = await adapter.startSession(makeSessionConfig());
+
+		// Deliver is written before any result — claude batches it into the same turn.
+		await adapter.deliver!(handle, "steer: include KANGAROO");
+
+		// Result fires: stdin closes unconditionally because the deliver was already
+		// incorporated into this turn's response.
+		fakeChild.emitStdout(
+			JSON.stringify({
+				type: "result",
+				subtype: "success",
+				result: "KANGAROO done",
+				is_error: false,
+			}),
+		);
+		fakeChild.emitExit(0, null);
+
+		expect(fakeChild.stdinEndSpy).toHaveBeenCalledTimes(1);
+	});
+});
+
 // ── process exit sweep ───────────────────────────────────────────────────────
 //
 //

@@ -31,6 +31,7 @@ describe("findRows", () => {
 				conversations: [hit("t1", null)],
 				work: [hit("w1", "Growth")],
 				documents: [hit("d1", "Product")],
+				apps: [],
 			},
 			NOW,
 		);
@@ -38,6 +39,29 @@ describe("findRows", () => {
 			["Knowledge · Product", "/knowledge/d1"],
 			["Conversations · 12m", "/conversations/t1"],
 			["Work · Growth", "/work/w1"],
+		]);
+	});
+
+	test("an app opens beside the conversation or task it was made in, else as its own page", () => {
+		const rows = findRows(
+			{
+				conversations: [],
+				work: [],
+				documents: [],
+				apps: [
+					{ ...hit("m1", null), kind: "message", on: { kind: "thread", id: "t1" } },
+					{ ...hit("d2", "Support"), kind: "document", on: { kind: "thread", id: "t1" } },
+					{ ...hit("d3", "Product"), kind: "document", on: { kind: "task", id: "w1" } },
+					{ ...hit("d4", "Product"), kind: "document", on: null },
+				],
+			},
+			NOW,
+		);
+		expect(rows.map((r) => [r.kind, r.where, r.to])).toEqual([
+			["App", "Apps · 12m", "/conversations/t1?app=message%3At1%3Am1"],
+			["App", "Apps · Support", "/conversations/t1?app=d2"],
+			["App", "Apps · Product", "/work/w1?app=d3"],
+			["App", "Apps · Product", "/knowledge/d4"],
 		]);
 	});
 });

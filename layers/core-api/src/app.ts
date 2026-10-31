@@ -5,6 +5,7 @@ import { assembleSessionDocuments } from "@hyperidle/document";
 import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool } from "@hyperidle/harness-protocol";
 import { checkAndUnblockDependents, registerTaskLiveUpdates } from "@hyperidle/task";
+import { registerThreadSessionLiveUpdates } from "@hyperidle/thread";
 import {
 	createUpgradeTokenStore,
 	registerSubscriptionFire,
@@ -301,7 +302,11 @@ function registerSubscriptionServices(
 		unsubSubscriptionFire,
 		subscriptionClock.stop,
 		...(wsPush
-			? [registerTaskLiveUpdates(db, eventBus, wsPush), registerUserLiveUpdates(eventBus, wsPush)]
+			? [
+					registerTaskLiveUpdates(db, eventBus, wsPush),
+					registerUserLiveUpdates(eventBus, wsPush),
+					registerThreadSessionLiveUpdates(eventBus, wsPush),
+				]
 			: []),
 	];
 }

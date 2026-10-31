@@ -111,6 +111,8 @@ export const tasks = pgTable(
 		ownerAgentId: text("owner_agent_id").references(() => users.id, { onDelete: "restrict" }),
 		title: text("title").notNull(),
 		description: text("description"),
+		/** `html` makes the description an app; see FORMATS in domain-model. */
+		descriptionFormat: text("description_format").notNull().default("markdown"),
 		/** JSON array of DoneWhenLine objects. */
 		doneWhen: text("done_when").notNull().default("[]"),
 		state: text("state").notNull(),
@@ -542,6 +544,20 @@ export const inbox = pgTable(
 	},
 	(table) => [primaryKey({ columns: [table.userId, table.changeId] })],
 );
+
+export const reviewOpened = pgTable(
+	"review_opened",
+	{
+		reviewMessageId: text("review_message_id").notNull(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		openedAt: text("opened_at").notNull(),
+	},
+	(table) => [primaryKey({ columns: [table.reviewMessageId, table.userId] })],
+);
+export type ReviewOpened = typeof reviewOpened.$inferSelect;
+export type NewReviewOpened = typeof reviewOpened.$inferInsert;
 
 // --- Documents ---
 

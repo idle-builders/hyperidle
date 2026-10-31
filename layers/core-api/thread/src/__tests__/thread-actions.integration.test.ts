@@ -337,7 +337,10 @@ describe("send_message — answering a question, approving or rejecting a review
 			async (): Promise<ReviewVerdictOutcome> => ({ status: "queued" }),
 		);
 		const linkReviewToSession = vi.fn(async () => {});
-		const actions = createThreadActions(threadDeps({ reviewVerdictRecorder, linkReviewToSession }));
+		const agentWorkIntentRecorder = vi.fn(async () => ({ id: "intent", idempotencyKey: "key" }));
+		const actions = createThreadActions(
+			threadDeps({ reviewVerdictRecorder, linkReviewToSession, agentWorkIntentRecorder }),
+		);
 		const eventBus = new EventBus();
 		const teamId = `sm-ans-${suffix}`;
 		const agentId = `sm-agent-ans-${suffix}`;
@@ -366,7 +369,15 @@ describe("send_message — answering a question, approving or rejecting a review
 			call(actions, db, eventBus, "send_message", { threadId, ...body });
 		const resolvedAt = async (id: string) =>
 			(await db.select().from(messages).where(eq(messages.id, id)))[0]?.resolvedAt ?? null;
-		return { ask, reply, resolvedAt, reviewVerdictRecorder, linkReviewToSession };
+		return {
+			ask,
+			reply,
+			resolvedAt,
+			reviewVerdictRecorder,
+			linkReviewToSession,
+			agentWorkIntentRecorder,
+			agentId,
+		};
 	}
 
 	const billing = {
@@ -396,6 +407,22 @@ describe("send_message — answering a question, approving or rejecting a review
 				answer: { option: "Yearly" },
 			}),
 		);
+	});
+
+	test("a reject the asking session takes back does not also start a second run of that agent", async ({
+		db,
+	}) => {
+		const { ask, reply, reviewVerdictRecorder, agentWorkIntentRecorder } = await seedAsk(db, "w");
+		const reviewId = await ask({ review: { title: "Ship it?", reasoning: ["tests pass"] } });
+		agentWorkIntentRecorder.mockClear();
+
+		const rejected = await reply({
+			verdict: { decision: "reject", resolvesMessageId: reviewId, note: "One more round." },
+		});
+
+		expect(rejected.status).toBe(200);
+		expect(reviewVerdictRecorder).toHaveBeenCalledOnce();
+		expect(agentWorkIntentRecorder).not.toHaveBeenCalled();
 	});
 
 	test("naming an option the question does not have is refused and leaves it open", async ({
@@ -1093,9 +1120,10 @@ describe("search_threads", () => {
 			"st-review-1",
 			"st-theirs-1",
 		]);
+		// The second review was approved (even via not_resumable), so the first is replaced — no need.
 		expect(byId.get("st-review-1")).toMatchObject({
-			need: "review",
-			lastSenderId: FOUNDER_ID,
+			need: null,
+			lastSenderId: "st-agent-1",
 			mentionsYou: false,
 		});
 		expect(byId.get("st-asked-1")).toMatchObject({ need: "stuck", lastSenderId: "st-agent-1" });
@@ -1172,6 +1200,48 @@ describe("search_threads", () => {
 		const ids = res.body.data?.map((r) => r.id) ?? [];
 		expect(ids).toContain("st-mine-2");
 		expect(ids).not.toContain("st-not-mine-2");
+	});
+
+	test("a whole message can be an app: kept as a page, longer than any text message, and previewed by its title", async ({
+		db,
+	}) => {
+		const eventBus = new EventBus();
+		const actions = createThreadActions(threadDeps());
+		await seedTeam(db, "st-app-team");
+		await seedThreadRow(db, "st-app", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+		});
+		const page = `<!doctype html><html><head><title>Plan picker</title><style>@media (max-width: 400px) { p { margin: 0 } }</style></head><body>${"<p>row</p>".repeat(2000)}</body></html>`;
+
+		const tooLong = await call(actions, db, eventBus, "send_message", {
+			threadId: "st-app",
+			text: page,
+		});
+		expect(tooLong.body.problems?.map((p) => p.code)).toEqual(["text_too_long"]);
+
+		const sent = await call<{ message: { payload: unknown } }>(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{
+				threadId: "st-app",
+				text: page,
+				format: "html",
+			},
+		);
+		expect(sent.body.data?.message.payload).toEqual({ text: page, format: "html" });
+		const listed = await call<Array<{ id: string; lastMessagePreview: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{ ids: ["st-app"] },
+		);
+		expect(listed.body.data?.map((r) => r.lastMessagePreview)).toEqual(["App: Plan picker"]);
 	});
 
 	test("lastMessagePreview is batched, not one query per thread, and is null for a thread with no messages", async ({
@@ -1518,5 +1588,422 @@ describe("comments on a document's text, and the changes they propose", () => {
 
 		expect(resolved).not.toBeNull();
 		expect((await stored(id)).resolvedAt).toBeNull();
+	});
+});
+
+// ============================================================================
+// mark_review_opened
+// ============================================================================
+
+describe("mark_review_opened", () => {
+	test("opening a review drops the 'review' need for that viewer", async ({ db }) => {
+		const eventBus = new EventBus();
+		const actions = createThreadActions(threadDeps());
+		await seedTeam(db, "mro-team");
+		await seedHuman(db, "mro-reviewer", "mro-team");
+		await seedAgent(db, "mro-agent", "mro-team");
+		await seedThreadRow(db, "mro-thread", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID, "mro-reviewer", "mro-agent"],
+		});
+
+		const sent = await call<{ message: { id: string } }>(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{ threadId: "mro-thread", review: { title: "Please review", reasoning: ["Looks good"] } },
+			"mro-agent",
+		);
+		const reviewId = sent.body.data?.message.id as string;
+
+		const before = await call<Array<{ id: string; need: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{ ids: ["mro-thread"] },
+			"mro-reviewer",
+		);
+		expect(before.body.data?.find((r) => r.id === "mro-thread")?.need).toBe("review");
+
+		await call(
+			actions,
+			db,
+			eventBus,
+			"mark_review_opened",
+			{ reviewMessageId: reviewId },
+			"mro-reviewer",
+		);
+
+		const after = await call<Array<{ id: string; need: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{ ids: ["mro-thread"] },
+			"mro-reviewer",
+		);
+		expect(after.body.data?.find((r) => r.id === "mro-thread")?.need).toBeNull();
+	});
+
+	test("sidebar ({}) and person-page ({member}) variants of search_threads both see null need after opening", async ({
+		db,
+	}) => {
+		const eventBus = new EventBus();
+		const actions = createThreadActions(threadDeps());
+		await seedTeam(db, "mros-team");
+		await seedHuman(db, "mros-reviewer", "mros-team");
+		await seedAgent(db, "mros-agent", "mros-team");
+		await seedThreadRow(db, "mros-thread", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID, "mros-reviewer", "mros-agent"],
+		});
+
+		const sent = await call<{ message: { id: string } }>(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{ threadId: "mros-thread", review: { title: "Please review", reasoning: ["Looks good"] } },
+			"mros-agent",
+		);
+		const reviewId = sent.body.data?.message.id as string;
+
+		// Before opening: both sidebar and person-page variants show "review" need.
+		const sidebarBefore = await call<Array<{ id: string; need: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{},
+			"mros-reviewer",
+		);
+		expect(sidebarBefore.body.data?.find((r) => r.id === "mros-thread")?.need).toBe("review");
+
+		const personBefore = await call<Array<{ id: string; need: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{ member: "mros-reviewer" },
+			FOUNDER_ID,
+		);
+		expect(personBefore.body.data?.find((r) => r.id === "mros-thread")?.need).toBe("review");
+
+		// Reviewer opens the review.
+		await call(
+			actions,
+			db,
+			eventBus,
+			"mark_review_opened",
+			{ reviewMessageId: reviewId },
+			"mros-reviewer",
+		);
+
+		// After opening: both variants show null need.
+		const sidebarAfter = await call<Array<{ id: string; need: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{},
+			"mros-reviewer",
+		);
+		expect(sidebarAfter.body.data?.find((r) => r.id === "mros-thread")?.need).toBeNull();
+
+		const personAfter = await call<Array<{ id: string; need: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{ member: "mros-reviewer" },
+			FOUNDER_ID,
+		);
+		expect(personAfter.body.data?.find((r) => r.id === "mros-thread")?.need).toBeNull();
+	});
+
+	// Rule: an open review is replaced (treated as superseded) when a LATER review from
+	// the same sender, same thread, and same task (null taskId == null taskId) has received
+	// a verdict. Opening is not needed; the viewer never has to look at the old one.
+	describe("review replacement rule — later verdict, same sender/thread/task → replaced", () => {
+		test("later review from same sender receives a verdict → earlier open review replaced, need null without opening", async ({
+			db,
+		}) => {
+			const eventBus = new EventBus();
+			const actions = createThreadActions(threadDeps());
+			await seedTeam(db, "srt-team");
+			await seedHuman(db, "srt-reviewer", "srt-team");
+			await seedAgent(db, "srt-agent", "srt-team");
+			await seedThreadRow(db, "srt-thread", {
+				hostKind: "user",
+				hostId: FOUNDER_ID,
+				initiatorId: FOUNDER_ID,
+				members: [FOUNDER_ID, "srt-reviewer", "srt-agent"],
+			});
+
+			// Open review (older, no task)
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId: "srt-thread", review: { title: "Old draft", reasoning: ["pass 1"] } },
+				"srt-agent",
+			);
+
+			// Later review from same agent, gets approved (no task on either)
+			const r2 = await call<{ message: { id: string } }>(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId: "srt-thread", review: { title: "Revision", reasoning: ["pass 2"] } },
+				"srt-agent",
+			);
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{
+					threadId: "srt-thread",
+					verdict: { decision: "approve", resolvesMessageId: r2.body.data?.message.id as string },
+				},
+				"srt-reviewer",
+			);
+
+			// need is null without ever opening anything — the old draft is replaced
+			const result = await call<Array<{ id: string; need: string | null }>>(
+				actions,
+				db,
+				eventBus,
+				"search_threads",
+				{ ids: ["srt-thread"] },
+				"srt-reviewer",
+			);
+			expect(result.body.data?.find((r) => r.id === "srt-thread")?.need).toBeNull();
+		});
+
+		test("later review with a DIFFERENT task receives a verdict → earlier open review NOT replaced", async ({
+			db,
+		}) => {
+			const eventBus = new EventBus();
+			const actions = createThreadActions(threadDeps());
+			await seedTeam(db, "srt2-team");
+			await seedHuman(db, "srt2-reviewer", "srt2-team");
+			await seedAgent(db, "srt2-agent", "srt2-team");
+			await seedThreadRow(db, "srt2-thread", {
+				hostKind: "user",
+				hostId: FOUNDER_ID,
+				initiatorId: FOUNDER_ID,
+				members: [FOUNDER_ID, "srt2-reviewer", "srt2-agent"],
+			});
+
+			// Open review for task-A
+			const sendRun = runnerFor<Record<string, unknown>, { message: { id: string } }>(
+				actions,
+				"send_message",
+			);
+			await sendRun(
+				ctxFor(db, "srt2-agent", {
+					eventBus,
+					caller: { sessionId: "srt2-sess-a", taskId: "srt2-task-a", threadId: null },
+				}),
+				{ threadId: "srt2-thread", review: { title: "Task A review", reasoning: ["x"] } },
+			);
+
+			// Later review for task-B (different task), gets approved
+			const r2 = await sendRun(
+				ctxFor(db, "srt2-agent", {
+					eventBus,
+					caller: { sessionId: "srt2-sess-b", taskId: "srt2-task-b", threadId: null },
+				}),
+				{ threadId: "srt2-thread", review: { title: "Task B review", reasoning: ["y"] } },
+			);
+			if (!r2.ok) throw new Error("send_message failed");
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{
+					threadId: "srt2-thread",
+					verdict: { decision: "approve", resolvesMessageId: r2.data.message.id },
+				},
+				"srt2-reviewer",
+			);
+
+			// task-A review is still active
+			const result = await call<Array<{ id: string; need: string | null }>>(
+				actions,
+				db,
+				eventBus,
+				"search_threads",
+				{ ids: ["srt2-thread"] },
+				"srt2-reviewer",
+			);
+			expect(result.body.data?.find((r) => r.id === "srt2-thread")?.need).toBe("review");
+		});
+
+		test("later review from a DIFFERENT sender receives a verdict → earlier open review NOT replaced", async ({
+			db,
+		}) => {
+			const eventBus = new EventBus();
+			const actions = createThreadActions(threadDeps());
+			await seedTeam(db, "srt3-team");
+			await seedHuman(db, "srt3-reviewer", "srt3-team");
+			await seedAgent(db, "srt3-agent-a", "srt3-team");
+			await seedAgent(db, "srt3-agent-b", "srt3-team");
+			await seedThreadRow(db, "srt3-thread", {
+				hostKind: "user",
+				hostId: FOUNDER_ID,
+				initiatorId: FOUNDER_ID,
+				members: [FOUNDER_ID, "srt3-reviewer", "srt3-agent-a", "srt3-agent-b"],
+			});
+
+			// Agent A sends a review (unresolved)
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId: "srt3-thread", review: { title: "Agent A review", reasoning: ["a"] } },
+				"srt3-agent-a",
+			);
+
+			// Agent B sends a review later and it gets approved
+			const rb = await call<{ message: { id: string } }>(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId: "srt3-thread", review: { title: "Agent B review", reasoning: ["b"] } },
+				"srt3-agent-b",
+			);
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{
+					threadId: "srt3-thread",
+					verdict: { decision: "approve", resolvesMessageId: rb.body.data?.message.id as string },
+				},
+				"srt3-reviewer",
+			);
+
+			// Agent A's review is still active (different sender)
+			const result = await call<Array<{ id: string; need: string | null }>>(
+				actions,
+				db,
+				eventBus,
+				"search_threads",
+				{ ids: ["srt3-thread"] },
+				"srt3-reviewer",
+			);
+			expect(result.body.data?.find((r) => r.id === "srt3-thread")?.need).toBe("review");
+		});
+
+		test("later review from same sender is still open (no verdict yet) → earlier review NOT replaced", async ({
+			db,
+		}) => {
+			const eventBus = new EventBus();
+			const actions = createThreadActions(threadDeps());
+			await seedTeam(db, "srt4-team");
+			await seedHuman(db, "srt4-reviewer", "srt4-team");
+			await seedAgent(db, "srt4-agent", "srt4-team");
+			await seedThreadRow(db, "srt4-thread", {
+				hostKind: "user",
+				hostId: FOUNDER_ID,
+				initiatorId: FOUNDER_ID,
+				members: [FOUNDER_ID, "srt4-reviewer", "srt4-agent"],
+			});
+
+			// Two unresolved reviews, no verdict on either
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId: "srt4-thread", review: { title: "First", reasoning: ["a"] } },
+				"srt4-agent",
+			);
+			await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId: "srt4-thread", review: { title: "Second", reasoning: ["b"] } },
+				"srt4-agent",
+			);
+
+			// Both open reviews are still active — neither replaced the other
+			const result = await call<Array<{ id: string; need: string | null }>>(
+				actions,
+				db,
+				eventBus,
+				"search_threads",
+				{ ids: ["srt4-thread"] },
+				"srt4-reviewer",
+			);
+			expect(result.body.data?.find((r) => r.id === "srt4-thread")?.need).toBe("review");
+		});
+	});
+
+	test("opening the current round drops need even when an older round is still unresolved (superseded)", async ({
+		db,
+	}) => {
+		const eventBus = new EventBus();
+		const actions = createThreadActions(threadDeps());
+		await seedTeam(db, "mro2-team");
+		await seedAgent(db, "mro2-agent", "mro2-team");
+		await seedThreadRow(db, "mro2-thread", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID, "mro2-agent"],
+		});
+
+		const r1 = await call<{ message: { id: string } }>(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{ threadId: "mro2-thread", review: { title: "Round 1", reasoning: ["First pass"] } },
+			"mro2-agent",
+		);
+		const r1Id = r1.body.data?.message.id as string;
+
+		const r2 = await call<{ message: { id: string } }>(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{
+				threadId: "mro2-thread",
+				review: { title: "Round 2", reasoning: ["Second pass"], previousReviewId: r1Id },
+			},
+			"mro2-agent",
+		);
+		const r2Id = r2.body.data?.message.id as string;
+
+		// Viewer opens the current round. Need should drop to null because:
+		// - R2 is opened (not counted for this viewer)
+		// - R1 is superseded by R2 (not counted either)
+		await call(actions, db, eventBus, "mark_review_opened", { reviewMessageId: r2Id });
+
+		const after = await call<Array<{ id: string; need: string | null }>>(
+			actions,
+			db,
+			eventBus,
+			"search_threads",
+			{ ids: ["mro2-thread"] },
+		);
+		expect(after.body.data?.find((r) => r.id === "mro2-thread")?.need).toBeNull();
 	});
 });

@@ -58,16 +58,20 @@ export {
 	searchPlugins,
 } from "./actions/platform.js";
 export type {
+	ListWaitingRequestsInput,
 	SearchSessionsInput,
 	SessionRow,
 	SessionState,
 	StopSessionInput,
 	StopSessionOutput,
+	WaitingRequestRow,
 	WatchSessionInput,
 	WatchSessionOutput,
 } from "./actions/session.js";
 export {
 	ActivityEntrySchema,
+	ListWaitingRequestsInputSchema,
+	listWaitingRequests,
 	SESSION_ACTIONS,
 	SESSION_STATES,
 	SearchSessionsInputSchema,
@@ -76,6 +80,7 @@ export {
 	StopSessionOutputSchema,
 	searchSessions,
 	stopSession,
+	WaitingRequestRowSchema,
 	WatchSessionInputSchema,
 	WatchSessionOutputSchema,
 	watchSession,
@@ -113,6 +118,7 @@ export type {
 	AdjustThreadInput,
 	AnswerPayload,
 	Identity,
+	MarkReviewOpenedInput,
 	Message,
 	OpenThreadInput,
 	PlainPayload,
@@ -138,7 +144,9 @@ export {
 	entityRefSchema,
 	IdentitySchema,
 	inlineRefSchema,
+	MarkReviewOpenedInputSchema,
 	MessageSchema,
+	markReviewOpened,
 	mentionRefSchema,
 	OpenThreadInputSchema,
 	openThread,
@@ -211,6 +219,8 @@ export {
 } from "./actions/user.js";
 export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
+export type { Format } from "./app-page.js";
+export { appSummary, appTitle, FORMATS } from "./app-page.js";
 export type {
 	PluginContributionKind,
 	PluginScopeKind,

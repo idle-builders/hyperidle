@@ -100,6 +100,32 @@ describe("registerSessionActivityGateway — session/harness streaming gateway",
 		});
 	});
 
+	test("session_request_queued for a thread stream nudges thread:<id>", async ({ eventBus }) => {
+		const { push, calls } = createRecordingPush();
+		registerSessionActivityGateway(eventBus, push);
+
+		eventBus.emit({
+			type: "session_request_queued",
+			streamId: "thread:thr-nudge-1",
+			timestamp: Date.now(),
+		});
+
+		expect(calls.map((c) => c.topic)).toEqual(["thread:thr-nudge-1"]);
+	});
+
+	test("session_request_queued for a non-thread stream produces no nudge", async ({ eventBus }) => {
+		const { push, calls } = createRecordingPush();
+		registerSessionActivityGateway(eventBus, push);
+
+		eventBus.emit({
+			type: "session_request_queued",
+			streamId: "task:task-nudge-1",
+			timestamp: Date.now(),
+		});
+
+		expect(calls).toHaveLength(0);
+	});
+
 	test("the returned unregister function stops forwarding", async ({ eventBus }) => {
 		const { push, calls } = createRecordingPush();
 		const unregister = registerSessionActivityGateway(eventBus, push);

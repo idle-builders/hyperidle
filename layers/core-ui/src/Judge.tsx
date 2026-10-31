@@ -1,5 +1,5 @@
 import type { Message, PlainReadPayload, Task, VerdictPayload } from "@hyperidle/domain-model";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
@@ -67,6 +67,11 @@ export function Judge({ threadId, reviewId }: { threadId: string; reviewId: stri
 		if (sent.ok) view.reload();
 		return sent.ok;
 	};
+
+	// Record that this reviewer has opened this review — stops it nagging them.
+	useEffect(() => {
+		void call("mark_review_opened", { reviewMessageId: reviewId });
+	}, [reviewId]);
 
 	if (view.problems || (view.data && !round))
 		return (
@@ -268,7 +273,7 @@ export function Judge({ threadId, reviewId }: { threadId: string; reviewId: stri
 					Thread
 				</button>
 				<span className="rev-stage">{stage}</span>
-				<h2>{r.title}</h2>
+				<h2 title={r.title}>{r.title}</h2>
 				<span className="rev-from">
 					{[people.get(sender)?.name, task?.title].filter(Boolean).join(" · ")}
 				</span>

@@ -14,6 +14,7 @@ import {
 	type CliAvailabilityDeps,
 	CliHarnessAdapter,
 } from "./cli-harness-adapter.js";
+import { CodexAppServerAdapter } from "./codex-app-server-adapter.js";
 import type { EnforcementRegistry } from "./enforcement-registry.js";
 import {
 	describeHarnessCapability,
@@ -330,13 +331,17 @@ export const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = 
  */
 export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 	binary: "claude",
-	// `-p <prompt>` is the headless prompt flag; `--output-format stream-json --verbose` emits one JSON object per line;
+	// `--input-format stream-json` + `--replay-user-messages` keeps stdin open so mid-run
+	// deliver() calls write additional user messages while claude is running.
+	// The first user message is written as a JSON line immediately after spawn.
+	// `--output-format stream-json --verbose` emits one JSON object per line;
 	// `--model {{model}}` sets the model; `--mcp-config .mcp.json` wires MCP;
 	// `--strict-mcp-config` enforces MCP config (no auto-discovery from other dirs);
 	// @lore: --mcp-config .mcp.json is unconditional — crashes "MCP config file not found" if no file; provisionSession always writes it
 	args: [
-		"-p",
-		"{{prompt}}",
+		"--input-format",
+		"stream-json",
+		"--replay-user-messages",
 		"--output-format",
 		"stream-json",
 		"--verbose",
@@ -350,6 +355,7 @@ export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 		"--settings",
 		".claude/settings.json",
 	],
+	stdinDelivery: "json-stream",
 	// No API key injection — claude uses its own installed auth via HOME.
 	envMap: {},
 	eventFormat: "ndjson",
@@ -402,7 +408,12 @@ async function registerCliAdaptersIfAvailable(
 	for (const [name, config] of Object.entries(CLI_TOOL_CONFIGS)) {
 		const available = await CliHarnessAdapter.checkAvailability(config.binary, availabilityDeps);
 		if (available) {
-			const adapter = new CliHarnessAdapter(config, { enforcement });
+			// codex uses CodexAppServerAdapter (JSON-RPC app-server protocol, supports mid-turn deliver)
+			// all other CLI tools use CliHarnessAdapter (one-shot subprocess)
+			const adapter =
+				name === "codex"
+					? new CodexAppServerAdapter()
+					: new CliHarnessAdapter(config, { enforcement });
 			pool.register(`local-cli-${name}`, adapter, {
 				name: `CLI: ${name}`,
 				kind: "local",

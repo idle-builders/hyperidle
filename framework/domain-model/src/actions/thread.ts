@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FORMATS } from "../app-page.js";
 import { anchorSchema, flagSchema, reviewInvariants, reviewPartSchema } from "../review.js";
 import {
 	HOST_KINDS,
@@ -70,8 +71,14 @@ export const proposedChangeSchema = z.object({
 });
 export type ProposedChange = z.infer<typeof proposedChangeSchema>;
 
+/** The longest text message; an app's page may run to `APP_PAGE_MAX`. */
+export const TEXT_MAX = 16_384;
+export const APP_PAGE_MAX = 262_144;
+
 export const plainPayloadSchema = z.object({
-	text: z.string().max(16_384),
+	text: z.string().max(APP_PAGE_MAX),
+	/** `html`: the whole message is an app, its text one whole page. Absent means markdown. */
+	format: z.enum(FORMATS).optional(),
 	refs: z.array(inlineRefSchema).optional(),
 	/** A comment on a review's part, or on a stretch of the text of the thread's document. */
 	anchor: anchorSchema.optional(),
@@ -105,7 +112,7 @@ export const reviewPayloadSchema = z.object({
 	producedItemId: z.string().optional(),
 	/** The person who reviews it; absent ⇒ anyone in the thread but its sender. */
 	reviewer: z.string().min(1).optional(),
-	// server-stamped from ctx.caller.taskId — never accepted from the caller; SendMessageInputSchema.review omits it so a smuggled taskId is stripped by validation
+	// stamped by server from ctx.caller.taskId (task run) or supplied by agent from a conversation turn
 	taskId: z.string().optional(),
 });
 export type ReviewPayload = z.infer<typeof reviewPayloadSchema>;
@@ -273,15 +280,16 @@ export const SendMessageInputSchema = z
 			.regex(/^[A-Za-z0-9_\-:.]+$/)
 			.optional(),
 		// exactly one of the five bodies below — a pure invariant, not a schema rule
-		text: z.string().max(16_384).optional(),
+		text: z.string().max(APP_PAGE_MAX).optional(),
+		/** `html` sends the whole message as an app: the text is one whole page. Plain only. */
+		format: z.enum(FORMATS).optional(),
 		refs: z.array(inlineRefSchema).optional(), // plain only
 		anchor: anchorSchema.optional(), // plain only
 		/** A change to the document text the anchor covers; plain only. */
 		change: proposedChangeSchema.omit({ settled: true }).optional(),
-		// `taskId` is server-stamped from `ctx.caller.taskId`, never caller
-		// input — omitted here so a smuggled `taskId` in the request body is
-		// stripped by validation rather than stored.
-		review: reviewPayloadSchema.omit({ taskId: true }).optional(),
+		// `taskId`: from a task-run session the server stamps it from ctx.caller.taskId;
+		// from a conversation turn an agent names the task by passing it here.
+		review: reviewPayloadSchema.optional(),
 		questionnaire: questionnairePayloadSchema.optional(),
 		verdict: verdictPayloadSchema.optional(),
 		answer: answerPayloadSchema.optional(),
@@ -303,6 +311,9 @@ export const sendMessage: ActionDeclaration<SendMessageInput, SendMessageOutput>
 		"person owns it), a question, a verdict on a " +
 		"review (approve, or reject with the reason), or an answer to a question (one of its " +
 		"options, or your own words). " +
+		'A text message can be a whole app: say `format: "html"` and write one whole HTML page as ' +
+		"the text, with its own styles and scripts and every image inside it (it runs sealed off " +
+		"from the network). It shows as a card that opens the app beside the conversation. " +
 		"Give a message id to replace what you already sent.",
 	input: SendMessageInputSchema,
 	output: SendMessageOutputSchema,
@@ -340,11 +351,25 @@ export const adjustThread: ActionDeclaration<AdjustThreadInput, ThreadView> = {
 	output: ThreadViewSchema, // same shape open_thread returns
 };
 
+export const MarkReviewOpenedInputSchema = z.object({
+	/** The message id of the review to mark as opened. */
+	reviewMessageId: z.string().min(1),
+});
+export type MarkReviewOpenedInput = z.infer<typeof MarkReviewOpenedInputSchema>;
+
+export const markReviewOpened: ActionDeclaration<MarkReviewOpenedInput, Record<string, never>> = {
+	name: "mark_review_opened",
+	sentence: "Record that you have opened a review — it stops counting as waiting for you.",
+	input: MarkReviewOpenedInputSchema,
+	output: z.object({}),
+};
+
 export const THREAD_ACTIONS = {
 	search_threads: searchThreads,
 	open_thread: openThread,
 	send_message: sendMessage,
 	adjust_thread: adjustThread,
+	mark_review_opened: markReviewOpened,
 } as const;
 
 // Pure invariants — run in the browser and on the server; no database.
@@ -398,11 +423,28 @@ export function sendMessageInvariants(
 	const hasText = input.text !== undefined;
 	if (
 		!hasText &&
-		(input.refs !== undefined || input.anchor !== undefined || input.change !== undefined)
+		(input.refs !== undefined ||
+			input.anchor !== undefined ||
+			input.change !== undefined ||
+			input.format !== undefined)
 	) {
 		problems.push({
 			code: "plain_fields_on_non_plain",
-			message: "refs, anchor and change only apply to a text message.",
+			message: "refs, anchor, change and format only apply to a text message.",
+			path: "text",
+		});
+	}
+	if (input.format === "html" && hasText) {
+		if (input.anchor !== undefined || input.change !== undefined)
+			problems.push({
+				code: "app_with_anchor",
+				message: "An app is a message of its own: it cannot comment on a spot or propose a change.",
+				path: "format",
+			});
+	} else if (hasText && (input.text?.length ?? 0) > TEXT_MAX) {
+		problems.push({
+			code: "text_too_long",
+			message: `A text message is at most ${TEXT_MAX} characters; send a longer page as an app.`,
 			path: "text",
 		});
 	}

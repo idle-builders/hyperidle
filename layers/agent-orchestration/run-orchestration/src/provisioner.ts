@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
@@ -27,7 +28,7 @@ import {
 	type SessionMetrics,
 	type SessionResult,
 } from "@hyperidle/harness-protocol";
-import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, like, ne, or, sql } from "drizzle-orm";
 import { readAgentRunConfig } from "./agent-run-config-store.js";
 import {
 	applyProvisioningPlan,
@@ -62,6 +63,8 @@ type SessionContext = Extract<TransitionSpec, { target: "session" }>["context"];
 interface IngestionHandle {
 	dispose(): void;
 }
+
+const logger = createLogger({ pkg: "run-orchestration.session-provisioner" });
 
 // ---- ports ----
 
@@ -124,6 +127,8 @@ interface SessionLifecycleHarnessAdapter {
 			readonly mcpTokenEnv?: Readonly<Record<string, string>>;
 		},
 	): Promise<SessionHandle>;
+	/** Deliver a user message into an already-running session via stdin. Optional. */
+	deliver?(handle: SessionHandle, text: string): Promise<"delivered" | "unsupported">;
 }
 
 interface SessionLifecycleAdapterMeta {
@@ -446,6 +451,10 @@ interface SessionLifecyclePorts {
 				signalAbort(reason: "stop" | "return"): void;
 				handle: SessionHandle;
 				adapter: SessionLifecycleHarnessAdapter;
+				/** Pre-bound deliver fn; absent when the adapter doesn't support stdin delivery. */
+				deliver?: (text: string) => Promise<"delivered" | "unsupported">;
+				agentId?: string;
+				threadId?: string;
 			},
 		): void;
 		deregisterSessionRun(sessionId: string): void;
@@ -867,11 +876,11 @@ interface ProvisionSessionResult {
 
 // @lore: gate push-back — deny carries only the blocked-rule fact; instruction lives in the prompt; deny with next-step refused by model as suspected injection
 
-function reviewOrientation(sendMessageToolName: string): string {
+export function reviewOrientation(sendMessageToolName: string, createTaskToolName: string): string {
 	return `
 
 ## When work needs a person
-Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask by calling \`${sendMessageToolName}\` with a \`review\`: a \`title\`, short \`reasoning\` points — what you have done, what you want to do next and why — the \`parts\` a person should look at (a live page, a code diff, an image, numbers, a text, or a batch of items), and \`flags\` on the spots you decided without asking, are not sure about, or that touch customers. A person checks rather than reads, so the flags are where they look. It goes to the conversation you were called from, or else to your person. That call ends your session. A person approves or rejects it with a reason, and you are brought back with their answer; their comments on your parts are messages in that conversation, each with an \`anchor\` — reply with the same anchor. After a reject, send the next round as a new review with \`previousReviewId\` and what \`changed\`. A reject turns down the approach you proposed, not the task — keep working toward the same goal another way.`;
+Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask by calling \`${sendMessageToolName}\` with a \`review\`: a \`title\`, short \`reasoning\` points — what you have done, what you want to do next and why — the \`parts\` a person should look at (a live page, a code diff, an image, numbers, a text, or a batch of items), and \`flags\` on the spots you decided without asking, are not sure about, or that touch customers. A person checks rather than reads, so the flags are where they look. It goes to the conversation you were called from, or else to your person. That call ends your session. A person approves or rejects it with a reason, and you are brought back with their answer; their comments on your parts are messages in that conversation, each with an \`anchor\` — reply with the same anchor. After a reject, send the next round as a new review with \`previousReviewId\` and what \`changed\`. A reject turns down the approach you proposed, not the task — keep working toward the same goal another way. When you are about to build or change something, call \`${createTaskToolName}\` first and do the work on it before sending a review.`;
 }
 
 /**
@@ -924,6 +933,15 @@ interface AdmittedSession {
 	 * Filesystems that were successfully mounted in Phase 4.5 for this session.
 	 */
 	readonly mountedFilesystems: Filesystem[];
+	/**
+	 * When set, the session must resume the cursor-agent chat instead of starting
+	 * fresh. The sandbox was already adopted in Phase 4 for the matching cwd.
+	 */
+	// @lore: cursor-handover — cursor-agent deliver is unsupported; held message queued as thread_turn; next run resumes the same chat via this handover
+	readonly harnessHandover?: {
+		readonly harnessSessionId: string;
+		readonly message: string;
+	};
 }
 
 /**
@@ -994,6 +1012,7 @@ async function admitSession(
 
 	const systemPromptText = `${persona}${reviewOrientation(
 		literalToolNamerForAdapterType(selectedAdapter.meta.type)("send_message"),
+		literalToolNamerForAdapterType(selectedAdapter.meta.type)("create_task"),
 	)}`;
 
 	// @lore: concurrency check — exclude the request's own correlated session; request-mediated admission already reserved it before this check runs
@@ -1018,6 +1037,50 @@ async function admitSession(
 	// (`core-api/src/services/work-session-started-reactions.ts`), after
 	// phases 4-7 below commit the session row.
 
+	// ── Phase 3.5: resolve cursor-agent handover.
+	// When cursor-agent deliver is unsupported, the held message is queued as a
+	// new thread_turn. On that next run, adopt the original sandbox so md5(cwd)
+	// matches, then resume that chat with the held message as the next turn.
+	let resolvedHandover:
+		| { harnessSessionId: string; sandboxPath: string; message: string }
+		| undefined;
+	if (
+		runConfig.harnessType === "cursor-agent" &&
+		!params.resume &&
+		params.callingThreadId &&
+		params.transcript &&
+		params.transcript.length > 0
+	) {
+		const lastUserMsg = [...params.transcript].reverse().find((m) => m.role === "user");
+		if (lastUserMsg) {
+			const targetThreadId = params.callingThreadId;
+			const [prevSession] = await db
+				.select({
+					harnessSessionId: sessions.harnessSessionId,
+					sandboxSnapshot: sessions.sandboxSnapshot,
+				})
+				.from(sessions)
+				.where(
+					and(
+						eq(sessions.agentId, params.agentId),
+						eq(sessions.state, "done"),
+						isNotNull(sessions.harnessSessionId),
+						isNotNull(sessions.sandboxSnapshot),
+						like(sessions.sourceCorrelationJson, `%"threadId":"${targetThreadId}"%`),
+					),
+				)
+				.orderBy(desc(sessions.startedAt))
+				.limit(1);
+			if (prevSession?.harnessSessionId && prevSession.sandboxSnapshot) {
+				resolvedHandover = {
+					harnessSessionId: prevSession.harnessSessionId,
+					sandboxPath: prevSession.sandboxSnapshot,
+					message: lastUserMsg.content,
+				};
+			}
+		}
+	}
+
 	// ── Phases 4-7 (wrapped): spawn workspace → insert session row →
 	// context assembly → start watcher. If any step throws here, the session
 	// row/harness never fully launched — see the note above
@@ -1034,7 +1097,9 @@ async function admitSession(
 	// @lore: resumed session directory — adopts the original; cursor-agent keys its chat on md5(cwd); a different dir loses all context and exits 0 silently
 	const sandboxHandle: SessionLifecycleSandboxHandle = params.resume?.sandboxPath
 		? await workspace.adopt(params.resume.sandboxPath)
-		: await workspace.spawn(params.sandboxBasePath);
+		: resolvedHandover?.sandboxPath
+			? await workspace.adopt(resolvedHandover.sandboxPath)
+			: await workspace.spawn(params.sandboxBasePath);
 	sandboxPath = sandboxHandle.path;
 
 	// ── Phase 5: insert session row.
@@ -1178,6 +1243,14 @@ async function admitSession(
 		harness,
 		adapterId,
 		mountedFilesystems,
+		...(resolvedHandover
+			? {
+					harnessHandover: {
+						harnessSessionId: resolvedHandover.harnessSessionId,
+						message: resolvedHandover.message,
+					},
+				}
+			: {}),
 	};
 }
 
@@ -1645,16 +1718,59 @@ async function runSession(
 						...(mcpTokenEnv ? { mcpTokenEnv } : {}),
 					},
 				);
+			} else if (admitted.harnessHandover?.harnessSessionId && harness.resumeSession) {
+				// @lore: cursor-handover-resume — held user message as next turn in same chat; Phase 4 adopted the original sandbox so md5(cwd) matches; not a verdict
+				harnessHandle = await harness.resumeSession(
+					admitted.harnessHandover.harnessSessionId,
+					admitted.harnessHandover.message,
+					{
+						sandboxPath,
+						modelTier,
+						...(selectedModel ? { selectedModel } : {}),
+						...(mcpTokenEnv ? { mcpTokenEnv } : {}),
+					},
+				);
 			} else {
 				harnessHandle = await harness.startSession(sessionStartConfig as SessionConfig);
+				// @lore: immediate harnessSessionId write — --session-id assigned before spawn so getNativeSessionId is sync; write to DB now so verdicts can find the session
+				const immediateNativeId = harness.getNativeSessionId?.(harnessHandle);
+				if (immediateNativeId) {
+					try {
+						await deps.db
+							.update(sessions)
+							.set({ harnessSessionId: immediateNativeId })
+							.where(eq(sessions.id, sessionId));
+					} catch (writeErr) {
+						logger.warn(
+							`[session-provisioning] immediate harnessSessionId write failed for session ${sessionId}`,
+							{
+								error: writeErr instanceof Error ? writeErr.message : String(writeErr),
+							},
+						);
+					}
+				}
 			}
+			// Capture handle as a const — harnessHandle is non-null here (just set above)
+			// but TypeScript sees it as SessionHandle | null since it's a `let`; consts narrow cleanly.
+			const registeredHandle = harnessHandle as SessionHandle;
 			ports.sessionRequests.registerSessionRun(sessionId, {
 				signalAbort: (reason) => {
 					aborted = true;
 					if (reason === "stop") stopRequested = true;
 				},
-				handle: harnessHandle,
+				handle: registeredHandle,
 				adapter: harness,
+				// Pre-bind deliver so the registry holds a simple (text) => Promise fn.
+				// @lore: deliver binding — call as harness.deliver?.(…), never const fn=harness.deliver; fn(…); unbound fn loses `this` and crashes on this.config
+				...(harness.deliver !== undefined
+					? {
+							deliver: (text: string) =>
+								harness.deliver?.(registeredHandle, text) ??
+								Promise.resolve("unsupported" as const),
+							agentId: params.agentId,
+							...(params.callingThreadId ? { threadId: params.callingThreadId } : {}),
+						}
+					: {}),
 			});
 		}
 		onHarnessStarted?.();

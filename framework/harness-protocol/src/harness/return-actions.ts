@@ -48,7 +48,7 @@ function stripMcpNamespace(toolName: string): string {
  * `edit_task` is the first argument-gated member — terminal
  * only when the edit targets the session's OWN task (`args.id === taskId`)
  * AND moves it away from the calling agent (an owner change, or the state
- * moving to `review`/`done`). `taskId` absent ⇒ never terminal for
+ * moving to `done`). `taskId` absent ⇒ never terminal for
  * `edit_task` — there is no session task to compare against, so a bare
  * membership check would be exactly the over-wide predicate this narrowed.
  * Do NOT widen this to "any tool with the right args" — the set stays the
@@ -64,7 +64,7 @@ export function isReturnAction(
 	if (bare === "edit_task") {
 		if (!taskId || args?.id !== taskId) return false;
 		const ownerChanged = typeof args?.ownerAgentId === "string" && args.ownerAgentId !== "";
-		const stateMovedAway = args?.state === "review" || args?.state === "done";
+		const stateMovedAway = args?.state === "done";
 		return ownerChanged || stateMovedAway;
 	}
 	return true;

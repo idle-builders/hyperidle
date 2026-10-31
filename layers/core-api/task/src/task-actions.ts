@@ -170,6 +170,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		ownerAgentId: null,
 		title: "",
 		description: null,
+		descriptionFormat: "markdown",
 		doneWhen: [],
 		state: "proposed",
 		dependencies: null,
@@ -197,6 +198,9 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		...(input.ownerAgentId !== undefined ? { ownerAgentId: input.ownerAgentId } : {}),
 		...(input.title !== undefined ? { title: input.title } : {}),
 		...(input.description !== undefined ? { description: input.description } : {}),
+		...(input.descriptionFormat !== undefined
+			? { descriptionFormat: input.descriptionFormat }
+			: {}),
 		...(input.doneWhen !== undefined ? { doneWhen: input.doneWhen } : {}),
 		...(input.position !== undefined ? { position: input.position } : {}),
 		...(input.reasons !== undefined ? { reasons: input.reasons } : {}),
@@ -337,9 +341,8 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		// Compute need for every task in scope.
 		const needMap = new Map<string, TaskNeed>();
 		for (const t of [...ancestorTasks, ...subtreeTasks]) {
-			const domainTask = toTask(t);
 			const msgs = msgsByThread.get(t.threadId) ?? [];
-			needMap.set(t.id, computeTaskNeed(t.state, msgs, domainTask.reasons));
+			needMap.set(t.id, computeTaskNeed(t.state, msgs));
 		}
 
 		const rootNeed = needMap.get(input.id) ?? null;
@@ -387,7 +390,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		const msgsByThread = groupByThread(asks);
 		return domainTasks.map((t) => ({
 			...t,
-			need: computeTaskNeed(t.state, msgsByThread.get(t.threadId) ?? [], t.reasons),
+			need: computeTaskNeed(t.state, msgsByThread.get(t.threadId) ?? []),
 		}));
 	}
 
@@ -692,6 +695,19 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		// -- 2. pure invariants ---------------------------------------------------
 		const problems: Problem[] = [...taskInvariants(next, prev ? toTask(prev) : null)];
 
+		// @lore: only a review card moves a task to review (internal path); edit_task refuses it for every outside caller
+		if (
+			next.state === "review" &&
+			(prev === null || (prev.state as string) !== "review") &&
+			!ctx.internal
+		) {
+			problems.push({
+				code: "state_review_requires_card",
+				message: "Reviewing a task requires sending a review card first.",
+				path: "state",
+			});
+		}
+
 		// -- 3. server invariants (need the database) ------------------------------
 		if (input.parentTaskId !== undefined && input.parentTaskId !== null && prev) {
 			if (input.parentTaskId === prev.id) {
@@ -854,6 +870,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				ownerAgentId: next.ownerAgentId,
 				title: next.title,
 				description: next.description,
+				descriptionFormat: next.descriptionFormat,
 				doneWhen: JSON.stringify(next.doneWhen),
 				state: resolvedState,
 				dependencies: next.dependencies,
@@ -879,6 +896,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					ownerAgentId: next.ownerAgentId,
 					title: next.title,
 					description: next.description,
+					descriptionFormat: next.descriptionFormat,
 					doneWhen: JSON.stringify(next.doneWhen),
 					state: resolvedState,
 					dependencies: next.dependencies,

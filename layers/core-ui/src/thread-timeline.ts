@@ -1,5 +1,6 @@
 import {
 	type AnswerPayload,
+	type DocumentRow,
 	isRedactedPayload,
 	type Message,
 	type ReviewPayload,
@@ -24,7 +25,8 @@ export type Entry =
 			readonly messages: readonly Message[];
 	  }
 	| { readonly kind: "event"; readonly key: string; readonly text: string }
-	| { readonly kind: "task"; readonly key: string; readonly task: Task };
+	| { readonly kind: "task"; readonly key: string; readonly task: Task }
+	| { readonly kind: "made"; readonly key: string; readonly doc: DocumentRow };
 
 /** One sender's messages this close together share one name and time. */
 const RUN_MS = 5 * 60_000;
@@ -41,16 +43,19 @@ export function duration(ms: number): string {
 type Stamp =
 	| { at: string; rank: 0; message: Message }
 	| { at: string; rank: 1; task: Task }
+	| { at: string; rank: 1; doc: DocumentRow }
 	| { at: string; rank: 2; worked: number };
 
 /**
  * `messages` oldest first. `who(id)` names a sender the way an event says it ("You", "Maya").
+ * `made` is what was made in the thread: it sits where it was made.
  */
 export function timeline(
 	messages: readonly Message[],
 	tasks: readonly Task[],
 	sessions: readonly SessionRow[],
 	who: (id: string) => string,
+	made: readonly DocumentRow[] = [],
 ): Entry[] {
 	const reviewTitle = new Map(
 		messages
@@ -60,6 +65,7 @@ export function timeline(
 	const stamps: Stamp[] = [
 		...messages.map((message): Stamp => ({ at: message.createdAt, rank: 0, message })),
 		...tasks.map((task): Stamp => ({ at: task.createdAt, rank: 1, task })),
+		...made.map((doc): Stamp => ({ at: doc.createdAt, rank: 1, doc })),
 		...sessions.flatMap((s): Stamp[] =>
 			s.endedAt
 				? [{ at: s.endedAt, rank: 2, worked: Date.parse(s.endedAt) - Date.parse(s.startedAt) }]
@@ -85,7 +91,11 @@ export function timeline(
 		}
 		flushWorked();
 		if (s.rank === 1) {
-			out.push({ kind: "task", key: `task-${s.task.id}`, task: s.task });
+			out.push(
+				"task" in s
+					? { kind: "task", key: `task-${s.task.id}`, task: s.task }
+					: { kind: "made", key: `made-${s.doc.id}`, doc: s.doc },
+			);
 			continue;
 		}
 		const m = s.message;
@@ -157,6 +167,45 @@ export function clock(iso: string, now: number = Date.now()): string {
 export function titleFrom(text: string, names: readonly string[]): string {
 	let line = text.split("\n")[0] ?? "";
 	for (const name of names) line = line.split(`@${name}`).join("");
-	const title = line.replace(/\s+/g, " ").trim().slice(0, 512);
+	const said = line.replace(/\s+/g, " ").trim();
+	// A title is short: the first sentence, and no more than fits on one line.
+	const sentence = said.match(/^(.+?[.?!])(\s|$)/)?.[1] ?? said;
+	const title =
+		sentence.length <= TITLE_MAX
+			? sentence
+			: `${sentence.slice(0, TITLE_MAX).replace(/\s+\S*$/, "")}…`;
 	return title || `With ${names.join(", ")}`;
+}
+
+const TITLE_MAX = 64;
+
+/** A step an agent took, in words a person reads: what it did, and to which file. */
+export function stepFrom(tool: string, args: string): string {
+	// The arguments arrive as JSON cut at a length, so fields are read out one by one.
+	const field = (name: string): string | undefined => {
+		const raw = args.match(new RegExp(`"${name}":"((?:[^"\\\\]|\\\\.)*)"`))?.[1];
+		return raw === undefined ? undefined : (JSON.parse(`"${raw}"`) as string);
+	};
+	const file = field("file_path")?.split("/").pop();
+	const name = tool.replace(/^mcp__[^_]+__/, "");
+	switch (name) {
+		case "Bash": {
+			const command = field("command");
+			return field("description") ?? (command ? `Ran ${command.slice(0, 80)}` : "Ran a command");
+		}
+		case "Read":
+			return file ? `Read ${file}` : "Read a file";
+		case "Edit":
+		case "MultiEdit":
+			return file ? `Changed ${file}` : "Changed a file";
+		case "Write":
+			return file ? `Wrote ${file}` : "Wrote a file";
+		case "Grep":
+		case "Glob": {
+			const pattern = field("pattern");
+			return pattern ? `Searched for ${pattern}` : "Searched";
+		}
+		default:
+			return name;
+	}
 }

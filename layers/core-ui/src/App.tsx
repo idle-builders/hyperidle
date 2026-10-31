@@ -1,5 +1,6 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useParams, useSearchParams } from "react-router";
+import { AppPane } from "./Apps";
 import { FocusContext } from "./focus";
 import { Judge } from "./Judge";
 import { useAppLooks } from "./looks";
@@ -12,7 +13,10 @@ import { NewConversation, ThreadPage } from "./Thread";
 import { useAction } from "./useAction";
 
 /** The document page carries the editor, the largest piece of the app; it loads when a document is opened. */
-const Think = lazy(() => import("./Think").then((m) => ({ default: m.Think })));
+// The editor is its own download; it starts loading as soon as the app is up, so the first
+// document opens without a blank moment.
+const loadThink = () => import("./Think");
+const Think = lazy(() => loadThink().then((m) => ({ default: m.Think })));
 
 /**
  * The one shell: the sidebar, and the screen the address names beside it. A fresh install — no
@@ -21,14 +25,17 @@ const Think = lazy(() => import("./Think").then((m) => ({ default: m.Think })));
 function Shell() {
 	const me = useAction("open_user", {});
 	const [editing, setEditing] = useState(false);
+	const [search] = useSearchParams();
+	const app = search.get("app");
 	// Nothing opens the live connection until a person exists: it speaks for whoever asked for it.
 	if (!(me.data || me.problems)) return null;
 	if (me.data && me.data.user === null) return <Navigate to="/start" replace />;
 	return (
 		<FocusContext.Provider value={{ editing, setEditing }}>
-			<div className="frame">
+			<div className={app ? "frame frame--app" : "frame"}>
 				<Sidebar />
 				<Outlet />
+				{app && <AppPane key={app} param={app} />}
 			</div>
 		</FocusContext.Provider>
 	);
@@ -77,6 +84,9 @@ function Plugin() {
 
 export function App() {
 	useAppLooks();
+	useEffect(() => {
+		void loadThink();
+	}, []);
 	return (
 		<Routes>
 			<Route path="/start" element={<Start />} />

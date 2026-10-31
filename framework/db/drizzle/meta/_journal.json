@@ -750,6 +750,27 @@
 			"when": 1791541681807,
 			"tag": "0107_plugin_provenance",
 			"breakpoints": true
+		},
+		{
+			"idx": 108,
+			"version": "7",
+			"when": 1793226668892,
+			"tag": "0108_first_agent_starts_when_asked",
+			"breakpoints": true
+		},
+		{
+			"idx": 109,
+			"version": "7",
+			"when": 1793485868892,
+			"tag": "0109_review_opened",
+			"breakpoints": true
+		},
+		{
+			"idx": 110,
+			"version": "7",
+			"when": 1793485869892,
+			"tag": "0110_task_description_format",
+			"breakpoints": true
 		}
 	]
 }

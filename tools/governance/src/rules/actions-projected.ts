@@ -103,6 +103,7 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|POST /mcp/:token/return-status",
 	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /sessions/:sessionId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/stop-for-tasks",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/deliver-to-conversation",
 	// `folders`/`connections` cross the port the way `runConfig`
 	// already does. `folders.give` is `POST .../filesystems/:id/injections/persist`
 	// above under a second capability name — no new row for it.
@@ -133,7 +134,7 @@ const OBJECT_EVENTS: readonly string[] = [
 	"user.changed",
 ];
 
-/** The six platform events — extension surface, never an object door. */
+/** The seven platform events — extension surface, never an object door. */
 const PLATFORM_EVENTS: readonly string[] = [
 	"agent_run_admission_failed",
 	"agent_run_lifecycle_changed",
@@ -141,6 +142,7 @@ const PLATFORM_EVENTS: readonly string[] = [
 	"tool_call_recorded",
 	"propagation_applied",
 	"propagation_failed",
+	"session_request_queued",
 ];
 
 /**

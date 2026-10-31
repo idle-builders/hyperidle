@@ -17,6 +17,7 @@ import {
 	adjustThread as adjustThreadDeclaration,
 	adjustThreadInvariants,
 	agentsToWake,
+	appTitle,
 	bakeAgentRunnableConfig,
 	canReadThread,
 	canWriteThread,
@@ -26,9 +27,11 @@ import {
 	type HostKind,
 	type Identity,
 	IdentitySchema,
+	type MarkReviewOpenedInput,
 	type Message,
 	MessageSchema,
 	type MessageType,
+	markReviewOpened as markReviewOpenedDeclaration,
 	type OpenThreadInput,
 	openThread as openThreadDeclaration,
 	type Problem,
@@ -98,7 +101,20 @@ export interface ThreadActionsDeps {
 	readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
 	readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
 	readonly linkReviewToSession: (sessionId: string, reviewMessageId: string) => Promise<void>;
+	/** Move a task to `review` state after a review card is filed for it. Called after the message is committed. */
+	readonly moveTaskToReview: (taskId: string, ctx: ActionContext) => Promise<void>;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
+	/**
+	 * Optional: deliver a message directly into a live agent run for the given
+	 * (agentId, threadId) pair, bypassing the work-intent queue.
+	 * Returns "delivered" when the message reached the running session,
+	 * "not_delivered" when no live session was found or delivery was unsupported.
+	 */
+	readonly tryDeliverToActiveRun?: (
+		agentId: string,
+		threadId: string,
+		text: string,
+	) => Promise<"delivered" | "not_delivered">;
 }
 
 // ---------------------------------------------------------------------------
@@ -203,6 +219,7 @@ function readPreview(
 	try {
 		const payload = JSON.parse(rawPayload) as {
 			text?: string;
+			format?: string;
 			title?: string;
 			option?: string;
 			decision?: string;
@@ -215,6 +232,10 @@ function readPreview(
 				: payload.decision === "reject"
 					? `Rejected: ${payload.note ?? ""}`
 					: undefined;
+		if (payload.format === "html") {
+			const title = appTitle(payload.text ?? "");
+			return { preview: title ? `App: ${title}` : "An app", mentions: false };
+		}
 		return {
 			preview: payload.text ?? payload.title ?? payload.option ?? verdict ?? null,
 			mentions: (payload.refs ?? []).some((r) => r.kind === "mention" && r.identityId === viewer),
@@ -474,10 +495,69 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			types: ["review", "questionnaire"],
 			unresolved: true,
 		});
+		const openReviewIds = open.filter((m) => m.type === "review").map((m) => m.id);
+
+		// A review is superseded when another review message names it as previousReviewId.
+		// Load all review messages (resolved + unresolved) to find successors.
+		const allReviews =
+			openReviewIds.length > 0
+				? await store.listMessages(ctx.db, {
+						threadIds: [...threadIds],
+						types: ["review"],
+					})
+				: [];
+		const successorPreviousIds = new Set(
+			allReviews.flatMap((m) => {
+				try {
+					const p = JSON.parse(m.payload) as { previousReviewId?: unknown };
+					return typeof p.previousReviewId === "string" ? [p.previousReviewId] : [];
+				} catch {
+					return [];
+				}
+			}),
+		);
+		const supersededIds = new Set(openReviewIds.filter((id) => successorPreviousIds.has(id)));
+
+		// @lore: a review is superseded by a later verdict-bearing review from the same sender+thread+task; task scope keeps co-threaded tasks independent.
+		for (const id of openReviewIds) {
+			const m = allReviews.find((r) => r.id === id);
+			if (m === undefined) continue;
+			let mTaskId: string | null = null;
+			try {
+				const p = JSON.parse(m.payload) as { taskId?: unknown };
+				mTaskId = typeof p.taskId === "string" ? p.taskId : null;
+			} catch {
+				// malformed payload — treat as no task
+			}
+			const isReplaced = allReviews.some((other) => {
+				if (other.id === m.id) return false;
+				if (other.threadId !== m.threadId) return false;
+				if (other.senderId !== m.senderId) return false;
+				if (other.createdAt <= m.createdAt) return false;
+				if (other.resolvedAt === null) return false;
+				let otherTaskId: string | null = null;
+				try {
+					const p = JSON.parse(other.payload) as { taskId?: unknown };
+					otherTaskId = typeof p.taskId === "string" ? p.taskId : null;
+				} catch {
+					// malformed payload — treat as no task
+				}
+				return otherTaskId === mTaskId;
+			});
+			if (isReplaced) supersededIds.add(id);
+		}
+
+		// A review is no longer a need for the viewer once they have opened it.
+		const openedIds = await store.listReviewsOpenedBy(ctx.db, viewer, openReviewIds);
+
 		const senders = await deps.users.listByIds(ctx.db, [...new Set(open.map((m) => m.senderId))]);
 		const agents = new Set(senders.filter((u) => u.kind === "ai").map((u) => u.id));
-		const byThread = new Map<string, typeof open>();
-		for (const m of open) byThread.set(m.threadId, [...(byThread.get(m.threadId) ?? []), m]);
+		// Filter out opened and superseded reviews; questionnaires are unaffected.
+		const active = open.filter(
+			(m) => m.type !== "review" || !(openedIds.has(m.id) || supersededIds.has(m.id)),
+		);
+		const byThread = new Map<string, typeof active>();
+		for (const m of active) byThread.set(m.threadId, [...(byThread.get(m.threadId) ?? []), m]);
 		return new Map(
 			[...byThread].map(([id, msgs]) => [
 				id,
@@ -727,11 +807,27 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		const messageId = input.messageId ?? randomUUID();
 		const clientKey = input.clientKey ?? randomUUID();
 		const body = messageBodyOf(input);
-		// The review's task is stamped by the server from the calling session,
-		// never accepted from the caller's input — the input schema already
-		// omits `taskId` from `review`.
-		if (body.type === "review" && ctx.caller?.taskId) {
-			body.payload = { ...body.payload, taskId: ctx.caller.taskId };
+		// Resolve the review's taskId: from the session (task run) or from caller input (conversation turn).
+		// @lore: session callers (agents) without a taskId are refused — every review must live on a task
+		let reviewTaskId: string | null = null;
+		if (body.type === "review") {
+			reviewTaskId =
+				ctx.caller?.taskId ?? (input.review as { taskId?: string } | undefined)?.taskId ?? null;
+			if (ctx.caller !== undefined && reviewTaskId === null) {
+				return {
+					ok: false,
+					problems: [
+						{
+							code: "review_requires_task",
+							message:
+								"A review belongs to a task. Create the task first (create_task), do the work on it, then send the review with its taskId.",
+						},
+					],
+				};
+			}
+			if (reviewTaskId !== null) {
+				body.payload = { ...body.payload, taskId: reviewTaskId };
+			}
 		}
 
 		let threadRow: Awaited<ReturnType<typeof store.findThread>> | undefined;
@@ -769,15 +865,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			});
 			if (existing) {
 				const candidatePayload = messageBodyOf(input);
-				// The stored payload for a `review` carries the server-stamped
-				// `taskId` — the candidate must be stamped
-				// the same way before comparing, or a retry from a session (same
-				// review, same clientKey) mismatches its own prior write and
-				// answers `idempotency_conflict` instead of the original.
-				if (candidatePayload.type === "review" && ctx.caller?.taskId) {
+				// The stored payload for a `review` carries the resolved taskId —
+				// the candidate must carry the same so a retry matches its own prior write.
+				if (candidatePayload.type === "review" && reviewTaskId !== null) {
 					candidatePayload.payload = {
 						...candidatePayload.payload,
-						taskId: ctx.caller.taskId,
+						taskId: reviewTaskId,
 					};
 				}
 				const sameType = existing.type === candidatePayload.type;
@@ -1007,7 +1100,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					membersChanged = true;
 				}
 
-				if (body.type === "plain") {
+				// An app's page is code: an "@media" in its styles names nobody.
+				if (body.type === "plain" && input.format !== "html") {
 					const text = (body.payload as { text: string }).text;
 					const {
 						refs,
@@ -1186,7 +1280,13 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			await deps.linkReviewToSession(ctx.caller.sessionId, messageId);
 		}
 
+		if (body.type === "review" && reviewTaskId !== null) {
+			await deps.moveTaskToReview(reviewTaskId, ctx);
+		}
+
 		const reply = replyOf(input);
+		// The agent whose own session a verdict or answer brings back; it gets no second run.
+		let resumed: string | null = null;
 		if (reply !== undefined && resolvesMessageRow) {
 			let verdictOutcome: ReviewVerdictOutcome;
 			try {
@@ -1217,23 +1317,61 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					reason: gateErr instanceof Error ? gateErr.message : "unknown error",
 				};
 			}
+			if (verdictOutcome.status === "queued") resumed = resolvesMessageRow.senderId;
 			if (verdictOutcome.status === "not_resumable") {
+				// Said by the agent that asked: written as the person, it read as if they had typed it.
+				const what =
+					reply.decision === "approve"
+						? "approval"
+						: reply.decision === "answer"
+							? "answer"
+							: "rejection";
 				await sendMessageRun(
-					{ actor: ctx.actor, db: ctx.db, eventBus: ctx.eventBus, now: ctx.now },
+					{
+						actor: resolvesMessageRow.senderId,
+						db: ctx.db,
+						eventBus: ctx.eventBus,
+						// @lore: the notice must sort after the verdict it answers; sharing ctx.now ties their createdAt and the newest-message pick goes random
+						now: new Date(Math.max(Date.now(), Date.parse(ctx.now) + 1)).toISOString(),
+					},
 					{
 						threadId: effectiveThreadId,
-						text:
-							reply.decision === "approve"
-								? `This action was approved but could not be carried out: ${verdictOutcome.reason}. The agent has not been told, and the action has not run.`
-								: `This ${reply.decision === "answer" ? "answer" : "rejection"} could not reach the agent: ${verdictOutcome.reason}. The agent has not been told.`,
+						text: `Your ${what} could not reach my session (${verdictOutcome.reason}), so I have not acted on it. Tell me again in a message if it still stands.`,
 					},
 				);
 			}
 		}
 
 		// wake
-		for (const agentId of woken) {
+		// Lazy lookup: only resolved when there is a live deliver target and text to
+		// send. Cached so one DB call covers all woken agents in this message.
+		let deliverSenderName: string | undefined;
+		for (const agentId of woken.filter((id) => id !== resumed)) {
 			try {
+				// Deliver directly into a live run when possible — avoids spawning a
+				// new work intent for an agent that is already running and waiting.
+				if (deps.tryDeliverToActiveRun !== undefined && input.text !== undefined) {
+					try {
+						if (deliverSenderName === undefined) {
+							deliverSenderName =
+								(await deps.users.getUserById(ctx.db, ctx.actor))?.name ?? ctx.actor;
+						}
+						const deliveryResult = await deps.tryDeliverToActiveRun(
+							agentId,
+							effectiveThreadId,
+							`${deliverSenderName} wrote in the conversation: ${input.text}`,
+						);
+						if (deliveryResult === "delivered") continue;
+					} catch (deliverErr) {
+						// Deliver threw (e.g. adapter bug, unbound method) — log and fall through
+						// to the normal queue path so the message still reaches the agent.
+						logger.warn("deliver to active run failed, queuing instead", {
+							messageId,
+							agentId,
+							error: deliverErr instanceof Error ? deliverErr.message : String(deliverErr),
+						});
+					}
+				}
 				const bakedRequest = await resolveThreadTurnRequest(ctx.db, messageId, agentId, {
 					requireRunnableAgent: deps.agents.requireRunnableAgent,
 					// `resolveThreadTurnRequest`'s dep shape only threads `db`,
@@ -1544,11 +1682,30 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		return { ok: true, data: await assembleThreadView(ctx, finalRow) };
 	}
 
+	async function markReviewOpenedRun(
+		ctx: ActionContext,
+		input: MarkReviewOpenedInput,
+	): Promise<ActionResult<Record<string, never>>> {
+		await store.upsertReviewOpened(ctx.db, input.reviewMessageId, ctx.actor, ctx.now);
+		// Nudge the conversation list so the sidebar and person page refetch without a reload.
+		if (deps.wsPush) {
+			const msg = await store.findMessage(ctx.db, { id: input.reviewMessageId });
+			if (msg) {
+				const threadTopic = `thread:${msg.threadId}`;
+				const nudge = { type: "update", topic: "conversations", kind: "thread.changed" };
+				deps.wsPush("conversations", nudge);
+				deps.wsPush(threadTopic, { ...nudge, topic: threadTopic });
+			}
+		}
+		return { ok: true, data: {} };
+	}
+
 	return [
 		{ declaration: searchThreadsDeclaration, run: searchThreadsRun } as Action,
 		{ declaration: openThreadDeclaration, run: openThreadRun } as Action,
 		{ declaration: sendMessageDeclaration, run: sendMessageRun } as Action,
 		{ declaration: adjustThreadDeclaration, run: adjustThreadRun } as Action,
+		{ declaration: markReviewOpenedDeclaration, run: markReviewOpenedRun } as Action,
 	];
 }
 
@@ -1619,6 +1776,7 @@ function messageBodyOf(input: SendMessageInput): {
 			type: "plain",
 			payload: {
 				text: input.text,
+				...(input.format === "html" ? { format: "html" } : {}),
 				...(input.refs !== undefined ? { refs: input.refs } : {}),
 				...(input.anchor !== undefined ? { anchor: input.anchor } : {}),
 				...(input.change !== undefined ? { change: input.change } : {}),

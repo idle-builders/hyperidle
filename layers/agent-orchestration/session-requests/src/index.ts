@@ -6,6 +6,7 @@ export {
 	enqueueWorkIntent,
 	type FindQuery,
 	findSessionRequest,
+	listPendingByStream,
 	listSessionRequests,
 	reapExpired,
 	releaseClaim,

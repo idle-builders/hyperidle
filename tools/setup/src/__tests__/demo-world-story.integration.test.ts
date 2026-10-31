@@ -6,7 +6,7 @@
 
 import { changes, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { computeTaskNeed, ReasonSchema } from "@hyperidle/domain-model";
+import { computeTaskNeed } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { createUserActions, type UserActionsDeps } from "@hyperidle/user";
 import { sql } from "drizzle-orm";
@@ -36,11 +36,11 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 	await seedDemoWorld(db);
 }
 
-/** The need the backend derives for a task, from its state, its thread and its reasons. */
+/** The need the backend derives for a task, from its state and its thread messages. */
 async function needOf(db: HyperIdleDb, taskId: string): Promise<string | null> {
-	const [task] = await rows<{ state: string; thread_id: string; reasons: string }>(
+	const [task] = await rows<{ state: string; thread_id: string }>(
 		db,
-		`SELECT state, thread_id, reasons FROM tasks WHERE id = '${taskId}'`,
+		`SELECT state, thread_id FROM tasks WHERE id = '${taskId}'`,
 	);
 	if (!task) throw new Error(`no task ${taskId}`);
 	const msgs = await rows<{ type: string; resolved_at: string | null }>(
@@ -50,7 +50,6 @@ async function needOf(db: HyperIdleDb, taskId: string): Promise<string | null> {
 	return computeTaskNeed(
 		task.state,
 		msgs.map((m) => ({ type: m.type, resolvedAt: m.resolved_at })),
-		ReasonSchema.array().parse(JSON.parse(task.reasons)),
 	);
 }
 
@@ -227,6 +226,7 @@ describe("the demo world tells the design's story", () => {
 			{ team: "Product", title: "Engineering", parent: null, status: "active" },
 			{ team: "Product", title: "Deploy rule", parent: "Engineering", status: "proposed" },
 			{ team: "Product", title: "Tracing the codebase", parent: "Engineering", status: "active" },
+			{ team: "Product", title: "Which plan fits", parent: "How we price", status: "active" },
 			{ team: "Support", title: "July support themes", parent: null, status: "active" },
 			{ team: "Support", title: "Refund wording", parent: null, status: "proposed" },
 		]);

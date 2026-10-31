@@ -1,7 +1,7 @@
 /** How a thread reads top to bottom, and how its work item says where it is. */
-import type { Message, SessionRow, Task } from "@hyperidle/domain-model";
+import type { DocumentRow, Message, SessionRow, Task } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
-import { clock, duration, timeline, titleFrom, workState } from "./thread-timeline";
+import { clock, duration, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
 
 const at = (hhmm: string) => `2026-10-20T${hhmm}:00.000Z`;
 const msg = (id: string, senderId: string, hhmm: string, type: Message["type"], payload: unknown) =>
@@ -24,6 +24,7 @@ const task = (t: Partial<Task>): Task => ({
 	ownerAgentId: "builder",
 	title: "Explain the trial end",
 	description: null,
+	descriptionFormat: "markdown",
 	doneWhen: [],
 	state: "in_progress",
 	dependencies: null,
@@ -59,6 +60,30 @@ const session = (start: string, end: string): SessionRow => ({
 	sourceKind: null,
 });
 const who = (id: string) => (id === "me" ? "You" : id === "maya" ? "Maya" : "Builder");
+const made = (id: string, hhmm: string): DocumentRow => ({
+	id,
+	title: "Trial-end price",
+	body: "<p>app</p>",
+	format: "html",
+	status: "active",
+	slot: "ordinary",
+	scopeKind: "team",
+	scopeId: "team",
+	parentKind: "thread",
+	parentId: "t",
+	position: 0,
+	version: 1,
+	updatedBy: "builder",
+	createdAt: at(hhmm),
+	updatedAt: at(hhmm),
+	readCount: 0,
+	lastReadAt: null,
+	sessionUseCount: 0,
+	lastUsedAt: null,
+	discipline: null,
+	icon: null,
+	as: "artifact",
+});
 
 describe("timeline", () => {
 	test("runs, events, the work item where it was minted, and one event per stretch of work", () => {
@@ -92,7 +117,9 @@ describe("timeline", () => {
 					? `${e.senderId}: ${e.messages.map((m) => m.id).join(",")}`
 					: e.kind === "task"
 						? `strip ${e.task.id}`
-						: e.text,
+						: e.kind === "event"
+							? e.text
+							: `made ${e.doc.id}`,
 			),
 		).toEqual([
 			"maya: 1",
@@ -106,6 +133,24 @@ describe("timeline", () => {
 			"Worked 20m · 1 session",
 			"You rejected Trial-end explainer",
 			"Maya approved Trial-end explainer",
+		]);
+	});
+
+	test("what an agent made in the thread sits where it was made, between what was said", () => {
+		const entries = timeline(
+			[
+				msg("1", "maya", "08:12", "plain", { text: "Can you show what people pay?" }),
+				msg("2", "builder", "09:30", "plain", { text: "Here it is" }),
+			],
+			[],
+			[],
+			who,
+			[made("app", "09:29")],
+		);
+		expect(entries.map((e) => (e.kind === "made" ? `made ${e.doc.id}` : e.key))).toEqual([
+			"1",
+			"made app",
+			"2",
 		]);
 	});
 
@@ -165,7 +210,35 @@ describe("titleFrom", () => {
 		],
 		["@Builder can you take a look\nmore below", ["Builder"], "can you take a look"],
 		["@Maya Chen @Builder", ["Maya Chen", "Builder"], "With Maya Chen, Builder"],
+		[
+			"@Builder next for Streak, as one task with parts: a week view. Work on a branch.",
+			["Builder"],
+			"next for Streak, as one task with parts: a week view.",
+		],
+		[
+			"@Builder please add export and import of all the data so I can move it to another browser later",
+			["Builder"],
+			"please add export and import of all the data so I can move it…",
+		],
 	])("%s", (text, names, title) => {
 		expect(titleFrom(text, names)).toBe(title);
+	});
+});
+
+describe("stepFrom", () => {
+	test.each([
+		[
+			"Bash",
+			'{"command":"sed -n \'1,70p\' styles.css","description":"Read round-3 palette"}',
+			"Read round-3 palette",
+		],
+		["Bash", '{"command":"npm test"}', "Ran npm test"],
+		["Read", '{"file_path":"/Users/x/code/streak/styles.css"}', "Read styles.css"],
+		["Edit", '{"file_path":"/tmp/a/app.js","old_string":"x"}', "Changed app.js"],
+		["Write", '{"file_path":"/tmp/a/test/browser.mjs","content":"…', "Wrote browser.mjs"],
+		["Grep", '{"pattern":"currentStreak","path":"."}', "Searched for currentStreak"],
+		["mcp__hyperidle__send_message", '{"threadId":"t"}', "send_message"],
+	])("%s %s → %s", (tool, args, words) => {
+		expect(stepFrom(tool, args)).toBe(words);
 	});
 });

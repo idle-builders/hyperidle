@@ -201,3 +201,19 @@ export function standLine(
 export function cameFrom(task: Task, thread: { readonly createdAt: string }): boolean {
 	return Date.parse(thread.createdAt) < Date.parse(task.createdAt);
 }
+
+/**
+ * Parts share their task's conversation, so one open question or review is found from each of
+ * them. Each shows once: at the part it names, or else at the first (highest) task it was found at.
+ */
+export function onePerAsk<A extends { task: string; message: { id: string; payload: unknown } }>(
+	asks: readonly A[],
+): A[] {
+	const named = (a: A) => (a.message.payload as { taskId?: string } | null)?.taskId;
+	const kept = new Map<string, A>();
+	for (const a of asks) {
+		const held = kept.get(a.message.id);
+		if (!held || (named(a) === a.task && named(held) !== held.task)) kept.set(a.message.id, a);
+	}
+	return [...kept.values()];
+}

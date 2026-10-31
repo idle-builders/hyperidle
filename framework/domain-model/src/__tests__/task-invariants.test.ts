@@ -16,6 +16,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 		ownerAgentId: null,
 		title: "Do the thing",
 		description: null,
+		descriptionFormat: "markdown",
 		doneWhen: [],
 		reasons: [],
 		need: null,

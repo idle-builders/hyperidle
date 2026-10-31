@@ -1,5 +1,6 @@
 import {
 	type ActivityEntry,
+	type DocumentRow,
 	isRedactedPayload,
 	type Message,
 	type PlainReadPayload,
@@ -11,6 +12,7 @@ import {
 } from "@hyperidle/domain-model";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { AppCard, MadeCard } from "./Apps";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
 import { Failed } from "./Failed";
@@ -18,7 +20,7 @@ import { listen } from "./live";
 import { Avatar, Event, Msg } from "./Msg";
 import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
-import { clock, duration, timeline, titleFrom, workState } from "./thread-timeline";
+import { clock, duration, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
 import { useAction } from "./useAction";
 
 /**
@@ -33,6 +35,7 @@ interface Person {
 export type People = ReadonlyMap<string, Person>;
 
 const NO_MESSAGES: readonly Message[] = [];
+const NO_DOCS: readonly DocumentRow[] = [];
 
 /** Sessions of the tasks shown, asked again when a task says one started or ended. */
 function useTaskSessions(taskIds: readonly string[]): readonly SessionRow[] {
@@ -73,7 +76,35 @@ export function useNow(): number {
 export function stepWords(entry: ActivityEntry): string | null {
 	if (entry.type !== "tool_call") return null;
 	const d = entry.data;
-	return `${d.verb ?? d.toolName} ${d.target ?? d.argsSummary}`.trim();
+	return d.verb ? `${d.verb} ${d.target ?? ""}`.trim() : stepFrom(d.toolName, d.argsSummary ?? "");
+}
+
+/** One line while the agent waits its turn — it has a request queued but another run is blocking it. */
+function WaitingLine({
+	agentName,
+	activeSession,
+	navigate,
+}: {
+	agentName: string;
+	activeSession: SessionRow | null;
+	navigate: (to: string) => void;
+}) {
+	const where = activeSession?.taskId
+		? `/work/${activeSession.taskId}`
+		: activeSession?.threadId
+			? `/conversations/${activeSession.threadId}`
+			: null;
+	return (
+		<div className="running">
+			<span className="dot dot--wait" />
+			<span className="running-txt">{agentName} will start on this after its current work</span>
+			{where && (
+				<button type="button" className="peek" onClick={() => navigate(where)}>
+					See current work
+				</button>
+			)}
+		</div>
+	);
 }
 
 /** One line while an agent works on the task; its steps show in place only when asked for. */
@@ -188,7 +219,7 @@ function Question({
 	);
 }
 
-/** A review: yours is raised with its action; someone else's shows in full with none. */
+/** A review card: title, first reasoning line, file count, preview thumbnail, "Look at it". */
 function Review({
 	message,
 	verdict,
@@ -208,6 +239,10 @@ function Review({
 	const reviewer = r.reviewer ? people.get(r.reviewer) : undefined;
 	const yours = open && message.senderId !== you && (!r.reviewer || r.reviewer === you);
 	const look = () => navigate(`/conversations/${threadId}?review=${message.id}`);
+	const parts = r.parts ?? [];
+	const codeFileCount = parts.reduce((n, p) => (p.kind === "code" ? n + p.files.length : n), 0);
+	const previewPart = parts.find((p) => p.kind === "preview");
+	const previewUrl = previewPart && previewPart.kind === "preview" ? previewPart.url : null;
 	return (
 		<div className={yours ? "review" : "review review--theirs"}>
 			<div className="review-head">
@@ -230,24 +265,36 @@ function Review({
 					)}
 				</span>
 			</div>
-			{r.reasoning.length > 0 && (
-				<div className="review-body">
-					<ul className="result-list">
-						{r.reasoning.map((line) => (
-							<li key={line}>{line}</li>
-						))}
-					</ul>
+			{r.reasoning[0] && <p className="review-first">{r.reasoning[0]}</p>}
+			{codeFileCount > 0 && (
+				<div className="review-meta">
+					<span className="review-files">
+						{codeFileCount} {codeFileCount === 1 ? "file" : "files"} changed
+					</span>
+				</div>
+			)}
+			{previewUrl && (
+				<div className="review-thumb" aria-hidden="true">
+					<iframe
+						src={previewUrl}
+						title="Review preview"
+						tabIndex={-1}
+						className="review-thumb-frame"
+					/>
 				</div>
 			)}
 			<div className="review-foot">
-				{yours ? (
-					<button type="button" className="btn btn--accent" onClick={look}>
-						Look at it
-					</button>
-				) : open ? (
-					<span className="review-note">
-						{reviewer ? `Needs review by ${reviewer.name.split(" ")[0]}` : "Needs review"}
-					</span>
+				{open ? (
+					<>
+						<button type="button" className={yours ? "btn btn--accent" : "btn"} onClick={look}>
+							Look at it
+						</button>
+						{!yours && (
+							<span className="review-note">
+								{reviewer ? `Needs review by ${reviewer.name.split(" ")[0]}` : "Needs review"}
+							</span>
+						)}
+					</>
 				) : (
 					<>
 						<button type="button" className="btn" onClick={look}>
@@ -306,6 +353,8 @@ export function Body({
 			</div>
 		);
 	const p = message.payload as PlainReadPayload;
+	if (p.format === "html")
+		return <AppCard page={p.text} of={{ kind: "message", threadId, id: message.id }} inline />;
 	const mentions = (p.refs ?? []).flatMap((r) => (r.kind === "mention" ? [r.sourceText] : []));
 	return <RichText text={p.text} mentions={mentions} />;
 }
@@ -343,6 +392,18 @@ export function ThreadPage({ id }: { id: string }) {
 		[taskTopics, reloadTasks],
 	);
 	const sessions = useTaskSessions(tasks.map((t) => t.id));
+	// Parts share their task's conversation; an agent working on one is working here too.
+	const parts = (inThread.data ?? []).filter((t) => !tasks.includes(t));
+	const partSessions = useTaskSessions(parts.map((t) => t.id));
+	// An agent answering a message here, rather than working on one of the thread's tasks.
+	const active = useAction("search_sessions", { state: "active" }, [`thread:${id}`]);
+	const answering = (active.data ?? []).filter((s) => s.threadId === id && s.taskId === null);
+	const madeHere = useAction("search_documents", { parent: { kind: "thread", id } }, [
+		`thread:${id}`,
+		"documents",
+	]);
+	// Agents with a queued request for this thread that has not started running yet.
+	const waiting = useAction("list_waiting_requests", { threadId: id }, [`thread:${id}`]);
 	const [problem, setProblem] = useState<string | null>(null);
 	const scroll = useRef<HTMLDivElement>(null);
 	// The first conversation after first start offers what an agent can use next.
@@ -359,8 +420,14 @@ export function ThreadPage({ id }: { id: string }) {
 		.filter((m) => m.deletedAt === null)
 		.reverse();
 	const resolving = resolvingOf(messages);
-	const entries = timeline(messages, tasks, sessions, firstName);
-	const running = sessions.filter((s) => s.endedAt === null && s.state === "active");
+	const entries = timeline(messages, tasks, sessions, firstName, madeHere.data ?? NO_DOCS);
+	const running = [
+		...[...sessions, ...partSessions].filter((s) => s.endedAt === null && s.state === "active"),
+		...answering,
+	];
+	// A queued request whose agent is busy with other work; one with nothing blocking it is about to start.
+	const waitingOn =
+		answering.length === 0 ? (waiting.data ?? []).find((w) => w.activeSession) : undefined;
 
 	// A thread opens at its newest message, and follows new ones in.
 	const filled = entries.length + people.size + running.length;
@@ -373,7 +440,12 @@ export function ThreadPage({ id }: { id: string }) {
 	const send = async (body: InputOf<"send_message">): Promise<boolean> => {
 		const sent = await call("send_message", body);
 		setProblem(sent.ok ? null : (sent.problems[0]?.message ?? "It did not send."));
-		if (sent.ok) view.reload();
+		if (sent.ok) {
+			view.reload();
+			// @lore: active reload on send — WS push travels separately from the HTTP response; explicit reload guards the running-session line if the push races or drops
+			active.reload();
+			waiting.reload();
+		}
 		return sent.ok;
 	};
 
@@ -415,12 +487,13 @@ export function ThreadPage({ id }: { id: string }) {
 		<section className="thread">
 			<header className="thread-head">
 				<span className="chip chip--quiet">Thread</span>
-				<h2>{view.data?.thread.computedTitle ?? ""}</h2>
+				<h2 title={view.data?.thread.computedTitle}>{view.data?.thread.computedTitle ?? ""}</h2>
 			</header>
 
 			<div className="thread-scroll" ref={scroll} role="log" aria-label="Messages">
 				{entries.map((e) => {
 					if (e.kind === "event") return <Event key={e.key}>{e.text}</Event>;
+					if (e.kind === "made") return <MadeCard key={e.key} doc={e.doc} />;
 					if (e.kind === "task")
 						return (
 							<WorkItem
@@ -474,6 +547,13 @@ export function ThreadPage({ id }: { id: string }) {
 						msg
 					);
 				})}
+				{waitingOn && (
+					<WaitingLine
+						agentName={firstName(waitingOn.agentId)}
+						activeSession={waitingOn.activeSession}
+						navigate={navigate}
+					/>
+				)}
 				{running.map((s) => (
 					<SessionLine key={s.id} session={s} agent={firstName(s.agentId)} />
 				))}

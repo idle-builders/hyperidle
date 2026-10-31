@@ -57,7 +57,6 @@ function mkDocumentPort(): DocumentPort & { readonly editCalls: unknown[] } {
 describe("a written-back item hangs off what the session is working on, attributed to the session's agent", () => {
 	let tmpDir: string;
 	let manifestPath: string;
-	let notePath: string;
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "writeback-parent-"));
@@ -67,8 +66,6 @@ describe("a written-back item hangs off what the session is working on, attribut
 			manifestPath,
 			JSON.stringify({ session_id: "s", assembled_at: NOW, items: {} }),
 		);
-		notePath = path.join(tmpDir, "knowledge", "note.md");
-		fs.writeFileSync(notePath, "what the agent produced");
 	});
 
 	afterEach(() => {
@@ -78,10 +75,13 @@ describe("a written-back item hangs off what the session is working on, attribut
 	async function runWriteback(
 		db: Parameters<typeof writeback.subscribe>[0]["db"],
 		sessionId: string,
+		file = "note.md",
 	): Promise<{
 		readonly document: DocumentPort & { readonly editCalls: unknown[] };
 		readonly settled: unknown[];
 	}> {
+		const filePath = path.join(tmpDir, "knowledge", file);
+		fs.writeFileSync(filePath, "what the agent produced");
 		const bus = new EventBus();
 		const document = mkDocumentPort();
 		writeback.subscribe({ db, eventBus: bus, document });
@@ -92,7 +92,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 			sessionId,
 			sandboxPath: tmpDir,
 			manifestPath,
-			changes: [{ type: "create", relativePath: "knowledge/note.md", fullPath: notePath }],
+			changes: [{ type: "create", relativePath: `knowledge/${file}`, fullPath: filePath }],
 			timestamp: Date.now(),
 		});
 
@@ -182,6 +182,35 @@ describe("a written-back item hangs off what the session is working on, attribut
 			},
 			input: { parent: { kind: "thread", id: "thr-ast-u1" } },
 		});
+	});
+
+	test("a page the agent writes as an .html file comes back as an app; anything else as markdown", async ({
+		db,
+	}) => {
+		await db.insert(users).values({
+			id: "wp-agent-4",
+			kind: "ai",
+			name: "A",
+			role: "builder",
+			status: "active",
+			createdAt: NOW,
+		});
+		await db.insert(sessions).values({
+			id: "wp-sess-app",
+			taskId: null,
+			agentId: "wp-agent-4",
+			modelTier: "small",
+			state: "running",
+			sourceKind: "subscription",
+			startedAt: NOW,
+		});
+
+		const app = await runWriteback(db, "wp-sess-app", "trial-price.html");
+		expect(app.document.editCalls[0]).toMatchObject({
+			input: { title: "trial price", format: "html" },
+		});
+		const note = await runWriteback(db, "wp-sess-app", "notes.md");
+		expect(note.document.editCalls[0]).toMatchObject({ input: { format: "markdown" } });
 	});
 
 	test("a session with neither writes a parentless item rather than guessing, still as its own agent", async ({

@@ -42,6 +42,7 @@ const task = (id: string, t: Partial<Task> = {}): Task => ({
 	ownerAgentId: "builder",
 	title: id,
 	description: null,
+	descriptionFormat: "markdown",
 	doneWhen: [],
 	state: "in_progress",
 	dependencies: null,
@@ -200,6 +201,24 @@ describe("a person's lists", () => {
 			["trials", "Growth · 1 of 2 done"],
 			["explain", "Builder · needs review · 6h"],
 		]);
+	});
+
+	it("started: a task an agent made for what they asked in their own conversation counts as theirs", () => {
+		const tasks = [
+			task("round-3", { ownerAgentId: "builder", startedBy: "builder", threadId: "asked" }),
+			task("week-view", { parentTaskId: "round-3", startedBy: "builder", threadId: "asked" }),
+			task("elsewhere", { startedBy: "builder", threadId: "other" }),
+		];
+		const jobs = startedJobs(
+			tasks,
+			"finn",
+			new Map([["builder", "Builder"]]),
+			() => "XX",
+			[],
+			NOW,
+			new Set(["asked"]),
+		);
+		expect(jobs.map((j) => j.title)).toEqual(["round-3"]);
 	});
 });
 
