@@ -89,11 +89,7 @@ describe("cursor-agent handover — real binary", () => {
 				adapterPool: pool,
 				workspace,
 			};
-			// Write minimal AGENTS.md + CLAUDE.md so cursor-agent receives a clear,
-			// short instruction and exits in seconds rather than exploring indefinitely.
-			// @lore: writeSandboxAgentsMd override — without real context files cursor-agent
-			// gets -p proceed with no AGENTS.md and runs open-ended tool calls for 3+ minutes;
-			// writing a one-sentence instruction keeps each turn under 60s.
+			// @lore: cursor-agent with an empty sandbox and only "proceed" explores for minutes; a one-line AGENTS.md keeps each turn under 60s
 			const minimal =
 				"You are in an automated integration test. Reply with exactly one word: OK. Do not run any tools or explore the sandbox.\n";
 			const ports = buildRunningHarnessPorts({
