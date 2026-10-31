@@ -1,5 +1,7 @@
 import type { ReviewPart as Part, Spot } from "@hyperidle/domain-model";
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { APP_SANDBOX, appSrcdoc } from "./app-frame";
+import { ask, type Box, POINTER, readTold } from "./page-pointer";
 import type { PinThread } from "./review-page";
 
 /**
@@ -32,23 +34,6 @@ function quote(text: string): string {
 	return t.length > 40 ? `“${t.slice(0, 39)}…”` : `“${t}”`;
 }
 
-/** A selector that finds `el` again in the same page. */
-function selectorOf(el: Element): string {
-	const steps: string[] = [];
-	for (let e: Element | null = el; e && e.tagName !== "BODY" && e.tagName !== "HTML"; ) {
-		if (e.id) {
-			steps.unshift(`#${CSS.escape(e.id)}`);
-			break;
-		}
-		const tag = e.tagName.toLowerCase();
-		const parent: Element | null = e.parentElement;
-		const same = parent ? [...parent.children].filter((c) => c.tagName === e?.tagName) : [];
-		steps.unshift(same.length > 1 ? `${tag}:nth-of-type(${same.indexOf(e) + 1})` : tag);
-		e = parent;
-	}
-	return steps.join(" > ") || "body";
-}
-
 /** Where the words in `el` are drawn, or the element's box when it has none. */
 function wordsRect(el: Element): DOMRect {
 	const range = el.ownerDocument.createRange();
@@ -79,20 +64,23 @@ function offsetOf(node: Node | null, offset: number): number | null {
 /** Where a pin goes on `body`: just after the words it points at, or in the corner of a box. */
 function locate(body: HTMLElement, spot: Spot | undefined): At | null {
 	const b = body.getBoundingClientRect();
-	const after = (r: DOMRect, dx = 0, dy = 0): At => ({
+	const after = (r: { top: number; right: number }, dx = 0, dy = 0): At => ({
 		top: r.top - b.top - 8 + dy,
 		left: r.right - b.left + 4 + dx,
 	});
 	const corner = (r: DOMRect): At => ({ top: r.top - b.top + 6, left: r.right - b.left - PIN - 8 });
-	if (!spot) return { top: 8, left: b.width - PIN - 8 };
+	if (!spot) {
+		// The whole part: its top corner, and on a preview the page's corner, clear of its bar.
+		const frame = body.querySelector("iframe");
+		return frame ? corner(frame.getBoundingClientRect()) : { top: 8, left: b.width - PIN - 8 };
+	}
 	switch (spot.kind) {
 		case "element": {
 			const frame = body.querySelector("iframe");
-			const el = frame?.contentDocument?.querySelector(spot.selector);
-			if (!(frame && el)) return null;
+			const r = frame && placesIn.get(frame)?.[spot.selector];
+			if (!(frame && r)) return null;
 			const f = frame.getBoundingClientRect();
-			const r = wordsRect(el);
-			return after(r, f.left, f.top);
+			return after({ top: r.top, right: r.left + r.width }, f.left, f.top);
 		}
 		case "line": {
 			const key = `${spot.file}|${spot.removed ? "old" : "new"}|${spot.line}`;
@@ -137,77 +125,89 @@ function locate(body: HTMLElement, spot: Spot | undefined): At | null {
 	}
 }
 
+/** Where the pinned elements of each sealed preview are, as its page last told. */
+const placesIn = new WeakMap<HTMLIFrameElement, Readonly<Record<string, Box>>>();
+
 /**
  * A live page in a frame, at a width. Two modes: "use" lets clicks and keys reach the page;
- * "comment" shows the pin-pick overlay for pointing at elements.
+ * "comment" lays a pointer over it. A `data:` page runs sealed in the app box and is pointed into
+ * by message; an http(s) page is its own site, so a comment on it is on the whole page.
  */
-export function Preview({
+function Preview({
 	url,
 	width,
+	selectors,
 	onReady,
 	onPoint,
 }: {
 	url: string;
 	width?: number;
+	selectors: readonly string[];
 	onReady: () => void;
 	onPoint: (p: Point) => void;
 }) {
 	const frame = useRef<HTMLIFrameElement>(null);
 	const inline = url.startsWith("data:");
+	// A page from our own address, given scripts and its origin, could lift its sandbox and reach into ours.
+	const ours = !inline && new URL(url, location.href).origin === location.origin;
 	const [page, setPage] = useState<string | null>(null);
 	const [height, setHeight] = useState(480);
-	const [reachable, setReachable] = useState(false);
-	const [hover, setHover] = useState<DOMRect | null>(null);
+	const [hover, setHover] = useState<Box | null>(null);
 	const [mode, setMode] = useState<"use" | "comment">("use");
+	const wanted = useRef(selectors);
+	wanted.current = selectors;
+	const asked = selectors.join("\n");
 
 	useEffect(() => {
 		if (!inline) return;
 		let current = true;
 		void fetch(url)
 			.then((r) => r.text())
-			.then((html) => current && setPage(html));
+			.then((html) => current && setPage(appSrcdoc(POINTER + html)));
 		return () => {
 			current = false;
 		};
 	}, [url, inline]);
 
-	const fit = useCallback(() => {
-		const doc = frame.current?.contentDocument;
-		if (!doc?.body) {
-			setReachable(false);
-			onReady();
-			return;
-		}
-		const style = getComputedStyle(doc.body);
-		setHeight(
-			Math.max(
-				120,
-				Math.ceil(
-					doc.body.offsetHeight +
-						Number.parseFloat(style.marginTop) +
-						Number.parseFloat(style.marginBottom),
-				),
-			),
-		);
-		setReachable(true);
-		requestAnimationFrame(onReady);
-	}, [onReady]);
+	// The page's own window, inside the box's shell. Across origins only `length` may be read before indexing.
+	const inner = useCallback((): Window | null => {
+		const shell = frame.current?.contentWindow;
+		return shell && shell.length > 0 ? (shell.frames[0] ?? null) : null;
+	}, []);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: a new width lays the page out again
 	useEffect(() => {
-		const t = setTimeout(fit, 60);
-		return () => clearTimeout(t);
-	}, [width, fit]);
+		if (!inline) return;
+		const onMessage = (e: MessageEvent) => {
+			const w = inner();
+			const f = frame.current;
+			if (!(w && f && e.source === w)) return;
+			const m = readTold(e.data);
+			if (!m) return;
+			if (m.told === "size") {
+				setHeight(Math.max(120, m.height));
+				ask(w, { ask: "where", selectors: wanted.current });
+			} else if (m.told === "where") {
+				placesIn.set(f, m.at);
+				requestAnimationFrame(onReady);
+			} else if (m.for === "hover") {
+				setHover(m.box);
+			} else {
+				const words = m.words.trim();
+				onPoint({
+					spot: { kind: "element", selector: m.selector },
+					label: words ? quote(words) : `the ${m.element}`,
+				});
+			}
+		};
+		addEventListener("message", onMessage);
+		return () => removeEventListener("message", onMessage);
+	}, [inline, inner, onReady, onPoint]);
 
-	// Keep height in step with the page's own content as it grows.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a new set of pins asks again
 	useEffect(() => {
-		if (!reachable) return;
-		const doc = frame.current?.contentDocument;
-		if (!doc?.body) return;
-		const obs = new ResizeObserver(fit);
-		obs.observe(doc.body);
-		return () => obs.disconnect();
-	}, [reachable, fit]);
+		const w = inline && inner();
+		if (w) ask(w, { ask: "where", selectors: wanted.current });
+	}, [asked, inline, inner]);
 
 	// Escape always returns to use mode.
 	useEffect(() => {
@@ -221,11 +221,12 @@ export function Preview({
 		return () => document.removeEventListener("keydown", onKey);
 	}, [mode]);
 
-	const under = (e: React.MouseEvent): Element | null => {
+	const point = (e: React.MouseEvent, kind: "hover" | "click"): void => {
 		const f = frame.current;
-		if (!f) return null;
+		const w = inner();
+		if (!(f && w)) return;
 		const r = f.getBoundingClientRect();
-		return f.contentDocument?.elementFromPoint(e.clientX - r.left, e.clientY - r.top) ?? null;
+		ask(w, { ask: "point", for: kind, x: e.clientX - r.left, y: e.clientY - r.top });
 	};
 
 	// Inline view gets a sensible max so a very tall page doesn't fill the whole screen.
@@ -256,41 +257,41 @@ export function Preview({
 					</button>
 				</span>
 			</div>
-			<iframe
-				ref={frame}
-				title="Live preview"
-				style={{ height, ...(maxHeight !== undefined ? { maxHeight } : {}) }}
-				{...(inline ? { srcDoc: page ?? "" } : { src: url })}
-				sandbox={inline ? "allow-same-origin" : "allow-same-origin allow-scripts allow-forms"}
-				onLoad={fit}
-			/>
-			{mode === "comment" && (
-				<button
-					type="button"
-					className="pin-pick"
-					aria-label="Point at something on the page"
-					onMouseMove={(e) => {
-						const el = under(e);
-						setHover(el ? el.getBoundingClientRect() : null);
-					}}
-					onMouseLeave={() => setHover(null)}
-					onClick={(e) => {
-						const el = under(e);
-						if (!el) return;
-						const words = el.textContent?.trim() ?? "";
-						onPoint({
-							spot: { kind: "element", selector: selectorOf(el) },
-							label: words ? quote(words) : `the ${el.tagName.toLowerCase()}`,
-						});
-					}}
-				/>
-			)}
-			{hover && mode === "comment" && (
-				<span
-					className="pin-pick-hi"
-					style={{ top: hover.top, left: hover.left, width: hover.width, height: hover.height }}
-				/>
-			)}
+			<div className="preview-page">
+				{/* @lore: a sealed frame whose srcdoc arrives after an empty first load stays blank in the packaged app (measured) — mount it with its page */}
+				{(!inline || page !== null) && (
+					<iframe
+						ref={frame}
+						title="Live preview"
+						style={{ height, ...(maxHeight !== undefined ? { maxHeight } : {}) }}
+						{...(inline ? { srcDoc: page ?? "" } : { src: url })}
+						sandbox={
+							inline
+								? APP_SANDBOX
+								: ours
+									? "allow-scripts allow-forms"
+									: "allow-same-origin allow-scripts allow-forms"
+						}
+						onLoad={onReady}
+					/>
+				)}
+				{mode === "comment" && (
+					<button
+						type="button"
+						className="pin-pick"
+						aria-label="Point at something on the page"
+						onMouseMove={inline ? (e) => point(e, "hover") : undefined}
+						onMouseLeave={() => setHover(null)}
+						onClick={(e) => (inline ? point(e, "click") : onPoint({ label: "the page" }))}
+					/>
+				)}
+				{hover && mode === "comment" && (
+					<span
+						className="pin-pick-hi"
+						style={{ top: hover.top, left: hover.left, width: hover.width, height: hover.height }}
+					/>
+				)}
+			</div>
 		</div>
 	);
 }
@@ -458,17 +459,27 @@ function Image({
 function Content({
 	part,
 	width,
+	selectors,
 	onReady,
 	onPoint,
 }: {
 	part: Part;
 	width?: number;
+	selectors: readonly string[];
 	onReady: () => void;
 	onPoint: (p: Point) => void;
 }) {
 	switch (part.kind) {
 		case "preview":
-			return <Preview url={part.url} width={width} onReady={onReady} onPoint={onPoint} />;
+			return (
+				<Preview
+					url={part.url}
+					width={width}
+					selectors={selectors}
+					onReady={onReady}
+					onPoint={onPoint}
+				/>
+			);
 		case "code":
 			return <Code part={part} onPoint={onPoint} />;
 		case "image":
@@ -554,6 +565,9 @@ export function PartBody({
 	const body = useRef<HTMLDivElement>(null);
 	const [spots, setSpots] = useState<ReadonlyMap<string, At>>(new Map());
 	const key = pins.map((p) => p.key).join(" ") + (draft ? JSON.stringify(draft.spot) : "");
+	const selectors = [...pins.map((p) => p.pin.spot), draft?.spot].flatMap((s) =>
+		s?.kind === "element" ? [s.selector] : [],
+	);
 
 	const measure = useCallback(() => {
 		const el = body.current;
@@ -562,9 +576,13 @@ export function PartBody({
 		const next = new Map<string, At>();
 		const all = [...pins.map((p) => [p.key, p.pin.spot] as const)];
 		if (draft) all.push(["draft", draft.spot]);
+		const home = locate(el, undefined) ?? { top: 8, left: width - PIN - 8 };
 		let stacked = 0;
 		for (const [k, spot] of all) {
-			const at = locate(el, spot) ?? { top: 8 + PIN * 1.2 * stacked++, left: width - PIN - 8 };
+			const at = (spot && locate(el, spot)) ?? {
+				top: home.top + PIN * 1.2 * stacked++,
+				left: home.left,
+			};
 			next.set(k, { top: at.top, left: Math.min(Math.max(4, at.left), width - PIN - 4) });
 		}
 		setSpots(next);
@@ -585,7 +603,13 @@ export function PartBody({
 	const bodyWidth = body.current?.getBoundingClientRect().width ?? POP;
 	return (
 		<div ref={body} className={flush ? "art-body art-body--flush" : "art-body"}>
-			<Content part={part} width={width} onReady={measure} onPoint={onPoint} />
+			<Content
+				part={part}
+				width={width}
+				selectors={selectors}
+				onReady={measure}
+				onPoint={onPoint}
+			/>
 			{pins.map((p) => {
 				const s = spots.get(p.key);
 				if (!s) return null;

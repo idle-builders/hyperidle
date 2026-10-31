@@ -11,6 +11,9 @@ A thread reads top to bottom and opens at its newest message; new messages come 
 
 - **Messages** — one sender's messages close together (within five minutes) share one name and
   time. A comment on a review part also says what it is "on". A removed message says so.
+- **Apps** — a message that is an app shows as a card with its title and what it says about itself;
+  it opens beside the thread, running sealed off (see
+  [document.md](../objects/document.md#apps)).
 - **Questions** — an ask with real options. Its card says "Stuck" when an agent asked and "Needs
   input" when a person did. You answer by picking an option; the card then shows the choice in
   place.

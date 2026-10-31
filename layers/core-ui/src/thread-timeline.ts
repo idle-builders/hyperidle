@@ -1,5 +1,6 @@
 import {
 	type AnswerPayload,
+	type DocumentRow,
 	isRedactedPayload,
 	type Message,
 	type ReviewPayload,
@@ -24,7 +25,8 @@ export type Entry =
 			readonly messages: readonly Message[];
 	  }
 	| { readonly kind: "event"; readonly key: string; readonly text: string }
-	| { readonly kind: "task"; readonly key: string; readonly task: Task };
+	| { readonly kind: "task"; readonly key: string; readonly task: Task }
+	| { readonly kind: "made"; readonly key: string; readonly doc: DocumentRow };
 
 /** One sender's messages this close together share one name and time. */
 const RUN_MS = 5 * 60_000;
@@ -41,16 +43,19 @@ export function duration(ms: number): string {
 type Stamp =
 	| { at: string; rank: 0; message: Message }
 	| { at: string; rank: 1; task: Task }
+	| { at: string; rank: 1; doc: DocumentRow }
 	| { at: string; rank: 2; worked: number };
 
 /**
  * `messages` oldest first. `who(id)` names a sender the way an event says it ("You", "Maya").
+ * `made` is what was made in the thread: it sits where it was made.
  */
 export function timeline(
 	messages: readonly Message[],
 	tasks: readonly Task[],
 	sessions: readonly SessionRow[],
 	who: (id: string) => string,
+	made: readonly DocumentRow[] = [],
 ): Entry[] {
 	const reviewTitle = new Map(
 		messages
@@ -60,6 +65,7 @@ export function timeline(
 	const stamps: Stamp[] = [
 		...messages.map((message): Stamp => ({ at: message.createdAt, rank: 0, message })),
 		...tasks.map((task): Stamp => ({ at: task.createdAt, rank: 1, task })),
+		...made.map((doc): Stamp => ({ at: doc.createdAt, rank: 1, doc })),
 		...sessions.flatMap((s): Stamp[] =>
 			s.endedAt
 				? [{ at: s.endedAt, rank: 2, worked: Date.parse(s.endedAt) - Date.parse(s.startedAt) }]
@@ -85,7 +91,11 @@ export function timeline(
 		}
 		flushWorked();
 		if (s.rank === 1) {
-			out.push({ kind: "task", key: `task-${s.task.id}`, task: s.task });
+			out.push(
+				"task" in s
+					? { kind: "task", key: `task-${s.task.id}`, task: s.task }
+					: { kind: "made", key: `made-${s.doc.id}`, doc: s.doc },
+			);
 			continue;
 		}
 		const m = s.message;

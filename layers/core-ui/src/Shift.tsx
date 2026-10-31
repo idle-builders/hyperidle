@@ -1,15 +1,17 @@
-import type {
-	DocumentRow,
-	Message,
-	QuestionnairePayload,
-	ReviewPayload,
-	SessionRow,
-	Task,
-	TaskNode,
-	TaskView,
+import {
+	appSummary,
+	type DocumentRow,
+	type Message,
+	type QuestionnairePayload,
+	type ReviewPayload,
+	type SessionRow,
+	type Task,
+	type TaskNode,
+	type TaskView,
 } from "@hyperidle/domain-model";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { AppCard, useOpenApp } from "./Apps";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
 import { Failed } from "./Failed";
@@ -61,7 +63,7 @@ interface Ask {
 /** A row in the box: a question, review or document. `on` names the part it hangs on, when not this one. */
 interface Thing {
 	readonly key: string;
-	readonly kind: "Question" | "Review" | "Document";
+	readonly kind: "Question" | "Review" | "Document" | "App";
 	readonly title: string;
 	readonly why: string;
 	readonly on?: string;
@@ -241,7 +243,7 @@ function TaskScreen({
 					<div className="tk-main">
 						<h1 className="page-title">{root.title}</h1>
 						<Stand tree={tree} n={root} running={around.running} owner={owner} />
-						{root.description && <RichText text={root.description} />}
+						<Description task={root} />
 
 						{root.children.length > 0 && (
 							<section className="tk-map" aria-label="Parts of this task">
@@ -270,7 +272,7 @@ function TaskScreen({
 								<>
 									<h2 className="tk-part-title">{sel.title}</h2>
 									<Stand tree={tree} n={sel} running={around.running} owner={owner} />
-									{sel.description && <RichText text={sel.description} />}
+									<Description task={sel} />
 								</>
 							)}
 							{sel.reasons.length > 0 && <Reasons items={sel.reasons.map(toReason)} />}
@@ -462,6 +464,14 @@ function Conversation({
 	);
 }
 
+/** What the task is after, in words, or as an app that opens beside the task. */
+function Description({ task }: { task: Task }) {
+	if (!task.description) return null;
+	if (task.descriptionFormat === "html")
+		return <AppCard page={task.description} of={{ kind: "task", id: task.id }} inline />;
+	return <RichText text={task.description} />;
+}
+
 function KindIcon({ kind }: { kind: Thing["kind"] }) {
 	return (
 		<svg
@@ -477,6 +487,12 @@ function KindIcon({ kind }: { kind: Thing["kind"] }) {
 			aria-hidden="true"
 		>
 			{kind === "Document" && <path d="M4 1.75h5.5l2.5 2.5v10H4zM9.5 1.75v2.5H12" />}
+			{kind === "App" && (
+				<>
+					<rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.5" />
+					<path d="M1.75 5.75h12.5M4 4.25h.01M5.75 4.25h.01" />
+				</>
+			)}
 			{kind === "Question" && (
 				<>
 					<path d="M6 6.2a2 2 0 1 1 2.9 1.8c-.6.3-.9.7-.9 1.4" />
@@ -818,6 +834,7 @@ function TaskBox({
 	onAsk: (task: string, message: string) => void;
 }) {
 	const navigate = useNavigate();
+	const openApp = useOpenApp();
 	const [more, setMore] = useState(false);
 	const sessions = useAction("search_sessions", { taskId: n.id }, [`task:${n.id}`]);
 	const thread = useAction("open_thread", { id: n.threadId }, [`thread:${n.threadId}`]);
@@ -855,14 +872,21 @@ function TaskBox({
 				};
 			}),
 	];
-	const asDoc = (d: DocumentRow): Thing => ({
-		key: d.id,
-		kind: "Document",
-		title: d.title,
-		why: `${d.status === "proposed" ? "Draft by" : "By"} ${name(d.updatedBy)} · ${ago(d.updatedAt)}`,
-		open: () => navigate(`/knowledge/${d.id}`),
-		...(d.parentId && d.parentId !== n.id ? { on: d.parentId } : {}),
-	});
+	const asDoc = (d: DocumentRow): Thing => {
+		const by = `${d.status === "proposed" ? "Draft by" : "By"} ${name(d.updatedBy)} · ${ago(d.updatedAt)}`;
+		const summary = d.format === "html" ? appSummary(d.body) : null;
+		return {
+			key: d.id,
+			kind: d.format === "html" ? "App" : "Document",
+			title: d.title,
+			why: d.format === "html" ? `App · ${summary ? `${summary} · ` : ""}${by}` : by,
+			open: () =>
+				d.format === "html"
+					? openApp({ kind: "document", id: d.id })
+					: navigate(`/knowledge/${d.id}`),
+			...(d.parentId && d.parentId !== n.id ? { on: d.parentId } : {}),
+		};
+	};
 	const newest = (a: DocumentRow, b: DocumentRow) => b.updatedAt.localeCompare(a.updatedAt);
 	const ownDocs = docs
 		.filter((d) => d.parentId === n.id)

@@ -9,11 +9,11 @@ import type {
 	DocumentRow,
 	SearchDocumentsInput,
 } from "@hyperidle/domain-model";
-import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import { API_ERROR_CODES, appSummary, appTitle } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import * as work from "@hyperidle/task";
-import { listMessages, searchConversations } from "@hyperidle/thread";
+import { listMessages, searchAppMessages, searchConversations } from "@hyperidle/thread";
 import { listTeams } from "@hyperidle/user";
 import { Hono } from "hono";
 import z from "zod";
@@ -38,12 +38,23 @@ interface Hit {
 	readonly at: string;
 }
 
+/**
+ * An app found: a document or a message that is one. `on` is where it opens beside — the
+ * conversation or task it was made in; null for one that is a page of its own.
+ */
+interface AppHit extends Hit {
+	readonly kind: "document" | "message";
+	readonly on: { readonly kind: "thread" | "task"; readonly id: string } | null;
+}
+
+/** A message's text as find shows it; an app shows what it says about itself, never its code. */
 function payloadText(payloadJson: string): string {
 	try {
 		const parsed = JSON.parse(payloadJson) as unknown;
 		if (typeof parsed === "object" && parsed !== null && "text" in parsed) {
-			const text = (parsed as { text: unknown }).text;
-			return typeof text === "string" ? text : "";
+			const { text, format } = parsed as { text: unknown; format?: unknown };
+			if (typeof text !== "string") return "";
+			return format === "html" ? (appSummary(text) ?? "") : text;
 		}
 		return "";
 	} catch {
@@ -137,6 +148,33 @@ export function createSearchRoutes(
 			};
 		});
 
+		// ── Apps in conversations ──────────────────────────────────────────────
+		const appMessageRows = (
+			await searchAppMessages(db, participantPattern, pattern, MAX_PER_CATEGORY * 10)
+		)
+			.filter((row) => {
+				try {
+					const parts = JSON.parse(row.participants) as unknown;
+					return Array.isArray(parts) && parts.includes(userId);
+				} catch {
+					return false;
+				}
+			})
+			.slice(0, MAX_PER_CATEGORY);
+		const appMessageHits: AppHit[] = appMessageRows.map((row) => {
+			const page = (JSON.parse(row.payload) as { text: string }).text;
+			const title = appTitle(page) ?? "An app";
+			return {
+				kind: "message",
+				id: row.id,
+				title,
+				snippet: firstExcerpt([appSummary(page), title], query),
+				team: null,
+				at: row.createdAt,
+				on: { kind: "thread", id: row.threadId },
+			};
+		});
+
 		// ── Work ───────────────────────────────────────────────────────────────
 		const taskRows = await work.list(db, "task", {
 			text: query,
@@ -158,19 +196,44 @@ export function createSearchRoutes(
 		const workHits: Hit[] = taskRows.map((row) => ({
 			id: row.id,
 			title: row.title,
-			snippet: firstExcerpt([row.description, row.title], query),
+			snippet: firstExcerpt(
+				[
+					row.descriptionFormat === "html" ? appSummary(row.description ?? "") : row.description,
+					row.title,
+				],
+				query,
+			),
 			team: teamName.get(row.teamId) ?? null,
 			at: row.updatedAt,
 		}));
-		const documentHits: Hit[] = documentRows.map((row) => ({
+		const documentHit = (row: DocumentRow): Hit => ({
 			id: row.id,
 			title: row.title,
-			snippet: firstExcerpt([row.body, row.title], query),
+			snippet: firstExcerpt(
+				[row.format === "html" ? appSummary(row.body) : row.body, row.title],
+				query,
+			),
 			team: row.scopeKind === "team" ? (teamName.get(row.scopeId ?? "") ?? null) : null,
 			at: row.updatedAt,
-		}));
+		});
+		const documentHits = documentRows.filter((row) => row.format !== "html").map(documentHit);
+		const appHits: AppHit[] = [
+			...documentRows
+				.filter((row) => row.format === "html")
+				.map(
+					(row): AppHit => ({
+						...documentHit(row),
+						kind: "document",
+						on:
+							(row.parentKind === "thread" || row.parentKind === "task") && row.parentId
+								? { kind: row.parentKind, id: row.parentId }
+								: null,
+					}),
+				),
+			...appMessageHits,
+		];
 
-		return c.json({ conversations, work: workHits, documents: documentHits });
+		return c.json({ conversations, work: workHits, documents: documentHits, apps: appHits });
 	});
 
 	return router;

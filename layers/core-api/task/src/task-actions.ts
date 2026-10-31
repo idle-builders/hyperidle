@@ -170,6 +170,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		ownerAgentId: null,
 		title: "",
 		description: null,
+		descriptionFormat: "markdown",
 		doneWhen: [],
 		state: "proposed",
 		dependencies: null,
@@ -197,6 +198,9 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		...(input.ownerAgentId !== undefined ? { ownerAgentId: input.ownerAgentId } : {}),
 		...(input.title !== undefined ? { title: input.title } : {}),
 		...(input.description !== undefined ? { description: input.description } : {}),
+		...(input.descriptionFormat !== undefined
+			? { descriptionFormat: input.descriptionFormat }
+			: {}),
 		...(input.doneWhen !== undefined ? { doneWhen: input.doneWhen } : {}),
 		...(input.position !== undefined ? { position: input.position } : {}),
 		...(input.reasons !== undefined ? { reasons: input.reasons } : {}),
@@ -866,6 +870,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				ownerAgentId: next.ownerAgentId,
 				title: next.title,
 				description: next.description,
+				descriptionFormat: next.descriptionFormat,
 				doneWhen: JSON.stringify(next.doneWhen),
 				state: resolvedState,
 				dependencies: next.dependencies,
@@ -891,6 +896,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					ownerAgentId: next.ownerAgentId,
 					title: next.title,
 					description: next.description,
+					descriptionFormat: next.descriptionFormat,
 					doneWhen: JSON.stringify(next.doneWhen),
 					state: resolvedState,
 					dependencies: next.dependencies,

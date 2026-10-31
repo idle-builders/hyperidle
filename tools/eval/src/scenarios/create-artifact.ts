@@ -15,9 +15,8 @@
  * following; it can never surface a tool that is badly described.
  *
  * So a low score here is a finding about the tool, not the model. In
- * particular: the description tells an agent that interactive HTML goes in a
- * fenced ```html block, but not that it must be the ONLY block for the item to
- * render live rather than as source. If `sole_html_block` scores badly across
+ * particular: the description tells an agent that an app is a document with
+ * `format: "html"` holding one whole page. If `html_app` scores badly across
  * harnesses, that sentence is what needs to change.
  *
  * @lore artifacts-become-knowledge: there is no `kind` to judge and no preview
@@ -40,14 +39,18 @@ import type {
 	TriggerResult,
 } from "../types.js";
 
-/** The body of whatever the agent produced for the scenario's task, or "". */
-async function producedBody(ctx: JudgeContext): Promise<string> {
+/** What the agent produced for the scenario's task, if anything. */
+async function produced(ctx: JudgeContext): Promise<{ body: string; format: string } | undefined> {
 	const [item] = await ctx.db
-		.select({ body: documents.body })
+		.select({ body: documents.body, format: documents.format })
 		.from(documents)
 		.where(eq(documents.parentId, ctx.seedResult.taskId))
 		.limit(1);
-	return item?.body ?? "";
+	return item;
+}
+
+async function producedBody(ctx: JudgeContext): Promise<string> {
+	return (await produced(ctx))?.body ?? "";
 }
 
 function trigger(ctx: TriggerContext): Promise<TriggerResult> {
@@ -108,7 +111,7 @@ The team needs the finished manifest itself, not a summary of it.`,
 
 const caInteractiveDesignerFrontend: EvalScenario = {
 	id: "ca-interactive-designer-frontend",
-	description: "Designer produces an interactive artifact as a sole fenced html block",
+	description: "Designer produces an interactive artifact as an html app",
 	feature: "edit_document_artifact",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
@@ -131,28 +134,19 @@ described. Use the sample figures already in the task thread.`,
 			judgeSessionCompleted(),
 			judgeArtifactDocumentCreated(),
 			{
-				id: "sole_html_block",
-				label: "Body is a single fenced html block (renders in the sandbox frame)",
+				id: "html_app",
+				label: "An html document holding one whole page (runs as an app)",
 				judge: async (ctx: JudgeContext) => {
-					const body = (await producedBody(ctx)).trim();
-					if (body.length === 0) return { score: 0.0, note: "Nothing produced" };
-
-					const fences = body.match(/```/g)?.length ?? 0;
-					const opensHtml = body.startsWith("```html");
-					const endsFence = body.endsWith("```");
-
-					// Exactly one fenced block, tagged html, with nothing outside it —
-					// the condition `DocumentBody` checks before using the frame.
-					if (opensHtml && endsFence && fences === 2) return { score: 1.0 };
-					if (body.includes("```html")) {
-						return {
-							score: 0.5,
-							note: `Has an html fence but not as the sole block (fences=${fences}, opens=${opensHtml}, ends=${endsFence}) — renders as a code listing, not in the frame`,
-						};
-					}
+					const item = await produced(ctx);
+					const body = item?.body.trim() ?? "";
+					if (!item || body.length === 0) return { score: 0.0, note: "Nothing produced" };
+					const page = /^(<!doctype html|<html)/i.test(body);
+					if (item.format === "html" && page) return { score: 1.0 };
+					if (item.format === "html")
+						return { score: 0.5, note: "format html, but the text is not one whole page" };
 					return {
 						score: 0.0,
-						note: "No fenced html block — raw HTML mis-derives into many blocks",
+						note: "format markdown — the page shows as text, not as a running app",
 					};
 				},
 			},

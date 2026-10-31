@@ -4,12 +4,18 @@
  */
 
 export { createThreadActions, type ThreadActionsDeps } from "./thread-actions.js";
-export type { MessageFilter, ThreadFilter, ThreadSearchRow } from "./thread-service.js";
+export type {
+	AppMessageRow,
+	MessageFilter,
+	ThreadFilter,
+	ThreadSearchRow,
+} from "./thread-service.js";
 export {
 	findThread,
 	listMessages,
 	listReviewsOpenedBy,
 	listThreads,
+	searchAppMessages,
 	searchConversations,
 	upsertReviewOpened,
 } from "./thread-service.js";

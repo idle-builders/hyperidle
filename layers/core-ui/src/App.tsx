@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useParams, useSearchParams } from "react-router";
+import { AppPane } from "./Apps";
 import { FocusContext } from "./focus";
 import { Judge } from "./Judge";
 import { useAppLooks } from "./looks";
@@ -24,14 +25,17 @@ const Think = lazy(() => loadThink().then((m) => ({ default: m.Think })));
 function Shell() {
 	const me = useAction("open_user", {});
 	const [editing, setEditing] = useState(false);
+	const [search] = useSearchParams();
+	const app = search.get("app");
 	// Nothing opens the live connection until a person exists: it speaks for whoever asked for it.
 	if (!(me.data || me.problems)) return null;
 	if (me.data && me.data.user === null) return <Navigate to="/start" replace />;
 	return (
 		<FocusContext.Provider value={{ editing, setEditing }}>
-			<div className="frame">
+			<div className={app ? "frame frame--app" : "frame"}>
 				<Sidebar />
 				<Outlet />
+				{app && <AppPane key={app} param={app} />}
 			</div>
 		</FocusContext.Provider>
 	);
