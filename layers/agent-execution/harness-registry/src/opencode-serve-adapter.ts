@@ -2,16 +2,16 @@
  * OpenCodeServeAdapter — drives `opencode serve --port 0` (HTTP serve mode).
  *
  * The serve protocol keeps a long-lived HTTP server and supports delivering
- * messages into a running session via POST /api/session/{id}/prompt with
- * delivery "steer" — the feature `opencode run` cannot provide.
+ * messages into a running session via POST /session/{id}/prompt_async —
+ * the feature `opencode run` cannot provide.
  *
- * API: OpenCode v2 HTTP API.
- *   Session create:  POST /api/session
- *   Send prompt:     POST /api/session/{id}/prompt
- *   Event stream:    GET  /api/session/{id}/event  (SSE, text/event-stream)
- *   Interrupt:       POST /api/session/{id}/interrupt
+ * API: OpenCode stable HTTP API.
+ *   Session create:  POST /session?directory={path}
+ *   Send prompt:     POST /session/{id}/prompt_async?directory={path}
+ *   Event stream:    GET  /event?directory={path}  (global SSE, filter by sessionID)
+ *   Abort:           POST /session/{id}/abort?directory={path}
  *
- * Done detection: idle timer — resets on each SSE event, fires when quiet.
+ * Done detection: session.idle event (per sessionID); session.error → done.
  * Return gate:    in-process (same pattern as CodexAppServerAdapter).
  */
 
@@ -41,8 +41,10 @@ interface ReturnGate {
 
 interface ServeSession {
 	readonly opcodeSessionId: string;
+	/** The sandbox directory this session runs in (passed as ?directory= on every call). */
+	readonly sandboxPath: string;
 	done: boolean;
-	/** True when the session ended due to a server crash or SSE error (not idle timeout). */
+	/** True when the session ended due to a server crash or SSE error (not a model error). */
 	crashed: boolean;
 	readonly events: HarnessEvent[];
 	notifyStream: (() => void) | null;
@@ -52,9 +54,13 @@ interface ServeSession {
 	readonly configSessionId: string;
 	readonly modelTier: SessionConfig["modelTier"];
 	readonly sseAbort: AbortController;
-	idleTimer: ReturnType<typeof setTimeout> | null;
-	/** True while session.next.step.started seen without matching step.ended. */
-	stepActive: boolean;
+	fallbackTimer: ReturnType<typeof setTimeout> | null;
+	/** messageIDs confirmed to be from the assistant role. */
+	readonly assistantMessageIds: Set<string>;
+	/** Latest full text per text-part ID (text parts carry cumulative text). */
+	readonly latestPartText: Map<string, string>;
+	/** Part IDs for which a tool_call event has already been emitted. */
+	readonly emittedToolPartIds: Set<string>;
 }
 
 /** Injectable dependencies (for unit tests). */
@@ -66,12 +72,11 @@ interface OpenCodeServeAdapterDeps {
 	readonly xdgConfigHome?: string;
 }
 
-/** Idle timeout when no step has started yet (handles LLM 401 / fast errors). */
-const IDLE_TIMEOUT_INITIAL_MS = 5_000;
-/** Idle timeout after a step started and completed (short quiet period = done). */
-const IDLE_TIMEOUT_ACTIVE_MS = 3_000;
-/** Idle timeout while a step is actively running (long computation guard). */
-const IDLE_TIMEOUT_STEP_MS = 120_000;
+/**
+ * Fallback timeout: if session.idle never arrives (e.g. opencode hangs),
+ * mark the session done after this interval.
+ */
+const FALLBACK_TIMEOUT_MS = 120_000;
 
 let nextSessionSeq = 1;
 
@@ -87,41 +92,40 @@ function parseModel(selectedModel?: string): { id: string; providerID: string } 
 }
 
 /**
- * Map a raw SSE event from the v2 serve API to a canonical HarnessEvent.
- * Returns null for lifecycle events that carry no content.
+ * Map a message.part.updated part to a HarnessEvent.
+ * Returns null if the part should not emit an event (wrong role, no new content, duplicate tool).
  *
- * @lore: serve SSE types differ from CLI JSONL; text uses text.delta|ended; tools use tool.called; without this mapping all serve events are silently dropped
+ * @lore: cumulative text parts — diff against last seen per part id to emit deltas; only assistant messages emit text to avoid echoing user prompts
  */
-function parseServeEvent(raw: { type: string; data?: unknown }): HarnessEvent | null {
-	const data = (raw.data ?? {}) as Record<string, unknown>;
+function parsePartEvent(session: ServeSession, part: Record<string, unknown>): HarnessEvent | null {
+	const partId = typeof part.id === "string" ? part.id : "";
+	const messageId = typeof part.messageID === "string" ? part.messageID : "";
 
-	switch (raw.type) {
-		case "session.next.text.delta": {
-			const text = typeof data.text === "string" ? data.text : "";
-			return { type: "completion", text };
-		}
-		case "session.next.text.ended": {
-			// text.ended carries the full chunk text; delta already streamed partials.
-			// Emit as a benign empty to avoid double-counting completed text.
-			return { type: "completion", text: "" };
-		}
-		case "session.next.tool.called": {
-			const toolName = typeof data.tool === "string" ? data.tool : "unknown";
-			const args =
-				data.input !== null && typeof data.input === "object"
-					? (data.input as Record<string, unknown>)
-					: {};
-			return { type: "tool_call", toolName, args };
-		}
-		// Lifecycle events — benign completions to keep event stream clean
-		case "session.next.prompt.admitted":
-		case "session.next.prompted":
-		case "session.next.step.started":
-		case "session.next.step.ended":
-			return { type: "completion", text: "" };
-		default:
-			return null;
+	if (part.type === "text") {
+		// Only emit text from assistant messages — user prompts appear as text parts too.
+		if (!(messageId && session.assistantMessageIds.has(messageId))) return null;
+		const text = typeof part.text === "string" ? part.text : "";
+		const prev = session.latestPartText.get(partId) ?? "";
+		if (text.length <= prev.length) return null;
+		const delta = text.slice(prev.length);
+		session.latestPartText.set(partId, text);
+		return { type: "completion", text: delta };
 	}
+
+	if (part.type === "tool") {
+		// Emit once per tool part (state may update multiple times: pending → running → completed).
+		if (session.emittedToolPartIds.has(partId)) return null;
+		session.emittedToolPartIds.add(partId);
+		const state = part.state as Record<string, unknown> | undefined;
+		const toolName = typeof part.tool === "string" ? part.tool : "unknown";
+		const args =
+			state?.input !== null && typeof state?.input === "object"
+				? (state.input as Record<string, unknown>)
+				: {};
+		return { type: "tool_call", toolName, args };
+	}
+
+	return null;
 }
 
 export class OpenCodeServeAdapter implements HarnessAdapter {
@@ -145,41 +149,48 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
 		this.fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
 
-		// @lore: XDG_CONFIG_HOME isolates opencode config — prevents user's global ~/.config/opencode plugins from loading into sessions; same isolation as the CLI path
+		// @lore: XDG_CONFIG_HOME isolates opencode config — prevents user's global ~/.config/opencode plugins from loading into sessions
 		this.xdgConfigHome =
 			deps?.xdgConfigHome ?? fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-opencode-xdg-cfg-"));
 	}
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		const serverUrl = await this.ensureServer();
-
-		const model = parseModel(config.selectedModel);
+		const params = new URLSearchParams({ directory: config.sandboxPath });
 
 		// Create session
-		const createRes = await this.fetchFn(`${serverUrl}/api/session`, {
+		const createRes = await this.fetchFn(`${serverUrl}/session?${params}`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				location: { directory: config.sandboxPath },
-				...(model ? { model } : {}),
-			}),
+			body: "{}",
 		});
 		if (!createRes.ok) {
-			throw new Error(`opencode /api/session create failed: ${createRes.status}`);
+			throw new Error(`opencode /session create failed: ${createRes.status}`);
 		}
-		const createData = (await createRes.json()) as { data: { id: string } };
-		const opcodeSessionId = createData.data.id;
+		const createData = (await createRes.json()) as { id: string };
+		const opcodeSessionId = createData.id;
 
 		// Deliver the opening instruction
 		const instruction = config.instruction?.trim() || "proceed";
-		const promptRes = await this.fetchFn(`${serverUrl}/api/session/${opcodeSessionId}/prompt`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ prompt: { text: instruction }, resume: true }),
-		});
+		const model = parseModel(config.selectedModel);
+		const promptBody: Record<string, unknown> = {
+			parts: [{ type: "text", text: instruction }],
+		};
+		// @lore: prompt_async model uses modelID (not id); session create uses id
+		if (model) {
+			promptBody.model = { providerID: model.providerID, modelID: model.id };
+		}
+		const promptRes = await this.fetchFn(
+			`${serverUrl}/session/${opcodeSessionId}/prompt_async?${params}`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(promptBody),
+			},
+		);
 		if (!promptRes.ok) {
 			throw new Error(
-				`opencode /api/session/${opcodeSessionId}/prompt failed: ${promptRes.status}`,
+				`opencode /session/${opcodeSessionId}/prompt_async failed: ${promptRes.status}`,
 			);
 		}
 
@@ -196,6 +207,7 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 
 		const session: ServeSession = {
 			opcodeSessionId,
+			sandboxPath: config.sandboxPath,
 			done: false,
 			crashed: false,
 			events: [],
@@ -206,16 +218,17 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 			configSessionId: config.sessionId,
 			modelTier: config.modelTier,
 			sseAbort,
-			idleTimer: null,
-			stepActive: false,
+			fallbackTimer: null,
+			assistantMessageIds: new Set(),
+			latestPartText: new Map(),
+			emittedToolPartIds: new Set(),
 		};
 
 		this.sessions.set(sessionId, session);
 		this.activeSessionCount++;
 
-		// Subscribe to SSE in background — runs until session is done or aborted.
-		// Prompt was sent above, so at least 2 events exist; stream will stay open.
-		void this.subscribeSse(session, serverUrl, opcodeSessionId);
+		// Subscribe to the global SSE in background; session.idle signals done.
+		void this.subscribeSse(session, serverUrl);
 
 		return { sessionId };
 	}
@@ -272,14 +285,15 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 			return Promise.resolve(this.finishSession(handle.sessionId, session));
 		}
 
-		// Interrupt the running session and abort SSE
+		// Abort the running session and SSE
 		if (this.serverUrl) {
-			void this.fetchFn(`${this.serverUrl}/api/session/${session.opcodeSessionId}/interrupt`, {
+			const params = new URLSearchParams({ directory: session.sandboxPath });
+			void this.fetchFn(`${this.serverUrl}/session/${session.opcodeSessionId}/abort?${params}`, {
 				method: "POST",
 			});
 		}
 		session.sseAbort.abort();
-		clearTimeout(session.idleTimer ?? undefined);
+		clearTimeout(session.fallbackTimer ?? undefined);
 		session.done = true;
 		session.notifyStream?.();
 
@@ -292,24 +306,18 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 		const session = this.sessions.get(handle.sessionId);
 		if (!session || session.done || !this.serverUrl) return "unsupported";
 
+		const params = new URLSearchParams({ directory: session.sandboxPath });
 		try {
 			const res = await this.fetchFn(
-				`${this.serverUrl}/api/session/${session.opcodeSessionId}/prompt`,
+				`${this.serverUrl}/session/${session.opcodeSessionId}/prompt_async?${params}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					// delivery "steer" targets the running turn (not queue)
-					body: JSON.stringify({ prompt: { text }, delivery: "steer" }),
+					// Sending prompt_async to a busy session steers the current run.
+					body: JSON.stringify({ parts: [{ type: "text", text }] }),
 				},
 			);
-			if (res.ok) {
-				// Keep session alive: reset idle timer after delivery
-				this.resetIdleTimer(
-					session,
-					session.stepActive ? IDLE_TIMEOUT_STEP_MS : IDLE_TIMEOUT_INITIAL_MS,
-				);
-				return "delivered";
-			}
+			if (res.ok) return "delivered";
 			return "unsupported";
 		} catch {
 			return "unsupported";
@@ -322,7 +330,7 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: [],
 			mcpSupport: true,
-			// @lore: sdk-inprocess channel — gate runs entirely in streamEvents(); no file hook written to sandbox; no codex home, no opencode plugin
+			// @lore: sdk-inprocess channel — gate runs entirely in streamEvents(); no file hook written to sandbox; no opencode plugin needed
 			returnEnforcement: "sdk-inprocess",
 			// @lore: opencode-json — MCP server written to opencode.json in sandbox cwd; token is inline in headers.Authorization
 			cliMcpDialect: "opencode-json",
@@ -362,11 +370,10 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 			let stdoutBuf = "";
 			const onStdout = (chunk: Buffer): void => {
 				stdoutBuf += chunk.toString();
-				// @lore: opencode serve emits the port announcement on stdout, not stderr; reads child.stdout
-				const m = /opencode server listening on http:\/\/127\.0\.0\.1:(\d+)/.exec(stdoutBuf);
-				if (m) {
-					const port = m[1];
-					this.serverUrl = `http://127.0.0.1:${port}`;
+				// @lore: opencode serve announces the port on stdout; broader regex matches the actual binary output format
+				const m = /listening on (http:\/\/127\.0\.0\.1:\d+)/.exec(stdoutBuf);
+				if (m?.[1]) {
+					this.serverUrl = m[1];
 					child.stdout?.off("data", onStdout);
 					resolve(this.serverUrl);
 				}
@@ -408,22 +415,26 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 		}
 		// Isolated config dir: prevents user's global ~/.config/opencode plugins from loading.
 		env.XDG_CONFIG_HOME = this.xdgConfigHome;
-		// @lore: OPENCODE_PERMISSION — without it opencode asks before each tool call; non-TTY auto-rejects; {"*":"allow"} grants headless approval (same as CLI path)
+		// @lore: OPENCODE_PERMISSION — without it opencode asks before each tool call; non-TTY auto-rejects; {"*":"allow"} grants headless approval
 		env.OPENCODE_PERMISSION = '{"*":"allow"}';
 		return env;
 	}
 
-	private subscribeSse(
-		session: ServeSession,
-		serverUrl: string,
-		opcodeSessionId: string,
-	): Promise<void> {
-		// Start an initial idle timer — fires if no content events arrive at all
-		this.resetIdleTimer(session, IDLE_TIMEOUT_INITIAL_MS);
+	private subscribeSse(session: ServeSession, serverUrl: string): Promise<void> {
+		// Fallback timer: if session.idle never arrives, mark done after the deadline.
+		// @lore: unref() prevents the safety timer from keeping Node alive when all real work is done
+		if (!session.done) {
+			session.fallbackTimer = setTimeout(() => {
+				this.markDone(session);
+			}, FALLBACK_TIMEOUT_MS);
+			session.fallbackTimer.unref();
+		}
+
+		const params = new URLSearchParams({ directory: session.sandboxPath });
 
 		return (async () => {
 			try {
-				const res = await this.fetchFn(`${serverUrl}/api/session/${opcodeSessionId}/event`, {
+				const res = await this.fetchFn(`${serverUrl}/event?${params}`, {
 					signal: session.sseAbort.signal,
 				});
 				const reader = res.body?.getReader();
@@ -438,7 +449,7 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 				while (true) {
 					const { done, value } = await reader.read();
 					if (done) {
-						// SSE stream closed — session is done
+						// SSE stream closed — treat as done (not crashed unless already flagged).
 						this.markDone(session);
 						break;
 					}
@@ -450,7 +461,10 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 					for (const line of lines) {
 						if (!line.startsWith("data: ")) continue;
 						try {
-							const raw = JSON.parse(line.slice(6)) as { type: string; data?: unknown };
+							const raw = JSON.parse(line.slice(6)) as {
+								type: string;
+								properties?: unknown;
+							};
 							this.handleSseEvent(session, raw);
 						} catch {
 							// Skip unparseable lines
@@ -467,69 +481,77 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 		})();
 	}
 
-	private handleSseEvent(session: ServeSession, raw: { type: string; data?: unknown }): void {
-		switch (raw.type) {
-			case "session.next.step.started":
-				session.stepActive = true;
-				this.resetIdleTimer(session, IDLE_TIMEOUT_STEP_MS);
-				break;
-			case "session.next.step.ended":
-				session.stepActive = false;
-				this.resetIdleTimer(session, IDLE_TIMEOUT_ACTIVE_MS);
-				break;
-			case "session.next.prompt.admitted":
-			case "session.next.prompted":
-				// Initial admit/queue events — keep initial timer
-				break;
-			default:
-				// Any other event resets to appropriate timeout
-				this.resetIdleTimer(
-					session,
-					session.stepActive ? IDLE_TIMEOUT_STEP_MS : IDLE_TIMEOUT_INITIAL_MS,
-				);
-				break;
-		}
+	private handleSseEvent(session: ServeSession, raw: { type: string; properties?: unknown }): void {
+		const props = (raw.properties ?? {}) as Record<string, unknown>;
 
-		const event = parseServeEvent(raw);
-		if (event) {
-			session.events.push(event);
-			session.notifyStream?.();
+		// Filter: skip events from other sessions (global SSE carries all sessions).
+		if (props.sessionID !== undefined && props.sessionID !== session.opcodeSessionId) return;
+
+		switch (raw.type) {
+			case "session.idle":
+				// @lore: session.idle is the authoritative done signal in the stable opencode API
+				this.markDone(session);
+				break;
+			case "session.error":
+				// Model-level error (auth, context overflow, etc.) — not a server crash.
+				this.markDone(session);
+				break;
+			case "message.updated": {
+				const info = props.info as Record<string, unknown> | undefined;
+				if (info?.role === "assistant" && typeof info.id === "string") {
+					session.assistantMessageIds.add(info.id);
+				}
+				break;
+			}
+			case "message.part.updated": {
+				const part = props.part as Record<string, unknown> | undefined;
+				if (!part) break;
+				const event = parsePartEvent(session, part);
+				if (event) {
+					session.events.push(event);
+					session.notifyStream?.();
+				}
+				break;
+			}
+			default:
+				// All other event types ignored.
+				break;
 		}
 	}
 
 	private markDone(session: ServeSession): void {
-		clearTimeout(session.idleTimer ?? undefined);
-		session.idleTimer = null;
+		clearTimeout(session.fallbackTimer ?? undefined);
+		session.fallbackTimer = null;
 		if (!session.done) {
 			session.done = true;
 			session.notifyStream?.();
 		}
 	}
 
-	private resetIdleTimer(session: ServeSession, delayMs: number): void {
-		clearTimeout(session.idleTimer ?? undefined);
-		session.idleTimer = setTimeout(() => {
-			this.markDone(session);
-		}, delayMs);
-	}
-
 	/**
 	 * Send a follow-up prompt for the return gate (re-engage after block).
-	 * Resets `session.done = false` and restarts the idle timer.
+	 * Resets `session.done = false` and restarts the fallback timer.
 	 */
 	private async sendFollowUpPrompt(session: ServeSession, forceMessage: string): Promise<void> {
 		if (!this.serverUrl) return;
 		session.done = false;
-		// Restart idle timer for the new turn
-		this.resetIdleTimer(session, IDLE_TIMEOUT_INITIAL_MS);
+		// Restart fallback timer for the new turn.
+		session.fallbackTimer = setTimeout(() => {
+			this.markDone(session);
+		}, FALLBACK_TIMEOUT_MS);
+		session.fallbackTimer.unref();
+		const params = new URLSearchParams({ directory: session.sandboxPath });
 		try {
-			await this.fetchFn(`${this.serverUrl}/api/session/${session.opcodeSessionId}/prompt`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ prompt: { text: forceMessage }, resume: true }),
-			});
+			await this.fetchFn(
+				`${this.serverUrl}/session/${session.opcodeSessionId}/prompt_async?${params}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ parts: [{ type: "text", text: forceMessage }] }),
+				},
+			);
 		} catch {
-			// Prompt delivery failed — allow session to proceed to end
+			// Prompt delivery failed — allow session to proceed to end.
 			this.markDone(session);
 		}
 	}
@@ -562,7 +584,7 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 	}
 
 	private finishSession(sessionId: string, session: ServeSession): SessionResult {
-		clearTimeout(session.idleTimer ?? undefined);
+		clearTimeout(session.fallbackTimer ?? undefined);
 		this.forceReturnCounts.set(session.configSessionId, session.gateForceCount);
 		this.sessions.delete(sessionId);
 		// Decrement active count; auto-kill the shared server when no sessions remain.

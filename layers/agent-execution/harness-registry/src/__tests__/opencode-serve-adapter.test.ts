@@ -16,13 +16,16 @@ import { OpenCodeServeAdapter } from "../opencode-serve-adapter.js";
 /** A fake SSE stream that lets tests push events and close the stream. */
 class FakeSseStream {
 	private readonly chunks: string[] = [];
-	private closeResolve?: () => void;
+	// Tracked so pull() can close immediately if close() was called before the first read.
+	private closed = false;
 	private readonly readers: Array<{
 		resolve(result: { done: boolean; value?: Uint8Array }): void;
 	}> = [];
 
-	pushEvent(type: string, data: Record<string, unknown>): void {
-		const event = { type, data };
+	/** Push an event in the stable API format: {type, properties}. */
+	pushEvent(type: string, properties: Record<string, unknown>): void {
+		if (this.closed) return;
+		const event = { type, properties };
 		const line = `data: ${JSON.stringify(event)}\n\n`;
 		const chunk = new TextEncoder().encode(line);
 		if (this.readers.length > 0) {
@@ -34,23 +37,28 @@ class FakeSseStream {
 	}
 
 	close(): void {
+		this.closed = true;
 		if (this.readers.length > 0) {
 			for (const r of this.readers) {
 				r.resolve({ done: true });
 			}
 			this.readers.length = 0;
 		}
-		this.closeResolve?.();
 	}
 
 	asReadableStream(): ReadableStream<Uint8Array> {
 		const pushChunks = this.chunks;
 		const readers = this.readers;
+		const isClosed = () => this.closed;
 		return new ReadableStream<Uint8Array>({
 			pull(controller) {
 				if (pushChunks.length > 0) {
 					const line = pushChunks.shift();
 					if (line) controller.enqueue(new TextEncoder().encode(line));
+					return;
+				}
+				if (isClosed()) {
+					controller.close();
 					return;
 				}
 				return new Promise<void>((resolve) => {
@@ -108,37 +116,35 @@ function makeFakeSpawn(port = 19800): typeof spawn {
 	}) as unknown as typeof spawn;
 }
 
-/** Build a fake fetch that intercepts opencode API calls. */
+/** Build a fake fetch that intercepts opencode stable API calls. */
 function makeFakeFetch(sseStream: FakeSseStream) {
 	return vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
 		const urlStr = String(url);
 
-		// Session create
-		if (urlStr.endsWith("/api/session") && init?.method === "POST") {
-			return new Response(JSON.stringify({ data: { id: "ses_fake123" } }), {
+		// Session create: POST /session?directory=...
+		if (urlStr.includes("/session?") && !urlStr.includes("/session/") && init?.method === "POST") {
+			return new Response(JSON.stringify({ id: "ses_fake123" }), {
 				status: 200,
 				headers: { "Content-Type": "application/json" },
 			});
 		}
 
-		// Prompt
-		if (urlStr.includes("/api/session/ses_fake123/prompt") && init?.method === "POST") {
-			return new Response(JSON.stringify({ data: { admittedSeq: 1, delivery: "steer" } }), {
-				status: 200,
-			});
+		// Prompt async: POST /session/ses_fake123/prompt_async
+		if (urlStr.includes("/session/ses_fake123/prompt_async") && init?.method === "POST") {
+			return new Response(null, { status: 204 });
 		}
 
-		// SSE event stream
-		if (urlStr.includes("/api/session/ses_fake123/event")) {
+		// Global SSE event stream: GET /event
+		if (urlStr.includes("/event?")) {
 			return new Response(sseStream.asReadableStream(), {
 				status: 200,
 				headers: { "Content-Type": "text/event-stream" },
 			});
 		}
 
-		// Interrupt
-		if (urlStr.includes("/interrupt") && init?.method === "POST") {
-			return new Response(null, { status: 200 });
+		// Abort: POST /session/ses_fake123/abort
+		if (urlStr.includes("/abort") && init?.method === "POST") {
+			return new Response(JSON.stringify(true), { status: 200 });
 		}
 
 		return new Response("not found", { status: 404 });
@@ -173,18 +179,20 @@ describe("OpenCodeServeAdapter", () => {
 		const handle = await adapter.startSession(makeConfig({ instruction: "say HELLO" }));
 		expect(handle.sessionId).toMatch(/^opencode-serve-/);
 
-		// Session create was called
-		const createCall = fakeFetch.mock.calls.find(([url]) => String(url).endsWith("/api/session"));
+		// Session create was called with directory query param (not in body)
+		const createCall = fakeFetch.mock.calls.find(
+			([url]) => String(url).includes("/session?") && !String(url).includes("/session/"),
+		);
 		expect(createCall).toBeDefined();
-		const createBody = JSON.parse(createCall?.[1]?.body as string);
-		expect(createBody.location.directory).toBe("/tmp/sandbox");
+		expect(String(createCall?.[0])).toContain("directory=");
 
-		// Initial prompt was sent
-		const promptCall = fakeFetch.mock.calls.find(([url]) => String(url).includes("/prompt"));
+		// Initial prompt was sent via prompt_async
+		const promptCall = fakeFetch.mock.calls.find(([url]) => String(url).includes("/prompt_async"));
 		expect(promptCall).toBeDefined();
-		const promptBody = JSON.parse(promptCall?.[1]?.body as string);
-		expect(promptBody.prompt.text).toBe("say HELLO");
-		expect(promptBody.resume).toBe(true);
+		const promptBody = JSON.parse(promptCall?.[1]?.body as string) as {
+			parts: Array<{ type: string; text: string }>;
+		};
+		expect(promptBody.parts[0]?.text).toBe("say HELLO");
 
 		sseStream.close();
 	});
@@ -202,10 +210,20 @@ describe("OpenCodeServeAdapter", () => {
 
 		const handle = await adapter.startSession(makeConfig());
 
-		// Push events and then close
 		setImmediate(() => {
-			sseStream.pushEvent("session.next.text.delta", { text: "Hello" });
-			sseStream.pushEvent("session.next.text.delta", { text: " World" });
+			// Announce assistant message first so text parts are emitted.
+			sseStream.pushEvent("message.updated", {
+				sessionID: "ses_fake123",
+				info: { id: "msg1", role: "assistant" },
+			});
+			sseStream.pushEvent("message.part.updated", {
+				sessionID: "ses_fake123",
+				part: { id: "prt1", messageID: "msg1", type: "text", text: "Hello" },
+			});
+			sseStream.pushEvent("message.part.updated", {
+				sessionID: "ses_fake123",
+				part: { id: "prt2", messageID: "msg1", type: "text", text: " World" },
+			});
 			sseStream.close();
 		});
 
@@ -218,6 +236,49 @@ describe("OpenCodeServeAdapter", () => {
 			(e) => e.type === "completion" && (e as { text: string }).text !== "",
 		);
 		expect(completions.map((e) => (e as { text: string }).text)).toEqual(["Hello", " World"]);
+	});
+
+	test("text from user messages is not emitted", async () => {
+		const sseStream = new FakeSseStream();
+		const fakeFetch = makeFakeFetch(sseStream);
+		const fakeSpawn = makeFakeSpawn();
+
+		const adapter = new OpenCodeServeAdapter({
+			spawnFn: fakeSpawn,
+			fetchFn: fakeFetch as typeof globalThis.fetch,
+			xdgConfigHome: xdgCfgDir,
+		});
+
+		const handle = await adapter.startSession(makeConfig());
+
+		setImmediate(() => {
+			// User message — no message.updated with role "assistant"
+			sseStream.pushEvent("message.part.updated", {
+				sessionID: "ses_fake123",
+				part: { id: "prt_user", messageID: "msg_user", type: "text", text: "user prompt" },
+			});
+			// Only then announce the assistant message
+			sseStream.pushEvent("message.updated", {
+				sessionID: "ses_fake123",
+				info: { id: "msg_asst", role: "assistant" },
+			});
+			sseStream.pushEvent("message.part.updated", {
+				sessionID: "ses_fake123",
+				part: { id: "prt_asst", messageID: "msg_asst", type: "text", text: "assistant reply" },
+			});
+			sseStream.close();
+		});
+
+		const events: Array<{ type: string; text?: string }> = [];
+		for await (const evt of adapter.streamEvents(handle)) {
+			events.push(evt);
+		}
+
+		const completions = events
+			.filter((e) => e.type === "completion")
+			.map((e) => (e as { text: string }).text);
+		// Only assistant reply, not user prompt
+		expect(completions).toEqual(["assistant reply"]);
 	});
 
 	test("streamEvents yields tool_call events", async () => {
@@ -234,12 +295,17 @@ describe("OpenCodeServeAdapter", () => {
 		const handle = await adapter.startSession(makeConfig());
 
 		setImmediate(() => {
-			sseStream.pushEvent("session.next.step.started", {});
-			sseStream.pushEvent("session.next.tool.called", {
-				tool: "bash",
-				input: { command: "echo hi" },
+			sseStream.pushEvent("message.part.updated", {
+				sessionID: "ses_fake123",
+				part: {
+					id: "prt_tool1",
+					messageID: "msg1",
+					type: "tool",
+					callID: "call1",
+					tool: "bash",
+					state: { status: "running", input: { command: "echo hi" }, time: { start: 1 } },
+				},
 			});
-			sseStream.pushEvent("session.next.step.ended", {});
 			sseStream.close();
 		});
 
@@ -255,7 +321,133 @@ describe("OpenCodeServeAdapter", () => {
 		expect(toolCall?.args).toEqual({ command: "echo hi" });
 	});
 
-	test("deliver sends steer prompt and returns delivered", async () => {
+	test("tool_call emitted only once per part (deduplicated across state updates)", async () => {
+		const sseStream = new FakeSseStream();
+		const fakeFetch = makeFakeFetch(sseStream);
+		const fakeSpawn = makeFakeSpawn();
+
+		const adapter = new OpenCodeServeAdapter({
+			spawnFn: fakeSpawn,
+			fetchFn: fakeFetch as typeof globalThis.fetch,
+			xdgConfigHome: xdgCfgDir,
+		});
+
+		const handle = await adapter.startSession(makeConfig());
+
+		setImmediate(() => {
+			// Same part ID emitted twice (pending → running state update)
+			sseStream.pushEvent("message.part.updated", {
+				sessionID: "ses_fake123",
+				part: {
+					id: "prt_tool1",
+					messageID: "msg1",
+					type: "tool",
+					callID: "call1",
+					tool: "bash",
+					state: { status: "pending", input: { command: "echo hi" }, raw: "" },
+				},
+			});
+			sseStream.pushEvent("message.part.updated", {
+				sessionID: "ses_fake123",
+				part: {
+					id: "prt_tool1",
+					messageID: "msg1",
+					type: "tool",
+					callID: "call1",
+					tool: "bash",
+					state: { status: "running", input: { command: "echo hi" }, time: { start: 1 } },
+				},
+			});
+			sseStream.close();
+		});
+
+		const events: Array<{ type: string }> = [];
+		for await (const evt of adapter.streamEvents(handle)) {
+			events.push(evt);
+		}
+
+		const toolCalls = events.filter((e) => e.type === "tool_call");
+		expect(toolCalls).toHaveLength(1);
+	});
+
+	test("session.idle event marks session done", async () => {
+		const sseStream = new FakeSseStream();
+		const fakeFetch = makeFakeFetch(sseStream);
+		const fakeSpawn = makeFakeSpawn();
+
+		const adapter = new OpenCodeServeAdapter({
+			spawnFn: fakeSpawn,
+			fetchFn: fakeFetch as typeof globalThis.fetch,
+			xdgConfigHome: xdgCfgDir,
+		});
+
+		const handle = await adapter.startSession(makeConfig());
+
+		setImmediate(() => {
+			sseStream.pushEvent("message.updated", {
+				sessionID: "ses_fake123",
+				info: { id: "msg1", role: "assistant" },
+			});
+			sseStream.pushEvent("message.part.updated", {
+				sessionID: "ses_fake123",
+				part: { id: "prt1", messageID: "msg1", type: "text", text: "done" },
+			});
+			// session.idle ends the session without closing the SSE stream
+			sseStream.pushEvent("session.idle", { sessionID: "ses_fake123" });
+		});
+
+		const events: Array<{ type: string; text?: string }> = [];
+		for await (const evt of adapter.streamEvents(handle)) {
+			events.push(evt);
+		}
+
+		const completions = events.filter((e) => e.type === "completion");
+		expect(completions).toHaveLength(1);
+
+		// Clean up
+		sseStream.close();
+	});
+
+	test("events from other sessions are ignored", async () => {
+		const sseStream = new FakeSseStream();
+		const fakeFetch = makeFakeFetch(sseStream);
+		const fakeSpawn = makeFakeSpawn();
+
+		const adapter = new OpenCodeServeAdapter({
+			spawnFn: fakeSpawn,
+			fetchFn: fakeFetch as typeof globalThis.fetch,
+			xdgConfigHome: xdgCfgDir,
+		});
+
+		const handle = await adapter.startSession(makeConfig());
+
+		setImmediate(() => {
+			// Event from a DIFFERENT session — must be ignored
+			sseStream.pushEvent("message.updated", {
+				sessionID: "ses_other999",
+				info: { id: "msg_other", role: "assistant" },
+			});
+			sseStream.pushEvent("message.part.updated", {
+				sessionID: "ses_other999",
+				part: { id: "prt_other", messageID: "msg_other", type: "text", text: "not ours" },
+			});
+			sseStream.pushEvent("session.idle", { sessionID: "ses_other999" });
+			// Correct session idle
+			sseStream.pushEvent("session.idle", { sessionID: "ses_fake123" });
+		});
+
+		const events: Array<{ type: string }> = [];
+		for await (const evt of adapter.streamEvents(handle)) {
+			events.push(evt);
+		}
+
+		const completions = events.filter((e) => e.type === "completion");
+		expect(completions).toHaveLength(0);
+		// Clean up
+		sseStream.close();
+	});
+
+	test("deliver sends prompt_async and returns delivered", async () => {
 		const sseStream = new FakeSseStream();
 		const fakeFetch = makeFakeFetch(sseStream);
 		const fakeSpawn = makeFakeSpawn();
@@ -270,11 +462,14 @@ describe("OpenCodeServeAdapter", () => {
 		const result = await adapter.deliver(handle, "focus on the main task");
 		expect(result).toBe("delivered");
 
-		// Check the steer call used delivery: "steer"
-		const steerCall = fakeFetch.mock.calls.filter(([url]) => String(url).includes("/prompt")).pop();
-		const steerBody = JSON.parse(steerCall?.[1]?.body as string);
-		expect(steerBody.delivery).toBe("steer");
-		expect(steerBody.prompt.text).toBe("focus on the main task");
+		// Check the deliver call used prompt_async
+		const steerCall = fakeFetch.mock.calls
+			.filter(([url]) => String(url).includes("/prompt_async"))
+			.pop();
+		const steerBody = JSON.parse(steerCall?.[1]?.body as string) as {
+			parts: Array<{ type: string; text: string }>;
+		};
+		expect(steerBody.parts[0]?.text).toBe("focus on the main task");
 
 		sseStream.close();
 	});
@@ -326,7 +521,7 @@ describe("OpenCodeServeAdapter", () => {
 		expect(result.outcome).toBe("completed");
 	});
 
-	test("model parsing splits provider/model correctly", async () => {
+	test("model passed to prompt_async as {providerID, modelID}", async () => {
 		const sseStream = new FakeSseStream();
 		const fakeFetch = makeFakeFetch(sseStream);
 		const fakeSpawn = makeFakeSpawn();
@@ -339,11 +534,14 @@ describe("OpenCodeServeAdapter", () => {
 
 		await adapter.startSession(makeConfig({ selectedModel: "openrouter/z-ai/glm-4.7-flash" }));
 
-		const createCall = fakeFetch.mock.calls.find(([url]) => String(url).endsWith("/api/session"));
-		const createBody = JSON.parse(createCall?.[1]?.body as string);
-		expect(createBody.model).toEqual({
+		// Model appears on prompt_async (not on session create)
+		const promptCall = fakeFetch.mock.calls.find(([url]) => String(url).includes("/prompt_async"));
+		const promptBody = JSON.parse(promptCall?.[1]?.body as string) as {
+			model?: { providerID: string; modelID: string };
+		};
+		expect(promptBody.model).toEqual({
 			providerID: "openrouter",
-			id: "z-ai/glm-4.7-flash",
+			modelID: "z-ai/glm-4.7-flash",
 		});
 
 		sseStream.close();
@@ -353,16 +551,28 @@ describe("OpenCodeServeAdapter", () => {
 		const sseStream = new FakeSseStream();
 
 		let fetchCallCount = 0;
+		let promptCount = 0;
 		const fetchFn = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
 			const urlStr = String(url);
 
-			if (urlStr.endsWith("/api/session") && init?.method === "POST") {
-				return new Response(JSON.stringify({ data: { id: "ses_gate" } }), { status: 200 });
+			if (
+				urlStr.includes("/session?") &&
+				!urlStr.includes("/session/") &&
+				init?.method === "POST"
+			) {
+				return new Response(JSON.stringify({ id: "ses_gate" }), { status: 200 });
 			}
-			if (urlStr.includes("/api/session/ses_gate/prompt") && init?.method === "POST") {
-				return new Response(JSON.stringify({ data: {} }), { status: 200 });
+			if (urlStr.includes("/session/ses_gate/prompt_async") && init?.method === "POST") {
+				promptCount++;
+				if (promptCount > 1) {
+					// Follow-up prompt (gate re-engage) — schedule idle so the generator exits
+					setImmediate(() => {
+						sseStream.pushEvent("session.idle", { sessionID: "ses_gate" });
+					});
+				}
+				return new Response(null, { status: 204 });
 			}
-			if (urlStr.includes("/api/session/ses_gate/event")) {
+			if (urlStr.includes("/event?")) {
 				return new Response(sseStream.asReadableStream(), {
 					status: 200,
 					headers: { "Content-Type": "text/event-stream" },
@@ -394,9 +604,9 @@ describe("OpenCodeServeAdapter", () => {
 			}),
 		);
 
-		// Close after first stream subscription (simulates end of first turn)
+		// Signal first turn done via session.idle (stream stays open for follow-up turn)
 		setImmediate(() => {
-			sseStream.close();
+			sseStream.pushEvent("session.idle", { sessionID: "ses_gate" });
 		});
 
 		// Drain the stream — gate fires, follow-up sent, then approved
@@ -483,11 +693,15 @@ describe("OpenCodeServeAdapter", () => {
 		// SSE fetch hangs until aborted — simulates an active session mid-turn
 		const fakeFetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
 			const urlStr = String(url);
-			if (urlStr.endsWith("/api/session") && init?.method === "POST") {
-				return new Response(JSON.stringify({ data: { id: "ses_crash" } }), { status: 200 });
+			if (
+				urlStr.includes("/session?") &&
+				!urlStr.includes("/session/") &&
+				init?.method === "POST"
+			) {
+				return new Response(JSON.stringify({ id: "ses_crash" }), { status: 200 });
 			}
-			if (urlStr.includes("/prompt") && init?.method === "POST") {
-				return new Response(JSON.stringify({ data: {} }), { status: 200 });
+			if (urlStr.includes("/prompt_async") && init?.method === "POST") {
+				return new Response(null, { status: 204 });
 			}
 			if (urlStr.includes("/event")) {
 				// Hang until aborted — represents an active SSE stream
@@ -523,29 +737,31 @@ describe("OpenCodeServeAdapter", () => {
 	test("server auto-killed when last session ends", async () => {
 		const killSpy = vi.fn();
 
-		// Two separate SSE streams, one per session
+		// Two separate SSE streams — one per /event subscription (routed by call count).
 		const sseStream1 = new FakeSseStream();
 		const sseStream2 = new FakeSseStream();
 		let sessionIdx = 0;
+		let eventCallCount = 0;
 
 		const fakeFetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
 			const urlStr = String(url);
-			if (urlStr.endsWith("/api/session") && init?.method === "POST") {
+			if (
+				urlStr.includes("/session?") &&
+				!urlStr.includes("/session/") &&
+				init?.method === "POST"
+			) {
 				sessionIdx++;
 				const id = `ses_s${sessionIdx}`;
-				return new Response(JSON.stringify({ data: { id } }), { status: 200 });
+				return new Response(JSON.stringify({ id }), { status: 200 });
 			}
-			if (urlStr.includes("/prompt") && init?.method === "POST") {
-				return new Response(JSON.stringify({ data: {} }), { status: 200 });
+			if (urlStr.includes("/prompt_async") && init?.method === "POST") {
+				return new Response(null, { status: 204 });
 			}
-			if (urlStr.includes("/ses_s1/event")) {
-				return new Response(sseStream1.asReadableStream(), {
-					status: 200,
-					headers: { "Content-Type": "text/event-stream" },
-				});
-			}
-			if (urlStr.includes("/ses_s2/event")) {
-				return new Response(sseStream2.asReadableStream(), {
+			if (urlStr.includes("/event?")) {
+				// Each /event subscription gets its own stream (first call → stream1, second → stream2).
+				eventCallCount++;
+				const stream = eventCallCount === 1 ? sseStream1 : sseStream2;
+				return new Response(stream.asReadableStream(), {
 					status: 200,
 					headers: { "Content-Type": "text/event-stream" },
 				});
