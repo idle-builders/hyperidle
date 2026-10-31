@@ -295,14 +295,12 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 
 		if (this.serverUrl) {
 			const params = new URLSearchParams({ directory: session.sandboxPath });
-			// @lore: must not be void — the server may be SIGKILL'd right after this call; a void'd fetch
-			// that rejects after the server dies becomes an unhandled rejection
+			// @lore: await the abort — the server can be killed right after, and an un-awaited fetch then rejects unhandled
 			try {
 				await Promise.race([
-					this.fetchFn(
-						`${this.serverUrl}/session/${session.opcodeSessionId}/abort?${params}`,
-						{ method: "POST" },
-					),
+					this.fetchFn(`${this.serverUrl}/session/${session.opcodeSessionId}/abort?${params}`, {
+						method: "POST",
+					}),
 					new Promise<never>((_, reject) =>
 						setTimeout(() => reject(new Error("abort timed out")), this.abortTimeoutMs).unref(),
 					),

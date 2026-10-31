@@ -573,7 +573,11 @@ describe("OpenCodeServeAdapter", () => {
 		// prevents the unhandledRejection event from firing and makes this test unable to go red.
 		const plainFetch = async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
 			const urlStr = String(url);
-			if (urlStr.includes("/session?") && !urlStr.includes("/session/") && init?.method === "POST") {
+			if (
+				urlStr.includes("/session?") &&
+				!urlStr.includes("/session/") &&
+				init?.method === "POST"
+			) {
 				return new Response(JSON.stringify({ id: "ses_abort_fail" }), { status: 200 });
 			}
 			if (urlStr.includes("/prompt_async") && init?.method === "POST") {
@@ -616,7 +620,9 @@ describe("OpenCodeServeAdapter", () => {
 			expect(result.outcome).toBe("completed");
 			// Give Node.js a tick to detect any unhandled rejection from the abort fetch
 			await new Promise<void>((resolve) => setImmediate(resolve));
-			expect(unhandledRejections, "stopSession must not leave an unhandled rejection").toHaveLength(0);
+			expect(unhandledRejections, "stopSession must not leave an unhandled rejection").toHaveLength(
+				0,
+			);
 		} finally {
 			process.off("unhandledRejection", urHandler);
 		}

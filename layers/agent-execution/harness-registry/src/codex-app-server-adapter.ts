@@ -14,7 +14,6 @@ import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { modelOptionArgv } from "./model-options.js";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -23,6 +22,7 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/harness-protocol";
+import { modelOptionArgv } from "./model-options.js";
 
 interface PendingRequest {
 	resolve(result: unknown): void;
@@ -268,7 +268,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			sandbox: "workspace-write",
 			// @lore: approvalPolicy never — prevents server-initiated approval requests during tests and production sessions
 			approvalPolicy: "never",
-			// @lore: ephemeral false is safe — CODEX_HOME is per-sandbox (buildEnv sets CODEX_HOME=sandboxPath/.codex-home); session history stays in the sandbox, not in the user's ~/.codex
+			// @lore: ephemeral false is safe — CODEX_HOME is the sandbox's .codex-home, so history never lands in the user's ~/.codex
 			ephemeral: false,
 		})) as {
 			thread: { id: string };
@@ -366,9 +366,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			}
 		}
 
-		// @lore: must wait for actual process exit — codex writes session JSONL and plugin
-		// staging files to .codex-home after turn/completed; resolving before exit races with
-		// sandbox cleanup and causes ENOTEMPTY.
+		// @lore: wait for real exit — codex keeps writing .codex-home after turn/completed; resolving early races sandbox cleanup
 		return new Promise<SessionResult>((resolve) => {
 			// Escalate to SIGKILL if SIGTERM is ignored (unref so the timer does not keep Node alive).
 			const sigkillTimer = setTimeout(() => {
