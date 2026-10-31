@@ -284,6 +284,47 @@ export function searchConversations(
 		.limit(limit);
 }
 
+export interface AppMessageRow {
+	readonly id: string;
+	readonly threadId: string;
+	readonly payload: string;
+	readonly createdAt: string;
+	readonly participants: string;
+}
+
+/**
+ * Messages that are apps whose page matches `messagePattern`, in threads whose `participants`
+ * match `participantPattern` — newest first, up to `limit`.
+ */
+export function searchAppMessages(
+	exec: HyperIdleDb,
+	participantPattern: string,
+	messagePattern: string,
+	limit: number,
+): Promise<AppMessageRow[]> {
+	return exec
+		.select({
+			id: messages.id,
+			threadId: messages.threadId,
+			payload: messages.payload,
+			createdAt: messages.createdAt,
+			participants: threads.participants,
+		})
+		.from(messages)
+		.innerJoin(threads, eq(messages.threadId, threads.id))
+		.where(
+			and(
+				sql`${threads.participants} LIKE ${participantPattern} ESCAPE '\\'`,
+				sql`${messages.payload} LIKE '%"format":"html"%'`,
+				sql`${messages.payload} ILIKE ${messagePattern} ESCAPE '\\'`,
+				isNull(messages.deletedAt),
+				isNull(threads.deletedAt),
+			),
+		)
+		.orderBy(desc(messages.createdAt), messages.id)
+		.limit(limit);
+}
+
 /** Threads whose STORED title matches, independent of any message content. */
 export function searchThreadsByTitle(
 	exec: HyperIdleDb,

@@ -42,6 +42,7 @@ const task = (id: string, t: Partial<Task> = {}): Task => ({
 	ownerAgentId: "builder",
 	title: id,
 	description: null,
+	descriptionFormat: "markdown",
 	doneWhen: [],
 	state: "in_progress",
 	dependencies: null,

@@ -221,6 +221,85 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
+	test("an app finds by what it says about itself and opens beside where it was made, never where you cannot read", async ({
+		app,
+		db,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		const userId = "api-key-user";
+		await seedUser(db, userId);
+		await seedUser(db, "someone-else");
+		const page = (title: string) =>
+			`<!doctype html><html><head><title>${title}</title><meta name="description" content="Pick a zebra plan"></head><body><p>hi</p></body></html>`;
+		for (const [threadId, who, title] of [
+			["th-app-mine", userId, "Zebra plans"],
+			["th-app-theirs", "someone-else", "Zebra secret"],
+		] as const) {
+			await seedThread(db, {
+				threadId,
+				senderId: who,
+				hostKind: "user",
+				hostId: who,
+				participants: JSON.stringify([who]),
+				firstMessageText: "Here it is",
+			});
+			await db.insert(messages).values({
+				id: `${threadId}-app`,
+				senderId: who,
+				threadId,
+				type: "plain",
+				payload: JSON.stringify({ text: page(title), format: "html" }),
+				clientKey: `${threadId}-ck-app`,
+				createdAt: NOW,
+			});
+		}
+		await db.insert(documents).values({
+			id: "doc-app-zebra",
+			title: "Zebra calculator",
+			body: page("Zebra calculator"),
+			format: "html",
+			status: "active",
+			scopeKind: "user",
+			scopeId: userId,
+			parentKind: "thread",
+			parentId: "th-app-mine",
+			updatedBy: userId,
+			version: 1,
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+
+		const res = await app.request("/api/search?q=zebra", { headers: authHeaders() });
+		const body = (await res.json()) as {
+			conversations: { id: string; snippet: string }[];
+			documents: unknown[];
+			apps: { kind: string; id: string; title: string; snippet: string; on: unknown }[];
+		};
+		expect(body.apps.map((a) => [a.kind, a.id, a.title, a.snippet, a.on]).sort()).toEqual(
+			[
+				[
+					"document",
+					"doc-app-zebra",
+					"Zebra calculator",
+					"Pick a zebra plan",
+					{ kind: "thread", id: "th-app-mine" },
+				],
+				[
+					"message",
+					"th-app-mine-app",
+					"Zebra plans",
+					"Pick a zebra plan",
+					{ kind: "thread", id: "th-app-mine" },
+				],
+			].sort(),
+		);
+		expect(body.documents).toEqual([]);
+		expect(body.conversations.map((c) => [c.id, c.snippet])).toEqual([
+			["th-app-mine", "Pick a zebra plan"],
+		]);
+		vi.unstubAllEnvs();
+	});
+
 	test("excludes conversations where current user is not a participant", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 

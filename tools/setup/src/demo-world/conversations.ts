@@ -8,6 +8,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { Anchor, Flag, Pin, ReviewPart, Spot } from "@hyperidle/domain-model";
+import { OPTIONS_PAGE } from "./apps.js";
 import { TEN_DAYS_BODY } from "./documents.js";
 import {
 	BUILDER_ID,
@@ -436,6 +437,14 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 				"Two options drafted. Option B shortens the trial to 10 days and adds a reminder.",
 			),
 			createdAt: clock.at(1, "16:40"),
+		},
+		{
+			id: "demo-msg-q4-03",
+			threadId: THREAD_PRICING_Q4,
+			senderId: GROWTH_ID,
+			type: "plain",
+			payload: { text: OPTIONS_PAGE, format: "html" },
+			createdAt: clock.at(1, "16:41"),
 		},
 		{
 			id: "demo-msg-onboarding-01",

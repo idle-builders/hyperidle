@@ -35,7 +35,7 @@ Host is immutable after creation.
 
 `MESSAGE_TYPES` (`thread.ts`): `plain | review | questionnaire | verdict | answer`.
 
-- **plain** — text, optional inline refs (entity refs, mention refs), optional `anchor`: where a comment points — a pin on a part of a review, or on a stretch of the text of the thread's document (see [Comments on a document](#comments-on-a-document)), and optional `change`: a change to that text it proposes.
+- **plain** — text, optional `format` (`html` makes the whole message an app: its text is one whole page, up to 256 KB, shown as a card that opens it beside the conversation; it cannot carry an anchor or a change, and its page mentions nobody; a text message is at most 16 KB), optional inline refs (entity refs, mention refs), optional `anchor`: where a comment points — a pin on a part of a review, or on a stretch of the text of the thread's document (see [Comments on a document](#comments-on-a-document)), and optional `change`: a change to that text it proposes.
 - **review** — something produced, put to a person to judge; has a `title`, `reasoning`, and optionally `stage`, `parts`, `flags`, `previousReviewId` and `changed` (see below).
 - **questionnaire** — agent asks a constrained question; has a `title`, `question`, `options` (up to 16).
 - **verdict** — a human approves or rejects a review; carries `decision`, `resolvesMessageId` and an optional `note`.

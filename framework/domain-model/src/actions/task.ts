@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FORMATS } from "../app-page.js";
 import { TASK_OUTCOME_VERDICTS, TASK_STATES, type TaskState } from "../types.js";
 import type { ActionDeclaration, Problem } from "./action.js";
 
@@ -70,6 +71,8 @@ export const TaskSchema = z.object({
 	ownerAgentId: z.string().nullable(),
 	title: z.string(),
 	description: z.string().nullable(),
+	/** `html`: the description is an app — one whole page showing what the task is after. */
+	descriptionFormat: z.enum(FORMATS),
 	/** Parsed done-when lines (stored as JSON text in the DB). */
 	doneWhen: z.array(DoneWhenLineSchema),
 	state: z.enum(TASK_STATES),
@@ -184,6 +187,8 @@ export const EditTaskInputSchema = z
 		ownerAgentId: z.string().nullable().optional(),
 		title: z.string().min(1).optional(),
 		description: z.string().nullable().optional(),
+		/** `html` makes the description an app: one whole page. Default `markdown`. */
+		descriptionFormat: z.enum(FORMATS).optional(),
 		/** Whole-list upsert — replaces the existing list. */
 		doneWhen: z.array(DoneWhenLineSchema).optional(),
 		state: z.enum(TASK_STATES).optional(),
@@ -227,7 +232,9 @@ export type EditTaskInput = z.infer<typeof EditTaskInputSchema>;
 export const editTask: ActionDeclaration<EditTaskInput, TaskView> = {
 	name: "edit_task",
 	sentence:
-		"Edit a task, new or existing: title, content, state, attachments, assignment (handoff), outcome, notes.",
+		"Edit a task, new or existing: title, content, state, attachments, assignment (handoff), outcome, notes. " +
+		'The description can be an app that shows what the task is after: say `descriptionFormat: "html"` ' +
+		"and write one whole HTML page, sealed off from the network, as the description.",
 	input: EditTaskInputSchema,
 	output: TaskViewSchema,
 };

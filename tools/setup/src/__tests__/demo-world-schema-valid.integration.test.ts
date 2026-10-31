@@ -40,7 +40,7 @@ describe("demo world schema validation", () => {
 		const taskRows = await rows<Record<string, unknown>>(
 			db,
 			`SELECT id, parent_task_id, team_id, owner_agent_id, title, description,
-			        done_when, reasons, state, dependencies, thread_id, notes,
+			        description_format, done_when, reasons, state, dependencies, thread_id, notes,
 			        created_at, updated_at, outcome_verdict, outcome_summary,
 			        outcome_recorded_at, outcome_recorded_by, tokens_actual_json,
 			        source_document_id, completed_at, position, paused, started_by
@@ -71,6 +71,7 @@ describe("demo world schema validation", () => {
 				ownerAgentId: row.owner_agent_id ?? null,
 				title: row.title,
 				description: row.description ?? null,
+				descriptionFormat: row.description_format,
 				doneWhen: doneWhenParsed,
 				reasons: reasonsParsed,
 				state: row.state,

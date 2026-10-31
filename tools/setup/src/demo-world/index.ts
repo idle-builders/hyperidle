@@ -8,6 +8,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { seedActivity } from "./activity.js";
 import { seedAgentFiles } from "./agent-files.js";
+import { seedApps } from "./apps.js";
 import { seedCast } from "./cast.js";
 import { seedChanges } from "./changes-seed.js";
 import { seedConversations } from "./conversations.js";
@@ -25,6 +26,7 @@ export async function seedDemoWorldContent(
 	await seedDocuments(db, clock);
 	await seedConversations(db, clock);
 	await seedWork(db, clock);
+	await seedApps(db, clock);
 	await seedActivity(db, clock);
 	await seedChanges(db, clock);
 }

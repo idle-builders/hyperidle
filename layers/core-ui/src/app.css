@@ -1157,6 +1157,7 @@ kbd {
 	flex: 1 1 0;
 }
 .detail-scroll {
+	container-type: inline-size;
 	flex: 1;
 	overflow-y: auto;
 	min-height: 0;
@@ -2734,6 +2735,12 @@ button.tv-where:hover {
 	gap: var(--sp-6);
 	align-items: start;
 }
+/* With an app open beside it there is no room for the box at the side: it goes under the task. */
+@container (max-width: 760px) {
+	.tk-page {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
 .tk-main {
 	display: flex;
 	flex-direction: column;
@@ -4043,4 +4050,102 @@ button.item:hover {
 /* the asker picks from the usual field, at its own width */
 .pal-asker .in {
 	width: auto;
+}
+
+/* ---------- apps: a card where room is short, the whole app in the pane beside the work or as a page ---------- */
+.frame--app {
+	grid-template-columns: var(--w-queue) minmax(320px, 1fr) minmax(360px, 1fr);
+}
+.chip--app {
+	background: var(--accent);
+	color: var(--accent-ink);
+	border-color: transparent;
+	font-weight: 600;
+}
+.app-frame {
+	flex: 1;
+	display: block;
+	width: 100%;
+	min-height: 0;
+	border: 0;
+	background: var(--surface);
+}
+.app-pane {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	border-left: var(--line-w) solid var(--line);
+	background: var(--surface);
+}
+.app-pane-head {
+	display: flex;
+	align-items: center;
+	gap: var(--sp-2);
+	padding: var(--sp-3) var(--sp-4);
+	border-bottom: var(--line-w) solid var(--line);
+}
+.app-pane-head h3 {
+	flex: 1;
+	min-width: 0;
+	font: var(--t-strong);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.app-pane-none {
+	padding: var(--sp-5);
+	font: var(--t-body);
+	color: var(--ink-3);
+}
+.app-source {
+	flex: 1;
+	min-height: 0;
+	margin: var(--sp-5) var(--sp-6);
+	padding: var(--sp-4);
+	font: var(--t-data);
+	font-family: var(--font-mono);
+	color: var(--ink);
+	background: var(--surface);
+	border: var(--line-w) solid var(--line);
+	border-radius: var(--r);
+	resize: none;
+}
+.made {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--sp-1);
+	max-width: min(var(--w-measure), 100%);
+	margin-left: calc(26px + var(--sp-3));
+	padding: var(--sp-3) var(--sp-4);
+	text-align: left;
+	background: var(--surface);
+	border: var(--line-w) solid var(--line);
+	border-radius: var(--r);
+	box-shadow: var(--sh-1);
+	cursor: pointer;
+}
+.made--inline {
+	margin-left: 0;
+}
+.made:hover {
+	border-color: var(--line-strong);
+}
+.made-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sp-2);
+}
+.made-title {
+	font: var(--t-strong);
+	color: var(--ink);
+}
+.made-line {
+	font: var(--t-body);
+	color: var(--ink-2);
+}
+.made-open {
+	font: var(--t-meta);
+	color: var(--ink-3);
 }

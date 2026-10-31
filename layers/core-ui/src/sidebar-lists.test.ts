@@ -1,5 +1,5 @@
 /** How a person or agent is drawn in an avatar, how a task reads in Work, and what waits while you focus. */
-import type { Task, ThreadListRow } from "@hyperidle/domain-model";
+import type { DocumentRow, Task, ThreadListRow } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
 import {
 	conversationItems,
@@ -7,6 +7,7 @@ import {
 	firstDoc,
 	type Inbox,
 	initials,
+	knowledgeTree,
 	newSince,
 	workItems,
 } from "./sidebar-lists";
@@ -59,6 +60,30 @@ describe("countTasks", () => {
 	])("%i", (n, words) => {
 		expect(countTasks(n)).toBe(words);
 	});
+});
+
+test.each([
+	["markdown", "active", undefined],
+	["markdown", "proposed", "draft"],
+	["html", "active", "app"],
+	["html", "proposed", "app · draft"],
+] as const)("a %s document that is %s says %s in the tree", (format, status, note) => {
+	const doc = {
+		id: "d",
+		title: "Pricing",
+		format,
+		status,
+		scopeId: "growth",
+		parentKind: null,
+		parentId: null,
+		position: 0,
+		icon: null,
+	} as DocumentRow;
+	const [space] = knowledgeTree(
+		[doc],
+		[{ id: "growth", name: "Growth" } as Parameters<typeof knowledgeTree>[1][number]],
+	);
+	expect(space?.children?.[0]?.note).toBe(note);
 });
 
 test("knowledge opens on the first document in the tree, skipping empty team spaces", () => {

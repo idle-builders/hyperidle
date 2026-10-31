@@ -1,9 +1,10 @@
 import { isRedactedPayload, type Message, type PlainReadPayload } from "@hyperidle/domain-model";
+import { appParam } from "./app-ref";
 import { age } from "./sidebar-lists";
 
 /**
  * Find or ask, from what the server says. Find lists the hits of `GET /api/search` in one run —
- * Knowledge, then Conversations, then Work — each with where it lives and the text that matched.
+ * Knowledge, then Apps, then Conversations, then Work — each with where it lives and the text that matched.
  * Ask reads the thread the question was saved as: what was said, whether the agent is still
  * answering, and the sources it named.
  */
@@ -15,19 +16,26 @@ interface Hit {
 	readonly at: string;
 }
 
+/** An app found; `on` is the conversation or task it opens beside, null for a page of its own. */
+interface AppHit extends Hit {
+	readonly kind: "document" | "message";
+	readonly on: { readonly kind: "thread" | "task"; readonly id: string } | null;
+}
+
 export interface Found {
 	readonly conversations: readonly Hit[];
 	readonly work: readonly Hit[];
 	readonly documents: readonly Hit[];
+	readonly apps: readonly AppHit[];
 }
 
-export type Group = "Knowledge" | "Conversations" | "Work";
+export type Group = "Knowledge" | "Apps" | "Conversations" | "Work";
 
 export interface FindRow {
 	readonly id: string;
 	readonly group: Group;
 	/** The detail header's word for it. */
-	readonly kind: "Document" | "Thread" | "Task";
+	readonly kind: "Document" | "App" | "Thread" | "Task";
 	readonly title: string;
 	readonly where: string;
 	readonly snippet: string;
@@ -41,18 +49,41 @@ const GROUPS = [
 	{ group: "Work", key: "work", kind: "Task", route: "work" },
 ] as const;
 
+/** Where an app opens: beside the conversation or task it was made in, else as its own page. */
+function appTo(h: AppHit): string {
+	if (!h.on) return `/knowledge/${encodeURIComponent(h.id)}`;
+	const param =
+		h.kind === "message"
+			? appParam({ kind: "message", threadId: h.on.id, id: h.id })
+			: appParam({ kind: "document", id: h.id });
+	const route = h.on.kind === "thread" ? "conversations" : "work";
+	return `/${route}/${encodeURIComponent(h.on.id)}?${new URLSearchParams({ app: param })}`;
+}
+
 export function findRows(found: Found, now: number = Date.now()): FindRow[] {
-	return GROUPS.flatMap(({ group, key, kind, route }) =>
+	const where = (group: Group, h: Hit) => [group, h.team ?? age(h.at, now)].join(" · ");
+	const rows = GROUPS.map(({ group, key, kind, route }) =>
 		found[key].map((h) => ({
 			id: h.id,
 			group,
 			kind,
 			title: h.title,
-			where: [group, h.team ?? age(h.at, now)].join(" · "),
+			where: where(group, h),
 			snippet: h.snippet,
 			to: `/${route}/${encodeURIComponent(h.id)}`,
 		})),
 	);
+	const apps = found.apps.map((h) => ({
+		id: h.id,
+		group: "Apps" as const,
+		kind: "App" as const,
+		title: h.title,
+		where: where("Apps", h),
+		snippet: h.snippet,
+		to: appTo(h),
+	}));
+	const [knowledge = [], ...rest] = rows;
+	return [...knowledge, ...apps, ...rest.flat()];
 }
 
 /** The text cut around the first match of `query`, ignoring case, so the match can be marked. */
