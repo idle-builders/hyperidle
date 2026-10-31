@@ -14,6 +14,7 @@ visual-reports/
 sync-reports/
 .pipeline/*
 !.pipeline/audits/
+!.pipeline/research/
 !.pipeline/work/
 !.pipeline/[A-Z]*.md
 !.pipeline/rules
