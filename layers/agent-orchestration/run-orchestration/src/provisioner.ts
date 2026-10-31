@@ -28,7 +28,7 @@ import {
 	type SessionMetrics,
 	type SessionResult,
 } from "@hyperidle/harness-protocol";
-import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, like, ne, or, sql } from "drizzle-orm";
 import { readAgentRunConfig } from "./agent-run-config-store.js";
 import {
 	applyProvisioningPlan,
@@ -933,6 +933,15 @@ interface AdmittedSession {
 	 * Filesystems that were successfully mounted in Phase 4.5 for this session.
 	 */
 	readonly mountedFilesystems: Filesystem[];
+	/**
+	 * When set, the session must resume the cursor-agent chat instead of starting
+	 * fresh. The sandbox was already adopted in Phase 4 for the matching cwd.
+	 */
+	// @lore: cursor-handover — cursor-agent deliver is unsupported; held message queued as thread_turn; next run resumes the same chat via this handover
+	readonly harnessHandover?: {
+		readonly harnessSessionId: string;
+		readonly message: string;
+	};
 }
 
 /**
@@ -1028,6 +1037,50 @@ async function admitSession(
 	// (`core-api/src/services/work-session-started-reactions.ts`), after
 	// phases 4-7 below commit the session row.
 
+	// ── Phase 3.5: resolve cursor-agent handover.
+	// When cursor-agent deliver is unsupported, the held message is queued as a
+	// new thread_turn. On that next run, adopt the original sandbox so md5(cwd)
+	// matches, then resume that chat with the held message as the next turn.
+	let resolvedHandover:
+		| { harnessSessionId: string; sandboxPath: string; message: string }
+		| undefined;
+	if (
+		runConfig.harnessType === "cursor-agent" &&
+		!params.resume &&
+		params.callingThreadId &&
+		params.transcript &&
+		params.transcript.length > 0
+	) {
+		const lastUserMsg = [...params.transcript].reverse().find((m) => m.role === "user");
+		if (lastUserMsg) {
+			const targetThreadId = params.callingThreadId;
+			const [prevSession] = await db
+				.select({
+					harnessSessionId: sessions.harnessSessionId,
+					sandboxSnapshot: sessions.sandboxSnapshot,
+				})
+				.from(sessions)
+				.where(
+					and(
+						eq(sessions.agentId, params.agentId),
+						eq(sessions.state, "done"),
+						isNotNull(sessions.harnessSessionId),
+						isNotNull(sessions.sandboxSnapshot),
+						like(sessions.sourceCorrelationJson, `%"threadId":"${targetThreadId}"%`),
+					),
+				)
+				.orderBy(desc(sessions.startedAt))
+				.limit(1);
+			if (prevSession?.harnessSessionId && prevSession.sandboxSnapshot) {
+				resolvedHandover = {
+					harnessSessionId: prevSession.harnessSessionId,
+					sandboxPath: prevSession.sandboxSnapshot,
+					message: lastUserMsg.content,
+				};
+			}
+		}
+	}
+
 	// ── Phases 4-7 (wrapped): spawn workspace → insert session row →
 	// context assembly → start watcher. If any step throws here, the session
 	// row/harness never fully launched — see the note above
@@ -1044,7 +1097,9 @@ async function admitSession(
 	// @lore: resumed session directory — adopts the original; cursor-agent keys its chat on md5(cwd); a different dir loses all context and exits 0 silently
 	const sandboxHandle: SessionLifecycleSandboxHandle = params.resume?.sandboxPath
 		? await workspace.adopt(params.resume.sandboxPath)
-		: await workspace.spawn(params.sandboxBasePath);
+		: resolvedHandover?.sandboxPath
+			? await workspace.adopt(resolvedHandover.sandboxPath)
+			: await workspace.spawn(params.sandboxBasePath);
 	sandboxPath = sandboxHandle.path;
 
 	// ── Phase 5: insert session row.
@@ -1188,6 +1243,14 @@ async function admitSession(
 		harness,
 		adapterId,
 		mountedFilesystems,
+		...(resolvedHandover
+			? {
+					harnessHandover: {
+						harnessSessionId: resolvedHandover.harnessSessionId,
+						message: resolvedHandover.message,
+					},
+				}
+			: {}),
 	};
 }
 
@@ -1649,6 +1712,18 @@ async function runSession(
 					buildVerdictMessage(params.resume),
 					{
 						// Phase 4 adopted the original session's directory, so this IS it.
+						sandboxPath,
+						modelTier,
+						...(selectedModel ? { selectedModel } : {}),
+						...(mcpTokenEnv ? { mcpTokenEnv } : {}),
+					},
+				);
+			} else if (admitted.harnessHandover?.harnessSessionId && harness.resumeSession) {
+				// @lore: cursor-handover-resume — held user message as next turn in same chat; Phase 4 adopted the original sandbox so md5(cwd) matches; not a verdict
+				harnessHandle = await harness.resumeSession(
+					admitted.harnessHandover.harnessSessionId,
+					admitted.harnessHandover.message,
+					{
 						sandboxPath,
 						modelTier,
 						...(selectedModel ? { selectedModel } : {}),
