@@ -28,12 +28,6 @@ import { isRequiredReturnAction } from "@hyperidle/harness-protocol";
 import type { EnforcementRegistry } from "./enforcement-registry.js";
 import { normalizeHarnessEvent, preMapClaudeEvent } from "./harness-event-normalization.js";
 import { modelOptionArgv } from "./model-options.js";
-import { createReturnEnforcement } from "./return-enforcement.js";
-
-/** Used when no enforcement is injected (tests that don't care about the registry). */
-function createIsolatedEnforcementRegistry(): EnforcementRegistry {
-	return createReturnEnforcement();
-}
 
 // @lore: preMapClaudeEvent — per-line in parseStdoutLine when dialect==claude-stream-json; applied here only, not in normalizeHarnessEvent
 
@@ -410,7 +404,6 @@ function extractOpencodeStepMetrics(obj: Record<string, unknown>): {
 export class CliHarnessAdapter implements HarnessAdapter {
 	private readonly config: CliAdapterConfig;
 	private readonly spawnFn: typeof spawn;
-	private readonly enforcement: EnforcementRegistry;
 	private readonly killFn: (pid: number, signal: NodeJS.Signals) => void;
 	private readonly sessions = new Map<string, CliSession>();
 	/**
@@ -423,8 +416,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	constructor(config: CliAdapterConfig, deps?: CliAdapterDeps) {
 		this.config = config;
 		this.spawnFn = deps?.spawnFn ?? spawn;
-		// Default: create an isolated registry. Production always injects the shared one.
-		this.enforcement = deps?.enforcement ?? createIsolatedEnforcementRegistry();
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
 		// Every instance registers itself with the single shared 'exit'
 		// backstop above — see registerExitHandlerOnce for why this is shared,

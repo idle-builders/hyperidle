@@ -42,6 +42,10 @@ interface AppServerSession {
 	readonly child: ChildProcess;
 	/** JSON-RPC thread id, set after thread/start response. */
 	threadId?: string;
+	/** Model codex confirmed for this thread, echoed in thread/start response. */
+	threadModel?: string;
+	/** Reasoning effort codex confirmed for this thread, echoed in thread/start response. */
+	threadReasoningEffort?: string;
 	/** The running turn id, set from turn/start response + turn/started notification. */
 	activeTurnId?: string;
 	/** True once turn/completed notification arrives or process exits. */
@@ -65,14 +69,37 @@ interface AppServerSession {
 	gateForceCount: number;
 }
 
-/** Injectable dependencies (for unit tests). */
+/** Injectable dependencies and overridable behaviors (for unit tests). */
 interface CodexAppServerAdapterDeps {
 	readonly spawnFn?: typeof spawn;
 	readonly killFn?: (pid: number, signal: NodeJS.Signals) => void;
 	readonly fetchFn?: typeof globalThis.fetch;
+	/**
+	 * Override the ephemeral flag sent to thread/start (default: true).
+	 * Set false in tests that need the session JSONL written to verify effort.
+	 */
+	readonly ephemeral?: boolean;
 }
 
 let nextSessionId = 1;
+
+/**
+ * Writes model_reasoning_effort to the session's config.toml when a per-session
+ * CODEX_HOME exists. The thread/start `effort` RPC param does not override the
+ * config file setting, so writing it here is the only reliable way to deliver it.
+ * Only acts when the .codex-home dir already exists (never touches ~/.codex).
+ */
+function applyEffortToSessionConfig(config: SessionConfig): void {
+	const effort = config.modelOptions?.model_reasoning_effort;
+	if (typeof effort !== "string") return;
+	const codexHomeDir = path.join(config.sandboxPath, ".codex-home");
+	if (!fs.existsSync(codexHomeDir)) return;
+	const configPath = path.join(codexHomeDir, "config.toml");
+	const existing = fs.existsSync(configPath) ? fs.readFileSync(configPath, "utf-8") : "";
+	// Remove any existing model_reasoning_effort line, then append the new value.
+	const stripped = existing.replace(/^model_reasoning_effort\s*=.*\n?/m, "");
+	fs.writeFileSync(configPath, `${stripped}\nmodel_reasoning_effort = "${effort}"\n`, "utf-8");
+}
 
 function buildEnv(config: SessionConfig): Record<string, string> {
 	const allowlist = ["PATH", "HOME", "LANG"];
@@ -184,6 +211,8 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 	private readonly spawnFn: typeof spawn;
 	private readonly killFn: (pid: number, signal: NodeJS.Signals) => void;
 	private readonly fetchFn: typeof globalThis.fetch;
+	// @lore: ephemeral default true — production sessions must not persist to codex history; set false in tests that need JSONL for effort verification
+	private readonly ephemeral: boolean;
 	private readonly sessions = new Map<string, AppServerSession>();
 	/** Persists gateForceCount after a session is deleted from this.sessions. */
 	private readonly forceReturnCounts = new Map<string, number>();
@@ -192,9 +221,11 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 		this.spawnFn = deps?.spawnFn ?? spawn;
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
 		this.fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
+		this.ephemeral = deps?.ephemeral ?? true;
 	}
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
+		applyEffortToSessionConfig(config);
 		const env = buildEnv(config);
 		const args = buildArgs(config);
 
@@ -258,18 +289,28 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			capabilities: null,
 		});
 
+		const reasoningEffort = config.modelOptions?.model_reasoning_effort;
 		const threadResult = (await this.sendRequest(session, "thread/start", {
 			cwd: config.sandboxPath,
 			...(config.selectedModel ? { model: config.selectedModel } : {}),
+			// @lore: codex app-server uses "effort" not "reasoningEffort" for the thread/start param — confirmed by codex fixture cache and internal turn_context JSONL schema
+			...(typeof reasoningEffort === "string" ? { effort: reasoningEffort } : {}),
 			// @lore: workspace-write — codex app-server defaults read-only; same flag as codex exec path
 			sandbox: "workspace-write",
 			// @lore: approvalPolicy never — prevents server-initiated approval requests during tests and production sessions
 			approvalPolicy: "never",
-			// @lore: ephemeral true — prevents thread persisting to codex history; each HyperIdle session is self-contained
-			ephemeral: true,
-		})) as { thread: { id: string } };
+			ephemeral: this.ephemeral,
+		})) as {
+			thread: { id: string; effort?: string };
+			model?: string;
+			effort?: string;
+		};
 
 		session.threadId = threadResult.thread.id;
+		// @lore: thread/start echoes model but NOT effort — effort is sent and accepted but not reflected in the response; JSONL verification requires ephemeral: false
+		if (typeof threadResult.model === "string") session.threadModel = threadResult.model;
+		const confirmedEffort = threadResult.effort ?? threadResult.thread.effort;
+		if (typeof confirmedEffort === "string") session.threadReasoningEffort = confirmedEffort;
 
 		const instruction = config.instruction?.trim() || "proceed";
 		const turnResult = (await this.sendRequest(session, "turn/start", {
@@ -391,6 +432,20 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 		} catch {
 			return "unsupported";
 		}
+	}
+
+	getNativeSessionId(handle: SessionHandle): string | undefined {
+		return this.sessions.get(handle.sessionId)?.threadId;
+	}
+
+	/** Model codex confirmed for this thread (from thread/start response). Call before stopSession. */
+	getThreadModel(handle: SessionHandle): string | undefined {
+		return this.sessions.get(handle.sessionId)?.threadModel;
+	}
+
+	/** Reasoning effort codex confirmed for this thread (from thread/start response). Call before stopSession. */
+	getThreadReasoningEffort(handle: SessionHandle): string | undefined {
+		return this.sessions.get(handle.sessionId)?.threadReasoningEffort;
 	}
 
 	getCapabilities(): HarnessCapabilities {

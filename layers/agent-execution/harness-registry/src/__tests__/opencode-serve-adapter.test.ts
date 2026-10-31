@@ -424,7 +424,10 @@ describe("OpenCodeServeAdapter", () => {
 		setImmediate(() => {
 			sseStream.pushEvent("session.error", {
 				sessionID: "ses_fake123",
-				error: { name: "ProviderAuthError", data: { providerID: "openrouter", message: "invalid api key" } },
+				error: {
+					name: "ProviderAuthError",
+					data: { providerID: "openrouter", message: "invalid api key" },
+				},
 			});
 		});
 

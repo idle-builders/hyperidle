@@ -46,27 +46,14 @@ describe("HARNESS_TEST_MODELS — locked matrix shape", () => {
 		}
 	});
 });
-// ── CLI_TOOL_CONFIGS.codex args regression (Fix F / AR7) ─────────────────────
+// ── CliHarnessAdapter configs — model is argument-enforced ───────────────────
 
-describe("CLI_TOOL_CONFIGS.codex — model is argument-enforced", () => {
-	test("codex args contain --model immediately followed by {{model}}", () => {
-		// Regression: codex must pass --model {{model}} so the locked model from
-		// HARNESS_TEST_MODELS is enforced at the subprocess level (not left to
-		// the inherited CODEX_HOME config default).
-		const args = productionCliConfig("codex").args;
+describe("CLI_TOOL_CONFIGS (claude, cursor-agent) — model is argument-enforced", () => {
+	test("claude args contain --model immediately followed by {{model}}", () => {
+		const args = productionCliConfig("claude").args;
 		const modelFlagIdx = args.indexOf("--model");
 		expect(modelFlagIdx).toBeGreaterThanOrEqual(0);
 		expect(args[modelFlagIdx + 1]).toBe("{{model}}");
-	});
-
-	test("claude args also contain --model immediately followed by {{model}}", () => {
-		// Confirm claude remains argument-enforced as a regression anchor.
-		// CLAUDE_CLI_CONFIG is imported from adapter-pool as a named export;
-		// CLI_TOOL_CONFIGS does not include claude (it has its own const).
-		// We verify the codex args inline here; claude is covered by existing tests.
-		const args = productionCliConfig("claude").args;
-		// This test is about codex; claude consistency verified by adapter-pool.test.ts.
-		expect(args).toContain("{{model}}");
 	});
 
 	test("cursor-agent args contain --model immediately followed by {{model}}", () => {

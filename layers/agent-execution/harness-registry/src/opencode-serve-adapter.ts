@@ -497,7 +497,8 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 				session.crashed = true;
 				const errorObj = props.error as Record<string, unknown> | undefined;
 				const errorData = errorObj?.data as Record<string, unknown> | undefined;
-				const errorName = typeof errorObj?.name === "string" ? errorObj.name : "OpenCodeSessionError";
+				const errorName =
+					typeof errorObj?.name === "string" ? errorObj.name : "OpenCodeSessionError";
 				const errorMsg = typeof errorData?.message === "string" ? errorData.message : errorName;
 				session.events.push({ type: "error", message: errorMsg, code: errorName });
 				this.markDone(session);
@@ -604,7 +605,8 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 	killServer(): void {
 		if (this.serverProcess?.pid !== undefined) {
 			try {
-				this.killFn(this.serverProcess.pid, "SIGTERM");
+				// @lore: SIGKILL not SIGTERM — opencode serve (Bun runtime) traps SIGTERM internally but never exits; SIGKILL is the only reliable kill.
+				this.killFn(this.serverProcess.pid, "SIGKILL");
 			} catch {
 				// Already exited
 			}

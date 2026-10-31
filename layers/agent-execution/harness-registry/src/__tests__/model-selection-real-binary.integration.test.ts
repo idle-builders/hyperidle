@@ -14,18 +14,22 @@
  * argv assertion alone would repeat the mistake: it proves what we sent, not
  * what the model layer honoured.
  *
- * HOW IT PROVES IT. Each lane drives the **production** `CliHarnessAdapter`
- * through its own `spawnFn` seam, wrapping the real `spawn` so the child's
- * stdout is teed into a buffer while the adapter consumes it exactly as it does
- * in production. The buffer is then read for that harness's own statement of
- * the model it ran. `selectedModel` is set and `resolvedModel` is absent — the
- * shape a subscription-authenticated machine actually has.
+ * HOW IT PROVES IT. claude and cursor-agent lanes drive the production
+ * CliHarnessAdapter through its own `spawnFn` seam, wrapping the real `spawn`
+ * so the child's stdout is teed into a buffer while the adapter consumes it
+ * exactly as it does in production. The buffer is then read for that harness's
+ * own statement of the model it ran. codex and opencode lanes drive their
+ * production adapters (CodexAppServerAdapter and OpenCodeServeAdapter
+ * respectively) directly, using each adapter's own model-readback mechanism.
+ * `selectedModel` is set and `resolvedModel` is absent — the shape a
+ * subscription-authenticated machine actually has.
  *
  * THE READBACK IS DIFFERENT PER HARNESS, and that is a fact about the harnesses,
  * not a gap here:
  *   claude        result line `modelUsage`, keyed by the concrete model id
  *   cursor-agent  `system`/`init` line `model` — a display LABEL, not the id
  *   codex         absent from stdout; its own rollout JSONL carries `model`
+ *   opencode      no structural readback — session completion proves model was accepted
  *
  * MODELS ARE NOT PINNED TO A CONSTANT. Each lane asks discovery what this
  * machine's login actually offers and picks from that, so a model the vendor
@@ -36,26 +40,25 @@
  */
 
 import { execFileSync, spawn } from "node:child_process";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
+import type { HarnessAdapter, HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
+import { CodexAppServerAdapter } from "../codex-app-server-adapter.js";
 import { discoverLocalHarnesses } from "../harness-discovery.js";
 import {
 	createHarnessSandbox,
 	provisionClaudeSandbox,
 	provisionCodexHome,
+	requireHarnessAuthed,
 } from "./harness-sandbox.js";
-import { productionCliConfig } from "./production-cli-config.js";
-import { requireHarness } from "./require-harness.js";
+import { productionCliConfig, productionHarnessAdapter } from "./production-cli-config.js";
+import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
 const { track } = trackHarnessSessions();
 
 const CLAUDE_CLI_CONFIG = productionCliConfig("claude");
 const CURSOR_AGENT_CLI_CONFIG = productionCliConfig("cursor-agent");
-const CODEX_CLI_CONFIG = productionCliConfig("codex");
 
 const PROMPT = "Reply with exactly the token MODEL_OK and nothing else.";
 
@@ -93,7 +96,7 @@ function jsonLines(text: string): Record<string, unknown>[] {
 	return out;
 }
 
-/** Run one session through the production adapter, returning its raw stdout. */
+/** Run one session through the production CliHarnessAdapter, returning its raw stdout. */
 async function runWithModel(
 	config: ReturnType<typeof productionCliConfig>,
 	sessionConfig: Omit<SessionConfig, "modelTier" | "tools">,
@@ -114,6 +117,29 @@ async function runWithModel(
 	}
 	await adapter.stopSession(handle);
 	return { stdout: sink.text, events };
+}
+
+/** Run one session through any HarnessAdapter, returning its events and per-adapter ids. */
+async function runSessionWithAdapter(
+	adapter: HarnessAdapter,
+	sessionConfig: SessionConfig,
+): Promise<{
+	events: HarnessEvent[];
+	handle: Awaited<ReturnType<HarnessAdapter["startSession"]>>;
+	nativeSessionId: string | undefined;
+	threadModel: string | undefined;
+}> {
+	const handle = track(adapter, await adapter.startSession(sessionConfig));
+	const events: HarnessEvent[] = [];
+	for await (const ev of adapter.streamEvents(handle)) {
+		events.push(ev);
+	}
+	// Capture ids BEFORE stopSession — stopSession deletes the session entry.
+	const nativeSessionId = adapter.getNativeSessionId?.(handle);
+	const threadModel =
+		adapter instanceof CodexAppServerAdapter ? adapter.getThreadModel(handle) : undefined;
+	await adapter.stopSession(handle);
+	return { events, handle, nativeSessionId, threadModel };
 }
 
 /** The models this machine's login actually offers for a harness, from discovery. */
@@ -260,66 +286,94 @@ function provisionCodexRepo(sandboxPath: string): void {
 	});
 }
 
-/**
- * codex does not put the model on its `--json` stream. It records it in the
- * session rollout it writes for itself; the stream's `thread.started` names the
- * thread whose rollout to read.
- */
-function codexModelUsed(stdout: string, codexHome: string): string | undefined {
-	const started = jsonLines(stdout).find((o) => o.type === "thread.started");
-	const threadId = typeof started?.thread_id === "string" ? started.thread_id : undefined;
-	if (!threadId) return undefined;
-	const sessionsRoot = path.join(codexHome, "sessions");
-	if (!fs.existsSync(sessionsRoot)) return undefined;
-	const stack = [sessionsRoot];
-	while (stack.length > 0) {
-		const dir = stack.pop() as string;
-		for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-			const full = path.join(dir, entry.name);
-			if (entry.isDirectory()) {
-				stack.push(full);
-			} else if (entry.name.includes(threadId) && entry.name.endsWith(".jsonl")) {
-				for (const obj of jsonLines(fs.readFileSync(full, "utf-8"))) {
-					if (obj.type !== "turn_context") continue;
-					const payload = obj.payload as Record<string, unknown> | undefined;
-					if (typeof payload?.model === "string") return payload.model;
-				}
-			}
-		}
-	}
-	return undefined;
-}
-
 describe("[harness:codex] the model asked for is the model codex runs", () => {
 	requireHarness("codex");
 
 	test("the requested model is the one codex records for the turn it ran", async () => {
+		await requireHarnessAuthed("codex");
+
 		const offered = await discoveredModels("codex");
 		expect(offered.length).toBeGreaterThan(0);
 		// The smallest model this account is offered, taken from codex's own list.
 		const model =
 			offered.find((m) => m.id.endsWith("-mini"))?.id ?? offered[offered.length - 1]?.id;
 		expect(model).toBeDefined();
+		if (!model) return;
 
 		const sandbox = createHarnessSandbox("model-sel-codex");
 		const sandboxPath = sandbox.path;
 		try {
 			provisionCodexRepo(sandboxPath);
 			expect(provisionCodexHome(sandboxPath)).toBe(true);
-			const { stdout } = await runWithModel(CODEX_CLI_CONFIG, {
+
+			// CodexAppServerAdapter — production adapter (codex app-server --stdio).
+			// threadModel is read from the thread/start JSON-RPC response (ephemeral sessions
+			// do not write a session rollout JSONL, so the RPC echo is the only reliable source).
+			const adapter = productionHarnessAdapter("codex");
+			const { threadModel } = await runSessionWithAdapter(adapter, {
 				sessionId: sessionId("model-sel-codex"),
 				sandboxPath,
 				assembledPrompt: PROMPT,
 				instruction: PROMPT,
-				selectedModel: model as string,
+				selectedModel: model,
 				mcpConnectionInfo: undefined,
+				modelTier: "workhorse",
+				tools: [],
 			});
-			const used = codexModelUsed(stdout, path.join(sandboxPath, ".codex-home"));
-			expect(used, "codex recorded no model for the turn").toBeDefined();
-			expect(used).toBe(model);
+
+			expect(threadModel, "codex thread/start must echo the requested model").toBeDefined();
+			expect(threadModel).toBe(model);
 		} finally {
 			await sandbox.cleanup();
 		}
 	}, 240_000);
 });
 
+// ── opencode ──────────────────────────────────────────────────────────────────
+//
+// opencode serve (OpenCodeServeAdapter) sends the model via the HTTP POST body.
+// The SSE event stream does not expose model readback — session completion proves
+// the model flag was accepted (a bad model string causes a startup error).
+
+describe("[harness:opencode] the requested model is accepted and runs to completion", () => {
+	requireHarness("opencode");
+
+	test("requested model sent to opencode serve session and session completes", async () => {
+		await requireHarnessAuthed(
+			"opencode",
+			"model-selection opencode needs a real logged-in session",
+		);
+
+		const sandbox = createHarnessSandbox("model-sel-opencode");
+		const sandboxPath = sandbox.path;
+		try {
+			// OpenCodeServeAdapter — production adapter (opencode serve --port 0).
+			// model is sent in the POST /session/{id}/prompt_async body.
+			const adapter = productionHarnessAdapter("opencode");
+			const { events } = await runSessionWithAdapter(adapter, {
+				sessionId: sessionId("model-sel-opencode"),
+				sandboxPath,
+				assembledPrompt: PROMPT,
+				instruction: PROMPT,
+				selectedModel: HARNESS_TEST_MODELS.opencode.model,
+				mcpConnectionInfo: undefined,
+				modelTier: "workhorse",
+				tools: [],
+			});
+
+			// A completion event with text proves the model accepted the session and ran.
+			// A bad model string causes an HTTP error at session start (startup failure).
+			const completionText = events
+				.filter((e) => e.type === "completion")
+				.map((e) => ("text" in e ? (e.text as string) : ""))
+				.join("");
+			expect(
+				completionText,
+				`opencode session must produce completion text (proves model was accepted). ` +
+					`Got empty — session may have failed at startup with a bad model string.`,
+			).toContain("MODEL_OK");
+		} finally {
+			await sandbox.cleanup();
+		}
+	}, 240_000);
+});
