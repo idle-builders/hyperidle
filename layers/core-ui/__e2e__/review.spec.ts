@@ -195,7 +195,17 @@ test("Use it lets clicks reach the page; Comment intercepts them as pins; Escape
 
 	// Click the page — the pointer layer intercepts and opens a comment box.
 	await iframe.locator("#b").click({ force: true });
-	await expect(page.getByRole("textbox", { name: "Comment", exact: true })).toBeFocused();
+	const comment = page.getByRole("textbox", { name: "Comment", exact: true });
+	await expect(comment).toBeFocused();
+
+	// HyperIdle cannot see inside this page, so the comment is on the whole page, pinned in its corner below the bar.
+	await comment.fill("Whole page note");
+	await comment.press("Enter");
+	const pin = page.getByRole("button", { name: "Pin 1 on the page" });
+	await expect(pin).toBeVisible();
+	const bar = await page.getByRole("button", { name: "Comment", exact: true }).boundingBox();
+	const at = await pin.boundingBox();
+	expect(at && bar && at.y > bar.y + bar.height).toBe(true);
 
 	// Escape returns to Use it and hides the overlay.
 	await page.keyboard.press("Escape");

@@ -69,7 +69,11 @@ function locate(body: HTMLElement, spot: Spot | undefined): At | null {
 		left: r.right - b.left + 4 + dx,
 	});
 	const corner = (r: DOMRect): At => ({ top: r.top - b.top + 6, left: r.right - b.left - PIN - 8 });
-	if (!spot) return { top: 8, left: b.width - PIN - 8 };
+	if (!spot) {
+		// The whole part: its top corner, and on a preview the page's corner, clear of its bar.
+		const frame = body.querySelector("iframe");
+		return frame ? corner(frame.getBoundingClientRect()) : { top: 8, left: b.width - PIN - 8 };
+	}
 	switch (spot.kind) {
 		case "element": {
 			const frame = body.querySelector("iframe");
@@ -254,20 +258,23 @@ function Preview({
 				</span>
 			</div>
 			<div className="preview-page">
-				<iframe
-					ref={frame}
-					title="Live preview"
-					style={{ height, ...(maxHeight !== undefined ? { maxHeight } : {}) }}
-					{...(inline ? { srcDoc: page ?? "" } : { src: url })}
-					sandbox={
-						inline
-							? APP_SANDBOX
-							: ours
-								? "allow-scripts allow-forms"
-								: "allow-same-origin allow-scripts allow-forms"
-					}
-					onLoad={onReady}
-				/>
+				{/* @lore: a sealed frame whose srcdoc arrives after an empty first load stays blank in the packaged app (measured) — mount it with its page */}
+				{(!inline || page !== null) && (
+					<iframe
+						ref={frame}
+						title="Live preview"
+						style={{ height, ...(maxHeight !== undefined ? { maxHeight } : {}) }}
+						{...(inline ? { srcDoc: page ?? "" } : { src: url })}
+						sandbox={
+							inline
+								? APP_SANDBOX
+								: ours
+									? "allow-scripts allow-forms"
+									: "allow-same-origin allow-scripts allow-forms"
+						}
+						onLoad={onReady}
+					/>
+				)}
 				{mode === "comment" && (
 					<button
 						type="button"
@@ -569,9 +576,13 @@ export function PartBody({
 		const next = new Map<string, At>();
 		const all = [...pins.map((p) => [p.key, p.pin.spot] as const)];
 		if (draft) all.push(["draft", draft.spot]);
+		const home = locate(el, undefined) ?? { top: 8, left: width - PIN - 8 };
 		let stacked = 0;
 		for (const [k, spot] of all) {
-			const at = locate(el, spot) ?? { top: 8 + PIN * 1.2 * stacked++, left: width - PIN - 8 };
+			const at = (spot && locate(el, spot)) ?? {
+				top: home.top + PIN * 1.2 * stacked++,
+				left: home.left,
+			};
 			next.set(k, { top: at.top, left: Math.min(Math.max(4, at.left), width - PIN - 4) });
 		}
 		setSpots(next);
