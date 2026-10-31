@@ -54,7 +54,6 @@ interface ServeSession {
 	readonly configSessionId: string;
 	readonly modelTier: SessionConfig["modelTier"];
 	readonly sseAbort: AbortController;
-	fallbackTimer: ReturnType<typeof setTimeout> | null;
 	/** messageIDs confirmed to be from the assistant role. */
 	readonly assistantMessageIds: Set<string>;
 	/** Latest full text per text-part ID (text parts carry cumulative text). */
@@ -75,12 +74,6 @@ interface OpenCodeServeAdapterDeps {
 	/** Max ms to wait for the abort POST before giving up (default 2000). */
 	readonly abortTimeoutMs?: number;
 }
-
-/**
- * Fallback timeout: if session.idle never arrives (e.g. opencode hangs),
- * mark the session done after this interval.
- */
-const FALLBACK_TIMEOUT_MS = 120_000;
 
 let nextSessionSeq = 1;
 
@@ -225,7 +218,6 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 			configSessionId: config.sessionId,
 			modelTier: config.modelTier,
 			sseAbort,
-			fallbackTimer: null,
 			assistantMessageIds: new Set(),
 			latestPartText: new Map(),
 			emittedToolPartIds: new Set(),
@@ -310,7 +302,6 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 			}
 		}
 		session.sseAbort.abort();
-		clearTimeout(session.fallbackTimer ?? undefined);
 		session.done = true;
 		session.notifyStream?.();
 
@@ -440,15 +431,6 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 	}
 
 	private subscribeSse(session: ServeSession, serverUrl: string): Promise<void> {
-		// Fallback timer: if session.idle never arrives, mark done after the deadline.
-		// @lore: unref() prevents the safety timer from keeping Node alive when all real work is done
-		if (!session.done) {
-			session.fallbackTimer = setTimeout(() => {
-				this.markDone(session);
-			}, FALLBACK_TIMEOUT_MS);
-			session.fallbackTimer.unref();
-		}
-
 		const params = new URLSearchParams({ directory: session.sandboxPath });
 
 		return (async () => {
@@ -547,8 +529,6 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 	}
 
 	private markDone(session: ServeSession): void {
-		clearTimeout(session.fallbackTimer ?? undefined);
-		session.fallbackTimer = null;
 		if (!session.done) {
 			session.done = true;
 			session.notifyStream?.();
@@ -557,16 +537,11 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 
 	/**
 	 * Send a follow-up prompt for the return gate (re-engage after block).
-	 * Resets `session.done = false` and restarts the fallback timer.
+	 * Resets `session.done = false`; the next `session.idle` ends the turn.
 	 */
 	private async sendFollowUpPrompt(session: ServeSession, forceMessage: string): Promise<void> {
 		if (!this.serverUrl) return;
 		session.done = false;
-		// Restart fallback timer for the new turn.
-		session.fallbackTimer = setTimeout(() => {
-			this.markDone(session);
-		}, FALLBACK_TIMEOUT_MS);
-		session.fallbackTimer.unref();
 		const params = new URLSearchParams({ directory: session.sandboxPath });
 		const body: Record<string, unknown> = { parts: [{ type: "text", text: forceMessage }] };
 		if (session.parsedModel) {
@@ -615,7 +590,6 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 	}
 
 	private finishSession(sessionId: string, session: ServeSession): SessionResult {
-		clearTimeout(session.fallbackTimer ?? undefined);
 		this.forceReturnCounts.set(session.configSessionId, session.gateForceCount);
 		this.sessions.delete(sessionId);
 		// Decrement active count; auto-kill the shared server when no sessions remain.

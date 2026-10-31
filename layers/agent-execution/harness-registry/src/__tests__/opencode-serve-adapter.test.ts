@@ -408,6 +408,32 @@ describe("OpenCodeServeAdapter", () => {
 		sseStream.close();
 	});
 
+	test("a long quiet run stays open until session.idle", async () => {
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+		try {
+			const sseStream = new FakeSseStream();
+			const adapter = new OpenCodeServeAdapter({
+				spawnFn: makeFakeSpawn(),
+				fetchFn: makeFakeFetch(sseStream) as typeof globalThis.fetch,
+				xdgConfigHome: xdgCfgDir,
+			});
+			const handle = await adapter.startSession(makeConfig());
+
+			// Ten minutes of a silent shell command: no events, the run is still going.
+			await vi.advanceTimersByTimeAsync(10 * 60_000);
+			expect(await adapter.deliver(handle, "still there?")).toBe("delivered");
+
+			setImmediate(() => sseStream.pushEvent("session.idle", { sessionID: "ses_fake123" }));
+			for await (const _ of adapter.streamEvents(handle)) {
+				// drain until session.idle ends the run
+			}
+			expect(await adapter.deliver(handle, "after idle")).toBe("unsupported");
+			sseStream.close();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	test("session.error event → crashed outcome and error event emitted", async () => {
 		const sseStream = new FakeSseStream();
 		const fakeFetch = makeFakeFetch(sseStream);
