@@ -14,6 +14,7 @@ export {
 	writePluginStdioMcpEntries,
 } from "./cli-mcp-config.js";
 export { CodexAppServerAdapter } from "./codex-app-server-adapter.js";
+export { OpenCodeServeAdapter } from "./opencode-serve-adapter.js";
 export type { EnforcementEntry, EnforcementRegistry } from "./enforcement-registry.js";
 export type { HarnessProbeDeps } from "./harness-discovery.js";
 export { normalizeHarnessEvent, preMapClaudeEvent } from "./harness-event-normalization.js";

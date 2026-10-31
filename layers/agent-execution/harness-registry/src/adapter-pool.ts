@@ -15,6 +15,7 @@ import {
 	CliHarnessAdapter,
 } from "./cli-harness-adapter.js";
 import { CodexAppServerAdapter } from "./codex-app-server-adapter.js";
+import { OpenCodeServeAdapter } from "./opencode-serve-adapter.js";
 import type { EnforcementRegistry } from "./enforcement-registry.js";
 import {
 	describeHarnessCapability,
@@ -409,11 +410,14 @@ async function registerCliAdaptersIfAvailable(
 		const available = await CliHarnessAdapter.checkAvailability(config.binary, availabilityDeps);
 		if (available) {
 			// codex uses CodexAppServerAdapter (JSON-RPC app-server protocol, supports mid-turn deliver)
+			// opencode uses OpenCodeServeAdapter (HTTP serve API, supports mid-turn deliver)
 			// all other CLI tools use CliHarnessAdapter (one-shot subprocess)
 			const adapter =
 				name === "codex"
 					? new CodexAppServerAdapter()
-					: new CliHarnessAdapter(config, { enforcement });
+					: name === "opencode"
+						? new OpenCodeServeAdapter()
+						: new CliHarnessAdapter(config, { enforcement });
 			pool.register(`local-cli-${name}`, adapter, {
 				name: `CLI: ${name}`,
 				kind: "local",
