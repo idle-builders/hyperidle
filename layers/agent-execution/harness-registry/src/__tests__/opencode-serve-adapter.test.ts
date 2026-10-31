@@ -490,7 +490,7 @@ describe("OpenCodeServeAdapter", () => {
 		sseStream.close();
 	});
 
-	test("deliver sends prompt_async and returns delivered", async () => {
+	test("deliver sends prompt_async with text and model", async () => {
 		const sseStream = new FakeSseStream();
 		const fakeFetch = makeFakeFetch(sseStream);
 		const fakeSpawn = makeFakeSpawn();
@@ -501,18 +501,22 @@ describe("OpenCodeServeAdapter", () => {
 			xdgConfigHome: xdgCfgDir,
 		});
 
-		const handle = await adapter.startSession(makeConfig());
+		const handle = await adapter.startSession(
+			makeConfig({ selectedModel: "openrouter/mistral/mistral-7b" }),
+		);
 		const result = await adapter.deliver(handle, "focus on the main task");
 		expect(result).toBe("delivered");
 
-		// Check the deliver call used prompt_async
+		// The deliver call must include both the text and the model
 		const steerCall = fakeFetch.mock.calls
 			.filter(([url]) => String(url).includes("/prompt_async"))
 			.pop();
 		const steerBody = JSON.parse(steerCall?.[1]?.body as string) as {
 			parts: Array<{ type: string; text: string }>;
+			model?: { providerID: string; modelID: string };
 		};
 		expect(steerBody.parts[0]?.text).toBe("focus on the main task");
+		expect(steerBody.model).toEqual({ providerID: "openrouter", modelID: "mistral/mistral-7b" });
 
 		sseStream.close();
 	});
@@ -562,6 +566,60 @@ describe("OpenCodeServeAdapter", () => {
 		const handle = await adapter.startSession(makeConfig());
 		const result = await adapter.stopSession(handle);
 		expect(result.outcome).toBe("completed");
+	});
+
+	test("stopSession abort failure does not produce an unhandled rejection", async () => {
+		// Plain function (not vi.fn) — vi.fn attaches an internal .catch to track mock calls, which
+		// prevents the unhandledRejection event from firing and makes this test unable to go red.
+		const plainFetch = async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+			const urlStr = String(url);
+			if (urlStr.includes("/session?") && !urlStr.includes("/session/") && init?.method === "POST") {
+				return new Response(JSON.stringify({ id: "ses_abort_fail" }), { status: 200 });
+			}
+			if (urlStr.includes("/prompt_async") && init?.method === "POST") {
+				return new Response(null, { status: 204 });
+			}
+			if (urlStr.includes("/event?")) {
+				// Hang until aborted — active session mid-run
+				return new Promise<Response>((_resolve, reject) => {
+					init?.signal?.addEventListener("abort", () => {
+						reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+					});
+				});
+			}
+			if (urlStr.includes("/abort") && init?.method === "POST") {
+				// Reject — server died just before the abort arrived
+				throw new TypeError("fetch failed");
+			}
+			return new Response("ok", { status: 200 });
+		};
+
+		const unhandledRejections: unknown[] = [];
+		const urHandler = (reason: unknown) => {
+			unhandledRejections.push(reason);
+		};
+		process.on("unhandledRejection", urHandler);
+
+		try {
+			const fakeSpawn = makeFakeSpawn();
+			const adapter = new OpenCodeServeAdapter({
+				spawnFn: fakeSpawn,
+				fetchFn: plainFetch as typeof globalThis.fetch,
+				xdgConfigHome: xdgCfgDir,
+				// Short timeout so the test does not wait for the 2s default
+				abortTimeoutMs: 100,
+			});
+
+			const handle = await adapter.startSession(makeConfig());
+			// Session is not done — stopSession must hit the abort path
+			const result = await adapter.stopSession(handle);
+			expect(result.outcome).toBe("completed");
+			// Give Node.js a tick to detect any unhandled rejection from the abort fetch
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			expect(unhandledRejections, "stopSession must not leave an unhandled rejection").toHaveLength(0);
+		} finally {
+			process.off("unhandledRejection", urHandler);
+		}
 	});
 
 	test("model passed to prompt_async as {providerID, modelID}", async () => {
@@ -842,7 +900,7 @@ describe("OpenCodeServeAdapter", () => {
 		await adapter.stopSession(handle2);
 		expect(killSpy, "server must be killed after last session ends").toHaveBeenCalledWith(
 			99999,
-			"SIGTERM",
+			"SIGKILL",
 		);
 	});
 });

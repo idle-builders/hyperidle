@@ -61,6 +61,8 @@ interface ServeSession {
 	readonly latestPartText: Map<string, string>;
 	/** Part IDs for which a tool_call event has already been emitted. */
 	readonly emittedToolPartIds: Set<string>;
+	/** Parsed selected model — passed on every prompt_async so steer/force never falls back to the user's default. */
+	readonly parsedModel?: { readonly id: string; readonly providerID: string };
 }
 
 /** Injectable dependencies (for unit tests). */
@@ -70,6 +72,8 @@ interface OpenCodeServeAdapterDeps {
 	readonly fetchFn?: typeof globalThis.fetch;
 	/** Override the per-adapter XDG config dir (for tests). */
 	readonly xdgConfigHome?: string;
+	/** Max ms to wait for the abort POST before giving up (default 2000). */
+	readonly abortTimeoutMs?: number;
 }
 
 /**
@@ -144,10 +148,13 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 	/** Counts sessions currently alive; auto-kills server when it drops to zero. */
 	private activeSessionCount = 0;
 
+	private readonly abortTimeoutMs: number;
+
 	constructor(deps?: OpenCodeServeAdapterDeps) {
 		this.spawnFn = deps?.spawnFn ?? spawn;
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
 		this.fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
+		this.abortTimeoutMs = deps?.abortTimeoutMs ?? 2_000;
 
 		// @lore: XDG_CONFIG_HOME isolates opencode config — prevents user's global ~/.config/opencode plugins from loading into sessions
 		this.xdgConfigHome =
@@ -222,6 +229,7 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 			assistantMessageIds: new Set(),
 			latestPartText: new Map(),
 			emittedToolPartIds: new Set(),
+			parsedModel: parseModel(config.selectedModel),
 		};
 
 		this.sessions.set(sessionId, session);
@@ -277,29 +285,38 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 		})();
 	}
 
-	stopSession(handle: SessionHandle): Promise<SessionResult> {
+	async stopSession(handle: SessionHandle): Promise<SessionResult> {
 		const session = this.sessions.get(handle.sessionId);
-		if (!session) return Promise.resolve({ outcome: "crashed", tokenUsage: { byTier: {} } });
+		if (!session) return { outcome: "crashed", tokenUsage: { byTier: {} } };
 
 		if (session.done) {
-			return Promise.resolve(this.finishSession(handle.sessionId, session));
+			return this.finishSession(handle.sessionId, session);
 		}
 
-		// Abort the running session and SSE
 		if (this.serverUrl) {
 			const params = new URLSearchParams({ directory: session.sandboxPath });
-			void this.fetchFn(`${this.serverUrl}/session/${session.opcodeSessionId}/abort?${params}`, {
-				method: "POST",
-			});
+			// @lore: must not be void — the server may be SIGKILL'd right after this call; a void'd fetch
+			// that rejects after the server dies becomes an unhandled rejection
+			try {
+				await Promise.race([
+					this.fetchFn(
+						`${this.serverUrl}/session/${session.opcodeSessionId}/abort?${params}`,
+						{ method: "POST" },
+					),
+					new Promise<never>((_, reject) =>
+						setTimeout(() => reject(new Error("abort timed out")), this.abortTimeoutMs).unref(),
+					),
+				]);
+			} catch {
+				// Abort may fail when the server is being killed or the timeout fires — expected
+			}
 		}
 		session.sseAbort.abort();
 		clearTimeout(session.fallbackTimer ?? undefined);
 		session.done = true;
 		session.notifyStream?.();
 
-		return new Promise<SessionResult>((resolve) => {
-			resolve(this.finishSession(handle.sessionId, session));
-		});
+		return this.finishSession(handle.sessionId, session);
 	}
 
 	async deliver(handle: SessionHandle, text: string): Promise<"delivered" | "unsupported"> {
@@ -307,14 +324,18 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 		if (!session || session.done || !this.serverUrl) return "unsupported";
 
 		const params = new URLSearchParams({ directory: session.sandboxPath });
+		const body: Record<string, unknown> = { parts: [{ type: "text", text }] };
+		// @lore: pass model on every prompt_async — a steer without model falls back to the user's OpenCode default, silently switching model mid-run
+		if (session.parsedModel) {
+			body.model = { providerID: session.parsedModel.providerID, modelID: session.parsedModel.id };
+		}
 		try {
 			const res = await this.fetchFn(
 				`${this.serverUrl}/session/${session.opcodeSessionId}/prompt_async?${params}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					// Sending prompt_async to a busy session steers the current run.
-					body: JSON.stringify({ parts: [{ type: "text", text }] }),
+					body: JSON.stringify(body),
 				},
 			);
 			if (res.ok) return "delivered";
@@ -549,13 +570,17 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 		}, FALLBACK_TIMEOUT_MS);
 		session.fallbackTimer.unref();
 		const params = new URLSearchParams({ directory: session.sandboxPath });
+		const body: Record<string, unknown> = { parts: [{ type: "text", text: forceMessage }] };
+		if (session.parsedModel) {
+			body.model = { providerID: session.parsedModel.providerID, modelID: session.parsedModel.id };
+		}
 		try {
 			await this.fetchFn(
 				`${this.serverUrl}/session/${session.opcodeSessionId}/prompt_async?${params}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ parts: [{ type: "text", text: forceMessage }] }),
+					body: JSON.stringify(body),
 				},
 			);
 		} catch {
