@@ -72,13 +72,14 @@ class FakeSseStream {
 
 /** Build a minimal SessionConfig for tests. */
 function makeConfig(overrides?: {
+	sessionId?: string;
 	sandboxPath?: string;
 	instruction?: string;
 	selectedModel?: string;
 	returnHook?: { bridgeToken: string; mcpUrl: string; forceBudget: number };
 }) {
 	return {
-		sessionId: "test-session-1",
+		sessionId: overrides?.sessionId ?? "test-session-1",
 		sandboxPath: overrides?.sandboxPath ?? "/tmp/sandbox",
 		assembledPrompt: "test prompt",
 		instruction: overrides?.instruction ?? "say HELLO",
@@ -147,16 +148,13 @@ function makeFakeFetch(sseStream: FakeSseStream) {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("OpenCodeServeAdapter", () => {
-	let xdgDir: string;
 	let xdgCfgDir: string;
 
 	beforeEach(() => {
-		xdgDir = fs.mkdtempSync(path.join(os.tmpdir(), "oc-test-xdg-"));
 		xdgCfgDir = fs.mkdtempSync(path.join(os.tmpdir(), "oc-test-cfg-"));
 	});
 
 	afterEach(() => {
-		fs.rmSync(xdgDir, { recursive: true, force: true });
 		fs.rmSync(xdgCfgDir, { recursive: true, force: true });
 		vi.restoreAllMocks();
 	});
@@ -169,7 +167,6 @@ describe("OpenCodeServeAdapter", () => {
 		const adapter = new OpenCodeServeAdapter({
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
-			xdgDataHome: xdgDir,
 			xdgConfigHome: xdgCfgDir,
 		});
 
@@ -200,7 +197,6 @@ describe("OpenCodeServeAdapter", () => {
 		const adapter = new OpenCodeServeAdapter({
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
-			xdgDataHome: xdgDir,
 			xdgConfigHome: xdgCfgDir,
 		});
 
@@ -232,7 +228,6 @@ describe("OpenCodeServeAdapter", () => {
 		const adapter = new OpenCodeServeAdapter({
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
-			xdgDataHome: xdgDir,
 			xdgConfigHome: xdgCfgDir,
 		});
 
@@ -268,7 +263,6 @@ describe("OpenCodeServeAdapter", () => {
 		const adapter = new OpenCodeServeAdapter({
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
-			xdgDataHome: xdgDir,
 			xdgConfigHome: xdgCfgDir,
 		});
 
@@ -293,7 +287,6 @@ describe("OpenCodeServeAdapter", () => {
 		const adapter = new OpenCodeServeAdapter({
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
-			xdgDataHome: xdgDir,
 			xdgConfigHome: xdgCfgDir,
 		});
 
@@ -310,7 +303,7 @@ describe("OpenCodeServeAdapter", () => {
 	});
 
 	test("getCapabilities returns sdk-inprocess and opencode-json", () => {
-		const adapter = new OpenCodeServeAdapter({ xdgDataHome: xdgDir, xdgConfigHome: xdgCfgDir });
+		const adapter = new OpenCodeServeAdapter({ xdgConfigHome: xdgCfgDir });
 		const caps = adapter.getCapabilities();
 		expect(caps.returnEnforcement).toBe("sdk-inprocess");
 		expect(caps.cliMcpDialect).toBe("opencode-json");
@@ -325,7 +318,6 @@ describe("OpenCodeServeAdapter", () => {
 		const adapter = new OpenCodeServeAdapter({
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
-			xdgDataHome: xdgDir,
 			xdgConfigHome: xdgCfgDir,
 		});
 
@@ -342,7 +334,6 @@ describe("OpenCodeServeAdapter", () => {
 		const adapter = new OpenCodeServeAdapter({
 			spawnFn: fakeSpawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
-			xdgDataHome: xdgDir,
 			xdgConfigHome: xdgCfgDir,
 		});
 
@@ -390,7 +381,6 @@ describe("OpenCodeServeAdapter", () => {
 		const adapter = new OpenCodeServeAdapter({
 			spawnFn: fakeSpawn,
 			fetchFn: fetchFn as typeof globalThis.fetch,
-			xdgDataHome: xdgDir,
 			xdgConfigHome: xdgCfgDir,
 		});
 
@@ -446,14 +436,12 @@ describe("OpenCodeServeAdapter", () => {
 		const adapter = new OpenCodeServeAdapter({
 			spawnFn: fakeSpawn as unknown as typeof spawn,
 			fetchFn: fakeFetch as typeof globalThis.fetch,
-			xdgDataHome: xdgDir,
 			xdgConfigHome: xdgCfgDir,
 		});
 
 		await adapter.startSession(makeConfig());
 
-		// Env must have the isolation keys
-		expect(capturedEnv?.XDG_DATA_HOME).toBe(xdgDir);
+		// XDG_CONFIG_HOME must be the isolated dir; XDG_DATA_HOME is passed through from process.env
 		expect(capturedEnv?.XDG_CONFIG_HOME).toBe(xdgCfgDir);
 		expect(capturedEnv?.OPENCODE_PERMISSION).toBe('{"*":"allow"}');
 
@@ -475,32 +463,127 @@ describe("OpenCodeServeAdapter", () => {
 		sseStream.close();
 	});
 
-	test("auth.json is copied into isolated XDG dir when present", () => {
-		// Write a fake auth.json into xdgDir/opencode/ (simulates real data home)
-		const fakeRealDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "oc-fake-real-xdg-"));
-		try {
-			const opencodeDir = path.join(fakeRealDataDir, "opencode");
-			fs.mkdirSync(opencodeDir, { recursive: true });
-			fs.writeFileSync(path.join(opencodeDir, "auth.json"), '{"providers":[]}', "utf-8");
+	test("server exits mid-turn → session ends as crashed", async () => {
+		let serverChild: EventEmitter | undefined;
+		const fakeSpawn = vi.fn(() => {
+			const stdout = new EventEmitter() as unknown as NonNullable<ChildProcess["stdout"]>;
+			const child = Object.assign(new EventEmitter() as unknown as ChildProcess, {
+				stdin: null,
+				stdout,
+				stderr: null,
+				pid: 99999,
+			});
+			serverChild = child as unknown as EventEmitter;
+			setImmediate(() => {
+				stdout.emit("data", Buffer.from("opencode server listening on http://127.0.0.1:19802\n"));
+			});
+			return child;
+		}) as unknown as typeof spawn;
 
-			// Inject the fake real data home via XDG_DATA_HOME env
-			const origXdg = process.env.XDG_DATA_HOME;
-			process.env.XDG_DATA_HOME = fakeRealDataDir;
-
-			const destDir = fs.mkdtempSync(path.join(os.tmpdir(), "oc-dest-xdg-"));
-			try {
-				new OpenCodeServeAdapter({ xdgDataHome: destDir, xdgConfigHome: xdgCfgDir });
-				// auth.json should be copied to the isolated dir
-				expect(
-					fs.existsSync(path.join(destDir, "opencode", "auth.json")),
-					"auth.json must be copied to isolated XDG_DATA_HOME",
-				).toBe(true);
-			} finally {
-				process.env.XDG_DATA_HOME = origXdg;
-				fs.rmSync(destDir, { recursive: true, force: true });
+		// SSE fetch hangs until aborted — simulates an active session mid-turn
+		const fakeFetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+			const urlStr = String(url);
+			if (urlStr.endsWith("/api/session") && init?.method === "POST") {
+				return new Response(JSON.stringify({ data: { id: "ses_crash" } }), { status: 200 });
 			}
-		} finally {
-			fs.rmSync(fakeRealDataDir, { recursive: true, force: true });
+			if (urlStr.includes("/prompt") && init?.method === "POST") {
+				return new Response(JSON.stringify({ data: {} }), { status: 200 });
+			}
+			if (urlStr.includes("/event")) {
+				// Hang until aborted — represents an active SSE stream
+				return new Promise<Response>((_resolve, reject) => {
+					init?.signal?.addEventListener("abort", () => {
+						const err = Object.assign(new Error("aborted"), { name: "AbortError" });
+						reject(err);
+					});
+				});
+			}
+			return new Response("ok", { status: 200 });
+		}) as typeof globalThis.fetch;
+
+		const adapter = new OpenCodeServeAdapter({
+			spawnFn: fakeSpawn,
+			fetchFn: fakeFetch,
+			xdgConfigHome: xdgCfgDir,
+		});
+
+		const handle = await adapter.startSession(makeConfig());
+
+		// Give the SSE subscription a tick to start its pending fetch
+		await new Promise<void>((resolve) => setImmediate(resolve));
+
+		// Simulate server process exiting while session is running
+		serverChild?.emit("exit", 1, null);
+
+		// Session is now crashed+done synchronously from the exit handler
+		const result = await adapter.stopSession(handle);
+		expect(result.outcome).toBe("crashed");
+	});
+
+	test("server auto-killed when last session ends", async () => {
+		const killSpy = vi.fn();
+
+		// Two separate SSE streams, one per session
+		const sseStream1 = new FakeSseStream();
+		const sseStream2 = new FakeSseStream();
+		let sessionIdx = 0;
+
+		const fakeFetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+			const urlStr = String(url);
+			if (urlStr.endsWith("/api/session") && init?.method === "POST") {
+				sessionIdx++;
+				const id = `ses_s${sessionIdx}`;
+				return new Response(JSON.stringify({ data: { id } }), { status: 200 });
+			}
+			if (urlStr.includes("/prompt") && init?.method === "POST") {
+				return new Response(JSON.stringify({ data: {} }), { status: 200 });
+			}
+			if (urlStr.includes("/ses_s1/event")) {
+				return new Response(sseStream1.asReadableStream(), {
+					status: 200,
+					headers: { "Content-Type": "text/event-stream" },
+				});
+			}
+			if (urlStr.includes("/ses_s2/event")) {
+				return new Response(sseStream2.asReadableStream(), {
+					status: 200,
+					headers: { "Content-Type": "text/event-stream" },
+				});
+			}
+			return new Response("ok", { status: 200 });
+		}) as typeof globalThis.fetch;
+
+		const fakeSpawn = makeFakeSpawn(19803);
+		const adapter = new OpenCodeServeAdapter({
+			spawnFn: fakeSpawn,
+			killFn: killSpy,
+			fetchFn: fakeFetch,
+			xdgConfigHome: xdgCfgDir,
+		});
+
+		const handle1 = await adapter.startSession(makeConfig({ sessionId: "s1" }));
+		const handle2 = await adapter.startSession(makeConfig({ sessionId: "s2" }));
+
+		// Close first stream and stop first session
+		sseStream1.close();
+		for await (const _ of adapter.streamEvents(handle1)) {
+			// drain
 		}
+		await adapter.stopSession(handle1);
+		expect(
+			killSpy,
+			"server must stay alive when second session is still running",
+		).not.toHaveBeenCalled();
+
+		// Close second stream and stop second session
+		sseStream2.close();
+		for await (const _ of adapter.streamEvents(handle2)) {
+			// drain
+		}
+		await adapter.stopSession(handle2);
+		expect(killSpy, "server must be killed after last session ends").toHaveBeenCalledWith(
+			99999,
+			"SIGTERM",
+		);
 	});
 });

@@ -42,6 +42,8 @@ interface ReturnGate {
 interface ServeSession {
 	readonly opcodeSessionId: string;
 	done: boolean;
+	/** True when the session ended due to a server crash or SSE error (not idle timeout). */
+	crashed: boolean;
 	readonly events: HarnessEvent[];
 	notifyStream: (() => void) | null;
 	resolveStop: ((result: SessionResult) => void) | null;
@@ -60,8 +62,6 @@ interface OpenCodeServeAdapterDeps {
 	readonly spawnFn?: typeof spawn;
 	readonly killFn?: (pid: number, signal: NodeJS.Signals) => void;
 	readonly fetchFn?: typeof globalThis.fetch;
-	/** Override the per-adapter XDG data dir (for tests). */
-	readonly xdgDataHome?: string;
 	/** Override the per-adapter XDG config dir (for tests). */
 	readonly xdgConfigHome?: string;
 }
@@ -136,33 +136,18 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 	private serverProcess?: ChildProcess;
 	private serverUrl?: string;
 	private serverReadyPromise?: Promise<string>;
-	private readonly xdgDataHome: string;
 	private readonly xdgConfigHome: string;
+	/** Counts sessions currently alive; auto-kills server when it drops to zero. */
+	private activeSessionCount = 0;
 
 	constructor(deps?: OpenCodeServeAdapterDeps) {
 		this.spawnFn = deps?.spawnFn ?? spawn;
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
 		this.fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
 
-		// @lore: XDG_DATA_HOME isolates SQLite db — concurrent instances hang on write-lock without it; auth.json copied so login is still found
-		this.xdgDataHome =
-			deps?.xdgDataHome ?? fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-opencode-xdg-data-"));
-
 		// @lore: XDG_CONFIG_HOME isolates opencode config — prevents user's global ~/.config/opencode plugins from loading into sessions; same isolation as the CLI path
 		this.xdgConfigHome =
 			deps?.xdgConfigHome ?? fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-opencode-xdg-cfg-"));
-
-		// Copy auth.json from the user's real opencode data home so sessions can authenticate.
-		// Fails silently when no auth file exists (test environments, or first-run).
-		const realDataHome = process.env.XDG_DATA_HOME ?? path.join(os.homedir(), ".local", "share");
-		const authSrc = path.join(realDataHome, "opencode", "auth.json");
-		const authDstDir = path.join(this.xdgDataHome, "opencode");
-		try {
-			fs.mkdirSync(authDstDir, { recursive: true });
-			fs.copyFileSync(authSrc, path.join(authDstDir, "auth.json"));
-		} catch {
-			// auth.json absent or unreadable — opencode will fall back to env-based keys.
-		}
 	}
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
@@ -212,6 +197,7 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 		const session: ServeSession = {
 			opcodeSessionId,
 			done: false,
+			crashed: false,
 			events: [],
 			notifyStream: null,
 			resolveStop: null,
@@ -225,6 +211,7 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 		};
 
 		this.sessions.set(sessionId, session);
+		this.activeSessionCount++;
 
 		// Subscribe to SSE in background — runs until session is done or aborted.
 		// Prompt was sent above, so at least 2 events exist; stream will stay open.
@@ -390,6 +377,14 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 				this.serverProcess = undefined;
 				this.serverUrl = undefined;
 				this.serverReadyPromise = undefined;
+				// Crash any sessions still running — they can no longer make progress.
+				for (const session of this.sessions.values()) {
+					if (!session.done) {
+						session.crashed = true;
+						session.sseAbort.abort();
+						this.markDone(session);
+					}
+				}
 			});
 
 			// Reject if not ready within 10s
@@ -404,14 +399,13 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 	}
 
 	private buildServerEnv(): Record<string, string> {
-		const allowlist = ["PATH", "HOME", "LANG", "OPENROUTER_API_KEY"];
+		// @lore: XDG_DATA_HOME passed through so opencode finds the user's auth.json at its real path
+		const allowlist = ["PATH", "HOME", "LANG", "OPENROUTER_API_KEY", "XDG_DATA_HOME"];
 		const env: Record<string, string> = {};
 		for (const key of allowlist) {
 			const val = process.env[key];
 			if (val !== undefined) env[key] = val;
 		}
-		// Isolated data dir: db lives here; auth.json was copied in during construction.
-		env.XDG_DATA_HOME = this.xdgDataHome;
 		// Isolated config dir: prevents user's global ~/.config/opencode plugins from loading.
 		env.XDG_CONFIG_HOME = this.xdgConfigHome;
 		// @lore: OPENCODE_PERMISSION — without it opencode asks before each tool call; non-TTY auto-rejects; {"*":"allow"} grants headless approval (same as CLI path)
@@ -465,7 +459,8 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 				}
 			} catch (e) {
 				if ((e as Error).name !== "AbortError") {
-					// Unexpected error — treat as done
+					// SSE stream failed unexpectedly — session cannot continue.
+					session.crashed = true;
 					this.markDone(session);
 				}
 			}
@@ -570,7 +565,10 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 		clearTimeout(session.idleTimer ?? undefined);
 		this.forceReturnCounts.set(session.configSessionId, session.gateForceCount);
 		this.sessions.delete(sessionId);
-		return { outcome: "completed", tokenUsage: { byTier: {} } };
+		// Decrement active count; auto-kill the shared server when no sessions remain.
+		if (this.activeSessionCount > 0) this.activeSessionCount--;
+		if (this.activeSessionCount === 0) this.killServer();
+		return { outcome: session.crashed ? "crashed" : "completed", tokenUsage: { byTier: {} } };
 	}
 
 	/** Kill the shared serve process (called when no sessions remain, or at disposal). */
