@@ -40,10 +40,10 @@
  */
 
 import { execFileSync, spawn } from "node:child_process";
+import * as path from "node:path";
 import type { HarnessAdapter, HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import { CodexAppServerAdapter } from "../codex-app-server-adapter.js";
 import { discoverLocalHarnesses } from "../harness-discovery.js";
 import {
 	createHarnessSandbox,
@@ -51,7 +51,11 @@ import {
 	provisionCodexHome,
 	requireHarnessAuthed,
 } from "./harness-sandbox.js";
-import { productionCliConfig, productionHarnessAdapter } from "./production-cli-config.js";
+import {
+	codexTurnContext,
+	productionCliConfig,
+	productionHarnessAdapter,
+} from "./production-cli-config.js";
 import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
@@ -119,7 +123,7 @@ async function runWithModel(
 	return { stdout: sink.text, events };
 }
 
-/** Run one session through any HarnessAdapter, returning its events and per-adapter ids. */
+/** Run one session through any HarnessAdapter, returning its events and native session id. */
 async function runSessionWithAdapter(
 	adapter: HarnessAdapter,
 	sessionConfig: SessionConfig,
@@ -127,19 +131,16 @@ async function runSessionWithAdapter(
 	events: HarnessEvent[];
 	handle: Awaited<ReturnType<HarnessAdapter["startSession"]>>;
 	nativeSessionId: string | undefined;
-	threadModel: string | undefined;
 }> {
 	const handle = track(adapter, await adapter.startSession(sessionConfig));
 	const events: HarnessEvent[] = [];
 	for await (const ev of adapter.streamEvents(handle)) {
 		events.push(ev);
 	}
-	// Capture ids BEFORE stopSession — stopSession deletes the session entry.
+	// Capture id BEFORE stopSession — stopSession deletes the session entry.
 	const nativeSessionId = adapter.getNativeSessionId?.(handle);
-	const threadModel =
-		adapter instanceof CodexAppServerAdapter ? adapter.getThreadModel(handle) : undefined;
 	await adapter.stopSession(handle);
-	return { events, handle, nativeSessionId, threadModel };
+	return { events, handle, nativeSessionId };
 }
 
 /** The models this machine's login actually offers for a harness, from discovery. */
@@ -307,10 +308,11 @@ describe("[harness:codex] the model asked for is the model codex runs", () => {
 			expect(provisionCodexHome(sandboxPath)).toBe(true);
 
 			// CodexAppServerAdapter — production adapter (codex app-server --stdio).
-			// threadModel is read from the thread/start JSON-RPC response (ephemeral sessions
-			// do not write a session rollout JSONL, so the RPC echo is the only reliable source).
+			// Model is read from the session JSONL turn_context entry (ephemeral: false
+			// is the production default, and CODEX_HOME is per-sandbox so the JSONL
+			// stays in the sandbox, not in the user's ~/.codex).
 			const adapter = productionHarnessAdapter("codex");
-			const { threadModel } = await runSessionWithAdapter(adapter, {
+			const { nativeSessionId } = await runSessionWithAdapter(adapter, {
 				sessionId: sessionId("model-sel-codex"),
 				sandboxPath,
 				assembledPrompt: PROMPT,
@@ -321,8 +323,9 @@ describe("[harness:codex] the model asked for is the model codex runs", () => {
 				tools: [],
 			});
 
-			expect(threadModel, "codex thread/start must echo the requested model").toBeDefined();
-			expect(threadModel).toBe(model);
+			const ctx = codexTurnContext(nativeSessionId, path.join(sandboxPath, ".codex-home"));
+			expect(ctx, "codex recorded no turn context in session JSONL").toBeDefined();
+			expect(ctx?.model).toBe(model);
 		} finally {
 			await sandbox.cleanup();
 		}

@@ -33,19 +33,21 @@
  */
 
 import { execFile, execFileSync, spawn } from "node:child_process";
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import { CodexAppServerAdapter } from "../codex-app-server-adapter.js";
 import {
 	createHarnessSandbox,
 	provisionClaudeSandbox,
 	provisionCodexHome,
 } from "./harness-sandbox.js";
-import { productionCliConfig } from "./production-cli-config.js";
+import {
+	codexTurnContext,
+	productionCliConfig,
+	productionHarnessAdapter,
+} from "./production-cli-config.js";
 import { requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
@@ -164,40 +166,6 @@ function provisionCodexRepo(sandboxPath: string): void {
 	});
 }
 
-/**
- * Reads the codex session JSONL to find the turn_context entry for a given thread id.
- * Only works when the session was started with ephemeral: false.
- */
-function codexTurnContext(
-	threadId: string | undefined,
-	codexHome: string,
-): { model?: string; effort?: string } | undefined {
-	if (!threadId) return undefined;
-	const sessionsRoot = path.join(codexHome, "sessions");
-	if (!fs.existsSync(sessionsRoot)) return undefined;
-	const stack: string[] = [sessionsRoot];
-	while (stack.length > 0) {
-		const dir = stack.pop();
-		if (dir === undefined) continue;
-		for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-			const full = path.join(dir, entry.name);
-			if (entry.isDirectory()) {
-				stack.push(full);
-			} else if (entry.name.includes(threadId) && entry.name.endsWith(".jsonl")) {
-				for (const obj of jsonLines(fs.readFileSync(full, "utf-8"))) {
-					if (obj.type !== "turn_context") continue;
-					const payload = obj.payload as Record<string, unknown> | undefined;
-					return {
-						...(typeof payload?.model === "string" ? { model: payload.model } : {}),
-						...(typeof payload?.effort === "string" ? { effort: payload.effort } : {}),
-					};
-				}
-			}
-		}
-	}
-	return undefined;
-}
-
 describe("[harness:codex] the configured reasoning effort is the effort codex runs with", () => {
 	requireHarness("codex");
 
@@ -209,10 +177,9 @@ describe("[harness:codex] the configured reasoning effort is the effort codex ru
 		// Two asks, both different from each other, is what makes a dropped option
 		// impossible to miss.
 		//
-		// ephemeral: false — required so codex writes the session JSONL that
-		// records turn_context (model + effort). applyEffortToSessionConfig writes
-		// the requested effort into the per-session config.toml before spawn so
-		// codex reads it from config (its preferred source) and records it.
+		// effort is delivered via -c model_reasoning_effort=<v> (modelOptionArgv).
+		// Model and effort are verified from the JSONL turn_context entry (ephemeral: false
+		// is the production default; CODEX_HOME is per-sandbox so history stays in the sandbox).
 		const seen: string[] = [];
 		for (const effort of ["low", "xhigh"]) {
 			const sandbox = createHarnessSandbox("model-opt-codex");
@@ -220,7 +187,7 @@ describe("[harness:codex] the configured reasoning effort is the effort codex ru
 			try {
 				provisionCodexRepo(sandboxPath);
 				expect(provisionCodexHome(sandboxPath)).toBe(true);
-				const adapter = new CodexAppServerAdapter({ ephemeral: false });
+				const adapter = productionHarnessAdapter("codex");
 				const handle = track(
 					adapter,
 					await adapter.startSession({
@@ -239,7 +206,7 @@ describe("[harness:codex] the configured reasoning effort is the effort codex ru
 					// drain events
 				}
 				// getNativeSessionId BEFORE stopSession — stopSession removes the session entry
-				const nativeSessionId = adapter.getNativeSessionId(handle);
+				const nativeSessionId = adapter.getNativeSessionId?.(handle);
 				await adapter.stopSession(handle);
 				const ctx = codexTurnContext(nativeSessionId, path.join(sandboxPath, ".codex-home"));
 				expect(ctx, "codex recorded no turn context").toBeDefined();
