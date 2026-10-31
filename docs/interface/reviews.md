@@ -37,6 +37,13 @@ Each part has an `id` (unique in the review), a `label` (the kind of thing in th
 | `text` | Prose: an email, a piece of copy | `subject`, `to`, `body` |
 | `items` | A batch of the same kind of thing, such as three replies to customers | `items`: `id` (unique), `title` (a few words), `body` |
 
+A `data:text/html` preview runs in the same sealed box as an app: its scripts run, but it cannot
+reach HyperIdle, its storage or the network. HyperIdle never reads inside it; a small script it adds
+to the page answers by message what is under the pointer and where a pinned element is now, so a
+person can point at any element. An http(s) preview runs as its own site, and one from HyperIdle's
+own address runs as no site at all, so its scripts cannot reach into HyperIdle; HyperIdle cannot see
+inside either, so a comment on it is on the whole page.
+
 ### Pins
 
 A pin says where a flag or a comment points: `id`, `part`, `label` (a few words naming the spot)

@@ -67,6 +67,7 @@ test("pointing at the page's heading makes a pin and a row; a reply lands in the
 	// The page is covered by the pointer layer, so the click lands on it, over the heading.
 	await page
 		.frameLocator('iframe[title="Live preview"]')
+		.frameLocator("iframe")
 		.locator("h1")
 		.click({ force: true, position: { x: 20, y: 10 } });
 
@@ -205,4 +206,93 @@ test("Use it lets clicks reach the page; Comment intercepts them as pins; Escape
 	await expect(
 		page.getByRole("button", { name: "Point at something on the page" }),
 	).not.toBeVisible();
+
+	// The pointer covers only the page, so Use it stays clickable in Comment mode.
+	await page.getByRole("button", { name: "Comment" }).click();
+	await page.getByRole("button", { name: "Use it" }).click();
+	await expect(
+		page.getByRole("button", { name: "Point at something on the page" }),
+	).not.toBeVisible();
+});
+
+test("a preview of a page from HyperIdle's own address runs sealed off from HyperIdle", async ({
+	page,
+}) => {
+	await page.route("**/review-probe.html", (route) =>
+		route.fulfill({
+			contentType: "text/html; charset=utf-8",
+			body: `<body><script>
+const t = (f) => { try { f(); return "reached"; } catch { return "blocked"; } };
+document.body.textContent = "parent: " + t(() => parent.document.title) + " · storage: " + t(() => localStorage.length);
+</script></body>`,
+		}),
+	);
+	await page.goto(HAND_OFF);
+	const id = await page.evaluate(async () => {
+		const res = await fetch("/api/actions/send_message", {
+			method: "POST",
+			headers: { "X-API-Key": "hyperidle-dev-local", "Content-Type": "application/json" },
+			body: JSON.stringify({
+				threadId: "demo-thread-trial-end",
+				review: {
+					title: "Probe",
+					reasoning: [],
+					parts: [
+						{
+							id: "page",
+							kind: "preview",
+							label: "Live preview",
+							title: "Probe",
+							url: `${location.origin}/review-probe.html`,
+						},
+					],
+				},
+			}),
+		}).then((r) => r.json());
+		return res.data.message.id as string;
+	});
+	await page.goto(`${HAND_OFF}?review=${id}`);
+	await expect(page.frameLocator('iframe[title="Live preview"]').locator("body")).toHaveText(
+		"parent: blocked · storage: blocked",
+	);
+});
+
+test("a whole-page preview runs its script sealed: no way to HyperIdle, its storage or the network", async ({
+	page,
+}) => {
+	const probe = `<p id="out">waiting</p><script>
+const t = (f) => { try { f(); return "reached"; } catch { return "blocked"; } };
+const said = "parent: " + t(() => parent.parent.document.title) + " · storage: " + t(() => localStorage.length);
+fetch("/api/actions/open_user", { method: "POST" })
+	.then(() => "network: reached", () => "network: blocked")
+	.then((net) => { document.getElementById("out").textContent = said + " · " + net; });
+</script>`;
+	await page.goto(HAND_OFF);
+	const id = await page.evaluate(async (html) => {
+		const res = await fetch("/api/actions/send_message", {
+			method: "POST",
+			headers: { "X-API-Key": "hyperidle-dev-local", "Content-Type": "application/json" },
+			body: JSON.stringify({
+				threadId: "demo-thread-trial-end",
+				review: {
+					title: "Whole-page probe",
+					reasoning: [],
+					parts: [
+						{
+							id: "page",
+							kind: "preview",
+							label: "Live preview",
+							title: "Probe",
+							url: `data:text/html;charset=utf-8,${encodeURIComponent(html)}`,
+						},
+					],
+				},
+			}),
+		}).then((r) => r.json());
+		return res.data.message.id as string;
+	}, probe);
+	await page.goto(`${HAND_OFF}?review=${id}`);
+	await expect(
+		page.frameLocator('iframe[title="Live preview"]').frameLocator("iframe").locator("#out"),
+	).toHaveText("parent: blocked · storage: blocked · network: blocked");
 });

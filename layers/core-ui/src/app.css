@@ -3951,6 +3951,9 @@ button.rejected-next:hover {
 	padding: var(--sp-2) var(--sp-3);
 	border-bottom: var(--line-w) solid var(--line);
 }
+.preview-page {
+	position: relative;
+}
 .preview-frame iframe {
 	display: block;
 	width: 100%;
