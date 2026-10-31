@@ -68,20 +68,24 @@ describe("OpenCodeServeAdapter deliver (real binary)", () => {
 				);
 			};
 
-			await Promise.all([collectEvents(), deliverAfterDelay()]);
-			const stopResult = await adapter.stopSession(handle);
+			try {
+				await Promise.all([collectEvents(), deliverAfterDelay()]);
+				const stopResult = await adapter.stopSession(handle);
 
-			// Primary assertion: steer was accepted mid-run (deliver did not return "unsupported")
-			expect(deliverResult, "steer must be accepted while session is active").toBe("delivered");
+				// Primary assertion: steer was accepted mid-run (deliver did not return "unsupported")
+				expect(deliverResult, "steer must be accepted while session is active").toBe("delivered");
 
-			// Secondary assertion (requires valid LLM credentials): code word in reply
-			const text = events
-				.filter((e) => e.type === "completion")
-				.map((e) => (e as { type: "completion"; text: string }).text)
-				.join("");
-			expect(text, "delivered steer must appear in the final response").toMatch(/KANGAROO/i);
+				// Secondary assertion (requires valid LLM credentials): code word in reply
+				const text = events
+					.filter((e) => e.type === "completion")
+					.map((e) => (e as { type: "completion"; text: string }).text)
+					.join("");
+				expect(text, "delivered steer must appear in the final response").toMatch(/KANGAROO/i);
 
-			expect(stopResult.outcome).toBe("completed");
+				expect(stopResult.outcome).toBe("completed");
+			} finally {
+				adapter.killServer();
+			}
 		} finally {
 			await sandbox.cleanup();
 		}

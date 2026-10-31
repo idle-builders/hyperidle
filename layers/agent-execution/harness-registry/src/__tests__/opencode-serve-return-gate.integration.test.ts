@@ -80,20 +80,24 @@ describe("OpenCodeServeAdapter in-adapter return gate (real binary)", () => {
 			const handle = await adapter.startSession(config);
 			track(adapter, handle);
 
-			for await (const _event of adapter.streamEvents(handle)) {
-				// consume; gate logic is inside streamEvents
+			try {
+				for await (const _event of adapter.streamEvents(handle)) {
+					// consume; gate logic is inside streamEvents
+				}
+
+				// Bridge must have been called at least twice: once for the block, once for the approve.
+				expect(bridgeCallCount, "bridge must be checked after each turn").toBeGreaterThanOrEqual(2);
+
+				// Adapter must report the one forced follow-up turn.
+				expect(
+					adapter.getForceReturnCount(config.sessionId),
+					"getForceReturnCount must return 1 after one forced turn",
+				).toBe(1);
+
+				await adapter.stopSession(handle);
+			} finally {
+				adapter.killServer();
 			}
-
-			// Bridge must have been called at least twice: once for the block, once for the approve.
-			expect(bridgeCallCount, "bridge must be checked after each turn").toBeGreaterThanOrEqual(2);
-
-			// Adapter must report the one forced follow-up turn.
-			expect(
-				adapter.getForceReturnCount(config.sessionId),
-				"getForceReturnCount must return 1 after one forced turn",
-			).toBe(1);
-
-			await adapter.stopSession(handle);
 		} finally {
 			await sandbox.cleanup();
 			await new Promise<void>((resolve) => bridge.close(() => resolve()));
