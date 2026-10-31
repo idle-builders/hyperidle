@@ -1063,7 +1063,7 @@ async function admitSession(
 				.where(
 					and(
 						eq(sessions.agentId, params.agentId),
-						eq(sessions.state, "completed"),
+						eq(sessions.state, "done"),
 						isNotNull(sessions.harnessSessionId),
 						isNotNull(sessions.sandboxSnapshot),
 						like(sessions.sourceCorrelationJson, `%"threadId":"${targetThreadId}"%`),

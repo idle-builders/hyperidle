@@ -147,7 +147,7 @@ describe("cursor-agent hold-and-handover", () => {
 			agentId,
 			modelTier: "fast",
 			startedAt: new Date(Date.now() - 60_000).toISOString(),
-			state: "completed",
+			state: "done",
 			sandboxSnapshot: prevSandbox,
 			harnessSessionId: "cursor-chat-uuid-abc",
 			sourceKind: "assistant",
