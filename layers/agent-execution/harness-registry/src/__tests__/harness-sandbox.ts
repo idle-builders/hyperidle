@@ -138,11 +138,9 @@ async function codexAuthed(): Promise<boolean> {
 
 async function opencodeAuthed(): Promise<boolean> {
 	try {
-		// opencode reads OPENROUTER_API_KEY from its own environment — HyperIdle
-		// holds no model credential to inject.
-		if (!process.env.OPENROUTER_API_KEY) return false;
-		const { stdout } = await execFileAsync("opencode", ["providers", "list"], { timeout: 10_000 });
-		return /\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
+		// @lore: opencodeAuthed uses auth list — providers list only detects env-based keys; file-based login (~/.local/share/opencode/auth.json) is invisible to it
+		const { stdout } = await execFileAsync("opencode", ["auth", "list"], { timeout: 10_000 });
+		return /\d+\s+credentials/.test(stdout) || /\d+\s+environment/.test(stdout);
 	} catch {
 		return false;
 	}

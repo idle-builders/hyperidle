@@ -7,17 +7,16 @@ import type { CliAdapterConfig } from "../cli-harness-adapter.js";
  * or a stray credential in production fails the real-binary lane too.
  */
 export function productionCliConfig(
-	family: "claude" | "codex" | "opencode" | "cursor-agent",
+	family: "claude" | "codex" | "cursor-agent",
 ): CliAdapterConfig {
 	switch (family) {
 		case "claude":
 			return CLAUDE_CLI_CONFIG;
 		case "cursor-agent":
 			return CURSOR_AGENT_CLI_CONFIG;
-		case "codex":
-		case "opencode": {
+		case "codex": {
 			const config = CLI_TOOL_CONFIGS[family];
-			if (!config) throw new Error(`CLI_TOOL_CONFIGS has no entry for ${family}`);
+			if (!config || !("args" in config)) throw new Error(`CLI_TOOL_CONFIGS has no full config for ${family}`);
 			return config;
 		}
 	}
