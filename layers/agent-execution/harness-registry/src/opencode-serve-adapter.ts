@@ -44,7 +44,7 @@ interface ServeSession {
 	/** The sandbox directory this session runs in (passed as ?directory= on every call). */
 	readonly sandboxPath: string;
 	done: boolean;
-	/** True when the session ended due to a server crash or SSE error (not a model error). */
+	/** True when the session ended abnormally (server crash, SSE abort, or model/API error). */
 	crashed: boolean;
 	readonly events: HarnessEvent[];
 	notifyStream: (() => void) | null;
@@ -492,10 +492,17 @@ export class OpenCodeServeAdapter implements HarnessAdapter {
 				// @lore: session.idle is the authoritative done signal in the stable opencode API
 				this.markDone(session);
 				break;
-			case "session.error":
-				// Model-level error (auth, context overflow, etc.) — not a server crash.
+			case "session.error": {
+				// Model/API failure (auth, context overflow, etc.) — session cannot continue.
+				session.crashed = true;
+				const errorObj = props.error as Record<string, unknown> | undefined;
+				const errorData = errorObj?.data as Record<string, unknown> | undefined;
+				const errorName = typeof errorObj?.name === "string" ? errorObj.name : "OpenCodeSessionError";
+				const errorMsg = typeof errorData?.message === "string" ? errorData.message : errorName;
+				session.events.push({ type: "error", message: errorMsg, code: errorName });
 				this.markDone(session);
 				break;
+			}
 			case "message.updated": {
 				const info = props.info as Record<string, unknown> | undefined;
 				if (info?.role === "assistant" && typeof info.id === "string") {

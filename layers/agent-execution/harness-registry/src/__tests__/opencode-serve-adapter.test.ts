@@ -408,6 +408,46 @@ describe("OpenCodeServeAdapter", () => {
 		sseStream.close();
 	});
 
+	test("session.error event → crashed outcome and error event emitted", async () => {
+		const sseStream = new FakeSseStream();
+		const fakeFetch = makeFakeFetch(sseStream);
+		const fakeSpawn = makeFakeSpawn();
+
+		const adapter = new OpenCodeServeAdapter({
+			spawnFn: fakeSpawn,
+			fetchFn: fakeFetch as typeof globalThis.fetch,
+			xdgConfigHome: xdgCfgDir,
+		});
+
+		const handle = await adapter.startSession(makeConfig());
+
+		setImmediate(() => {
+			sseStream.pushEvent("session.error", {
+				sessionID: "ses_fake123",
+				error: { name: "ProviderAuthError", data: { providerID: "openrouter", message: "invalid api key" } },
+			});
+		});
+
+		const events: Array<{ type: string }> = [];
+		for await (const evt of adapter.streamEvents(handle)) {
+			events.push(evt);
+		}
+
+		const result = await adapter.stopSession(handle);
+		expect(result.outcome).toBe("crashed");
+
+		const errorEvents = events.filter((e) => e.type === "error") as Array<{
+			type: string;
+			message: string;
+			code: string;
+		}>;
+		expect(errorEvents).toHaveLength(1);
+		expect(errorEvents[0]?.message).toBe("invalid api key");
+		expect(errorEvents[0]?.code).toBe("ProviderAuthError");
+
+		sseStream.close();
+	});
+
 	test("events from other sessions are ignored", async () => {
 		const sseStream = new FakeSseStream();
 		const fakeFetch = makeFakeFetch(sseStream);

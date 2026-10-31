@@ -4,7 +4,7 @@
  * LOCAL-ONLY LANE — runs via test:integration (harness project). Needs real CLI
  * binaries and real LLM credentials. Never a GitHub Actions job.
  *
- * Proves per harness (claude/codex/cursor-agent/opencode), all four:
+ * Proves per harness (claude/codex/cursor-agent), three:
  *
  *   1. A session's native id is captured (or assigned) and survives to where a
  *      resume could use it.
@@ -491,95 +491,3 @@ describe("session handles — cursor-agent", () => {
 	}, 120_000);
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
-// opencode
-// ═════════════════════════════════════════════════════════════════════════════
-
-describe("session handles — opencode", () => {
-	requireHarness("opencode");
-
-	test("captures sessionID from first event, resumes with prior context, wrong-id fails loudly", async () => {
-		await requireHarnessAuthed("opencode");
-
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "sh-opencode-"));
-
-		try {
-			const opencodeConfig = productionCliConfig("opencode");
-			const adapter = new CliHarnessAdapter(opencodeConfig);
-
-			// ── Phase 1: run session, plant codeword ──────────────────────────
-			const configP1: SessionConfig = {
-				sessionId: `sh-oc-p1-${Math.random().toString(36).slice(2, 8)}`,
-				sandboxPath,
-				assembledPrompt: PHASE1_PROMPT,
-				instruction: PHASE1_PROMPT,
-				modelTier: "workhorse",
-				tools: [],
-				selectedModel: HARNESS_TEST_MODELS.opencode.model,
-			};
-
-			const handleP1 = await adapter.startSession(configP1);
-			track(adapter, handleP1);
-			const { completionTexts: p1Texts } = await drainEvents(adapter, handleP1);
-			const r1 = await adapter.stopSession(handleP1);
-			expect(r1.outcome).toBe("completed");
-
-			// ── Proof 1: native id captured from event stream ─────────────────
-			const nativeId = adapter.getNativeSessionId?.(handleP1);
-			expect(
-				nativeId,
-				"opencode native session id (sessionID) must be captured from event stream",
-			).toBeTruthy();
-
-			expect(
-				p1Texts.some((t) => t.includes("PHASE1_OK") || t.includes(CODEWORD)),
-				`Phase 1 must produce PHASE1_OK or mention ${CODEWORD}. Got: ${p1Texts.slice(0, 3).join("|")}`,
-			).toBe(true);
-
-			// ── Proof 2 + 3: resume retains prior context ────────────────────
-			const resumeConfig: SessionResumeConfig = {
-				sandboxPath,
-				modelTier: "workhorse",
-				selectedModel: HARNESS_TEST_MODELS.opencode.model,
-			};
-
-			const handleP2 = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfig);
-			track(adapter, handleP2);
-			expect(handleP2, "resumeSession must return a handle").toBeDefined();
-			if (!handleP2) return;
-
-			const { completionTexts: p2Texts } = await drainEvents(adapter, handleP2);
-			const r2 = await adapter.stopSession(handleP2);
-			expect(r2.outcome).toBe("completed");
-
-			expect(
-				knownCodeword(p2Texts),
-				`Resumed opencode session must know codeword "${CODEWORD}". ` +
-					`Got: ${p2Texts.slice(0, 3).join("|")}`,
-			).toBe(true);
-
-			// ── Proof 4: wrong id fails loudly ───────────────────────────────
-			// opencode exits 1 with "Error: Session not found" on a bad session id.
-			const bogusId = "ses_000000000000000000000000000000000000000000";
-			let wrongIdDetected = false;
-			try {
-				const handleWrong = await adapter.resumeSession?.(bogusId, PHASE2_PROMPT, resumeConfig);
-				track(adapter, handleWrong);
-				if (handleWrong) {
-					await drainEvents(adapter, handleWrong);
-					const rWrong = await adapter.stopSession(handleWrong);
-					wrongIdDetected = rWrong.outcome !== "completed";
-				}
-			} catch {
-				wrongIdDetected = true;
-			}
-
-			expect(
-				wrongIdDetected,
-				"Wrong session-id resume on opencode must fail loudly (crashed outcome)",
-			).toBe(true);
-		} finally {
-			await rmSandbox(sandboxPath);
-		}
-	}, 120_000);
-});

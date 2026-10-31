@@ -69,13 +69,6 @@ describe("CLI_TOOL_CONFIGS.codex — model is argument-enforced", () => {
 		expect(args).toContain("{{model}}");
 	});
 
-	test("opencode args contain --model immediately followed by {{model}}", () => {
-		const args = productionCliConfig("opencode").args;
-		const modelFlagIdx = args.indexOf("--model");
-		expect(modelFlagIdx).toBeGreaterThanOrEqual(0);
-		expect(args[modelFlagIdx + 1]).toBe("{{model}}");
-	});
-
 	test("cursor-agent args contain --model immediately followed by {{model}}", () => {
 		const args = productionCliConfig("cursor-agent").args;
 		const modelFlagIdx = args.indexOf("--model");

@@ -26,7 +26,6 @@
  *   claude        result line `modelUsage`, keyed by the concrete model id
  *   cursor-agent  `system`/`init` line `model` — a display LABEL, not the id
  *   codex         absent from stdout; its own rollout JSONL carries `model`
- *   opencode      absent from stdout; `opencode export <sid>` carries `modelID`
  *
  * MODELS ARE NOT PINNED TO A CONSTANT. Each lane asks discovery what this
  * machine's login actually offers and picks from that, so a model the vendor
@@ -36,10 +35,9 @@
  * the default.
  */
 
-import { execFile, execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
@@ -55,12 +53,9 @@ import { trackHarnessSessions } from "./session-handle-tracker.js";
 
 const { track } = trackHarnessSessions();
 
-const execFileAsync = promisify(execFile);
-
 const CLAUDE_CLI_CONFIG = productionCliConfig("claude");
 const CURSOR_AGENT_CLI_CONFIG = productionCliConfig("cursor-agent");
 const CODEX_CLI_CONFIG = productionCliConfig("codex");
-const OPENCODE_CLI_CONFIG = productionCliConfig("opencode");
 
 const PROMPT = "Reply with exactly the token MODEL_OK and nothing else.";
 
@@ -328,51 +323,3 @@ describe("[harness:codex] the model asked for is the model codex runs", () => {
 	}, 240_000);
 });
 
-// ── opencode ──────────────────────────────────────────────────────────────────
-
-/**
- * opencode does not put the model on its JSONL stream either. Its own session
- * export does — `providerID` + `modelID`, which together are the provider-
- * prefixed id `--model` was given.
- */
-async function opencodeModelUsed(stdout: string): Promise<string | undefined> {
-	const withSession = jsonLines(stdout).find((o) => typeof o.sessionID === "string");
-	const sid = typeof withSession?.sessionID === "string" ? withSession.sessionID : undefined;
-	if (!sid) return undefined;
-	const { stdout: exported } = await execFileAsync("opencode", ["export", sid], {
-		timeout: 60_000,
-		maxBuffer: 32 * 1024 * 1024,
-	});
-	const providerMatch = /"providerID":\s*"([^"]+)"/.exec(exported);
-	const modelMatch = /"modelID":\s*"([^"]+)"/.exec(exported);
-	if (!(providerMatch?.[1] && modelMatch?.[1])) return undefined;
-	return `${providerMatch[1]}/${modelMatch[1]}`;
-}
-
-describe("[harness:opencode] the model asked for is the model opencode runs", () => {
-	requireHarness("opencode");
-
-	test("the requested model is the one opencode's own session export names", async () => {
-		const offered = await discoveredModels("opencode");
-		expect(offered.length).toBeGreaterThan(0);
-
-		const model = "openrouter/z-ai/glm-4.7-flash";
-		const sandbox = createHarnessSandbox("model-sel-opencode");
-		const sandboxPath = sandbox.path;
-		try {
-			const { stdout } = await runWithModel(OPENCODE_CLI_CONFIG, {
-				sessionId: sessionId("model-sel-opencode"),
-				sandboxPath,
-				assembledPrompt: PROMPT,
-				instruction: PROMPT,
-				selectedModel: model,
-				mcpConnectionInfo: undefined,
-			});
-			const used = await opencodeModelUsed(stdout);
-			expect(used, "opencode's export named no model").toBeDefined();
-			expect(used).toBe(model);
-		} finally {
-			await sandbox.cleanup();
-		}
-	}, 240_000);
-});

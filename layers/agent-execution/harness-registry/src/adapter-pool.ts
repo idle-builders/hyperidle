@@ -271,8 +271,14 @@ export class AdapterPool {
  * Well-known CLI tool configurations.
  * Each tool registers with its own harnessType (binary name) so agents can
  * express a preference: harnessType: "opencode" routes to the OpenCode adapter.
+ *
+ * Entries for adapters that have their own adapter class (codex → CodexAppServerAdapter,
+ * opencode → OpenCodeServeAdapter) only need `binary` — the extra fields are used by
+ * CliHarnessAdapter-backed entries only. The union type reflects that shape difference.
  */
-export const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
+export const CLI_TOOL_CONFIGS: Partial<
+	Record<HarnessType, CliAdapterConfig | { readonly binary: string }>
+> = {
 	codex: {
 		binary: "codex",
 		// @lore: --sandbox workspace-write — codex defaults read-only, refuses writes without it; workspace-write allows writes within cwd tree only
@@ -295,30 +301,8 @@ export const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = 
 		// @lore: all codex stderr is benign — real failures appear as non-zero exit or JSONL error events in stdout; stderrIgnorePatterns suppresses false crashes
 		stderrIgnorePatterns: [/.*/],
 	},
-	opencode: {
-		binary: "opencode",
-		// Opencode headless `run` form:
-		// - `run <prompt>` delivers the seed prompt.
-		// - `--dir {{sandbox}}` sets cwd for config resolution (opencode.json).
-		// - `--format json` emits JSONL per-event output (eventFormat: "ndjson").
-		// - `--model {{model}}` requires provider-prefixed id (e.g. openrouter/~anthropic/claude-haiku-latest).
-		// @lore: {{model}} resolves from config.resolvedModel?.model; opencode requires provider-prefixed model id (e.g. openrouter/~); a bare id fails
-		// @lore: XDG_CONFIG_HOME=<sandbox>/.hyperidle/opencode-xdg-config isolates config; --pure absent: it silently disables external plugins including the gate plugin
-		args: ["run", "{{prompt}}", "--dir", "{{sandbox}}", "--format", "json", "--model", "{{model}}"],
-		envMap: {},
-		eventFormat: "ndjson",
-		// @lore: XDG_DATA_HOME isolates opencode's SQLite db — without it concurrent processes hang on ~/.local/share/opencode/opencode.db write-lock
-		envAllowlist: ["PATH", "HOME", "LANG", "OPENROUTER_API_KEY", "XDG_DATA_HOME"],
-		// Explicit channel — avoids relying on deriveCliChannel binary-string matching.
-		returnEnforcementChannel: "process-reengage",
-		// Per-session re-engage carrier for OpenCode (process-reengage channel).
-		// "run-arg" passes the forcing message as a positional arg to `opencode run <msg>`.
-		reEngageCarrier: "run-arg",
-		// Opencode reads MCP server from opencode.json in the sandbox cwd;
-		// the token is inline in headers.Authorization (no tokenEnv needed).
-		mcpConfig: { dialect: "opencode-json" },
-		stderrIgnorePatterns: [/.*/],
-	},
+	// opencode uses OpenCodeServeAdapter — only the binary name is needed here for discovery.
+	opencode: { binary: "opencode" },
 };
 
 /**
@@ -417,7 +401,7 @@ async function registerCliAdaptersIfAvailable(
 					? new CodexAppServerAdapter()
 					: name === "opencode"
 						? new OpenCodeServeAdapter()
-						: new CliHarnessAdapter(config, { enforcement });
+						: new CliHarnessAdapter(config as CliAdapterConfig, { enforcement });
 			pool.register(`local-cli-${name}`, adapter, {
 				name: `CLI: ${name}`,
 				kind: "local",
