@@ -42,6 +42,8 @@ interface FakeServerParts {
 function makeFakeServer(opts?: {
 	/** Optional fake fetch — injected so gate tests don't need a real HTTP server. */
 	fetchFn?: typeof globalThis.fetch;
+	/** Override the SIGKILL escalation timeout (default: adapter default; use large value to disable in tests). */
+	sigkillTimeoutMs?: number;
 }): FakeServerParts {
 	const stdinLines: string[] = [];
 
@@ -112,6 +114,7 @@ function makeFakeServer(opts?: {
 			// no-op in unit tests
 		},
 		...(opts?.fetchFn ? { fetchFn: opts.fetchFn } : {}),
+		...(opts?.sigkillTimeoutMs !== undefined ? { sigkillTimeoutMs: opts.sigkillTimeoutMs } : {}),
 	});
 
 	return {
@@ -156,6 +159,37 @@ describe("CodexAppServerAdapter", () => {
 		const result = await adapter.deliver({ sessionId: "nonexistent" }, "hello");
 		expect(result).toBe("unsupported");
 	});
+
+	test("stopSession does not resolve before the child exits when turn is done but process is still alive", async () => {
+		// sigkillTimeoutMs is large so the escalation timer never fires — we drive exit manually.
+		const { adapter, fakeStdout, triggerExit } = makeFakeServer({ sigkillTimeoutMs: 600_000 });
+		const handle = await adapter.startSession(BASE_CONFIG);
+
+		// Mark the turn completed without the process exiting.
+		fakeStdout.push(
+			`${JSON.stringify({
+				method: "turn/completed",
+				params: { threadId: FAKE_THREAD_ID, turn: { id: FAKE_TURN_ID } },
+			})}\n`,
+		);
+		// Let the notification be processed (session.done → true, exitCode still null).
+		await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+		let resolved = false;
+		const stopPromise = adapter.stopSession(handle).then((result) => {
+			resolved = true;
+			return result;
+		});
+
+		// Several ticks must pass without the promise resolving.
+		await new Promise<void>((resolve) => setTimeout(resolve, 20));
+		expect(resolved, "stopSession must not resolve before the child emits exit").toBe(false);
+
+		// Process finally exits — the promise must now resolve.
+		triggerExit(0, null);
+		await stopPromise;
+		expect(resolved).toBe(true);
+	}, 60_000);
 
 	test("streamEvents yields completion text from item/agentMessage/delta notifications", async () => {
 		const { adapter, triggerExit } = makeFakeServer();

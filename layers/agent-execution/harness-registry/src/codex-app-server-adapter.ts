@@ -69,6 +69,8 @@ interface CodexAppServerAdapterDeps {
 	readonly spawnFn?: typeof spawn;
 	readonly killFn?: (pid: number, signal: NodeJS.Signals) => void;
 	readonly fetchFn?: typeof globalThis.fetch;
+	/** SIGKILL escalation timeout in ms after SIGTERM (default 3000). */
+	readonly sigkillTimeoutMs?: number;
 }
 
 let nextSessionId = 1;
@@ -183,6 +185,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 	private readonly spawnFn: typeof spawn;
 	private readonly killFn: (pid: number, signal: NodeJS.Signals) => void;
 	private readonly fetchFn: typeof globalThis.fetch;
+	private readonly sigkillTimeoutMs: number;
 	private readonly sessions = new Map<string, AppServerSession>();
 	/** Persists gateForceCount after a session is deleted from this.sessions. */
 	private readonly forceReturnCounts = new Map<string, number>();
@@ -191,6 +194,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 		this.spawnFn = deps?.spawnFn ?? spawn;
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
 		this.fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
+		this.sigkillTimeoutMs = deps?.sigkillTimeoutMs ?? 3_000;
 	}
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
@@ -346,30 +350,39 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 		if (!session) return Promise.resolve({ outcome: "crashed", tokenUsage: { byTier: {} } });
 
 		if (session.done && session.exitCode !== null) {
+			// Fast path: turn completed AND the process has already exited.
 			const result = this.buildResult(session);
 			this.forceReturnCounts.set(session.configSessionId, session.gateForceCount);
 			this.sessions.delete(handle.sessionId);
 			return Promise.resolve(result);
 		}
 
+		// Signal the process group to stop (detached: true spawns in its own group).
 		if (session.child.pid !== undefined) {
 			try {
-				// Kill the process group (detached: true spawns in its own group)
 				this.killFn(-session.child.pid, "SIGTERM");
 			} catch {
 				// Process may have already exited
 			}
 		}
 
+		// @lore: must wait for actual process exit — codex writes session JSONL and plugin
+		// staging files to .codex-home after turn/completed; resolving before exit races with
+		// sandbox cleanup and causes ENOTEMPTY.
 		return new Promise<SessionResult>((resolve) => {
-			if (session.done) {
-				const result = this.buildResult(session);
-				this.forceReturnCounts.set(session.configSessionId, session.gateForceCount);
-				this.sessions.delete(handle.sessionId);
-				resolve(result);
-				return;
-			}
+			// Escalate to SIGKILL if SIGTERM is ignored (unref so the timer does not keep Node alive).
+			const sigkillTimer = setTimeout(() => {
+				if (session.child.pid !== undefined) {
+					try {
+						this.killFn(-session.child.pid, "SIGKILL");
+					} catch {
+						// Already gone
+					}
+				}
+			}, this.sigkillTimeoutMs).unref();
+
 			session.resolveStop = (result) => {
+				clearTimeout(sigkillTimer);
 				this.forceReturnCounts.set(session.configSessionId, session.gateForceCount);
 				this.sessions.delete(handle.sessionId);
 				resolve(result);
