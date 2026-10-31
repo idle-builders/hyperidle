@@ -89,10 +89,20 @@ describe("cursor-agent handover — real binary", () => {
 				adapterPool: pool,
 				workspace,
 			};
+			// Write minimal AGENTS.md + CLAUDE.md so cursor-agent receives a clear,
+			// short instruction and exits in seconds rather than exploring indefinitely.
+			// @lore: writeSandboxAgentsMd override — without real context files cursor-agent
+			// gets -p proceed with no AGENTS.md and runs open-ended tool calls for 3+ minutes;
+			// writing a one-sentence instruction keeps each turn under 60s.
+			const minimal =
+				"You are in an automated integration test. Reply with exactly one word: OK. Do not run any tools or explore the sandbox.\n";
 			const ports = buildRunningHarnessPorts({
-				// requestContext triggers assembleAgentContext in the provisioner;
-				// the real context assembly writes knowledge files — a no-op is correct here.
 				assembleAgentContext: async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" }),
+				writeSandboxAgentsMd: (sandboxPath: string) => {
+					fs.mkdirSync(sandboxPath, { recursive: true });
+					fs.writeFileSync(path.join(sandboxPath, "AGENTS.md"), minimal);
+					fs.writeFileSync(path.join(sandboxPath, "CLAUDE.md"), minimal);
+				},
 			});
 			const provisioner = createProvisioner(ports);
 

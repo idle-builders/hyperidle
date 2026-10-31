@@ -91,6 +91,7 @@ export function buildRunningHarnessPorts(
 		readonly closeMcpBridge?: SessionLifecyclePorts["harnessRuntime"]["closeMcpBridge"];
 		readonly buildToolRegistry?: SessionLifecyclePorts["toolProvider"]["buildToolRegistry"];
 		readonly assembleAgentContext?: SessionLifecyclePorts["contextAssembly"]["assembleAgentContext"];
+		readonly writeSandboxAgentsMd?: SessionLifecyclePorts["contextAssembly"]["writeSandboxAgentsMd"];
 	} = {},
 ): SessionLifecyclePorts {
 	return {
@@ -134,7 +135,7 @@ export function buildRunningHarnessPorts(
 			beginAgentWriteback: () => ({ dispose: () => undefined }),
 			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
 			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
-			writeSandboxAgentsMd: vi.fn(),
+			writeSandboxAgentsMd: options.writeSandboxAgentsMd ?? vi.fn(),
 		},
 	};
 }
