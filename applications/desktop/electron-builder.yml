@@ -52,6 +52,11 @@ extraResources:
   # install; main.ts points HYPERIDLE_BUNDLED_PLUGINS_DIR here.
   - from: "../../plugins"
     to: "plugins"
+  # Monochrome template images for the macOS menu bar tray.
+  - from: "build/TrayIconTemplate.png"
+    to: "TrayIconTemplate.png"
+  - from: "build/TrayIconTemplate@2x.png"
+    to: "TrayIconTemplate@2x.png"
 
 npmRebuild: false
 

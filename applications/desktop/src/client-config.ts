@@ -19,12 +19,15 @@ const ClientConfigSchema = z.object({
 	backendMode: BackendModeSchema.nullable().default(null),
 	/** Remote server URL for shared mode. Null when local. */
 	serverUrl: z.string().url().nullable().default(null),
+	/** True once the login item has been registered so a later user toggle is respected. */
+	loginItemSet: z.boolean().optional(),
 	windowState: WindowStateSchema.optional(),
 });
 
 export type ClientConfig = {
 	backendMode: "local" | "shared" | null;
 	serverUrl: string | null;
+	loginItemSet?: boolean;
 	windowState: WindowState;
 };
 
@@ -39,6 +42,7 @@ function applyConfigDefaults(raw: z.infer<typeof ClientConfigSchema>): ClientCon
 	return {
 		backendMode: raw.backendMode ?? null,
 		serverUrl: raw.serverUrl ?? null,
+		loginItemSet: raw.loginItemSet,
 		windowState: WindowStateSchema.parse(raw.windowState ?? {}),
 	};
 }

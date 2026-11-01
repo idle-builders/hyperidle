@@ -26,6 +26,12 @@ vi.mock("electron", () => ({
 		setPath: vi.fn(),
 		name: "HyperIdle",
 		isPackaged: false,
+		dock: {
+			hide: vi.fn(),
+			show: vi.fn(),
+		},
+		getLoginItemSettings: vi.fn(() => ({ wasOpenedAtLogin: false })),
+		setLoginItemSettings: vi.fn(),
 	},
 	BrowserWindow: Object.assign(
 		vi.fn(() => ({
@@ -135,9 +141,12 @@ vi.mock("../src/client-config.js", () => ({
 import {
 	checkSingleInstanceLock,
 	getBeforeQuitHandler,
+	makeLocalBeforeQuitHandler,
+	makeReopenWindowHandler,
 	nameTheApp,
 	readOrGenerateApiKey,
 	resolveDataDir,
+	shouldRegisterLoginItem,
 	waitForRemoteHealth,
 } from "../src/main.js";
 
@@ -361,5 +370,87 @@ describe("nameTheApp", () => {
 		nameTheApp();
 
 		expect(order).toEqual(["name HyperIdle", "userData /tmp/test-userdata", "logs /tmp/test-logs"]);
+	});
+});
+
+describe("makeLocalBeforeQuitHandler", () => {
+	it("calls event.preventDefault to keep the process alive", () => {
+		const handler = makeLocalBeforeQuitHandler(vi.fn());
+		const event = { preventDefault: vi.fn() };
+		handler(event);
+		expect(event.preventDefault).toHaveBeenCalledOnce();
+	});
+
+	it("calls the onHide callback when quit is intercepted", () => {
+		const onHide = vi.fn();
+		const handler = makeLocalBeforeQuitHandler(onHide);
+		handler({ preventDefault: vi.fn() });
+		expect(onHide).toHaveBeenCalledOnce();
+	});
+
+	it("works when called with no event argument", () => {
+		const onHide = vi.fn();
+		const handler = makeLocalBeforeQuitHandler(onHide);
+		expect(() => handler()).not.toThrow();
+		expect(onHide).toHaveBeenCalledOnce();
+	});
+});
+
+describe("shouldRegisterLoginItem", () => {
+	it("returns false when not packaged", () => {
+		expect(shouldRegisterLoginItem({ loginItemSet: undefined }, false)).toBe(false);
+	});
+
+	it("returns false when login item was already set", () => {
+		expect(shouldRegisterLoginItem({ loginItemSet: true }, true)).toBe(false);
+	});
+
+	it("returns true on first packaged run", () => {
+		expect(shouldRegisterLoginItem({ loginItemSet: undefined }, true)).toBe(true);
+	});
+
+	it("returns true when loginItemSet is false", () => {
+		expect(shouldRegisterLoginItem({ loginItemSet: false }, true)).toBe(true);
+	});
+});
+
+describe("makeReopenWindowHandler", () => {
+	it("calls createWindow when no windows exist", async () => {
+		const { BrowserWindow, app } = await import("electron");
+		vi.mocked(BrowserWindow.getAllWindows).mockReturnValueOnce([]);
+		const createWindow = vi.fn();
+		const handler = makeReopenWindowHandler(createWindow);
+		handler();
+		expect(createWindow).toHaveBeenCalledOnce();
+		expect(app.dock.show).toHaveBeenCalled();
+	});
+
+	it("focuses the existing window and does not call createWindow", async () => {
+		const { BrowserWindow } = await import("electron");
+		const mockWin = {
+			isDestroyed: vi.fn(() => false),
+			isMinimized: vi.fn(() => false),
+			restore: vi.fn(),
+			show: vi.fn(),
+			focus: vi.fn(),
+			on: vi.fn(),
+			loadFile: vi.fn(),
+			loadURL: vi.fn(),
+			getBounds: vi.fn(() => ({ x: 0, y: 0, width: 1280, height: 800 })),
+			isMaximized: vi.fn(() => false),
+			isFullScreen: vi.fn(() => false),
+			maximize: vi.fn(),
+			setFullScreen: vi.fn(),
+			webContents: { executeJavaScript: vi.fn(() => Promise.resolve()), send: vi.fn() },
+		};
+		vi.mocked(BrowserWindow.getAllWindows).mockReturnValueOnce([mockWin] as unknown as Awaited<
+			ReturnType<typeof BrowserWindow.getAllWindows>
+		>);
+
+		const createWindow = vi.fn();
+		const handler = makeReopenWindowHandler(createWindow);
+		handler();
+		expect(createWindow).not.toHaveBeenCalled();
+		expect(mockWin.focus).toHaveBeenCalled();
 	});
 });

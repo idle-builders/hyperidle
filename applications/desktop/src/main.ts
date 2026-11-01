@@ -2,7 +2,18 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from "electron";
+import {
+	app,
+	BrowserWindow,
+	dialog,
+	ipcMain,
+	Menu,
+	nativeImage,
+	nativeTheme,
+	powerMonitor,
+	shell,
+	Tray,
+} from "electron";
 
 // @lore: Dirname — CJS output (esbuild) has __dirname; ESM (dev/tsx) requires fileURLToPath(import.meta.url)
 const Dirname =
@@ -10,6 +21,7 @@ const Dirname =
 
 import { buildAppMenuTemplate } from "./app-menu.js";
 import { getPort, startServer, waitForHealth } from "./boot-server.js";
+import type { ClientConfig } from "./client-config.js";
 import { loadClientConfig, migrateWindowState, saveClientConfig } from "./client-config.js";
 import type { LogRotator } from "./log-rotation.js";
 import { createLogRotator } from "./log-rotation.js";
@@ -164,7 +176,8 @@ async function showStartupError(
 }
 
 let logRotator: LogRotator | null = null;
-let serverHandle: ServerHandleLike | null = null;
+// Handler set by bootLocalMode so the second-instance event can reopen the window.
+let reopenHandler: (() => void) | null = null;
 
 // Register uncaughtException BEFORE anything else
 process.on("uncaughtException", (err: Error): void => {
@@ -184,6 +197,53 @@ process.on("uncaughtException", (err: Error): void => {
 	app.exit(1);
 });
 
+/**
+ * Returns a before-quit handler for local mode: keeps the process alive,
+ * calls onHide to close windows and hide the dock.
+ */
+export function makeLocalBeforeQuitHandler(
+	onHide: () => void,
+): (event?: { preventDefault(): void }) => void {
+	return (event?: { preventDefault(): void }): void => {
+		event?.preventDefault();
+		onHide();
+	};
+}
+
+/**
+ * Returns true when the login item should be registered for the first time.
+ * Respects a prior user toggle by checking the saved flag.
+ */
+export function shouldRegisterLoginItem(
+	config: Pick<ClientConfig, "loginItemSet">,
+	isPackaged: boolean,
+): boolean {
+	if (!isPackaged) return false;
+	if (config.loginItemSet) return false;
+	return true;
+}
+
+/**
+ * Returns a handler that shows the dock and focuses or recreates the window.
+ * createWindow must open a window on the already-running server — never boot a new one.
+ */
+export function makeReopenWindowHandler(createWindow: () => void): () => void {
+	return (): void => {
+		app.dock?.show();
+		const windows = BrowserWindow.getAllWindows();
+		if (windows.length > 0) {
+			const win = windows[0];
+			if (win && !win.isDestroyed()) {
+				if (win.isMinimized()) win.restore();
+				win.show();
+				win.focus();
+				return;
+			}
+		}
+		createWindow();
+	};
+}
+
 // @lore: isEntrypoint — process.versions.electron exists in Electron but not Vitest/Node; guards against boot side-effects when tests import this module
 /* c8 ignore start */
 const isEntrypoint = "electron" in process.versions;
@@ -195,6 +255,10 @@ if (isEntrypoint) {
 		// nothing
 	} else {
 		app.on("second-instance", (): void => {
+			if (reopenHandler) {
+				reopenHandler();
+				return;
+			}
 			const windows = BrowserWindow.getAllWindows();
 			if (windows.length > 0) {
 				const win = windows[0];
@@ -319,6 +383,30 @@ async function runMigrationsWithRetry(
 	return true;
 }
 
+async function stopLocalServer(
+	handle: ServerHandleLike | null,
+	rotator: LogRotator | null,
+): Promise<void> {
+	rotator?.detach();
+	try {
+		await handle?.dispose();
+	} catch (err) {
+		log("stop: server dispose failed", { error: (err as Error).message });
+	}
+	app.exit(0);
+}
+
+function createTrayIcon(): ReturnType<typeof nativeImage.createFromPath> {
+	const iconFile = "TrayIconTemplate.png";
+	// @lore: tray icon path — packaged app reads from Resources/; dev reads from build/ next to src/
+	const iconPath = app.isPackaged
+		? path.join(process.resourcesPath ?? "", iconFile)
+		: path.resolve(Dirname, "..", "build", iconFile);
+	const icon = nativeImage.createFromPath(iconPath);
+	icon.setTemplateImage(true);
+	return icon;
+}
+
 async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	log("boot:local start", { userDataDir: ctx.userDataDir, isDev: IS_DEV });
 
@@ -390,42 +478,46 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 		await showStartupError("Server failed to start.", (err as Error).message, ctx.logDir);
 		return;
 	}
-	serverHandle = handle;
-
 	const port = getPort(handle);
 	log("boot:local server listening", { port });
 
-	const windowState = clientConfig.windowState;
 	const preloadPath = path.join(Dirname, "preload.js");
 	log("boot:local preload", { preloadPath, exists: fs.existsSync(preloadPath) });
+	const appUrl = IS_DEV ? "http://localhost:5173" : `http://127.0.0.1:${port}`;
 
-	const mainWindow = new BrowserWindow({
-		x: windowState.x,
-		y: windowState.y,
-		width: windowState.width,
-		height: windowState.height,
-		titleBarStyle: "hiddenInset",
-		trafficLightPosition: { x: 12, y: 11 },
-		backgroundColor: paperCanvas(),
-		webPreferences: {
-			preload: preloadPath,
-			contextIsolation: true,
-			sandbox: true,
-			additionalArguments: [`--api-key=${apiKey}`],
-		},
-		show: false,
-	});
+	// On login-item launch the server starts headless; user opens via tray.
+	const startedAtLogin = app.isPackaged && app.getLoginItemSettings().wasOpenedAtLogin;
 
-	const splashPath = path.join(Dirname, "splash.html");
-	mainWindow.loadFile(splashPath);
-	mainWindow.show();
-	if (windowState.isMaximized) mainWindow.maximize();
-	if (windowState.isFullScreen) mainWindow.setFullScreen(true);
-
-	if (!mainWindow.isDestroyed()) {
-		void mainWindow.webContents.executeJavaScript(
-			'window.updateStatus && window.updateStatus("Starting server...")',
-		);
+	// Build the splash window (if not launched at login) while the server warms up.
+	let bootWindow: BrowserWindow | null = null;
+	if (!startedAtLogin) {
+		const windowState = clientConfig.windowState;
+		bootWindow = new BrowserWindow({
+			x: windowState.x,
+			y: windowState.y,
+			width: windowState.width,
+			height: windowState.height,
+			titleBarStyle: "hiddenInset",
+			trafficLightPosition: { x: 12, y: 11 },
+			backgroundColor: paperCanvas(),
+			webPreferences: {
+				preload: preloadPath,
+				contextIsolation: true,
+				sandbox: true,
+				additionalArguments: [`--api-key=${apiKey}`],
+			},
+			show: false,
+		});
+		const splashPath = path.join(Dirname, "splash.html");
+		bootWindow.loadFile(splashPath);
+		bootWindow.show();
+		if (windowState.isMaximized) bootWindow.maximize();
+		if (windowState.isFullScreen) bootWindow.setFullScreen(true);
+		if (!bootWindow.isDestroyed()) {
+			void bootWindow.webContents.executeJavaScript(
+				'window.updateStatus && window.updateStatus("Starting server...")',
+			);
+		}
 	}
 
 	log("boot:local waiting for health check", { port, timeoutMs: 30_000 });
@@ -442,30 +534,61 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	}
 	log("boot:local health check passed");
 
-	const appUrl = IS_DEV ? "http://localhost:5173" : `http://127.0.0.1:${port}`;
-	log("boot:local loading app", { appUrl });
-	mainWindow.loadURL(appUrl);
-
-	if (IS_DEV) {
-		mainWindow.webContents.openDevTools({ mode: "detach" });
+	function attachWindowHandlers(win: BrowserWindow): void {
+		win.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
+			log("renderer did-fail-load", { errorCode, errorDescription, validatedURL });
+		});
+		win.webContents.on("render-process-gone", (_event, details) => {
+			log("renderer process gone", { reason: details.reason, exitCode: details.exitCode });
+		});
+		win.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+			if (level >= 2) {
+				log("renderer console", {
+					level: level === 2 ? "warn" : "error",
+					message,
+					line,
+					sourceId,
+				});
+			}
+		});
+		bindWindowStatePersistence(win, ctx.configPath);
 	}
 
-	mainWindow.webContents.on(
-		"did-fail-load",
-		(_event, errorCode, errorDescription, validatedURL) => {
-			log("renderer did-fail-load", { errorCode, errorDescription, validatedURL });
-		},
-	);
-	mainWindow.webContents.on("render-process-gone", (_event, details) => {
-		log("renderer process gone", { reason: details.reason, exitCode: details.exitCode });
-	});
-	mainWindow.webContents.on("console-message", (_event, level, message, line, sourceId) => {
-		if (level >= 2) {
-			log("renderer console", { level: level === 2 ? "warn" : "error", message, line, sourceId });
-		}
-	});
+	if (bootWindow && !bootWindow.isDestroyed()) {
+		log("boot:local loading app", { appUrl });
+		bootWindow.loadURL(appUrl);
+		if (IS_DEV) bootWindow.webContents.openDevTools({ mode: "detach" });
+		attachWindowHandlers(bootWindow);
+	}
 
-	bindWindowStatePersistence(mainWindow, ctx.configPath);
+	if (startedAtLogin) {
+		app.dock?.hide();
+	}
+
+	// createAppWindow: opens a window on the already-running server (reopen path).
+	const createAppWindow = (): void => {
+		const state = loadClientConfig(ctx.configPath).windowState;
+		const win = new BrowserWindow({
+			x: state.x,
+			y: state.y,
+			width: state.width,
+			height: state.height,
+			titleBarStyle: "hiddenInset",
+			trafficLightPosition: { x: 12, y: 11 },
+			backgroundColor: paperCanvas(),
+			webPreferences: {
+				preload: preloadPath,
+				contextIsolation: true,
+				sandbox: true,
+				additionalArguments: [`--api-key=${apiKey}`],
+			},
+			show: false,
+		});
+		win.loadURL(appUrl);
+		win.show();
+		if (IS_DEV) win.webContents.openDevTools({ mode: "detach" });
+		attachWindowHandlers(win);
+	};
 
 	const credManager = createSafeCredentialsManager(ctx.credentialsPath);
 	credManager.registerHandlers();
@@ -477,10 +600,48 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 		dataDir: ctx.userDataDir,
 	});
 	Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
-	app.on("before-quit", getBeforeQuitHandler(serverHandle, logRotator));
-	app.on("activate", (): void => {
-		if (BrowserWindow.getAllWindows().length === 0) void startApp();
-	});
+
+	// Tray icon stays visible the whole time the server runs.
+	const trayIcon = createTrayIcon();
+	const tray = new Tray(trayIcon);
+	tray.setToolTip("HyperIdle");
+
+	const reopen = makeReopenWindowHandler(createAppWindow);
+	reopenHandler = reopen;
+
+	const stopServer = (): void => {
+		void stopLocalServer(handle, logRotator);
+	};
+
+	tray.setContextMenu(
+		Menu.buildFromTemplate([
+			{ label: "HyperIdle is running", enabled: false },
+			{ label: "Open HyperIdle", click: reopen },
+			{ type: "separator" },
+			{ label: "Stop HyperIdle", click: stopServer },
+		]),
+	);
+	tray.on("double-click", reopen);
+
+	// Cmd+Q hides the dock and closes windows; process keeps running.
+	app.on(
+		"before-quit",
+		makeLocalBeforeQuitHandler((): void => {
+			for (const win of BrowserWindow.getAllWindows()) win.close();
+			app.dock?.hide();
+		}),
+	);
+
+	app.on("activate", reopen);
+
+	// System shutdown/logout must exit cleanly — cannot block macOS.
+	powerMonitor.on("shutdown", stopServer);
+
+	// Register as a login item the first time this packaged build starts.
+	if (shouldRegisterLoginItem(clientConfig, app.isPackaged)) {
+		app.setLoginItemSettings({ openAtLogin: true });
+		saveClientConfig(ctx.configPath, { loginItemSet: true });
+	}
 
 	log("boot:local complete", { port, appUrl });
 }
