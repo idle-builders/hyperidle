@@ -198,13 +198,15 @@ process.on("uncaughtException", (err: Error): void => {
 });
 
 /**
- * Returns a before-quit handler for local mode: keeps the process alive,
- * calls onHide to close windows and hide the dock.
+ * Local mode's quit closes the windows and keeps the server and its agents running.
+ * A Mac logout or shutdown must go through, or macOS cancels it.
  */
 export function makeLocalBeforeQuitHandler(
 	onHide: () => void,
+	systemShuttingDown: () => boolean,
 ): (event?: { preventDefault(): void }) => void {
 	return (event?: { preventDefault(): void }): void => {
+		if (systemShuttingDown()) return;
 		event?.preventDefault();
 		onHide();
 	};
@@ -485,88 +487,10 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	log("boot:local preload", { preloadPath, exists: fs.existsSync(preloadPath) });
 	const appUrl = IS_DEV ? "http://localhost:5173" : `http://127.0.0.1:${port}`;
 
-	// On login-item launch the server starts headless; user opens via tray.
+	// Opened at Mac login: the server starts with no window; the menu bar icon opens one.
 	const startedAtLogin = app.isPackaged && app.getLoginItemSettings().wasOpenedAtLogin;
 
-	// Build the splash window (if not launched at login) while the server warms up.
-	let bootWindow: BrowserWindow | null = null;
-	if (!startedAtLogin) {
-		const windowState = clientConfig.windowState;
-		bootWindow = new BrowserWindow({
-			x: windowState.x,
-			y: windowState.y,
-			width: windowState.width,
-			height: windowState.height,
-			titleBarStyle: "hiddenInset",
-			trafficLightPosition: { x: 12, y: 11 },
-			backgroundColor: paperCanvas(),
-			webPreferences: {
-				preload: preloadPath,
-				contextIsolation: true,
-				sandbox: true,
-				additionalArguments: [`--api-key=${apiKey}`],
-			},
-			show: false,
-		});
-		const splashPath = path.join(Dirname, "splash.html");
-		bootWindow.loadFile(splashPath);
-		bootWindow.show();
-		if (windowState.isMaximized) bootWindow.maximize();
-		if (windowState.isFullScreen) bootWindow.setFullScreen(true);
-		if (!bootWindow.isDestroyed()) {
-			void bootWindow.webContents.executeJavaScript(
-				'window.updateStatus && window.updateStatus("Starting server...")',
-			);
-		}
-	}
-
-	log("boot:local waiting for health check", { port, timeoutMs: 30_000 });
-	try {
-		await waitForHealth(port, 30_000);
-	} catch {
-		log("boot:local health check FAILED — server did not respond within 30s");
-		await showStartupError(
-			"Server not responding.",
-			"The server did not start within 30 seconds.",
-			ctx.logDir,
-		);
-		return;
-	}
-	log("boot:local health check passed");
-
-	function attachWindowHandlers(win: BrowserWindow): void {
-		win.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
-			log("renderer did-fail-load", { errorCode, errorDescription, validatedURL });
-		});
-		win.webContents.on("render-process-gone", (_event, details) => {
-			log("renderer process gone", { reason: details.reason, exitCode: details.exitCode });
-		});
-		win.webContents.on("console-message", (_event, level, message, line, sourceId) => {
-			if (level >= 2) {
-				log("renderer console", {
-					level: level === 2 ? "warn" : "error",
-					message,
-					line,
-					sourceId,
-				});
-			}
-		});
-		bindWindowStatePersistence(win, ctx.configPath);
-	}
-
-	if (bootWindow && !bootWindow.isDestroyed()) {
-		log("boot:local loading app", { appUrl });
-		bootWindow.loadURL(appUrl);
-		if (IS_DEV) bootWindow.webContents.openDevTools({ mode: "detach" });
-		attachWindowHandlers(bootWindow);
-	}
-
-	if (startedAtLogin) {
-		app.dock?.hide();
-	}
-
-	// createAppWindow: opens a window on the already-running server (reopen path).
-	const createAppWindow = (): void => {
+	const newWindow = (): BrowserWindow => {
 		const state = loadClientConfig(ctx.configPath).windowState;
 		const win = new BrowserWindow({
 			x: state.x,
@@ -584,10 +508,56 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 			},
 			show: false,
 		});
-		win.loadURL(appUrl);
 		win.show();
+		if (state.isMaximized) win.maximize();
+		if (state.isFullScreen) win.setFullScreen(true);
 		if (IS_DEV) win.webContents.openDevTools({ mode: "detach" });
-		attachWindowHandlers(win);
+		win.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
+			log("renderer did-fail-load", { errorCode, errorDescription, validatedURL });
+		});
+		win.webContents.on("render-process-gone", (_event, details) => {
+			log("renderer process gone", { reason: details.reason, exitCode: details.exitCode });
+		});
+		win.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+			if (level >= 2) {
+				log("renderer console", { level: level === 2 ? "warn" : "error", message, line, sourceId });
+			}
+		});
+		bindWindowStatePersistence(win, ctx.configPath);
+		return win;
+	};
+
+	// The splash shows while the server warms up, then the same window loads the app.
+	const bootWindow = startedAtLogin ? null : newWindow();
+	if (bootWindow) {
+		bootWindow.loadFile(path.join(Dirname, "splash.html"));
+		void bootWindow.webContents.executeJavaScript(
+			'window.updateStatus && window.updateStatus("Starting server...")',
+		);
+	}
+
+	log("boot:local waiting for health check", { port, timeoutMs: 30_000 });
+	try {
+		await waitForHealth(port, 30_000);
+	} catch {
+		log("boot:local health check FAILED — server did not respond within 30s");
+		await showStartupError(
+			"Server not responding.",
+			"The server did not start within 30 seconds.",
+			ctx.logDir,
+		);
+		return;
+	}
+	log("boot:local health check passed");
+
+	if (bootWindow && !bootWindow.isDestroyed()) {
+		log("boot:local loading app", { appUrl });
+		bootWindow.loadURL(appUrl);
+	}
+	if (startedAtLogin) app.dock?.hide();
+
+	const createAppWindow = (): void => {
+		newWindow().loadURL(appUrl);
 	};
 
 	const credManager = createSafeCredentialsManager(ctx.credentialsPath);
@@ -624,18 +594,24 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	tray.on("double-click", reopen);
 
 	// Cmd+Q hides the dock and closes windows; process keeps running.
+	let systemShuttingDown = false;
 	app.on(
 		"before-quit",
-		makeLocalBeforeQuitHandler((): void => {
-			for (const win of BrowserWindow.getAllWindows()) win.close();
-			app.dock?.hide();
-		}),
+		makeLocalBeforeQuitHandler(
+			(): void => {
+				for (const win of BrowserWindow.getAllWindows()) win.close();
+				app.dock?.hide();
+			},
+			() => systemShuttingDown,
+		),
 	);
 
 	app.on("activate", reopen);
 
-	// System shutdown/logout must exit cleanly — cannot block macOS.
-	powerMonitor.on("shutdown", stopServer);
+	// Logout or shutdown: let the quit through so macOS does not cancel it.
+	powerMonitor.on("shutdown", (): void => {
+		systemShuttingDown = true;
+	});
 
 	// Register as a login item the first time this packaged build starts.
 	if (shouldRegisterLoginItem(clientConfig, app.isPackaged)) {

@@ -3,8 +3,8 @@ import { writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 // Generates TrayIconTemplate.png (16x16) and TrayIconTemplate@2x.png (32x32)
-// for the macOS menu bar tray. White circle on transparent background —
-// macOS inverts/adapts the colour automatically for template images.
+// for the macOS menu bar tray: the app icon's four-point star as a template image —
+// macOS reads only the alpha and tints it for light and dark menu bars.
 import { deflateSync } from "node:zlib";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -48,10 +48,13 @@ function makePng(size) {
 	ihdr[11] = 0;
 	ihdr[12] = 0;
 
-	// Circle at pixel centre, radius 75% of half-size.
-	const cx = size / 2;
-	const cy = size / 2;
-	const r = (size / 2) * 0.75;
+	// Four-point star: |x|^P + |y|^P <= 1 with P < 1 gives the concave sides of the app icon.
+	const P = 0.55;
+	const half = size / 2;
+	const r = half * 0.95;
+	const inside = (px, py) => Math.abs(px / r) ** P + Math.abs(py / r) ** P <= 1;
+	// 4x4 samples per pixel so the thin points stay smooth at 16px.
+	const SAMPLES = 4;
 
 	// Raw scanlines: filter byte (None) + RGBA per pixel.
 	const stride = 1 + size * 4;
@@ -59,14 +62,19 @@ function makePng(size) {
 	for (let y = 0; y < size; y++) {
 		raw[y * stride] = 0;
 		for (let x = 0; x < size; x++) {
-			const dx = x + 0.5 - cx;
-			const dy = y + 0.5 - cy;
-			const alpha = Math.sqrt(dx * dx + dy * dy) <= r ? 255 : 0;
+			let hits = 0;
+			for (let sy = 0; sy < SAMPLES; sy++) {
+				for (let sx = 0; sx < SAMPLES; sx++) {
+					const px = x + (sx + 0.5) / SAMPLES - half;
+					const py = y + (sy + 0.5) / SAMPLES - half;
+					if (inside(px, py)) hits++;
+				}
+			}
 			const base = y * stride + 1 + x * 4;
-			raw[base] = 255;
-			raw[base + 1] = 255;
-			raw[base + 2] = 255;
-			raw[base + 3] = alpha;
+			raw[base] = 0;
+			raw[base + 1] = 0;
+			raw[base + 2] = 0;
+			raw[base + 3] = Math.round((255 * hits) / (SAMPLES * SAMPLES));
 		}
 	}
 

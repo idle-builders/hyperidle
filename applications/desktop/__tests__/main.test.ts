@@ -374,25 +374,16 @@ describe("nameTheApp", () => {
 });
 
 describe("makeLocalBeforeQuitHandler", () => {
-	it("calls event.preventDefault to keep the process alive", () => {
-		const handler = makeLocalBeforeQuitHandler(vi.fn());
+	it.each([
+		{ when: "the user quits", systemShutdown: false, kept: true },
+		{ when: "the Mac logs out or shuts down", systemShutdown: true, kept: false },
+	])("$when: keeps running = $kept", ({ systemShutdown, kept }) => {
+		const onHide = vi.fn();
+		const handler = makeLocalBeforeQuitHandler(onHide, () => systemShutdown);
 		const event = { preventDefault: vi.fn() };
 		handler(event);
-		expect(event.preventDefault).toHaveBeenCalledOnce();
-	});
-
-	it("calls the onHide callback when quit is intercepted", () => {
-		const onHide = vi.fn();
-		const handler = makeLocalBeforeQuitHandler(onHide);
-		handler({ preventDefault: vi.fn() });
-		expect(onHide).toHaveBeenCalledOnce();
-	});
-
-	it("works when called with no event argument", () => {
-		const onHide = vi.fn();
-		const handler = makeLocalBeforeQuitHandler(onHide);
-		expect(() => handler()).not.toThrow();
-		expect(onHide).toHaveBeenCalledOnce();
+		expect(event.preventDefault).toHaveBeenCalledTimes(kept ? 1 : 0);
+		expect(onHide).toHaveBeenCalledTimes(kept ? 1 : 0);
 	});
 });
 
