@@ -52,6 +52,11 @@ func listen() {
 			} else if let error {
 				// Ending with nothing said reports an error; that is an empty recording, not a failure.
 				if stopping { finish() }
+				// Apple's on-device recognizer runs only while the Mac's Dictation is switched on.
+				let e = error as NSError
+				if e.domain == "kLSRErrorDomain" && e.code == 201 {
+					fail("Recording needs Dictation on. Turn it on in System Settings → Keyboard → Dictation, then press Record again.")
+				}
 				fail(error.localizedDescription)
 			}
 		}

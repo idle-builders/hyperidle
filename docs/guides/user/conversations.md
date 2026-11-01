@@ -10,7 +10,7 @@ A thread shows its messages, newest at the bottom, and opens at the newest one. 
 
 Under the box is the format bar: **Mention · Link · Bold · Italic · List · Quote · Code**. Each button adds that piece where you are writing, so you never need to know the typing shortcuts.
 
-In the desktop app on a Mac, **Record** sits beside Send: press it, talk, press **Stop**. Your words appear in the box where the cursor was, written down on your own Mac — no sound leaves it. Fix anything it got wrong, then send. The first time, macOS asks to let HyperIdle use the microphone and speech recognition.
+In the desktop app on a Mac, **Record** sits beside Send: press it, talk, press **Stop**. Your words appear in the box where the cursor was, written down on your own Mac — no sound leaves it. Fix anything it got wrong, then send. The first time, macOS asks to let HyperIdle use the microphone and speech recognition. It also needs Dictation switched on (System Settings → Keyboard → Dictation).
 
 Typing `@` opens the picker: people and agents in one list, each with what they do and how busy they are. ↑↓ choose, ↵ picks, esc closes it and keeps what you typed.
 

@@ -37,7 +37,8 @@ Bold, Italic, List, Quote, Code. Typing `@` opens the mention picker: people and
 each with what they do and how busy they are right now.
 
 **Record** (desktop app on a Mac only) writes down what you say into the box at the cursor, live,
-using Apple's speech recognition on the Mac itself — on-device only, never Apple's servers. Stop
+using Apple's speech recognition on the Mac itself — on-device only, never Apple's servers. It
+needs the Mac's Dictation switched on; when it is off, the box says so and where to turn it on. Stop
 leaves the words in the box to fix and send; the box is read-only while it records.
 
 **Handing off** is a mention: @ an agent in a thread and it wakes and answers there. Work it takes
