@@ -97,8 +97,9 @@ async function editPlugin(app: Hono, body: unknown): Promise<Response> {
 	});
 }
 
-async function install(db: HyperIdleDb, app: Hono): Promise<void> {
+async function install(db: HyperIdleDb, app: Hono, asPerson: () => Promise<void>): Promise<void> {
 	await seedFounder(db);
+	await asPerson();
 	const res = await editPlugin(app, {
 		source: { kind: "folder", path: makePlugin(), scope: { kind: "factory", teamId: null } },
 	});
@@ -108,8 +109,12 @@ async function install(db: HyperIdleDb, app: Hono): Promise<void> {
 }
 
 describe("a plugin's agent comes with an identity", () => {
-	test("installing materialises the agent and its identity document", async ({ db, app }) => {
-		await install(db, app);
+	test("installing materialises the agent and its identity document", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
+		await install(db, app, () => asPerson("u-founder"));
 
 		const [agent] = await db.select().from(users).where(eq(users.discipline, "builder"));
 		expect(agent, "the plugin's agent exists").toBeDefined();
@@ -129,8 +134,8 @@ describe("a plugin's agent comes with an identity", () => {
 		expect(identity?.parentId).toBe(agent?.id);
 	});
 
-	test("the identity appears in the plugin's contributions", async ({ db, app }) => {
-		await install(db, app);
+	test("the identity appears in the plugin's contributions", async ({ db, app, asPerson }) => {
+		await install(db, app, () => asPerson("u-founder"));
 
 		const res = await app.request("/api/actions/search_plugins", {
 			method: "POST",
@@ -149,8 +154,8 @@ describe("a plugin's agent comes with an identity", () => {
 		).toBe(true);
 	});
 
-	test("uninstalling takes the identity down with the agent", async ({ db, app }) => {
-		await install(db, app);
+	test("uninstalling takes the identity down with the agent", async ({ db, app, asPerson }) => {
+		await install(db, app, () => asPerson("u-founder"));
 		const [agent] = await db.select().from(users).where(eq(users.discipline, "builder"));
 
 		const del = await editPlugin(app, { id: PLUGIN_ID, remove: true });
@@ -166,6 +171,7 @@ describe("a plugin's agent comes with an identity", () => {
 	test("restoring an edited identity brings the plugin's version back", async ({
 		db,
 		pluginsApp,
+		asPerson,
 	}) => {
 		const app = pluginsApp;
 		await db.insert(users).values({
@@ -176,7 +182,7 @@ describe("a plugin's agent comes with an identity", () => {
 			kind: "human",
 			createdAt: new Date().toISOString(),
 		});
-		await install(db, app);
+		await install(db, app, () => asPerson("u-founder", pluginsApp));
 
 		const [agent] = await db.select().from(users).where(eq(users.discipline, "builder"));
 		const [identity] = await db
@@ -211,8 +217,10 @@ describe("a plugin's agent comes with an identity", () => {
 	test("a plugin-contributed subscription's prompt is parented to the subscription", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seedFounder(db);
+		await asPerson("u-founder");
 		const dir = join(tmpdir(), `subscription-prompt-${Date.now()}`);
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(

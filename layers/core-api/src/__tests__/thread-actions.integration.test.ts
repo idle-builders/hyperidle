@@ -847,8 +847,13 @@ describe("send_message — the wake rule", () => {
 		expect(intents.filter((i) => i.sourceId.endsWith(":wk-agent-mentioned"))).toHaveLength(1);
 	});
 
-	test("a direct two-member thread with your own agent wakes it with no @", async ({ db, app }) => {
+	test("a direct two-member thread with your own agent wakes it with no @", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
 		await seedTeam(db, "wk-2");
+		await asPerson(FOUNDER_ID);
 		await seedAgent(db, "wk-agent-dm", "wk-2");
 		await seedThreadRow(db, "wk-dm-2", {
 			hostKind: "agent",
@@ -1268,8 +1273,10 @@ describe("send_message — review taskId stamping", () => {
 	test("a review sent over HTTP can carry a caller-supplied taskId (accepted and stored)", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seedTeam(db, "tid-2");
+		await asPerson(FOUNDER_ID);
 		const threadId = await seedTaskWithThread(db, "tid2-task", "tid-2");
 		await db
 			.update(threads)
@@ -1375,8 +1382,10 @@ describe("send_message — produced-item ownership", () => {
 	test("an HTTP caller naming a producedItemId is not checked against a task", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seedTeam(db, "pi-2");
+		await asPerson(FOUNDER_ID);
 		const threadId = await seedTaskWithThread(db, "pi2-task", "pi-2");
 		await seedDocument(db, "pi-item-2", { parentKind: "task", parentId: "unrelated" });
 		await db
@@ -1525,8 +1534,10 @@ describe("open_thread", () => {
 	test("returns members as identities, messages newest-first, headMessageId and hostTitle, and writes nothing", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seedTeam(db, "ot-1");
+		await asPerson(FOUNDER_ID);
 		await seedDocument(db, "ot-ki-1");
 		await seedThreadRow(db, "ot-thread-1", {
 			hostKind: "document",
@@ -1559,8 +1570,10 @@ describe("edit_task — every task gets a thread", () => {
 	test("with no threadId, creates a task whose threadId is a real thread with creator and owner as members", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seedTeam(db, "et-1");
+		await asPerson(FOUNDER_ID);
 		await seedAgent(db, "et-owner-1", "et-1");
 
 		const res = await call<{ task: { id: string; threadId: string } }>(app, "edit_task", {
@@ -1577,8 +1590,9 @@ describe("edit_task — every task gets a thread", () => {
 		expect(members).toEqual(expect.arrayContaining([FOUNDER_ID, "et-owner-1"]));
 	});
 
-	test("with a threadId, uses it and adds the owner", async ({ db, app }) => {
+	test("with a threadId, uses it and adds the owner", async ({ db, app, asPerson }) => {
 		await seedTeam(db, "et-2");
+		await asPerson(FOUNDER_ID);
 		await seedAgent(db, "et-owner-2", "et-2");
 		await seedThreadRow(db, "et-existing-thread-2", {
 			hostKind: "team",

@@ -76,7 +76,11 @@ async function install(app: Hono): Promise<void> {
 }
 
 describe("a plugin's skill is a document, upserted through edit_document", () => {
-	test("install writes the contributed document with slot: skill", async ({ db, app }) => {
+	test("install writes the contributed document with slot: skill", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
 		await db.insert(users).values({
 			id: "u-founder",
 			kind: "human",
@@ -85,6 +89,7 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 			status: "active",
 			createdAt: "2026-01-01T00:00:00Z",
 		});
+		await asPerson("u-founder");
 
 		await install(app);
 
@@ -105,7 +110,11 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 		expect(doc?.status).toBe("active");
 	});
 
-	test("a reinstall over a person-edited body leaves the body alone", async ({ db, app }) => {
+	test("a reinstall over a person-edited body leaves the body alone", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
 		await db.insert(users).values({
 			id: "u-founder",
 			kind: "human",
@@ -114,6 +123,7 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 			status: "active",
 			createdAt: "2026-01-01T00:00:00Z",
 		});
+		await asPerson("u-founder");
 
 		await install(app);
 		const [contribution] = await db
@@ -135,7 +145,7 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 		expect(reinstalled?.body).toBe(EDITED_BODY);
 	});
 
-	test("disable archives exactly the contributed ids", async ({ db, app }) => {
+	test("disable archives exactly the contributed ids", async ({ db, app, asPerson }) => {
 		await db.insert(users).values({
 			id: "u-founder",
 			kind: "human",
@@ -144,6 +154,7 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 			status: "active",
 			createdAt: "2026-01-01T00:00:00Z",
 		});
+		await asPerson("u-founder");
 		const now = "2026-01-01T00:00:00Z";
 		await db.insert(documents).values({
 			id: "doc-unrelated",

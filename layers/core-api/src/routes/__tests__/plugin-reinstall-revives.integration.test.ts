@@ -56,8 +56,9 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 		.onConflictDoNothing();
 }
 
-async function install(db: HyperIdleDb, app: Hono): Promise<void> {
+async function install(db: HyperIdleDb, app: Hono, asPerson: () => Promise<void>): Promise<void> {
 	await seedFounder(db);
+	await asPerson();
 	const dir = join(tmpdir(), `reinstall-${Date.now()}-${Math.round(performance.now())}`);
 	mkdirSync(dir, { recursive: true });
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
@@ -95,8 +96,9 @@ describe("installing a plugin revives everything it contributed", () => {
 	test("install over a DISABLED plugin brings its agent and subscriptions back", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await install(db, app);
+		await install(db, app, () => asPerson("u-founder"));
 		expect((await editPlugin(app, { id: PLUGIN_ID, state: "disabled" })).status).toBe(200);
 
 		// Precondition: disable really did take everything down.
@@ -106,7 +108,7 @@ describe("installing a plugin revives everything it contributed", () => {
 			.where(inArray(users.id, [...(await contributed(db, "agent"))]));
 		expect(agentAfterDisable?.status).toBe("inactive");
 
-		await install(db, app);
+		await install(db, app, () => asPerson("u-founder"));
 
 		const agents = await db
 			.select()
@@ -144,8 +146,9 @@ describe("installing a plugin revives everything it contributed", () => {
 	test("install over a REMOVED plugin brings its agent and subscriptions back", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await install(db, app);
+		await install(db, app, () => asPerson("u-founder"));
 		const contributedIds = [...(await contributed(db, "subscription"))];
 		const del = await editPlugin(app, { id: PLUGIN_ID, remove: true });
 		expect(del.status).toBe(200);
@@ -156,7 +159,7 @@ describe("installing a plugin revives everything it contributed", () => {
 			.where(inArray(subscriptions.id, contributedIds));
 		expect(afterRemove.map((r) => r.paused)).toEqual(contributedIds.map(() => true));
 
-		await install(db, app);
+		await install(db, app, () => asPerson("u-founder"));
 
 		const agents = await db
 			.select()
@@ -179,10 +182,10 @@ describe("installing a plugin revives everything it contributed", () => {
 		}
 	});
 
-	test("a subscription the plugin disabled comes back unpaused", async ({ db, app }) => {
-		await install(db, app);
+	test("a subscription the plugin disabled comes back unpaused", async ({ db, app, asPerson }) => {
+		await install(db, app, () => asPerson("u-founder"));
 		expect((await editPlugin(app, { id: PLUGIN_ID, state: "disabled" })).status).toBe(200);
-		await install(db, app);
+		await install(db, app, () => asPerson("u-founder"));
 
 		const rows = await db
 			.select()

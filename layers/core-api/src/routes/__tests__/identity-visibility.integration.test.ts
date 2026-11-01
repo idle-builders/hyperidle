@@ -100,8 +100,9 @@ describe("an agent's identity document is visible to everyone, not a private not
 		vi.unstubAllEnvs();
 	});
 
-	test("a person who did not author it can still read it", async ({ db, app }) => {
+	test("a person who did not author it can still read it", async ({ db, app, asPerson }) => {
 		await seed(db);
+		await asPerson(FOUNDER);
 
 		const res = await app.request("/api/actions/open_document", {
 			method: "POST",
@@ -123,8 +124,10 @@ describe("an agent's identity document is visible to everyone, not a private not
 	test("a person who did not author it can edit it — this is the only editor", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seed(db);
+		await asPerson(FOUNDER);
 
 		const res = await app.request("/api/actions/edit_document", {
 			method: "POST",
@@ -147,8 +150,9 @@ describe("an agent's identity document is visible to everyone, not a private not
 		).toBe("You are Atlas, rewritten.");
 	});
 
-	test("another person's private note is still private", async ({ db, app }) => {
+	test("another person's private note is still private", async ({ db, app, asPerson }) => {
 		await seed(db);
+		await asPerson(FOUNDER);
 
 		const res = await app.request("/api/actions/open_document", {
 			method: "POST",
@@ -164,8 +168,13 @@ describe("an agent's identity document is visible to everyone, not a private not
 		expect(body.problems[0]?.code).toBe("not_found");
 	});
 
-	test("the identity appears in a search, the private note does not", async ({ db, app }) => {
+	test("the identity appears in a search, the private note does not", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
 		await seed(db);
+		await asPerson(FOUNDER);
 
 		const res = await app.request("/api/actions/search_documents", {
 			method: "POST",
@@ -226,8 +235,10 @@ describe("agent identity through the document action mechanism", () => {
 	test("a created agent's identity document gets the exact doc_af_<agentId> id, and a non-owner can open it", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seedTwoHumans(db);
+		await asPerson(CREATOR);
 
 		const createRes = await app.request("/api/actions/edit_user", {
 			method: "POST",
@@ -270,8 +281,10 @@ describe("agent identity through the document action mechanism", () => {
 	test("listing and reading an identity through search_users/open_user never bumps its read count", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seedTwoHumans(db);
+		await asPerson(CREATOR);
 
 		const createRes = await app.request("/api/actions/edit_user", {
 			method: "POST",

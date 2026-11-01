@@ -124,8 +124,13 @@ async function aContributedSkill(app: Hono): Promise<ContributionRow> {
 }
 
 describe("editing a plugin's contribution detaches it; restore hands it back", () => {
-	test("editing a contributed document marks it detached in the view", async ({ db, app }) => {
+	test("editing a contributed document marks it detached in the view", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
 		await seedFounder(db);
+		await asPerson(FOUNDER);
 		await install(app);
 		const skill = await aContributedSkill(app);
 
@@ -147,8 +152,9 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		expect(after?.detachedAt, "and when").not.toBeNull();
 	});
 
-	test("a reinstall leaves an edited contribution alone", async ({ db, app }) => {
+	test("a reinstall leaves an edited contribution alone", async ({ db, app, asPerson }) => {
 		await seedFounder(db);
+		await asPerson(FOUNDER);
 		await install(app);
 		const skill = await aContributedSkill(app);
 
@@ -174,9 +180,11 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 	test("restore re-imports the plugin's version and hands ownership back", async ({
 		db,
 		pluginsApp,
+		asPerson,
 	}) => {
 		const app = pluginsApp;
 		await seedFounder(db);
+		await asPerson(FOUNDER, pluginsApp);
 		await install(app);
 		const skill = await aContributedSkill(app);
 
@@ -207,8 +215,10 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 	test("restoring something the plugin never contributed is unknown_contribution", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seedFounder(db);
+		await asPerson(FOUNDER);
 		await install(app);
 
 		const res = await editPlugin(app, {
@@ -223,8 +233,10 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 	test("editing the plugin's agent marks it changed by you; restore puts the plugin's agent back", async ({
 		db,
 		pluginsApp: app,
+		asPerson,
 	}) => {
 		await seedFounder(db);
+		await asPerson(FOUNDER, app);
 		await install(app);
 		const agent = (await contributionsOf(app)).find((c) => c.kind === "agent");
 		const agentId = agent?.entityId ?? "";
@@ -254,8 +266,10 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 	test("editing the plugin's reason to start marks it changed by you; restore puts its trigger back", async ({
 		db,
 		pluginsApp: app,
+		asPerson,
 	}) => {
 		await seedFounder(db);
+		await asPerson(FOUNDER, app);
 		await install(app);
 		const contributions = await contributionsOf(app);
 		const agentId = contributions.find((c) => c.kind === "agent")?.entityId ?? "";
@@ -286,8 +300,10 @@ describe("a plugin says where it came from", () => {
 	test("search_plugins names the folder it was added from, who added it, and what it is", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seedFounder(db);
+		await asPerson(FOUNDER);
 		const dir = await install(app);
 
 		const plugin = await pluginOf(app);

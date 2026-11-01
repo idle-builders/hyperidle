@@ -34,6 +34,7 @@ import * as path from "node:path";
 import { type HyperIdleDb, sessions, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
+import { givePersonKey } from "@hyperidle/user";
 import { afterEach, vi } from "vitest";
 import { createServer, type ServerHandle } from "../create-server.js";
 
@@ -473,6 +474,7 @@ describe("session-platform seam — the five entries answer the same to a person
 			const handle = await boot(db);
 			try {
 				await seedHuman(db, "seam-founder-search-plugins");
+				await givePersonKey(db, "seam-founder-search-plugins", handle.apiKey);
 				await seedAgent(db, "seam-agent-search-plugins", "seam-founder-search-plugins");
 				const dir = makePlugin("seam-search-plugin");
 				const install = await callAction(handle, "edit_plugin", {
@@ -511,6 +513,7 @@ describe("session-platform seam — the five entries answer the same to a person
 			const handle = await boot(db);
 			try {
 				await seedHuman(db, "seam-founder-disable");
+				await givePersonKey(db, "seam-founder-disable", handle.apiKey);
 				await seedAgent(db, "seam-agent-disable", "seam-founder-disable");
 				const dir = makePlugin("seam-disable-plugin");
 				const install = await callAction(handle, "edit_plugin", {

@@ -75,8 +75,13 @@ describe("a human and an agent put an item into a conversation the same way", ()
 		vi.unstubAllEnvs();
 	});
 
-	test("both produce a row indistinguishable in parent, status and role", async ({ db, app }) => {
+	test("both produce a row indistinguishable in parent, status and role", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
 		const threadId = await seedThread(db);
+		await asPerson("pa-user");
 		const BODY = "## What was produced\n\nThe same content either way.";
 
 		// The agent's path: the deleted `create_artifact` took the parent from
@@ -135,8 +140,10 @@ describe("a human and an agent put an item into a conversation the same way", ()
 	test("both appear in the conversation, and neither appears in the document tree", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		const threadId = await seedThread(db);
+		await asPerson("pa-user");
 
 		for (const actor of ["agent:pa-agent", "pa-user"]) {
 			const res = await app.request("/api/actions/edit_document", {

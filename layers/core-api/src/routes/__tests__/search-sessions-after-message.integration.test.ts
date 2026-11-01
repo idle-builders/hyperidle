@@ -38,6 +38,7 @@ describe("search_sessions survives send_message", () => {
 	test("active thread-turn session stays in results with threadId after message is sent", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		const TEAM_ID = "ssam-team";
 		const HUMAN_ID = "ssam-human";
@@ -54,6 +55,7 @@ describe("search_sessions survives send_message", () => {
 			status: "active",
 			createdAt: NOW,
 		});
+		await asPerson(HUMAN_ID);
 		await db.insert(users).values({
 			id: AGENT_ID,
 			kind: "ai",
