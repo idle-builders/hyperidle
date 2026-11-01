@@ -152,6 +152,25 @@ describe("startRuntime resource ownership", () => {
 		expect(drainCalls).toBe(2);
 	});
 
+	it("stops every live agent on disposal instead of waiting for it to finish", async () => {
+		vi.useFakeTimers();
+		const runtimeDeps = deps();
+		if (!runtimeDeps.ports) throw new Error("test runtime ports missing");
+		const runtime = await startRuntime(runtimeDeps);
+		runtimeDeps.ports.sessionRequests.listSessionRequests = vi.fn(async () => [
+			{ id: "request-1", sessionId: "session-1" } as AgentSessionRequest,
+		]);
+		const abortSessionRun = vi.fn(async () => true);
+		runtimeDeps.ports.sessionRequests.abortSessionRun = abortSessionRun;
+		runtimeDeps.ports.sessionLifecycle.requestAgentTermination = vi.fn(
+			async () => "accepted" as const,
+		);
+
+		await runtime.dispose();
+
+		expect(abortSessionRun).toHaveBeenCalledWith("session-1", "stop");
+	});
+
 	it("rolls back resources when a later startup stage fails", async () => {
 		vi.useFakeTimers();
 		state.failSandboxReaperStart = true;

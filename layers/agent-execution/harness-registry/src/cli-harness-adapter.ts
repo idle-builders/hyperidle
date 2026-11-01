@@ -178,6 +178,8 @@ interface CliSession {
 	readonly stderrLines: string[];
 	notifyStream: (() => void) | null;
 	resolveStop: ((result: SessionResult) => void) | null;
+	// The run loop and an outside abort can both stop one session; they share this result.
+	stopping: Promise<SessionResult> | null;
 	killTimer: ReturnType<typeof setTimeout> | null;
 	metricsProcessedLineCount: number;
 	inputTokens: number;
@@ -581,6 +583,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			stderrLines: [],
 			notifyStream: null,
 			resolveStop: null,
+			stopping: null,
 			killTimer: null,
 			metricsProcessedLineCount: 0,
 			inputTokens: 0,
@@ -836,6 +839,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			return result;
 		}
 
+		if (session.stopping) return session.stopping;
+
 		// Send SIGTERM first (graceful shutdown)
 		this.killProcessGroup(session.child, "SIGTERM");
 
@@ -847,12 +852,13 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			}
 		}, 5_000);
 
-		return new Promise<SessionResult>((resolve) => {
+		session.stopping = new Promise<SessionResult>((resolve) => {
 			session.resolveStop = (result: SessionResult) => {
 				this.sessions.delete(handle.sessionId);
 				resolve(result);
 			};
 		});
+		return session.stopping;
 	}
 
 	getNativeSessionId(handle: SessionHandle): string | undefined {
@@ -1017,6 +1023,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			stderrLines: [],
 			notifyStream: null,
 			resolveStop: null,
+			stopping: null,
 			killTimer: null,
 			metricsProcessedLineCount: 0,
 			inputTokens: 0,

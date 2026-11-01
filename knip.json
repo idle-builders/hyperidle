@@ -71,7 +71,12 @@
 			"ignoreDependencies": ["cookie"]
 		},
 		"applications/desktop": {
-			"entry": ["src/preload.ts!", "__scripts__/bundle.ts!", "__scripts__/check-native.ts!"],
+			"entry": [
+				"src/preload.ts!",
+				"__scripts__/bundle.ts!",
+				"__scripts__/check-native.ts!",
+				"__scripts__/gen-tray-icon.mjs!"
+			],
 			// Never imported: marked external in __scripts__/bundle.ts and copied verbatim by
 			// electron-builder.yml, so the WASM bundle loads from node_modules at runtime.
 			"ignoreDependencies": ["@electric-sql/pglite"]

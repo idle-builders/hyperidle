@@ -259,6 +259,7 @@ const runOrchestrationPorts: RuntimePorts = {
 		transitionSessionRequest,
 		drainIntents,
 		reapExpired,
+		abortSessionRun: (sessionId, reason) => sessionRunRegistry.abort(sessionId, reason),
 	},
 	sessionLifecycle: sessionLifecyclePort,
 };

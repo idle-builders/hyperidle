@@ -147,6 +147,8 @@ async function markRunningAgentSessionRequestsForShutdown(
 			reason: "shutdown",
 		});
 		if (result === "accepted") marked += 1;
+		// The mark alone leaves a live agent process running after the server is gone.
+		if (request.sessionId) await ports.sessionRequests.abortSessionRun(request.sessionId, "stop");
 	}
 	return marked;
 }

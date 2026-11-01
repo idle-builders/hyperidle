@@ -50,6 +50,8 @@ interface AppServerSession {
 	/** Wakes up a waiting streamEvents loop. */
 	notifyStream: (() => void) | null;
 	resolveStop: ((result: SessionResult) => void) | null;
+	// The run loop and an outside abort can both stop one session; they share this result.
+	stopping: Promise<SessionResult> | null;
 	exitCode: number | null;
 	exitSignal: string | null;
 	/** Pending client-request handlers, keyed by request id. */
@@ -226,6 +228,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			notificationLines: [],
 			notifyStream: null,
 			resolveStop: null,
+			stopping: null,
 			exitCode: null,
 			exitSignal: null,
 			pendingRequests: new Map(),
@@ -357,6 +360,8 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			return Promise.resolve(result);
 		}
 
+		if (session.stopping) return session.stopping;
+
 		// Signal the process group to stop (detached: true spawns in its own group).
 		if (session.child.pid !== undefined) {
 			try {
@@ -367,7 +372,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 		}
 
 		// @lore: wait for real exit — codex keeps writing .codex-home after turn/completed; resolving early races sandbox cleanup
-		return new Promise<SessionResult>((resolve) => {
+		session.stopping = new Promise<SessionResult>((resolve) => {
 			// Escalate to SIGKILL if SIGTERM is ignored (unref so the timer does not keep Node alive).
 			const sigkillTimer = setTimeout(() => {
 				if (session.child.pid !== undefined) {
@@ -386,6 +391,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 				resolve(result);
 			};
 		});
+		return session.stopping;
 	}
 
 	async deliver(handle: SessionHandle, text: string): Promise<"delivered" | "unsupported"> {

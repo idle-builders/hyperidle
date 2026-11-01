@@ -752,6 +752,25 @@ describe("CliHarnessAdapter stopSession", () => {
 		expect(result.outcome).toBe("stopped");
 	});
 
+	it("settles every caller when two stops overlap", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
+		const handle = await adapter.startSession(makeSessionConfig());
+
+		const first = adapter.stopSession(handle);
+		const second = adapter.stopSession(handle);
+		fakeChild.emitExit(null, "SIGTERM");
+
+		const results = await Promise.all([first, second]);
+		expect(results.map((result) => result.outcome)).toEqual(["stopped", "stopped"]);
+	});
+
 	it("maps exit code 0 to outcome 'completed'", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();

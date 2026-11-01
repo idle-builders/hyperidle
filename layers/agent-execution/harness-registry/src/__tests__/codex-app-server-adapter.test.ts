@@ -191,6 +191,18 @@ describe("CodexAppServerAdapter", () => {
 		expect(resolved).toBe(true);
 	}, 60_000);
 
+	test("settles every caller when two stops overlap", async () => {
+		const { adapter, triggerExit } = makeFakeServer({ sigkillTimeoutMs: 600_000 });
+		const handle = await adapter.startSession(BASE_CONFIG);
+
+		const first = adapter.stopSession(handle);
+		const second = adapter.stopSession(handle);
+		triggerExit(0, null);
+
+		const results = await Promise.all([first, second]);
+		expect(results.map((result) => result.outcome)).toEqual(["completed", "completed"]);
+	}, 10_000);
+
 	test("streamEvents yields completion text from item/agentMessage/delta notifications", async () => {
 		const { adapter, triggerExit } = makeFakeServer();
 
