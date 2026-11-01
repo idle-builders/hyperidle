@@ -3,4 +3,4 @@ name: hyperidle
 description: HyperIdle Shared Backend — headless server + web SPA, deployed as a tenant on the shared cluster for internal team usage.
 type: application
 version: 0.1.0
-appVersion: "1.0.0-rc.4"
+appVersion: "1.0.0-rc.5"
