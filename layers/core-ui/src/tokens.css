@@ -72,6 +72,23 @@
 	--r: 8px;
 	--r-sm: 6px;
 	--line-w: 1px;
+
+	/* Colour sits in the text and the edge; a background only ever gets a see-through wash. */
+	--accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
+	--accent-edge: color-mix(in srgb, var(--accent) 32%, transparent);
+	--need-wash: color-mix(in srgb, var(--need) 9%, transparent);
+	--need-edge: color-mix(in srgb, var(--need) 32%, transparent);
+
+	/* Frosted glass for what floats over the page. */
+	--glass: color-mix(in srgb, var(--surface) 72%, transparent);
+	--glass-edge: color-mix(in srgb, var(--ink) 10%, transparent);
+	--glass-blur: blur(16px) saturate(1.4);
+}
+@media (prefers-reduced-transparency: reduce) {
+	:root[data-skin="paper"] {
+		--glass: var(--surface);
+		--glass-blur: none;
+	}
 }
 :root[data-skin="paper"][data-mode="light"] {
 	--canvas: #faf8f4;
@@ -83,13 +100,11 @@
 	--line: #e5e0d7;
 	--line-strong: #d3ccbf;
 	--accent: #2f6d4f;
-	--accent-ink: #ffffff;
-	--accent-soft: #e7f1ea;
-	--flag: #fcee0a;
-	--flag-ink: #1b1a17;
+	--need: #7a6000;
+	--hit: rgb(252 238 10 / 0.42);
 	--live: #2f6d4f;
 	--wait: #a8560f;
-	--mark: #ebd7a0;
+	--mark: rgb(222 188 97 / 0.6);
 	--mark-line: #cfb36a;
 	--diff-out: #fbe6e2;
 	--diff-out-ink: #b3392b;
@@ -97,6 +112,7 @@
 	--diff-in-ink: #2f6d4f;
 	--sh-1: 0 1px 2px rgb(28 26 23 / 0.06);
 	--sh-2: 0 2px 4px rgb(28 26 23 / 0.06), 0 8px 20px rgb(28 26 23 / 0.07);
+	--glass-hi: rgb(255 255 255 / 0.7);
 }
 :root[data-skin="paper"][data-mode="dark"] {
 	--canvas: #141310;
@@ -108,13 +124,11 @@
 	--line: #2e2b24;
 	--line-strong: #423d33;
 	--accent: #6fbc92;
-	--accent-ink: #10231a;
-	--accent-soft: #1b2a22;
-	--flag: #fcee0a;
-	--flag-ink: #1b1a17;
+	--need: #fcee0a;
+	--hit: rgb(252 238 10 / 0.24);
 	--live: #6fbc92;
 	--wait: #e0954f;
-	--mark: #514528;
+	--mark: rgb(116 97 52 / 0.6);
 	--mark-line: #8a7440;
 	--diff-out: #3b201c;
 	--diff-out-ink: #f0897c;
@@ -122,4 +136,5 @@
 	--diff-in-ink: #6fbc92;
 	--sh-1: 0 1px 2px rgb(0 0 0 / 0.3);
 	--sh-2: 0 4px 14px rgb(0 0 0 / 0.36), 0 1px 2px rgb(0 0 0 / 0.3);
+	--glass-hi: rgb(255 255 255 / 0.06);
 }

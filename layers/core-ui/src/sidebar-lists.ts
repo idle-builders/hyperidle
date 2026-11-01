@@ -13,14 +13,18 @@ import type {
  * the thing.
  */
 
+/** A status drawn as a mark instead of its word; the word stays on hover. */
+export type Mark = "input" | "review" | "mention" | "queued" | "run" | "done" | "stopped";
+
 /**
- * `state` is the status in words. `yours` = you owe something (the only use of the flag colour);
+ * `state` is the status in words. `yours` = you owe something (the only use of the need colour);
  * `fresh` = something new you have not seen.
  */
 export interface Item {
 	id: string;
 	title: string;
 	state: string;
+	mark?: Mark;
 	who: string;
 	age: string;
 	yours?: boolean;
@@ -120,9 +124,17 @@ export function conversationItems(
 		const last = t.lastSenderId === you ? "You" : (names.get(t.lastSenderId ?? "") ?? "");
 		// A mention waits on you until you have read what you were told about it.
 		if (t.mentionsYou && unread.has(t.id))
-			return { ...base, state: "Mentioned you", who: last, yours: true };
-		if (t.need === "review") return { ...base, state: NEED_WORDS.review, who: last, yours: true };
-		if (t.need) return { ...base, state: NEED_WORDS[t.need], who: `${last} asks`, yours: true };
+			return { ...base, state: "Mentioned you", mark: "mention", who: last, yours: true };
+		if (t.need === "review")
+			return { ...base, state: NEED_WORDS.review, mark: "review", who: last, yours: true };
+		if (t.need)
+			return {
+				...base,
+				state: NEED_WORDS[t.need],
+				mark: "input",
+				who: `${last} asks`,
+				yours: true,
+			};
 		const reply = unread.get(t.id);
 		if (reply)
 			return { ...base, state: "New reply", who: names.get(reply.actor) ?? "", fresh: true };
@@ -141,6 +153,24 @@ export const STATE_WORDS: Record<Task["state"], string> = {
 	done: "Done",
 	killed: "Stopped",
 };
+
+/** The same marks a task's graph draws: a need wins unless the task is paused, stuck shares the question mark. */
+const STATE_MARKS: Record<Task["state"], Mark> = {
+	proposed: "queued",
+	accepted: "queued",
+	in_progress: "run",
+	blocked: "run",
+	review: "review",
+	hold: "queued",
+	done: "done",
+	killed: "stopped",
+};
+
+function markOf(t: Task): Mark {
+	if (t.paused === "stopped") return "stopped";
+	if (!t.paused && t.need) return t.need === "review" ? "review" : "input";
+	return STATE_MARKS[t.state];
+}
 
 /** Root tasks only: the agent owns them, so nothing here is yours — the review is in Conversations. */
 export function workItems(tasks: readonly Task[], names: Names, inbox: Inbox): Item[] {
@@ -168,6 +198,7 @@ export function workItems(tasks: readonly Task[], names: Names, inbox: Inbox): I
 				id: t.id,
 				title: t.title,
 				state,
+				mark: markOf(t),
 				who: names.get(t.ownerAgentId ?? "") ?? "",
 				age: age(t.updatedAt),
 				fresh: unread.has(t.id),
@@ -193,6 +224,7 @@ export function knowledgeItems(
 				id: d.id,
 				title: d.title,
 				state: "Publish?",
+				mark: "review",
 				who: `draft by ${names.get(d.updatedBy) ?? "someone"}`,
 				age: age(d.updatedAt),
 				yours: true,
