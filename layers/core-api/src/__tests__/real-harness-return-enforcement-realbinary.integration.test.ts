@@ -639,60 +639,14 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 	// ── OPENCODE CLI (binary+auth gated) ────────────────────────────────────
 	//
-	// OpenCode's process-reengage channel: HyperIdle owns the spawn, detects turn-end
-	// by parsing step_finish/session.idle JSON on stdout, then re-invokes with forcing msg.
-	//
-	// FULL BINARY PROOF:
-	//   1. spawn opencode run with a no-return prompt → step_finish appears in stdout
-	//   2. HyperIdle's re-engage wrapper detects step_finish → spawns a second opencode
-	//      run with the forcing message as positional arg (reEngageCarrier:"run-arg")
-	//   3. The second invocation also completes → proves the full re-engage invocation path.
+	// OpenCode's process-reengage channel: used by remote-harness-adapter.ts.
+	// The local production path uses OpenCodeServeAdapter (opencode serve --port 0);
+	// these tests cover the channel provisioning and binary sanity only.
 	//
 	// @lore: opencode run does not auto-load project-local .opencode/plugins/*.ts — enforcement is HyperIdle's own process-wrapper re-invocation.
 
 	describe("[harness:opencode] opencode CLI (process-reengage channel)", () => {
 		requireHarness("opencode");
-		test("FULL BINARY PROOF: spawn real opencode run headless → LLM turn completes → JSON output received", async () => {
-			// Spawn opencode run with a trivial prompt, fast model, JSON output.
-			// detached: true (inside spawnDetached) — own process group so CC's
-			// SIGTERM cascade doesn't reach it before the session completes.
-			//
-			// @lore: pure mode (--pure) skips external plugin loading — the model comes from HARNESS_TEST_MODELS, never hardcoded.
-			const result = await spawnDetached(
-				"opencode",
-				[
-					"run",
-					"Say exactly: HOOK_TEST_DONE",
-					"--format",
-					"json",
-					"--pure",
-					"--model",
-					HARNESS_TEST_MODELS.opencode.model,
-				],
-				{
-					cwd: os.tmpdir(),
-					env: buildCleanEnv(),
-					timeoutMs: 120_000,
-				},
-			);
-
-			// The binary must have produced JSON output containing a step_finish event.
-			// This proves the re-engage invocation path: opencode can be spawned headless
-			// from HyperIdle's process wrapper and complete a real session turn.
-			if (!(result.stdout.includes("step_finish") || result.stdout.includes("turn.completed"))) {
-				throw new Error(
-					`OpenCode binary did not complete a session turn. ` +
-						`stdout: "${result.stdout.slice(0, 500)}" ` +
-						`stderr: "${result.stderr.slice(0, 300)}" ` +
-						`exitCode: ${result.exitCode}`,
-				);
-			}
-
-			// Verify JSON output contains completion marker.
-			const hasCompletion =
-				result.stdout.includes("step_finish") || result.stdout.includes("turn.completed");
-			expect(hasCompletion).toBe(true);
-		}, 180_000);
 
 		test("provision .opencode/plugins/return-signal.ts → plugin file written, process-reengage armed", async () => {
 			const sandbox = createHarnessSandbox("rgate-opencode");
@@ -729,9 +683,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 		}, 120_000);
 
 		test("LIVE: opencode binary is reachable, auth present, and version is valid", async () => {
-			// Fast verification: binary reachable + auth present + version valid.
-			// The FULL BINARY PROOF (above) proves the session completion path.
-
 			// Fact 1: opencode binary executes correctly with a fast flag.
 			const { stdout: versionOut } = await execFileAsync("opencode", ["--version"], {
 				timeout: 10_000,
@@ -751,73 +702,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 				providersOut.includes("API key");
 			expect(hasCredentials).toBe(true);
 		}, 30_000);
-
-		test("LIVE process-reengage PROOF: step_finish detected on first spawn → re-engage fires second spawn with forcing message → second turn completes", async () => {
-			// This test proves the process-reengage path for opencode:
-			//   1. HyperIdle owns the opencode spawn.
-			//   2. stdout is parsed for step_finish (turn-end signal).
-			//   3. On step_finish from a no-return turn, HyperIdle re-invokes opencode
-			//      with the forcing message as a positional arg (reEngageCarrier:"run-arg").
-			//   4. The second invocation completes → re-engage path proven end-to-end.
-			//
-
-			const FORCING_MESSAGE =
-				"IMPORTANT: You must call a return action (submit_review) before stopping. Please do so now.";
-			const MODEL = HARNESS_TEST_MODELS.opencode.model;
-
-			// First spawn: trivial no-return prompt (agent just says something, doesn't return).
-			// We detect step_finish and treat it as a no-return turn.
-			const firstResult = await spawnDetached(
-				"opencode",
-				["run", "Say exactly: STEP_ONE_DONE", "--format", "json", "--pure", "--model", MODEL],
-				{
-					cwd: os.tmpdir(),
-					env: buildCleanEnv(),
-					timeoutMs: 120_000,
-				},
-			);
-
-			// Assert step_finish is present in the first turn output.
-			const firstHasStepFinish = firstResult.stdout.includes("step_finish");
-			if (!firstHasStepFinish) {
-				throw new Error(
-					`opencode process-reengage PROOF FAILED: step_finish not found in first spawn stdout. ` +
-						`stdout: "${firstResult.stdout.slice(0, 500)}" ` +
-						`stderr: "${firstResult.stderr.slice(0, 300)}" ` +
-						`exitCode: ${firstResult.exitCode}`,
-				);
-			}
-			expect(firstHasStepFinish).toBe(true);
-
-			// Re-engage: spawn opencode again with the forcing message as first arg.
-			// This is the "run-arg" carrier (reEngageCarrier:"run-arg" in CLI_TOOL_CONFIGS).
-			const reEngageResult = await spawnDetached(
-				"opencode",
-				["run", FORCING_MESSAGE, "--format", "json", "--pure", "--model", MODEL],
-				{
-					cwd: os.tmpdir(),
-					env: buildCleanEnv(),
-					timeoutMs: 120_000,
-				},
-			);
-
-			// The re-engage invocation must also complete (step_finish in stdout).
-			// This proves the full path: turn-end detected → re-invoke with forcing message → success.
-			const reEngageHasStepFinish = reEngageResult.stdout.includes("step_finish");
-			if (!reEngageHasStepFinish) {
-				throw new Error(
-					`opencode process-reengage PROOF FAILED: re-engage spawn did not complete. ` +
-						`stdout: "${reEngageResult.stdout.slice(0, 500)}" ` +
-						`stderr: "${reEngageResult.stderr.slice(0, 300)}" ` +
-						`exitCode: ${reEngageResult.exitCode}`,
-				);
-			}
-			expect(reEngageHasStepFinish).toBe(true);
-
-			// Both spawns must have exited cleanly (exit code 0).
-			expect(firstResult.exitCode).toBe(0);
-			expect(reEngageResult.exitCode).toBe(0);
-		}, 300_000);
 	});
 
 	// ── CURSOR-AGENT CLI (soft-continue channel) ────────────────────────────

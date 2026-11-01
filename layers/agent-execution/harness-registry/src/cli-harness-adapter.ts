@@ -24,21 +24,10 @@ import type {
 	SessionResult,
 	SessionResumeConfig,
 } from "@hyperidle/harness-protocol";
-import {
-	isRequiredReturnAction,
-	MAX_FORCE_RETURNS,
-	opencodeToolName,
-	shouldForceReturn,
-} from "@hyperidle/harness-protocol";
+import { isRequiredReturnAction } from "@hyperidle/harness-protocol";
 import type { EnforcementRegistry } from "./enforcement-registry.js";
 import { normalizeHarnessEvent, preMapClaudeEvent } from "./harness-event-normalization.js";
 import { modelOptionArgv } from "./model-options.js";
-import { createReturnEnforcement } from "./return-enforcement.js";
-
-/** Used when no enforcement is injected (tests that don't care about the registry). */
-function createIsolatedEnforcementRegistry(): EnforcementRegistry {
-	return createReturnEnforcement();
-}
 
 // @lore: preMapClaudeEvent — per-line in parseStdoutLine when dialect==claude-stream-json; applied here only, not in normalizeHarnessEvent
 
@@ -108,16 +97,6 @@ interface CliAdapterConfig {
 	 * @lore: seedPrompt — without it re-engage uses the hardcoded "proceed" prompt; the agent never receives the forcing message
 	 */
 	readonly seedPrompt?: "positional";
-	/**
-	 * Per-session re-engage carrier for OpenCode.
-	 * OpenCode `--dir <sandbox>` does not accept a per-session prompt. On re-engage
-	 * (process-reengage channel), this field declares how the forcing message is
-	 * delivered to the re-invoked process.
-	 *
-	 * "run-arg" — pass the forcing message as a positional argument to `opencode run <msg>`.
-	 * Absent → re-engage uses the sandbox instruction file only.
-	 */
-	readonly reEngageCarrier?: "run-arg";
 	/**
 	 * claude-cli-adapter: Dialect tag for per-line event pre-mapping.
 	 * When set to "claude-stream-json", parseStdoutLine translates each parsed
@@ -221,60 +200,19 @@ interface CliSession {
 	/**
 	 * True once a return action satisfying this session's
 	 * `requiredReturnActions` (or, absent one, any return action) has been
-	 * observed in the event stream. Used to skip re-engage when the agent
-	 * already returned voluntarily.
-	 *
-	 * Must be REQUIRED-SET-aware, not plain
-	 * membership — `isReturnAction` alone let a session with a specific
-	 * required action (e.g. the assistant's `["reply"]`) mark itself
-	 * "returned" by calling an unrelated member (`send_message`), which
-	 * short-circuits the `isReEngage && !session.returnSeen` pre-check below
-	 * BEFORE it ever reaches the registry's own required-subset-aware
-	 * `shouldForceReturn` — silently skipping the force this session actually
-	 * needs.
+	 * observed in the event stream.
 	 */
 	returnSeen: boolean;
-	/**
-	 * This session's required-return subset,
-	 * threaded from `SessionConfig.requiredReturnActions` at spawn time so
-	 * `returnSeen` tracking (and any future re-engage spawn) can stay
-	 * required-set-aware without re-reading the original `SessionConfig`.
-	 */
+	/** This session's required-return subset, threaded from `SessionConfig.requiredReturnActions` at spawn time. */
 	readonly requiredReturnActions?: readonly string[];
 	/**
-	 * Number of process-reengage re-spawns for this session.
-	 * Bounded by MAX_FORCE_RETURNS. Prevents infinite re-engage loops.
-	 */
-	reEngageCount: number;
-	/**
-	 * The sandbox path for re-spawn (needed to spawn additional
-	 * processes in the same workspace).
+	 * The sandbox path for process operations.
 	 */
 	readonly sandboxPath: string;
 	/**
-	 * The reEngageCarrier config from the adapter, threaded here
-	 * so streamEvents can spawn additional processes without accessing this.config.
-	 */
-	readonly reEngageCarrier?: "run-arg";
-	/**
 	 * The resolved env for the process (includes CODEX_HOME, etc).
-	 * Reused for re-engage spawns.
 	 */
 	readonly spawnEnv: Record<string, string>;
-	/**
-	 * The resolved model string (e.g. "openrouter/~anthropic/claude-haiku-latest")
-	 * stored at session start so re-engage spawns can pass --model correctly.
-	 * Required for opencode "run-arg" carrier: `opencode run <msg> --format json --model <model>`.
-	 *
-	 */
-	readonly reEngageResolvedModel?: string;
-	/**
-	 * The agent's configured option args, kept so a re-engage rebuilds the same
-	 * invocation. The re-engage path constructs argv from scratch rather than
-	 * reusing the start args, so without this the agent's options would silently
-	 * disappear part-way through a session.
-	 */
-	readonly reEngageOptionArgv: readonly string[];
 	/**
 	 * The harness's own native session id, captured from the event stream or
 	 * assigned by us at start time (claude: --session-id). Set once the first
@@ -355,14 +293,12 @@ function registerExitHandlerOnce(): void {
 /**
  * Derive the return-enforcement channel from the CLI binary name.
  * codex → settings-codex (writes .codex/hooks.json Stop hook before startSession)
- * opencode → process-reengage (.opencode/plugins/return-signal.ts + re-spawn wrapper)
  * unknown → none (drain-gate floor backstop only)
  *
  * @lore: codex hooks.json — Stop hook requires a trust marker or silently skipped; per-session prompt is the {{prompt}} slot in codex.args, a separate concern
  */
 function deriveCliChannel(binary: string): ReturnEnforcementChannel {
 	if (binary === "codex") return "settings-codex";
-	if (binary === "opencode") return "process-reengage";
 	if (binary === "claude") return "settings-claude";
 	return "none";
 }
@@ -468,7 +404,6 @@ function extractOpencodeStepMetrics(obj: Record<string, unknown>): {
 export class CliHarnessAdapter implements HarnessAdapter {
 	private readonly config: CliAdapterConfig;
 	private readonly spawnFn: typeof spawn;
-	private readonly enforcement: EnforcementRegistry;
 	private readonly killFn: (pid: number, signal: NodeJS.Signals) => void;
 	private readonly sessions = new Map<string, CliSession>();
 	/**
@@ -481,8 +416,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	constructor(config: CliAdapterConfig, deps?: CliAdapterDeps) {
 		this.config = config;
 		this.spawnFn = deps?.spawnFn ?? spawn;
-		// Default: create an isolated registry. Production always injects the shared one.
-		this.enforcement = deps?.enforcement ?? createIsolatedEnforcementRegistry();
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
 		// Every instance registers itself with the single shared 'exit'
 		// backstop above — see registerExitHandlerOnce for why this is shared,
@@ -667,13 +600,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			modelTier: config.modelTier,
 			returnSeen: false,
 			requiredReturnActions: config.requiredReturnActions,
-			reEngageCount: 0,
 			sandboxPath: config.sandboxPath,
-			reEngageCarrier: this.config.reEngageCarrier,
 			spawnEnv: sandboxedEnv,
-			// store resolved model for re-engage spawn (opencode --model flag).
-			reEngageResolvedModel: config.selectedModel,
-			reEngageOptionArgv: optionArgv,
 			// for claude, we assigned this at start time; for all other harnesses
 			// it is captured from the event stream (set in parseStdoutLine).
 			nativeSessionId: claudeAssignedSessionId,
@@ -768,11 +696,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			const session = adapter.sessions.get(sessionId);
 			if (!session) return;
 
-			// determine if this adapter uses process-reengage channel.
-			const channel =
-				adapter.config.returnEnforcementChannel ?? deriveCliChannel(adapter.config.binary);
-			const isReEngage = channel === "process-reengage";
-
 			let stdoutCursor = 0;
 			let stderrCursor = 0;
 
@@ -843,123 +766,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				}
 
 				if (session.done) {
-					// process-reengage — after first (or subsequent) process exits,
-					// check if we need to re-engage the session with a forcing message.
-					//
-					// Decision logic:
-					//   1. Only for process-reengage channel (opencode / remote).
-					//   2. Only if returnSeen=false (agent did NOT call a return action).
-					//   3. Ask the enforcement registry: if forceMessage is non-null, re-spawn.
-					//   4. Bounded by reEngageCount < MAX_FORCE_RETURNS (guards infinite loops).
-					//   5. reEngageCarrier="run-arg": append forceMessage as positional arg.
-					//
-					if (isReEngage && !session.returnSeen && session.reEngageCount < MAX_FORCE_RETURNS) {
-						const registryEntry = adapter.enforcement.get(session.configSessionId);
-						if (registryEntry) {
-							// registry forceCount is authoritative (session.reEngageCount can diverge if other paths also increment it)
-							// Narrow to the session's specific
-							// required subset when the registered entry has one.
-							// This branch is structurally
-							// opencode-only (`isReEngage` ⟺ `channel === "process-reengage"`,
-							// and only opencode's CLI_TOOL_CONFIGS entry sets that channel) —
-							// `opencodeToolName` names the literal `hyperidle_<bare>` tool the
-							// re-spawned opencode process actually exposes, instead of a bare
-							// name it fails to resolve ("Model tried to call unavailable tool").
-							const forceMsg = registryEntry.exempt
-								? null
-								: shouldForceReturn(
-										registryEntry.gate,
-										registryEntry.forceCount,
-										registryEntry.requiredReturnActions,
-										opencodeToolName,
-									);
-
-							if (forceMsg !== null) {
-								// Increment the registry BEFORE spawning so drain-gate sees the force.
-								adapter.enforcement.incrementForce(session.configSessionId);
-								session.reEngageCount++;
-								session.processStarts++;
-
-								// Build re-engage args.
-								//
-								// @lore: re-engage args built from scratch for "run-arg" carrier — stripping template vars yields broken invocation (no "run" subcommand, empty --dir)
-								let finalReEngageArgs: string[];
-								if (session.reEngageCarrier === "run-arg") {
-									// "run-arg": opencode headless re-invoke with forcing message as first arg.
-									// Build the canonical headless invocation: `opencode run <msg> --format json --pure [--model <model>]`
-									// cwd is session.sandboxPath so --dir is not needed for re-engage.
-									const runArgs: string[] = ["run", forceMsg, "--format", "json", "--pure"];
-									if (session.reEngageResolvedModel) {
-										runArgs.push("--model", session.reEngageResolvedModel);
-									}
-									runArgs.push(...session.reEngageOptionArgv);
-									finalReEngageArgs = runArgs;
-								} else {
-									// No carrier configured — use the tailored forcing message.
-									// Fall back to base args (stripped of unresolved template vars via exclusion
-									// of any arg still containing "{{"). Empty-string args from stripping
-									// are excluded to avoid passing spurious flags.
-									const baseArgs = adapter.config.args
-										.map((arg) => arg.replace(/\{\{[a-z]+\}\}/g, ""))
-										.filter((arg) => arg.length > 0);
-									// The agent's options belong on the re-engage invocation too — this
-									// branch rebuilds argv from the base template, so they are not
-									// carried over from the start args.
-									finalReEngageArgs = [...baseArgs, ...session.reEngageOptionArgv, forceMsg];
-								}
-
-								// Spawn the re-engage child process.
-								const reEngageChild = adapter.spawnFn(adapter.config.binary, finalReEngageArgs, {
-									cwd: session.sandboxPath,
-									env: session.spawnEnv,
-									stdio: ["pipe", "pipe", "pipe"],
-									detached: true,
-								});
-
-								reEngageChild.stdin?.end();
-
-								// Reset session for the new child.
-								session.child.removeAllListeners();
-								session.child = reEngageChild;
-								session.done = false;
-								session.exitCode = null;
-								session.exitSignal = null;
-
-								// Wire the new child's stdout/stderr into the same arrays.
-								adapter.wireStdout(session);
-								adapter.wireStderr(session);
-
-								// Wire exit for the new child.
-								reEngageChild.on("exit", (code, signal) => {
-									for (let i = stdoutCursor; i < session.stdoutLines.length; i++) {
-										const bufferedLine = session.stdoutLines[i];
-										if (bufferedLine !== undefined) {
-											adapter.parseStdoutLine(bufferedLine, session, i);
-										}
-									}
-									session.exitCode = code;
-									session.exitSignal = signal;
-									session.done = true;
-									if (session.killTimer) {
-										clearTimeout(session.killTimer);
-										session.killTimer = null;
-									}
-									session.notifyStream?.();
-									const result = adapter.buildResult(session, code, signal);
-									session.resolveStop?.(result);
-								});
-
-								reEngageChild.on("error", () => {
-									session.done = true;
-									session.notifyStream?.();
-								});
-
-								// Continue the drain loop for the re-engage child.
-								continue;
-							}
-						}
-					}
-					// No re-engage needed (or channel is not process-reengage).
 					break;
 				}
 
@@ -1230,12 +1036,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			modelTier: config.modelTier,
 			returnSeen: false,
 			requiredReturnActions: undefined,
-			reEngageCount: 0,
 			sandboxPath,
-			reEngageCarrier: this.config.reEngageCarrier,
 			spawnEnv: sandboxedEnv,
-			reEngageResolvedModel: model || undefined,
-			reEngageOptionArgv: [],
 			// Resume sessions use the same native id we resumed into.
 			nativeSessionId,
 			// Resume sessions never use json-stream delivery.

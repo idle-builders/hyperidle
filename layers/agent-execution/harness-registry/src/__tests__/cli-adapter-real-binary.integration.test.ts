@@ -17,18 +17,15 @@
  */
 
 import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
-import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import {
 	createHarnessSandbox,
 	provisionClaudeSandbox,
-	provisionCodexHome,
 	requireHarnessAuthed,
 } from "./harness-sandbox.js";
 import { productionCliConfig } from "./production-cli-config.js";
-import { HARNESS_TEST_MODELS, type HarnessName, requireHarness } from "./require-harness.js";
+import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
 const { track } = trackHarnessSessions();
@@ -36,7 +33,8 @@ const { track } = trackHarnessSessions();
 const ADAPTER_OK_PROMPT = "Reply with exactly the token ADAPTER_OK and nothing else.";
 
 interface HarnessCase {
-	readonly name: HarnessName;
+	// CliHarnessAdapter only handles claude and cursor-agent (codex/opencode use their own adapters).
+	readonly name: "claude" | "cursor-agent";
 	readonly selectedModel: string;
 	/** True when a real turn on this harness reliably emits token_usage with real counts. */
 	readonly expectsPositiveTokenUsage: boolean;
@@ -55,33 +53,6 @@ const CASES: readonly HarnessCase[] = [
 		},
 	},
 	{
-		name: "codex",
-		selectedModel: HARNESS_TEST_MODELS.codex.model,
-		expectsPositiveTokenUsage: false,
-		async buildSandbox() {
-			const baseSandbox = createHarnessSandbox("cli-adapter-codex-base");
-			const sandboxAdapter = new LocalSandboxAdapter();
-			const handle = await sandboxAdapter.spawn(baseSandbox.path);
-			ensureSandboxGitRepo(handle.path);
-			const authFound = provisionCodexHome(handle.path);
-			if (!authFound) {
-				throw new Error(
-					"codex: no ~/.codex/auth.json to copy into the per-session sandbox — run `codex login`. Never skip to green.",
-				);
-			}
-			return { sandboxPath: handle.path, cleanup: baseSandbox.cleanup };
-		},
-	},
-	{
-		name: "opencode",
-		selectedModel: HARNESS_TEST_MODELS.opencode.model,
-		expectsPositiveTokenUsage: false,
-		async buildSandbox() {
-			const sandbox = createHarnessSandbox("cli-adapter-opencode");
-			return { sandboxPath: sandbox.path, cleanup: sandbox.cleanup };
-		},
-	},
-	{
 		name: "cursor-agent",
 		selectedModel: HARNESS_TEST_MODELS["cursor-agent"].model,
 		expectsPositiveTokenUsage: false,
@@ -92,8 +63,8 @@ const CASES: readonly HarnessCase[] = [
 	},
 ];
 
-describe("CLI adapter (real binary, production CliHarnessAdapter path)", () => {
-	requireHarness("claude", "codex", "opencode", "cursor-agent");
+describe("CLI adapter (real binary, production CliHarnessAdapter path — claude and cursor-agent)", () => {
+	requireHarness("claude", "cursor-agent");
 
 	test.each(CASES)(
 		"$name: real binary → parsed ADAPTER_OK completion + real token usage + no error pollution",

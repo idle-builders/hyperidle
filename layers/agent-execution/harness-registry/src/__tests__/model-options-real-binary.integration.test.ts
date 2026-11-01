@@ -33,7 +33,6 @@
  */
 
 import { execFile, execFileSync, spawn } from "node:child_process";
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
@@ -44,7 +43,11 @@ import {
 	provisionClaudeSandbox,
 	provisionCodexHome,
 } from "./harness-sandbox.js";
-import { productionCliConfig } from "./production-cli-config.js";
+import {
+	codexTurnContext,
+	productionCliConfig,
+	productionHarnessAdapter,
+} from "./production-cli-config.js";
 import { requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
@@ -53,7 +56,6 @@ const { track } = trackHarnessSessions();
 const execFileAsync = promisify(execFile);
 
 const CLAUDE_CLI_CONFIG = productionCliConfig("claude");
-const CODEX_CLI_CONFIG = productionCliConfig("codex");
 
 /** The real `spawn`, with the child's stdout duplicated into `sink`. */
 function teeingSpawn(sink: { text: string }): typeof spawn {
@@ -164,38 +166,6 @@ function provisionCodexRepo(sandboxPath: string): void {
 	});
 }
 
-/** codex records the effort alongside the model in its own `turn_context`. */
-function codexTurnContext(
-	stdout: string,
-	codexHome: string,
-): { model?: string; effort?: string } | undefined {
-	const started = jsonLines(stdout).find((o) => o.type === "thread.started");
-	const threadId = typeof started?.thread_id === "string" ? started.thread_id : undefined;
-	if (!threadId) return undefined;
-	const sessionsRoot = path.join(codexHome, "sessions");
-	if (!fs.existsSync(sessionsRoot)) return undefined;
-	const stack = [sessionsRoot];
-	while (stack.length > 0) {
-		const dir = stack.pop() as string;
-		for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-			const full = path.join(dir, entry.name);
-			if (entry.isDirectory()) {
-				stack.push(full);
-			} else if (entry.name.includes(threadId) && entry.name.endsWith(".jsonl")) {
-				for (const obj of jsonLines(fs.readFileSync(full, "utf-8"))) {
-					if (obj.type !== "turn_context") continue;
-					const payload = obj.payload as Record<string, unknown> | undefined;
-					return {
-						...(typeof payload?.model === "string" ? { model: payload.model } : {}),
-						...(typeof payload?.effort === "string" ? { effort: payload.effort } : {}),
-					};
-				}
-			}
-		}
-	}
-	return undefined;
-}
-
 describe("[harness:codex] the configured reasoning effort is the effort codex runs with", () => {
 	requireHarness("codex");
 
@@ -206,6 +176,10 @@ describe("[harness:codex] the configured reasoning effort is the effort codex ru
 		// `model_reasoning_effort` — asking for the same value would prove nothing.
 		// Two asks, both different from each other, is what makes a dropped option
 		// impossible to miss.
+		//
+		// effort is delivered via -c model_reasoning_effort=<v> (modelOptionArgv).
+		// Model and effort are verified from the JSONL turn_context entry (ephemeral: false
+		// is the production default; CODEX_HOME is per-sandbox so history stays in the sandbox).
 		const seen: string[] = [];
 		for (const effort of ["low", "xhigh"]) {
 			const sandbox = createHarnessSandbox("model-opt-codex");
@@ -213,16 +187,28 @@ describe("[harness:codex] the configured reasoning effort is the effort codex ru
 			try {
 				provisionCodexRepo(sandboxPath);
 				expect(provisionCodexHome(sandboxPath)).toBe(true);
-				const { stdout } = await runSession(CODEX_CLI_CONFIG, {
-					sessionId: sessionId("model-opt-codex"),
-					sandboxPath,
-					assembledPrompt: "Reply with exactly the token OPTION_OK and nothing else.",
-					instruction: "Reply with exactly the token OPTION_OK and nothing else.",
-					selectedModel: "gpt-5.6-luna",
-					modelOptions: { model_reasoning_effort: effort },
-					mcpConnectionInfo: undefined,
-				});
-				const ctx = codexTurnContext(stdout, path.join(sandboxPath, ".codex-home"));
+				const adapter = productionHarnessAdapter("codex");
+				const handle = track(
+					adapter,
+					await adapter.startSession({
+						sessionId: sessionId("model-opt-codex"),
+						sandboxPath,
+						assembledPrompt: "Reply with exactly the token OPTION_OK and nothing else.",
+						instruction: "Reply with exactly the token OPTION_OK and nothing else.",
+						selectedModel: "gpt-5.6-luna",
+						modelOptions: { model_reasoning_effort: effort },
+						mcpConnectionInfo: undefined,
+						modelTier: "workhorse" as const,
+						tools: [],
+					} as SessionConfig),
+				);
+				for await (const _ev of adapter.streamEvents(handle)) {
+					// drain events
+				}
+				// getNativeSessionId BEFORE stopSession — stopSession removes the session entry
+				const nativeSessionId = adapter.getNativeSessionId?.(handle);
+				await adapter.stopSession(handle);
+				const ctx = codexTurnContext(nativeSessionId, path.join(sandboxPath, ".codex-home"));
 				expect(ctx, "codex recorded no turn context").toBeDefined();
 				expect(ctx?.model).toBe("gpt-5.6-luna");
 				expect(ctx?.effort, `codex ran at ${ctx?.effort}, not the requested ${effort}`).toBe(

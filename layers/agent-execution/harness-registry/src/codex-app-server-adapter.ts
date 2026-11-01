@@ -22,8 +22,7 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/harness-protocol";
-
-export type { CodexAppServerAdapterDeps };
+import { modelOptionArgv } from "./model-options.js";
 
 interface PendingRequest {
 	resolve(result: unknown): void;
@@ -65,11 +64,13 @@ interface AppServerSession {
 	gateForceCount: number;
 }
 
-/** Injectable dependencies (for unit tests). */
+/** Injectable dependencies and overridable behaviors (for unit tests). */
 interface CodexAppServerAdapterDeps {
 	readonly spawnFn?: typeof spawn;
 	readonly killFn?: (pid: number, signal: NodeJS.Signals) => void;
 	readonly fetchFn?: typeof globalThis.fetch;
+	/** SIGKILL escalation timeout in ms after SIGTERM (default 3000). */
+	readonly sigkillTimeoutMs?: number;
 }
 
 let nextSessionId = 1;
@@ -95,9 +96,9 @@ function buildEnv(config: SessionConfig): Record<string, string> {
 	return env;
 }
 
-function buildArgs(_config: SessionConfig): string[] {
+function buildArgs(config: SessionConfig): string[] {
 	// @lore: no --dangerously-bypass-hook-trust — app-server rejects it (only exec accepts it); return gate is in-process (checkReturnGate after turn/completed)
-	return ["app-server", "--stdio"];
+	return ["app-server", "--stdio", ...modelOptionArgv("codex", config.modelOptions)];
 }
 
 function parseNotificationToEvent(line: string): HarnessEvent | null {
@@ -184,6 +185,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 	private readonly spawnFn: typeof spawn;
 	private readonly killFn: (pid: number, signal: NodeJS.Signals) => void;
 	private readonly fetchFn: typeof globalThis.fetch;
+	private readonly sigkillTimeoutMs: number;
 	private readonly sessions = new Map<string, AppServerSession>();
 	/** Persists gateForceCount after a session is deleted from this.sessions. */
 	private readonly forceReturnCounts = new Map<string, number>();
@@ -192,6 +194,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 		this.spawnFn = deps?.spawnFn ?? spawn;
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
 		this.fetchFn = deps?.fetchFn ?? globalThis.fetch.bind(globalThis);
+		this.sigkillTimeoutMs = deps?.sigkillTimeoutMs ?? 3_000;
 	}
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
@@ -265,9 +268,12 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			sandbox: "workspace-write",
 			// @lore: approvalPolicy never — prevents server-initiated approval requests during tests and production sessions
 			approvalPolicy: "never",
-			// @lore: ephemeral true — prevents thread persisting to codex history; each HyperIdle session is self-contained
-			ephemeral: true,
-		})) as { thread: { id: string } };
+			// @lore: ephemeral false is safe — CODEX_HOME is the sandbox's .codex-home, so history never lands in the user's ~/.codex
+			ephemeral: false,
+		})) as {
+			thread: { id: string };
+			model?: string;
+		};
 
 		session.threadId = threadResult.thread.id;
 
@@ -344,30 +350,37 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 		if (!session) return Promise.resolve({ outcome: "crashed", tokenUsage: { byTier: {} } });
 
 		if (session.done && session.exitCode !== null) {
+			// Fast path: turn completed AND the process has already exited.
 			const result = this.buildResult(session);
 			this.forceReturnCounts.set(session.configSessionId, session.gateForceCount);
 			this.sessions.delete(handle.sessionId);
 			return Promise.resolve(result);
 		}
 
+		// Signal the process group to stop (detached: true spawns in its own group).
 		if (session.child.pid !== undefined) {
 			try {
-				// Kill the process group (detached: true spawns in its own group)
 				this.killFn(-session.child.pid, "SIGTERM");
 			} catch {
 				// Process may have already exited
 			}
 		}
 
+		// @lore: wait for real exit — codex keeps writing .codex-home after turn/completed; resolving early races sandbox cleanup
 		return new Promise<SessionResult>((resolve) => {
-			if (session.done) {
-				const result = this.buildResult(session);
-				this.forceReturnCounts.set(session.configSessionId, session.gateForceCount);
-				this.sessions.delete(handle.sessionId);
-				resolve(result);
-				return;
-			}
+			// Escalate to SIGKILL if SIGTERM is ignored (unref so the timer does not keep Node alive).
+			const sigkillTimer = setTimeout(() => {
+				if (session.child.pid !== undefined) {
+					try {
+						this.killFn(-session.child.pid, "SIGKILL");
+					} catch {
+						// Already gone
+					}
+				}
+			}, this.sigkillTimeoutMs).unref();
+
 			session.resolveStop = (result) => {
+				clearTimeout(sigkillTimer);
 				this.forceReturnCounts.set(session.configSessionId, session.gateForceCount);
 				this.sessions.delete(handle.sessionId);
 				resolve(result);
@@ -391,6 +404,10 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 		} catch {
 			return "unsupported";
 		}
+	}
+
+	getNativeSessionId(handle: SessionHandle): string | undefined {
+		return this.sessions.get(handle.sessionId)?.threadId;
 	}
 
 	getCapabilities(): HarnessCapabilities {

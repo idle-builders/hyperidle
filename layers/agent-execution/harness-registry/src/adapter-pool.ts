@@ -22,6 +22,7 @@ import {
 } from "./harness-capability-descriptors.js";
 import type { HarnessDiscoveryInput, HarnessProbeDeps } from "./harness-discovery.js";
 import { discoverLocalHarnesses, type HarnessDiscoveryResult } from "./harness-discovery.js";
+import { OpenCodeServeAdapter } from "./opencode-serve-adapter.js";
 
 /** Internal pool entry. */
 interface PoolEntry {
@@ -270,54 +271,15 @@ export class AdapterPool {
  * Well-known CLI tool configurations.
  * Each tool registers with its own harnessType (binary name) so agents can
  * express a preference: harnessType: "opencode" routes to the OpenCode adapter.
+ *
+ * Only the binary name is needed: codex uses CodexAppServerAdapter and opencode
+ * uses OpenCodeServeAdapter — neither goes through CliHarnessAdapter.
  */
-export const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
-	codex: {
-		binary: "codex",
-		// @lore: --sandbox workspace-write — codex defaults read-only, refuses writes without it; workspace-write allows writes within cwd tree only
-		// @lore: codex requires CWD to be a git repo — trust_level in config.toml has no observed effect; ensureSandboxGitRepo (mounter.ts) is the actual fix
-		args: ["exec", "--sandbox", "workspace-write", "--model", "{{model}}", "{{prompt}}", "--json"],
-		envMap: {
-			OPENAI_API_KEY: "{{apiKey}}",
-		},
-		eventFormat: "ndjson",
-		envAllowlist: ["PATH", "HOME", "LANG"],
-		// Explicit channel — avoids relying on deriveCliChannel binary-string matching.
-		returnEnforcementChannel: "settings-codex",
-		// Per-session seed prompt carrier for Codex.
-		// "positional" means the {{prompt}} template arg in args[] carries the message.
-		// CliHarnessAdapter resolves {{prompt}} to the seed prompt before spawning.
-		seedPrompt: "positional",
-		// Codex reads MCP server from .codex-home/config.toml;
-		// the token is delivered via HYPERIDLE_MCP_TOKEN env var (bearer_token_env_var).
-		mcpConfig: { dialect: "codex-toml" },
-		// @lore: all codex stderr is benign — real failures appear as non-zero exit or JSONL error events in stdout; stderrIgnorePatterns suppresses false crashes
-		stderrIgnorePatterns: [/.*/],
-	},
-	opencode: {
-		binary: "opencode",
-		// Opencode headless `run` form:
-		// - `run <prompt>` delivers the seed prompt.
-		// - `--dir {{sandbox}}` sets cwd for config resolution (opencode.json).
-		// - `--format json` emits JSONL per-event output (eventFormat: "ndjson").
-		// - `--model {{model}}` requires provider-prefixed id (e.g. openrouter/~anthropic/claude-haiku-latest).
-		// @lore: {{model}} resolves from config.resolvedModel?.model; opencode requires provider-prefixed model id (e.g. openrouter/~); a bare id fails
-		// @lore: XDG_CONFIG_HOME=<sandbox>/.hyperidle/opencode-xdg-config isolates config; --pure absent: it silently disables external plugins including the gate plugin
-		args: ["run", "{{prompt}}", "--dir", "{{sandbox}}", "--format", "json", "--model", "{{model}}"],
-		envMap: {},
-		eventFormat: "ndjson",
-		// @lore: XDG_DATA_HOME isolates opencode's SQLite db — without it concurrent processes hang on ~/.local/share/opencode/opencode.db write-lock
-		envAllowlist: ["PATH", "HOME", "LANG", "OPENROUTER_API_KEY", "XDG_DATA_HOME"],
-		// Explicit channel — avoids relying on deriveCliChannel binary-string matching.
-		returnEnforcementChannel: "process-reengage",
-		// Per-session re-engage carrier for OpenCode (process-reengage channel).
-		// "run-arg" passes the forcing message as a positional arg to `opencode run <msg>`.
-		reEngageCarrier: "run-arg",
-		// Opencode reads MCP server from opencode.json in the sandbox cwd;
-		// the token is inline in headers.Authorization (no tokenEnv needed).
-		mcpConfig: { dialect: "opencode-json" },
-		stderrIgnorePatterns: [/.*/],
-	},
+export const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, { readonly binary: string }>> = {
+	// codex uses CodexAppServerAdapter — only the binary name is needed here for discovery.
+	codex: { binary: "codex" },
+	// opencode uses OpenCodeServeAdapter — only the binary name is needed here for discovery.
+	opencode: { binary: "opencode" },
 };
 
 /**
@@ -400,7 +362,6 @@ export const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
  */
 async function registerCliAdaptersIfAvailable(
 	pool: AdapterPool,
-	enforcement?: EnforcementRegistry,
 	availabilityDeps?: CliAvailabilityDeps,
 ): Promise<void> {
 	const maxConcurrent = Number.parseInt(process.env.HYPERIDLE_LOCAL_MAX_CONCURRENT ?? "2", 10);
@@ -409,11 +370,8 @@ async function registerCliAdaptersIfAvailable(
 		const available = await CliHarnessAdapter.checkAvailability(config.binary, availabilityDeps);
 		if (available) {
 			// codex uses CodexAppServerAdapter (JSON-RPC app-server protocol, supports mid-turn deliver)
-			// all other CLI tools use CliHarnessAdapter (one-shot subprocess)
-			const adapter =
-				name === "codex"
-					? new CodexAppServerAdapter()
-					: new CliHarnessAdapter(config, { enforcement });
+			// opencode uses OpenCodeServeAdapter (HTTP serve API, supports mid-turn deliver)
+			const adapter = name === "codex" ? new CodexAppServerAdapter() : new OpenCodeServeAdapter();
 			pool.register(`local-cli-${name}`, adapter, {
 				name: `CLI: ${name}`,
 				kind: "local",
@@ -475,7 +433,7 @@ export async function createLocalAdapterPool(opts?: {
 	}
 
 	// 3. CLI adapters: registered dynamically when available
-	await registerCliAdaptersIfAvailable(pool, enforcement, availabilityDeps);
+	await registerCliAdaptersIfAvailable(pool, availabilityDeps);
 
 	return pool;
 }
