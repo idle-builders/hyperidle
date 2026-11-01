@@ -20,8 +20,8 @@ import { createActionsRouter } from "./actions/actions-router.js";
 import { buildCoreActions, runnerFor } from "./actions/compose.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { authHealth } from "./routes/health.js";
-import { createSearchRoutes } from "./routes/search.js";
 import { createJoinRoutes } from "./routes/join.js";
+import { createSearchRoutes } from "./routes/search.js";
 import { createStartRoutes } from "./routes/start.js";
 import {
 	buildSeamBackedReviewVerdictRecorder,

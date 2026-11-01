@@ -50,10 +50,7 @@ async function edit(
 	return (await res.json()) as Envelope;
 }
 
-async function seedTree(
-	db: HyperIdleDb,
-	asPerson?: (id: string) => Promise<void>,
-): Promise<void> {
+async function seedTree(db: HyperIdleDb, asPerson?: (id: string) => Promise<void>): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: TEAM, name: TEAM, createdAt: now });
 	await db.insert(users).values([
