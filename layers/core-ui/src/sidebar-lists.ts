@@ -17,8 +17,8 @@ import type {
 export type Mark = "input" | "review" | "mention" | "queued" | "run" | "done" | "stopped";
 
 /**
- * `state` is the status in words. `yours` = you owe something (the only use of the need colour);
- * `fresh` = something new you have not seen.
+ * `state` is the status in words; `mark` draws it, and the need colour on a mark means a person is
+ * needed. `yours` = you owe something (bold, listed first); `fresh` = something new you have not seen.
  */
 export interface Item {
 	id: string;
@@ -154,12 +154,12 @@ export const STATE_WORDS: Record<Task["state"], string> = {
 	killed: "Stopped",
 };
 
-/** The same marks a task's graph draws: a need wins unless the task is paused, stuck shares the question mark. */
+/** Drawn with the graph's marks: a need wins unless the task is paused, and stuck shares the question mark. */
 const STATE_MARKS: Record<Task["state"], Mark> = {
 	proposed: "queued",
 	accepted: "queued",
 	in_progress: "run",
-	blocked: "run",
+	blocked: "input",
 	review: "review",
 	hold: "queued",
 	done: "done",

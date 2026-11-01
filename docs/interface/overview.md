@@ -46,11 +46,12 @@ The sidebar and the page addresses are in [navigation.md](navigation.md).
 
 - **A person checks, an agent works.** Work belongs to the agent that owns it; a person answers
   questions and reviews. Nothing is approved by itself.
-- **Status is a mark, not a coloured box.** A list row draws its status as the same marks a task's
-  graph uses — a question mark or an eye where a person is needed, @ when you were mentioned, ✓ done,
-  ◐ under way, ○ queued, ■ stopped — and says it in words when you point at it ("Stuck", "Needs
-  input", "3 of 7 done"). Colour sits in text and edges, never as a solid fill: one need colour
-  (mustard in light mode, yellow in dark) marks what you owe; green marks what is new to you.
+- **Status is a mark, not a coloured box.** A list row with a status draws it with the marks a
+  task's graph uses — a question mark or an eye where a person is needed, @ when you were mentioned,
+  ✓ done, ◐ under way, ○ queued, ■ stopped — and says it in words when you point at it ("Stuck",
+  "Needs input", "3 of 7 done"). Colour sits in text and edges, not as a box behind words: one need
+  colour (mustard in light mode, yellow in dark) marks where a person is needed; green marks what is
+  new to you.
 - **What floats over the page is frosted glass.** Find, menus, popovers and dialogs are see-through
   and blurred; the page itself stays solid. With reduced transparency turned on they are solid.
 - **Status updates in place.** A work item in a thread shows its state; it does not post status

@@ -75,7 +75,7 @@ const GLYPHS = { queued: "○", run: "◐", done: "✓", stopped: "■" } as con
 
 function RowMark({ item }: { item: Item }) {
 	const { mark, state } = item;
-	if (!mark) return <span className="nrow-mark" aria-hidden="true" />;
+	if (!mark) return null;
 	return (
 		<span
 			className={mark === "mention" ? "nrow-mark nrow-mark--mention" : "nrow-mark"}

@@ -13,10 +13,10 @@ The app has one sidebar on the left and the page you opened on the right. There 
 
 ### The lists
 
-Each list is in order of what matters to you: what you owe first, then what is new, then the rest. Each row starts with a small mark for its status; point at it to read the status in words.
+Each list is in order of what matters to you: what you owe first, then what is new, then the rest. A row with a status starts with a small mark; point at it to read the status in words.
 
 - **Conversations** — **+ New conversation**, then every thread. A row shows its mark, the title and time, then who. Threads that wait on you are marked: **?** needs input or is stuck (with who asks), an **eye** needs your review, **@** mentioned you (until you open it). Other rows say **New reply** or show the last message.
-- **Work** — a team switch (**All teams**, or one team with its number of tasks). Once you pick a team, **The team ›** opens [the team's page](./running-your-team.md). Below it are the top-level tasks, each marked the way its graph is: ○ queued, ◐ under way, ✓ done, ■ stopped, **?** or an **eye** where you are needed. Point at the mark for the words ("3 of 7 done", On hold).
+- **Work** — a team switch (**All teams**, or one team with its number of tasks). Once you pick a team, **The team ›** opens [the team's page](./running-your-team.md). Below it are the top-level tasks, each marked the way its graph is: ○ queued, ◐ under way, ✓ done, ■ stopped, **?** or an **eye** where a person is needed. Point at the mark for the words ("3 of 7 done", On hold).
 - **Knowledge** — first, drafts someone else wrote (marked with an **eye**, **Publish?**) and documents edited since you looked. Then the document tree: one space per team, documents nested inside. Click a document's icon to change it; the **+** on a row adds a new document under it.
 
 While you edit a document, the conversation list holds still and says "N new since you started · it waits here", so nothing jumps under you.

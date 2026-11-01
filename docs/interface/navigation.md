@@ -34,8 +34,8 @@ Top to bottom:
    Choosing one opens the page you last had open there, or its first row the first time; the app
    starts on the first conversation. While you write in a document, choosing one only shows its list.
 4. A line, then the list for the one you chose. Every list is in priority order: what you owe
-   first, then what is new to you, then the rest. A row is a status mark, a title and a time, then
-   who. The mark's words show when you point at it.
+   first, then what is new to you, then the rest. A row is a title and a time, then who; a row with
+   a status starts with a mark, whose words show when you point at it.
    - **Conversations** — "+ New conversation", then every thread across all teams. A thread that
      waits on you is marked: a question mark for Stuck or Needs input, an eye for Needs review, @ for
      "Mentioned you" (until you open the thread). Other rows say "New reply" or the last message.

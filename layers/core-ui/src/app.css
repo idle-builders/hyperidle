@@ -74,8 +74,9 @@ code {
 	border-color: transparent;
 	padding-inline: 0;
 }
-.chip--quiet {
-	color: var(--ink-3);
+button.chip--quiet:hover {
+	color: var(--ink);
+	text-decoration: underline;
 }
 .chip--app {
 	color: var(--accent);
@@ -693,7 +694,6 @@ kbd {
 	padding: var(--sp-4);
 	border: var(--line-w) solid var(--line-strong);
 	border-radius: var(--r);
-	background: var(--surface);
 	box-shadow: var(--sh-2);
 }
 .reject-h {
@@ -4165,6 +4165,7 @@ button.item:hover {
 .team-menu,
 .notes,
 .pop,
+.reject,
 .picker,
 .icon-pick,
 .doc-link-box,
