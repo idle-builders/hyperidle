@@ -107,6 +107,8 @@ fi
 
 echo "==> Bundling desktop (esbuild → dist/main.cjs)"
 npx tsx applications/desktop/__scripts__/bundle.ts
+echo "==> Building the speech helper"
+bash "$DESKTOP_DIR/__scripts__/build-speech-helper.sh"
 echo "==> Building, signing, and notarizing DMG (this takes several minutes)"
 cd "$DESKTOP_DIR"
 npx electron-builder --config electron-builder.yml --mac --arm64 --publish never

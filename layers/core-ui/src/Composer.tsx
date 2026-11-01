@@ -1,13 +1,15 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CHAT_FORMATS, type Format, FormatBar } from "./FormatBar";
 import { MentionPicker, useMentionables } from "./MentionPicker";
 import { type Mentionable, matching, typedMention } from "./mentionables";
 import { addFormat, escapeRegExp } from "./rich-text";
+import { putSpoken } from "./spoken";
 
 /**
  * The chat box: the message on top, the format bar and Send under it. Typing `@` opens the
  * mention picker; ↑↓ choose, ↵ puts the name in, esc closes it and keeps what was typed. ↵ on
- * its own sends; shift-↵ starts a new line.
+ * its own sends; shift-↵ starts a new line. In the desktop app on a Mac, Record writes down what
+ * is said at the cursor, on the computer itself; the words wait in the box to be fixed and sent.
  */
 export function Composer({
 	label,
@@ -35,6 +37,15 @@ export function Composer({
 	const [closedAt, setClosedAt] = useState<number | null>(null);
 	const [sending, setSending] = useState(false);
 	const select = useRef<{ start: number; end: number } | null>(null);
+	const speech = window.__HYPERIDLE__?.speech;
+	const [recording, setRecording] = useState<"on" | "stopping" | null>(null);
+	const [problem, setProblem] = useState<string | null>(null);
+
+	// Leaving "on" — by Stop, or by leaving the thread — turns the microphone off.
+	useEffect(() => {
+		if (recording !== "on") return;
+		return () => void speech?.stop();
+	}, [recording, speech]);
 
 	useLayoutEffect(() => {
 		const sel = select.current;
@@ -68,8 +79,34 @@ export function Composer({
 		box.current?.focus();
 	};
 
+	const record = () => {
+		const el = box.current;
+		if (!(speech && el)) return;
+		if (recording === "on") {
+			setRecording("stopping");
+			return;
+		}
+		const before = text.slice(0, el.selectionStart);
+		const after = text.slice(el.selectionEnd);
+		setProblem(null);
+		setRecording("on");
+		void speech.start((heard) => {
+			if (heard.kind === "error") {
+				setProblem(heard.message);
+				setRecording(null);
+				return;
+			}
+			const put = putSpoken(before, heard.text, after);
+			change(put.text, put.caret);
+			if (heard.kind === "final") {
+				setRecording(null);
+				box.current?.focus();
+			}
+		});
+	};
+
 	const send = async () => {
-		if (text.trim() === "" || sending) return;
+		if (text.trim() === "" || sending || recording) return;
 		setSending(true);
 		const mentioned = people.filter((m) =>
 			new RegExp(`(^|\\s)@${escapeRegExp(m.name)}(?!\\w)`, "i").test(text),
@@ -107,6 +144,7 @@ export function Composer({
 						value={text}
 						placeholder={placeholder}
 						aria-label={label}
+						readOnly={recording !== null}
 						// biome-ignore lint/a11y/noAutofocus: a new conversation starts in its box
 						autoFocus={startPicking}
 						onChange={(e) => {
@@ -141,16 +179,28 @@ export function Composer({
 					/>
 					<div className="composer-row">
 						<FormatBar kinds={CHAT_FORMATS} onAdd={format} />
+						{speech && (
+							<button
+								type="button"
+								className="btn composer-record"
+								aria-pressed={recording !== null}
+								disabled={recording === "stopping"}
+								onClick={record}
+							>
+								{recording ? "Stop" : "Record"}
+							</button>
+						)}
 						<button
 							type="button"
 							className="btn btn--accent"
-							disabled={text.trim() === "" || sending}
+							disabled={text.trim() === "" || sending || recording !== null}
 							onClick={() => void send()}
 						>
 							Send
 						</button>
 					</div>
 				</div>
+				{problem && <p className="composer-problem">{problem}</p>}
 			</div>
 		</div>
 	);

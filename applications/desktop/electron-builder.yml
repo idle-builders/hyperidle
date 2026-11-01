@@ -30,6 +30,10 @@ mac:
   # notarytool natively when this is true.
   notarize: true
   icon: build/icon.icns
+  # The record button: macOS asks once, showing these words.
+  extendInfo:
+    NSMicrophoneUsageDescription: HyperIdle listens only while you record a message.
+    NSSpeechRecognitionUsageDescription: HyperIdle writes down what you say on this Mac, so you can send it as a message.
 
 # Files included in the asar (app bundle)
 # @lore: pglite dist — @electric-sql/pglite/dist must be in the asar; removing it breaks the app at runtime
@@ -57,6 +61,9 @@ extraResources:
     to: "TrayIconTemplate.png"
   - from: "build/TrayIconTemplate@2x.png"
     to: "TrayIconTemplate@2x.png"
+  # Built by __scripts__/build-speech-helper.sh; main.ts shows the record button only when it is here.
+  - from: "native/speech/build/speech-helper"
+    to: "speech-helper"
 
 npmRebuild: false
 
