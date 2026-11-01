@@ -21,6 +21,7 @@ import { buildCoreActions, runnerFor } from "./actions/compose.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { authHealth } from "./routes/health.js";
 import { createSearchRoutes } from "./routes/search.js";
+import { createJoinRoutes } from "./routes/join.js";
 import { createStartRoutes } from "./routes/start.js";
 import {
 	buildSeamBackedReviewVerdictRecorder,
@@ -134,14 +135,6 @@ interface AppOptions {
 	 * mounting and answer descriptor reads.
 	 */
 	adapterPool?: HarnessCapabilityReader;
-	/**
-	 * Enable shared-mode authentication. When true, the auth middleware
-	 * accepts Bearer tokens from LoginSessions in addition to X-API-Key.
-	 * Also mounts the public /api/auth/claim endpoint (pre-auth).
-	 *
-	 * Defaults to false (local mode — unchanged X-API-Key behavior).
-	 */
-	sharedMode?: boolean;
 	/**
 	 * Application-injected cross-Layer
 	 * `agent_work_intents` recorder (`@hyperidle/work-intent-port`-typed)
@@ -316,14 +309,10 @@ function registerSubscriptionServices(
 function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	const api = new Hono();
 
-	// shared mode — read from options (test-injectable) or env var (production), once at construction time.
-	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
 	const tokenStore = options?.upgradeTokenStore ?? null;
 
-	// The /ws-token endpoint is mounted only when WS support exists; sharedMode
-	// binds its identity to the authenticated caller rather than the
-	// X-Identity header. The worker-token endpoint is always mounted.
-	api.route("/auth", createAuthRoutes(tokenStore, sharedMode));
+	// The /ws-token endpoint is mounted only when WS support exists. The worker-token endpoint is always mounted.
+	api.route("/auth", createAuthRoutes(tokenStore));
 
 	// Dev routes register INTO production (legal direction) — test fixtures pass registerTestRoutes here.
 	options?.registerExtraRoutes?.(api);
@@ -437,6 +426,7 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		>(actions, "edit_user");
 		// user module: search_users/open_user/edit_user under /api/actions/<name>
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
+		api.route("/join", createJoinRoutes(options.db, eventBus, actions));
 		api.route(
 			"/start",
 			createStartRoutes(options.db, eventBus, actions, async () => {

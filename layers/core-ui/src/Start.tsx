@@ -47,55 +47,75 @@ function Found({ programs, fixes }: { programs: readonly HarnessDescriptor[]; fi
 	);
 }
 
-/** Joining happens in the desktop app, which reopens on the server once the key is kept. */
+/**
+ * Joining happens in the desktop app: the team key makes you a person on the server, which hands
+ * back your own key; the app keeps it and reopens there as you. A new server also asks for its team.
+ */
 function Join({ onBack }: { onBack: () => void }) {
 	const bridge = window.__HYPERIDLE__;
 	const [address, setAddress] = useState("");
-	const [key, setKey] = useState("");
+	const [teamKey, setTeamKey] = useState("");
+	const [email, setEmail] = useState("");
+	const [name, setName] = useState("");
+	const [team, setTeam] = useState<string | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
+	const [joining, setJoining] = useState(false);
 	const join = async () => {
-		if (!(bridge?.join && bridge.credentials)) return;
-		if (!(address.trim() && key)) return setProblem("Give the server's address and your key.");
-		const kept = await bridge.credentials.set("shared_backend_key", key);
-		if (!kept.stored) return setProblem(kept.warning ?? "The key could not be kept.");
-		const joined = await bridge.join(address);
-		if (!joined.ok) setProblem(joined.problem ?? "That did not work.");
+		if (!bridge?.join) return;
+		if (!(address.trim() && teamKey && email.trim() && name.trim()))
+			return setProblem("Give the server's address, the team key, your email and your name.");
+		if (team !== null && !team.trim()) return setProblem("Name your team, please.");
+		setJoining(true);
+		const joined = await bridge.join({
+			address,
+			teamKey,
+			email: email.trim(),
+			name: name.trim(),
+			...(team?.trim() ? { team: team.trim() } : {}),
+		});
+		setJoining(false);
+		if (joined.ok) return;
+		if (joined.needsTeam && team === null) setTeam("");
+		setProblem(joined.problem ?? "That did not work.");
 	};
+	const field = (
+		label: string,
+		value: string,
+		set: (v: string) => void,
+		more?: { type?: string; placeholder?: string },
+	) => (
+		<label className="first-field">
+			<span>{label}</span>
+			<input value={value} aria-label={label} onChange={(e) => set(e.target.value)} {...more} />
+		</label>
+	);
 	return (
 		<>
 			<p className="first-lead">Join a team that already runs on a server.</p>
 			{bridge?.join ? (
 				<>
-					<label className="first-field">
-						<span>Server address</span>
-						<input
-							value={address}
-							aria-label="Server address"
-							placeholder="e.g. hyperidle.example.com"
-							onChange={(e) => setAddress(e.target.value)}
-						/>
-					</label>
-					<label className="first-field">
-						<span>Key</span>
-						<input
-							type="password"
-							value={key}
-							aria-label="Key"
-							onChange={(e) => setKey(e.target.value)}
-						/>
-					</label>
-					<p className="first-note">Whoever runs the server gives you a key.</p>
+					{field("Server address", address, setAddress, { placeholder: "e.g. team.example.com" })}
+					{field("Team key", teamKey, setTeamKey, { type: "password" })}
+					<p className="first-note">Whoever runs the server gives you the team key.</p>
+					{field("Your email", email, setEmail, { type: "email" })}
+					{field("Your name", name, setName)}
+					{team !== null && field("Name your team", team, setTeam, { placeholder: "e.g. Product" })}
 					{problem && <p className="composer-problem">{problem}</p>}
 				</>
 			) : (
 				<p className="first-note">
 					Joining happens in the HyperIdle desktop app: open it on your computer and choose “Join a
-					team on a server” there. This page runs in a browser, which cannot keep the server's key.
+					team on a server” there. This page runs in a browser, which cannot keep your key.
 				</p>
 			)}
 			<div className="first-acts">
 				{bridge?.join && (
-					<button type="button" className="btn btn--accent" onClick={() => void join()}>
+					<button
+						type="button"
+						className="btn btn--accent"
+						disabled={joining}
+						onClick={() => void join()}
+					>
 						Join
 					</button>
 				)}

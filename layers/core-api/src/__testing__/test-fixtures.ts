@@ -11,6 +11,7 @@ import {
 } from "@hyperidle/db/test-fixtures";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { EventBus } from "@hyperidle/event-bus";
+import { givePersonKey } from "@hyperidle/user";
 import type { Hono } from "hono";
 import { buildCoreActions } from "../actions/compose.js";
 import { disposeApp } from "../app.js";
@@ -21,6 +22,8 @@ import { registerTestRoutes } from "./test-routes.js";
 import { createTestApp } from "./test-utils.js";
 
 let nextFixtureAppId = 0;
+/** Each fixture app's default key, so `asPerson` can make it someone's own key. */
+const appKeys = new WeakMap<Hono, string>();
 
 /**
  * AU31 §3.2 clause 6 — the service-lane fixture's transport: dials
@@ -55,6 +58,11 @@ export interface IntegrationFixtures extends DbFixtures {
 	app: Hono;
 	/** Send a request without the fixture's default API key for auth rejection tests. */
 	requestWithoutAuth: Hono["request"];
+	/**
+	 * Make `userId` the one every request through `app` (or the app given) speaks as — the
+	 * fixture's default key becomes their own key. Without it the key is nobody yet.
+	 */
+	asPerson: (userId: string, through?: Hono) => Promise<void>;
 	eventBus: EventBus;
 	/**
 	 * AU31 §3.2 — a real `AgentOrchestrationPort` over a throwaway
@@ -102,6 +110,7 @@ export async function createServiceTestApp(
 		if (!omitDefaultAuth) headers.set("X-API-Key", authApiKey);
 		return rawFetch(new Request(request, { headers }), env, executionCtx);
 	};
+	appKeys.set(app, authApiKey);
 	return { app, authApiKey };
 }
 
@@ -168,6 +177,13 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 			const headers = new Headers(requestInit?.headers);
 			headers.set("X-HyperIdle-Test-Without-Auth", "true");
 			return app.request(input, { ...requestInit, headers }, env, executionCtx);
+		});
+	},
+	asPerson: async ({ app, db }, use) => {
+		await use(async (userId, through = app) => {
+			const key = appKeys.get(through);
+			if (!key) throw new Error("asPerson: not a fixture app");
+			await givePersonKey(db, userId, key);
 		});
 	},
 	pluginsApp: async ({ db, eventBus }, use) => {

@@ -6,20 +6,12 @@ import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { UpgradeTokenStore } from "@hyperidle/user";
 import { Hono } from "hono";
 
-export function createAuthRoutes(
-	store: UpgradeTokenStore | null,
-	sharedMode: boolean = false,
-): Hono<HyperIdleEnv> {
+export function createAuthRoutes(store: UpgradeTokenStore | null): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	if (store) {
 		router.post("/ws-token", (c) => {
-			// In shared mode, identity comes from auth middleware (authenticated via API key).
-			// In local mode, fall back to X-Identity header — trusted because local mode requires the master API key.
-			const identityId = sharedMode
-				? c.get("userId")
-				: (c.req.header("X-Identity") ?? c.get("userId"));
-			const { token, expiresAt } = store.issue(identityId);
+			const { token, expiresAt } = store.issue(c.get("userId"));
 			return c.json({ token, expiresAt });
 		});
 	}

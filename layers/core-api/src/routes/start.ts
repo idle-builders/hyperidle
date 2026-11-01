@@ -12,6 +12,7 @@ import {
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
+import { findUser, givePersonKey } from "@hyperidle/user";
 import { Hono } from "hono";
 import z from "zod";
 import type { Action, ActionContext } from "../actions/action.js";
@@ -74,7 +75,7 @@ export function createStartRoutes(
 		if (!parsed.success)
 			return no(400, "Give your name and your team's name.", API_ERROR_CODES.VALIDATION_ERROR);
 		const me = await openUser(ctx(c.get("userId")), {});
-		if (!me.ok || me.data.user)
+		if (!me.ok || (await findUser(db, { kind: "human" })))
 			return no(409, "HyperIdle has already started here.", API_ERROR_CODES.CONFLICT);
 		const program = me.data.runsOn.find(
 			(h) => h.discovery.state === "ready" && h.discovery.disabled !== true,
@@ -86,6 +87,8 @@ export function createStartRoutes(
 		const person = await editUser(ctx(c.get("userId")), { kind: "human", name, teams: [team] });
 		const you = person.ok ? person.data.user?.id : undefined;
 		if (!you) throw new Error("first start: the person was not made");
+		// The laptop's one person: the key this computer already holds becomes theirs.
+		await givePersonKey(db, you, c.req.header("X-API-Key") ?? "");
 		const agent = await editUser(ctx(you), {
 			kind: "ai",
 			name: FIRST_AGENT,

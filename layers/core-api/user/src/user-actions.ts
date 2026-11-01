@@ -862,16 +862,12 @@ async function createUserRun(
 	const kind = input.kind as UserKind;
 	const name = input.name as string;
 
+	// Nobody yet (a joiner, a laptop's first start) may only make themselves; the first person is the founder.
 	const callerRow = await findUser(ctx.db, { id: ctx.actor });
-	if (!callerRow) {
-		if (kind !== "human") {
-			return problem("unknown_actor", "Only a person may create the first user.", "kind");
-		}
-		const anyHuman = await listUsers(ctx.db, { kind: "human" });
-		if (anyHuman.length > 0) {
-			return problem("unknown_actor", "A person already exists — sign in.", "kind");
-		}
+	if (!callerRow && kind !== "human") {
+		return problem("unknown_actor", "Only a person may make an agent.", "kind");
 	}
+	const firstPerson = !callerRow && (await findUser(ctx.db, { kind: "human" })) === undefined;
 
 	if (input.ownerUserId !== undefined) {
 		const ownerRow = await findUser(ctx.db, { id: input.ownerUserId });
@@ -906,7 +902,7 @@ async function createUserRun(
 	const changeActor = callerRow ? ctx.actor : id;
 	const agentCategory: AgentCategory | null =
 		kind === "ai" ? (input.agentCategory ?? (input.ownerUserId ? "individual" : "team")) : null;
-	const role = input.role ?? (kind === "human" ? (callerRow ? "member" : "founder") : "agent");
+	const role = input.role ?? (kind === "human" ? (firstPerson ? "founder" : "member") : "agent");
 
 	const values: NewUser = {
 		id,

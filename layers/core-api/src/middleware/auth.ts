@@ -3,7 +3,7 @@ import { createLogger } from "@hyperidle/diagnostics";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { findUser } from "@hyperidle/user";
+import { findPersonByKey } from "@hyperidle/user";
 import type { Context, MiddlewareHandler } from "hono";
 
 /**
@@ -15,6 +15,9 @@ export interface AuthMiddlewareOptions {
 	/** Composition-owned key. Production omits this and reads the deployment env. */
 	apiKey?: string;
 }
+
+/** The caller with only the team key: no person yet. */
+const NOBODY = "";
 
 const authLogger = createLogger({ pkg: "server.auth" });
 
@@ -43,14 +46,10 @@ function rejectUnauthorized(c: Context, message: string, logMessage: string): Re
 	return c.json(response, 401);
 }
 
-async function resolveApiKeyActorUserId(
-	_c: Context<HyperIdleEnv>,
-	db: HyperIdleDb,
-): Promise<string> {
-	const humanUser = await findUser(db, { kind: "human" });
-	return humanUser?.id ?? "u-founder";
-}
-
+/**
+ * Who a request is: the person whose own key it carries. The team key alone is nobody yet — it
+ * reaches only what needs no person, such as joining or a laptop's first start.
+ */
 export function createAuthMiddleware(
 	options: AuthMiddlewareOptions,
 ): MiddlewareHandler<HyperIdleEnv> {
@@ -59,8 +58,9 @@ export function createAuthMiddleware(
 
 	return async (c, next) => {
 		const apiKey = c.req.header("X-API-Key") ?? "";
+		const person = await findPersonByKey(db, apiKey);
 
-		if (!constantTimeStringEqual(apiKey, expectedApiKey)) {
+		if (!(person || constantTimeStringEqual(apiKey, expectedApiKey))) {
 			return rejectUnauthorized(
 				c,
 				"Missing or invalid API key",
@@ -68,7 +68,7 @@ export function createAuthMiddleware(
 			);
 		}
 
-		c.set("userId", await resolveApiKeyActorUserId(c, db));
+		c.set("userId", person ?? NOBODY);
 
 		await next();
 	};

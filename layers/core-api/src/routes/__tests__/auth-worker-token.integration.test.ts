@@ -31,7 +31,7 @@ async function callWorkerToken(
 			headers["X-API-Key"] = options.apiKey;
 		}
 
-		const app = await createTestApp({ sharedMode: true });
+		const app = await createTestApp();
 
 		const res = await app.request("/api/auth/worker-token", {
 			method: "POST",

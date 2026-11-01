@@ -26,17 +26,19 @@ declare global {
 		/** Set by the desktop app's preload. */
 		__HYPERIDLE__?: {
 			readonly apiKey: string;
-			/** Desktop only: keep a secret in the computer's keychain. */
-			readonly credentials?: {
-				set(name: string, value: string): Promise<{ stored: boolean; warning?: string }>;
-			};
-			/** Desktop only: reopen on a team's server, once its key is kept. */
-			readonly join?: (address: string) => Promise<{ ok: boolean; problem?: string }>;
+			/** Desktop only: join a team's server as a new person and reopen there as them. */
+			readonly join?: (form: {
+				address: string;
+				teamKey: string;
+				email: string;
+				name: string;
+				team?: string;
+			}) => Promise<{ ok: boolean; problem?: string; needsTeam?: boolean }>;
 		};
 	}
 }
 
-// @lore: the key must equal the server's HYPERIDLE_API_KEY; a mismatch is a bare 401. Dev falls back to the server's own laptop default.
+// @lore: the key is a person's own key or the server's HYPERIDLE_API_KEY (nobody yet); any other is a bare 401. Dev falls back to the server's own laptop default.
 function apiKey(): string {
 	return (
 		window.__HYPERIDLE__?.apiKey ??
