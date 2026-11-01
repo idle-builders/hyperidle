@@ -46,7 +46,9 @@ func listen() {
 	_ = recognizer.recognitionTask(with: request) { result, error in
 		DispatchQueue.main.async {
 			if let result {
-				heard = result.bestTranscription.formattedString
+				// After Stop the recognizer can hand back an empty final result; keep what was heard.
+				let said = result.bestTranscription.formattedString
+				if !said.isEmpty { heard = said }
 				if result.isFinal { finish() }
 				emit(["kind": "partial", "text": heard])
 			} else if let error {
