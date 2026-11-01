@@ -46,8 +46,8 @@ test.each([
 test.each([
 	["proposed", null, "queued"],
 	["in_progress", null, "run"],
-	["blocked", null, "input"],
-	["review", null, "review"],
+	["blocked", "stuck", "input"],
+	["review", null, "run"],
 	["done", null, "done"],
 	["in_progress", "stuck", "input"],
 	["in_progress", "review", "review"],

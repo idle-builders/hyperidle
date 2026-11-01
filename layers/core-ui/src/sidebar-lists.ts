@@ -154,13 +154,16 @@ export const STATE_WORDS: Record<Task["state"], string> = {
 	killed: "Stopped",
 };
 
-/** Drawn with the graph's marks: a need wins unless the task is paused, and stuck shares the question mark. */
+/**
+ * Drawn with the graph's marks: a need wins unless the task is paused, and stuck shares the question
+ * mark. A state alone never draws a need mark; the server already turns a blocked task into "stuck".
+ */
 const STATE_MARKS: Record<Task["state"], Mark> = {
 	proposed: "queued",
 	accepted: "queued",
 	in_progress: "run",
-	blocked: "input",
-	review: "review",
+	blocked: "run",
+	review: "run",
 	hold: "queued",
 	done: "done",
 	killed: "stopped",
