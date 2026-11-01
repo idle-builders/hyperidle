@@ -36,6 +36,9 @@ fi
 echo "==> Bundling desktop (esbuild → dist/main.cjs)"
 npx tsx "$DESKTOP_DIR/__scripts__/bundle.ts"
 
+echo "==> Building the speech helper"
+bash "$DESKTOP_DIR/__scripts__/build-speech-helper.sh"
+
 echo "==> Building unsigned app (no signing, no notarization)"
 cd "$DESKTOP_DIR"
 # @lore: electron version — hoisted to root node_modules; electron-builder in a workspace cannot resolve a range; pass exact

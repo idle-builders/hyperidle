@@ -2645,6 +2645,17 @@ button.tv-where:hover {
 	margin-left: auto;
 	min-height: 32px;
 }
+/* Record sits beside Send; while it records, a dot says the microphone is on */
+.composer-row .btn + .btn {
+	margin-left: 0;
+}
+.composer-record[aria-pressed="true"]::before {
+	content: "";
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--live);
+}
 .composer-col {
 	flex: 1;
 	min-width: 0;
