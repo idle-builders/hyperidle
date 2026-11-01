@@ -195,6 +195,7 @@ export interface RuntimePorts {
 			db: HyperIdleDb,
 			options?: { now?: Date; retentionDays?: number; batchSize?: number },
 		): Promise<{ intents: number }>;
+		abortSessionRun(sessionId: string, reason: "stop" | "return"): Promise<boolean>;
 	};
 	readonly sessionLifecycle: RunOrchestrationSessionLifecycleRuntime;
 	/** Test-only execution seam; production runSession binds the internal provisioner. */

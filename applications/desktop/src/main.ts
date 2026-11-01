@@ -608,6 +608,9 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 
 	app.on("activate", reopen);
 
+	// Electron turns SIGTERM into a quit, which the handler above keeps from ending the server.
+	process.on("SIGTERM", stopServer);
+
 	// Logout or shutdown: let the quit through so macOS does not cancel it.
 	powerMonitor.on("shutdown", (): void => {
 		systemShuttingDown = true;

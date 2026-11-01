@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 // Generates TrayIconTemplate.png (16x16) and TrayIconTemplate@2x.png (32x32)
-// for the macOS menu bar tray: the app icon's four-point star as a template image —
+// for the macOS menu bar tray: the HyperIdle logo as a template image —
 // macOS reads only the alpha and tints it for light and dark menu bars.
 import { deflateSync } from "node:zlib";
 
@@ -36,6 +36,65 @@ function pngChunk(type, data) {
 	return Buffer.concat([lenBuf, typeBuf, data, crcBuf]);
 }
 
+// Each spike: a start point and two cubic curves back to the baseline, copied from logo.svg.
+const LOGO_SPIKES = [
+	[
+		[110, 250],
+		[
+			[190, 250],
+			[216, 100],
+			[220, 70],
+		],
+		[
+			[224, 100],
+			[250, 250],
+			[330, 250],
+		],
+	],
+	[
+		[170, 250],
+		[
+			[250, 250],
+			[276, 400],
+			[280, 430],
+		],
+		[
+			[284, 400],
+			[310, 250],
+			[390, 250],
+		],
+	],
+];
+
+function flatten([start, ...curves]) {
+	const points = [start];
+	let from = start;
+	for (const [c1, c2, to] of curves) {
+		for (let i = 1; i <= 32; i++) {
+			const t = i / 32;
+			const u = 1 - t;
+			points.push(
+				[0, 1].map(
+					(k) =>
+						u * u * u * from[k] + 3 * u * u * t * c1[k] + 3 * u * t * t * c2[k] + t * t * t * to[k],
+				),
+			);
+		}
+		from = to;
+	}
+	return points;
+}
+
+function containsPoint(poly, px, py) {
+	let hit = false;
+	for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+		const [xi, yi] = poly[i];
+		const [xj, yj] = poly[j];
+		if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) hit = !hit;
+	}
+	return hit;
+}
+
 function makePng(size) {
 	const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
@@ -48,11 +107,11 @@ function makePng(size) {
 	ihdr[11] = 0;
 	ihdr[12] = 0;
 
-	// Four-point star: |x|^P + |y|^P <= 1 with P < 1 gives the concave sides of the app icon.
-	const P = 0.55;
-	const half = size / 2;
-	const r = half * 0.95;
-	const inside = (px, py) => Math.abs(px / r) ** P + Math.abs(py / r) ** P <= 1;
+	// The two spikes of logo.svg (500x500 viewBox), filled solid: a gradient would vanish at 16px.
+	const scale = size / (430 - 70 + 40);
+	const toPx = ([x, y]) => [(x - 250) * scale + size / 2, (y - 250) * scale + size / 2];
+	const shapes = LOGO_SPIKES.map((curves) => flatten(curves).map(toPx));
+	const inside = (px, py) => shapes.some((poly) => containsPoint(poly, px, py));
 	// 4x4 samples per pixel so the thin points stay smooth at 16px.
 	const SAMPLES = 4;
 
@@ -65,8 +124,8 @@ function makePng(size) {
 			let hits = 0;
 			for (let sy = 0; sy < SAMPLES; sy++) {
 				for (let sx = 0; sx < SAMPLES; sx++) {
-					const px = x + (sx + 0.5) / SAMPLES - half;
-					const py = y + (sy + 0.5) / SAMPLES - half;
+					const px = x + (sx + 0.5) / SAMPLES;
+					const py = y + (sy + 0.5) / SAMPLES;
 					if (inside(px, py)) hits++;
 				}
 			}

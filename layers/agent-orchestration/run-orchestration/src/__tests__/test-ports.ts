@@ -87,6 +87,7 @@ export function buildTestPorts(): RuntimePorts {
 			},
 			drainIntents,
 			reapExpired,
+			abortSessionRun: vi.fn(async () => false),
 		},
 		sessionLifecycle: realSessionLifecyclePort,
 		sessionProvisioner: {
