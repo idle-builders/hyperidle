@@ -420,8 +420,9 @@ export function Sidebar() {
 	const team = teams.find((t) => t.id === teamId) ?? null;
 	const picked = section === spine ? here : null;
 
-	// Each spine reopens the page you last had there; until then, the first row it lists. While you
-	// write in a document, a spine only shows its list, so the document stays open.
+	// Each spine reopens the page you last had there; until then, the first row it lists, or with no
+	// row its bare address, so another spine's page does not stay beside it. While you write in a
+	// document, a spine only shows its list, so the document stays open.
 	const last = useRef<Partial<Record<Spine, string>>>({});
 	useEffect(() => {
 		if (routeSpine && rawId) last.current[routeSpine] = pathname + search;
@@ -437,8 +438,8 @@ export function Sidebar() {
 	};
 	const openSpine = (t: Spine) => {
 		setSpine(t);
-		const home = homeOf(t);
-		if (home && !editing && home !== pathname + search) navigate(home);
+		const home = homeOf(t) ?? `/${t}`;
+		if (!editing && home !== pathname + search) navigate(home);
 	};
 	// The bare address the app starts on opens the first conversation too.
 	const startAt = section === "conversations" && !rawId ? homeOf("conversations") : undefined;

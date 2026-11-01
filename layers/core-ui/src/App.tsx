@@ -94,7 +94,9 @@ export function App() {
 				<Route path="/conversations" element={null} />
 				<Route path="/conversations/new" element={<NewConversation />} />
 				<Route path="/conversations/:id" element={<Conversation />} />
+				<Route path="/work" element={null} />
 				<Route path="/work/:id" element={<Task />} />
+				<Route path="/knowledge" element={null} />
 				<Route path="/knowledge/:id" element={<Document />} />
 				<Route path="/people/:id" element={<Person />} />
 				<Route path="/teams/:id" element={<Team />} />
