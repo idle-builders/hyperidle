@@ -43,7 +43,11 @@ async function editTask(
 	return { status: res.status, json: (await res.json()) as EditTaskResult };
 }
 
-async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
+async function seedTeam(
+	db: HyperIdleDb,
+	teamId: string,
+	asPerson?: (id: string) => Promise<void>,
+): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: teamId, name: `Team ${teamId}`, createdAt: now });
 	// `changes.actor` FKs to `users` — API-key auth with no seeded human row
@@ -69,6 +73,7 @@ async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 			},
 		])
 		.onConflictDoNothing();
+	await asPerson?.("u-founder");
 }
 
 async function insertTask(
@@ -106,8 +111,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("creates a task carrying dependencies and parks it while the dependency is unfinished", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-t1");
+			await seedTeam(db, "dep-t1", asPerson);
 			await insertTask(db, "dep-dep-1", "dep-t1", "in_progress");
 
 			const { status, json } = await editTask(app, {
@@ -132,8 +138,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("a dependency may point at a task under a DIFFERENT root — no restriction", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-t2");
+			await seedTeam(db, "dep-t2", asPerson);
 			await insertTask(db, "dep-root-a", "dep-t2", "in_progress");
 			await insertTask(db, "dep-root-b", "dep-t2", "in_progress");
 			await insertTask(db, "dep-cross-dep", "dep-t2", "in_progress");
@@ -156,8 +163,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("hold -> accepted is refused while a named dependency is not done", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-t3");
+			await seedTeam(db, "dep-t3", asPerson);
 			await insertTask(db, "dep-guard-dep", "dep-t3", "in_progress");
 			await insertTask(db, "dep-guard-dependent", "dep-t3", "hold", ["dep-guard-dep"]);
 
@@ -177,8 +185,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("a cycle (A depends on B, B depends on A) is refused with a problem naming the rule", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-t4");
+			await seedTeam(db, "dep-t4", asPerson);
 			await insertTask(db, "dep-cycle-a", "dep-t4", "proposed");
 			await insertTask(db, "dep-cycle-b", "dep-t4", "proposed");
 
@@ -194,8 +203,8 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 			expect(json.problems?.[0]?.code).toBe("cycle");
 		});
 
-		test("a task cannot depend on itself", async ({ db, app }) => {
-			await seedTeam(db, "dep-t5");
+		test("a task cannot depend on itself", async ({ db, app, asPerson }) => {
+			await seedTeam(db, "dep-t5", asPerson);
 			await insertTask(db, "dep-self", "dep-t5", "proposed");
 
 			const { status, json } = await editTask(app, { id: "dep-self", dependencies: ["dep-self"] });
@@ -204,8 +213,12 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 			expect(json.problems?.[0]?.code).toBe("cycle");
 		});
 
-		test("a dependency naming a task that does not exist is refused", async ({ db, app }) => {
-			await seedTeam(db, "dep-t6");
+		test("a dependency naming a task that does not exist is refused", async ({
+			db,
+			app,
+			asPerson,
+		}) => {
+			await seedTeam(db, "dep-t6", asPerson);
 			await insertTask(db, "dep-dangling", "dep-t6", "proposed");
 
 			const { status, json } = await editTask(app, {
@@ -226,8 +239,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("edit_task setting dependencies on an in_progress task leaves it in_progress", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-t8");
+			await seedTeam(db, "dep-t8", asPerson);
 			await insertTask(db, "dep-unfinished-dep", "dep-t8", "in_progress");
 			await insertTask(db, "dep-running", "dep-t8", "in_progress");
 
@@ -249,8 +263,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("dependent returns to proposed and the killed id is dropped from its list", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-t7");
+			await seedTeam(db, "dep-t7", asPerson);
 			await insertTask(db, "dep-killable", "dep-t7", "in_progress");
 			await insertTask(db, "dep-still-unfinished", "dep-t7", "in_progress");
 			await insertTask(db, "dep-dependent-of-killed", "dep-t7", "hold", [
@@ -279,8 +294,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("edit_task with unchanged state and a new unfinished dependency parks the task", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-b1a");
+			await seedTeam(db, "dep-b1a", asPerson);
 			await insertTask(db, "dep-b1a-dep", "dep-b1a", "proposed");
 			await insertTask(db, "dep-b1a-dependent", "dep-b1a", "proposed");
 
@@ -303,8 +319,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("an accepted task holding an unfinished dependency cannot move to in_progress", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-b1b");
+			await seedTeam(db, "dep-b1b", asPerson);
 			await insertTask(db, "dep-b1b-dep", "dep-b1b", "proposed");
 			await insertTask(db, "dep-b1b-dependent", "dep-b1b", "accepted", ["dep-b1b-dep"]);
 
@@ -328,8 +345,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("a `proposed` dependent loses the killed id and stays acceptable afterward", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-b2");
+			await seedTeam(db, "dep-b2", asPerson);
 			await insertTask(db, "dep-b2-killable", "dep-b2", "done");
 			await insertTask(db, "dep-b2-dependent", "dep-b2", "proposed", ["dep-b2-killable"]);
 
@@ -353,8 +371,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("edit_task (create) refuses a dependency naming an already-killed task", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-b1c-post");
+			await seedTeam(db, "dep-b1c-post", asPerson);
 			await insertTask(db, "dep-b1c-post-dead", "dep-b1c-post", "killed");
 
 			const { status, json } = await editTask(app, {
@@ -370,8 +389,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("edit_task (existing) refuses a dependency naming an already-killed task", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-b1c-patch");
+			await seedTeam(db, "dep-b1c-patch", asPerson);
 			await insertTask(db, "dep-b1c-patch-dead", "dep-b1c-patch", "killed");
 			await insertTask(db, "dep-b1c-patch-dependent", "dep-b1c-patch", "proposed");
 
@@ -391,8 +411,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("depending on an already-done task stays legal (only killed is refused)", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-b1c-done");
+			await seedTeam(db, "dep-b1c-done", asPerson);
 			await insertTask(db, "dep-b1c-done-finished", "dep-b1c-done", "done");
 
 			const { status, json } = await editTask(app, {
@@ -415,8 +436,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("blocked -> in_progress is allowed while a dependency is unfinished", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-b2b-blocked");
+			await seedTeam(db, "dep-b2b-blocked", asPerson);
 			await insertTask(db, "dep-b2b-blocked-dep", "dep-b2b-blocked", "proposed");
 			await insertTask(db, "dep-b2b-blocked-task", "dep-b2b-blocked", "blocked", [
 				"dep-b2b-blocked-dep",
@@ -435,8 +457,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("review -> in_progress is refused while a dependency is unfinished", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedTeam(db, "dep-b2b-review");
+			await seedTeam(db, "dep-b2b-review", asPerson);
 			await insertTask(db, "dep-b2b-review-dep", "dep-b2b-review", "proposed");
 			await insertTask(db, "dep-b2b-review-task", "dep-b2b-review", "review", [
 				"dep-b2b-review-dep",
@@ -458,9 +481,10 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 			app: Hono,
 			fromState: TaskState,
 			toState: TaskState,
+			asPerson?: (id: string) => Promise<void>,
 		): Promise<void> {
 			const teamId = `dep-b2b-${fromState}-${toState}`;
-			await seedTeam(db, teamId);
+			await seedTeam(db, teamId, asPerson);
 			await insertTask(db, `${teamId}-dep`, teamId, "proposed");
 			await insertTask(db, `${teamId}-task`, teamId, fromState, [`${teamId}-dep`]);
 
@@ -476,8 +500,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		test("hold -> accepted is still refused with a problem naming the dependency", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await expectStillRefused(db, app, "hold", "accepted");
+			await expectStillRefused(db, app, "hold", "accepted", asPerson);
 		});
 	});
 
@@ -486,8 +511,12 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 	// regardless of how the task reached review state.
 	// ---------------------------------------------------------------------
 	describe("the review -> in_progress door is closed while a dependency is unfinished", () => {
-		test("review -> in_progress is refused, dependency still unfinished", async ({ db, app }) => {
-			await seedTeam(db, "dep-b1c3");
+		test("review -> in_progress is refused, dependency still unfinished", async ({
+			db,
+			app,
+			asPerson,
+		}) => {
+			await seedTeam(db, "dep-b1c3", asPerson);
 			await insertTask(db, "dep-b1c3-dep", "dep-b1c3", "proposed");
 			// Seed directly in review state — edit_task blocks state:review (requires a card)
 			await insertTask(db, "dep-b1c3-task", "dep-b1c3", "review", ["dep-b1c3-dep"]);

@@ -183,6 +183,7 @@ describe("GET /api/search — search backend", () => {
 	test("a matching conversation shows the message that matched, not its latest", async ({
 		app,
 		db,
+		asPerson,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
@@ -191,6 +192,7 @@ describe("GET /api/search — search backend", () => {
 		// We include that ID in participants so the thread passes the auth boundary.
 		const userId = "api-key-user";
 		await seedUser(db, userId);
+		await asPerson(userId);
 		await seedThread(db, {
 			threadId: "th-conv-1",
 			senderId: userId,
@@ -224,10 +226,12 @@ describe("GET /api/search — search backend", () => {
 	test("an app finds by what it says about itself and opens beside where it was made, never where you cannot read", async ({
 		app,
 		db,
+		asPerson,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const userId = "api-key-user";
 		await seedUser(db, userId);
+		await asPerson(userId);
 		await seedUser(db, "someone-else");
 		const page = (title: string) =>
 			`<!doctype html><html><head><title>${title}</title><meta name="description" content="Pick a zebra plan"></head><body><p>hi</p></body></html>`;
@@ -300,12 +304,17 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("excludes conversations where current user is not a participant", async ({ app, db }) => {
+	test("excludes conversations where current user is not a participant", async ({
+		app,
+		db,
+		asPerson,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
 		const otherUserId = "other-user-999";
 		await seedUser(db, userId);
+		await asPerson(userId);
 		await seedUser(db, otherUserId);
 
 		// Thread owned by otherUser — userId not in participants
@@ -395,11 +404,16 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("a matching document shows the stretch of its body that matched", async ({ app, db }) => {
+	test("a matching document shows the stretch of its body that matched", async ({
+		app,
+		db,
+		asPerson,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
 		await seedUser(db, userId);
+		await asPerson(userId);
 		await seedDocument(db, {
 			id: "ki-search-1",
 			title: "Onboarding checklist for new engineers",
@@ -425,12 +439,17 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("excludes user-scoped documents belonging to another user", async ({ app, db }) => {
+	test("excludes user-scoped documents belonging to another user", async ({
+		app,
+		db,
+		asPerson,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
 		const otherUserId = "other-ki-user";
 		await seedUser(db, userId);
+		await asPerson(userId);
 		await seedUser(db, otherUserId);
 
 		// Private document owned by another user
@@ -452,11 +471,16 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns results across all three categories for a broad query", async ({ app, db }) => {
+	test("returns results across all three categories for a broad query", async ({
+		app,
+		db,
+		asPerson,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
 		await seedUser(db, userId);
+		await asPerson(userId);
 
 		// Conversation matching "release"
 		await seedThread(db, {
@@ -495,11 +519,16 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("limits results to 5 per category even when more matches exist", async ({ app, db }) => {
+	test("limits results to 5 per category even when more matches exist", async ({
+		app,
+		db,
+		asPerson,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
 		await seedUser(db, userId);
+		await asPerson(userId);
 		await seedTeam(db, "team-cap", "Cap Team");
 
 		// Seed 7 root tasks that all match "captest"
@@ -514,11 +543,12 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("escapes LIKE wildcards so % does not match all rows", async ({ app, db }) => {
+	test("escapes LIKE wildcards so % does not match all rows", async ({ app, db, asPerson }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
 		await seedUser(db, userId);
+		await asPerson(userId);
 		await seedTeam(db, "team-escape", "Escape Team");
 
 		// Root task that should NOT match a query of "%" (wildcard)
@@ -534,11 +564,16 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("escapes LIKE wildcards so _ does not match single characters", async ({ app, db }) => {
+	test("escapes LIKE wildcards so _ does not match single characters", async ({
+		app,
+		db,
+		asPerson,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
 		await seedUser(db, userId);
+		await asPerson(userId);
 		await seedTeam(db, "team-escape2", "Escape Team 2");
 
 		// Seed tasks

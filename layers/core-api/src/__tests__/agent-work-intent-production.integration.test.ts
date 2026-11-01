@@ -230,8 +230,10 @@ describe("atomic production handoffs", () => {
 	test("real assistant message command: the message survives even when the intent write fails", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seedAssistantThread(db);
+		await asPerson("prodintent-assistant-human");
 		await rejectIntentWrites(db);
 
 		const response = await app.request("/api/actions/send_message", {

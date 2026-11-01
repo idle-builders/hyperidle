@@ -36,6 +36,13 @@ describe("validateStartupEnv", () => {
 		expect(result).toMatch(/HYPERIDLE_API_KEY/);
 	});
 
+	test.each([
+		[{ HYPERIDLE_TLS_DOMAIN: "team.example.com", HYPERIDLE_API_KEY: "k" }, /CLOUDFLARE_API_TOKEN/],
+		[{ HYPERIDLE_TLS_DOMAIN: "team.example.com", CLOUDFLARE_API_TOKEN: "t" }, /HYPERIDLE_API_KEY/],
+	])("serving HTTPS refuses to start without what it needs: %o", (env, problem) => {
+		expect(validateStartupEnv({ ...env })).toMatch(problem);
+	});
+
 	test("returns null when HYPERIDLE_API_KEY is set", () => {
 		const result = validateStartupEnv({ HYPERIDLE_API_KEY: "some-key" });
 		expect(result).toBeNull();

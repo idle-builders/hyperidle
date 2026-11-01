@@ -2,7 +2,7 @@
 
 The **Shared Backend** is the headless HyperIdle server run as a single **tenant** on the team's shared Kubernetes cluster, so the whole team collaborates against **one dataset** instead of per-person embedded islands. It is for **internal usage only** — not a public cloud / SaaS offering.
 
-Desktop clients join at first start: "Join a team on a server" takes the server's address and the shared key. The app keeps the key encrypted on the computer (`shared_backend_key` via Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`), checks `GET /api/health`, then reopens on the server's address and starts no server of its own. Every request carries the key; `GET /api/health/auth` checks a key by hand. See [deployment](./index.md) for the desktop side.
+Desktop clients join at first start: "Join a team on a server" takes the server's address, the team key, the person's email and name. `POST /api/join` makes that person and hands back their own key, which the app keeps encrypted (`person_key` via Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`) before reopening on the server's address; it starts no server of its own. Every request carries the person's key, so the server knows who each caller is; `GET /api/health/auth` checks a key by hand. See [deployment](./index.md) for the desktop side.
 
 ## Shape
 

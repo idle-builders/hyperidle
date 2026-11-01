@@ -99,11 +99,13 @@ describe("the wake rule bakes the thread's conversational transcript at emit tim
 		app,
 		eventBus,
 		agentOrchestration,
+		asPerson,
 	}) => {
 		const threadId = "thread-transcript-bake-1";
 		const senderId = "user-transcript-bake-1";
 		const agentId = "agent-transcript-bake-1";
 		await seedTwoMemberThread(db, { threadId, senderId, agentId });
+		await asPerson(senderId);
 
 		// Prior turn: a human message + the agent's earlier reply, posted
 		// through the same real action so they carry real ids/ordering.

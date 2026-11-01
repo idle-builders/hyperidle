@@ -38,7 +38,8 @@ export function createJoinRoutes(
 			error: string,
 			code: ApiErrorResponse["code"],
 			details?: ApiErrorResponse["details"],
-		) => c.json({ error, code, ...(details ? { details } : {}) } satisfies ApiErrorResponse, status);
+		) =>
+			c.json({ error, code, ...(details ? { details } : {}) } satisfies ApiErrorResponse, status);
 		const parsed = JOIN_SCHEMA.safeParse(await c.req.json().catch(() => null));
 		if (!parsed.success)
 			return no(400, "Give your email and your name.", API_ERROR_CODES.VALIDATION_ERROR);

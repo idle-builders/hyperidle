@@ -50,7 +50,12 @@ async function call<T>(
 	return envelope;
 }
 
-async function seedFounder(db: HyperIdleDb, id: string, teamId: string): Promise<void> {
+async function seedFounder(
+	db: HyperIdleDb,
+	id: string,
+	teamId: string,
+	asPerson?: (id: string) => Promise<void>,
+): Promise<void> {
 	await db.insert(teams).values({ id: teamId, name: teamId, createdAt: EARLIER });
 	await db.insert(users).values({
 		id,
@@ -61,6 +66,7 @@ async function seedFounder(db: HyperIdleDb, id: string, teamId: string): Promise
 		createdAt: EARLIER,
 	});
 	await db.insert(userTeams).values({ userId: id, teamId });
+	await asPerson?.(id);
 }
 
 async function subscribe(
@@ -91,8 +97,9 @@ describe("an agent subscribed to everything wakes once per change", () => {
 	test("a person's first message to their assistant starts one session, not one per subscription", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await seedFounder(db, "founder-once-dm", "team-once-dm");
+		await seedFounder(db, "founder-once-dm", "team-once-dm", asPerson);
 		await db.insert(users).values({
 			id: "assistant-once-dm",
 			kind: "ai",
@@ -158,8 +165,12 @@ describe("an agent subscribed to everything wakes once per change", () => {
 		expect(intents.map((i) => i.kind)).toEqual(["thread_turn"]);
 	});
 
-	test("a task handed to an agent starts its task run and nothing else", async ({ db, app }) => {
-		await seedFounder(db, "founder-once-task", "team-once-task");
+	test("a task handed to an agent starts its task run and nothing else", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
+		await seedFounder(db, "founder-once-task", "team-once-task", asPerson);
 		await db.insert(users).values({
 			id: "agent-once-task",
 			kind: "ai",
@@ -225,8 +236,9 @@ describe("an agent subscribed to everything wakes once per change", () => {
 	test("an agent created with subscriptions does not wake on its own creation", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await seedFounder(db, "founder-once-new", "team-once-new");
+		await seedFounder(db, "founder-once-new", "team-once-new", asPerson);
 		// A subscriber that EXISTS BEFORE the create — it DOES wake on it. Its
 		// real intent is the completion signal that the same user.created
 		// subscription pass has run, in place of a fixed wait, before checking
@@ -267,9 +279,10 @@ describe("an agent subscribed to everything wakes once per change", () => {
 	test("a verdict on an agent's review names the agent on every change it makes", async ({
 		db,
 		app,
+		asPerson,
 		eventBus,
 	}) => {
-		await seedFounder(db, "founder-once-verdict", "team-once-verdict");
+		await seedFounder(db, "founder-once-verdict", "team-once-verdict", asPerson);
 		await db.insert(users).values([
 			{
 				id: "agent-once-verdict",

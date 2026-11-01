@@ -8,7 +8,7 @@ function auth(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(db: HyperIdleDb, asPerson?: (id: string) => Promise<void>): Promise<void> {
 	await db.insert(teams).values({
 		id: "prod-1",
 		name: "E2E Product",
@@ -39,6 +39,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		},
 	]);
 	await db.insert(userTeams).values({ userId: "agent-1", teamId: "prod-1" });
+	await asPerson?.("agent-1");
 }
 
 async function seedTaskData(db: HyperIdleDb): Promise<void> {
@@ -122,8 +123,8 @@ describe("E2E API integration", () => {
 			expect(body.code).toBe("UNAUTHORIZED");
 		});
 
-		test("allows access with correct API key", async ({ db, app }) => {
-			await seedBase(db);
+		test("allows access with correct API key", async ({ db, app, asPerson }) => {
+			await seedBase(db, asPerson);
 			const res = await app.request("/api/actions/search_tasks", {
 				method: "POST",
 				headers: auth(),
@@ -161,8 +162,9 @@ describe("E2E API integration", () => {
 		test("edit_task (no id) creates a root task, and search_tasks lists it", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, asPerson);
 			const createRes = await app.request("/api/actions/edit_task", {
 				method: "POST",
 				headers: auth(),
@@ -190,8 +192,9 @@ describe("E2E API integration", () => {
 		test("edit_task (no id) is refused when neither teamId nor parentTaskId is supplied", async ({
 			db,
 			app,
+			asPerson,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, asPerson);
 			const res = await app.request("/api/actions/edit_task", {
 				method: "POST",
 				headers: auth(),
@@ -202,8 +205,12 @@ describe("E2E API integration", () => {
 			expect(body.ok).toBe(false);
 		});
 
-		test("open_task returns 422 with not_found for a nonexistent task", async ({ db, app }) => {
-			await seedBase(db);
+		test("open_task returns 422 with not_found for a nonexistent task", async ({
+			db,
+			app,
+			asPerson,
+		}) => {
+			await seedBase(db, asPerson);
 			const res = await app.request("/api/actions/open_task", {
 				method: "POST",
 				headers: auth(),
@@ -220,8 +227,8 @@ describe("E2E API integration", () => {
 	// 4. Tasks — search_tasks
 	// -------------------------------------------------------
 	describe("Tasks", () => {
-		test("search_tasks lists all tasks", async ({ db, app }) => {
-			await seedBase(db);
+		test("search_tasks lists all tasks", async ({ db, app, asPerson }) => {
+			await seedBase(db, asPerson);
 			await seedTaskData(db);
 			const res = await app.request("/api/actions/search_tasks", {
 				method: "POST",
@@ -233,8 +240,8 @@ describe("E2E API integration", () => {
 			expect(body.data.length).toBeGreaterThanOrEqual(1);
 		});
 
-		test("search_tasks filters by parentTaskId", async ({ db, app }) => {
-			await seedBase(db);
+		test("search_tasks filters by parentTaskId", async ({ db, app, asPerson }) => {
+			await seedBase(db, asPerson);
 			await seedTaskData(db);
 			const res = await app.request("/api/actions/search_tasks", {
 				method: "POST",
@@ -253,8 +260,8 @@ describe("E2E API integration", () => {
 	// in document-actions/task-actions/user-actions/thread-actions. What
 	// remains here is what was never about a CRUD route: 404 handling.
 	describe("404 handling", () => {
-		test("returns 404 JSON for unknown /api routes", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns 404 JSON for unknown /api routes", async ({ db, app, asPerson }) => {
+			await seedBase(db, asPerson);
 			const res = await app.request("/api/nonexistent", { headers: auth() });
 			expect(res.status).toBe(404);
 			const body = (await res.json()) as { code: string };

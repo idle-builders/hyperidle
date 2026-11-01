@@ -27,6 +27,7 @@ describe("health", () => {
 	test("GET /api/health/auth returns the resolved userId with a valid API key", async ({
 		app,
 		db,
+		asPerson,
 	}) => {
 		await db.insert(users).values({
 			id: "u-health-auth",
@@ -36,6 +37,7 @@ describe("health", () => {
 			status: "active",
 			createdAt: new Date().toISOString(),
 		});
+		await asPerson("u-health-auth");
 
 		const res = await app.request("/api/health/auth");
 		expect(res.status).toBe(200);

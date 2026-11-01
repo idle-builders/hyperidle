@@ -8,10 +8,17 @@ Profile defaults are in `applications/remote-server/src/profiles.ts`.
 
 | Variable | Required | Notes |
 |---|---|---|
-| `HYPERIDLE_API_KEY` | **Yes** | Shared secret for all API requests. Server exits at startup without it for vps/cloud profiles (`applications/remote-server/src/validate-startup-env.ts`). |
+| `HYPERIDLE_API_KEY` | **Yes** | The team key: it lets someone join and get their own key. Server exits at startup without it for vps/cloud profiles, or when serving HTTPS (`applications/remote-server/src/validate-startup-env.ts`). |
 | `DATABASE_URL` | **Yes** | PostgreSQL connection string. |
 | `HYPERIDLE_PROFILE` | No | `cloud` (default: `laptop`). |
 | `PORT` | No | Default `3001`. |
+| `HYPERIDLE_TLS_DOMAIN` | No | Serve HTTPS on this name, with a Let's Encrypt certificate the server gets itself. Needs `CLOUDFLARE_API_TOKEN`. |
+| `CLOUDFLARE_API_TOKEN` | With `HYPERIDLE_TLS_DOMAIN` | A token that can read the zone and edit its DNS: the server proves the name with a short-lived `_acme-challenge` TXT record. |
+| `HYPERIDLE_TLS_DIR` | No | Where the certificate is kept. Default `~/.hyperidle/tls/<domain>`. |
+
+## HTTPS on a home or office network
+
+With `HYPERIDLE_TLS_DOMAIN` set, the server serves HTTPS itself (`applications/remote-server/src/tls-certificate.ts`). It proves the name through a DNS record rather than a web request, so nothing on the internet has to reach it: point a DNS-only A record for the name at the server's local address, and every computer on that network reaches it at `https://<name>:<port>`. The certificate is kept in `HYPERIDLE_TLS_DIR` and renewed, without a restart, once fewer than 30 days are left.
 
 ## Cloud (managed Postgres)
 

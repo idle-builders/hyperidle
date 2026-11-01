@@ -18,7 +18,7 @@ async function act(
 }
 
 describe("a task's description as an app", () => {
-	test("is kept as a page until it is written back as words", async ({ db, app }) => {
+	test("is kept as a page until it is written back as words", async ({ db, app, asPerson }) => {
 		const now = new Date().toISOString();
 		await db.insert(teams).values({ id: "da-team", name: "Apps", createdAt: now });
 		await db.insert(users).values({
@@ -29,6 +29,7 @@ describe("a task's description as an app", () => {
 			status: "active",
 			createdAt: now,
 		});
+		await asPerson("u-founder");
 		const page = "<!doctype html><html><head><title>Picker</title></head><body></body></html>";
 		const made = await act(app, "edit_task", {
 			teamId: "da-team",

@@ -26,7 +26,11 @@ export async function findPersonByKey(db: HyperIdleDb, key: string): Promise<str
 }
 
 export async function isEmailTaken(db: HyperIdleDb, email: string): Promise<boolean> {
-	const [row] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+	const [row] = await db
+		.select({ id: users.id })
+		.from(users)
+		.where(eq(users.email, email))
+		.limit(1);
 	return row !== undefined;
 }
 

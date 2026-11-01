@@ -135,15 +135,25 @@ describe("formation seam — editing the assistant's identity document changes i
 		vi.stubEnv("HYPERIDLE_API_KEY", GATE_API_KEY);
 	});
 
-	test("the seeded identity drives the turn when nothing has been edited", async ({ db, app }) => {
+	test("the seeded identity drives the turn when nothing has been edited", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
 		await seedFixtures(db);
+		await asPerson(FOUNDER_ID);
 
 		const persona = await postAndResolveTurnPersona(app, db, "msg-formation-default");
 		expect(persona).toBe("Original row persona — the app default.");
 	});
 
-	test("editing the identity document in Knowledge drives the NEXT turn", async ({ db, app }) => {
+	test("editing the identity document in Knowledge drives the NEXT turn", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
 		await seedFixtures(db);
+		await asPerson(FOUNDER_ID);
 
 		const before = await postAndResolveTurnPersona(app, db, "msg-formation-before-patch");
 		expect(before).toBe("Original row persona — the app default.");
