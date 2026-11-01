@@ -116,7 +116,7 @@ test("opening a review stops the conversation asking; Approve shows the open cou
 	const row = page
 		.getByRole("navigation", { name: "Sidebar" })
 		.getByRole("button", { name: /^Trial-end confusion, three tickets/ });
-	await expect(row).not.toContainText("Needs review");
+	await expect(row.getByRole("img", { name: "Needs review" })).toHaveCount(0);
 	await expect(verdict(page)).toContainText("3 open");
 
 	await verdict(page).getByRole("button", { name: "Approve" }).click();

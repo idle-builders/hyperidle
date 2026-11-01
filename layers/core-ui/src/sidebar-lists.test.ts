@@ -20,23 +20,57 @@ test.each([
 	expect(initials(name)).toBe(letters);
 });
 
-test.each([
-	["stopped", "Stopped"],
-	["hold", "On hold"],
-	[null, "Needs input"],
-] as const)("a task paused %s reads %s in the Work list", (paused, words) => {
-	const task = {
+const rootTask = (fields: Partial<Task>) =>
+	({
 		id: "t",
 		parentTaskId: null,
 		teamId: "team",
 		ownerAgentId: "builder",
 		title: "Trials",
 		state: "in_progress",
-		need: "input",
-		paused,
+		need: null,
+		paused: null,
 		updatedAt: "2026-10-21T09:00:00.000Z",
-	} as Task;
-	expect(workItems([task], new Map(), [])[0]?.state).toBe(words);
+		...fields,
+	}) as Task;
+
+test.each([
+	["stopped", "Stopped", "stopped"],
+	["hold", "On hold", "run"],
+	[null, "Needs input", "input"],
+] as const)("a task paused %s reads %s in the Work list, marked %s", (paused, words, mark) => {
+	const [item] = workItems([rootTask({ need: "input", paused })], new Map(), []);
+	expect([item?.state, item?.mark]).toEqual([words, mark]);
+});
+
+test.each([
+	["proposed", null, "queued"],
+	["in_progress", null, "run"],
+	["blocked", "stuck", "input"],
+	["review", null, "run"],
+	["done", null, "done"],
+	["in_progress", "stuck", "input"],
+	["in_progress", "review", "review"],
+] as const)("a %s task that needs %s is marked %s in the Work list", (state, need, mark) => {
+	expect(workItems([rootTask({ state, need })], new Map(), [])[0]?.mark).toBe(mark);
+});
+
+test.each([
+	["input", "input"],
+	["stuck", "input"],
+	["review", "review"],
+	[null, undefined],
+] as const)("a conversation that needs %s is marked %s", (need, mark) => {
+	const thread = {
+		id: "th",
+		computedTitle: "Trial pricing",
+		lastActiveAt: "2026-10-21T09:00:00.000Z",
+		lastSenderId: "maya",
+		lastMessagePreview: "Which price?",
+		mentionsYou: false,
+		need,
+	} as ThreadListRow;
+	expect(conversationItems([thread], "finn", new Map(), [])[0]?.mark).toBe(mark);
 });
 
 test("while you focus, a new conversation and one with new activity wait; one that did not move does not", () => {
@@ -104,9 +138,9 @@ test("knowledge opens on the first document in the tree, skipping empty team spa
 });
 
 test.each([
-	{ seen: "not read", readAt: null, words: "Mentioned you" },
-	{ seen: "read", readAt: "2026-10-21T10:00:00.000Z", words: "Maya:" },
-])("a mention you have $seen reads $words in Conversations", ({ readAt, words }) => {
+	{ seen: "not read", readAt: null, words: "Mentioned you", mark: "mention" },
+	{ seen: "read", readAt: "2026-10-21T10:00:00.000Z", words: "Maya:", mark: undefined },
+])("a mention you have $seen reads $words in Conversations", ({ readAt, words, mark }) => {
 	const thread = {
 		id: "th",
 		computedTitle: "Refund wording",
@@ -133,5 +167,6 @@ test.each([
 		},
 	];
 	const names = new Map([["maya", "Maya"]]);
-	expect(conversationItems([thread], "finn", names, inbox)[0]?.state).toBe(words);
+	const [item] = conversationItems([thread], "finn", names, inbox);
+	expect([item?.state, item?.mark]).toEqual([words, mark]);
 });

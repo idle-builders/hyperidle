@@ -63,14 +63,23 @@ code {
 	border-radius: var(--r-sm);
 }
 .chip--flag {
-	background: var(--flag);
-	color: var(--flag-ink);
-	border-color: transparent;
-	font-weight: 600;
+	background: var(--need-wash);
+	color: var(--need);
+	border-color: var(--need-edge);
 }
-.chip--quiet {
-	background: var(--sunk);
+/* a kind or a settled state is a plain word, not a box */
+.chip--quiet,
+.chip--app {
+	background: none;
 	border-color: transparent;
+	padding-inline: 0;
+}
+button.chip--quiet:hover {
+	color: var(--ink);
+	text-decoration: underline;
+}
+.chip--app {
+	color: var(--accent);
 }
 
 .avatar {
@@ -88,6 +97,7 @@ code {
 .avatar--human {
 	background: var(--accent-soft);
 	color: var(--accent);
+	box-shadow: inset 0 0 0 var(--line-w) var(--accent-edge);
 }
 
 .btn {
@@ -110,13 +120,15 @@ code {
 	border-color: var(--ink-3);
 }
 .btn--accent {
-	background: var(--accent);
-	color: var(--accent-ink);
-	border-color: transparent;
+	background: var(--accent-soft);
+	color: var(--accent);
+	border-color: var(--accent-edge);
+	box-shadow:
+		inset 0 1px 0 var(--glass-hi),
+		var(--sh-1);
 }
 .btn--accent:hover {
-	filter: brightness(1.06);
-	border-color: transparent;
+	border-color: var(--accent);
 }
 
 /* ---------- frame ---------- */
@@ -301,7 +313,6 @@ code {
 /* the mention picker — the whole twenty seconds lives here */
 .picker {
 	border: var(--line-w) solid var(--line-strong);
-	background: var(--surface);
 	box-shadow: var(--sh-2);
 	border-radius: var(--r);
 	overflow: hidden;
@@ -614,9 +625,9 @@ kbd {
 	color: var(--ink-2);
 }
 .tool[aria-pressed="true"] {
-	background: var(--accent);
-	color: var(--accent-ink);
-	border-color: transparent;
+	background: var(--accent-soft);
+	color: var(--accent);
+	border-color: var(--accent-edge);
 }
 
 /* ---------- JUDGE — artifact gets the width, questions get an index ---------- */
@@ -683,7 +694,6 @@ kbd {
 	padding: var(--sp-4);
 	border: var(--line-w) solid var(--line-strong);
 	border-radius: var(--r);
-	background: var(--surface);
 	box-shadow: var(--sh-2);
 }
 .reject-h {
@@ -813,8 +823,9 @@ kbd {
 	cursor: pointer;
 }
 .pin--mine {
-	background: var(--accent);
-	color: var(--accent-ink);
+	background: var(--surface);
+	color: var(--accent);
+	border: 2px solid var(--accent);
 }
 .pin--agent {
 	background: var(--surface);
@@ -836,7 +847,6 @@ kbd {
 	width: 300px;
 	border: var(--line-w) solid var(--line-strong);
 	border-radius: var(--r);
-	background: var(--surface);
 	box-shadow: var(--sh-2);
 }
 .pop-head {
@@ -1101,8 +1111,9 @@ kbd {
 	-webkit-app-region: no-drag;
 }
 .spine-count--flag {
-	background: var(--flag);
-	color: var(--flag-ink);
+	background: var(--need-wash);
+	box-shadow: inset 0 0 0 var(--line-w) var(--need-edge);
+	color: var(--need);
 	padding: 0 var(--sp-2);
 	border-radius: var(--r-sm);
 	font-weight: 600;
@@ -1406,7 +1417,9 @@ kbd {
 }
 
 .nrow {
-	display: block;
+	display: grid;
+	grid-template-columns: 16px minmax(0, 1fr);
+	column-gap: var(--sp-2);
 	width: 100%;
 	padding: 8px var(--sp-4);
 	text-align: left;
@@ -1419,7 +1432,23 @@ kbd {
 	background: var(--surface);
 	border-left-color: var(--accent);
 }
+/* the status as a mark beside the title; its word is the mark's title. It comes after the title in
+   the markup so a screen reader says the title first. */
+.nrow-mark {
+	grid-column: 1;
+	grid-row: 1 / span 2;
+	display: grid;
+	place-items: center;
+	height: 1.6em;
+	font: var(--t-label);
+	color: var(--ink-3);
+}
+.nrow-mark--mention {
+	color: var(--need);
+	font-weight: 700;
+}
 .nrow-top {
+	grid-column: 2;
 	display: flex;
 	align-items: baseline;
 	gap: var(--sp-2);
@@ -1444,6 +1473,7 @@ kbd {
 	color: var(--ink-3);
 }
 .nrow-sub {
+	grid-column: 2;
 	display: flex;
 	align-items: baseline;
 	gap: var(--sp-2);
@@ -1455,13 +1485,6 @@ kbd {
 }
 .nrow-state {
 	flex: none;
-}
-.nrow-state--yours {
-	background: var(--flag);
-	color: var(--flag-ink);
-	font-weight: 600;
-	padding: 0 var(--sp-1);
-	border-radius: 4px;
 }
 .nrow-state--fresh {
 	color: var(--accent);
@@ -1504,7 +1527,6 @@ kbd {
 	width: max-content;
 	border: var(--line-w) solid var(--line-strong);
 	border-radius: var(--r);
-	background: var(--surface);
 	box-shadow: var(--sh-2);
 }
 .icon-pick button {
@@ -1540,7 +1562,6 @@ kbd {
 	flex-direction: column;
 	border: var(--line-w) solid var(--line-strong);
 	border-radius: var(--r-lg);
-	background: var(--surface);
 	box-shadow: var(--sh-3);
 	overflow: hidden;
 }
@@ -1624,7 +1645,6 @@ kbd {
 	flex-direction: column;
 	gap: var(--sp-2);
 	padding: var(--sp-5);
-	background: var(--canvas);
 	overflow-y: auto;
 }
 .pal-prev-sp {
@@ -1644,8 +1664,8 @@ kbd {
 	margin-top: var(--sp-2);
 }
 .pal-prev-s mark {
-	background: var(--flag);
-	color: var(--flag-ink);
+	background: var(--hit);
+	color: var(--ink);
 	padding: 0 2px;
 	border-radius: 3px;
 }
@@ -1711,7 +1731,6 @@ kbd {
 	gap: var(--sp-5);
 	padding: var(--sp-2) var(--sp-4);
 	border-top: var(--line-w) solid var(--line);
-	background: var(--canvas);
 	font: var(--t-meta);
 	color: var(--ink-3);
 }
@@ -1807,7 +1826,6 @@ kbd {
 	z-index: 30;
 	border: var(--line-w) solid var(--line-strong);
 	border-radius: var(--r);
-	background: var(--surface);
 	box-shadow: var(--sh-3);
 	overflow: hidden;
 }
@@ -1859,8 +1877,9 @@ kbd {
 	height: 15px;
 	padding: 0 3px;
 	border-radius: 8px;
-	background: var(--accent);
-	color: var(--accent-ink);
+	background: var(--surface);
+	box-shadow: inset 0 0 0 var(--line-w) var(--accent-edge);
+	color: var(--accent);
 	font: var(--t-label);
 	font-size: 0.625rem;
 	font-weight: 700;
@@ -1875,7 +1894,6 @@ kbd {
 	width: 360px;
 	border: var(--line-w) solid var(--line-strong);
 	border-radius: var(--r);
-	background: var(--surface);
 	box-shadow: var(--sh-3);
 	overflow: hidden;
 }
@@ -1924,7 +1942,7 @@ kbd {
 	align-items: center;
 	justify-content: space-between;
 	padding: var(--sp-2) var(--sp-4);
-	background: var(--canvas);
+	border-top: var(--line-w) solid var(--line);
 	font: var(--t-meta);
 	color: var(--ink-3);
 }
@@ -2184,7 +2202,6 @@ button.blk-empty {
 	z-index: 5;
 	width: 320px;
 	transform: translateX(-50%);
-	background: var(--surface);
 	box-shadow: var(--sh-2);
 }
 button.tv-where:hover {
@@ -2610,7 +2627,6 @@ button.tv-where:hover {
 	padding: var(--sp-1);
 	border: var(--line-w) solid var(--line);
 	border-radius: var(--r);
-	background: var(--surface);
 	box-shadow: var(--sh-2);
 }
 
@@ -2822,9 +2838,7 @@ button.tv-where:hover {
 	place-items: center;
 	width: 22px;
 	height: 22px;
-	border-radius: var(--r-sm);
-	background: var(--flag);
-	color: var(--flag-ink);
+	color: var(--need);
 }
 
 /* one part on the graph: a mark for how it stands, its name, a few words */
@@ -2907,10 +2921,10 @@ button.tv-where:hover {
 	stroke-linecap: round;
 	stroke-linejoin: round;
 }
-.nd-in .need {
+.nd-in .need,
+.nrow-mark .need {
 	width: 16px;
 	height: 16px;
-	border-radius: 4px;
 }
 .nd-in .need svg {
 	width: 11px;
@@ -3465,7 +3479,6 @@ button.tv-where:hover {
 	overflow-y: auto;
 	border: var(--line-w) solid var(--line-strong);
 	border-radius: var(--r-lg);
-	background: var(--surface);
 	color: var(--ink);
 	box-shadow: var(--sh-3);
 }
@@ -3494,7 +3507,6 @@ button.tv-where:hover {
 	gap: var(--sp-2);
 	padding: var(--sp-3) var(--sp-6);
 	border-top: var(--line-w) solid var(--line);
-	background: var(--canvas);
 }
 .dlg-aside {
 	margin-right: auto;
@@ -4059,12 +4071,6 @@ button.item:hover {
 .frame--app {
 	grid-template-columns: var(--w-queue) minmax(320px, 1fr) minmax(360px, 1fr);
 }
-.chip--app {
-	background: var(--accent);
-	color: var(--accent-ink);
-	border-color: transparent;
-	font-weight: 600;
-}
 .app-frame {
 	flex: 1;
 	display: block;
@@ -4151,4 +4157,21 @@ button.item:hover {
 .made-open {
 	font: var(--t-meta);
 	color: var(--ink-3);
+}
+
+/* ---------- what floats over the page is frosted glass; the page itself stays solid ---------- */
+.pal,
+.dlg,
+.team-menu,
+.notes,
+.pop,
+.reject,
+.picker,
+.icon-pick,
+.doc-link-box,
+.fmt--floating {
+	background: linear-gradient(var(--glass-hi), transparent 2px) var(--glass);
+	border-color: var(--glass-edge);
+	backdrop-filter: var(--glass-blur);
+	-webkit-backdrop-filter: var(--glass-blur);
 }

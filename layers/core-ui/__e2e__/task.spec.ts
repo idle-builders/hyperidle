@@ -102,8 +102,9 @@ test("on hold and off again; stopped, every part not done says so, and it starts
 	await expect(
 		page
 			.getByRole("navigation", { name: "Sidebar" })
-			.getByRole("button", { name: /^Trials that convert without a call/ }),
-	).toContainText("Stopped");
+			.getByRole("button", { name: /^Trials that convert without a call/ })
+			.getByRole("img", { name: "Stopped" }),
+	).toBeVisible();
 	await expect(box(page).getByRole("button", { name: "Stop" })).toHaveCount(0);
 
 	await box(page).getByRole("button", { name: "Start again" }).click();

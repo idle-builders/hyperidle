@@ -1,10 +1,10 @@
 export type Need = "input" | "review";
 export const NEED_WORDS: Record<Need, string> = { input: "Needs input", review: "Needs review" };
 
-/** Where a person is needed: a question mark for input, an eye for a review. It marks the part, not an owner. */
-export function NeedIcon({ kind }: { kind: Need }) {
+/** Where a person is needed: a question mark for input, an eye for a review. It marks the part, not an owner; `label` says it in the caller's words. */
+export function NeedIcon({ kind, label }: { kind: Need; label?: string }) {
 	return (
-		<span className="need" title={NEED_WORDS[kind]}>
+		<span className="need" title={label ?? NEED_WORDS[kind]}>
 			<svg
 				width="14"
 				height="14"
@@ -18,8 +18,9 @@ export function NeedIcon({ kind }: { kind: Need }) {
 			>
 				{kind === "input" ? (
 					<>
-						<path d="M6 6.2a2 2 0 1 1 2.9 1.8c-.6.3-.9.7-.9 1.4" />
-						<circle cx="8" cy="12" r="0.6" fill="currentColor" />
+						<circle cx="8" cy="8" r="6.6" />
+						<path d="M6.2 6.3a1.85 1.85 0 1 1 2.7 1.65c-.55.3-.9.65-.9 1.3" />
+						<circle cx="8" cy="11.3" r="0.6" fill="currentColor" />
 					</>
 				) : (
 					<>
