@@ -3891,13 +3891,11 @@ select.in {
 	flex: none;
 	white-space: nowrap;
 }
-.first-acts .first-other {
-	text-align: left;
-}
 .first-card .composer-problem {
 	padding: 0;
 }
 .first-other {
+	text-align: left;
 	font: var(--t-meta);
 	color: var(--ink-2);
 	text-decoration: underline;
