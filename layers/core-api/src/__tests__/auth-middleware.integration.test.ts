@@ -1,12 +1,12 @@
 /**
  * The auth middleware: the X-API-Key is the one credential. A valid key makes
- * the caller the person on the users table (the first human row). The
- * x-hyperidle-actor-id header is ignored — any override attempt resolves to
- * the key holder. There are no login sessions, no invite codes and no bearer tokens.
+ * the caller the person whose own key it is. The team key with no person bound
+ * resolves to nobody (""). The x-hyperidle-actor-id header is ignored.
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
+import { givePersonKey } from "@hyperidle/user";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -47,6 +47,7 @@ describe("auth middleware — the API key is the one credential", () => {
 
 	test("a valid key resolves the caller to the human row", async ({ db }) => {
 		await seedHuman(db, "u-auth-human");
+		await givePersonKey(db, "u-auth-human", TEST_API_KEY);
 		const res = await makeProbeApp(db).request("/probe", {
 			headers: { "X-API-Key": TEST_API_KEY },
 		});
@@ -54,35 +55,35 @@ describe("auth middleware — the API key is the one credential", () => {
 		expect(await res.json()).toEqual({ userId: "u-auth-human" });
 	});
 
-	test("with several humans, the caller is one of them", async ({ db }) => {
+	test("with several humans, the key resolves to the one it is bound to", async ({ db }) => {
 		await seedHuman(db, "u-auth-first");
 		await seedHuman(db, "u-auth-second");
+		await givePersonKey(db, "u-auth-first", TEST_API_KEY);
 		const res = await makeProbeApp(db).request("/probe", {
 			headers: { "X-API-Key": TEST_API_KEY },
 		});
-		const body = (await res.json()) as { userId: string };
-		expect(["u-auth-first", "u-auth-second"]).toContain(body.userId);
+		expect(await res.json()).toEqual({ userId: "u-auth-first" });
 	});
 
 	test("x-hyperidle-actor-id is ignored — the caller is the key holder, not the named override", async ({
 		db,
 	}) => {
 		await seedHuman(db, "u-auth-human");
+		await givePersonKey(db, "u-auth-human", TEST_API_KEY);
 		const res = await makeProbeApp(db).request("/probe", {
 			headers: { "X-API-Key": TEST_API_KEY, "x-hyperidle-actor-id": "agent-1" },
 		});
 		expect(res.status).toBe(200);
-		// Must resolve to the key holder (the human row), never to the header value.
+		// Must resolve to the key holder, never to the header value.
 		expect(await res.json()).toEqual({ userId: "u-auth-human" });
 	});
 
-	test("before the welcome screen made a person, the caller is the placeholder id", async ({
-		db,
-	}) => {
+	test("the team key with no person bound resolves to nobody", async ({ db }) => {
+		// No person has been given this key — it is the team key only.
 		const res = await makeProbeApp(db).request("/probe", {
 			headers: { "X-API-Key": TEST_API_KEY },
 		});
-		expect(await res.json()).toEqual({ userId: "u-founder" });
+		expect(await res.json()).toEqual({ userId: "" });
 	});
 
 	test("no key is 401 UNAUTHORIZED", async ({ db }) => {

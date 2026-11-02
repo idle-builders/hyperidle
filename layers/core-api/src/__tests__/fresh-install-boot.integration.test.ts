@@ -68,6 +68,7 @@ describe("a fresh install", () => {
 	test("after the welcome screen's two calls: the person, their team and one assistant with nine empty subscriptions, the person with the four reasons", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await applyFactoryCoreState(db);
 
@@ -78,6 +79,7 @@ describe("a fresh install", () => {
 		});
 		const personId = person.user?.id;
 		expect(personId).toBeDefined();
+		await asPerson(personId as string);
 
 		await call<UserView>(app, "edit_user", {
 			kind: "ai",

@@ -1,10 +1,11 @@
 # HyperIdle VPS deployment profile.
-# Brings up Postgres, runs migrations, then starts the production server.
+# Brings up Postgres, runs migrations, then starts the published server image.
 # The server also serves the built web SPA (HYPERIDLE_STATIC_DIR).
 #
 # Usage:
-#   cp .env.example .env     # set POSTGRES_PASSWORD and HYPERIDLE_API_KEY
-#   docker compose up -d --build
+#   cp .env.example .env     # set POSTGRES_PASSWORD and HYPERIDLE_API_KEY; add
+#                            # HYPERIDLE_SIGN_IN_ISSUER / _CLIENT_ID to let people join
+#   docker compose up -d
 #
 # See docs/deployment/self-hosting.md for details.
 
@@ -30,9 +31,7 @@ services:
       retries: 10
 
   migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile.deploy
+    image: ghcr.io/idle-builders/hyperidle-server:${HYPERIDLE_IMAGE_TAG:-main}
     restart: "no"
     depends_on:
       postgres:
@@ -42,9 +41,7 @@ services:
     command: ["npx", "tsx", "framework/db/src/migrate-pg.ts"]
 
   server:
-    build:
-      context: .
-      dockerfile: Dockerfile.deploy
+    image: ghcr.io/idle-builders/hyperidle-server:${HYPERIDLE_IMAGE_TAG:-main}
     restart: unless-stopped
     depends_on:
       migrate:
@@ -65,6 +62,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-hyperidle}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-hyperidle}}
       PG_POOL_SIZE: ${PG_POOL_SIZE:-10}
       PORT: 3001
+      HYPERIDLE_SIGN_IN_ISSUER: ${HYPERIDLE_SIGN_IN_ISSUER:-}
+      HYPERIDLE_SIGN_IN_CLIENT_ID: ${HYPERIDLE_SIGN_IN_CLIENT_ID:-}
     # @lore Server bound to loopback on the host; operators front it with a
     # reverse proxy (nginx/Caddy) for TLS + auth rather than exposing the
     # Hono server directly.

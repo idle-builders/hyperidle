@@ -379,7 +379,7 @@ export function peopleOf(
 
 export function ThreadPage({ id }: { id: string }) {
 	const me = useAction("open_user", {});
-	const users = useAction("search_users", {});
+	const users = useAction("search_users", {}, ["users"]);
 	const view = useAction("open_thread", { id }, [`thread:${id}`]);
 	const inThread = useAction("search_tasks", { threadId: id }, ["tasks"]);
 	const tasks = (inThread.data ?? []).filter(

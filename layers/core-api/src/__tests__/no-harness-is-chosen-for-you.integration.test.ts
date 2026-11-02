@@ -24,7 +24,10 @@ function authHeaders(): Record<string, string> {
 	return { "Content-Type": "application/json", "X-API-Key": "test-key" };
 }
 
-async function seedFounder(db: HyperIdleDb): Promise<void> {
+async function seedFounder(
+	db: HyperIdleDb,
+	asPerson?: (id: string) => Promise<void>,
+): Promise<void> {
 	await db.insert(users).values({
 		id: "u-founder-nodefault",
 		kind: "human",
@@ -33,11 +36,12 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 		status: "active",
 		createdAt: NOW,
 	});
+	await asPerson?.("u-founder-nodefault");
 }
 
 describe("no harness or model is chosen on someone's behalf", () => {
-	test("an agent created with no harness named stores none", async ({ db, app }) => {
-		await seedFounder(db);
+	test("an agent created with no harness named stores none", async ({ db, app, asPerson }) => {
+		await seedFounder(db, asPerson);
 
 		const res = await app.request("/api/actions/edit_user", {
 			method: "POST",

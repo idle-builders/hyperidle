@@ -79,12 +79,14 @@ describe("the wake rule bakes the thread_turn request at emit time (send_message
 	test("posting a plain message in a two-member thread bakes the woken agent's request onto the recorded intent", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seedTwoMemberThread(db, {
 			threadId: "thread-bake-emit-1",
 			senderId: "user-bake-emit-1",
 			agentId: "agent-bake-emit-1",
 		});
+		await asPerson("user-bake-emit-1");
 
 		const res = await call<{ message: { id: string } }>(app, "send_message", {
 			threadId: "thread-bake-emit-1",
@@ -123,12 +125,14 @@ describe("the wake rule bakes the thread_turn request at emit time (send_message
 		db,
 		app,
 		eventBus,
+		asPerson,
 	}) => {
 		await seedTwoMemberThread(db, {
 			threadId: "thread-bake-emit-2",
 			senderId: "user-bake-emit-2",
 			agentId: "agent-bake-emit-2",
 		});
+		await asPerson("user-bake-emit-2");
 
 		const res = await call<{ message: { id: string } }>(app, "send_message", {
 			threadId: "thread-bake-emit-2",

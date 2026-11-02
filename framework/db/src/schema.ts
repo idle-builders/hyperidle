@@ -45,6 +45,10 @@ export const users = pgTable("users", {
 	discipline: text("discipline"),
 	/** What they do, in a few words, as everyone sees it. Never access: that is `role`. */
 	what: text("what"),
+	/** A person's unique id on a shared backend. Null for agents and a laptop's one person. */
+	email: text("email").unique(),
+	/** sha256 of the person's own key — every request carrying that key is them. Null for agents. */
+	keyHash: text("key_hash").unique(),
 });
 
 /**

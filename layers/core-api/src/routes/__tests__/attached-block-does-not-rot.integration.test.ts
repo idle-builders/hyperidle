@@ -56,8 +56,13 @@ describe("a block attached into a conversation does not rot", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("editing the source afterwards leaves the attached item untouched", async ({ db, app }) => {
+	test("editing the source afterwards leaves the attached item untouched", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
 		const threadId = await seedThread(db);
+		await asPerson("nr-user");
 		const ORIGINAL = "## Auth migration\n\nThe original wording of the block.";
 
 		// The source document someone is reading.

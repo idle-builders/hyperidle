@@ -167,7 +167,10 @@ describe("connections behind open_user/edit_user", () => {
 		vi.unstubAllEnvs();
 	});
 
-	async function seedUserA(db: HyperIdleDb): Promise<void> {
+	async function seedUserA(
+		db: HyperIdleDb,
+		asPerson?: (id: string) => Promise<void>,
+	): Promise<void> {
 		await db.insert(users).values({
 			id: USER_A_ID,
 			kind: "human",
@@ -176,6 +179,7 @@ describe("connections behind open_user/edit_user", () => {
 			status: "active",
 			createdAt: NOW,
 		});
+		await asPerson?.(USER_A_ID);
 	}
 
 	async function seedUserB(db: HyperIdleDb): Promise<void> {
@@ -216,8 +220,8 @@ describe("connections behind open_user/edit_user", () => {
 	});
 
 	describe("adding a connection records it with its auth source", () => {
-		test("add token → recorded with authSource:'token'", async ({ app, db }) => {
-			await seedUserA(db);
+		test("add token → recorded with authSource:'token'", async ({ app, db, asPerson }) => {
+			await seedUserA(db, asPerson);
 			const { status, envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "Stripe",
 				authSource: "token",
@@ -229,8 +233,8 @@ describe("connections behind open_user/edit_user", () => {
 			expect(found?.authSource).toBe("token");
 		});
 
-		test("open_user lists the added token connection", async ({ app, db }) => {
-			await seedUserA(db);
+		test("open_user lists the added token connection", async ({ app, db, asPerson }) => {
+			await seedUserA(db, asPerson);
 			await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "Stripe",
 				authSource: "token",
@@ -241,8 +245,8 @@ describe("connections behind open_user/edit_user", () => {
 			expect(found?.authSource).toBe("token");
 		});
 
-		test("add mcp → recorded with authSource:'mcp'", async ({ app, db }) => {
-			await seedUserA(db);
+		test("add mcp → recorded with authSource:'mcp'", async ({ app, db, asPerson }) => {
+			await seedUserA(db, asPerson);
 			const { envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
 				authSource: "mcp",
 				serverUrl: "https://mcp.figma.com",
@@ -252,8 +256,8 @@ describe("connections behind open_user/edit_user", () => {
 			expect(connection?.authSource).toBe("mcp");
 		});
 
-		test("add mcp derives service from serverUrl when omitted", async ({ app, db }) => {
-			await seedUserA(db);
+		test("add mcp derives service from serverUrl when omitted", async ({ app, db, asPerson }) => {
+			await seedUserA(db, asPerson);
 			const { envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
 				authSource: "mcp",
 				serverUrl: "https://mcp.figma.com",
@@ -265,8 +269,8 @@ describe("connections behind open_user/edit_user", () => {
 	});
 
 	describe("removing a held connection", () => {
-		test("remove own connection succeeds", async ({ app, db }) => {
-			await seedUserA(db);
+		test("remove own connection succeeds", async ({ app, db, asPerson }) => {
+			await seedUserA(db, asPerson);
 			const created = await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "SendGrid",
 				authSource: "token",
@@ -279,8 +283,8 @@ describe("connections behind open_user/edit_user", () => {
 			expect(envelope.ok).toBe(true);
 		});
 
-		test("open_user no longer lists the removed connection", async ({ app, db }) => {
-			await seedUserA(db);
+		test("open_user no longer lists the removed connection", async ({ app, db, asPerson }) => {
+			await seedUserA(db, asPerson);
 			const created = await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "Mailchimp",
 				authSource: "token",
@@ -299,8 +303,9 @@ describe("connections behind open_user/edit_user", () => {
 		test("freshly-added token connection starts with health:'needs-attention'", async ({
 			app,
 			db,
+			asPerson,
 		}) => {
-			await seedUserA(db);
+			await seedUserA(db, asPerson);
 			const { envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "GitHub",
 				authSource: "token",
@@ -313,8 +318,8 @@ describe("connections behind open_user/edit_user", () => {
 	});
 
 	describe("pasted secret stored encrypted, NEVER in any response", () => {
-		test("add response body does not contain the raw token", async ({ app, db }) => {
-			await seedUserA(db);
+		test("add response body does not contain the raw token", async ({ app, db, asPerson }) => {
+			await seedUserA(db, asPerson);
 			const SECRET_TOKEN = "super-secret-sk-stripe-conn-001";
 			const res = await app.request("/api/actions/edit_user", {
 				method: "POST",
@@ -328,8 +333,12 @@ describe("connections behind open_user/edit_user", () => {
 			expect(bodyText).not.toContain(SECRET_TOKEN);
 		});
 
-		test("open_user response does not contain any raw token value", async ({ app, db }) => {
-			await seedUserA(db);
+		test("open_user response does not contain any raw token value", async ({
+			app,
+			db,
+			asPerson,
+		}) => {
+			await seedUserA(db, asPerson);
 			const SECRET_TOKEN = "super-secret-sk-stripe-conn-002";
 			await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "Stripe",
@@ -349,8 +358,9 @@ describe("connections behind open_user/edit_user", () => {
 		test("open_user response never carries encryptedToken or encrypted_token", async ({
 			app,
 			db,
+			asPerson,
 		}) => {
-			await seedUserA(db);
+			await seedUserA(db, asPerson);
 			await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "Stripe",
 				authSource: "token",
@@ -364,8 +374,8 @@ describe("connections behind open_user/edit_user", () => {
 			}
 		});
 
-		test("add response never carries encryptedToken", async ({ app, db }) => {
-			await seedUserA(db);
+		test("add response never carries encryptedToken", async ({ app, db, asPerson }) => {
+			await seedUserA(db, asPerson);
 			const { envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "GitHub",
 				authSource: "token",
@@ -389,8 +399,9 @@ describe("connections behind open_user/edit_user", () => {
 			db,
 			eventBus,
 			agentOrchestration,
+			asPerson,
 		}) => {
-			await seedUserA(db);
+			await seedUserA(db, asPerson);
 			await seedUserB(db);
 
 			const created = await addConnection(app, authHeadersA(), USER_A_ID, {
@@ -410,8 +421,9 @@ describe("connections behind open_user/edit_user", () => {
 			db,
 			eventBus,
 			agentOrchestration,
+			asPerson,
 		}) => {
-			await seedUserA(db);
+			await seedUserA(db, asPerson);
 			await seedUserB(db);
 
 			const created = await addConnection(app, authHeadersA(), USER_A_ID, {
@@ -436,8 +448,8 @@ describe("connections behind open_user/edit_user", () => {
 			expect(aConnections.connections.find((c) => c.id === aConnectionId)).toBeDefined();
 		});
 
-		test("remove of a non-existent id finds nothing", async ({ app, db }) => {
-			await seedUserA(db);
+		test("remove of a non-existent id finds nothing", async ({ app, db, asPerson }) => {
+			await seedUserA(db, asPerson);
 			const { status, envelope } = await removeConnection(
 				app,
 				authHeadersA(),
@@ -451,8 +463,8 @@ describe("connections behind open_user/edit_user", () => {
 	});
 
 	describe("removing an inherited: id finds nothing (never persisted)", () => {
-		test("remove inherited:claude-code:github finds nothing", async ({ app, db }) => {
-			await seedUserA(db);
+		test("remove inherited:claude-code:github finds nothing", async ({ app, db, asPerson }) => {
+			await seedUserA(db, asPerson);
 			const { status, envelope } = await removeConnection(
 				app,
 				authHeadersA(),
@@ -467,8 +479,8 @@ describe("connections behind open_user/edit_user", () => {
 	// ─── Duplicate and invalid input → connection_invalid ──────────────────
 
 	describe("duplicate (user, service, authSource) and invalid input are refused", () => {
-		test("adding the same service+authSource twice is refused", async ({ app, db }) => {
-			await seedUserA(db);
+		test("adding the same service+authSource twice is refused", async ({ app, db, asPerson }) => {
+			await seedUserA(db, asPerson);
 			await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "Stripe",
 				authSource: "token",
@@ -483,8 +495,8 @@ describe("connections behind open_user/edit_user", () => {
 			expect(envelope.problems?.[0]?.code).toBe("connection_invalid");
 		});
 
-		test("adding a token connection with no token is refused", async ({ app, db }) => {
-			await seedUserA(db);
+		test("adding a token connection with no token is refused", async ({ app, db, asPerson }) => {
+			await seedUserA(db, asPerson);
 			const { status, envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "Stripe",
 				authSource: "token",
@@ -493,8 +505,12 @@ describe("connections behind open_user/edit_user", () => {
 			expect(envelope.problems?.[0]?.code).toBe("connection_invalid");
 		});
 
-		test("adding an mcp connection with a non-https serverUrl is refused", async ({ app, db }) => {
-			await seedUserA(db);
+		test("adding an mcp connection with a non-https serverUrl is refused", async ({
+			app,
+			db,
+			asPerson,
+		}) => {
+			await seedUserA(db, asPerson);
 			const { status, envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
 				authSource: "mcp",
 				serverUrl: "http://mcp.example.com",
@@ -506,8 +522,9 @@ describe("connections behind open_user/edit_user", () => {
 		test("adding a connection with an unknown authSource is refused at the schema boundary", async ({
 			app,
 			db,
+			asPerson,
 		}) => {
-			await seedUserA(db);
+			await seedUserA(db, asPerson);
 			const res = await app.request("/api/actions/edit_user", {
 				method: "POST",
 				headers: authHeadersA(),
@@ -521,8 +538,12 @@ describe("connections behind open_user/edit_user", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("adding an mcp connection with a link-local serverUrl is refused", async ({ app, db }) => {
-			await seedUserA(db);
+		test("adding an mcp connection with a link-local serverUrl is refused", async ({
+			app,
+			db,
+			asPerson,
+		}) => {
+			await seedUserA(db, asPerson);
 			const { status, envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
 				authSource: "mcp",
 				serverUrl: "https://169.254.169.254",
@@ -534,8 +555,9 @@ describe("connections behind open_user/edit_user", () => {
 		test("adding an mcp connection with a private-range serverUrl (10.x) is refused", async ({
 			app,
 			db,
+			asPerson,
 		}) => {
-			await seedUserA(db);
+			await seedUserA(db, asPerson);
 			const { status, envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
 				authSource: "mcp",
 				serverUrl: "https://10.0.0.1",
@@ -547,8 +569,9 @@ describe("connections behind open_user/edit_user", () => {
 		test("adding an mcp connection with a private-range serverUrl (192.168.x) is refused", async ({
 			app,
 			db,
+			asPerson,
 		}) => {
-			await seedUserA(db);
+			await seedUserA(db, asPerson);
 			const { status, envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
 				authSource: "mcp",
 				serverUrl: "https://192.168.1.1",
@@ -557,8 +580,12 @@ describe("connections behind open_user/edit_user", () => {
 			expect(envelope.problems?.[0]?.code).toBe("connection_invalid");
 		});
 
-		test("adding an mcp connection with a loopback serverUrl is refused", async ({ app, db }) => {
-			await seedUserA(db);
+		test("adding an mcp connection with a loopback serverUrl is refused", async ({
+			app,
+			db,
+			asPerson,
+		}) => {
+			await seedUserA(db, asPerson);
 			const { status, envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
 				authSource: "mcp",
 				serverUrl: "https://127.0.0.1/mcp",

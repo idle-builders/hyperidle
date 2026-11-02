@@ -295,8 +295,19 @@ export function firstDoc(tree: readonly Doc[]): string | undefined {
 	return undefined;
 }
 
+/** Whether a message names you with an @mention. */
+function mentions(change: ChangeRow, you: string): boolean {
+	const refs = (change.after.payload as { refs?: unknown } | undefined)?.refs;
+	return (
+		Array.isArray(refs) &&
+		refs.some(
+			(r: { kind?: unknown; identityId?: unknown }) => r.kind === "mention" && r.identityId === you,
+		)
+	);
+}
+
 /** What a notification says happened, in words. */
-export function noteWhat(change: ChangeRow, names: Names): string {
+export function noteWhat(change: ChangeRow, names: Names, you: string): string {
 	const who = names.get(change.actor) ?? "Someone";
 	const after = change.after;
 	if (change.object === "task" && after.state === "done") return `Task done · ${who}`;
@@ -305,7 +316,8 @@ export function noteWhat(change: ChangeRow, names: Names): string {
 	if (change.object === "document" && change.kind === "changed") return `Edited by ${who}`;
 	if (change.object === "thread" && after.type === "review") return `${who} raised a review`;
 	if (change.object === "thread" && after.type === "questionnaire") return `${who} asks`;
-	if (change.kind === "message") return `New reply · ${who}`;
+	if (change.kind === "message")
+		return mentions(change, you) ? `Mentioned you · ${who}` : `New reply · ${who}`;
 	if (change.kind === "created") return `New ${change.object} · ${who}`;
 	return `${who} changed it`;
 }

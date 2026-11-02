@@ -31,7 +31,7 @@ const flagsBefore = (rounds: readonly Round[], i: number): number =>
 export function Judge({ threadId, reviewId }: { threadId: string; reviewId: string }) {
 	const navigate = useNavigate();
 	const me = useAction("open_user", {});
-	const users = useAction("search_users", {});
+	const users = useAction("search_users", {}, ["users"]);
 	const view = useAction("open_thread", { id: threadId }, [`thread:${threadId}`]);
 	const messages = [...(view.data?.messages ?? NO_MESSAGES)]
 		.filter((m) => m.deletedAt === null)

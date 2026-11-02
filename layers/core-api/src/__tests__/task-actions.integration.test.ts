@@ -105,7 +105,11 @@ async function call<T>(
 /** The human actor `findUser(db, {kind:"human"})` falls back to when none exists — see `middleware/auth.ts`. `changes.actor` FKs to `users`, so a real row must exist under this id. */
 const FOUNDER_ID = "u-founder";
 
-async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
+async function seedTeam(
+	db: HyperIdleDb,
+	teamId: string,
+	asPerson?: (id: string) => Promise<void>,
+): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: teamId, name: teamId, createdAt: now });
 	await db
@@ -128,6 +132,7 @@ async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 			},
 		])
 		.onConflictDoNothing();
+	await asPerson?.(FOUNDER_ID);
 }
 
 /**
@@ -172,10 +177,11 @@ describe("edit_task — create, human and agent", () => {
 	test("create as human (API key, no actor header) and as agent (actor header) produce identical rows", async ({
 		db,
 		app,
+		asPerson,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "ta-team-1");
+		await seedTeam(db, "ta-team-1", asPerson);
 		await seedAgent(db, "ta-agent-1", "ta-team-1");
 
 		const human = await call<TaskViewBody>(app, "edit_task", {
@@ -205,8 +211,8 @@ describe("edit_task — create, human and agent", () => {
 });
 
 describe("edit_task — refused transition", () => {
-	test("an illegal state transition returns 422 with a Problem", async ({ db, app }) => {
-		await seedTeam(db, "ta-team-2");
+	test("an illegal state transition returns 422 with a Problem", async ({ db, app, asPerson }) => {
+		await seedTeam(db, "ta-team-2", asPerson);
 		const now = new Date().toISOString();
 		const threadId = await seedThread(db, "ta-done-task", "ta-team-2");
 		await db.insert(tasks).values({
@@ -235,8 +241,9 @@ describe("open_task", () => {
 	test("returns ancestors (root-first), the nested children subtree, tokensActualRollup, attachments, and no sessions field", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await seedTeam(db, "ta-team-3");
+		await seedTeam(db, "ta-team-3", asPerson);
 		const now = new Date().toISOString();
 		const rootThreadId = await seedThread(db, "ta-root", "ta-team-3");
 		const midThreadId = await seedThread(db, "ta-mid", "ta-team-3");
@@ -290,8 +297,8 @@ describe("open_task", () => {
 });
 
 describe("search_tasks", () => {
-	test("filters, including ids and excludeIds", async ({ db, app }) => {
-		await seedTeam(db, "ta-team-4");
+	test("filters, including ids and excludeIds", async ({ db, app, asPerson }) => {
+		await seedTeam(db, "ta-team-4", asPerson);
 		const now = new Date().toISOString();
 		const s1ThreadId = await seedThread(db, "ta-s1", "ta-team-4");
 		const s2ThreadId = await seedThread(db, "ta-s2", "ta-team-4");
@@ -347,8 +354,9 @@ describe("search_tasks — threadId filter", () => {
 	test("returns exactly the tasks in that thread, and narrows (not replaces) an existing filter", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await seedTeam(db, "ta-team-12");
+		await seedTeam(db, "ta-team-12", asPerson);
 		const sharedThreadId = await seedThread(db, "ta-thread-shared", "ta-team-12");
 
 		const t1 = await call<TaskViewBody>(app, "edit_task", {
@@ -399,10 +407,11 @@ describe("edit_task — thread membership on create-with-threadId", () => {
 	test("adding an owner to an existing thread unions with, never replaces, the thread's current members", async ({
 		db,
 		app,
+		asPerson,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "ta-thr-1");
+		await seedTeam(db, "ta-thr-1", asPerson);
 		await seedAgent(db, "ta-thr1-agentA", "ta-thr-1");
 		await seedAgent(db, "ta-thr1-agentB", "ta-thr-1");
 
@@ -442,10 +451,11 @@ describe("edit_task — thread membership on create-with-threadId", () => {
 	test("an owner already a member: no adjust_thread write, no thread.changed row", async ({
 		db,
 		app,
+		asPerson,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "ta-thr-2");
+		await seedTeam(db, "ta-thr-2", asPerson);
 		await seedAgent(db, "ta-thr2-agentA", "ta-thr-2");
 
 		const dmActions = buildTestActions(agentOrchestration);
@@ -483,8 +493,12 @@ describe("edit_task — thread membership on create-with-threadId", () => {
 });
 
 describe("the changes table", () => {
-	test("a changes row exists after each edit, carrying the field diff", async ({ db, app }) => {
-		await seedTeam(db, "ta-team-5");
+	test("a changes row exists after each edit, carrying the field diff", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
+		await seedTeam(db, "ta-team-5", asPerson);
 
 		const created = await call<TaskViewBody>(app, "edit_task", {
 			teamId: "ta-team-5",
@@ -509,8 +523,9 @@ describe("the changes table", () => {
 	test("a cascade kill writes one changes row per killed descendant with the root's actor, and one per freed dependent with system:propagation", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await seedTeam(db, "ta-team-6");
+		await seedTeam(db, "ta-team-6", asPerson);
 		const now = new Date().toISOString();
 		const killRootThreadId = await seedThread(db, "ta-kill-root", "ta-team-6");
 		const killChildThreadId = await seedThread(db, "ta-kill-child", "ta-team-6");
@@ -583,8 +598,8 @@ describe("the changes table", () => {
 });
 
 describe("appendNote", () => {
-	test("two concurrent appendNote calls both survive", async ({ db, app }) => {
-		await seedTeam(db, "ta-team-7");
+	test("two concurrent appendNote calls both survive", async ({ db, app, asPerson }) => {
+		await seedTeam(db, "ta-team-7", asPerson);
 		const created = await call<TaskViewBody>(app, "edit_task", {
 			teamId: "ta-team-7",
 			title: "Note target",
@@ -606,9 +621,10 @@ describe("task.changed", () => {
 	test("a state move emits exactly one task.changed carrying the row", async ({
 		db,
 		app,
+		asPerson,
 		eventBus,
 	}) => {
-		await seedTeam(db, "ta-team-8");
+		await seedTeam(db, "ta-team-8", asPerson);
 		const now = new Date().toISOString();
 		const threadId = await seedThread(db, "ta-emit-task", "ta-team-8");
 		await db.insert(tasks).values({
@@ -641,9 +657,10 @@ describe("task.changed", () => {
 	test("a kill flags each descendant's task.changed as cascade; the root's own is not", async ({
 		db,
 		app,
+		asPerson,
 		eventBus,
 	}) => {
-		await seedTeam(db, "ta-team-10");
+		await seedTeam(db, "ta-team-10", asPerson);
 		const now = new Date().toISOString();
 		const rootThreadId = await seedThread(db, "ta-cascade-root", "ta-team-10");
 		const childThreadId = await seedThread(db, "ta-cascade-child", "ta-team-10");
@@ -692,8 +709,9 @@ describe("dispatch", () => {
 	test("accept-with-owner inserts one dispatch attempt and records the work intent", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await seedTeam(db, "ta-team-9");
+		await seedTeam(db, "ta-team-9", asPerson);
 		await seedAgent(db, "ta-agent-9", "ta-team-9");
 		const now = new Date().toISOString();
 		const threadId = await seedThread(db, "ta-accept-task", "ta-team-9");
@@ -732,10 +750,11 @@ describe("dispatch", () => {
 	test("an owner change on an in_progress task inserts a second attempt with occasion owner_handoff, ends the predecessor's run, and records a second intent", async ({
 		db,
 		app,
+		asPerson,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "ta-team-10");
+		await seedTeam(db, "ta-team-10", asPerson);
 		await seedAgent(db, "ta-agent-10a", "ta-team-10");
 		await seedAgent(db, "ta-agent-10b", "ta-team-10");
 		const now = new Date().toISOString();
@@ -838,8 +857,9 @@ describe("dispatch", () => {
 	test("a kill calls stopRunsForTasks with every killed id, including a done root", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await seedTeam(db, "ta-team-11");
+		await seedTeam(db, "ta-team-11", asPerson);
 		await seedAgent(db, "ta-agent-11", "ta-team-11");
 		const now = new Date().toISOString();
 		const killDoneRootThreadId = await seedThread(db, "ta-kill-done-root", "ta-team-11");
@@ -969,8 +989,9 @@ describe("edit_task — doneWhen and reasons round-trip", () => {
 	test("doneWhen and reasons are stored as JSON and returned parsed by open_task", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await seedTeam(db, "ta-dw-team-1");
+		await seedTeam(db, "ta-dw-team-1", asPerson);
 		// Create task
 		const created = await call<{ task: { id: string }; ancestors: unknown[]; children: unknown[] }>(
 			app,

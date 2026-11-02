@@ -168,7 +168,7 @@ function TaskScreen({
 	const root = tree.root;
 	const sel = (part && tree.byId.get(part)) || root;
 	const around = useAround(view);
-	const users = useAction("search_users", {});
+	const users = useAction("search_users", {}, ["users"]);
 	const me = useAction("open_user", {});
 	const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(new Set());
 	const [focus, setFocus] = useState<string | null>(null);

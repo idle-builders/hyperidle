@@ -22,6 +22,7 @@ import { join } from "node:path";
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import { agentRunConfig, type HyperIdleDb, users } from "@hyperidle/db";
 import { AdapterPool } from "@hyperidle/harness-registry";
+import { givePersonKey } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -182,6 +183,7 @@ describe("reach wiring end to end", () => {
 			disposers.push(() => disposeApp(app));
 
 			await seedHuman(db);
+			await givePersonKey(db, HUMAN_ID, TEST_API_KEY);
 
 			const inherited = await openInherited(app);
 
@@ -214,6 +216,7 @@ describe("reach wiring end to end", () => {
 			disposers.push(() => disposeApp(app));
 
 			await seedHuman(db);
+			await givePersonKey(db, HUMAN_ID, TEST_API_KEY);
 
 			// Boot saw the empty codex home — honest none-state first.
 			const before = await openInherited(app);
@@ -257,6 +260,7 @@ describe("reach wiring end to end", () => {
 			disposers.push(() => disposeApp(app));
 
 			await seedHuman(db);
+			await givePersonKey(db, HUMAN_ID, TEST_API_KEY);
 			await seedAgentWithHarness(db, "claude-code");
 
 			const first = await openInherited(app);

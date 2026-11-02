@@ -181,6 +181,7 @@ describe("the assistant-turn trigger (service-integration)", () => {
 	test("Term 1: a human message on the assistant thread records an assistant_turn intent (trigger is load-bearing)", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		const founderId = "gate-term1-founder";
 		const assistantId = `ast-${founderId}`;
@@ -193,6 +194,7 @@ describe("the assistant-turn trigger (service-integration)", () => {
 			triggerMsgId,
 			withWelcomeMessage: false,
 		});
+		await asPerson(founderId);
 
 		// Auth: X-API-Key resolves the sole seeded human (founderId) as the
 		// principal in local mode (`resolveApiKeyActorUserId`) — no override

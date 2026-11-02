@@ -50,7 +50,7 @@ async function edit(
 	return (await res.json()) as Envelope;
 }
 
-async function seedTree(db: HyperIdleDb): Promise<void> {
+async function seedTree(db: HyperIdleDb, asPerson?: (id: string) => Promise<void>): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: TEAM, name: TEAM, createdAt: now });
 	await db.insert(users).values([
@@ -72,6 +72,7 @@ async function seedTree(db: HyperIdleDb): Promise<void> {
 		},
 	]);
 	await db.insert(userTeams).values({ userId: AGENT, teamId: TEAM });
+	await asPerson?.("u-founder");
 	const parts: { id: string; parent: string | null; state: string; after?: string }[] = [
 		{ id: ROOT, parent: null, state: "in_progress" },
 		{ id: DONE, parent: ROOT, state: "done" },
@@ -143,8 +144,9 @@ describe("stop and start again", () => {
 	test("stopping a task stops its running sessions and marks every part not done, without moving any state", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await seedTree(db);
+		await seedTree(db, asPerson);
 		const before = await db.select().from(tasks).where(eq(tasks.teamId, TEAM));
 
 		expect((await edit(app, { id: ROOT, paused: "stopped" })).ok).toBe(true);
@@ -167,8 +169,9 @@ describe("stop and start again", () => {
 	test("nothing starts on a stopped task, even when what it waits for is done", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await seedTree(db);
+		await seedTree(db, asPerson);
 		await edit(app, { id: ROOT, paused: "stopped" });
 		expect((await edit(app, { id: READY, state: "done" })).ok).toBe(true);
 
@@ -180,8 +183,9 @@ describe("stop and start again", () => {
 	test("starting again sends the agents back to the parts they were working on and frees what no longer waits", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await seedTree(db);
+		await seedTree(db, asPerson);
 		await edit(app, { id: ROOT, paused: "stopped" });
 		await edit(app, { id: READY, state: "done" });
 
@@ -203,8 +207,8 @@ describe("stop and start again", () => {
 		expect(intents).toHaveLength(1);
 	});
 
-	test("a task stopped twice starts again twice", async ({ db, app }) => {
-		await seedTree(db);
+	test("a task stopped twice starts again twice", async ({ db, app, asPerson }) => {
+		await seedTree(db, asPerson);
 		for (const _ of [1, 2]) {
 			await edit(app, { id: ROOT, paused: "stopped" });
 			await edit(app, { id: ROOT, paused: null });
@@ -218,8 +222,9 @@ describe("hold", () => {
 	test("on hold, running sessions go on, new parts wait too, and taking it off hold starts nothing new", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await seedTree(db);
+		await seedTree(db, asPerson);
 		expect((await edit(app, { id: ROOT, paused: "hold" })).ok).toBe(true);
 
 		expect(await sessionState(db)).toBe("active");
@@ -237,8 +242,8 @@ describe("hold", () => {
 		expect(await attemptsOn(db, [WORKING])).toEqual([]);
 	});
 
-	test("a finished task cannot be put on hold or stopped", async ({ db, app }) => {
-		await seedTree(db);
+	test("a finished task cannot be put on hold or stopped", async ({ db, app, asPerson }) => {
+		await seedTree(db, asPerson);
 		const refused = await edit(app, { id: DONE, paused: "hold" });
 		expect(refused.problems?.map((p) => p.code)).toEqual(["paused_closed"]);
 	});

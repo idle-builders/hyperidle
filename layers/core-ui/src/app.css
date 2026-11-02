@@ -3887,7 +3887,15 @@ select.in {
 	align-items: center;
 	gap: var(--sp-3);
 }
+.first-acts .btn {
+	flex: none;
+	white-space: nowrap;
+}
+.first-card .composer-problem {
+	padding: 0;
+}
 .first-other {
+	text-align: left;
 	font: var(--t-meta);
 	color: var(--ink-2);
 	text-decoration: underline;

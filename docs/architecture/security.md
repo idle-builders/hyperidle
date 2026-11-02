@@ -8,11 +8,14 @@ The **Principal** is the authenticated identity on a request — `c.get("userId"
 
 ## Trust mode
 
-There is one credential: the deployment's `HYPERIDLE_API_KEY`, sent as `X-API-Key` and compared in constant time. There are no login sessions, invite codes, or bearer tokens.
+Every request carries a key as `X-API-Key`. There are no login sessions or invite codes, and no bearer token is ever an API credential.
 
-A valid key makes the caller the first human row on `users`. Any `x-hyperidle-actor-id` header on the request is ignored. Tests that need a specific actor call the action in-process via `action.run({ actor, db, eventBus, now }, input)`.
+- **A person's own key** makes the caller that person. Only its sha256 is kept (`users.key_hash`); the key itself lives on the person's computer.
+- **The team key** — the deployment's `HYPERIDLE_API_KEY`, compared in constant time — makes the caller nobody yet. It is for what needs no person, such as a laptop's first start, which makes the one person and keeps the key it was called with as theirs.
+- **Joining** takes no key: `POST /api/join` takes an ID token from the server's sign-in service (`HYPERIDLE_SIGN_IN_ISSUER`), checked against that service's published keys, issuer, this app's id there and a proven email (`layers/core-api/src/routes/join.ts`). It makes the person (named by a unique `users.email`) and hands back their own key; signing in again hands the same person a new key, and the old one stops working. Who may sign in at all is the sign-in service's call.
+- Any other key is refused.
 
-`HYPERIDLE_SHARED_MODE` changes one thing: whose identity `POST /api/auth/ws-token` mints the WebSocket upgrade token for. In shared mode it is the authenticated caller; in local mode the `X-Identity` header may name the identity (safe because the caller already holds the master key). `X-Identity` grants no authority anywhere else.
+There is no fallback to "the first human". Tests that need a specific actor call the action in-process via `action.run({ actor, db, eventBus, now }, input)`, or give that person a key (`asPerson` in the core-api fixtures). `POST /api/auth/ws-token` mints the WebSocket token for the caller.
 
 A deployment is single-founder: one human owns the deployment's connections, and every agent it provisions uses that human's connection tokens (`layers/agent-orchestration/run-orchestration/src/connection-provisioning.ts`).
 
@@ -33,7 +36,7 @@ A task's own thread is `team`-hosted. Posting to a host-scoped thread joins the 
 
 ## Worker
 
-A Worker is a session-execution endpoint, not an org member. Its token (`GET /ws/worker?token=<HYPERIDLE_WORKER_TOKEN>`) authorizes exactly one capability: run the sessions assigned to this worker. A worker authenticates to a shared-mode server with `shared_backend_key`.
+A Worker is a session-execution endpoint, not an org member. Its token (`GET /ws/worker?token=<HYPERIDLE_WORKER_TOKEN>`) authorizes exactly one capability: run the sessions assigned to this worker. A worker authenticates to a server with its team key.
 
 ## WS subscribe authorization
 

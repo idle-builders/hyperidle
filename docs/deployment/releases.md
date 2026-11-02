@@ -2,12 +2,9 @@
 
 ## Release pipeline (unified)
 
-One version bump, carried by one PR, releases **both** surfaces on merge:
+One version bump, carried by one PR, releases the desktop app on merge: a notarized DMG published on this repo's own release + Homebrew (`release.yml` → `desktop-release.yml`). A shared backend is not deployed from here: its own deployment repository pins the version it runs (see [shared-backend.md](./shared-backend.md)).
 
-- **Backend** → built image to GHCR + deployed to the shared cluster (`deploy.yml`).
-- **Desktop** → notarized DMG published on this repo's own release + Homebrew (`release.yml` → `desktop-release.yml`).
-
-The DMG is built + notarized **locally** (Apple signing must run on a Mac), but everything else — publish, Homebrew, cluster deploy — happens in **CI on merge**.
+The DMG is built + notarized **locally** (Apple signing must run on a Mac), but publishing and Homebrew happen in **CI on merge**.
 
 ### Version source of truth
 
@@ -25,9 +22,9 @@ The root `package.json` `version` is canonical. Two derived sources must match i
 ```
 LOCAL (Mac)                          PR                         MERGE → CI (CD)
 ───────────                          ──                         ───────────────
-release.sh <version>                 version bump (×3)          deploy.yml:
-  bump root+desktop+chart            release-manifest.json        build image → GHCR
-  build+sign+notarize DMG    ─────►  (sha256 of the DMG)  ─────►  helm upgrade → cluster
+release.sh <version>                 version bump (×3)
+  bump root+desktop+chart            release-manifest.json
+  build+sign+notarize DMG    ─────►  (sha256 of the DMG)  ─────►
   upload DMG to DRAFT                                           release.yml:
     release v<version> (hidden)      Release Guard check:         publish the draft release
                                        version bumped ⇒           → release: published
@@ -49,7 +46,7 @@ git add -A && git commit -m "release: HyperIdle v<version>"
 gh pr create --base main --fill
 
 # 3. Merge once green. CD does the rest:
-#    backend → cluster, desktop → public release + Homebrew.
+#    desktop → public release + Homebrew.
 ```
 
 ### Pre-releases
@@ -58,8 +55,7 @@ A version with an `-rc.N` suffix (for example `1.0.0-rc.1`) is a pre-release, fo
 
 - published as a GitHub **pre-release**, never marked Latest;
 - downloadable from this repo's releases page, like any public release;
-- **not** sent to Homebrew, so `brew` users stay on the last full release;
-- **not** deployed to the shared cluster.
+- **not** sent to Homebrew, so `brew` users stay on the last full release.
 
 `release.sh` accepts only `X.Y.Z` or `X.Y.Z-rc.N`.
 
@@ -81,11 +77,9 @@ All pre-releases are listed at <https://github.com/idle-builders/hyperidle/relea
 | Workflow | Trigger | Does |
 |---|---|---|
 | `release-guard.yml` | PR to main | If version bumped: require the staged DMG + matching sha256; run `test:full`, `test:integration:service`. |
-| `deploy.yml` | push to main (version bump) | Build image → GHCR → `helm upgrade` → cluster. Skipped for a pre-release. |
 | `release.yml` | push to main (version bump) | Publish the staged draft release (as a pre-release for `-rc.N`) → emits `release: published`. |
 | `desktop-release.yml` | `release: published` | Hash the release's DMG; dispatch cask update → `homebrew-tap` (full releases only). |
 
 ### Provisioning / secrets (one-time)
 
-- Backend: `KUBE_TOKEN`/`KUBE_CA_CERT`/`KUBE_SERVER` + namespace secrets — see [shared-backend.md](./shared-backend.md).
 - Desktop: `HOMEBREW_TAP_TOKEN` (dispatch to `homebrew-tap`). Apple creds (`APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`) stay **local** in `.env`.

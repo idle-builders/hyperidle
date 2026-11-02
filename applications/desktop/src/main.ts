@@ -26,7 +26,8 @@ import { loadClientConfig, migrateWindowState, saveClientConfig } from "./client
 import type { LogRotator } from "./log-rotation.js";
 import { createLogRotator } from "./log-rotation.js";
 import { resolveMigrationsFolder, runMigrations } from "./migrate.js";
-import { createSafeCredentialsManager, decryptCredential } from "./safe-credentials.js";
+import { keepPersonKey, readPersonKey } from "./safe-credentials.js";
+import { type Provider, signIn } from "./sign-in.js";
 
 function log(message: string, data?: Record<string, unknown>): void {
 	const ts = new Date().toISOString();
@@ -283,20 +284,59 @@ interface BootContext {
 	credentialsPath: string;
 }
 
+/** The last sign-in's ID token, for the server it was meant for. */
+let signedIn: { serverUrl: string; idToken: string } | null = null;
+
 function registerCommonIpcHandlers(ctx: BootContext): void {
-	// First start's "Join a team on a server": the key is already stored through
-	// credentials:set; this checks the server answers, then reopens the app in shared mode.
+	// First start's "Join a team on a server": the person signs in in their browser, the server
+	// hands back their own key; that key is kept and the app reopens on the server as them.
 	ipcMain.handle(
 		"backend:join",
-		async (_event: unknown, address: string): Promise<{ ok: boolean; problem?: string }> => {
-			const trimmed = address.trim().replace(/\/$/, "");
+		async (
+			_event: unknown,
+			form: { address: string; team?: string },
+		): Promise<{ ok: boolean; problem?: string; needsTeam?: boolean }> => {
+			const trimmed = form.address.trim().replace(/\/$/, "");
 			const serverUrl = /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
 			if (!URL.canParse(serverUrl)) return { ok: false, problem: "That is not a server address." };
-			try {
-				await waitForRemoteHealth(serverUrl, 10_000);
-			} catch {
-				return { ok: false, problem: `${serverUrl} did not answer.` };
+			const where = await fetch(`${serverUrl}/api/join`).catch(() => null);
+			if (!where) return { ok: false, problem: `${serverUrl} did not answer.` };
+			if (where.status === 404)
+				return { ok: false, problem: "This server has no sign-in, so nobody can join it." };
+			if (!where.ok) return { ok: false, problem: "The server's sign-in service did not answer." };
+			const provider = (await where.json()) as Provider;
+			// Kept for the second try when a new server first needs its team named.
+			if (signedIn?.serverUrl !== serverUrl) {
+				const idToken = await signIn(provider, (url) => shell.openExternal(url)).catch(
+					(error: unknown) => (error instanceof Error ? error : new Error(String(error))),
+				);
+				if (idToken instanceof Error) return { ok: false, problem: idToken.message };
+				signedIn = { serverUrl, idToken };
 			}
+			const res = await fetch(`${serverUrl}/api/join`, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${signedIn.idToken}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ team: form.team }),
+			}).catch(() => null);
+			if (!res) return { ok: false, problem: `${serverUrl} did not answer.` };
+			if (res.status === 401) signedIn = null;
+			const body = (await res.json().catch(() => ({}))) as {
+				key?: string;
+				error?: string;
+				details?: { needsTeam?: boolean };
+			};
+			if (!body.key) {
+				return {
+					ok: false,
+					problem: body.error ?? "That did not work.",
+					...(body.details?.needsTeam ? { needsTeam: true } : {}),
+				};
+			}
+			if (!keepPersonKey(ctx.credentialsPath, body.key))
+				return { ok: false, problem: "The keychain is unavailable, so your key cannot be kept." };
 			saveClientConfig(ctx.configPath, { backendMode: "shared", serverUrl });
 			app.relaunch();
 			app.exit(0);
@@ -560,8 +600,6 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 		newWindow().loadURL(appUrl);
 	};
 
-	const credManager = createSafeCredentialsManager(ctx.credentialsPath);
-	credManager.registerHandlers();
 	registerCommonIpcHandlers(ctx);
 
 	const menuTemplate = buildAppMenuTemplate({
@@ -642,8 +680,8 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 			preload: preloadPath,
 			contextIsolation: true,
 			sandbox: true,
-			// The key the server's owner gave at joining, so the app can speak to it.
-			additionalArguments: [`--api-key=${readCredentialFromStore("shared_backend_key") ?? ""}`],
+			// The person's own key, handed back at joining: every request is them.
+			additionalArguments: [`--api-key=${readPersonKey(ctx.credentialsPath) ?? ""}`],
 		},
 		show: false,
 	});
@@ -674,21 +712,7 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 	mainWindow.loadURL(serverUrl);
 	bindWindowStatePersistence(mainWindow, ctx.configPath);
 
-	const credManager = createSafeCredentialsManager(ctx.credentialsPath);
-	credManager.registerHandlers();
 	registerCommonIpcHandlers(ctx);
-
-	function readCredentialFromStore(name: string): string | null {
-		try {
-			const raw = fs.readFileSync(ctx.credentialsPath, "utf-8");
-			const store = JSON.parse(raw) as Record<string, string>;
-			const encoded = store[name];
-			if (encoded === undefined) return null;
-			return decryptCredential(encoded);
-		} catch {
-			return null;
-		}
-	}
 
 	const menuTemplate = buildAppMenuTemplate({
 		isDev: IS_DEV,

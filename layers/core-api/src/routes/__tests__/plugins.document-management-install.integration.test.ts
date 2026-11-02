@@ -117,8 +117,13 @@ async function editPlugin(app: Hono, body: unknown): Promise<Response> {
 	});
 }
 
-async function installKmPlugin(db: HyperIdleDb, app: Hono): Promise<Response> {
+async function installKmPlugin(
+	db: HyperIdleDb,
+	app: Hono,
+	asPerson: () => Promise<void>,
+): Promise<Response> {
 	await seedFounder(db);
+	await asPerson();
 	const pluginDir = copyPluginToTemp();
 	return editPlugin(app, {
 		source: { kind: "folder", path: pluginDir, scope: { kind: "factory", teamId: null } },
@@ -129,8 +134,10 @@ async function installKmPluginForTeam(
 	db: HyperIdleDb,
 	app: Hono,
 	teamId: string,
+	asPerson: () => Promise<void>,
 ): Promise<Response> {
 	await seedFounder(db);
+	await asPerson();
 	const pluginDir = copyPluginToTemp();
 	return editPlugin(app, {
 		source: { kind: "folder", path: pluginDir, scope: { kind: "team", teamId } },
@@ -141,8 +148,9 @@ describe("document-management plugin install", () => {
 	test("materializes the librarian agent, its three subscriptions, and the retro prompt's guards — idempotent on reinstall", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		const res = await installKmPlugin(db, app);
+		const res = await installKmPlugin(db, app, () => asPerson("u-founder"));
 		expect(res.status).toBe(200);
 		const body = await res.json();
 		expect(body.data.id).toBe(PLUGIN_ID);
@@ -179,7 +187,7 @@ describe("document-management plugin install", () => {
 		expect(promptDoc?.body).toContain("if the task is not a root task (it has a parent), stop");
 
 		// Second install (reinstall) — onConflictDoNothing fires, same rows.
-		await installKmPlugin(db, app);
+		await installKmPlugin(db, app, () => asPerson("u-founder"));
 		const agentsAfter = await db.select().from(users).where(eq(users.id, agentId));
 		const subscriptionsAfter = await db
 			.select()
@@ -189,8 +197,9 @@ describe("document-management plugin install", () => {
 		expect(subscriptionsAfter).toHaveLength(3);
 	});
 
-	test("refuses a source folder with no plugin.json", async ({ db, app }) => {
+	test("refuses a source folder with no plugin.json", async ({ db, app, asPerson }) => {
 		await seedFounder(db);
+		await asPerson("u-founder");
 		const emptyDir = join(
 			tmpdir(),
 			`empty-plugin-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -212,6 +221,7 @@ describe("document-management plugin — team-scope isolation", () => {
 		app,
 		eventBus,
 		agentOrchestration,
+		asPerson,
 	}) => {
 		await db.insert(teams).values([
 			{ id: "team-alpha", name: "Alpha", createdAt: "2026-01-01T00:00:00.000Z" },
@@ -239,7 +249,9 @@ describe("document-management plugin — team-scope isolation", () => {
 		await db.insert(userTeams).values({ userId: "u-alpha-member", teamId: "team-alpha" });
 		await db.insert(userTeams).values({ userId: "u-beta-member", teamId: "team-beta" });
 
-		const resAlpha = await installKmPluginForTeam(db, app, "team-alpha");
+		const resAlpha = await installKmPluginForTeam(db, app, "team-alpha", () =>
+			asPerson("u-founder"),
+		);
 		expect(resAlpha.status).toBe(200);
 
 		const skillIdAlpha = skillItemId(PLUGIN_ID, SKILL_DIR, "team", "team-alpha");
@@ -254,7 +266,7 @@ describe("document-management plugin — team-scope isolation", () => {
 		);
 		expect(editRes.ok).toBe(true);
 
-		const resBeta = await installKmPluginForTeam(db, app, "team-beta");
+		const resBeta = await installKmPluginForTeam(db, app, "team-beta", () => asPerson("u-founder"));
 		expect(resBeta.status).toBe(200);
 
 		// Agent ids differ — different teams → different hash — and each is its

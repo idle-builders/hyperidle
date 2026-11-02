@@ -312,7 +312,7 @@ function Notifications({
 						<span className="nrow-age">{relative(change.at)}</span>
 					</span>
 					<span className={readAt === null ? "note-what note-what--new" : "note-what"}>
-						{noteWhat(change, names)}
+						{noteWhat(change, names, you)}
 					</span>
 				</button>
 			))}
@@ -351,7 +351,7 @@ export function Sidebar() {
 
 	const me = useAction("open_user", {});
 	const you = me.data?.user?.id ?? "";
-	const users = useAction("search_users", {});
+	const users = useAction("search_users", {}, ["users"]);
 	const threads = useAction("search_threads", {}, ["conversations"]);
 	const tasks = useAction("search_tasks", {}, ["tasks"]);
 	const docs = useAction(

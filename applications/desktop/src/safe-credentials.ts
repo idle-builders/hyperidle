@@ -1,16 +1,8 @@
 import * as fs from "node:fs";
-import { ipcMain, safeStorage } from "electron";
+import { safeStorage } from "electron";
 
-const CREDENTIAL_NAME = "shared_backend_key";
-
-export interface SetCredentialResult {
-	stored: boolean;
-	warning?: string;
-}
-
-export interface SafeCredentialsManager {
-	registerHandlers(): void;
-}
+/** The person's own key for the server they joined, kept encrypted by the OS keychain. */
+const PERSON_KEY = "person_key";
 
 export function encryptCredential(value: string): string | null {
 	if (!safeStorage.isEncryptionAvailable()) {
@@ -29,45 +21,25 @@ export function decryptCredential(encoded: string): string | null {
 	}
 }
 
-export function createSafeCredentialsManager(credentialsPath: string): SafeCredentialsManager {
-	function loadStore(): Record<string, string> {
-		try {
-			const raw = fs.readFileSync(credentialsPath, "utf-8");
-			return JSON.parse(raw) as Record<string, string>;
-		} catch {
-			return {};
-		}
+function loadStore(credentialsPath: string): Record<string, string> {
+	try {
+		return JSON.parse(fs.readFileSync(credentialsPath, "utf-8")) as Record<string, string>;
+	} catch {
+		return {};
 	}
+}
 
-	function saveStore(store: Record<string, string>): void {
-		fs.writeFileSync(credentialsPath, JSON.stringify(store), { mode: 0o600 });
-	}
+/** False when the keychain cannot encrypt it: the key is then not kept at all. */
+export function keepPersonKey(credentialsPath: string, key: string): boolean {
+	const encrypted = encryptCredential(key);
+	if (encrypted === null) return false;
+	const store = loadStore(credentialsPath);
+	store[PERSON_KEY] = encrypted;
+	fs.writeFileSync(credentialsPath, JSON.stringify(store), { mode: 0o600 });
+	return true;
+}
 
-	function registerHandlers(): void {
-		ipcMain.handle(
-			"credentials:set",
-			(_event: unknown, name: string, value: string): SetCredentialResult => {
-				if (name !== CREDENTIAL_NAME) {
-					return {
-						stored: false,
-						warning: `Credential '${name}' unavailable — not in the recognized catalog`,
-					};
-				}
-
-				const encrypted = encryptCredential(value);
-				if (encrypted === null) {
-					return {
-						stored: false,
-						warning: "Keychain unavailable — value not stored",
-					};
-				}
-				const store = loadStore();
-				store[name] = encrypted;
-				saveStore(store);
-				return { stored: true };
-			},
-		);
-	}
-
-	return { registerHandlers };
+export function readPersonKey(credentialsPath: string): string | null {
+	const encoded = loadStore(credentialsPath)[PERSON_KEY];
+	return encoded === undefined ? null : decryptCredential(encoded);
 }

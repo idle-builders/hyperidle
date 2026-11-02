@@ -1,5 +1,6 @@
 import type { HarnessDescriptor, SubscriptionEventName } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
+import { programsAt } from "./api";
 import { cronOf, cronWords, EVENT_CHOICES, type Often, type Pair } from "./people-page";
 import { Seg } from "./Seg";
 
@@ -636,14 +637,14 @@ export interface UserSave {
 	worksFor: string;
 }
 
-/** The agent programs on this computer, as choices: the ones signed in can be picked. */
+/** The agent programs where the server runs, as choices: the ones signed in can be picked. */
 function programChoices(programs: readonly HarnessDescriptor[]) {
 	return programs.map((p) => ({
 		value: p.type,
 		what: p.name,
 		why:
 			p.discovery.state === "ready"
-				? "signed in on this computer"
+				? `signed in ${programsAt()}`
 				: p.discovery.state === "missing"
 					? "not installed"
 					: "not signed in",
@@ -775,7 +776,7 @@ export function UserDialog({
 					</Field>
 					<Field label="Runs on">
 						{programs.length === 0 ? (
-							<span className="field-fixed">No agent program found on this computer.</span>
+							<span className="field-fixed">No agent program found {programsAt()}.</span>
 						) : (
 							<Pick
 								name="program"

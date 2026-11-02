@@ -67,10 +67,14 @@ async function hasDispatchAttempt(db: HyperIdleDb, taskId: string): Promise<bool
 	return rows.length > 0;
 }
 
-async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
+async function seedTeam(
+	db: HyperIdleDb,
+	teamId: string,
+	asPerson?: (id: string) => Promise<void>,
+): Promise<void> {
 	await db.insert(teams).values({ id: teamId, name: `Team ${teamId}`, createdAt: NOW });
-	// `changes.actor` FKs to `users` — API-key auth with no seeded human row
-	// falls back to the literal "u-founder", and the dependency watcher's own
+	// `changes.actor` FKs to `users` — HTTP requests through the test app resolve
+	// "u-founder" as the actor (via asPerson), and the dependency watcher's own
 	// edit_task calls write as "system:propagation". Both need real rows.
 	await db
 		.insert(users)
@@ -92,6 +96,7 @@ async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 			},
 		])
 		.onConflictDoNothing();
+	await asPerson?.("u-founder");
 }
 
 async function seedRunnableAgent(db: HyperIdleDb, agentId: string, teamId: string): Promise<void> {
@@ -112,8 +117,9 @@ describe("last dependency finishes, agent owns it -> in_progress with no human a
 		app,
 		eventBus,
 		agentOrchestration,
+		asPerson,
 	}) => {
-		await seedTeam(db, "dep-freed-owned");
+		await seedTeam(db, "dep-freed-owned", asPerson);
 		await seedRunnableAgent(db, "dep-freed-agent", "dep-freed-owned");
 
 		// The dependency: created via the same real door, no dependencies.
@@ -172,8 +178,8 @@ describe("last dependency finishes, agent owns it -> in_progress with no human a
 });
 
 describe("last dependency finishes, nobody owns it -> waits at accepted", () => {
-	test("hold -> accepted, and stays there with no dispatch", async ({ db, app }) => {
-		await seedTeam(db, "dep-freed-unowned");
+	test("hold -> accepted, and stays there with no dispatch", async ({ db, app, asPerson }) => {
+		await seedTeam(db, "dep-freed-unowned", asPerson);
 		await seedRunnableAgent(db, "dep-freed-sentinel-agent", "dep-freed-unowned");
 
 		const depRes = await editTaskRequest(app, { teamId: "dep-freed-unowned", title: "Dependency" });
