@@ -3,7 +3,7 @@
 export const HOST_KINDS = ["document", "agent", "user", "team", "factory"] as const;
 export type HostKind = (typeof HOST_KINDS)[number];
 
-export const MESSAGE_TYPES = ["plain", "review", "questionnaire", "verdict", "answer"] as const;
+export const MESSAGE_TYPES = ["plain", "review", "questionnaire", "verdict", "answer", "huddle"] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
 
 /** A review is approved or rejected; asking for a change is a comment, not a verdict. */
@@ -58,6 +58,17 @@ export interface RedactedPayload {
  * VerdictPayload | AnswerPayload). Use after narrowing on `message.type` to access the
  * type-specific payload without unsafe `as` casts.
  */
+/** Live-call payload: who started it, who is in it, when it ended. */
+export interface HuddlePayload {
+	readonly startedAt: string;
+	readonly endedAt: string | null;
+	readonly people: ReadonlyArray<{
+		readonly id: string;
+		readonly joinedAt: string;
+		readonly leftAt: string | null;
+	}>;
+}
+
 export function isRedactedPayload(payload: unknown): payload is RedactedPayload {
 	return (
 		typeof payload === "object" &&

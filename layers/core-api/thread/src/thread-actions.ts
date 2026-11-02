@@ -25,6 +25,7 @@ import {
 	type DocumentRow,
 	documentAnchorProblems,
 	type HostKind,
+	type HuddlePayload,
 	type Identity,
 	IdentitySchema,
 	type MarkReviewOpenedInput,
@@ -41,6 +42,7 @@ import {
 	type ReviewVerdictRecorderFn,
 	resolvesMessageInvariants,
 	reviewPayloadSchema,
+	huddlePayloadSchema,
 	type SearchDocumentsInput,
 	type SearchThreadsInput,
 	type SendMessageInput,
@@ -54,6 +56,7 @@ import {
 	type ThreadView,
 	threadParticipantsSchema,
 } from "@hyperidle/domain-model";
+import { applyHuddleJoin, applyHuddleLeave } from "./huddle-operations.js";
 import { type ChangesRow, objectEvent } from "@hyperidle/event-bus";
 import type { Action, ActionContext } from "./action-types.js";
 import { resolveMentionsForMessage } from "./mention-resolver.js";
@@ -829,6 +832,14 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				body.payload = { ...body.payload, taskId: reviewTaskId };
 			}
 		}
+		if (body.type === "huddle") {
+			const huddlePayload: HuddlePayload = {
+				startedAt: ctx.now,
+				endedAt: null,
+				people: [{ id: ctx.actor, joinedAt: ctx.now, leftAt: null }],
+			};
+			body.payload = huddlePayload as unknown as Record<string, unknown>;
+		}
 
 		let threadRow: Awaited<ReturnType<typeof store.findThread>> | undefined;
 		let currentMembers: string[] = creatingThread?.members ?? [];
@@ -874,7 +885,14 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					};
 				}
 				const sameType = existing.type === candidatePayload.type;
-				const samePayload = existing.payload === JSON.stringify(candidatePayload.payload);
+				// Strip server-stamped `huddle` fold mark before comparing: the client never sends it.
+				let storedPayloadStr = existing.payload;
+				if (candidatePayload.type === "plain") {
+					const stored = JSON.parse(existing.payload) as Record<string, unknown>;
+					const rest = Object.fromEntries(Object.entries(stored).filter(([k]) => k !== "huddle"));
+					storedPayloadStr = JSON.stringify(rest);
+				}
+				const samePayload = storedPayloadStr === JSON.stringify(candidatePayload.payload);
 				if (sameType && samePayload) {
 					const idempotentThreadRow = await store.findThread(ctx.db, { id: threadId });
 					if (!idempotentThreadRow)
@@ -962,6 +980,41 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		if (reviewProblems.length > 0) return { ok: false, problems: reviewProblems };
 		const textProblems = await documentTextProblems(ctx, input, threadRow);
 		if (textProblems.length > 0) return { ok: false, problems: textProblems };
+
+		if (body.type === "huddle" && threadRow) {
+			const actor = await deps.users.getUserById(ctx.db, ctx.actor);
+			if (actor?.kind !== "human") {
+				return {
+					ok: false,
+					problems: [{ code: "huddle_not_human", message: "Only a human may start a huddle." }],
+				};
+			}
+			const identityRows = await deps.users.listByIds(ctx.db, currentMembers);
+			const otherHumans = identityRows.filter((u) => u.id !== ctx.actor && u.kind === "human");
+			if (otherHumans.length === 0) {
+				return {
+					ok: false,
+					problems: [
+						{
+							code: "huddle_no_other_human",
+							message: "A huddle requires at least one other human member.",
+						},
+					],
+				};
+			}
+			const liveHuddle = await store.findLiveHuddleForThread(ctx.db, threadRow.id);
+			if (liveHuddle !== undefined) {
+				return {
+					ok: false,
+					problems: [
+						{
+							code: "huddle_already_live",
+							message: "A huddle is already active in this thread. Join it instead.",
+						},
+					],
+				};
+			}
+		}
 
 		const resolvesMessageId = (input.verdict ?? input.answer)?.resolvesMessageId;
 		if (resolvesMessageId !== undefined) {
@@ -1123,6 +1176,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					}
 					if (refs.length > 0)
 						body.payload = { ...(body.payload as Record<string, unknown>), refs };
+
+					// Stamp the live huddle's id onto plain messages so they can be folded in the timeline.
+					const liveHuddle = await store.findLiveHuddleForThread(tx as HyperIdleDb, effectiveThreadId);
+					if (liveHuddle !== undefined) {
+						body.payload = { ...(body.payload as Record<string, unknown>), huddle: liveHuddle.id };
+					}
 				}
 
 				if (membersChanged) {
@@ -1257,7 +1316,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		// and on a verdict the review's sender, whom the verdict brings back.
 		// Resolved before the events go out so every event names them.
 		let woken: readonly string[] = [];
-		if (finalMembers.length > 0) {
+		// Huddle messages never wake agents — they are not work requests.
+		if (finalMembers.length > 0 && body.type !== "huddle") {
 			const identityRows = await deps.users.listByIds(ctx.db, finalMembers);
 			const isAgent = (id: string) => identityRows.some((u) => u.id === id && u.kind === "ai");
 			woken = agentsToWake({
@@ -1503,6 +1563,31 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		if (input.resolved !== undefined) {
 			patch.resolvedAt = input.resolved ? ctx.now : null;
 			after.resolvedAt = patch.resolvedAt;
+		}
+		if (input.huddle !== undefined) {
+			if (row.type !== "huddle")
+				return {
+					ok: false,
+					problems: [{ code: "not_a_huddle", message: "That message is not a huddle.", path: "message" }],
+				};
+			const parsed = huddlePayloadSchema.safeParse(JSON.parse(row.payload));
+			if (!parsed.success)
+				return {
+					ok: false,
+					problems: [{ code: "huddle_corrupt", message: "Huddle payload unreadable.", path: "message" }],
+				};
+			if (parsed.data.endedAt !== null)
+				return {
+					ok: false,
+					problems: [{ code: "huddle_ended", message: "This huddle has already ended.", path: "message" }],
+				};
+			const updated =
+				input.huddle === "join"
+					? applyHuddleJoin(parsed.data, ctx.actor, ctx.now)
+					: applyHuddleLeave(parsed.data, ctx.actor, ctx.now);
+			patch.payload = JSON.stringify(updated);
+			after.huddle = input.huddle;
+			after.huddleEndedAt = updated.endedAt;
 		}
 		return { ok: true, patch, after };
 	}
@@ -1792,5 +1877,7 @@ function messageBodyOf(input: SendMessageInput): {
 		};
 	if (input.verdict !== undefined)
 		return { type: "verdict", payload: input.verdict as unknown as Record<string, unknown> };
+	if (input.huddle !== undefined)
+		return { type: "huddle", payload: {} };
 	return { type: "answer", payload: input.answer as unknown as Record<string, unknown> };
 }

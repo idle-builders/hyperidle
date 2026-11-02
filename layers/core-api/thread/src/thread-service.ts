@@ -219,6 +219,58 @@ export function listMessages(exec: HyperIdleDb, f: MessageFilter): Promise<Messa
 	return q;
 }
 
+/** The live huddle message in a thread, if any (type "huddle", payload.endedAt null). */
+export async function findLiveHuddleForThread(
+	exec: HyperIdleDb,
+	threadId: string,
+): Promise<Message | undefined> {
+	const rows = await exec
+		.select()
+		.from(messages)
+		.where(and(eq(messages.threadId, threadId), eq(messages.type, "huddle")));
+	return rows.find((r) => {
+		try {
+			const p = JSON.parse(r.payload) as { endedAt?: unknown };
+			return p.endedAt === null || p.endedAt === undefined;
+		} catch {
+			return false;
+		}
+	});
+}
+
+/** Find a huddle message by id for identity-based queries (e.g. relay check). */
+export async function findHuddleMessage(
+	exec: HyperIdleDb,
+	id: string,
+): Promise<Message | undefined> {
+	const [row] = await exec
+		.select()
+		.from(messages)
+		.where(and(eq(messages.id, id), eq(messages.type, "huddle")))
+		.limit(1);
+	return row;
+}
+
+/** All live huddles a person is currently in (for dropped-connection cleanup). */
+export async function findLiveHuddlesForPerson(
+	exec: HyperIdleDb,
+	personId: string,
+): Promise<Message[]> {
+	const rows = await exec
+		.select()
+		.from(messages)
+		.where(eq(messages.type, "huddle"));
+	return rows.filter((r) => {
+		try {
+			const p = JSON.parse(r.payload) as { endedAt?: unknown; people?: Array<{ id: string; leftAt: string | null }> };
+			if (p.endedAt !== null && p.endedAt !== undefined) return false;
+			return p.people?.some((person) => person.id === personId && person.leftAt === null) ?? false;
+		} catch {
+			return false;
+		}
+	});
+}
+
 /**
  * The latest non-deleted message per thread, for `search_threads`'s
  * `lastMessagePreview` — one query for every thread id in the result page,

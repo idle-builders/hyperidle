@@ -1,6 +1,7 @@
 import {
 	type ActivityEntry,
 	type DocumentRow,
+	type HuddlePayload,
 	isRedactedPayload,
 	type Message,
 	type PlainReadPayload,
@@ -17,10 +18,11 @@ import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
 import { Failed } from "./Failed";
 import { listen } from "./live";
+import { startHuddleCall, stopHuddleCall } from "./huddle-call";
 import { Avatar, Event, Msg } from "./Msg";
 import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
-import { clock, duration, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
+import { clock, duration, huddleLabel, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
 import { useAction } from "./useAction";
 
 /**
@@ -326,6 +328,7 @@ export function Body({
 }) {
 	if (message.redactedAt || isRedactedPayload(message.payload))
 		return <p className="msg-para msg-gone">This message was removed.</p>;
+	if (message.type === "huddle") return null;
 	const by = resolving.get(message.id);
 	if (message.type === "questionnaire") {
 		const answer = by?.type === "answer" ? (by.payload as { option?: string }).option : undefined;
@@ -421,6 +424,49 @@ export function ThreadPage({ id }: { id: string }) {
 		.reverse();
 	const resolving = resolvingOf(messages);
 	const entries = timeline(messages, tasks, sessions, firstName, madeHere.data ?? NO_DOCS);
+	const [inCall, setInCall] = useState(false);
+	// The live huddle in this thread, if any.
+	const liveHuddleEntry = entries.find(
+		(e): e is Extract<typeof entries[number], { kind: "huddle" }> =>
+			e.kind === "huddle" && (e.huddleMessage.payload as HuddlePayload).endedAt === null,
+	);
+	const liveHuddle = liveHuddleEntry?.huddleMessage;
+	const liveHuddlePayload = liveHuddle
+		? (liveHuddle.payload as HuddlePayload)
+		: null;
+	const inHuddle =
+		liveHuddlePayload?.people.some((p) => p.id === you && p.leftAt === null) ?? false;
+	const otherHumans = view.data?.members.filter(
+		(m) => !m.isAgent && m.id !== you,
+	) ?? [];
+	const canStartHuddle = !!window.__HYPERIDLE__ && otherHumans.length > 0 && !liveHuddle;
+
+	const startHuddle = async (): Promise<void> => {
+		const res = await call("send_message", { threadId: id, huddle: {} });
+		if (!res.ok) { setProblem(res.problems[0]?.message ?? "Could not start huddle."); return; }
+		view.reload();
+		const huddleId = (res.data.message as Message).id;
+		setInCall(true);
+		startHuddleCall(huddleId, you, id, view.reload);
+	};
+
+	const joinHuddle = async (): Promise<void> => {
+		if (!liveHuddle) return;
+		const res = await call("adjust_thread", { id, message: { id: liveHuddle.id, huddle: "join" } });
+		if (!res.ok) { setProblem(res.problems[0]?.message ?? "Could not join huddle."); return; }
+		view.reload();
+		setInCall(true);
+		startHuddleCall(liveHuddle.id, you, id, view.reload);
+	};
+
+	const leaveHuddle = async (): Promise<void> => {
+		if (!liveHuddle) return;
+		await call("adjust_thread", { id, message: { id: liveHuddle.id, huddle: "leave" } });
+		view.reload();
+		setInCall(false);
+		stopHuddleCall();
+	};
+
 	const running = [
 		...[...sessions, ...partSessions].filter((s) => s.endedAt === null && s.state === "active"),
 		...answering,
@@ -488,12 +534,42 @@ export function ThreadPage({ id }: { id: string }) {
 			<header className="thread-head">
 				<span className="chip chip--quiet">Thread</span>
 				<h2 title={view.data?.thread.computedTitle}>{view.data?.thread.computedTitle ?? ""}</h2>
+				{canStartHuddle && (
+					<button type="button" className="btn btn--huddle" onClick={() => void startHuddle()}>
+						Huddle
+					</button>
+				)}
 			</header>
+
+			{inCall && inHuddle && (
+				<div className="huddle-strip">
+					<span className="huddle-strip-label">In huddle</span>
+					<button type="button" className="btn btn--leave" onClick={() => void leaveHuddle()}>
+						Leave
+					</button>
+				</div>
+			)}
+			{!inCall && liveHuddle && inHuddle === false && (
+				<div className="huddle-banner">
+					<span>{firstName(liveHuddle.senderId)} started a huddle</span>
+					<button type="button" className="btn" onClick={() => void joinHuddle()}>
+						Join
+					</button>
+				</div>
+			)}
 
 			<div className="thread-scroll" ref={scroll} role="log" aria-label="Messages">
 				{entries.map((e) => {
 					if (e.kind === "event") return <Event key={e.key}>{e.text}</Event>;
 					if (e.kind === "made") return <MadeCard key={e.key} doc={e.doc} />;
+					if (e.kind === "huddle") {
+						const hp = e.huddleMessage.payload as HuddlePayload;
+						return (
+							<Event key={e.key}>
+								{huddleLabel(hp, firstName)}
+							</Event>
+						);
+					}
 					if (e.kind === "task")
 						return (
 							<WorkItem

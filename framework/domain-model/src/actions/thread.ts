@@ -4,6 +4,7 @@ import { anchorSchema, flagSchema, reviewInvariants, reviewPartSchema } from "..
 import {
 	HOST_KINDS,
 	type HostKind,
+	type HuddlePayload,
 	MESSAGE_TYPES,
 	type RedactedPayload,
 	VERDICT_DECISIONS,
@@ -86,10 +87,12 @@ export const plainPayloadSchema = z.object({
 });
 export type PlainPayload = z.infer<typeof plainPayloadSchema>;
 
-/** Read-side only — carries `toolCalls`/`notice` for historical rows. */
+/** Read-side only — carries `toolCalls`/`notice` for historical rows and `huddle` for fold marks. */
 export const plainReadPayloadSchema = plainPayloadSchema.extend({
 	toolCalls: z.array(toolCallSummarySchema).optional(),
 	notice: assistantNoticeSchema.optional(),
+	/** Set by the server when this plain message was posted during a live huddle. */
+	huddle: z.string().optional(),
 });
 export type PlainReadPayload = z.infer<typeof plainReadPayloadSchema>;
 
@@ -147,6 +150,21 @@ export const answerPayloadSchema = z.object({
 });
 export type AnswerPayload = z.infer<typeof answerPayloadSchema>;
 
+// ── huddle ───────────────────────────────────────────────────────────────
+
+const huddlePersonSchema = z.object({
+	id: z.string().min(1),
+	joinedAt: z.string().min(1),
+	leftAt: z.string().nullable(),
+});
+
+export const huddlePayloadSchema = z.object({
+	startedAt: z.string().min(1),
+	endedAt: z.string().nullable(),
+	people: z.array(huddlePersonSchema),
+});
+export type { HuddlePayload };
+
 export function parseMessagePayload(
 	type: (typeof MESSAGE_TYPES)[number],
 	payload: unknown,
@@ -156,6 +174,7 @@ export function parseMessagePayload(
 	| QuestionnairePayload
 	| VerdictPayload
 	| AnswerPayload
+	| HuddlePayload
 	| RedactedPayload {
 	switch (type) {
 		case "plain":
@@ -168,6 +187,8 @@ export function parseMessagePayload(
 			return z.union([verdictPayloadSchema, redactedPayloadSchema]).parse(payload);
 		case "answer":
 			return z.union([answerPayloadSchema, redactedPayloadSchema]).parse(payload);
+		case "huddle":
+			return z.union([huddlePayloadSchema, redactedPayloadSchema]).parse(payload);
 	}
 }
 
@@ -279,7 +300,7 @@ export const SendMessageInputSchema = z
 			.max(128)
 			.regex(/^[A-Za-z0-9_\-:.]+$/)
 			.optional(),
-		// exactly one of the five bodies below — a pure invariant, not a schema rule
+		// exactly one of the six bodies below — a pure invariant, not a schema rule
 		text: z.string().max(APP_PAGE_MAX).optional(),
 		/** `html` sends the whole message as an app: the text is one whole page. Plain only. */
 		format: z.enum(FORMATS).optional(),
@@ -293,6 +314,8 @@ export const SendMessageInputSchema = z
 		questionnaire: questionnairePayloadSchema.optional(),
 		verdict: verdictPayloadSchema.optional(),
 		answer: answerPayloadSchema.optional(),
+		/** Start a live voice call in the thread. Server refuses if caller is an agent, no other human is a member, or a call is already live. */
+		huddle: z.object({}).strict().optional(),
 	})
 	.strict();
 export type SendMessageInput = z.infer<typeof SendMessageInputSchema>;
@@ -328,12 +351,13 @@ export const AdjustThreadInputSchema = z
 		resolved: z.boolean().optional(), // true ⇒ resolvedAt = now; false ⇒ reopen
 		pinned: z.boolean().optional(),
 		deleted: z.boolean().optional(), // true ⇒ deletedAt = now; false ⇒ restore
-		/** One message in it: resolve or reopen the comment it starts, apply or dismiss its change. */
+		/** One message in it: resolve or reopen the comment it starts, apply or dismiss its change, or join/leave a huddle. */
 		message: z
 			.object({
 				id: z.string().min(1),
 				resolved: z.boolean().optional(),
 				change: z.enum(["applied", "dismissed"]).optional(),
+				huddle: z.enum(["join", "leave"]).optional(),
 			})
 			.strict()
 			.optional(),
@@ -405,17 +429,18 @@ export function sendMessageInvariants(
 		input.questionnaire !== undefined,
 		input.verdict !== undefined,
 		input.answer !== undefined,
+		input.huddle !== undefined,
 	].filter(Boolean).length;
 	if (bodies === 0) {
 		problems.push({
 			code: "no_body",
-			message: "Send text, a review, a question, a verdict or an answer.",
+			message: "Send text, a review, a question, a verdict, an answer, or start a huddle.",
 			path: "text",
 		});
 	} else if (bodies > 1) {
 		problems.push({
 			code: "two_bodies",
-			message: "Send exactly one of text, a review, a question, a verdict or an answer.",
+			message: "Send exactly one of text, a review, a question, a verdict, an answer, or a huddle.",
 			path: "text",
 		});
 	}
@@ -602,11 +627,12 @@ export function adjustThreadInvariants(input: AdjustThreadInput): Problem[] {
 	if (
 		input.message !== undefined &&
 		input.message.resolved === undefined &&
-		input.message.change === undefined
+		input.message.change === undefined &&
+		input.message.huddle === undefined
 	) {
 		problems.push({
 			code: "adjust_message_empty",
-			message: "Resolve or reopen the comment, or apply or dismiss its change.",
+			message: "Resolve or reopen the comment, apply or dismiss its change, or join/leave a huddle.",
 			path: "message",
 		});
 	}

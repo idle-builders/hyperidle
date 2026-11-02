@@ -210,6 +210,14 @@ async function concerned(
 			const members = found.ok ? (found.data[0]?.members ?? []) : [];
 			return members.map((id) => ["review.raised_for_me", id] as const);
 		}
+		if (type === "huddle") {
+			const found = await deps.searchThreads(ctx, { ids: [change.objectId] });
+			const members = found.ok ? (found.data[0]?.members ?? []) : [];
+			// Ring every other human member — same reason as a mention so it surfaces in the inbox.
+			return members
+				.filter((id) => id !== change.actor)
+				.map((id) => ["mention.of_me", id] as const);
+		}
 		if (type === "plain" && Array.isArray(payload?.refs)) {
 			return (payload.refs as Array<{ kind?: unknown; identityId?: unknown }>).flatMap((ref) =>
 				ref.kind === "mention" && typeof ref.identityId === "string"

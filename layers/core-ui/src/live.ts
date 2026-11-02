@@ -7,8 +7,10 @@ import { post } from "./api";
  * since what changed meanwhile was missed.
  */
 type Nudge = () => void;
+type SignalHandler = (from: string, huddleId: string, data: unknown) => void;
 
 const listeners = new Map<string, Set<Nudge>>();
+const signalHandlers = new Set<SignalHandler>();
 const RETRY_MS = [1000, 2000, 4000, 8000, 15000];
 let socket: WebSocket | null = null;
 let connecting = false;
@@ -50,7 +52,17 @@ async function connect(): Promise<void> {
 	};
 	ws.onmessage = (event) => {
 		if (typeof event.data !== "string") return;
-		const message = JSON.parse(event.data) as { type?: string; topic?: string };
+		const message = JSON.parse(event.data) as {
+			type?: string;
+			topic?: string;
+			from?: string;
+			huddleId?: string;
+			data?: unknown;
+		};
+		if (message.type === "signal" && message.from && message.huddleId) {
+			for (const handler of signalHandlers) handler(message.from, message.huddleId, message.data ?? null);
+			return;
+		}
 		if (message.type !== "update" || !message.topic) return;
 		for (const nudge of listeners.get(message.topic) ?? []) nudge();
 	};
@@ -58,6 +70,19 @@ async function connect(): Promise<void> {
 		socket = null;
 		retry();
 	};
+}
+
+/** Register a handler for WebRTC signaling messages. Returns the way to remove it. */
+export function onSignal(handler: SignalHandler): () => void {
+	signalHandlers.add(handler);
+	return () => signalHandlers.delete(handler);
+}
+
+/** Send a WebRTC signal to another identity in the same huddle. */
+export function sendSignal(huddleId: string, to: string, data: unknown): void {
+	if (socket?.readyState === WebSocket.OPEN) {
+		socket.send(JSON.stringify({ type: "signal", huddleId, to, data }));
+	}
 }
 
 /** Be nudged whenever one of `topics` changes. Returns the way to stop. */

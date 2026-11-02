@@ -36,6 +36,12 @@ import {
 import { registerWsRoute } from "./routes/ws.js";
 import { WsConnectionHub } from "./ws-connection-hub.js";
 import { createDbSubscribeAuthorizer } from "./ws-subscribe-authorizer.js";
+import {
+	findHuddleMessage,
+	findLiveHuddlesForPerson,
+	isRelayAllowed,
+} from "@hyperidle/thread";
+import { huddlePayloadSchema } from "@hyperidle/domain-model";
 
 export interface CoreApiBootOptions extends AppOptions {
 	/** Explicit auth key for a composition root that must not depend on ambient env. */
@@ -141,11 +147,55 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 
 	let wsRouteDispose: (() => void) | null = null;
 	const upgradeWebSocket = options?.upgradeWebSocket;
+
+	// Deferred: set after createCoreApiApp returns; captured by closure.
+	// @lore: callActionAs is built after app creation; relay/disconnect closures read it late — the ref is always populated before WS handlers fire
+	let callActionAsDeferred:
+		| ((
+				actionName: string,
+				body: Record<string, unknown>,
+				actorId: string,
+		  ) => Promise<{ ok: boolean; data?: unknown; problems?: ReadonlyArray<{ code: string }> }>)
+		| undefined = undefined;
+
+	const relaySignal = db
+		? async (from: string, huddleId: string, to: string, data: unknown): Promise<boolean> => {
+				const row = await findHuddleMessage(db as HyperIdleDb, huddleId);
+				if (!row) return false;
+				const parsed = huddlePayloadSchema.safeParse(JSON.parse(row.payload));
+				if (!parsed.success) return false;
+				if (!isRelayAllowed(parsed.data, from, to)) return false;
+				wsHub.sendToIdentity(to, JSON.stringify({ type: "signal", from, huddleId, data }));
+				return true;
+		  }
+		: null;
+
+	const onIdentityDisconnect = db
+		? (identity: string): void => {
+				// Leave all live huddles for this identity. Best-effort; no await.
+				void findLiveHuddlesForPerson(db as HyperIdleDb, identity).then((huddles) => {
+					for (const huddle of huddles) {
+						void callActionAsDeferred?.("adjust_thread", {
+							id: huddle.threadId,
+							message: { id: huddle.id, huddle: "leave" },
+						}, identity);
+					}
+				});
+		  }
+		: null;
+
 	const registerWebSocket =
 		options?.registerWebSocket ??
 		(upgradeWebSocket
 			? (apiRouter: Hono, tokenStore: UpgradeTokenStore) => {
-					wsRouteDispose = registerWsRoute(apiRouter, tokenStore, upgradeWebSocket, wsHub);
+					wsRouteDispose = registerWsRoute(
+						apiRouter,
+						tokenStore,
+						upgradeWebSocket,
+						wsHub,
+						relaySignal,
+						onIdentityDisconnect,
+					);
 				}
 			: undefined);
 
@@ -231,6 +281,9 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 						: { ok: false, problems: result.problems };
 				}
 			: undefined;
+
+	// Wire deferred ref so relay/disconnect closures can call actions.
+	callActionAsDeferred = callActionAs;
 
 	const mintWsTokenFor: CoreApiBoot["mintWsTokenFor"] = tokenStore
 		? (actorId) => tokenStore.issue(actorId).token

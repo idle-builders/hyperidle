@@ -76,4 +76,27 @@ export class WsConnectionHub {
 	get clientCount(): number {
 		return this.clients.size;
 	}
+
+	/** How many active WS connections the given identity holds. Used for dropped-connection cleanup. */
+	getIdentityConnectionCount(identity: string): number {
+		let count = 0;
+		for (const [, id] of this.clientIdentities) {
+			if (id === identity) count++;
+		}
+		return count;
+	}
+
+	/** Send data to all connections of a specific identity (for WebRTC signal relay). */
+	sendToIdentity(identity: string, data: string): void {
+		for (const [client, id] of this.clientIdentities) {
+			if (id === identity) {
+				try {
+					client.send(data);
+				} catch {
+					this.clients.delete(client);
+					this.clientIdentities.delete(client);
+				}
+			}
+		}
+	}
 }

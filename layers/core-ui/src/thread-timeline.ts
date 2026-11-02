@@ -1,6 +1,7 @@
 import {
 	type AnswerPayload,
 	type DocumentRow,
+	type HuddlePayload,
 	isRedactedPayload,
 	type Message,
 	type ReviewPayload,
@@ -26,7 +27,14 @@ export type Entry =
 	  }
 	| { readonly kind: "event"; readonly key: string; readonly text: string }
 	| { readonly kind: "task"; readonly key: string; readonly task: Task }
-	| { readonly kind: "made"; readonly key: string; readonly doc: DocumentRow };
+	| { readonly kind: "made"; readonly key: string; readonly doc: DocumentRow }
+	| {
+			readonly kind: "huddle";
+			readonly key: string;
+			readonly huddleMessage: Message;
+			/** Plain messages sent during the huddle (the ones with payload.huddle set). */
+			readonly messages: readonly Message[];
+	  };
 
 /** One sender's messages this close together share one name and time. */
 const RUN_MS = 5 * 60_000;
@@ -74,6 +82,8 @@ export function timeline(
 	].sort((a, b) => a.at.localeCompare(b.at) || a.rank - b.rank);
 
 	const out: Entry[] = [];
+	/** huddle message id → index of the huddle Entry in `out`, for appending fold messages. */
+	const huddleIndex = new Map<string, number>();
 	/** The stretch of finished sessions not yet written out. */
 	const worked: { ms: number; n: number; key: string }[] = [];
 	const flushWorked = () => {
@@ -99,6 +109,25 @@ export function timeline(
 			continue;
 		}
 		const m = s.message;
+		if (m.type === "huddle") {
+			const idx = out.length;
+			out.push({ kind: "huddle", key: m.id, huddleMessage: m, messages: [] });
+			huddleIndex.set(m.id, idx);
+			continue;
+		}
+		if (m.type === "plain") {
+			const huddleId = (m.payload as { huddle?: unknown }).huddle;
+			if (typeof huddleId === "string") {
+				const idx = huddleIndex.get(huddleId);
+				if (idx !== undefined) {
+					const entry = out[idx];
+					if (entry?.kind === "huddle") {
+						out[idx] = { ...entry, messages: [...entry.messages, m] };
+					}
+					continue;
+				}
+			}
+		}
 		if ((m.type === "verdict" || m.type === "answer") && !isRedactedPayload(m.payload)) {
 			out.push({ kind: "event", key: m.id, text: resolvedWords(m, who, reviewTitle) });
 			continue;
@@ -178,6 +207,15 @@ export function titleFrom(text: string, names: readonly string[]): string {
 }
 
 const TITLE_MAX = 64;
+
+/** "Huddle · Alice, Bob · 12m" or "Huddle · Alice, Bob · live" for ongoing ones. */
+export function huddleLabel(payload: HuddlePayload, who: (id: string) => string): string {
+	const names = payload.people.map((p) => who(p.id)).join(", ");
+	const durationStr = payload.endedAt
+		? duration(Date.parse(payload.endedAt) - Date.parse(payload.startedAt))
+		: "live";
+	return `Huddle · ${names} · ${durationStr}`;
+}
 
 /** A step an agent took, in words a person reads: what it did, and to which file. */
 export function stepFrom(tool: string, args: string): string {

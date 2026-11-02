@@ -4,6 +4,7 @@
  */
 
 export { createThreadActions, type ThreadActionsDeps } from "./thread-actions.js";
+export { isRelayAllowed } from "./huddle-operations.js";
 export type {
 	AppMessageRow,
 	MessageFilter,
@@ -11,6 +12,8 @@ export type {
 	ThreadSearchRow,
 } from "./thread-service.js";
 export {
+	findHuddleMessage,
+	findLiveHuddlesForPerson,
 	findThread,
 	listMessages,
 	listReviewsOpenedBy,

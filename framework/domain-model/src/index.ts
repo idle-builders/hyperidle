@@ -117,6 +117,7 @@ export { computeTaskNeed } from "./actions/task-need.js";
 export type {
 	AdjustThreadInput,
 	AnswerPayload,
+	HuddlePayload,
 	Identity,
 	MarkReviewOpenedInput,
 	Message,
@@ -151,6 +152,7 @@ export {
 	OpenThreadInputSchema,
 	openThread,
 	parseMessagePayload,
+	huddlePayloadSchema,
 	plainPayloadSchema,
 	proposedChangeSchema,
 	questionnairePayloadSchema,

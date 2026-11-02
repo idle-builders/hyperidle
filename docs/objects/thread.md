@@ -33,13 +33,14 @@ Host is immutable after creation.
 
 ## Message types (closed)
 
-`MESSAGE_TYPES` (`thread.ts`): `plain | review | questionnaire | verdict | answer`.
+`MESSAGE_TYPES` (`thread.ts`): `plain | review | questionnaire | verdict | answer | huddle`.
 
 - **plain** — text, optional `format` (`html` makes the whole message an app: its text is one whole page, up to 256 KB, shown as a card that opens it beside the conversation; it cannot carry an anchor or a change, and its page mentions nobody; a text message is at most 16 KB), optional inline refs (entity refs, mention refs), optional `anchor`: where a comment points — a pin on a part of a review, or on a stretch of the text of the thread's document (see [Comments on a document](#comments-on-a-document)), and optional `change`: a change to that text it proposes.
 - **review** — something produced, put to a person to judge; has a `title`, `reasoning`, and optionally `stage`, `parts`, `flags`, `previousReviewId` and `changed` (see below).
 - **questionnaire** — agent asks a constrained question; has a `title`, `question`, `options` (up to 16).
 - **verdict** — a human approves or rejects a review; carries `decision`, `resolvesMessageId` and an optional `note`.
 - **answer** — answers a questionnaire; carries `resolvesMessageId` and exactly one of `option` (one of the questionnaire's options, word for word) or `text` (the sender's own words).
+- **huddle** — a voice call between the human members of a thread. Payload: `{ startedAt, endedAt: null | string, people: [{ id, joinedAt, leftAt: null | string }] }`. Only a human can start one (`huddle_not_human`); the thread must have at least one other human member (`huddle_no_other_human`); at most one live huddle per thread (`huddle_already_live`). The starter is the first entry in `people`. Agents never appear in `people`. The huddle ends when the last person leaves (`endedAt` set). Joining an ended huddle is refused (`huddle_ended`). Plain messages posted while a huddle is live carry `payload.huddle = <huddleId>` (set by the server). Huddle messages never wake agents.
 
 Messages are append-only. Payload is immutable after persistence. Soft-delete via `deletedAt`. Redaction replaces payload with `{ redacted: true, redactedBy, redactedAt, reason }`.
 
@@ -78,6 +79,12 @@ Appends carry a `clientKey`. The unique constraint `(thread_id, sender_id, clien
 
 Anyone who can read a thread may also post to it (`canWriteThread = canReadThread`). For `team` and `factory` hosts that is any signed-in user; for `agent` and `user` hosts it is members only.
 
+## Huddle join and leave
+
+`adjust_thread { id: threadId, message: { id: huddleMessageId, huddle: "join" | "leave" } }` adds or removes the actor from the huddle's `people` list. Joining appends a new `{ id, joinedAt, leftAt: null }` entry (a person who left and rejoins gets a second entry). Leaving sets `leftAt` on the most-recent open entry. When the last person leaves `endedAt` is set on the payload and the huddle is over. Errors: `not_a_huddle`, `huddle_ended`, `huddle_corrupt`.
+
+The server auto-leaves any live huddles for a person when their last WebSocket connection closes (handled in `layers/core-api/src/boot.ts`).
+
 ## Wake rule
 
 After a message lands, agents are woken if:
@@ -85,7 +92,7 @@ After a message lands, agents are woken if:
 - They were mentioned in the message text.
 - The thread has exactly two members and the other one is an agent.
 
-The sender is never woken. Code: `agentsToWake`, `actions/thread.ts`.
+The sender is never woken. Huddle messages never wake agents. Code: `agentsToWake`, `actions/thread.ts`.
 
 ## Review parts, pins, flags and rounds
 
