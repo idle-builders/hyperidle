@@ -55,6 +55,8 @@ export async function signIn(
 		client_id: provider.clientId,
 		redirect_uri: SIGN_IN_REDIRECT,
 		scope: "openid email profile",
+		// The browser may already be signed in as someone else; joining as them by accident is worse than a click.
+		prompt: "select_account",
 		code_challenge: base64Url(crypto.createHash("sha256").update(verifier).digest()),
 		code_challenge_method: "S256",
 		state,
