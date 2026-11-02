@@ -1,7 +1,7 @@
 /** How a thread reads top to bottom, and how its work item says where it is. */
-import type { DocumentRow, Message, SessionRow, Task } from "@hyperidle/domain-model";
+import type { DocumentRow, HuddlePayload, Message, SessionRow, Task } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
-import { clock, duration, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
+import { clock, duration, huddleLabel, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
 
 const at = (hhmm: string) => `2026-10-20T${hhmm}:00.000Z`;
 const msg = (id: string, senderId: string, hhmm: string, type: Message["type"], payload: unknown) =>
@@ -159,6 +159,75 @@ describe("timeline", () => {
 		expect(entries).toEqual([
 			{ kind: "event", key: `worked-${at("08:30")}`, text: "Worked 50m · 2 sessions" },
 		]);
+	});
+});
+
+describe("huddle fold", () => {
+	const hp = (endedAt: string | null = null): HuddlePayload => ({
+		startedAt: at("10:00"),
+		endedAt,
+		people: [{ id: "me", joinedAt: at("10:00"), leftAt: null }],
+	});
+
+	test("huddle message and marked plain messages fold into one huddle entry", () => {
+		const entries = timeline(
+			[
+				msg("h1", "me", "10:00", "huddle", hp()),
+				msg("p1", "maya", "10:01", "plain", { text: "hi there", huddle: "h1" }),
+				msg("p2", "maya", "10:02", "plain", { text: "and another", huddle: "h1" }),
+			],
+			[],
+			[],
+			who,
+		);
+		expect(entries).toHaveLength(1);
+		expect(entries[0]?.kind).toBe("huddle");
+		const e = entries[0] as Extract<(typeof entries)[number], { kind: "huddle" }>;
+		expect(e.messages.map((m) => m.id)).toEqual(["p1", "p2"]);
+	});
+
+	test("unmarked plain messages stay outside the huddle fold", () => {
+		const entries = timeline(
+			[
+				msg("h1", "me", "10:00", "huddle", hp()),
+				msg("p1", "maya", "10:01", "plain", { text: "in call", huddle: "h1" }),
+				msg("p2", "maya", "10:02", "plain", { text: "outside" }),
+			],
+			[],
+			[],
+			who,
+		);
+		expect(entries).toHaveLength(2);
+		expect(entries[0]?.kind).toBe("huddle");
+		expect(entries[1]?.kind).toBe("said");
+	});
+
+	test("huddleLabel dedupes names when a person has rejoined", () => {
+		const payload: HuddlePayload = {
+			startedAt: at("10:00"),
+			endedAt: null,
+			people: [
+				{ id: "me", joinedAt: at("10:00"), leftAt: at("10:05") },
+				{ id: "maya", joinedAt: at("10:00"), leftAt: null },
+				{ id: "me", joinedAt: at("10:10"), leftAt: null },
+			],
+		};
+		const label = huddleLabel(payload, who);
+		// "me" appears twice in people but must appear once in the label
+		expect(label).toBe("Huddle · You, Maya · live");
+	});
+
+	test("huddleLabel says 'live' for an ongoing huddle", () => {
+		expect(huddleLabel(hp(), who)).toContain("live");
+	});
+
+	test("huddleLabel shows duration when the huddle has ended", () => {
+		const payload: HuddlePayload = {
+			startedAt: at("10:00"),
+			endedAt: at("10:12"),
+			people: [{ id: "me", joinedAt: at("10:00"), leftAt: at("10:12") }],
+		};
+		expect(huddleLabel(payload, who)).toContain("12m");
 	});
 });
 

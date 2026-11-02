@@ -18,7 +18,7 @@ import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
 import { Failed } from "./Failed";
 import { listen } from "./live";
-import { startHuddleCall, stopHuddleCall } from "./huddle-call";
+import { getActiveHuddleId, muteHuddleCall, startHuddleCall, stopHuddleCall, updateHuddlePeople } from "./huddle-call";
 import { Avatar, Event, Msg } from "./Msg";
 import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
@@ -424,47 +424,92 @@ export function ThreadPage({ id }: { id: string }) {
 		.reverse();
 	const resolving = resolvingOf(messages);
 	const entries = timeline(messages, tasks, sessions, firstName, madeHere.data ?? NO_DOCS);
-	const [inCall, setInCall] = useState(false);
+	/** Bumped whenever call module start/stop changes, to force a re-derive of `inCall`. */
+	const [callTick, setCallTick] = useState(0);
+	const [muted, setMuted] = useState(false);
+	const [openHuddleKeys, setOpenHuddleKeys] = useState<ReadonlySet<string>>(new Set());
 	// The live huddle in this thread, if any.
 	const liveHuddleEntry = entries.find(
-		(e): e is Extract<typeof entries[number], { kind: "huddle" }> =>
+		(e): e is Extract<(typeof entries)[number], { kind: "huddle" }> =>
 			e.kind === "huddle" && (e.huddleMessage.payload as HuddlePayload).endedAt === null,
 	);
 	const liveHuddle = liveHuddleEntry?.huddleMessage;
-	const liveHuddlePayload = liveHuddle
-		? (liveHuddle.payload as HuddlePayload)
-		: null;
+	const liveHuddlePayload = liveHuddle ? (liveHuddle.payload as HuddlePayload) : null;
 	const inHuddle =
 		liveHuddlePayload?.people.some((p) => p.id === you && p.leftAt === null) ?? false;
-	const otherHumans = view.data?.members.filter(
-		(m) => !m.isAgent && m.id !== you,
-	) ?? [];
+	/** True when the call module is running for this thread's live huddle. */
+	// biome-ignore lint/correctness/useExhaustiveDependencies: callTick is the re-derive trigger
+	const inCall = callTick >= 0 && getActiveHuddleId() === liveHuddle?.id;
+	const otherHumans = (view.data?.members ?? []).filter((m) => !m.isAgent && m.id !== you);
 	const canStartHuddle = !!window.__HYPERIDLE__ && otherHumans.length > 0 && !liveHuddle;
+
+	// Auto-open the live huddle entry when you are in it.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: liveHuddleEntry?.key and inHuddle are the triggers
+	useEffect(() => {
+		if (liveHuddleEntry?.key && inHuddle) {
+			setOpenHuddleKeys((s) => new Set([...s, liveHuddleEntry.key]));
+		}
+	}, [liveHuddleEntry?.key, inHuddle]);
+
+	// Auto-start the call if we're in the huddle payload but the module is not running.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: you/liveHuddle.id/inHuddle are the triggers; id stable per mount
+	useEffect(() => {
+		if (!you || !inHuddle || !liveHuddle || getActiveHuddleId()) return;
+		const alreadyJoined =
+			liveHuddlePayload?.people.filter((p) => p.leftAt === null).map((p) => p.id) ?? [];
+		void startHuddleCall(liveHuddle.id, you, id, alreadyJoined).then(() =>
+			setCallTick((n) => n + 1),
+		);
+	}, [you, liveHuddle?.id, inHuddle]);
+
+	// Keep connections in sync with the current huddle people list.
+	const huddlePeopleKey = liveHuddlePayload ? JSON.stringify(liveHuddlePayload.people) : "";
+	// biome-ignore lint/correctness/useExhaustiveDependencies: huddlePeopleKey serialises the list
+	useEffect(() => {
+		if (liveHuddlePayload && getActiveHuddleId()) {
+			updateHuddlePeople(liveHuddlePayload.people);
+		}
+	}, [huddlePeopleKey]);
 
 	const startHuddle = async (): Promise<void> => {
 		const res = await call("send_message", { threadId: id, huddle: {} });
-		if (!res.ok) { setProblem(res.problems[0]?.message ?? "Could not start huddle."); return; }
+		if (!res.ok) {
+			setProblem(res.problems[0]?.message ?? "Could not start huddle.");
+			return;
+		}
 		view.reload();
 		const huddleId = (res.data.message as Message).id;
-		setInCall(true);
-		startHuddleCall(huddleId, you, id, view.reload);
+		await startHuddleCall(huddleId, you, id, []);
+		setCallTick((n) => n + 1);
 	};
 
 	const joinHuddle = async (): Promise<void> => {
 		if (!liveHuddle) return;
 		const res = await call("adjust_thread", { id, message: { id: liveHuddle.id, huddle: "join" } });
-		if (!res.ok) { setProblem(res.problems[0]?.message ?? "Could not join huddle."); return; }
+		if (!res.ok) {
+			setProblem(res.problems[0]?.message ?? "Could not join huddle.");
+			return;
+		}
 		view.reload();
-		setInCall(true);
-		startHuddleCall(liveHuddle.id, you, id, view.reload);
+		const alreadyJoined =
+			liveHuddlePayload?.people.filter((p) => p.leftAt === null).map((p) => p.id) ?? [];
+		await startHuddleCall(liveHuddle.id, you, id, alreadyJoined);
+		setCallTick((n) => n + 1);
 	};
 
 	const leaveHuddle = async (): Promise<void> => {
 		if (!liveHuddle) return;
 		await call("adjust_thread", { id, message: { id: liveHuddle.id, huddle: "leave" } });
 		view.reload();
-		setInCall(false);
 		stopHuddleCall();
+		setCallTick((n) => n + 1);
+		setMuted(false);
+	};
+
+	const toggleMute = (): void => {
+		const next = !muted;
+		setMuted(next);
+		muteHuddleCall(next);
 	};
 
 	const running = [
@@ -544,6 +589,13 @@ export function ThreadPage({ id }: { id: string }) {
 			{inCall && inHuddle && (
 				<div className="huddle-strip">
 					<span className="huddle-strip-label">In huddle</span>
+					<button
+						type="button"
+						className={muted ? "btn btn--accent" : "btn"}
+						onClick={toggleMute}
+					>
+						{muted ? "Unmute" : "Mute"}
+					</button>
 					<button type="button" className="btn btn--leave" onClick={() => void leaveHuddle()}>
 						Leave
 					</button>
@@ -564,10 +616,51 @@ export function ThreadPage({ id }: { id: string }) {
 					if (e.kind === "made") return <MadeCard key={e.key} doc={e.doc} />;
 					if (e.kind === "huddle") {
 						const hp = e.huddleMessage.payload as HuddlePayload;
+						const isOpen = openHuddleKeys.has(e.key);
 						return (
-							<Event key={e.key}>
-								{huddleLabel(hp, firstName)}
-							</Event>
+							<div key={e.key}>
+								<button
+									type="button"
+									className="huddle-fold-btn"
+									onClick={() =>
+										setOpenHuddleKeys((s) => {
+											const n = new Set(s);
+											if (n.has(e.key)) n.delete(e.key);
+											else n.add(e.key);
+											return n;
+										})
+									}
+								>
+									{huddleLabel(hp, firstName)}
+								</button>
+								{isOpen &&
+									e.messages.map((m) => {
+										const sender = people.get(m.senderId);
+										return (
+											<Msg
+												key={m.id}
+												who={initials(sender?.name ?? "")}
+												human={sender?.human}
+												name={m.senderId === you ? "You" : (sender?.name ?? "")}
+												at={clock(m.createdAt)}
+											>
+												<Body
+													message={m}
+													threadId={id}
+													you={you}
+													people={people}
+													resolving={resolving}
+													onAnswer={(question, option) =>
+														void send({
+															threadId: id,
+															answer: { resolvesMessageId: question.id, option },
+														})
+													}
+												/>
+											</Msg>
+										);
+									})}
+							</div>
 						);
 					}
 					if (e.kind === "task")

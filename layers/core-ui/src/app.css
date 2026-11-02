@@ -166,6 +166,66 @@ button.chip--quiet:hover {
 	font: var(--t-meta);
 	color: var(--ink-3);
 }
+/* ---------- huddle ---------- */
+.btn--huddle {
+	background: var(--accent-soft);
+	color: var(--accent);
+	border-color: var(--accent-edge);
+}
+.btn--huddle:hover {
+	border-color: var(--accent);
+}
+.btn--leave {
+	background: var(--surface);
+	color: var(--ink-2);
+	border-color: var(--line-strong);
+}
+.btn--leave:hover {
+	border-color: var(--ink-3);
+}
+.huddle-strip {
+	display: flex;
+	align-items: center;
+	gap: var(--sp-3);
+	padding: var(--sp-3) var(--sp-6);
+	background: var(--accent-soft);
+	border-bottom: var(--line-w) solid var(--accent-edge);
+}
+.huddle-strip-label {
+	flex: 1;
+	font: var(--t-strong);
+	color: var(--accent);
+}
+.huddle-banner {
+	display: flex;
+	align-items: center;
+	gap: var(--sp-3);
+	padding: var(--sp-3) var(--sp-6);
+	border-bottom: var(--line-w) solid var(--line);
+	background: var(--sunk);
+	font: var(--t-body);
+	color: var(--ink-2);
+}
+.huddle-banner span {
+	flex: 1;
+}
+.huddle-fold-btn {
+	display: flex;
+	align-items: center;
+	gap: var(--sp-2);
+	padding: var(--sp-2) var(--sp-3);
+	border-radius: var(--r-sm);
+	font: var(--t-meta);
+	color: var(--ink-3);
+	background: none;
+	border: none;
+	cursor: pointer;
+}
+.huddle-fold-btn:hover {
+	background: var(--sunk);
+	color: var(--ink-2);
+}
+
 /* ---------- thread ---------- */
 .thread {
 	display: flex;

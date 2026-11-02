@@ -8,7 +8,7 @@ import {
 	type Thread,
 	threads,
 } from "@hyperidle/db";
-import { and, asc, desc, eq, gte, inArray, isNull, type SQL, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, like, type SQL, sql } from "drizzle-orm";
 
 // =============================================================================
 // Filter types
@@ -259,7 +259,7 @@ export async function findLiveHuddlesForPerson(
 	const rows = await exec
 		.select()
 		.from(messages)
-		.where(eq(messages.type, "huddle"));
+		.where(and(eq(messages.type, "huddle"), like(messages.payload, '%"endedAt":null%')));
 	return rows.filter((r) => {
 		try {
 			const p = JSON.parse(r.payload) as { endedAt?: unknown; people?: Array<{ id: string; leftAt: string | null }> };

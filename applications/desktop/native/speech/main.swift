@@ -72,6 +72,80 @@ func listen() {
 	}
 }
 
+/** Mutable reference wrapper: lets the audio tap closure capture a replaceable request by pointer. */
+final class Box<T> {
+	var value: T
+	init(_ value: T) { self.value = value }
+}
+
+/**
+ * Continuous utterance loop: 1.5 s of silence emits a `final`, swaps the recognition request
+ * (no gap in the audio tap), and starts listening again. Runs until stdin closes.
+ */
+func listenUtterances() {
+	guard let recognizer = SFSpeechRecognizer(), recognizer.supportsOnDeviceRecognition else {
+		fail("This Mac cannot write down speech on the device for \(Locale.current.identifier).")
+	}
+
+	let engine = AVAudioEngine()
+	let input = engine.inputNode
+	let box = Box(SFSpeechAudioBufferRecognitionRequest())
+	var silenceTimer: DispatchWorkItem?
+	var currentText = ""
+
+	func makeRequest() -> SFSpeechAudioBufferRecognitionRequest {
+		let req = SFSpeechAudioBufferRecognitionRequest()
+		req.requiresOnDeviceRecognition = true
+		req.shouldReportPartialResults = true
+		req.addsPunctuation = true
+		return req
+	}
+
+	func startRecognition() {
+		let req = makeRequest()
+		box.value = req
+		_ = recognizer.recognitionTask(with: req) { result, _ in
+			DispatchQueue.main.async {
+				guard let result else { return }
+				let said = result.bestTranscription.formattedString
+				if !said.isEmpty { currentText = said }
+				emit(["kind": "partial", "text": currentText])
+				silenceTimer?.cancel()
+				let timer = DispatchWorkItem {
+					if !currentText.isEmpty {
+						emit(["kind": "final", "text": currentText])
+					}
+					currentText = ""
+					startRecognition()
+				}
+				silenceTimer = timer
+				DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: timer)
+			}
+		}
+	}
+
+	input.installTap(onBus: 0, bufferSize: 4096, format: input.outputFormat(forBus: 0)) { buffer, _ in
+		box.value.append(buffer)
+	}
+	engine.prepare()
+	do { try engine.start() } catch { fail("The microphone could not start: \(error.localizedDescription)") }
+
+	startRecognition()
+
+	stopListening = {
+		silenceTimer?.cancel()
+		engine.stop()
+		input.removeTap(onBus: 0)
+		box.value.endAudio()
+		DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+			if !currentText.isEmpty {
+				emit(["kind": "final", "text": currentText])
+			}
+			exit(0)
+		}
+	}
+}
+
 // Stop can come while macOS is still asking for permission, so stdin is watched from the start.
 DispatchQueue.global().async {
 	while readLine() != nil {}
@@ -92,7 +166,11 @@ SFSpeechRecognizer.requestAuthorization { status in
 				guard granted else {
 					fail("The microphone is off for HyperIdle. Turn it on in System Settings → Privacy & Security → Microphone.")
 				}
-				listen()
+				if CommandLine.arguments.contains("--utterances") {
+					listenUtterances()
+				} else {
+					listen()
+				}
 			}
 		}
 	}

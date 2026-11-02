@@ -36,7 +36,7 @@ declare global {
 			/** Desktop on a Mac only: write down what is said, on this computer. */
 			readonly speech?: {
 				/** Each result replaces the last; `final` is the last one of a recording. */
-				start(onText: (text: SpokenText) => void): Promise<void>;
+				start(onText: (text: SpokenText) => void, opts?: { utterances?: boolean }): Promise<void>;
 				stop(): Promise<void>;
 			};
 		};

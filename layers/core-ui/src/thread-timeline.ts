@@ -210,7 +210,11 @@ const TITLE_MAX = 64;
 
 /** "Huddle · Alice, Bob · 12m" or "Huddle · Alice, Bob · live" for ongoing ones. */
 export function huddleLabel(payload: HuddlePayload, who: (id: string) => string): string {
-	const names = payload.people.map((p) => who(p.id)).join(", ");
+	const seen = new Set<string>();
+	const names = payload.people
+		.filter((p) => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
+		.map((p) => who(p.id))
+		.join(", ");
 	const durationStr = payload.endedAt
 		? duration(Date.parse(payload.endedAt) - Date.parse(payload.startedAt))
 		: "live";

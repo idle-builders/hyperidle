@@ -15,11 +15,11 @@ contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 	/** Only when the speech helper shipped with this app; the page never sees the IPC event. */
 	speech: process.argv.includes("--speech")
 		? {
-				start: (onText: (text: SpeechText) => void): Promise<void> => {
+				start: (onText: (text: SpeechText) => void, opts?: { utterances?: boolean }): Promise<void> => {
 					if (onSpeech) ipcRenderer.removeListener("speech:text", onSpeech);
 					onSpeech = (_event, text) => onText(text);
 					ipcRenderer.on("speech:text", onSpeech);
-					return ipcRenderer.invoke("speech:start");
+					return ipcRenderer.invoke("speech:start", opts);
 				},
 				stop: (): Promise<void> => ipcRenderer.invoke("speech:stop"),
 			}
