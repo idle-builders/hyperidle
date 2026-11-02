@@ -6,7 +6,7 @@ HyperIdle ships as a signed, notarized macOS desktop app (Electron). The Hono se
 
 Install via DMG, or via Homebrew after adding the tap (`brew tap idle-builders/tap && brew install --cask hyperidle`). Node ≥ 24 required for dev.
 
-**Joining a team's server.** At first start the desktop app can instead join a team that runs on a server: "Join a team on a server", then the server's address, the team key its owner gave you, your email and your name. The server makes you a person and hands back your own key; the app keeps that key encrypted on this computer (`person_key`, Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`) and reopens on the server's address as you. The first person on a new server also names its team. From then on it starts no server and runs no agents of its own. To leave the server, delete `config.json` in the app's data folder (Help → Open Data Folder).
+**Joining a team's server.** At first start the desktop app can instead join a team that runs on a server: "Join a team on a server", then the server's address and **Sign in and join**. Your browser opens the server's sign-in page (`applications/desktop/src/sign-in.ts`); the server checks what the sign-in proves about you, makes you a person named by your email and hands back your own key; the app keeps that key encrypted on this computer (`person_key`, Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`) and reopens on the server's address as you. The first person on a new server also names its team. From then on it starts no server and runs no agents of its own. To leave the server, delete `config.json` in the app's data folder (Help → Open Data Folder).
 
 | Profile | Database | How to start |
 |---|---|---|

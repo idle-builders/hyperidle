@@ -1,31 +1,70 @@
 /**
- * Each person is themselves on a shared backend: joining with the team key makes a person and
- * hands back their own key, and every request carrying that key is that person.
+ * Each person is themselves on a shared backend: signing in with the sign-in service makes a
+ * person and hands back their own key, and every request carrying that key is that person.
+ * A small local sign-in service stands in for the real one: it publishes its keys the same way.
  */
+import * as http from "node:http";
+import type { AddressInfo } from "node:net";
 import { users } from "@hyperidle/db";
 import type { Hono } from "hono";
-import { describe, expect } from "vitest";
+import { exportJWK, generateKeyPair, type JWTPayload, SignJWT } from "jose";
+import { afterAll, beforeAll, describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+import { createTestApp } from "../__testing__/test-utils.js";
 
-async function join(app: Hono, body: Record<string, string>): Promise<Response> {
+const TEAM_KEY = "person-keys-team-key";
+const CLIENT_ID = "hyperidle-desktop";
+let issuer = "";
+let signer: CryptoKey;
+let stranger: CryptoKey;
+let signInService: http.Server;
+
+beforeAll(async () => {
+	const pair = await generateKeyPair("RS256");
+	signer = pair.privateKey;
+	stranger = (await generateKeyPair("RS256")).privateKey;
+	const jwk = { ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "RS256", use: "sig" };
+	signInService = http.createServer((req, res) => {
+		if (req.url !== "/oauth/v2/keys") return void res.writeHead(404).end();
+		res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ keys: [jwk] }));
+	});
+	await new Promise<void>((resolve) => signInService.listen(0, "127.0.0.1", resolve));
+	issuer = `http://127.0.0.1:${(signInService.address() as AddressInfo).port}`;
+});
+afterAll(() => new Promise<void>((resolve) => signInService.close(() => resolve())));
+
+/** An ID token as the sign-in service hands it out after someone signs in. */
+function idToken(
+	claims: JWTPayload,
+	more?: { key?: CryptoKey; audience?: string },
+): Promise<string> {
+	return new SignJWT({ email_verified: true, ...claims })
+		.setProtectedHeader({ alg: "RS256", kid: "k1" })
+		.setIssuer(issuer)
+		.setAudience(more?.audience ?? CLIENT_ID)
+		.setSubject(String(claims.email))
+		.setIssuedAt()
+		.setExpirationTime("5m")
+		.sign(more?.key ?? signer);
+}
+
+async function join(app: Hono, token: string, team?: string): Promise<Response> {
 	return app.request("/api/join", {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(body),
+		headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+		body: JSON.stringify(team ? { team } : {}),
 	});
 }
 
 async function joined(app: Hono, email: string, name: string): Promise<string> {
-	const res = await join(app, { email, name, team: "Product" });
+	const res = await join(app, await idToken({ email, name }), "Product");
 	expect(res.status).toBe(200);
 	return ((await res.json()) as { key: string }).key;
 }
 
-type Request = (path: string, init: RequestInit) => Response | Promise<Response>;
-
-/** As the person whose own key this is. */
-async function act<T>(request: Request, key: string, name: string, input: unknown): Promise<T> {
-	const res = await request(`/api/actions/${name}`, {
+/** As whoever holds this key. */
+async function act<T>(app: Hono, key: string, name: string, input: unknown): Promise<T> {
+	const res = await app.request(`/api/actions/${name}`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json", "X-API-Key": key },
 		body: JSON.stringify(input),
@@ -36,53 +75,108 @@ async function act<T>(request: Request, key: string, name: string, input: unknow
 type Me = { ok: true; data: { user: { id: string; name: string; role: string } | null } };
 
 describe("joining a shared backend", () => {
-	test("each joiner gets their own key that speaks as them; the first is the founder", async ({
-		app,
-		requestWithoutAuth,
+	test("each person who signs in gets their own key that speaks as them; the first is the founder", async ({
+		db,
+		eventBus,
 	}) => {
+		const app = await createTestApp({
+			db,
+			eventBus,
+			authApiKey: TEAM_KEY,
+			signIn: { issuer, clientId: CLIENT_ID },
+		});
+		const where = (await (await app.request("/api/join")).json()) as { issuer: string };
 		const alex = await joined(app, "Alex@Example.com", "Alex");
 		const sam = await joined(app, "sam@example.com", "Sam");
 
-		const asAlex = await act<Me>(requestWithoutAuth, alex, "open_user", {});
-		const asSam = await act<Me>(requestWithoutAuth, sam, "open_user", {});
-		const asTeamKey = (await (
-			await app.request("/api/actions/open_user", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: "{}",
-			})
-		).json()) as Me;
+		const asAlex = await act<Me>(app, alex, "open_user", {});
+		const asSam = await act<Me>(app, sam, "open_user", {});
+		const asTeamKey = await act<Me>(app, TEAM_KEY, "open_user", {});
 
+		expect(where.issuer).toBe(issuer);
 		expect(asAlex.data.user).toMatchObject({ name: "Alex", role: "founder" });
 		expect(asSam.data.user).toMatchObject({ name: "Sam", role: "member" });
 		expect(asTeamKey.data.user).toBeNull();
 	});
 
-	test("refused: the first joiner without a team name, and an email that has already joined", async ({
-		app,
+	test("signing in again from another computer hands the same person a new key", async ({
+		db,
+		eventBus,
 	}) => {
-		const noTeam = await join(app, { email: "alex@example.com", name: "Alex" });
-		await joined(app, "alex@example.com", "Alex");
-		const again = await join(app, { email: "ALEX@example.com", name: "Alex two" });
+		const app = await createTestApp({
+			db,
+			eventBus,
+			authApiKey: TEAM_KEY,
+			signIn: { issuer, clientId: CLIENT_ID },
+		});
+		const first = await joined(app, "alex@example.com", "Alex");
+		const second = await joined(app, "ALEX@example.com", "Alex");
 
-		expect(noTeam.status).toBe(409);
-		expect(again.status).toBe(409);
+		const now = await act<Me>(app, second, "open_user", {});
+		const before = await app.request("/api/actions/open_user", {
+			method: "POST",
+			headers: { "Content-Type": "application/json", "X-API-Key": first },
+			body: "{}",
+		});
+
+		expect(now.data.user).toMatchObject({ name: "Alex", role: "founder" });
+		expect(before.status).toBe(401);
 	});
 
-	test("a key nobody holds is refused", async ({ requestWithoutAuth }) => {
-		const res = await requestWithoutAuth("/api/actions/open_user", {
+	test("refused: a new server's first person without a team, an unproven email, another app's or a forged sign-in", async ({
+		db,
+		eventBus,
+	}) => {
+		const app = await createTestApp({
+			db,
+			eventBus,
+			authApiKey: TEAM_KEY,
+			signIn: { issuer, clientId: CLIENT_ID },
+		});
+		const alex = { email: "alex@example.com", name: "Alex" };
+
+		const noTeam = await join(app, await idToken(alex));
+		const unproven = await join(app, await idToken({ ...alex, email_verified: false }), "Product");
+		const otherApp = await join(app, await idToken(alex, { audience: "another-app" }), "Product");
+		const forged = await join(app, await idToken(alex, { key: stranger }), "Product");
+		const teamKeyOnly = await app.request("/api/join", {
+			method: "POST",
+			headers: { "X-API-Key": TEAM_KEY, "Content-Type": "application/json" },
+			body: JSON.stringify({ team: "Product" }),
+		});
+
+		expect(noTeam.status).toBe(409);
+		expect(((await noTeam.json()) as { details: unknown }).details).toEqual({ needsTeam: true });
+		expect([unproven.status, otherApp.status, forged.status, teamKeyOnly.status]).toEqual([
+			401, 401, 401, 401,
+		]);
+	});
+
+	test("a server without a sign-in has no join, and a key nobody holds is refused", async ({
+		db,
+		eventBus,
+	}) => {
+		const app = await createTestApp({ db, eventBus, authApiKey: TEAM_KEY });
+		const where = await app.request("/api/join", { headers: { "X-API-Key": TEAM_KEY } });
+		const res = await app.request("/api/actions/open_user", {
 			method: "POST",
 			headers: { "Content-Type": "application/json", "X-API-Key": "not-anyones-key" },
 			body: "{}",
 		});
+		expect(where.status).toBe(404);
 		expect(res.status).toBe(401);
 	});
 
 	test("a direct chat with an agent opens for its member and not for another person", async ({
-		app,
 		db,
-		requestWithoutAuth,
+		eventBus,
 	}) => {
+		const app = await createTestApp({
+			db,
+			eventBus,
+			authApiKey: TEAM_KEY,
+			signIn: { issuer, clientId: CLIENT_ID },
+		});
 		const alex = await joined(app, "alex@example.com", "Alex");
 		const sam = await joined(app, "sam@example.com", "Sam");
 		await db.insert(users).values({
@@ -94,17 +188,17 @@ describe("joining a shared backend", () => {
 			createdAt: new Date().toISOString(),
 		});
 		const made = await act<{ ok: true; data: { thread: { id: string } } }>(
-			requestWithoutAuth,
+			app,
 			alex,
 			"adjust_thread",
 			{ title: "Alex and Builder", members: ["agent-builder"] },
 		);
 		const id = made.data.thread.id;
 
-		const alexOpens = await act<{ ok: boolean }>(requestWithoutAuth, alex, "open_thread", { id });
-		const samOpens = await act<{ ok: boolean }>(requestWithoutAuth, sam, "open_thread", { id });
+		const alexOpens = await act<{ ok: boolean }>(app, alex, "open_thread", { id });
+		const samOpens = await act<{ ok: boolean }>(app, sam, "open_thread", { id });
 		const samList = await act<{ data: { thread: { id: string } }[] }>(
-			requestWithoutAuth,
+			app,
 			sam,
 			"search_threads",
 			{},

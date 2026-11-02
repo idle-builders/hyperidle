@@ -20,7 +20,6 @@ import { createActionsRouter } from "./actions/actions-router.js";
 import { buildCoreActions, runnerFor } from "./actions/compose.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { authHealth } from "./routes/health.js";
-import { createJoinRoutes } from "./routes/join.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { createStartRoutes } from "./routes/start.js";
 import {
@@ -426,7 +425,6 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		>(actions, "edit_user");
 		// user module: search_users/open_user/edit_user under /api/actions/<name>
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
-		api.route("/join", createJoinRoutes(options.db, eventBus, actions));
 		api.route(
 			"/start",
 			createStartRoutes(options.db, eventBus, actions, async () => {

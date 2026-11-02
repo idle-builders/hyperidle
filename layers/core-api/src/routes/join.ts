@@ -5,57 +5,81 @@ import {
 	type EditUserInput,
 	type UserView,
 } from "@hyperidle/domain-model";
-import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
-import { givePersonKey, isEmailTaken, listTeams, newPersonKey } from "@hyperidle/user";
+import { findPersonByEmail, givePersonKey, listTeams, newPersonKey } from "@hyperidle/user";
 import { Hono } from "hono";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import z from "zod";
 import type { Action } from "../actions/action.js";
 import { runnerFor } from "../actions/compose.js";
 
-/**
- * Joining a shared backend: anyone with the team key becomes a new person, named by their email,
- * and gets their own key back — once. Their computer keeps that key instead of the team key.
- * A joiner is in every team the server has; the first one on a new server names the team.
- */
-const JOIN_SCHEMA = z.object({
-	email: z.email().trim().toLowerCase().max(200),
-	name: z.string().trim().min(1).max(80),
-	team: z.string().trim().min(1).max(80).optional(),
-});
+/** The sign-in service that says who may join: its address and this app's id there. */
+export interface SignIn {
+	readonly issuer: string;
+	readonly clientId: string;
+}
 
+const JOIN_SCHEMA = z.object({ team: z.string().trim().min(1).max(80).optional() });
+
+/** No person exists yet when someone joins. */
+const NOBODY = "";
+
+/**
+ * Joining a shared backend: a person signs in with the sign-in service, and the ID token it hands
+ * them proves their email. They get their own key back — signing in again from another computer
+ * hands that person a new key. A joiner is in every team; the first one on a new server names it.
+ */
 export function createJoinRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	actions: readonly Action[],
-): Hono<HyperIdleEnv> {
+	signIn: SignIn,
+): Hono {
 	const editUser = runnerFor<EditUserInput, UserView>(actions, "edit_user");
-	const router = new Hono<HyperIdleEnv>();
+	const keys = createRemoteJWKSet(new URL(`${signIn.issuer}/oauth/v2/keys`));
+	const router = new Hono();
+
+	router.get("/", (c) => c.json(signIn));
 
 	router.post("/", async (c) => {
 		const no = (
-			status: 400 | 409,
+			status: 400 | 401 | 409,
 			error: string,
 			code: ApiErrorResponse["code"],
 			details?: ApiErrorResponse["details"],
 		) =>
 			c.json({ error, code, ...(details ? { details } : {}) } satisfies ApiErrorResponse, status);
-		const parsed = JOIN_SCHEMA.safeParse(await c.req.json().catch(() => null));
-		if (!parsed.success)
-			return no(400, "Give your email and your name.", API_ERROR_CODES.VALIDATION_ERROR);
-		const { email, name, team } = parsed.data;
-		if (await isEmailTaken(db, email))
-			return no(409, "Someone with that email has already joined.", API_ERROR_CODES.CONFLICT);
+		const idToken = c.req.header("Authorization")?.replace(/^Bearer /, "") ?? "";
+		const signedIn = await jwtVerify(idToken, keys, {
+			issuer: signIn.issuer,
+			audience: signIn.clientId,
+		}).catch(() => null);
+		const { email, email_verified: verified, name } = signedIn?.payload ?? {};
+		if (!(typeof email === "string" && verified === true))
+			return no(
+				401,
+				"Sign in again: the sign-in did not prove your email.",
+				API_ERROR_CODES.UNAUTHORIZED,
+			);
+		const parsed = JOIN_SCHEMA.safeParse(await c.req.json().catch(() => ({})));
+		if (!parsed.success) return no(400, "Name your team.", API_ERROR_CODES.VALIDATION_ERROR);
+
+		const known = await findPersonByEmail(db, email.toLowerCase());
+		if (known) {
+			const key = newPersonKey();
+			await givePersonKey(db, known, key);
+			return c.json({ key });
+		}
 		const existing = (await listTeams(db)).map((t) => t.name);
-		const teams = existing.length > 0 ? existing : team ? [team] : null;
+		const teams = existing.length > 0 ? existing : parsed.data.team ? [parsed.data.team] : null;
 		if (!teams)
 			return no(409, "This server is new: name your team.", API_ERROR_CODES.CONFLICT, {
 				needsTeam: true,
 			});
 
 		const made = await editUser(
-			{ actor: c.get("userId"), db, eventBus, now: new Date().toISOString() },
-			{ kind: "human", name, teams },
+			{ actor: NOBODY, db, eventBus, now: new Date().toISOString() },
+			{ kind: "human", name: typeof name === "string" && name ? name : email, teams },
 		);
 		const you = made.ok ? made.data.user?.id : undefined;
 		if (!you)
@@ -65,7 +89,7 @@ export function createJoinRoutes(
 				API_ERROR_CODES.VALIDATION_ERROR,
 			);
 		const key = newPersonKey();
-		await givePersonKey(db, you, key, email);
+		await givePersonKey(db, you, key, email.toLowerCase());
 		return c.json({ key });
 	});
 

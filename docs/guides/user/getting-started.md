@@ -43,7 +43,7 @@ A fresh install opens on the first-start page.
 
 This makes you, your team, and your first agent, **Builder**, which works for you. Folders, GitHub and teammates can come later.
 
-**Joining a team on a server instead.** Press **Join a team on a server instead**, then give the server's address, the team key whoever runs the server gave you, your email and your name. You get your own key, which the app keeps, so everyone on the server sees your name on what you write. On a new server you also name the team. This works only in the desktop app, because a browser cannot keep your key.
+**Joining a team on a server instead.** Press **Join a team on a server instead**, give the server's address and press **Sign in and join**. Your browser opens to sign in; whoever runs the server decides who may. You get your own key, which the app keeps, so everyone on the server sees your name on what you write. On a new server you also name the team. This works only in the desktop app, because a browser cannot keep your key.
 
 ---
 

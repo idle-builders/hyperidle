@@ -18,13 +18,11 @@ service:
   port: 3001
 
 ingress:
-  # Disabled until a real host is added to the tenant's allowlist annotation
-  # (platform.infra/allowed-hosts) — a ValidatingAdmissionPolicy rejects any
-  # Ingress whose host isn't allowlisted, which fails the whole helm apply.
-  # The backend runs and is reachable in-cluster via the Service; flip this on
-  # once an allowlisted host (e.g. api.hyperidle.org) is provisioned.
-  enabled: false
-  host: hyperidle.org
+  # The host must sit inside the tenant's allowed hosts (hyperidle.com and its
+  # subdomains), or the admission policy rejects the Ingress and the whole apply.
+  # Its DNS record is a proxied CNAME to the cluster's Cloudflare Tunnel.
+  enabled: true
+  host: beta.hyperidle.com
   rateLimit: 20
 
 # Drizzle table migrations run as an init-container on every deploy (additive

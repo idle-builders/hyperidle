@@ -11,7 +11,8 @@ The **Principal** is the authenticated identity on a request — `c.get("userId"
 Every request carries a key as `X-API-Key`. There are no login sessions, invite codes, or bearer tokens.
 
 - **A person's own key** makes the caller that person. Only its sha256 is kept (`users.key_hash`); the key itself lives on the person's computer.
-- **The team key** — the deployment's `HYPERIDLE_API_KEY`, compared in constant time — makes the caller nobody yet. It is for what needs no person: `POST /api/join`, which makes a person (named by a unique `users.email`) and hands back their own key once, and a laptop's first start, which makes the one person and keeps the key it was called with as theirs.
+- **The team key** — the deployment's `HYPERIDLE_API_KEY`, compared in constant time — makes the caller nobody yet. It is for what needs no person, such as a laptop's first start, which makes the one person and keeps the key it was called with as theirs.
+- **Joining** takes no key: `POST /api/join` takes an ID token from the server's sign-in service (`HYPERIDLE_SIGN_IN_ISSUER`), checked against that service's published keys, issuer, this app's id there and a proven email (`layers/core-api/src/routes/join.ts`). It makes the person (named by a unique `users.email`) and hands back their own key; signing in again hands the same person a new key, and the old one stops working. Who may sign in at all is the sign-in service's call.
 - Any other key is refused.
 
 There is no fallback to "the first human". Tests that need a specific actor call the action in-process via `action.run({ actor, db, eventBus, now }, input)`, or give that person a key (`asPerson` in the core-api fixtures). `POST /api/auth/ws-token` mints the WebSocket token for the caller.

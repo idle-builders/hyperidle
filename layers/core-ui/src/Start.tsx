@@ -48,29 +48,23 @@ function Found({ programs, fixes }: { programs: readonly HarnessDescriptor[]; fi
 }
 
 /**
- * Joining happens in the desktop app: the team key makes you a person on the server, which hands
- * back your own key; the app keeps it and reopens there as you. A new server also asks for its team.
+ * Joining happens in the desktop app: you sign in in your browser, and the server hands back your
+ * own key; the app keeps it and reopens there as you. A new server also asks for its team.
  */
 function Join({ onBack }: { onBack: () => void }) {
 	const bridge = window.__HYPERIDLE__;
 	const [address, setAddress] = useState("");
-	const [teamKey, setTeamKey] = useState("");
-	const [email, setEmail] = useState("");
-	const [name, setName] = useState("");
 	const [team, setTeam] = useState<string | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
 	const [joining, setJoining] = useState(false);
 	const join = async () => {
 		if (!bridge?.join) return;
-		if (!(address.trim() && teamKey && email.trim() && name.trim()))
-			return setProblem("Give the server's address, the team key, your email and your name.");
+		if (!address.trim()) return setProblem("Give the server's address.");
 		if (team !== null && !team.trim()) return setProblem("Name your team, please.");
 		setJoining(true);
+		setProblem(null);
 		const joined = await bridge.join({
 			address,
-			teamKey,
-			email: email.trim(),
-			name: name.trim(),
 			...(team?.trim() ? { team: team.trim() } : {}),
 		});
 		setJoining(false);
@@ -95,10 +89,9 @@ function Join({ onBack }: { onBack: () => void }) {
 			{bridge?.join ? (
 				<>
 					{field("Server address", address, setAddress, { placeholder: "e.g. team.example.com" })}
-					{field("Team key", teamKey, setTeamKey, { type: "password" })}
-					<p className="first-note">Whoever runs the server gives you the team key.</p>
-					{field("Your email", email, setEmail, { type: "email" })}
-					{field("Your name", name, setName)}
+					<p className="first-note">
+						Your browser opens to sign in. Whoever runs the server lets you in there.
+					</p>
 					{team !== null && field("Name your team", team, setTeam, { placeholder: "e.g. Product" })}
 					{problem && <p className="composer-problem">{problem}</p>}
 				</>
@@ -116,7 +109,7 @@ function Join({ onBack }: { onBack: () => void }) {
 						disabled={joining}
 						onClick={() => void join()}
 					>
-						Join
+						{joining ? "Signing in…" : "Sign in and join"}
 					</button>
 				)}
 				<button type="button" className="first-other" onClick={onBack}>

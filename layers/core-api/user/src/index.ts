@@ -18,7 +18,7 @@ export { insertUserIfAbsent, setAgentsStatus } from "./factory-writers.js";
 export type { UpsertOrgEdgeInput } from "./org-edges.js";
 export { deleteOrgEdge, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
 // -- a person's own key (who a request is) --
-export { findPersonByKey, givePersonKey, isEmailTaken, newPersonKey } from "./person-key.js";
+export { findPersonByEmail, findPersonByKey, givePersonKey, newPersonKey } from "./person-key.js";
 // -- runnable-agent invariant (the shared runnable check) --
 export type { RunnableAgent } from "./runnable-agent.js";
 export { AgentNotRunnableError, requireRunnableAgent } from "./runnable-agent.js";

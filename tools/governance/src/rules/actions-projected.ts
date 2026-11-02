@@ -119,6 +119,7 @@ const PLUMBING_ROUTES: readonly string[] = [
 	// as: bootstrap doors like auth, not actions.
 	"layers/core-api/src/routes/start.ts|POST /look",
 	"layers/core-api/src/routes/start.ts|POST /",
+	"layers/core-api/src/routes/join.ts|GET /",
 	"layers/core-api/src/routes/join.ts|POST /",
 ];
 

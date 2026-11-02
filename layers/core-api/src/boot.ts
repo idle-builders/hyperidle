@@ -19,6 +19,10 @@ import {
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import type { ActionContext } from "./actions/action.js";
+import { createJoinRoutes, type SignIn } from "./routes/join.js";
+
+export type { SignIn };
+
 import { type ApiMiddlewareStack, createApiMiddlewareStack } from "./api-middleware-stack.js";
 import {
 	type AppOptions,
@@ -43,6 +47,8 @@ export interface CoreApiBootOptions extends AppOptions {
 	 * wires the WS route onto its own `wsHub` internally.
 	 */
 	readonly upgradeWebSocket?: UpgradeWebSocket;
+	/** Where people sign in to join a shared backend. Without it nobody can join. */
+	readonly signIn?: SignIn;
 }
 
 export interface CoreApiBoot {
@@ -234,6 +240,12 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 		app,
 		registerPreAuthRoutes: (apiRouter) => {
 			registerCoreApiPreAuthRoutes(apiRouter, layerOptions, tokenStore);
+			// Before auth: a joiner has no key yet, only the sign-in's ID token.
+			if (db && rawActions && options?.signIn)
+				apiRouter.route(
+					"/join",
+					createJoinRoutes(db as HyperIdleDb, callActionEventBus, rawActions, options.signIn),
+				);
 		},
 		middleware: createApiMiddlewareStack({
 			...(db ? { db } : {}),

@@ -27,6 +27,7 @@ import type { LogRotator } from "./log-rotation.js";
 import { createLogRotator } from "./log-rotation.js";
 import { resolveMigrationsFolder, runMigrations } from "./migrate.js";
 import { keepPersonKey, readPersonKey } from "./safe-credentials.js";
+import { signIn } from "./sign-in.js";
 
 function log(message: string, data?: Record<string, unknown>): void {
 	const ts = new Date().toISOString();
@@ -283,25 +284,44 @@ interface BootContext {
 	credentialsPath: string;
 }
 
+/** The last sign-in's ID token, for the server it was meant for. */
+let signedIn: { serverUrl: string; idToken: string } | null = null;
+
 function registerCommonIpcHandlers(ctx: BootContext): void {
-	// First start's "Join a team on a server": the team key gets this person made on the server,
-	// which hands back their own key; that key is kept and the app reopens on the server as them.
+	// First start's "Join a team on a server": the person signs in in their browser, the server
+	// hands back their own key; that key is kept and the app reopens on the server as them.
 	ipcMain.handle(
 		"backend:join",
 		async (
 			_event: unknown,
-			form: { address: string; teamKey: string; email: string; name: string; team?: string },
+			form: { address: string; team?: string },
 		): Promise<{ ok: boolean; problem?: string; needsTeam?: boolean }> => {
 			const trimmed = form.address.trim().replace(/\/$/, "");
 			const serverUrl = /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
 			if (!URL.canParse(serverUrl)) return { ok: false, problem: "That is not a server address." };
+			const where = await fetch(`${serverUrl}/api/join`).catch(() => null);
+			if (!where) return { ok: false, problem: `${serverUrl} did not answer.` };
+			if (!where.ok)
+				return { ok: false, problem: "This server has no sign-in, so nobody can join it." };
+			const { issuer, clientId } = (await where.json()) as { issuer: string; clientId: string };
+			// Kept for the second try when a new server first needs its team named.
+			if (signedIn?.serverUrl !== serverUrl) {
+				const idToken = await signIn(issuer, clientId, (url) => shell.openExternal(url)).catch(
+					(error: unknown) => (error instanceof Error ? error : new Error(String(error))),
+				);
+				if (idToken instanceof Error) return { ok: false, problem: idToken.message };
+				signedIn = { serverUrl, idToken };
+			}
 			const res = await fetch(`${serverUrl}/api/join`, {
 				method: "POST",
-				headers: { "X-API-Key": form.teamKey, "Content-Type": "application/json" },
-				body: JSON.stringify({ email: form.email, name: form.name, team: form.team }),
+				headers: {
+					Authorization: `Bearer ${signedIn.idToken}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ team: form.team }),
 			}).catch(() => null);
 			if (!res) return { ok: false, problem: `${serverUrl} did not answer.` };
-			if (res.status === 401) return { ok: false, problem: "That team key is not right." };
+			if (res.status === 401) signedIn = null;
 			const body = (await res.json().catch(() => ({}))) as {
 				key?: string;
 				error?: string;

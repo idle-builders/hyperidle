@@ -1,7 +1,6 @@
 // @lore: Hono notFound — two layers mount on same /api router; parent notFound fires, not sub-app's; composeApiApplication builds the canonical 404 on root app
 
 import * as fs from "node:fs";
-import * as https from "node:https";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
@@ -23,12 +22,11 @@ import {
 	registerCoreDomainServices,
 } from "@hyperidle/core-api";
 import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
-import { bootCoreApi, type CoreApiBoot } from "@hyperidle/core-api/boot";
+import { bootCoreApi, type CoreApiBoot, type SignIn } from "@hyperidle/core-api/boot";
 import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { WebSocketServer } from "ws";
 import { resolveProfile } from "./profiles.js";
-import type { TlsCertificate } from "./tls-certificate.js";
 
 /**
  * Which shape of execution face this
@@ -63,8 +61,8 @@ export interface CreateServerDeps {
 	 * server image carries the repo, so it is there too).
 	 */
 	readonly bundledPluginsDir?: string;
-	/** Serve HTTPS with this certificate. Omitted → plain HTTP. */
-	readonly tls?: TlsCertificate;
+	/** Where people sign in to join this server. Omitted → nobody can join. */
+	readonly signIn?: SignIn;
 }
 
 export interface ServerHandle {
@@ -202,6 +200,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		onHarnessRedetect,
 		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
 		bundledPluginsDir: resolveBundledPluginsDir(deps),
+		...(deps.signIn ? { signIn: deps.signIn } : {}),
 		serviceBootstrap: (ctx) => {
 			return [
 				...registerCoreDomainServices({ ...ctx, canProvision: true }),
@@ -291,7 +290,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		fetch: staticFetch,
 		port,
 		...(deps.hostname === undefined ? {} : { hostname: deps.hostname }),
-		...(deps.tls ? { createServer: https.createServer, serverOptions: deps.tls } : {}),
 		websocket: { server: wss },
 	});
 

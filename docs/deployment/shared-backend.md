@@ -2,14 +2,14 @@
 
 The **Shared Backend** is the headless HyperIdle server run as a single **tenant** on the team's shared Kubernetes cluster, so the whole team collaborates against **one dataset** instead of per-person embedded islands. It is for **internal usage only** — not a public cloud / SaaS offering.
 
-Desktop clients join at first start: "Join a team on a server" takes the server's address, the team key, the person's email and name. `POST /api/join` makes that person and hands back their own key, which the app keeps encrypted (`person_key` via Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`) before reopening on the server's address; it starts no server of its own. Every request carries the person's key, so the server knows who each caller is; `GET /api/health/auth` checks a key by hand. See [deployment](./index.md) for the desktop side.
+Desktop clients join at first start: "Join a team on a server" takes the server's address and signs the person in through the server's sign-in service in their browser. `POST /api/join` checks the sign-in, makes that person and hands back their own key, which the app keeps encrypted (`person_key` via Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`) before reopening on the server's address; it starts no server of its own. Every request carries the person's key, so the server knows who each caller is; `GET /api/health/auth` checks a key by hand. See [deployment](./index.md) for the desktop side.
 
 ## Shape
 
 - **Profile:** runs `HYPERIDLE_PROFILE=cloud` (Postgres via `DATABASE_URL`, network-exposed, mandatory `HYPERIDLE_API_KEY` — `applications/remote-server/src/validate-startup-env.ts`). No new profile is introduced.
 - **Stateless compute:** all durable state in Postgres; pod rootfs read-only, writes go only to the `/tmp` and `/data` emptyDir mounts (`HYPERIDLE_WORKSPACES_DIR=/data/workspaces`). Replicas are interchangeable.
 - **Serves SPA + API:** one Hono server serves the web bundle at `/` (`HYPERIDLE_STATIC_DIR=/app/layers/core-ui/dist`) and the API at `/api/*`. Runs **no agents** — it takes sessions only from a worker connected over `/ws/worker`, and no app in this repo runs one (see [where agents run](./index.md)).
-- **Auth:** one **shared team `HYPERIDLE_API_KEY`** (K8s secret `app-secrets`), sent with every request.
+- **Auth:** each person's own key, handed out when they join by signing in with the shared Zitadel (`id.nimmly.io`). The chart sets `HYPERIDLE_SIGN_IN_ISSUER` and `HYPERIDLE_SIGN_IN_CLIENT_ID`; who may sign in is set in Zitadel. The server's own `HYPERIDLE_API_KEY` (K8s secret `app-secrets`) is for workers and checks by hand.
 
 ## "Always latest" = latest **release**, not latest commit
 

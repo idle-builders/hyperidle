@@ -25,13 +25,16 @@ export async function findPersonByKey(db: HyperIdleDb, key: string): Promise<str
 	return row?.id;
 }
 
-export async function isEmailTaken(db: HyperIdleDb, email: string): Promise<boolean> {
+export async function findPersonByEmail(
+	db: HyperIdleDb,
+	email: string,
+): Promise<string | undefined> {
 	const [row] = await db
 		.select({ id: users.id })
 		.from(users)
 		.where(eq(users.email, email))
 		.limit(1);
-	return row !== undefined;
+	return row?.id;
 }
 
 /** Make `key` the person's own key, and `email` their id when given. */

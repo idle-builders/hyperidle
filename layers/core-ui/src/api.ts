@@ -26,12 +26,9 @@ declare global {
 		/** Set by the desktop app's preload. */
 		__HYPERIDLE__?: {
 			readonly apiKey: string;
-			/** Desktop only: join a team's server as a new person and reopen there as them. */
+			/** Desktop only: sign in to a team's server, join it and reopen there as you. */
 			readonly join?: (form: {
 				address: string;
-				teamKey: string;
-				email: string;
-				name: string;
 				team?: string;
 			}) => Promise<{ ok: boolean; problem?: string; needsTeam?: boolean }>;
 		};
