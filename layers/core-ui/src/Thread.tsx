@@ -11,18 +11,41 @@ import {
 	type Task,
 	type VerdictPayload,
 } from "@hyperidle/domain-model";
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+	Fragment,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { AppCard, MadeCard } from "./Apps";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
 import { Failed } from "./Failed";
+import {
+	getActiveHuddleId,
+	muteHuddleCall,
+	onCallChange,
+	onHuddleSpeechError,
+	startHuddleCall,
+	stopHuddleCall,
+	updateHuddlePeople,
+} from "./huddle-call";
 import { listen } from "./live";
-import { getActiveHuddleId, muteHuddleCall, onHuddleSpeechError, startHuddleCall, stopHuddleCall, updateHuddlePeople } from "./huddle-call";
 import { Avatar, Event, Msg } from "./Msg";
 import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
-import { clock, duration, huddleLabel, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
+import {
+	clock,
+	duration,
+	huddleLabel,
+	stepFrom,
+	timeline,
+	titleFrom,
+	workState,
+} from "./thread-timeline";
 import { useAction } from "./useAction";
 
 /**
@@ -424,8 +447,6 @@ export function ThreadPage({ id }: { id: string }) {
 		.reverse();
 	const resolving = resolvingOf(messages);
 	const entries = timeline(messages, tasks, sessions, firstName, madeHere.data ?? NO_DOCS);
-	/** Bumped whenever call module start/stop changes, to force a re-derive of `inCall`. */
-	const [callTick, setCallTick] = useState(0);
 	const [muted, setMuted] = useState(false);
 	const [openHuddleKeys, setOpenHuddleKeys] = useState<ReadonlySet<string>>(new Set());
 	const [speechProblem, setSpeechProblem] = useState<string | null>(null);
@@ -433,7 +454,9 @@ export function ThreadPage({ id }: { id: string }) {
 	// Receive speech errors (e.g. Dictation off) from the call module.
 	useEffect(() => {
 		onHuddleSpeechError((msg) => setSpeechProblem(msg));
-		return () => { onHuddleSpeechError(null); };
+		return () => {
+			onHuddleSpeechError(null);
+		};
 	}, []);
 	// The live huddle in this thread, if any.
 	const liveHuddleEntry = entries.find(
@@ -441,17 +464,20 @@ export function ThreadPage({ id }: { id: string }) {
 			e.kind === "huddle" && (e.huddleMessage.payload as HuddlePayload).endedAt === null,
 	);
 	const liveHuddle = liveHuddleEntry?.huddleMessage;
+	const liveHuddleId = liveHuddle?.id ?? null;
 	const liveHuddlePayload = liveHuddle ? (liveHuddle.payload as HuddlePayload) : null;
+	// Ref to read the latest payload in effects without re-triggering on every payload change.
+	const latestHuddlePayload = useRef(liveHuddlePayload);
+	latestHuddlePayload.current = liveHuddlePayload;
 	const inHuddle =
 		liveHuddlePayload?.people.some((p) => p.id === you && p.leftAt === null) ?? false;
 	/** True when the call module is running for this thread's live huddle. */
-	// biome-ignore lint/correctness/useExhaustiveDependencies: callTick is the re-derive trigger
-	const inCall = callTick >= 0 && getActiveHuddleId() === liveHuddle?.id;
+	const activeHuddleId = useSyncExternalStore(onCallChange, getActiveHuddleId);
+	const inCall = activeHuddleId === liveHuddle?.id;
 	const otherHumans = (view.data?.members ?? []).filter((m) => !m.isAgent && m.id !== you);
 	const canStartHuddle = !!window.__HYPERIDLE__ && otherHumans.length > 0 && !liveHuddle;
 
 	// Auto-open the live huddle entry when you are in it.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: liveHuddleEntry?.key and inHuddle are the triggers
 	useEffect(() => {
 		if (liveHuddleEntry?.key && inHuddle) {
 			setOpenHuddleKeys((s) => new Set([...s, liveHuddleEntry.key]));
@@ -459,23 +485,18 @@ export function ThreadPage({ id }: { id: string }) {
 	}, [liveHuddleEntry?.key, inHuddle]);
 
 	// Auto-start the call if we're in the huddle payload but the module is not running.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: you/liveHuddle.id/inHuddle are the triggers; id stable per mount
 	useEffect(() => {
-		if (!you || !inHuddle || !liveHuddle || getActiveHuddleId()) return;
+		if (!(inHuddle && liveHuddleId) || activeHuddleId !== null) return;
 		const alreadyJoined =
-			liveHuddlePayload?.people.filter((p) => p.leftAt === null).map((p) => p.id) ?? [];
-		void startHuddleCall(liveHuddle.id, you, id, alreadyJoined).then(() =>
-			setCallTick((n) => n + 1),
-		);
-	}, [you, liveHuddle?.id, inHuddle]);
+			latestHuddlePayload.current?.people.filter((p) => p.leftAt === null).map((p) => p.id) ?? [];
+		void startHuddleCall(liveHuddleId, you, id, alreadyJoined);
+	}, [inHuddle, liveHuddleId, you, id, activeHuddleId]);
 
 	// Keep connections in sync with the current huddle people list.
 	const huddlePeopleKey = liveHuddlePayload ? JSON.stringify(liveHuddlePayload.people) : "";
-	// biome-ignore lint/correctness/useExhaustiveDependencies: huddlePeopleKey serialises the list
 	useEffect(() => {
-		if (liveHuddlePayload && getActiveHuddleId()) {
-			updateHuddlePeople(liveHuddlePayload.people);
-		}
+		if (!(huddlePeopleKey && getActiveHuddleId())) return;
+		updateHuddlePeople(latestHuddlePayload.current?.people ?? []);
 	}, [huddlePeopleKey]);
 
 	const startHuddle = async (): Promise<void> => {
@@ -487,7 +508,6 @@ export function ThreadPage({ id }: { id: string }) {
 		view.reload();
 		const huddleId = (res.data.message as Message).id;
 		await startHuddleCall(huddleId, you, id, []);
-		setCallTick((n) => n + 1);
 	};
 
 	const joinHuddle = async (): Promise<void> => {
@@ -501,7 +521,6 @@ export function ThreadPage({ id }: { id: string }) {
 		const alreadyJoined =
 			liveHuddlePayload?.people.filter((p) => p.leftAt === null).map((p) => p.id) ?? [];
 		await startHuddleCall(liveHuddle.id, you, id, alreadyJoined);
-		setCallTick((n) => n + 1);
 	};
 
 	const leaveHuddle = async (): Promise<void> => {
@@ -509,7 +528,6 @@ export function ThreadPage({ id }: { id: string }) {
 		await call("adjust_thread", { id, message: { id: liveHuddle.id, huddle: "leave" } });
 		view.reload();
 		stopHuddleCall();
-		setCallTick((n) => n + 1);
 		setMuted(false);
 	};
 

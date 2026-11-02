@@ -26,6 +26,7 @@ import {
 	documentAnchorProblems,
 	type HostKind,
 	type HuddlePayload,
+	huddlePayloadSchema,
 	type Identity,
 	IdentitySchema,
 	type MarkReviewOpenedInput,
@@ -42,7 +43,6 @@ import {
 	type ReviewVerdictRecorderFn,
 	resolvesMessageInvariants,
 	reviewPayloadSchema,
-	huddlePayloadSchema,
 	type SearchDocumentsInput,
 	type SearchThreadsInput,
 	type SendMessageInput,
@@ -56,9 +56,9 @@ import {
 	type ThreadView,
 	threadParticipantsSchema,
 } from "@hyperidle/domain-model";
-import { applyHuddleJoin, applyHuddleLeave } from "./huddle-operations.js";
 import { type ChangesRow, objectEvent } from "@hyperidle/event-bus";
 import type { Action, ActionContext } from "./action-types.js";
+import { applyHuddleJoin, applyHuddleLeave } from "./huddle-operations.js";
 import { resolveMentionsForMessage } from "./mention-resolver.js";
 import * as store from "./thread-service.js";
 import { resolveThreadTurnRequest } from "./thread-turn-resolver.js";
@@ -1178,7 +1178,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						body.payload = { ...(body.payload as Record<string, unknown>), refs };
 
 					// Stamp the live huddle's id onto plain messages so they can be folded in the timeline.
-					const liveHuddle = await store.findLiveHuddleForThread(tx as HyperIdleDb, effectiveThreadId);
+					const liveHuddle = await store.findLiveHuddleForThread(
+						tx as HyperIdleDb,
+						effectiveThreadId,
+					);
 					if (liveHuddle !== undefined) {
 						body.payload = { ...(body.payload as Record<string, unknown>), huddle: liveHuddle.id };
 					}
@@ -1568,18 +1571,24 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			if (row.type !== "huddle")
 				return {
 					ok: false,
-					problems: [{ code: "not_a_huddle", message: "That message is not a huddle.", path: "message" }],
+					problems: [
+						{ code: "not_a_huddle", message: "That message is not a huddle.", path: "message" },
+					],
 				};
 			const parsed = huddlePayloadSchema.safeParse(JSON.parse(row.payload));
 			if (!parsed.success)
 				return {
 					ok: false,
-					problems: [{ code: "huddle_corrupt", message: "Huddle payload unreadable.", path: "message" }],
+					problems: [
+						{ code: "huddle_corrupt", message: "Huddle payload unreadable.", path: "message" },
+					],
 				};
 			if (parsed.data.endedAt !== null)
 				return {
 					ok: false,
-					problems: [{ code: "huddle_ended", message: "This huddle has already ended.", path: "message" }],
+					problems: [
+						{ code: "huddle_ended", message: "This huddle has already ended.", path: "message" },
+					],
 				};
 			const updated =
 				input.huddle === "join"
@@ -1877,7 +1886,6 @@ function messageBodyOf(input: SendMessageInput): {
 		};
 	if (input.verdict !== undefined)
 		return { type: "verdict", payload: input.verdict as unknown as Record<string, unknown> };
-	if (input.huddle !== undefined)
-		return { type: "huddle", payload: {} };
+	if (input.huddle !== undefined) return { type: "huddle", payload: {} };
 	return { type: "answer", payload: input.answer as unknown as Record<string, unknown> };
 }

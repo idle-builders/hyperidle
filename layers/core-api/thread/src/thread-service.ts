@@ -262,7 +262,10 @@ export async function findLiveHuddlesForPerson(
 		.where(and(eq(messages.type, "huddle"), like(messages.payload, '%"endedAt":null%')));
 	return rows.filter((r) => {
 		try {
-			const p = JSON.parse(r.payload) as { endedAt?: unknown; people?: Array<{ id: string; leftAt: string | null }> };
+			const p = JSON.parse(r.payload) as {
+				endedAt?: unknown;
+				people?: Array<{ id: string; leftAt: string | null }>;
+			};
 			if (p.endedAt !== null && p.endedAt !== undefined) return false;
 			return p.people?.some((person) => person.id === personId && person.leftAt === null) ?? false;
 		} catch {

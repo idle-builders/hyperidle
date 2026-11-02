@@ -3,7 +3,14 @@
 export const HOST_KINDS = ["document", "agent", "user", "team", "factory"] as const;
 export type HostKind = (typeof HOST_KINDS)[number];
 
-export const MESSAGE_TYPES = ["plain", "review", "questionnaire", "verdict", "answer", "huddle"] as const;
+export const MESSAGE_TYPES = [
+	"plain",
+	"review",
+	"questionnaire",
+	"verdict",
+	"answer",
+	"huddle",
+] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
 
 /** A review is approved or rejected; asking for a change is a comment, not a verdict. */

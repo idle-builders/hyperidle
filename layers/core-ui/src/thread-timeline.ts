@@ -212,7 +212,11 @@ const TITLE_MAX = 64;
 export function huddleLabel(payload: HuddlePayload, who: (id: string) => string): string {
 	const seen = new Set<string>();
 	const names = payload.people
-		.filter((p) => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
+		.filter((p) => {
+			if (seen.has(p.id)) return false;
+			seen.add(p.id);
+			return true;
+		})
 		.map((p) => who(p.id))
 		.join(", ");
 	const durationStr = payload.endedAt

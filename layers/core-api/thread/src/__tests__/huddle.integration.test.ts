@@ -3,7 +3,7 @@
  * Server-side rules: agent refused, no other human refused, duplicate refused.
  */
 
-import { type HyperIdleDb, messages, threads } from "@hyperidle/db";
+import { type HyperIdleDb, messages } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { HuddlePayload } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
@@ -36,7 +36,7 @@ async function makeContext(db: HyperIdleDb) {
 		initiatorId: alice,
 		members: [alice, bob, agent],
 	});
-	const actions = createThreadActions(threadDeps(db));
+	const actions = createThreadActions(threadDeps());
 	const sendMsg = actionFor<Record<string, unknown>, Record<string, unknown>>(
 		actions,
 		"send_message",
@@ -49,10 +49,18 @@ async function makeContext(db: HyperIdleDb) {
 	async function send(
 		body: Record<string, unknown>,
 		actor = alice,
-	): Promise<{ ok: boolean; data?: Record<string, unknown>; problems?: ReadonlyArray<{ code: string }> }> {
+	): Promise<{
+		ok: boolean;
+		data?: Record<string, unknown>;
+		problems?: ReadonlyArray<{ code: string }>;
+	}> {
 		const ctx = ctxFor(db, actor, { eventBus });
 		const res = await sendMsg.run(ctx, body);
-		return res as { ok: boolean; data?: Record<string, unknown>; problems?: ReadonlyArray<{ code: string }> };
+		return res as {
+			ok: boolean;
+			data?: Record<string, unknown>;
+			problems?: ReadonlyArray<{ code: string }>;
+		};
 	}
 
 	async function adjust(
@@ -60,7 +68,10 @@ async function makeContext(db: HyperIdleDb) {
 		actor = alice,
 	): Promise<{ ok: boolean; problems?: ReadonlyArray<{ code: string }> }> {
 		const ctx = ctxFor(db, actor, { eventBus });
-		return adjustThr.run(ctx, body) as Promise<{ ok: boolean; problems?: ReadonlyArray<{ code: string }> }>;
+		return adjustThr.run(ctx, body) as Promise<{
+			ok: boolean;
+			problems?: ReadonlyArray<{ code: string }>;
+		}>;
 	}
 
 	return { alice, bob, agent, threadId, send, adjust, db };
@@ -86,10 +97,7 @@ describe("huddle lifecycle", () => {
 		expect(started.people[0]?.id).toBe(alice);
 
 		// Bob joins.
-		const joinRes = await adjust(
-			{ id: threadId, message: { id: huddleId, huddle: "join" } },
-			bob,
-		);
+		const joinRes = await adjust({ id: threadId, message: { id: huddleId, huddle: "join" } }, bob);
 		expect(joinRes.ok).toBe(true);
 		const afterJoin = JSON.parse(
 			(await db.select().from(messages).where(eq(messages.id, huddleId)))[0]?.payload ?? "{}",
@@ -166,8 +174,11 @@ describe("huddle server rules", () => {
 			initiatorId: alice,
 			members: [alice, agent],
 		});
-		const actions = createThreadActions(threadDeps(db));
-		const sendMsg = actionFor<Record<string, unknown>, Record<string, unknown>>(actions, "send_message");
+		const actions = createThreadActions(threadDeps());
+		const sendMsg = actionFor<Record<string, unknown>, Record<string, unknown>>(
+			actions,
+			"send_message",
+		);
 		const ctx = ctxFor(db, alice, { eventBus });
 		const res = await sendMsg.run(ctx, { threadId, huddle: {} });
 		expect(res.ok).toBe(false);

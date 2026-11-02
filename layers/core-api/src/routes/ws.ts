@@ -96,13 +96,7 @@ function registerWsRoute(
 							ws.send(JSON.stringify({ type: "unsubscribed", topic: msg.topic }));
 							return;
 						}
-						if (
-							msg.type === "signal" &&
-							msg.huddleId &&
-							msg.to &&
-							adapter &&
-							relaySignal
-						) {
+						if (msg.type === "signal" && msg.huddleId && msg.to && adapter && relaySignal) {
 							const from = identityByAdapter.get(adapter);
 							if (from) {
 								const relayed = await relaySignal(from, msg.huddleId, msg.to, msg.data ?? null);
@@ -128,7 +122,11 @@ function registerWsRoute(
 					identityByAdapter.delete(adapter);
 					adapters.delete(ws);
 					// After removal, check if this was the last connection for this identity.
-					if (identity && onIdentityDisconnect && broadcaster.getIdentityConnectionCount(identity) === 0) {
+					if (
+						identity &&
+						onIdentityDisconnect &&
+						broadcaster.getIdentityConnectionCount(identity) === 0
+					) {
 						onIdentityDisconnect(identity);
 					}
 				}

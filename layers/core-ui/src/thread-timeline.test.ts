@@ -1,7 +1,21 @@
 /** How a thread reads top to bottom, and how its work item says where it is. */
-import type { DocumentRow, HuddlePayload, Message, SessionRow, Task } from "@hyperidle/domain-model";
+import type {
+	DocumentRow,
+	HuddlePayload,
+	Message,
+	SessionRow,
+	Task,
+} from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
-import { clock, duration, huddleLabel, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
+import {
+	clock,
+	duration,
+	huddleLabel,
+	stepFrom,
+	timeline,
+	titleFrom,
+	workState,
+} from "./thread-timeline";
 
 const at = (hhmm: string) => `2026-10-20T${hhmm}:00.000Z`;
 const msg = (id: string, senderId: string, hhmm: string, type: Message["type"], payload: unknown) =>
@@ -119,7 +133,9 @@ describe("timeline", () => {
 						? `strip ${e.task.id}`
 						: e.kind === "event"
 							? e.text
-							: `made ${e.doc.id}`,
+							: e.kind === "huddle"
+								? `huddle ${e.huddleMessage.id}`
+								: `made ${e.doc.id}`,
 			),
 		).toEqual([
 			"maya: 1",

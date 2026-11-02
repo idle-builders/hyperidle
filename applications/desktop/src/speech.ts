@@ -13,32 +13,35 @@ type SpeechText = { kind: "partial" | "final"; text: string } | { kind: "error";
 export function registerSpeechHandlers(helperPath: string): void {
 	let helper: ChildProcess | null = null;
 
-	ipcMain.handle("speech:start", (event: { sender: WebContents }, opts?: { utterances?: boolean }) => {
-		helper?.kill();
-		const sender = event.sender;
-		const send = (text: SpeechText) => {
-			if (!sender.isDestroyed()) sender.send("speech:text", text);
-		};
-		const child = spawn(helperPath, opts?.utterances ? ["--utterances"] : [], {
-			stdio: ["pipe", "pipe", "ignore"],
-		});
-		helper = child;
-		let ended = false;
-		readline.createInterface({ input: child.stdout }).on("line", (line) => {
-			const text = JSON.parse(line) as SpeechText;
-			if (text.kind === "error") ended = true;
-			else if (!opts?.utterances && text.kind === "final") ended = true;
-			send(text);
-		});
-		child.on("error", (err) => {
-			ended = true;
-			send({ kind: "error", message: `The speech helper could not start: ${err.message}` });
-		});
-		child.on("close", () => {
-			if (helper === child) helper = null;
-			if (!ended) send({ kind: "error", message: "The speech helper stopped unexpectedly." });
-		});
-	});
+	ipcMain.handle(
+		"speech:start",
+		(event: { sender: WebContents }, opts?: { utterances?: boolean }) => {
+			helper?.kill();
+			const sender = event.sender;
+			const send = (text: SpeechText) => {
+				if (!sender.isDestroyed()) sender.send("speech:text", text);
+			};
+			const child = spawn(helperPath, opts?.utterances ? ["--utterances"] : [], {
+				stdio: ["pipe", "pipe", "ignore"],
+			});
+			helper = child;
+			let ended = false;
+			readline.createInterface({ input: child.stdout }).on("line", (line) => {
+				const text = JSON.parse(line) as SpeechText;
+				if (text.kind === "error") ended = true;
+				else if (!opts?.utterances && text.kind === "final") ended = true;
+				send(text);
+			});
+			child.on("error", (err) => {
+				ended = true;
+				send({ kind: "error", message: `The speech helper could not start: ${err.message}` });
+			});
+			child.on("close", () => {
+				if (helper === child) helper = null;
+				if (!ended) send({ kind: "error", message: "The speech helper stopped unexpectedly." });
+			});
+		},
+	);
 
 	ipcMain.handle("speech:stop", () => {
 		helper?.stdin?.end();

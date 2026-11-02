@@ -60,7 +60,8 @@ async function connect(): Promise<void> {
 			data?: unknown;
 		};
 		if (message.type === "signal" && message.from && message.huddleId) {
-			for (const handler of signalHandlers) handler(message.from, message.huddleId, message.data ?? null);
+			for (const handler of signalHandlers)
+				handler(message.from, message.huddleId, message.data ?? null);
 			return;
 		}
 		if (message.type !== "update" || !message.topic) return;

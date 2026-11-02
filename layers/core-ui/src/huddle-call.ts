@@ -17,6 +17,23 @@ let onSpeechErrorCallback: ((message: string) => void) | null = null;
 export function onHuddleSpeechError(cb: ((message: string) => void) | null): void {
 	onSpeechErrorCallback = cb;
 }
+
+const callChangeListeners = new Set<() => void>();
+
+function notifyCallChange(): void {
+	for (const cb of callChangeListeners) cb();
+}
+
+/**
+ * Subscribe to call state changes — fires whenever the active huddle id is set or cleared.
+ * Returns an unsubscribe function, compatible with useSyncExternalStore.
+ */
+export function onCallChange(cb: () => void): () => void {
+	callChangeListeners.add(cb);
+	return () => {
+		callChangeListeners.delete(cb);
+	};
+}
 /** ICE candidates that arrived before setRemoteDescription; flushed once SDP is set. */
 const iceCandidateQueues = new Map<string, RTCIceCandidateInit[]>();
 const remoteAudios = new Map<string, HTMLAudioElement>();
@@ -101,7 +118,7 @@ async function handleSignal(from: string, huddleId: string, data: unknown): Prom
 	}
 }
 
-async function startSpeech(threadId: string): Promise<void> {
+async function startSpeech(): Promise<void> {
 	const speech = window.__HYPERIDLE__?.speech;
 	if (!speech) return;
 	await speech.start(
@@ -144,7 +161,8 @@ export async function startHuddleCall(
 		sendSignal(huddleId, remoteId, { type: "offer", sdp: pc.localDescription });
 	}
 
-	void startSpeech(threadId);
+	notifyCallChange();
+	void startSpeech();
 }
 
 /**
@@ -179,9 +197,12 @@ export function muteHuddleCall(nowMuted: boolean): void {
 		}
 	}
 	if (nowMuted) {
-		if (speechStop) void speechStop().finally(() => { speechStop = null; });
+		if (speechStop)
+			void speechStop().finally(() => {
+				speechStop = null;
+			});
 	} else if (activeThreadId) {
-		void startSpeech(activeThreadId);
+		void startSpeech();
 	}
 }
 
@@ -195,12 +216,16 @@ export function stopHuddleCall(): void {
 		audio.remove();
 	}
 	remoteAudios.clear();
-	localStream?.getTracks().forEach((t) => t.stop());
+	for (const t of localStream?.getTracks() ?? []) t.stop();
 	localStream = null;
 	stopSignalListener?.();
 	stopSignalListener = null;
-	if (speechStop) void speechStop().finally(() => { speechStop = null; });
+	if (speechStop)
+		void speechStop().finally(() => {
+			speechStop = null;
+		});
 	activeHuddleId = null;
 	activeThreadId = null;
 	activeSelf = null;
+	notifyCallChange();
 }

@@ -3,8 +3,8 @@
  * Typed functions only — must NOT re-export raw `threads`/`messages` pgTable objects (table ownership).
  */
 
-export { createThreadActions, type ThreadActionsDeps } from "./thread-actions.js";
 export { isRelayAllowed } from "./huddle-operations.js";
+export { createThreadActions, type ThreadActionsDeps } from "./thread-actions.js";
 export type {
 	AppMessageRow,
 	MessageFilter,

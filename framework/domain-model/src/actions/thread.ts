@@ -632,7 +632,8 @@ export function adjustThreadInvariants(input: AdjustThreadInput): Problem[] {
 	) {
 		problems.push({
 			code: "adjust_message_empty",
-			message: "Resolve or reopen the comment, apply or dismiss its change, or join/leave a huddle.",
+			message:
+				"Resolve or reopen the comment, apply or dismiss its change, or join/leave a huddle.",
 			path: "message",
 		});
 	}

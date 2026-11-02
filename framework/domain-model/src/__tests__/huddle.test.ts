@@ -1,32 +1,23 @@
 /** Invariants for the huddle message type: send and adjust. */
 import { describe, expect, it } from "vitest";
-import {
-	adjustThreadInvariants,
-	sendMessageInvariants,
-} from "../actions/thread.js";
+import { adjustThreadInvariants, sendMessageInvariants } from "../actions/thread.js";
 
 const noCaller = { hasCallingThread: false };
 
 describe("sendMessageInvariants — huddle body", () => {
-	it.each<[string, Parameters<typeof sendMessageInvariants>[0], string | null]>([
-		[
-			"huddle counts as a body",
-			{ threadId: "t1", huddle: {} },
-			null,
-		],
-		[
-			"huddle + text is two bodies",
-			{ threadId: "t1", huddle: {}, text: "hi" },
-			"two_bodies",
-		],
-		[
-			"no body still fails with huddle absent",
-			{ threadId: "t1" },
-			"no_body",
-		],
-	])("%s", (_, input, code) => {
+	it("huddle counts as a body — no invariant violations", () => {
+		const codes = sendMessageInvariants({ threadId: "t1", huddle: {} }, noCaller).map(
+			(p) => p.code,
+		);
+		expect(codes).toHaveLength(0);
+	});
+
+	it.each<[string, Parameters<typeof sendMessageInvariants>[0], string]>([
+		["huddle + text is two bodies", { threadId: "t1", huddle: {}, text: "hi" }, "two_bodies"],
+		["no body still fails with huddle absent", { threadId: "t1" }, "no_body"],
+	])("%s → %s", (_, input, code) => {
 		const codes = sendMessageInvariants(input, noCaller).map((p) => p.code);
-		expect(codes).toEqual(code ? expect.arrayContaining([code]) : []);
+		expect(codes).toContain(code);
 	});
 });
 

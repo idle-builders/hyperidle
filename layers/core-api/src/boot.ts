@@ -23,6 +23,8 @@ import { createJoinRoutes, type SignIn } from "./routes/join.js";
 
 export type { SignIn };
 
+import { huddlePayloadSchema } from "@hyperidle/domain-model";
+import { findHuddleMessage, findLiveHuddlesForPerson, isRelayAllowed } from "@hyperidle/thread";
 import { type ApiMiddlewareStack, createApiMiddlewareStack } from "./api-middleware-stack.js";
 import {
 	type AppOptions,
@@ -36,12 +38,6 @@ import {
 import { registerWsRoute } from "./routes/ws.js";
 import { WsConnectionHub } from "./ws-connection-hub.js";
 import { createDbSubscribeAuthorizer } from "./ws-subscribe-authorizer.js";
-import {
-	findHuddleMessage,
-	findLiveHuddlesForPerson,
-	isRelayAllowed,
-} from "@hyperidle/thread";
-import { huddlePayloadSchema } from "@hyperidle/domain-model";
 
 export interface CoreApiBootOptions extends AppOptions {
 	/** Explicit auth key for a composition root that must not depend on ambient env. */
@@ -156,7 +152,7 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 				body: Record<string, unknown>,
 				actorId: string,
 		  ) => Promise<{ ok: boolean; data?: unknown; problems?: ReadonlyArray<{ code: string }> }>)
-		| undefined = undefined;
+		| undefined;
 
 	const relaySignal = db
 		? async (from: string, huddleId: string, to: string, data: unknown): Promise<boolean> => {
@@ -167,7 +163,7 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 				if (!isRelayAllowed(parsed.data, from, to)) return false;
 				wsHub.sendToIdentity(to, JSON.stringify({ type: "signal", from, huddleId, data }));
 				return true;
-		  }
+			}
 		: null;
 
 	const onIdentityDisconnect = db
@@ -175,13 +171,17 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 				// Leave all live huddles for this identity. Best-effort; no await.
 				void findLiveHuddlesForPerson(db as HyperIdleDb, identity).then((huddles) => {
 					for (const huddle of huddles) {
-						void callActionAsDeferred?.("adjust_thread", {
-							id: huddle.threadId,
-							message: { id: huddle.id, huddle: "leave" },
-						}, identity);
+						void callActionAsDeferred?.(
+							"adjust_thread",
+							{
+								id: huddle.threadId,
+								message: { id: huddle.id, huddle: "leave" },
+							},
+							identity,
+						);
 					}
 				});
-		  }
+			}
 		: null;
 
 	const registerWebSocket =
