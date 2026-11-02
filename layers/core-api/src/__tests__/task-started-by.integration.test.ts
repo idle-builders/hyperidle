@@ -18,7 +18,11 @@ async function act(
 }
 
 describe("who started a task", () => {
-	test("search_tasks finds the tasks a user started, and only theirs", async ({ db, app }) => {
+	test("search_tasks finds the tasks a user started, and only theirs", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
 		const now = new Date().toISOString();
 		await db.insert(teams).values({ id: "sb-team", name: "Started", createdAt: now });
 		await db.insert(users).values([
@@ -39,6 +43,7 @@ describe("who started a task", () => {
 				createdAt: now,
 			},
 		]);
+		await asPerson("u-founder");
 
 		const made = await act(app, "edit_task", {
 			teamId: "sb-team",

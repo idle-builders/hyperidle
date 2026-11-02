@@ -22,14 +22,7 @@ const FOUNDER = "u-founder-identity";
 const OTHER_HUMAN = "u-other-identity";
 const AGENT = "agent-identity";
 
-function authHeaders(identity: string): Record<string, string> {
-	return {
-		"X-API-Key": TEST_API_KEY,
-		"Content-Type": "application/json",
-		"X-Identity": identity,
-		Authorization: `Bearer test-token-${identity}`,
-	};
-}
+const HEADERS = { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -100,12 +93,13 @@ describe("an agent's identity document is visible to everyone, not a private not
 		vi.unstubAllEnvs();
 	});
 
-	test("a person who did not author it can still read it", async ({ db, app }) => {
+	test("a person who did not author it can still read it", async ({ db, app, asPerson }) => {
 		await seed(db);
+		await asPerson(FOUNDER);
 
 		const res = await app.request("/api/actions/open_document", {
 			method: "POST",
-			headers: authHeaders(FOUNDER),
+			headers: HEADERS,
 			body: JSON.stringify({ id: "ki_af_agent-identity" }),
 		});
 
@@ -123,12 +117,14 @@ describe("an agent's identity document is visible to everyone, not a private not
 	test("a person who did not author it can edit it — this is the only editor", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seed(db);
+		await asPerson(FOUNDER);
 
 		const res = await app.request("/api/actions/edit_document", {
 			method: "POST",
-			headers: authHeaders(FOUNDER),
+			headers: HEADERS,
 			body: JSON.stringify({
 				id: "ki_af_agent-identity",
 				version: 1,
@@ -139,7 +135,7 @@ describe("an agent's identity document is visible to everyone, not a private not
 
 		const after = await app.request("/api/actions/open_document", {
 			method: "POST",
-			headers: authHeaders(FOUNDER),
+			headers: HEADERS,
 			body: JSON.stringify({ id: "ki_af_agent-identity" }),
 		});
 		expect(
@@ -147,12 +143,13 @@ describe("an agent's identity document is visible to everyone, not a private not
 		).toBe("You are Atlas, rewritten.");
 	});
 
-	test("another person's private note is still private", async ({ db, app }) => {
+	test("another person's private note is still private", async ({ db, app, asPerson }) => {
 		await seed(db);
+		await asPerson(FOUNDER);
 
 		const res = await app.request("/api/actions/open_document", {
 			method: "POST",
-			headers: authHeaders(FOUNDER),
+			headers: HEADERS,
 			body: JSON.stringify({ id: "ki_note_other" }),
 		});
 
@@ -164,12 +161,17 @@ describe("an agent's identity document is visible to everyone, not a private not
 		expect(body.problems[0]?.code).toBe("not_found");
 	});
 
-	test("the identity appears in a search, the private note does not", async ({ db, app }) => {
+	test("the identity appears in a search, the private note does not", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
 		await seed(db);
+		await asPerson(FOUNDER);
 
 		const res = await app.request("/api/actions/search_documents", {
 			method: "POST",
-			headers: authHeaders(FOUNDER),
+			headers: HEADERS,
 			body: JSON.stringify({}),
 		});
 		expect(res.status).toBe(200);
@@ -226,12 +228,14 @@ describe("agent identity through the document action mechanism", () => {
 	test("a created agent's identity document gets the exact doc_af_<agentId> id, and a non-owner can open it", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seedTwoHumans(db);
+		await asPerson(CREATOR);
 
 		const createRes = await app.request("/api/actions/edit_user", {
 			method: "POST",
-			headers: authHeaders(CREATOR),
+			headers: HEADERS,
 			body: JSON.stringify({
 				kind: "ai",
 				name: "Atlas",
@@ -252,9 +256,10 @@ describe("agent identity through the document action mechanism", () => {
 		const identityDocumentId = created.documentIds.find((d) => d.slot === "agent_file")?.id;
 		expect(identityDocumentId).toBe(`doc_af_${agentId}`);
 
+		await asPerson(READER);
 		const openRes = await app.request("/api/actions/open_document", {
 			method: "POST",
-			headers: authHeaders(READER),
+			headers: HEADERS,
 			body: JSON.stringify({ id: identityDocumentId }),
 		});
 		expect(openRes.status).toBe(200);
@@ -270,12 +275,14 @@ describe("agent identity through the document action mechanism", () => {
 	test("listing and reading an identity through search_users/open_user never bumps its read count", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
 		await seedTwoHumans(db);
+		await asPerson(CREATOR);
 
 		const createRes = await app.request("/api/actions/edit_user", {
 			method: "POST",
-			headers: authHeaders(CREATOR),
+			headers: HEADERS,
 			body: JSON.stringify({
 				kind: "ai",
 				name: "Ranger",
@@ -290,14 +297,15 @@ describe("agent identity through the document action mechanism", () => {
 		).data;
 		const agentId = created.user?.id as string;
 
+		await asPerson(READER);
 		await app.request("/api/actions/search_users", {
 			method: "POST",
-			headers: authHeaders(READER),
+			headers: HEADERS,
 			body: JSON.stringify({ kind: "ai" }),
 		});
 		await app.request("/api/actions/open_user", {
 			method: "POST",
-			headers: authHeaders(READER),
+			headers: HEADERS,
 			body: JSON.stringify({ id: agentId }),
 		});
 

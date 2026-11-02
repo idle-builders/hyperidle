@@ -32,7 +32,7 @@ test("picking an option answers Maya's question in place, and the thread stops a
 	const row = page
 		.getByRole("navigation", { name: "Sidebar" })
 		.getByRole("button", { name: /^Rollout rule, written down/ });
-	await expect(row).toContainText("Needs input");
+	await expect(row.getByRole("img", { name: "Needs input" })).toBeVisible();
 
 	const own = page.getByRole("button", { name: /^I will own it/ });
 	await own.click();
@@ -40,7 +40,7 @@ test("picking an option answers Maya's question in place, and the thread stops a
 	await expect(own).toContainText("chosen by you");
 	await expect(own).toBeDisabled();
 	await expect(page.getByText("You went with I will own it")).toBeVisible();
-	await expect(row).not.toContainText("Needs input");
+	await expect(row.getByRole("img", { name: "Needs input" })).toHaveCount(0);
 });
 
 test("a message is written with the mention picker and appears once sent", async ({ page }) => {

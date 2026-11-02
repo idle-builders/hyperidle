@@ -7,7 +7,7 @@ const NONE: readonly never[] = [];
 /** Everyone you can @mention, with their load from the sessions running now. */
 export function useMentionables(): readonly Mentionable[] {
 	const me = useAction("open_user", {});
-	const users = useAction("search_users", {});
+	const users = useAction("search_users", {}, ["users"]);
 	const running = useAction("search_sessions", { state: "active" });
 	return mentionables(users.data ?? NONE, running.data ?? NONE, me.data?.user?.id ?? "");
 }

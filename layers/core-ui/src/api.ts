@@ -28,12 +28,11 @@ declare global {
 		/** Set by the desktop app's preload. */
 		__HYPERIDLE__?: {
 			readonly apiKey: string;
-			/** Desktop only: keep a secret in the computer's keychain. */
-			readonly credentials?: {
-				set(name: string, value: string): Promise<{ stored: boolean; warning?: string }>;
-			};
-			/** Desktop only: reopen on a team's server, once its key is kept. */
-			readonly join?: (address: string) => Promise<{ ok: boolean; problem?: string }>;
+			/** Desktop only: sign in to a team's server, join it and reopen there as you. */
+			readonly join?: (form: {
+				address: string;
+				team?: string;
+			}) => Promise<{ ok: boolean; problem?: string; needsTeam?: boolean }>;
 			/** Desktop on a Mac only: write down what is said, on this computer. */
 			readonly speech?: {
 				/** Each result replaces the last; `final` is the last one of a recording. */
@@ -44,13 +43,20 @@ declare global {
 	}
 }
 
-// @lore: the key must equal the server's HYPERIDLE_API_KEY; a mismatch is a bare 401. Dev falls back to the server's own laptop default.
+// @lore: the key is a person's own key or the server's HYPERIDLE_API_KEY (nobody yet); any other is a bare 401. Dev falls back to the laptop default.
 function apiKey(): string {
 	return (
 		window.__HYPERIDLE__?.apiKey ??
 		import.meta.env.VITE_HYPERIDLE_API_KEY ??
 		(import.meta.env.DEV ? "hyperidle-dev-local" : "")
 	);
+}
+
+/** Agent programs run where the server runs: this computer, or — once joined — the team's server. */
+export function programsAt(): string {
+	return ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname)
+		? "on this computer"
+		: "on the team's server";
 }
 
 /** POST with the API key: every action, and the few other writes. */

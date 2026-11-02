@@ -115,10 +115,12 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId/:id/remove",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId/:id/withhold",
-	// First start runs before anyone has a row, so there is no one to run an action as: a
-	// bootstrap door like auth, not an action.
+	// First start and joining run before the caller has a row, so there is no one to run an action
+	// as: bootstrap doors like auth, not actions.
 	"layers/core-api/src/routes/start.ts|POST /look",
 	"layers/core-api/src/routes/start.ts|POST /",
+	"layers/core-api/src/routes/join.ts|GET /",
+	"layers/core-api/src/routes/join.ts|POST /",
 ];
 
 /** The nine object events — task/thread/document/user, edit-in/changed-out. */

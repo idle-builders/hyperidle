@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 #
-# Production image for the HyperIdle Shared Backend (cluster deploy).
+# The HyperIdle server image, published per commit on main
+# (.github/workflows/server-image.yml).
 #
 # This is NOT the dev-environment image (that's ./Dockerfile). This image runs
 # the headless Hono server + fabric under HYPERIDLE_PROFILE=cloud, serving the
@@ -55,5 +56,5 @@ EXPOSE 3001
 USER 1000
 
 # Exec form so the server is PID 1 and receives SIGTERM for graceful shutdown.
-# DATABASE_URL and HYPERIDLE_API_KEY are injected from Kubernetes secrets.
+# DATABASE_URL and HYPERIDLE_API_KEY come from the environment.
 CMD ["node", "--import", "tsx", "applications/remote-server/src/index.ts"]

@@ -12,6 +12,7 @@
  */
 
 import { type HyperIdleDb, teams } from "@hyperidle/db";
+import { givePersonKey } from "@hyperidle/user";
 import { FOUNDER_ID, PRODUCT_TEAM_ID, SUPPORT_TEAM_ID } from "./demo-world/ids.js";
 import { seedDemoWorldContent } from "./demo-world/index.js";
 import { createDemoClock } from "./demo-world/time.js";
@@ -37,5 +38,7 @@ export async function seedDemoWorld(
 		])
 		.onConflictDoNothing();
 	await seedDemoWorldContent(db, clock, opts.pluginsBaseDir);
+	// The demo opens as its founder: the key the laptop server runs with (its dev default without one) is his.
+	await givePersonKey(db, FOUNDER_ID, process.env.HYPERIDLE_API_KEY ?? "hyperidle-dev-local");
 	return { teamId: PRODUCT_TEAM_ID, founderId: FOUNDER_ID };
 }

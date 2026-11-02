@@ -108,9 +108,8 @@ vi.mock("../src/app-menu.js", () => ({
 }));
 
 vi.mock("../src/safe-credentials.js", () => ({
-	createSafeCredentialsManager: vi.fn(() => ({
-		registerHandlers: vi.fn(),
-	})),
+	keepPersonKey: vi.fn(() => true),
+	readPersonKey: vi.fn(() => null),
 }));
 
 vi.mock("../src/client-config.js", () => ({

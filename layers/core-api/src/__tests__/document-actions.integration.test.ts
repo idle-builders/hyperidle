@@ -169,7 +169,11 @@ async function callHumanAs<T>(
 
 const FOUNDER_ID = "u-founder";
 
-async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
+async function seedTeam(
+	db: HyperIdleDb,
+	teamId: string,
+	asPerson?: (id: string) => Promise<void>,
+): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: teamId, name: teamId, createdAt: now });
 	await db
@@ -192,6 +196,7 @@ async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 			},
 		])
 		.onConflictDoNothing();
+	await asPerson?.(FOUNDER_ID);
 }
 
 async function seedHuman(db: HyperIdleDb, id: string, teamId?: string): Promise<void> {
@@ -391,11 +396,12 @@ function requireDoc(result: DoorResult<DocumentView>): DocumentView {
 describe("case 1 — create a document, read it back with open_document, every field", () => {
 	test("both doors: created row and reopened view agree on every field", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c1");
+		await seedTeam(db, "c1", asPerson);
 		await seedAgent(db, "c1-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
@@ -462,11 +468,12 @@ describe("case 1 — create a document, read it back with open_document, every f
 describe('case 2 — create as:"memory"', () => {
 	test("scopeKind is user, scopeId is the actor, parentKind is null — both doors", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c2");
+		await seedTeam(db, "c2", asPerson);
 		await seedAgent(db, "c2-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
@@ -496,11 +503,12 @@ describe('case 2 — create as:"memory"', () => {
 describe("case 2b — a user-scoped document IN the tree is a private document, not a memory", () => {
 	test('widening it to team is a real scope change — as:"document", not forced back, no forcing no-op', async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c2b");
+		await seedTeam(db, "c2b", asPerson);
 		await seedAgent(db, "c2b-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const agentIdentity: AgentIdentity = { agentId: "c2b-agent", sessionId: "c2b-sess" };
@@ -579,11 +587,12 @@ describe("case 2b — a user-scoped document IN the tree is a private document, 
 
 	test('search_documents({as:"memory"}) excludes it; search_documents({as:"document"}) includes it; open_document derives as:"document"', async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c2bs");
+		await seedTeam(db, "c2bs", asPerson);
 		await seedAgent(db, "c2bs-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
@@ -622,11 +631,12 @@ describe("case 2b — a user-scoped document IN the tree is a private document, 
 
 	test('a genuine memory\'s scope stays refused with memory_scope_fixed even without repeating as:"memory" on the edit — the forcing never lands as a silent no-op', async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c2bm");
+		await seedTeam(db, "c2bm", asPerson);
 		await seedAgent(db, "c2bm-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
@@ -710,11 +720,12 @@ describe("case 3 — an agent's memory is visible to its owner, not to a third p
 describe('case 4 — create as:"artifact" with no explicit parent', () => {
 	test("agent arm stamps the calling task; human arm (no calling task) is refused artifact_no_parent", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c4");
+		await seedTeam(db, "c4", asPerson);
 		await seedTaskWithThread(db, "c4-task-1", "c4");
 		await seedAgent(db, "c4-agent");
 		const actions = buildRealActions(agentOrchestration);
@@ -764,11 +775,12 @@ async function buildFourLevelTree(
 describe("case 5 — a tree: ancestors root-first, ordered children, siblings excluding self", () => {
 	test("both doors agree on the shape of an identically-built tree", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c5");
+		await seedTeam(db, "c5", asPerson);
 		await seedAgent(db, "c5-agent");
 		const actions = buildRealActions(agentOrchestration);
 
@@ -883,8 +895,8 @@ describe("case 5b — a person reads a document of a team they are not in", () =
 // ---------------------------------------------------------------------------
 
 describe("case 6 — search_documents({inTree:true}) excludes artifacts and slotted documents", () => {
-	test("both doors", async ({ app, db, eventBus, agentOrchestration }) => {
-		await seedTeam(db, "c6");
+	test("both doors", async ({ app, db, asPerson, eventBus, agentOrchestration }) => {
+		await seedTeam(db, "c6", asPerson);
 		await seedTaskWithThread(db, "c6-task-1", "c6");
 		await seedAgent(db, "c6-agent");
 		await seedSubscription(db, "c6-routine-1", "c6-agent");
@@ -939,11 +951,12 @@ describe("case 6 — search_documents({inTree:true}) excludes artifacts and slot
 describe('case 7 — search_documents({as:"memory"}) returns only the caller\'s own', () => {
 	test("both doors: never another actor's memory", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c7");
+		await seedTeam(db, "c7", asPerson);
 		await seedHuman(db, "c7-other-human");
 		await seedAgent(db, "c7-agent");
 		await seedAgent(db, "c7-other-agent");
@@ -1002,11 +1015,12 @@ describe('case 7 — search_documents({as:"memory"}) returns only the caller\'s 
 describe("case 8 — a batched parent.ids search returns one row per subscription", () => {
 	test("both doors: exactly the two prompts, one per subscription id", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c8");
+		await seedTeam(db, "c8", asPerson);
 		await seedAgent(db, "c8-agent");
 		await seedSubscription(db, "c8-routine-a", "c8-agent");
 		await seedSubscription(db, "c8-routine-b", "c8-agent");
@@ -1064,11 +1078,12 @@ describe("case 8 — a batched parent.ids search returns one row per subscriptio
 describe("case 9 — an invariant refusal round-trips through both doors", () => {
 	test("a pure invariant refusal (title_required) reaches both doors with the same code", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c9i1");
+		await seedTeam(db, "c9i1", asPerson);
 		await seedAgent(db, "c9i1-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
@@ -1084,11 +1099,12 @@ describe("case 9 — an invariant refusal round-trips through both doors", () =>
 
 	test("forbidden_parent: a DB-dependent refusal reaches both doors with the same code", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c9d8");
+		await seedTeam(db, "c9d8", asPerson);
 		await seedHuman(db, "c9d8-owner");
 		await seedAgent(db, "c9d8-agent");
 		const actions = buildRealActions(agentOrchestration);
@@ -1130,11 +1146,12 @@ describe("case 9 — an invariant refusal round-trips through both doors", () =>
 describe("case 9b — forbidden_parent_kind refuses client doors, not the internal path", () => {
 	test("HTTP door and tool door both refuse a client-named agent parent", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c9b1");
+		await seedTeam(db, "c9b1", asPerson);
 		await seedAgent(db, "c9b1-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
@@ -1197,11 +1214,12 @@ describe("case 9b — forbidden_parent_kind refuses client doors, not the intern
 describe("case 10 — the combined cases", () => {
 	test("a move of a prompt document is refused before it ever reaches the scope-move rule", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c10c2");
+		await seedTeam(db, "c10c2", asPerson);
 		await seedAgent(db, "c10c2-agent");
 		await seedSubscription(db, "c10c2-routine", "c10c2-agent");
 		const actions = buildRealActions(agentOrchestration);
@@ -1252,8 +1270,8 @@ describe("case 10 — the combined cases", () => {
 		expect(doc.parentId).toBe("c10c3-thread");
 	});
 
-	test("a stale edit writes nothing, and cascades nothing", async ({ app, db }) => {
-		await seedTeam(db, "c10c4");
+	test("a stale edit writes nothing, and cascades nothing", async ({ app, db, asPerson }) => {
+		await seedTeam(db, "c10c4", asPerson);
 		const parent = requireDoc(
 			await callHuman<DocumentView>(app, "edit_document", { title: "parent" }),
 		).document.id;
@@ -1291,11 +1309,12 @@ describe("case 10 — the combined cases", () => {
 
 	test('as:"memory" + slot on create: the slot is forced to ordinary, silently', async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c10c5");
+		await seedTeam(db, "c10c5", asPerson);
 		await seedAgent(db, "c10c5-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
@@ -1311,11 +1330,12 @@ describe("case 10 — the combined cases", () => {
 
 	test("upsert-with-id + version: a version on a create is ignored, not an error", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c10c6");
+		await seedTeam(db, "c10c6", asPerson);
 		await seedAgent(db, "c10c6-agent");
 		const actions = buildRealActions(agentOrchestration);
 		// Distinct explicit ids per door — the same id would make the door
@@ -1341,11 +1361,12 @@ describe("case 10 — the combined cases", () => {
 
 	test("upsert-with-id + visibility: another person's id answers not_found and creates nothing", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c10c7");
+		await seedTeam(db, "c10c7", asPerson);
 		await seedHuman(db, "c10c7-owner");
 		await seedAgent(db, "c10c7-agent");
 		const actions = buildRealActions(agentOrchestration);
@@ -1453,11 +1474,12 @@ describe("case 10 — the combined cases", () => {
 describe("graduation — a task-parented artifact moves into the document tree via a plain parent change", () => {
 	test("moving parent from the calling task to a document root turns the artifact into a tree document", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "cgrad-1");
+		await seedTeam(db, "cgrad-1", asPerson);
 		await seedTaskWithThread(db, "cgrad-1-task", "cgrad-1");
 		await seedAgent(db, "cgrad-1-agent");
 		const actions = buildRealActions(agentOrchestration);
@@ -1492,11 +1514,12 @@ describe("graduation — a task-parented artifact moves into the document tree v
 
 	test("moving parent to null graduates a task-parented artifact to the top of the tree", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "cgrad-2");
+		await seedTeam(db, "cgrad-2", asPerson);
 		await seedTaskWithThread(db, "cgrad-2-task", "cgrad-2");
 		await seedAgent(db, "cgrad-2-agent");
 		const actions = buildRealActions(agentOrchestration);
@@ -1555,8 +1578,8 @@ describe("graduation — a task-parented artifact moves into the document tree v
 // ---------------------------------------------------------------------------
 
 describe("case 11 — every successful edit appends exactly one changes row; a failed edit appends none", () => {
-	test("both doors", async ({ app, db, eventBus, agentOrchestration }) => {
-		await seedTeam(db, "c11");
+	test("both doors", async ({ app, db, asPerson, eventBus, agentOrchestration }) => {
+		await seedTeam(db, "c11", asPerson);
 		await seedAgent(db, "c11-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
@@ -1600,8 +1623,8 @@ describe("case 11 — every successful edit appends exactly one changes row; a f
 // ---------------------------------------------------------------------------
 
 describe("case 12 — version bumps by exactly 1 on every successful edit, including an archive", () => {
-	test("both doors", async ({ app, db, eventBus, agentOrchestration }) => {
-		await seedTeam(db, "c12");
+	test("both doors", async ({ app, db, asPerson, eventBus, agentOrchestration }) => {
+		await seedTeam(db, "c12", asPerson);
 		await seedAgent(db, "c12-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
@@ -1708,9 +1731,10 @@ describe("case 13 — default-scope derivation: actor's team, else the calling t
 describe("case 14 — the scope cascade family", () => {
 	test("1a narrowing cascades: a factory child and a team grandchild — the child narrows, the grandchild is untouched", async ({
 		app,
+		asPerson,
 		db,
 	}) => {
-		await seedTeam(db, "c14a");
+		await seedTeam(db, "c14a", asPerson);
 		const parent = requireDoc(
 			await callHuman<DocumentView>(app, "edit_document", {
 				title: "parent",
@@ -1820,9 +1844,10 @@ describe("case 14 — the scope cascade family", () => {
 
 	test("1c a named-slot child is narrowed too: scope changes, slot does not", async ({
 		app,
+		asPerson,
 		db,
 	}) => {
-		await seedTeam(db, "c14c");
+		await seedTeam(db, "c14c", asPerson);
 		const parent = requireDoc(
 			await callHuman<DocumentView>(app, "edit_document", {
 				title: "parent",
@@ -1847,15 +1872,15 @@ describe("case 14 — the scope cascade family", () => {
 		expect(childRow.slot).toBe("skill");
 	});
 
-	test("1d a child the actor cannot see is narrowed too", async ({ app, db }) => {
+	test("1d a child the actor cannot see is narrowed too", async ({ app, db, asPerson }) => {
 		// Rank, not team identity, decides "wider" (§6.6 rule 1: factory <
 		// team < user). A team-scoped child is only narrowed by a parent that
 		// moves to something RANKED narrower than team — i.e. "user" — so this
 		// case parks the child on a team the narrowing actor does not belong
 		// to (proving the walk ignores the actor's visible set) while the
 		// parent narrows all the way to a person-private scope.
-		await seedTeam(db, "c14d");
-		await seedTeam(db, "c14d-other");
+		await seedTeam(db, "c14d", asPerson);
+		await seedTeam(db, "c14d-other", asPerson);
 		const parent = requireDoc(
 			await callHuman<DocumentView>(app, "edit_document", {
 				title: "parent",
@@ -1880,8 +1905,8 @@ describe("case 14 — the scope cascade family", () => {
 		expect(childRow.scopeId).toBe(FOUNDER_ID);
 	});
 
-	test("1e an archived child is narrowed too", async ({ app, db }) => {
-		await seedTeam(db, "c14e");
+	test("1e an archived child is narrowed too", async ({ app, db, asPerson }) => {
+		await seedTeam(db, "c14e", asPerson);
 		const parent = requireDoc(
 			await callHuman<DocumentView>(app, "edit_document", {
 				title: "parent",
@@ -1908,9 +1933,10 @@ describe("case 14 — the scope cascade family", () => {
 
 	test("1f a memory can never be in the tree — refused before it can ever be, so no cascade can touch it", async ({
 		app,
+		asPerson,
 		db,
 	}) => {
-		await seedTeam(db, "c14f");
+		await seedTeam(db, "c14f", asPerson);
 		const parent = requireDoc(
 			await callHuman<DocumentView>(app, "edit_document", {
 				title: "parent",
@@ -1936,11 +1962,12 @@ describe("case 14 — the scope cascade family", () => {
 describe("case 15 — open_document raises the read count and nothing else", () => {
 	test("both doors: readCount to 2, lastReadAt moves, version/updatedAt/changes untouched; a refused open counts nothing", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c15");
+		await seedTeam(db, "c15", asPerson);
 		await seedHuman(db, "c15-stranger");
 		await seedAgent(db, "c15-agent");
 		const actions = buildRealActions(agentOrchestration);
@@ -2023,8 +2050,8 @@ describe("case 15 — open_document raises the read count and nothing else", () 
 // ---------------------------------------------------------------------------
 
 describe("case 16 — search_documents raises nothing; edit_document is never a read", () => {
-	test("both doors", async ({ app, db, eventBus, agentOrchestration }) => {
-		await seedTeam(db, "c16");
+	test("both doors", async ({ app, db, asPerson, eventBus, agentOrchestration }) => {
+		await seedTeam(db, "c16", asPerson);
 		await seedAgent(db, "c16-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
@@ -2074,11 +2101,12 @@ async function seedDocumentRow(
 describe('case 17 — unusedSince and sort:"least_used"', () => {
 	test("both doors: unusedSince excludes a document created yesterday, includes one older than the cutoff; least_used puts the never-used first", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c17");
+		await seedTeam(db, "c17", asPerson);
 		await seedAgent(db, "c17-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
@@ -2114,11 +2142,12 @@ describe('case 17 — unusedSince and sort:"least_used"', () => {
 describe("cross-door proof — identical input yields deep-equal data, modulo ids and timestamps", () => {
 	test("both doors: the same edit_document input produces the same document shape", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "cdp1");
+		await seedTeam(db, "cdp1", asPerson);
 		await seedAgent(db, "cdp1-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
@@ -2180,11 +2209,12 @@ describe("cross-door proof — identical input yields deep-equal data, modulo id
 describe("cross-door proof — onBodyChanged detaches a plugin contribution on a body edit only", () => {
 	test("both doors: editing body detaches; editing only title does not", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "cdp2");
+		await seedTeam(db, "cdp2", asPerson);
 		await seedAgent(db, "cdp2-agent");
 		const actions = buildRealActions(agentOrchestration);
 
@@ -2250,13 +2280,13 @@ describe("HTTP door — 422 problem lists", () => {
 		expect(body.problems?.length ?? 0).toBeGreaterThan(0);
 	});
 
-	test("a successful edit returns 200", async ({ app, db }) => {
+	test("a successful edit returns 200", async ({ app, db, asPerson }) => {
 		// `changes.actor` FKs to `users.id` — the auth middleware resolves an
 		// unseeded DB's actor to the literal string "u-founder" regardless
 		// (`resolveApiKeyActorUserId`'s documented fallback), so the write
 		// needs a real founder row to satisfy the FK, exactly like every other
 		// case in this file seeds one via `seedTeam`.
-		await seedTeam(db, "c422-200");
+		await seedTeam(db, "c422-200", asPerson);
 		const res = await app.request("/api/actions/edit_document", {
 			method: "POST",
 			headers: authHeaders(),
@@ -2278,12 +2308,13 @@ describe("HTTP door — 422 problem lists", () => {
 describe("case 18 — search_documents({parent}) must name exactly one of id/ids", () => {
 	test("both doors: {as:'artifact', parent:{kind:'task'}} with no id/ids is refused with 422 parent_needs_id and returns no rows — the legitimate {id} and {ids} shapes still find the artifact", async ({
 		app,
+		asPerson,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "c18-a");
-		await seedTeam(db, "c18-b");
+		await seedTeam(db, "c18-a", asPerson);
+		await seedTeam(db, "c18-b", asPerson);
 		await seedTaskWithThread(db, "c18-task", "c18-a");
 		await seedHuman(db, "c18-outsider", "c18-b");
 		await seedAgent(db, "c18-agent");

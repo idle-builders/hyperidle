@@ -34,15 +34,16 @@ Top to bottom:
    Choosing one opens the page you last had open there, or its first row the first time; the app
    starts on the first conversation. While you write in a document, choosing one only shows its list.
 4. A line, then the list for the one you chose. Every list is in priority order: what you owe
-   first, then what is new to you, then the rest. A row is a title and a time, then a few words of
-   status and who.
-   - **Conversations** — "+ New conversation", then every thread across all teams. The status words
-     say what a thread waits on from you (Stuck, Needs input, Needs review), or "Mentioned you"
-     (until you open the thread), "New reply", or the last message.
+   first, then what is new to you, then the rest. A row is a title and a time, then who; a row with
+   a status starts with a mark, whose words show when you point at it.
+   - **Conversations** — "+ New conversation", then every thread across all teams. A thread that
+     waits on you is marked: a question mark for Stuck or Needs input, an eye for Needs review, @ for
+     "Mentioned you" (until you open the thread). Other rows say "New reply" or the last message.
    - **Work** — a team switch ("All teams" or one team, each with its task count) and, once a team
-     is picked, "The team ›", which opens the team page. Then the root tasks, with words such as
-     Running, Needs review, "3 of 7 done", On hold or Stopped.
-   - **Knowledge** — drafts someone else wrote ("Publish?") and documents edited since you looked,
+     is picked, "The team ›", which opens the team page. Then the root tasks, each marked the way
+     its graph is: ○ queued, ◐ under way, ✓ done, ■ stopped, a question mark or an eye where a
+     person is needed. Pointing at the mark says it in words ("3 of 7 done", On hold).
+   - **Knowledge** — drafts someone else wrote (an eye, "Publish?") and documents edited since you looked,
      then the document tree: one space per team, each document with its own icon (click it to
      change it) and a + to add a document under it.
 5. **You · N waiting for you** — at the bottom; opens your own page, where your settings are.

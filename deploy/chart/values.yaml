@@ -1,31 +1,40 @@
-# HyperIdle Shared Backend — Helm values.
-# Deployed into the `hyperidle` tenant namespace on the shared cluster.
-# See /Users/tg/Development/infra/docs/tenant-deployment-guide.md for the
-# platform contract (secrets, RBAC, ingress, PSA).
+# HyperIdle shared backend — Helm chart defaults. A deployment supplies its own
+# values (image tag, host, sign-in) from wherever it keeps its deployment.
+# The namespace must provide the secrets `database-url` (key DATABASE_URL) and
+# `app-secrets` (key HYPERIDLE_API_KEY).
 
-# The shared backend is currently internal-only and effectively idle. Keep one
-# warm replica for reachability without reserving a redundant idle instance.
 replicaCount: 1
 
 image:
-  repository: ghcr.io/idle-builders/hyperidle
-  # Overridden per-deploy by CI with the commit SHA (immutable). `latest`
-  # tracks the newest tagged release for manual `helm upgrade` convenience.
-  tag: latest
+  # Published for every commit on main by .github/workflows/server-image.yml.
+  repository: ghcr.io/idle-builders/hyperidle-server
+  # The commit SHA to run. Required: an image is never "latest".
+  tag: ""
   pullPolicy: IfNotPresent
+
+# Only for a private image registry.
+imagePullSecrets: []
+
+database:
+  # A secret holding `ca.crt`, for a database whose certificate a private CA
+  # signed. Empty → the system's trusted CAs.
+  caSecret: ""
 
 service:
   port: 3001
 
 ingress:
-  # Disabled until a real host is added to the tenant's allowlist annotation
-  # (platform.infra/allowed-hosts) — a ValidatingAdmissionPolicy rejects any
-  # Ingress whose host isn't allowlisted, which fails the whole helm apply.
-  # The backend runs and is reachable in-cluster via the Service; flip this on
-  # once an allowlisted host (e.g. api.hyperidle.org) is provisioned.
+  # No TLS block: HTTPS ends at the edge in front of the cluster (e.g. a
+  # Cloudflare Tunnel). The host must be one the namespace may claim.
   enabled: false
-  host: hyperidle.org
+  host: ""
   rateLimit: 20
+
+# Where people sign in to join — any OpenID Connect provider — and the desktop
+# app's client id there. Empty → nobody can join this backend.
+signIn:
+  issuer: ""
+  clientId: ""
 
 # Drizzle table migrations run as an init-container on every deploy (additive
 # only — old pods keep serving during rollout). drizzle-kit reads DATABASE_URL

@@ -22,7 +22,7 @@ import {
 	registerCoreDomainServices,
 } from "@hyperidle/core-api";
 import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
-import { bootCoreApi, type CoreApiBoot } from "@hyperidle/core-api/boot";
+import { bootCoreApi, type CoreApiBoot, type SignIn } from "@hyperidle/core-api/boot";
 import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { WebSocketServer } from "ws";
@@ -61,6 +61,8 @@ export interface CreateServerDeps {
 	 * server image carries the repo, so it is there too).
 	 */
 	readonly bundledPluginsDir?: string;
+	/** Where people sign in to join this server. Omitted → nobody can join. */
+	readonly signIn?: SignIn;
 }
 
 export interface ServerHandle {
@@ -198,6 +200,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		onHarnessRedetect,
 		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
 		bundledPluginsDir: resolveBundledPluginsDir(deps),
+		...(deps.signIn ? { signIn: deps.signIn } : {}),
 		serviceBootstrap: (ctx) => {
 			return [
 				...registerCoreDomainServices({ ...ctx, canProvision: true }),

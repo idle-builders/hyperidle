@@ -190,6 +190,7 @@ describe("a fresh install, end to end", () => {
 		app,
 		eventBus,
 		agentOrchestration,
+		asPerson,
 	}) => {
 		await applyFactoryCoreState(db);
 		const { search, edit, pluginsBaseDir } = pluginActions(agentOrchestration, db, eventBus);
@@ -204,6 +205,8 @@ describe("a fresh install, end to end", () => {
 		const teamA = ada.user?.teams[0]?.id ?? "";
 		expect(adaId).not.toBe("");
 		expect(teamA).not.toBe("");
+		await asPerson(adaId);
+
 		await call<UserView>(app, "edit_user", {
 			kind: "ai",
 			name: "Ada's Assistant",

@@ -116,7 +116,7 @@ test("opening a review stops the conversation asking; Approve shows the open cou
 	const row = page
 		.getByRole("navigation", { name: "Sidebar" })
 		.getByRole("button", { name: /^Trial-end confusion, three tickets/ });
-	await expect(row).not.toContainText("Needs review");
+	await expect(row.getByRole("img", { name: "Needs review" })).toHaveCount(0);
 	await expect(verdict(page)).toContainText("3 open");
 
 	await verdict(page).getByRole("button", { name: "Approve" }).click();
@@ -178,8 +178,14 @@ test("Use it lets clicks reach the page; Comment intercepts them as pins; Escape
 		page.getByRole("button", { name: "Point at something on the page" }),
 	).not.toBeVisible();
 
-	// Click the button inside the iframe — the click reaches the page.
+	// Click the button inside the iframe — the click reaches the page. The page runs in its own
+	// process, and until HyperIdle has drawn it Chrome hands a click there to the iframe element in
+	// HyperIdle instead: wait for two drawn frames, as a person would see the button before clicking it.
 	const iframe = page.frameLocator('iframe[title="Live preview"]');
+	await iframe.locator("#b").waitFor();
+	await page.evaluate(
+		() => new Promise((drawn) => requestAnimationFrame(() => requestAnimationFrame(drawn))),
+	);
 	await iframe.locator("#b").click();
 	await expect(iframe.locator("#b")).toHaveText("Clicked!");
 	// No pin was created.

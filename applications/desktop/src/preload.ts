@@ -6,13 +6,12 @@ let onSpeech: ((_event: IpcRendererEvent, text: SpeechText) => void) | null = nu
 
 contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 	apiKey: process.argv.find((a: string) => a.startsWith("--api-key="))?.split("=")[1] ?? "",
-	credentials: {
-		set: (name: string, value: string): Promise<{ stored: boolean; warning?: string }> =>
-			ipcRenderer.invoke("credentials:set", name, value),
-	},
-	/** Reopen the app on a team's server; the key is stored first, through `credentials`. */
-	join: (address: string): Promise<{ ok: boolean; problem?: string }> =>
-		ipcRenderer.invoke("backend:join", address),
+	/** Sign in to a team's server and join it; on success the app reopens there as them. */
+	join: (form: {
+		address: string;
+		team?: string;
+	}): Promise<{ ok: boolean; problem?: string; needsTeam?: boolean }> =>
+		ipcRenderer.invoke("backend:join", form),
 	/** Only when the speech helper shipped with this app; the page never sees the IPC event. */
 	speech: process.argv.includes("--speech")
 		? {

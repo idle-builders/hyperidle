@@ -6,7 +6,7 @@ HyperIdle ships as a signed, notarized macOS desktop app (Electron). The Hono se
 
 Install via DMG, or via Homebrew after adding the tap (`brew tap idle-builders/tap && brew install --cask hyperidle`). Node ≥ 24 required for dev.
 
-**Joining a team's server.** At first start the desktop app can instead join a team that runs on a server: "Join a team on a server", then the server's address and the key its owner gave you. The app keeps the key encrypted on this computer (`shared_backend_key`, Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`), checks that the server answers, and reopens on the server's address. From then on it starts no server and runs no agents of its own. To leave the server, delete `config.json` in the app's data folder (Help → Open Data Folder).
+**Joining a team's server.** At first start the desktop app can instead join a team that runs on a server: "Join a team on a server", then the server's address and **Sign in and join**. Your browser opens the server's sign-in page (`applications/desktop/src/sign-in.ts`); the server checks what the sign-in proves about you, makes you a person named by your email and hands back your own key; the app keeps that key encrypted on this computer (`person_key`, Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`) and reopens on the server's address as you. The first person on a new server also names its team. From then on it starts no server and runs no agents of its own. To leave the server, delete `config.json` in the app's data folder (Help → Open Data Folder).
 
 | Profile | Database | How to start |
 |---|---|---|
@@ -23,5 +23,5 @@ Dev setup steps and the command reference live in [guides/developer/getting-star
 
 - [laptop.md](laptop.md) — PGlite path, setup-before-dev, Node ≥ 24
 - [self-hosting.md](self-hosting.md) — cloud Postgres profile (`DATABASE_URL`, pool, migration tooling)
-- [releases.md](releases.md) — unified release pipeline: one version bump ships the backend image and the notarized DMG/Homebrew cask on merge
+- [releases.md](releases.md) — release pipeline: one version bump ships the notarized DMG and Homebrew cask on merge
 - [shared-backend.md](shared-backend.md) — headless server as a single tenant on the shared K8s cluster for internal team collaboration

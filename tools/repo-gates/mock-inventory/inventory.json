@@ -1,11 +1,1 @@
-[
-  {
-    "path": "layers/core-api/src/middleware/auth.ts",
-    "line": 51,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  }
-]
+[]

@@ -11,7 +11,7 @@ import { EventBus } from "@hyperidle/event-bus";
 import { Hono } from "hono";
 import type { AppOptions } from "../app.js";
 import { registerAppDisposers } from "../app.js";
-import { bootCoreApi } from "../boot.js";
+import { bootCoreApi, type SignIn } from "../boot.js";
 import { health } from "../routes/health.js";
 import {
 	buildAgentOrchestrationPort,
@@ -23,6 +23,8 @@ const TRACE_FILE = process.env.VITEST_TRACE_FILE;
 export interface TestAppOptions extends AppOptions {
 	/** Explicit API key captured by this test app; never read from ambient env after construction. */
 	authApiKey?: string;
+	/** Where people sign in to join; omitted → this app has no join route. */
+	signIn?: SignIn;
 	/**
 	 * A pre-booted orchestration Layer. Omitted → this harness boots one itself
 	 * (when a `db` is present), exactly as production does.

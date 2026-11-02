@@ -29,6 +29,7 @@
 		"@hyperidle/task": "*",
 		"@hyperidle/thread": "*",
 		"hono": "^4.12.27",
+		"jose": "^6.2.3",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {

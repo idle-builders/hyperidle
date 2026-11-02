@@ -95,8 +95,10 @@ describe("skill restore", () => {
 		pluginsApp,
 		eventBus,
 		agentOrchestration,
+		asPerson,
 	}) => {
 		await seedFounder(db);
+		await asPerson("u-founder", pluginsApp);
 		// 1. Install. The app's pluginsBaseDir is set at construction time by the
 		//    fixture, so install_path is stored automatically.
 		const pluginDir = copyPlugin();
@@ -180,8 +182,9 @@ describe("skill restore", () => {
 
 	// Uses the standard `app` fixture (no pluginsBaseDir) to prove that trying
 	// to restore a skill when install_path is null answers a clear problem.
-	test("restore without install_path answers no_install_path", async ({ db, app }) => {
+	test("restore without install_path answers no_install_path", async ({ db, app, asPerson }) => {
 		await seedFounder(db);
+		await asPerson("u-founder");
 		const pluginDir = copyPlugin();
 		const installRes = await app.request("/api/actions/edit_plugin", {
 			method: "POST",

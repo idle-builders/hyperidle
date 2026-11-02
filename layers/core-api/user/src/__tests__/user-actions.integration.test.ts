@@ -427,7 +427,20 @@ describe("edit_user — every DB-dependent problem code", () => {
 		expect(result.problems[0]?.code).toBe("not_found");
 	});
 
-	test("unknown_actor: a rowless caller may only create the first person", async ({ db }) => {
+	test("unknown_actor: a rowless caller cannot create an agent", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+		const result = await editUser(ctxFor(db, "u-nobody"), {
+			kind: "ai",
+			name: "Bot",
+			teams: ["Rho"],
+		});
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.problems[0]?.code).toBe("unknown_actor");
+	});
+
+	test("a rowless caller can create a second human as member", async ({ db }) => {
 		await seedFounder(db);
 		const { editUser } = actionsFor(buildDeps());
 		const result = await editUser(ctxFor(db, "u-nobody"), {
@@ -435,9 +448,9 @@ describe("edit_user — every DB-dependent problem code", () => {
 			name: "Second",
 			teams: ["Rho"],
 		});
-		expect(result.ok).toBe(false);
-		if (result.ok) return;
-		expect(result.problems[0]?.code).toBe("unknown_actor");
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.data.user?.role).toBe("member");
 	});
 
 	test("unknown_owner: an agent named to an owner that does not exist", async ({ db }) => {

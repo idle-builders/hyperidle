@@ -59,8 +59,13 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-async function installKmPlugin(db: HyperIdleDb, app: Hono): Promise<void> {
+async function installKmPlugin(
+	db: HyperIdleDb,
+	app: Hono,
+	asPerson: () => Promise<void>,
+): Promise<void> {
 	await seedFounder(db);
+	await asPerson();
 	const dir = copyPlugin();
 	const res = await app.request("/api/actions/edit_plugin", {
 		method: "POST",
@@ -115,8 +120,9 @@ describe("plugin lifecycle: install materialises pluginId on rows", () => {
 	test("after install: subscriptions and agent have pluginId set and are active", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await installKmPlugin(db, app);
+		await installKmPlugin(db, app, () => asPerson("u-founder"));
 		const subscriptionRows = await db
 			.select()
 			.from(subscriptions)
@@ -133,8 +139,8 @@ describe("plugin lifecycle: install materialises pluginId on rows", () => {
 });
 
 describe("plugin lifecycle: disable deactivates materialised rows", () => {
-	test("after disable: subscriptions paused, agent inactive", async ({ db, app }) => {
-		await installKmPlugin(db, app);
+	test("after disable: subscriptions paused, agent inactive", async ({ db, app, asPerson }) => {
+		await installKmPlugin(db, app, () => asPerson("u-founder"));
 		const res = await disableKmPlugin(app);
 		expect(res.status).toBe(200);
 		const subscriptionRows = await db
@@ -151,8 +157,8 @@ describe("plugin lifecycle: disable deactivates materialised rows", () => {
 		expect(agentRows.every((r) => r.status === "inactive")).toBe(true);
 	});
 
-	test("after disable: skills archived", async ({ db, app }) => {
-		await installKmPlugin(db, app);
+	test("after disable: skills archived", async ({ db, app, asPerson }) => {
+		await installKmPlugin(db, app, () => asPerson("u-founder"));
 		const contributedIds = [...(await contributed(db, "document"))];
 		const before = await db
 			.select()
@@ -168,8 +174,8 @@ describe("plugin lifecycle: disable deactivates materialised rows", () => {
 });
 
 describe("plugin lifecycle: enable reactivates materialised rows", () => {
-	test("after enable: subscriptions live, agent active", async ({ db, app }) => {
-		await installKmPlugin(db, app);
+	test("after enable: subscriptions live, agent active", async ({ db, app, asPerson }) => {
+		await installKmPlugin(db, app, () => asPerson("u-founder"));
 		await disableKmPlugin(app);
 		const res = await enableKmPlugin(app);
 		expect(res.status).toBe(200);
@@ -192,8 +198,9 @@ describe("plugin lifecycle: remove pauses what it added; switching it on undoes 
 	test("after remove: subscriptions paused, agent inactive, documents archived", async ({
 		db,
 		app,
+		asPerson,
 	}) => {
-		await installKmPlugin(db, app);
+		await installKmPlugin(db, app, () => asPerson("u-founder"));
 		const subscriptionIds = [...(await contributed(db, "subscription"))];
 		const res = await removeKmPlugin(app);
 		expect(res.status).toBe(200);
@@ -210,8 +217,8 @@ describe("plugin lifecycle: remove pauses what it added; switching it on undoes 
 		expect(agentRows.every((r) => r.status === "inactive")).toBe(true);
 	});
 
-	test("switching a removed plugin on brings it back as it was", async ({ db, app }) => {
-		await installKmPlugin(db, app);
+	test("switching a removed plugin on brings it back as it was", async ({ db, app, asPerson }) => {
+		await installKmPlugin(db, app, () => asPerson("u-founder"));
 		const subscriptionIds = [...(await contributed(db, "subscription"))];
 		const documentIds = [...(await contributed(db, "document"))];
 		expect((await removeKmPlugin(app)).status).toBe(200);
