@@ -25,6 +25,8 @@ The server reads the provider's settings from `<issuer>/.well-known/openid-confi
 - the redirect address `http://127.0.0.1:52817/callback`;
 - the scopes `openid email profile`, with `email` and `email_verified` in the ID token. A person whose email is not verified cannot join.
 
+The app asks the provider to let the person pick an account (`prompt=select_account`), so a browser already signed in as someone else never joins as them by accident.
+
 Serve the server behind HTTPS (a proxy or tunnel); the server itself speaks plain HTTP.
 
 ## The server image

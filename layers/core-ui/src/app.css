@@ -4181,5 +4181,4 @@ button.item:hover {
 	background: linear-gradient(var(--glass-hi), transparent 2px) var(--glass);
 	border-color: var(--glass-edge);
 	backdrop-filter: var(--glass-blur);
-	-webkit-backdrop-filter: var(--glass-blur);
 }
