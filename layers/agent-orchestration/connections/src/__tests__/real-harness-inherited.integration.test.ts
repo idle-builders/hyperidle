@@ -1,8 +1,8 @@
 /**
  * `createInheritedReach` probes each harness family's own config/binary for
  * an inherited connection and returns identity-only views (service/via/
- * authSource/health/removable — never a secret, token, env, or command
- * value). The opencode probe only parses a config file so it needs no binary
+ * authSource/health/removable/withheldFrom — never a secret, token, env, or
+ * command value). The opencode probe only parses a config file so it needs no binary
  * gate; claude/codex exec the real binary and gate on it via `requireBinary`.
  */
 
@@ -30,7 +30,8 @@ afterEach(async () => {
 
 /**
  * `list()` projects facts into views — every field is identity/display only;
- * no secret, token, env, or command value may appear.
+ * no secret, token, env, or command value may appear. `withheldFrom` holds
+ * agent ids, never a credential.
  */
 function assertIdentityOnly(facts: readonly ServiceConnectionView[]): void {
 	for (const fact of facts) {
@@ -41,6 +42,7 @@ function assertIdentityOnly(facts: readonly ServiceConnectionView[]): void {
 			"removable",
 			"service",
 			"via",
+			"withheldFrom",
 		]);
 	}
 }
