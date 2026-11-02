@@ -11,7 +11,7 @@ import type {
 import { PERSON_REASONS } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
-import { call, type InputOf } from "./api";
+import { call, type InputOf, programsAt } from "./api";
 import { disciplinesOf } from "./doc-page";
 import { Failed } from "./Failed";
 import { LOOKS, useLooks } from "./looks";
@@ -1055,7 +1055,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 						{isMe && (
 							<section className="tbox-sec">
 								<h4>
-									Agent programs <span>on this computer</span>
+									Agent programs <span>{programsAt()}</span>
 								</h4>
 								{view.runsOn.length === 0 && <p className="tbox-none">None found.</p>}
 								{view.runsOn.map((h) => (
@@ -1072,7 +1072,9 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 									</div>
 								))}
 								<p className="pair-why">
-									Each one signs in on its own. Install or sign in to one, then look again.
+									{programsAt() === "on this computer"
+										? "Each one signs in on its own. Install or sign in to one, then look again."
+										: "Whoever runs the server installs them and signs them in."}
 								</p>
 								<button
 									type="button"

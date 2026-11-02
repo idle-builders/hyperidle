@@ -21,7 +21,7 @@ ingress:
   host: ""
   rateLimit: 20
 
-# Where people sign in to join (an OpenID Connect issuer) and the desktop app's
+# Where people sign in to join (a Zitadel instance) and the desktop app's
 # client id there. Empty → nobody can join this backend.
 signIn:
   issuer: ""

@@ -44,6 +44,13 @@ function apiKey(): string {
 	);
 }
 
+/** Agent programs run where the server runs: this computer, or — once joined — the team's server. */
+export function programsAt(): string {
+	return ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname)
+		? "on this computer"
+		: "on the team's server";
+}
+
 /** POST with the API key: every action, and the few other writes. */
 export function post(path: string, body?: unknown): Promise<Response> {
 	return fetch(path, {

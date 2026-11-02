@@ -1,5 +1,5 @@
 /** How a person or agent is drawn in an avatar, how a task reads in Work, and what waits while you focus. */
-import type { DocumentRow, Task, ThreadListRow } from "@hyperidle/domain-model";
+import type { ChangeRow, DocumentRow, Task, ThreadListRow } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
 import {
 	conversationItems,
@@ -9,6 +9,7 @@ import {
 	initials,
 	knowledgeTree,
 	newSince,
+	noteWhat,
 	workItems,
 } from "./sidebar-lists";
 
@@ -37,6 +38,23 @@ test.each([
 		updatedAt: "2026-10-21T09:00:00.000Z",
 	} as Task;
 	expect(workItems([task], new Map(), [])[0]?.state).toBe(words);
+});
+
+test.each([
+	["mentions you", "sam", "Mentioned you · Alex"],
+	["mentions someone else", "kim", "New reply · Alex"],
+])("a message that %s reads in the bell as %s", (_, you, words) => {
+	const change = {
+		id: "c",
+		object: "thread",
+		objectId: "th",
+		kind: "message",
+		actor: "alex",
+		before: null,
+		after: { type: "plain", payload: { refs: [{ kind: "mention", identityId: "sam" }] } },
+		at: "2026-10-21T09:00:00.000Z",
+	} satisfies ChangeRow;
+	expect(noteWhat(change, new Map([["alex", "Alex"]]), you)).toBe(words);
 });
 
 test("while you focus, a new conversation and one with new activity wait; one that did not move does not", () => {

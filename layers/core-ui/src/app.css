@@ -3875,6 +3875,16 @@ select.in {
 	align-items: center;
 	gap: var(--sp-3);
 }
+.first-acts .btn {
+	flex: none;
+	white-space: nowrap;
+}
+.first-acts .first-other {
+	text-align: left;
+}
+.first-card .composer-problem {
+	padding: 0;
+}
 .first-other {
 	font: var(--t-meta);
 	color: var(--ink-2);

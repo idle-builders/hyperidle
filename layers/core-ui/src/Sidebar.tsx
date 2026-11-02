@@ -283,7 +283,7 @@ function Notifications({
 						<span className="nrow-age">{relative(change.at)}</span>
 					</span>
 					<span className={readAt === null ? "note-what note-what--new" : "note-what"}>
-						{noteWhat(change, names)}
+						{noteWhat(change, names, you)}
 					</span>
 				</button>
 			))}

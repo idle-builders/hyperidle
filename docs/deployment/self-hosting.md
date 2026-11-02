@@ -12,7 +12,7 @@ Profile defaults are in `applications/remote-server/src/profiles.ts`.
 | `DATABASE_URL` | **Yes** | PostgreSQL connection string. |
 | `HYPERIDLE_PROFILE` | No | `cloud` (default: `laptop`). |
 | `PORT` | No | Default `3001`. |
-| `HYPERIDLE_SIGN_IN_ISSUER` | To let people join | The OpenID Connect sign-in service people join through, e.g. `https://id.nimmly.io`. Its keys are read from `<issuer>/oauth/v2/keys`. |
+| `HYPERIDLE_SIGN_IN_ISSUER` | To let people join | The Zitadel instance people join through, e.g. `https://id.example.com`. The server and app use its `/oauth/v2/` sign-in paths. |
 | `HYPERIDLE_SIGN_IN_CLIENT_ID` | With the issuer | The desktop app's client id at that service: a native app allowing the redirect `http://127.0.0.1:52817/callback`, with the user's info in its ID token. |
 
 ## Signing in
