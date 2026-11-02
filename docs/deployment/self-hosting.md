@@ -12,12 +12,24 @@ Profile defaults are in `applications/remote-server/src/profiles.ts`.
 | `DATABASE_URL` | **Yes** | PostgreSQL connection string. |
 | `HYPERIDLE_PROFILE` | No | `cloud` (default: `laptop`). |
 | `PORT` | No | Default `3001`. |
-| `HYPERIDLE_SIGN_IN_ISSUER` | To let people join | The Zitadel instance people join through, e.g. `https://id.example.com`. The server and app use its `/oauth/v2/` sign-in paths. |
-| `HYPERIDLE_SIGN_IN_CLIENT_ID` | With the issuer | The desktop app's client id at that service: a native app allowing the redirect `http://127.0.0.1:52817/callback`, with the user's info in its ID token. |
+| `HYPERIDLE_SIGN_IN_ISSUER` | To let people join | Your OpenID Connect provider's issuer, e.g. `https://id.example.com`. |
+| `HYPERIDLE_SIGN_IN_CLIENT_ID` | With the issuer | The desktop app's client id at that provider. |
 
 ## Signing in
 
-Without the two sign-in variables nobody can join. Serve the server behind HTTPS (a proxy or tunnel); the server itself speaks plain HTTP.
+People join from the desktop app by signing in at your OpenID Connect provider (Zitadel, Keycloak, Auth0, Okta, …). Whoever your provider lets sign in can join; the first person to join names the team. Without the two sign-in variables nobody can join.
+
+The server reads the provider's settings from `<issuer>/.well-known/openid-configuration` and passes its sign-in addresses to the app. At the provider, create one client for the desktop app:
+
+- a public (native) client using the code flow with PKCE, and no client secret;
+- the redirect address `http://127.0.0.1:52817/callback`;
+- the scopes `openid email profile`, with `email` and `email_verified` in the ID token. A person whose email is not verified cannot join.
+
+Serve the server behind HTTPS (a proxy or tunnel); the server itself speaks plain HTTP.
+
+## The server image
+
+Every commit on `main` is published as `ghcr.io/idle-builders/hyperidle-server:<commit SHA>` (and `:main`), built from `Dockerfile.deploy` by `.github/workflows/server-image.yml`. Run a pinned SHA in production.
 
 ## Cloud (managed Postgres)
 
@@ -57,11 +69,11 @@ Companion commands:
 
 ## VPS (Docker Compose)
 
-The `docker-compose.yml` at repo root defines a three-service stack: Postgres, a one-shot migrate container, and the production server. The server also serves the built web SPA from `HYPERIDLE_STATIC_DIR` — no separate frontend container.
+The `docker-compose.yml` at repo root defines a three-service stack: Postgres, a one-shot migrate container, and the production server, both from the published server image (`HYPERIDLE_IMAGE_TAG`, default `main`). The server also serves the built web SPA from `HYPERIDLE_STATIC_DIR` — no separate frontend container.
 
 ```bash
-cp .env.example .env                          # set POSTGRES_PASSWORD and HYPERIDLE_API_KEY
-docker compose up -d --build                  # builds Dockerfile.deploy, runs migrate, starts server
+cp .env.example .env                          # set POSTGRES_PASSWORD, HYPERIDLE_API_KEY and the two sign-in variables
+docker compose up -d                          # pulls the server image, runs migrate, starts server
 ```
 
 On `docker compose up`:

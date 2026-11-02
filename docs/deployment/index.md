@@ -23,5 +23,5 @@ Dev setup steps and the command reference live in [guides/developer/getting-star
 
 - [laptop.md](laptop.md) — PGlite path, setup-before-dev, Node ≥ 24
 - [self-hosting.md](self-hosting.md) — cloud Postgres profile (`DATABASE_URL`, pool, migration tooling)
-- [releases.md](releases.md) — unified release pipeline: one version bump ships the backend image and the notarized DMG/Homebrew cask on merge
+- [releases.md](releases.md) — release pipeline: one version bump ships the notarized DMG and Homebrew cask on merge
 - [shared-backend.md](shared-backend.md) — headless server as a single tenant on the shared K8s cluster for internal team collaboration

@@ -35,18 +35,24 @@ function waitForCode(state: string): Promise<string> {
 	});
 }
 
+/** Where the provider signs people in, as the server passes it on from the provider. */
+export interface Provider {
+	readonly clientId: string;
+	readonly authorizationEndpoint: string;
+	readonly tokenEndpoint: string;
+}
+
 /** The ID token for whoever signs in, after `openBrowser` shows them the sign-in page. */
 export async function signIn(
-	issuer: string,
-	clientId: string,
+	provider: Provider,
 	openBrowser: (url: string) => Promise<void>,
 ): Promise<string> {
 	const verifier = base64Url(crypto.randomBytes(32));
 	const state = base64Url(crypto.randomBytes(16));
-	const authorize = new URL(`${issuer}/oauth/v2/authorize`);
+	const authorize = new URL(provider.authorizationEndpoint);
 	authorize.search = new URLSearchParams({
 		response_type: "code",
-		client_id: clientId,
+		client_id: provider.clientId,
 		redirect_uri: SIGN_IN_REDIRECT,
 		scope: "openid email profile",
 		code_challenge: base64Url(crypto.createHash("sha256").update(verifier).digest()),
@@ -56,14 +62,14 @@ export async function signIn(
 	const code = waitForCode(state);
 	code.catch(() => undefined);
 	await openBrowser(authorize.toString());
-	const res = await fetch(`${issuer}/oauth/v2/token`, {
+	const res = await fetch(provider.tokenEndpoint, {
 		method: "POST",
 		headers: { "Content-Type": "application/x-www-form-urlencoded" },
 		body: new URLSearchParams({
 			grant_type: "authorization_code",
 			code: await code,
 			redirect_uri: SIGN_IN_REDIRECT,
-			client_id: clientId,
+			client_id: provider.clientId,
 			code_verifier: verifier,
 		}),
 	});

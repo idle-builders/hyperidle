@@ -16,8 +16,12 @@ spec:
     spec:
       # Deployer SA token is never needed by the app pod.
       automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-        - name: ghcr-pull
+        {{- range . }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -30,24 +34,27 @@ spec:
         # Additive Drizzle migrations against the tenant schema. If this fails,
         # the pod stays Init:Error and the old pods keep serving (zero downtime).
         - name: migrate
-          image: "{{ required "image.repository is required" .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: {{ toYaml .Values.migration.command | nindent 12 }}
           env:
-            # postgres-js (drizzle-kit's driver) ignores sslrootcert in the
-            # DATABASE_URL, so load the tenant PG CA into Node's trust store to
-            # satisfy sslmode=verify-ca against the self-signed cluster CA.
+            {{- if .Values.database.caSecret }}
+            # postgres-js ignores sslrootcert in the DATABASE_URL, so the
+            # database's CA goes into Node's trust store instead.
             - name: NODE_EXTRA_CA_CERTS
               value: /etc/ssl/pg/ca.crt
+            {{- end }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: database-url
                   key: DATABASE_URL
           volumeMounts:
+            {{- if .Values.database.caSecret }}
             - name: pg-ca-cert
               mountPath: /etc/ssl/pg
               readOnly: true
+            {{- end }}
             - name: tmp
               mountPath: /tmp
           resources:
@@ -65,14 +72,16 @@ spec:
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ required "image.repository is required" .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.service.port }}
           env:
-            # See migrate init-container — same self-signed PG CA trust.
+            {{- if .Values.database.caSecret }}
+            # See the migrate init-container.
             - name: NODE_EXTRA_CA_CERTS
               value: /etc/ssl/pg/ca.crt
+            {{- end }}
             - name: PORT
               value: {{ .Values.service.port | quote }}
             - name: DATABASE_URL
@@ -80,9 +89,8 @@ spec:
                 secretKeyRef:
                   name: database-url
                   key: DATABASE_URL
-            # The server's own key. Network-exposed cloud profile rejects boot
-            # without it (validate-startup-env.ts). The platform provides the
-            # secret — the deployer SA cannot write Secrets.
+            # The server's own key. The cloud profile refuses to start
+            # without it (validate-startup-env.ts).
             - name: HYPERIDLE_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -102,9 +110,11 @@ spec:
               value: {{ .value | quote }}
             {{- end }}
           volumeMounts:
+            {{- if .Values.database.caSecret }}
             - name: pg-ca-cert
               mountPath: /etc/ssl/pg
               readOnly: true
+            {{- end }}
             - name: tmp
               mountPath: /tmp
             - name: data
@@ -141,9 +151,11 @@ spec:
             matchLabels:
               app: {{ .Chart.Name }}
       volumes:
+        {{- with .Values.database.caSecret }}
         - name: pg-ca-cert
           secret:
-            secretName: pg-ca-cert
+            secretName: {{ . }}
+        {{- end }}
         # Writable scratch for HOME, npm cache, tsx/esbuild temp under the
         # read-only root filesystem.
         - name: tmp

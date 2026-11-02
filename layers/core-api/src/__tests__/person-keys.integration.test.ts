@@ -1,7 +1,8 @@
 /**
  * Each person is themselves on a shared backend: signing in with the sign-in service makes a
  * person and hands back their own key, and every request carrying that key is that person.
- * A small local sign-in service stands in for the real one: it publishes its keys the same way.
+ * A small local sign-in service stands in for the real one: it publishes its settings and keys the
+ * standard OpenID Connect way, at addresses of its own choosing.
  */
 import * as http from "node:http";
 import type { AddressInfo } from "node:net";
@@ -25,8 +26,17 @@ beforeAll(async () => {
 	stranger = (await generateKeyPair("RS256")).privateKey;
 	const jwk = { ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "RS256", use: "sig" };
 	signInService = http.createServer((req, res) => {
-		if (req.url !== "/oauth/v2/keys") return void res.writeHead(404).end();
-		res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ keys: [jwk] }));
+		const json = (body: unknown) =>
+			void res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(body));
+		if (req.url === "/.well-known/openid-configuration")
+			return json({
+				issuer,
+				authorization_endpoint: `${issuer}/sign-in`,
+				token_endpoint: `${issuer}/token`,
+				jwks_uri: `${issuer}/certs`,
+			});
+		if (req.url === "/certs") return json({ keys: [jwk] });
+		res.writeHead(404).end();
 	});
 	await new Promise<void>((resolve) => signInService.listen(0, "127.0.0.1", resolve));
 	issuer = `http://127.0.0.1:${(signInService.address() as AddressInfo).port}`;
@@ -85,7 +95,7 @@ describe("joining a shared backend", () => {
 			authApiKey: TEAM_KEY,
 			signIn: { issuer, clientId: CLIENT_ID },
 		});
-		const where = (await (await app.request("/api/join")).json()) as { issuer: string };
+		const where = (await (await app.request("/api/join")).json()) as Record<string, string>;
 		const alex = await joined(app, "Alex@Example.com", "Alex");
 		const sam = await joined(app, "sam@example.com", "Sam");
 
@@ -93,7 +103,11 @@ describe("joining a shared backend", () => {
 		const asSam = await act<Me>(app, sam, "open_user", {});
 		const asTeamKey = await act<Me>(app, TEAM_KEY, "open_user", {});
 
-		expect(where.issuer).toBe(issuer);
+		expect(where).toEqual({
+			clientId: CLIENT_ID,
+			authorizationEndpoint: `${issuer}/sign-in`,
+			tokenEndpoint: `${issuer}/token`,
+		});
 		expect(asAlex.data.user).toMatchObject({ name: "Alex", role: "founder" });
 		expect(asSam.data.user).toMatchObject({ name: "Sam", role: "member" });
 		expect(asTeamKey.data.user).toBeNull();

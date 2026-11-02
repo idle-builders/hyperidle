@@ -1,15 +1,24 @@
 # HyperIdle shared backend — Helm chart defaults. A deployment supplies its own
-# values (image, host, sign-in) from its own, private deployment repository.
-# The namespace must provide the secrets `database-url`, `pg-ca-cert`,
-# `app-secrets` (HYPERIDLE_API_KEY) and the pull secret `ghcr-pull`.
+# values (image tag, host, sign-in) from wherever it keeps its deployment.
+# The namespace must provide the secrets `database-url` (key DATABASE_URL) and
+# `app-secrets` (key HYPERIDLE_API_KEY).
 
 replicaCount: 1
 
 image:
-  # Your image, built from Dockerfile.deploy. Pin the tag to an immutable SHA.
-  repository: ""
+  # Published for every commit on main by .github/workflows/server-image.yml.
+  repository: ghcr.io/idle-builders/hyperidle-server
+  # The commit SHA to run. Required: an image is never "latest".
   tag: ""
   pullPolicy: IfNotPresent
+
+# Only for a private image registry.
+imagePullSecrets: []
+
+database:
+  # A secret holding `ca.crt`, for a database whose certificate a private CA
+  # signed. Empty → the system's trusted CAs.
+  caSecret: ""
 
 service:
   port: 3001
@@ -21,8 +30,8 @@ ingress:
   host: ""
   rateLimit: 20
 
-# Where people sign in to join (a Zitadel instance) and the desktop app's
-# client id there. Empty → nobody can join this backend.
+# Where people sign in to join — any OpenID Connect provider — and the desktop
+# app's client id there. Empty → nobody can join this backend.
 signIn:
   issuer: ""
   clientId: ""

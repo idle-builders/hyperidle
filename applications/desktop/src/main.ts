@@ -27,7 +27,7 @@ import type { LogRotator } from "./log-rotation.js";
 import { createLogRotator } from "./log-rotation.js";
 import { resolveMigrationsFolder, runMigrations } from "./migrate.js";
 import { keepPersonKey, readPersonKey } from "./safe-credentials.js";
-import { signIn } from "./sign-in.js";
+import { type Provider, signIn } from "./sign-in.js";
 
 function log(message: string, data?: Record<string, unknown>): void {
 	const ts = new Date().toISOString();
@@ -301,12 +301,13 @@ function registerCommonIpcHandlers(ctx: BootContext): void {
 			if (!URL.canParse(serverUrl)) return { ok: false, problem: "That is not a server address." };
 			const where = await fetch(`${serverUrl}/api/join`).catch(() => null);
 			if (!where) return { ok: false, problem: `${serverUrl} did not answer.` };
-			if (!where.ok)
+			if (where.status === 404)
 				return { ok: false, problem: "This server has no sign-in, so nobody can join it." };
-			const { issuer, clientId } = (await where.json()) as { issuer: string; clientId: string };
+			if (!where.ok) return { ok: false, problem: "The server's sign-in service did not answer." };
+			const provider = (await where.json()) as Provider;
 			// Kept for the second try when a new server first needs its team named.
 			if (signedIn?.serverUrl !== serverUrl) {
-				const idToken = await signIn(issuer, clientId, (url) => shell.openExternal(url)).catch(
+				const idToken = await signIn(provider, (url) => shell.openExternal(url)).catch(
 					(error: unknown) => (error instanceof Error ? error : new Error(String(error))),
 				);
 				if (idToken instanceof Error) return { ok: false, problem: idToken.message };

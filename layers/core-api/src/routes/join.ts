@@ -19,6 +19,13 @@ export interface SignIn {
 	readonly clientId: string;
 }
 
+/** What any OpenID Connect provider publishes about itself at its well-known address. */
+interface Provider {
+	readonly authorization_endpoint: string;
+	readonly token_endpoint: string;
+	readonly jwks_uri: string;
+}
+
 const JOIN_SCHEMA = z.object({ team: z.string().trim().min(1).max(80).optional() });
 
 /** No person exists yet when someone joins. */
@@ -36,12 +43,39 @@ export function createJoinRoutes(
 	signIn: SignIn,
 ): Hono {
 	const editUser = runnerFor<EditUserInput, UserView>(actions, "edit_user");
-	const keys = createRemoteJWKSet(new URL(`${signIn.issuer}/oauth/v2/keys`));
+	// Read once; a failed read is tried again on the next join.
+	let found: Promise<Provider> | undefined;
+	const provider = (): Promise<Provider | null> => {
+		found ??= fetch(`${signIn.issuer.replace(/\/$/, "")}/.well-known/openid-configuration`).then(
+			(r) => (r.ok ? (r.json() as Promise<Provider>) : Promise.reject(new Error(String(r.status)))),
+		);
+		return found.catch(() => {
+			found = undefined;
+			return null;
+		});
+	};
+	let keys: ReturnType<typeof createRemoteJWKSet> | undefined;
 	const router = new Hono();
+	const unreachable = {
+		error: "The sign-in service did not answer.",
+		code: API_ERROR_CODES.INTERNAL_ERROR,
+	} satisfies ApiErrorResponse;
 
-	router.get("/", (c) => c.json(signIn));
+	// The app signs people in where the provider says; it learns those addresses only from here.
+	router.get("/", async (c) => {
+		const p = await provider();
+		if (!p) return c.json(unreachable, 502);
+		return c.json({
+			clientId: signIn.clientId,
+			authorizationEndpoint: p.authorization_endpoint,
+			tokenEndpoint: p.token_endpoint,
+		});
+	});
 
 	router.post("/", async (c) => {
+		const p = await provider();
+		if (!p) return c.json(unreachable, 502);
+		keys ??= createRemoteJWKSet(new URL(p.jwks_uri));
 		const no = (
 			status: 400 | 401 | 409,
 			error: string,
