@@ -5,6 +5,7 @@ import { UNTITLED } from "./doc-page";
 import { FindOrAsk } from "./Find";
 import { useFocus } from "./focus";
 import { listen } from "./live";
+import { NeedIcon } from "./NeedIcon";
 import {
 	conversationItems,
 	countTasks,
@@ -69,8 +70,31 @@ const ICON_CHOICES = [
 	"📚",
 ];
 
+/** The marks a task's graph draws, so a status reads the same in a list and on the graph. */
+const GLYPHS = { queued: "○", run: "◐", done: "✓", stopped: "■" } as const;
+
+function RowMark({ item }: { item: Item }) {
+	const { mark, state } = item;
+	if (!mark) return null;
+	return (
+		<span
+			className={mark === "mention" ? "nrow-mark nrow-mark--mention" : "nrow-mark"}
+			role="img"
+			aria-label={state}
+			title={state}
+		>
+			{mark === "input" || mark === "review" ? (
+				<NeedIcon kind={mark} label={state} />
+			) : mark === "mention" ? (
+				"@"
+			) : (
+				GLYPHS[mark]
+			)}
+		</span>
+	);
+}
+
 function Row({ item, current, onPick }: { item: Item; current?: boolean; onPick: () => void }) {
-	const tone = item.yours ? " nrow-state--yours" : item.fresh ? " nrow-state--fresh" : "";
 	return (
 		<button type="button" className="nrow" aria-current={current} onClick={onPick}>
 			<span className="nrow-top">
@@ -79,8 +103,13 @@ function Row({ item, current, onPick }: { item: Item; current?: boolean; onPick:
 				</span>
 				<span className="nrow-age">{item.age}</span>
 			</span>
+			<RowMark item={item} />
 			<span className="nrow-sub">
-				<span className={`nrow-state${tone}`}>{item.state}</span>
+				{!item.mark && (
+					<span className={item.fresh ? "nrow-state nrow-state--fresh" : "nrow-state"}>
+						{item.state}
+					</span>
+				)}
 				<span className="nrow-who">{item.who}</span>
 			</span>
 		</button>
