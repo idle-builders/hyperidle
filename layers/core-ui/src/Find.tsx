@@ -136,7 +136,7 @@ function Answer({
 export function FindOrAsk({ onClose }: { onClose: () => void }) {
 	const navigate = useNavigate();
 	const me = useAction("open_user", {});
-	const users = useAction("search_users", { kind: "ai" });
+	const users = useAction("search_users", { kind: "ai" }, ["users"]);
 	const you = me.data?.user?.id ?? "";
 	const agents = askable(users.data ?? [], you);
 

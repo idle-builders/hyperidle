@@ -502,7 +502,7 @@ export function Think({ id }: { id: string }) {
 	const navigate = useNavigate();
 	const view = useAction("open_document", { id }, [`document:${id}`]);
 	const me = useAction("open_user", {});
-	const users = useAction("search_users", {});
+	const users = useAction("search_users", {}, ["users"]);
 	const tree = useAction("search_documents", { inTree: true }, ["documents"]);
 	const everyone = useMentionables();
 	const thread = useDocThread(id);
