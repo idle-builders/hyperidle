@@ -1,29 +1,31 @@
-# HyperIdle Shared Backend — Helm values.
-# Deployed into the `hyperidle` tenant namespace on the shared cluster.
-# See /Users/tg/Development/infra/docs/tenant-deployment-guide.md for the
-# platform contract (secrets, RBAC, ingress, PSA).
+# HyperIdle shared backend — Helm chart defaults. A deployment supplies its own
+# values (image, host, sign-in) from its own, private deployment repository.
+# The namespace must provide the secrets `database-url`, `pg-ca-cert`,
+# `app-secrets` (HYPERIDLE_API_KEY) and the pull secret `ghcr-pull`.
 
-# The shared backend is currently internal-only and effectively idle. Keep one
-# warm replica for reachability without reserving a redundant idle instance.
 replicaCount: 1
 
 image:
-  repository: ghcr.io/idle-builders/hyperidle
-  # Overridden per-deploy by CI with the commit SHA (immutable). `latest`
-  # tracks the newest tagged release for manual `helm upgrade` convenience.
-  tag: latest
+  # Your image, built from Dockerfile.deploy. Pin the tag to an immutable SHA.
+  repository: ""
+  tag: ""
   pullPolicy: IfNotPresent
 
 service:
   port: 3001
 
 ingress:
-  # The host must sit inside the tenant's allowed hosts (hyperidle.com and its
-  # subdomains), or the admission policy rejects the Ingress and the whole apply.
-  # Its DNS record is a proxied CNAME to the cluster's Cloudflare Tunnel.
-  enabled: true
-  host: beta.hyperidle.com
+  # No TLS block: HTTPS ends at the edge in front of the cluster (e.g. a
+  # Cloudflare Tunnel). The host must be one the namespace may claim.
+  enabled: false
+  host: ""
   rateLimit: 20
+
+# Where people sign in to join (an OpenID Connect issuer) and the desktop app's
+# client id there. Empty → nobody can join this backend.
+signIn:
+  issuer: ""
+  clientId: ""
 
 # Drizzle table migrations run as an init-container on every deploy (additive
 # only — old pods keep serving during rollout). drizzle-kit reads DATABASE_URL

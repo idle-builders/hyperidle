@@ -11,19 +11,24 @@ Desktop clients join at first start: "Join a team on a server" takes the server'
 - **Serves SPA + API:** one Hono server serves the web bundle at `/` (`HYPERIDLE_STATIC_DIR=/app/layers/core-ui/dist`) and the API at `/api/*`. Runs **no agents** — it takes sessions only from a worker connected over `/ws/worker`, and no app in this repo runs one (see [where agents run](./index.md)).
 - **Auth:** each person's own key, handed out when they join by signing in with the shared Zitadel (`id.nimmly.io`). The chart sets `HYPERIDLE_SIGN_IN_ISSUER` and `HYPERIDLE_SIGN_IN_CLIENT_ID`; who may sign in is set in Zitadel. The server's own `HYPERIDLE_API_KEY` (K8s secret `app-secrets`) is for workers and checks by hand.
 
-## "Always latest" = latest **release**, not latest commit
+## Where a deployment lives
 
-A release is marked by **bumping the root `package.json` `version`** in a PR. When that PR merges to `main`, `deploy.yml` builds the image, publishes it to GHCR (`ghcr.io/idle-builders/hyperidle`), and rolls the new backend onto the cluster. Merges that don't change `version` are a no-op. See [releases.md](./releases.md).
+This repository holds what any deployment needs: `Dockerfile.deploy` and the chart in `deploy/chart/`. A running deployment lives in its own **private deployment repository**, which pins the HyperIdle version it runs and holds its own values (image, host, sign-in client) and its cluster credential. Nothing in this repository deploys anywhere.
 
-## Provisioning (once) vs Deploy (every release)
+The deployment repository builds the image from the pinned version, then runs `helm upgrade --install` with its values. Changing the pin is how a deployment moves to a new release.
 
-| | Provisioning — founder/infra, one-time | Deploy — CI, every release |
+## What the platform provides (once)
+
+| | Provided by the platform | Supplied by the deployment repository |
 |---|---|---|
-| **SQL** | Schema + role + `database-url` secret via infra Terraform | Additive-only table migrations in the `migrate` init-container (`framework/db/src/migrate-pg.ts`) |
-| **Auth** | `KUBE_*` GitHub secrets from Terraform output; `HYPERIDLE_API_KEY` secret via admin kubeconfig | Pod reads secrets via `secretKeyRef` |
-| **CI** | Store `KUBE_*` secrets, confirm GHCR perms | `deploy.yml`: version gate → build → push → `helm upgrade --install` |
+| **Database** | Schema, role, `database-url` and `pg-ca-cert` secrets | — (migrations run in the `migrate` init-container, `framework/db/src/migrate-pg.ts`) |
+| **Server key** | `app-secrets` with `HYPERIDLE_API_KEY` | — |
+| **Sign-in** | An OpenID Connect issuer with a native client allowing `http://127.0.0.1:52817/callback` and the user's info in its ID token | `signIn.issuer`, `signIn.clientId` |
+| **Edge** | A host the namespace may claim, routed to the cluster's ingress with HTTPS at the edge | `ingress.enabled`, `ingress.host` |
+| **Deploy access** | A namespace-scoped deployer credential that cannot read Secrets | Kept as a secret of the deployment repository |
+| **Images** | The `ghcr-pull` pull secret | `image.repository`, `image.tag` (the commit SHA) |
 
-A Deploy **never provisions** — it consumes what provisioning created and applies additive migrations.
+A deploy **never provisions** — it consumes what the platform created and applies additive migrations.
 
 ## Factory bootstrap
 
@@ -34,22 +39,7 @@ The server calls it on every boot (`applications/remote-server/src/create-server
 ## Artifacts (this repo)
 
 - `Dockerfile.deploy` — production image (web SPA built in, server via tsx, non-root, read-only-rootfs safe).
-- `deploy/chart/` — Helm chart (deployment + service + ingress, migrate init-container).
-- `.github/workflows/deploy.yml` — triggers on push to `main` gated by a root `package.json` version change: build → push GHCR → `helm upgrade --install`.
-
-## First deploy — one-time provisioning (founder/infra, NOT CI)
-
-1. **Tenant** — schema + role + secrets already created by infra Terraform. Confirm: `kubectl -n hyperidle get secret`.
-2. **Deployer creds → GitHub secrets:** `KUBE_TOKEN`, `KUBE_CA_CERT`, `KUBE_SERVER` on `idle-builders/hyperidle`.
-3. **Shared API key** (admin kubeconfig):
-   ```bash
-   kubectl create secret generic app-secrets -n hyperidle \
-     --from-literal=HYPERIDLE_API_KEY=$(openssl rand -hex 32)
-   ```
-   Give that key to each person; they enter it with the server's address at the desktop app's first start.
-4. **Ingress host** — `ingress.enabled` is off by default. Add a real host to the tenant allowlist, set `ingress.host` + `ingress.enabled: true`.
-
-To ship a release: bump `version` in the root `package.json` and merge to `main`. `deploy.yml` builds, publishes, and deploys automatically.
+- `deploy/chart/` — Helm chart (deployment + service + ingress, migrate init-container). It requires `image.repository` and `image.tag`; everything that names one deployment comes from that deployment's values.
 
 ## Reference
 

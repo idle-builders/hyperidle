@@ -5,8 +5,8 @@ name: Release — Publish desktop on merge
 # it from draft to published on this repo, where the DMG is then public.
 # desktop-release.yml then updates the Homebrew tap.
 #
-# Pairs with deploy.yml (backend → cluster). Both trigger on the same version
-# bump, so one merge = backend deployed + desktop published + Homebrew updated.
+# One merge = desktop published + Homebrew updated. A shared backend deploys
+# from its own deployment repository, which pins the version it runs.
 on:
   push:
     branches: [main]

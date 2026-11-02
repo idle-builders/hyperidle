@@ -30,7 +30,7 @@ spec:
         # Additive Drizzle migrations against the tenant schema. If this fails,
         # the pod stays Init:Error and the old pods keep serving (zero downtime).
         - name: migrate
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ required "image.repository is required" .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: {{ toYaml .Values.migration.command | nindent 12 }}
           env:
@@ -65,7 +65,7 @@ spec:
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ required "image.repository is required" .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.service.port }}
@@ -80,14 +80,23 @@ spec:
                 secretKeyRef:
                   name: database-url
                   key: DATABASE_URL
-            # Shared team API key. Network-exposed cloud profile rejects boot
-            # without it (validate-env.ts). Created during provisioning with the
-            # admin kubeconfig — the deployer SA cannot write Secrets.
+            # The server's own key. Network-exposed cloud profile rejects boot
+            # without it (validate-startup-env.ts). The platform provides the
+            # secret — the deployer SA cannot write Secrets.
             - name: HYPERIDLE_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: app-secrets
                   key: HYPERIDLE_API_KEY
+            {{- with .Values.signIn }}
+            {{- if .issuer }}
+            # Where people sign in to join; without it nobody can join.
+            - name: HYPERIDLE_SIGN_IN_ISSUER
+              value: {{ .issuer | quote }}
+            - name: HYPERIDLE_SIGN_IN_CLIENT_ID
+              value: {{ required "signIn.clientId is required with signIn.issuer" .clientId | quote }}
+            {{- end }}
+            {{- end }}
             {{- range .Values.env }}
             - name: {{ .name }}
               value: {{ .value | quote }}
