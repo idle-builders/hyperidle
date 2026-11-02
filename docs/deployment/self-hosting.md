@@ -72,7 +72,7 @@ Companion commands:
 The `docker-compose.yml` at repo root defines a three-service stack: Postgres, a one-shot migrate container, and the production server, both from the published server image (`HYPERIDLE_IMAGE_TAG`, default `main`). The server also serves the built web SPA from `HYPERIDLE_STATIC_DIR` — no separate frontend container.
 
 ```bash
-cp .env.example .env                          # set POSTGRES_PASSWORD, HYPERIDLE_API_KEY and the two sign-in variables
+cp .env.example .env                          # set POSTGRES_PASSWORD and HYPERIDLE_API_KEY; add the two sign-in variables
 docker compose up -d                          # pulls the server image, runs migrate, starts server
 ```
 

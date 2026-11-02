@@ -3,7 +3,7 @@
 # The server also serves the built web SPA (HYPERIDLE_STATIC_DIR).
 #
 # Usage:
-#   cp .env.example .env     # set POSTGRES_PASSWORD and HYPERIDLE_API_KEY, and
+#   cp .env.example .env     # set POSTGRES_PASSWORD and HYPERIDLE_API_KEY; add
 #                            # HYPERIDLE_SIGN_IN_ISSUER / _CLIENT_ID to let people join
 #   docker compose up -d
 #

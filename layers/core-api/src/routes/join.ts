@@ -20,11 +20,13 @@ export interface SignIn {
 }
 
 /** What any OpenID Connect provider publishes about itself at its well-known address. */
-interface Provider {
-	readonly authorization_endpoint: string;
-	readonly token_endpoint: string;
-	readonly jwks_uri: string;
-}
+const PROVIDER_SCHEMA = z.object({
+	issuer: z.string(),
+	authorization_endpoint: z.url(),
+	token_endpoint: z.url(),
+	jwks_uri: z.url(),
+});
+type Provider = z.infer<typeof PROVIDER_SCHEMA>;
 
 const JOIN_SCHEMA = z.object({ team: z.string().trim().min(1).max(80).optional() });
 
@@ -47,7 +49,10 @@ export function createJoinRoutes(
 	let found: Promise<Provider> | undefined;
 	const provider = (): Promise<Provider | null> => {
 		found ??= fetch(`${signIn.issuer.replace(/\/$/, "")}/.well-known/openid-configuration`).then(
-			(r) => (r.ok ? (r.json() as Promise<Provider>) : Promise.reject(new Error(String(r.status)))),
+			async (r) => {
+				if (!r.ok) throw new Error(String(r.status));
+				return PROVIDER_SCHEMA.parse(await r.json());
+			},
 		);
 		return found.catch(() => {
 			found = undefined;
@@ -85,7 +90,8 @@ export function createJoinRoutes(
 			c.json({ error, code, ...(details ? { details } : {}) } satisfies ApiErrorResponse, status);
 		const idToken = c.req.header("Authorization")?.replace(/^Bearer /, "") ?? "";
 		const signedIn = await jwtVerify(idToken, keys, {
-			issuer: signIn.issuer,
+			// The provider's own spelling: a configured address may differ by a trailing slash.
+			issuer: p.issuer,
 			audience: signIn.clientId,
 		}).catch(() => null);
 		const { email, email_verified: verified, name } = signedIn?.payload ?? {};

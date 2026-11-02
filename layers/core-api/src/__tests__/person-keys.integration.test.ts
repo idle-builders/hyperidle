@@ -113,6 +113,24 @@ describe("joining a shared backend", () => {
 		expect(asTeamKey.data.user).toBeNull();
 	});
 
+	test("a server given the provider's address with a trailing slash still lets people join", async ({
+		db,
+		eventBus,
+	}) => {
+		const app = await createTestApp({
+			db,
+			eventBus,
+			authApiKey: TEAM_KEY,
+			signIn: { issuer: `${issuer}/`, clientId: CLIENT_ID },
+		});
+		const res = await join(
+			app,
+			await idToken({ email: "alex@example.com", name: "Alex" }),
+			"Product",
+		);
+		expect(res.status).toBe(200);
+	});
+
 	test("signing in again from another computer hands the same person a new key", async ({
 		db,
 		eventBus,

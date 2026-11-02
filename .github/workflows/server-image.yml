@@ -3,6 +3,8 @@ name: Server image
 # Publishes the shared-backend server image (Dockerfile.deploy) for every commit
 # on main, tagged with the commit SHA and `main`, so anyone can run a HyperIdle
 # server without building it. Deploying is the deployment's own business.
+# A new GHCR package starts private: its visibility is set to Public once, in
+# the package's settings on GitHub.
 on:
   push:
     branches: [main]
