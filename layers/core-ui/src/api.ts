@@ -21,6 +21,8 @@ type Parts<D> = D extends ActionDeclaration<infer I, infer O> ? { input: I; outp
 export type InputOf<N extends ActionName> = Parts<Actions[N]>["input"];
 export type OutputOf<N extends ActionName> = Parts<Actions[N]>["output"];
 
+type SpokenText = { kind: "partial" | "final"; text: string } | { kind: "error"; message: string };
+
 declare global {
 	interface Window {
 		/** Set by the desktop app's preload. */
@@ -31,6 +33,12 @@ declare global {
 				address: string;
 				team?: string;
 			}) => Promise<{ ok: boolean; problem?: string; needsTeam?: boolean }>;
+			/** Desktop on a Mac only: write down what is said, on this computer. */
+			readonly speech?: {
+				/** Each result replaces the last; `final` is the last one of a recording. */
+				start(onText: (text: SpokenText) => void): Promise<void>;
+				stop(): Promise<void>;
+			};
 		};
 	}
 }

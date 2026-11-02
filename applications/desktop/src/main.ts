@@ -28,6 +28,7 @@ import { createLogRotator } from "./log-rotation.js";
 import { resolveMigrationsFolder, runMigrations } from "./migrate.js";
 import { keepPersonKey, readPersonKey } from "./safe-credentials.js";
 import { type Provider, signIn } from "./sign-in.js";
+import { registerSpeechHandlers } from "./speech.js";
 
 function log(message: string, data?: Record<string, unknown>): void {
 	const ts = new Date().toISOString();
@@ -37,6 +38,16 @@ function log(message: string, data?: Record<string, unknown>): void {
 
 // @lore: IS_DEV — app.isPackaged is false when running electron . from source; do not use NODE_ENV to distinguish dev from production in Electron
 export const IS_DEV = !app.isPackaged;
+
+/** Built only on a Mac (`__scripts__/build-speech-helper.sh`); without it the record button is hidden. */
+const SPEECH_HELPER = IS_DEV
+	? path.resolve(Dirname, "..", "native", "speech", "build", "speech-helper")
+	: path.join(process.resourcesPath ?? "", "speech-helper");
+
+/** What the preload reads from its own argv: the key, and whether this app can write down speech. */
+function windowArguments(apiKey: string): string[] {
+	return [`--api-key=${apiKey}`, ...(fs.existsSync(SPEECH_HELPER) ? ["--speech"] : [])];
+}
 
 export function resolveDataDir(userDataDir: string): string {
 	return path.join(userDataDir, "hyperidle-pg");
@@ -288,6 +299,7 @@ interface BootContext {
 let signedIn: { serverUrl: string; idToken: string } | null = null;
 
 function registerCommonIpcHandlers(ctx: BootContext): void {
+	registerSpeechHandlers(SPEECH_HELPER);
 	// First start's "Join a team on a server": the person signs in in their browser, the server
 	// hands back their own key; that key is kept and the app reopens on the server as them.
 	ipcMain.handle(
@@ -544,7 +556,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 				preload: preloadPath,
 				contextIsolation: true,
 				sandbox: true,
-				additionalArguments: [`--api-key=${apiKey}`],
+				additionalArguments: windowArguments(apiKey),
 			},
 			show: false,
 		});
@@ -681,7 +693,7 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 			contextIsolation: true,
 			sandbox: true,
 			// The person's own key, handed back at joining: every request is them.
-			additionalArguments: [`--api-key=${readPersonKey(ctx.credentialsPath) ?? ""}`],
+			additionalArguments: windowArguments(readPersonKey(ctx.credentialsPath) ?? ""),
 		},
 		show: false,
 	});

@@ -36,6 +36,11 @@ The chat box sends on ↵ (Shift+↵ for a new line). Its format bar sits beside
 Bold, Italic, List, Quote, Code. Typing `@` opens the mention picker: people and agents in one list,
 each with what they do and how busy they are right now.
 
+**Record** (desktop app on a Mac only) writes down what you say into the box at the cursor, live,
+using Apple's speech recognition on the Mac itself — on-device only, never Apple's servers. It
+needs the Mac's Dictation switched on; when it is off, the box says so and where to turn it on. Stop
+leaves the words in the box to fix and send; the box is read-only while it records.
+
 **Handing off** is a mention: @ an agent in a thread and it wakes and answers there. Work it takes
 on becomes a task that keeps that thread as its own; the task page says where it came from.
 
