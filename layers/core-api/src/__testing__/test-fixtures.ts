@@ -11,7 +11,7 @@ import {
 } from "@hyperidle/db/test-fixtures";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { EventBus } from "@hyperidle/event-bus";
-import { givePersonKey } from "@hyperidle/user";
+import { findPersonByKey, givePersonKey, newPersonKey } from "@hyperidle/user";
 import type { Hono } from "hono";
 import { buildCoreActions } from "../actions/compose.js";
 import { disposeApp } from "../app.js";
@@ -183,6 +183,9 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		await use(async (userId, through = app) => {
 			const key = appKeys.get(through);
 			if (!key) throw new Error("asPerson: not a fixture app");
+			// One key is one person: whoever held it gets a fresh one.
+			const holder = await findPersonByKey(db, key);
+			if (holder && holder !== userId) await givePersonKey(db, holder, newPersonKey());
 			await givePersonKey(db, userId, key);
 		});
 	},

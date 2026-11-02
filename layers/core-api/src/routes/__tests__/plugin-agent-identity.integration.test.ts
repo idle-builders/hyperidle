@@ -174,14 +174,6 @@ describe("a plugin's agent comes with an identity", () => {
 		asPerson,
 	}) => {
 		const app = pluginsApp;
-		await db.insert(users).values({
-			id: "u-founder-identity",
-			name: "Founder",
-			role: "founder",
-			status: "active",
-			kind: "human",
-			createdAt: new Date().toISOString(),
-		});
 		await install(db, app, () => asPerson("u-founder", pluginsApp));
 
 		const [agent] = await db.select().from(users).where(eq(users.discipline, "builder"));
@@ -193,7 +185,7 @@ describe("a plugin's agent comes with an identity", () => {
 
 		await app.request("/api/actions/edit_document", {
 			method: "POST",
-			headers: { ...auth(), "X-Identity": "u-founder-identity" },
+			headers: auth(),
 			body: JSON.stringify({
 				id: identity?.id,
 				version: identity?.version,

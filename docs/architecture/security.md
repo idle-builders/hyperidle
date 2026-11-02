@@ -8,7 +8,7 @@ The **Principal** is the authenticated identity on a request — `c.get("userId"
 
 ## Trust mode
 
-Every request carries a key as `X-API-Key`. There are no login sessions, invite codes, or bearer tokens.
+Every request carries a key as `X-API-Key`. There are no login sessions or invite codes, and no bearer token is ever an API credential.
 
 - **A person's own key** makes the caller that person. Only its sha256 is kept (`users.key_hash`); the key itself lives on the person's computer.
 - **The team key** — the deployment's `HYPERIDLE_API_KEY`, compared in constant time — makes the caller nobody yet. It is for what needs no person, such as a laptop's first start, which makes the one person and keeps the key it was called with as theirs.

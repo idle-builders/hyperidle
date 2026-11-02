@@ -25,7 +25,7 @@ const PLUGIN_ID = "document-management";
 const FOUNDER = "u-founder";
 
 function auth(): Record<string, string> {
-	return { "X-API-Key": API_KEY, "Content-Type": "application/json", "X-Identity": FOUNDER };
+	return { "X-API-Key": API_KEY, "Content-Type": "application/json" };
 }
 
 const tempDirs: string[] = [];
