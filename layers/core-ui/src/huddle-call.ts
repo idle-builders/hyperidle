@@ -11,6 +11,12 @@ const ICE_SERVERS: RTCConfiguration = {
 };
 
 const peers = new Map<string, RTCPeerConnection>();
+let onSpeechErrorCallback: ((message: string) => void) | null = null;
+
+/** Subscribe to speech errors during a call (e.g. Dictation off). Pass null to unsubscribe. */
+export function onHuddleSpeechError(cb: ((message: string) => void) | null): void {
+	onSpeechErrorCallback = cb;
+}
 /** ICE candidates that arrived before setRemoteDescription; flushed once SDP is set. */
 const iceCandidateQueues = new Map<string, RTCIceCandidateInit[]>();
 const remoteAudios = new Map<string, HTMLAudioElement>();
@@ -100,7 +106,9 @@ async function startSpeech(threadId: string): Promise<void> {
 	if (!speech) return;
 	await speech.start(
 		(spoken) => {
-			if (spoken.kind === "final" && spoken.text && activeHuddleId && activeThreadId) {
+			if (spoken.kind === "error") {
+				onSpeechErrorCallback?.(spoken.message);
+			} else if (spoken.kind === "final" && spoken.text && activeHuddleId && activeThreadId) {
 				void call("send_message", { threadId: activeThreadId, text: spoken.text });
 			}
 		},

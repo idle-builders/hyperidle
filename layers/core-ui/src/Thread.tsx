@@ -18,7 +18,7 @@ import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
 import { Failed } from "./Failed";
 import { listen } from "./live";
-import { getActiveHuddleId, muteHuddleCall, startHuddleCall, stopHuddleCall, updateHuddlePeople } from "./huddle-call";
+import { getActiveHuddleId, muteHuddleCall, onHuddleSpeechError, startHuddleCall, stopHuddleCall, updateHuddlePeople } from "./huddle-call";
 import { Avatar, Event, Msg } from "./Msg";
 import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
@@ -428,6 +428,13 @@ export function ThreadPage({ id }: { id: string }) {
 	const [callTick, setCallTick] = useState(0);
 	const [muted, setMuted] = useState(false);
 	const [openHuddleKeys, setOpenHuddleKeys] = useState<ReadonlySet<string>>(new Set());
+	const [speechProblem, setSpeechProblem] = useState<string | null>(null);
+
+	// Receive speech errors (e.g. Dictation off) from the call module.
+	useEffect(() => {
+		onHuddleSpeechError((msg) => setSpeechProblem(msg));
+		return () => { onHuddleSpeechError(null); };
+	}, []);
 	// The live huddle in this thread, if any.
 	const liveHuddleEntry = entries.find(
 		(e): e is Extract<(typeof entries)[number], { kind: "huddle" }> =>
@@ -587,19 +594,22 @@ export function ThreadPage({ id }: { id: string }) {
 			</header>
 
 			{inCall && inHuddle && (
-				<div className="huddle-strip">
-					<span className="huddle-strip-label">In huddle</span>
-					<button
-						type="button"
-						className={muted ? "btn btn--accent" : "btn"}
-						onClick={toggleMute}
-					>
-						{muted ? "Unmute" : "Mute"}
-					</button>
-					<button type="button" className="btn btn--leave" onClick={() => void leaveHuddle()}>
-						Leave
-					</button>
-				</div>
+				<>
+					<div className="huddle-strip">
+						<span className="huddle-strip-label">In huddle</span>
+						<button
+							type="button"
+							className={muted ? "btn btn--accent" : "btn"}
+							onClick={toggleMute}
+						>
+							{muted ? "Unmute" : "Mute"}
+						</button>
+						<button type="button" className="btn btn--leave" onClick={() => void leaveHuddle()}>
+							Leave
+						</button>
+					</div>
+					{speechProblem && <p className="composer-problem">{speechProblem}</p>}
+				</>
 			)}
 			{!inCall && liveHuddle && inHuddle === false && (
 				<div className="huddle-banner">
