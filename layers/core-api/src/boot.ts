@@ -23,6 +23,8 @@ import { createJoinRoutes, type SignIn } from "./routes/join.js";
 
 export type { SignIn };
 
+import { createLogger } from "@hyperidle/diagnostics";
+import { canRelayHuddleSignal, endLiveHuddles, findLiveHuddlesForPerson } from "@hyperidle/thread";
 import { type ApiMiddlewareStack, createApiMiddlewareStack } from "./api-middleware-stack.js";
 import {
 	type AppOptions,
@@ -141,11 +143,63 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 
 	let wsRouteDispose: (() => void) | null = null;
 	const upgradeWebSocket = options?.upgradeWebSocket;
+
+	// Deferred: set after createCoreApiApp returns; captured by closure.
+	// @lore: callActionAs is built after app creation; relay/disconnect closures read it late — the ref is always populated before WS handlers fire
+	let callActionAsDeferred:
+		| ((
+				actionName: string,
+				body: Record<string, unknown>,
+				actorId: string,
+		  ) => Promise<{ ok: boolean; data?: unknown; problems?: ReadonlyArray<{ code: string }> }>)
+		| undefined;
+
+	const relaySignal = db
+		? async (from: string, huddleId: string, to: string, data: unknown): Promise<boolean> => {
+				if (!(await canRelayHuddleSignal(db as HyperIdleDb, huddleId, from, to))) return false;
+				wsHub.sendToIdentity(to, JSON.stringify({ type: "signal", from, huddleId, data }));
+				return true;
+			}
+		: null;
+
+	const onIdentityDisconnect = db
+		? (identity: string): void => {
+				// The socket is gone, so nobody waits on the result; a failure is only logged.
+				findLiveHuddlesForPerson(db as HyperIdleDb, identity)
+					.then((huddles) =>
+						Promise.all(
+							huddles.map((huddle) =>
+								callActionAsDeferred?.(
+									"adjust_thread",
+									{ id: huddle.threadId, message: { id: huddle.id, huddle: "leave" } },
+									identity,
+								),
+							),
+						),
+					)
+					.catch((err: unknown) => {
+						createLogger({ pkg: "server" }).error(
+							`Leaving huddles after a dropped connection failed: ${err instanceof Error ? err.message : String(err)}`,
+						);
+					});
+			}
+		: null;
+
+	// A huddle lives only as long as its people's connections, and none survive a restart.
+	if (db) await endLiveHuddles(db as HyperIdleDb, new Date().toISOString());
+
 	const registerWebSocket =
 		options?.registerWebSocket ??
 		(upgradeWebSocket
 			? (apiRouter: Hono, tokenStore: UpgradeTokenStore) => {
-					wsRouteDispose = registerWsRoute(apiRouter, tokenStore, upgradeWebSocket, wsHub);
+					wsRouteDispose = registerWsRoute(
+						apiRouter,
+						tokenStore,
+						upgradeWebSocket,
+						wsHub,
+						relaySignal,
+						onIdentityDisconnect,
+					);
 				}
 			: undefined);
 
@@ -231,6 +285,9 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 						: { ok: false, problems: result.problems };
 				}
 			: undefined;
+
+	// Wire deferred ref so relay/disconnect closures can call actions.
+	callActionAsDeferred = callActionAs;
 
 	const mintWsTokenFor: CoreApiBoot["mintWsTokenFor"] = tokenStore
 		? (actorId) => tokenStore.issue(actorId).token

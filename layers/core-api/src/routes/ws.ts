@@ -13,6 +13,9 @@ class WsContextAdapter implements WsClient {
 	}
 }
 
+/** Called when a signal `{type:"signal", huddleId, to, data}` arrives; returns true if relayed. */
+type SignalRelay = (from: string, huddleId: string, to: string, data: unknown) => Promise<boolean>;
+
 /**
  * @lore: ws identity — keyed by Hono Context of upgrade; module-scoped slot unsafe: interleaved async middleware causes A to join under B identity
  */
@@ -21,12 +24,16 @@ function registerWsRoute(
 	tokenStore: UpgradeTokenStore,
 	upgradeWebSocket: UpgradeWebSocket,
 	injectedHub: WsConnectionHub | null = null,
+	relaySignal: SignalRelay | null = null,
+	onIdentityDisconnect: ((identity: string) => void) | null = null,
 ): () => void {
 	const broadcaster: WsConnectionHub = injectedHub ?? new WsConnectionHub();
 
 	const adapters = new Map<WSContext, WsContextAdapter>();
 	// Weakly keyed, so a request that never upgrades leaves nothing behind.
 	const identityByRequest = new WeakMap<object, string>();
+	// Track identity per adapter for disconnect cleanup.
+	const identityByAdapter = new Map<WsContextAdapter, string>();
 
 	apiApp.use("/ws", async (c, next) => {
 		const token = c.req.query("token");
@@ -55,7 +62,9 @@ function registerWsRoute(
 			onOpen(_evt, ws) {
 				const adapter = new WsContextAdapter(ws);
 				adapters.set(ws, adapter);
-				broadcaster?.addClient(adapter, identityByRequest.get(c));
+				const identity = identityByRequest.get(c);
+				broadcaster?.addClient(adapter, identity);
+				if (identity) identityByAdapter.set(adapter, identity);
 				identityByRequest.delete(c);
 				ws.send(JSON.stringify({ type: "connected" }));
 			},
@@ -63,7 +72,13 @@ function registerWsRoute(
 				const adapter = adapters.get(ws);
 				if (typeof evt.data === "string") {
 					try {
-						const msg = JSON.parse(evt.data) as { type?: string; topic?: string };
+						const msg = JSON.parse(evt.data) as {
+							type?: string;
+							topic?: string;
+							huddleId?: string;
+							to?: string;
+							data?: unknown;
+						};
 						if (msg.type === "subscribe" && msg.topic && adapter && broadcaster) {
 							// @lore: broadcaster.subscribe() is async — must await; missing await causes result === Promise (truthy), never "ok"
 							const result = await broadcaster.subscribe(adapter, msg.topic);
@@ -81,6 +96,22 @@ function registerWsRoute(
 							ws.send(JSON.stringify({ type: "unsubscribed", topic: msg.topic }));
 							return;
 						}
+						if (
+							msg.type === "signal" &&
+							typeof msg.huddleId === "string" &&
+							typeof msg.to === "string" &&
+							adapter &&
+							relaySignal
+						) {
+							const from = identityByAdapter.get(adapter);
+							if (from) {
+								const relayed = await relaySignal(from, msg.huddleId, msg.to, msg.data ?? null);
+								if (!relayed) {
+									ws.send(JSON.stringify({ type: "signal_denied", huddleId: msg.huddleId }));
+								}
+							}
+							return;
+						}
 					} catch {
 						// Not JSON, echo back
 					}
@@ -92,8 +123,18 @@ function registerWsRoute(
 			onClose(_evt, ws) {
 				const adapter = adapters.get(ws);
 				if (adapter) {
+					const identity = identityByAdapter.get(adapter);
 					broadcaster?.removeClient(adapter);
+					identityByAdapter.delete(adapter);
 					adapters.delete(ws);
+					// After removal, check if this was the last connection for this identity.
+					if (
+						identity &&
+						onIdentityDisconnect &&
+						broadcaster.getIdentityConnectionCount(identity) === 0
+					) {
+						onIdentityDisconnect(identity);
+					}
 				}
 			},
 		})),
@@ -101,6 +142,7 @@ function registerWsRoute(
 
 	return (): void => {
 		adapters.clear();
+		identityByAdapter.clear();
 	};
 }
 

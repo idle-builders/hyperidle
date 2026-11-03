@@ -65,4 +65,10 @@ A retry is a new review, **round 2**. It links back to round 1 and says how many
 
 ---
 
+## Huddles
+
+In the desktop app, **Huddle** in the thread header starts a live voice call in the conversation. The other people in the thread are told, and a banner with **Join** appears in the thread. The call strip at the top shows **Mute** and **Leave**; if your connection drops, you leave the huddle and can join again. On a Mac, what you say during a huddle is written down on your own Mac and posted to the thread under your name, one message each time you pause. While you are in a huddle, **Record** is off. Only your own voice is written down: the others coming out of your speakers are not. Your voice goes only to the people in the call, never to a server for writing it down. The first time, macOS asks to let HyperIdle use the microphone and speech recognition, and Dictation must be on (System Settings → Keyboard → Dictation).
+
+---
+
 Next: [Work](./work.md)

@@ -75,9 +75,10 @@ test.each([
 });
 
 test.each([
-	["mentions you", "sam", "Mentioned you · Alex"],
-	["mentions someone else", "kim", "New reply · Alex"],
-])("a message that %s reads in the bell as %s", (_, you, words) => {
+	["mentions you", "plain", "sam", "Mentioned you · Alex"],
+	["mentions someone else", "plain", "kim", "New reply · Alex"],
+	["starts a huddle", "huddle", "kim", "Alex started a huddle"],
+])("a message that %s reads in the bell as %s", (_, type, you, words) => {
 	const change = {
 		id: "c",
 		object: "thread",
@@ -85,7 +86,7 @@ test.each([
 		kind: "message",
 		actor: "alex",
 		before: null,
-		after: { type: "plain", payload: { refs: [{ kind: "mention", identityId: "sam" }] } },
+		after: { type, payload: { refs: [{ kind: "mention", identityId: "sam" }] } },
 		at: "2026-10-21T09:00:00.000Z",
 	} satisfies ChangeRow;
 	expect(noteWhat(change, new Map([["alex", "Alex"]]), you)).toBe(words);

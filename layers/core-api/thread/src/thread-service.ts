@@ -8,7 +8,9 @@ import {
 	type Thread,
 	threads,
 } from "@hyperidle/db";
-import { and, asc, desc, eq, gte, inArray, isNull, type SQL, sql } from "drizzle-orm";
+import { huddlePayloadSchema } from "@hyperidle/domain-model";
+import { and, asc, desc, eq, gte, inArray, isNull, like, type SQL, sql } from "drizzle-orm";
+import { isRelayAllowed } from "./huddle-operations.js";
 
 // =============================================================================
 // Filter types
@@ -217,6 +219,82 @@ export function listMessages(exec: HyperIdleDb, f: MessageFilter): Promise<Messa
 	}
 	if (f.limit !== undefined) q = q.limit(f.limit);
 	return q;
+}
+
+/** The live huddle message in a thread, if any (type "huddle", payload.endedAt null). */
+export async function findLiveHuddleForThread(
+	exec: HyperIdleDb,
+	threadId: string,
+): Promise<Message | undefined> {
+	const rows = await exec
+		.select()
+		.from(messages)
+		.where(and(eq(messages.threadId, threadId), eq(messages.type, "huddle")));
+	return rows.find((r) => {
+		try {
+			const p = JSON.parse(r.payload) as { endedAt?: unknown };
+			return p.endedAt === null || p.endedAt === undefined;
+		} catch {
+			return false;
+		}
+	});
+}
+
+/** Whether a call signal from `from` may reach `to`: both are in the stored huddle, and it is live. */
+export async function canRelayHuddleSignal(
+	exec: HyperIdleDb,
+	huddleId: string,
+	from: string,
+	to: string,
+): Promise<boolean> {
+	const [row] = await exec
+		.select()
+		.from(messages)
+		.where(and(eq(messages.id, huddleId), eq(messages.type, "huddle")))
+		.limit(1);
+	if (!row) return false;
+	const parsed = huddlePayloadSchema.safeParse(JSON.parse(row.payload));
+	return parsed.success && isRelayAllowed(parsed.data, from, to);
+}
+
+/** Ends every live huddle and takes everyone out. For server start, when nobody can be connected yet. */
+export async function endLiveHuddles(exec: HyperIdleDb, now: string): Promise<void> {
+	const rows = await exec
+		.select()
+		.from(messages)
+		.where(and(eq(messages.type, "huddle"), like(messages.payload, '%"endedAt":null%')));
+	for (const row of rows) {
+		const parsed = huddlePayloadSchema.safeParse(JSON.parse(row.payload));
+		if (!parsed.success) continue;
+		const people = parsed.data.people.map((p) => ({ ...p, leftAt: p.leftAt ?? now }));
+		await exec
+			.update(messages)
+			.set({ payload: JSON.stringify({ ...parsed.data, people, endedAt: now }) })
+			.where(eq(messages.id, row.id));
+	}
+}
+
+/** All live huddles a person is currently in (for dropped-connection cleanup). */
+export async function findLiveHuddlesForPerson(
+	exec: HyperIdleDb,
+	personId: string,
+): Promise<Message[]> {
+	const rows = await exec
+		.select()
+		.from(messages)
+		.where(and(eq(messages.type, "huddle"), like(messages.payload, '%"endedAt":null%')));
+	return rows.filter((r) => {
+		try {
+			const p = JSON.parse(r.payload) as {
+				endedAt?: unknown;
+				people?: Array<{ id: string; leftAt: string | null }>;
+			};
+			if (p.endedAt !== null && p.endedAt !== undefined) return false;
+			return p.people?.some((person) => person.id === personId && person.leftAt === null) ?? false;
+		} catch {
+			return false;
+		}
+	});
 }
 
 /**

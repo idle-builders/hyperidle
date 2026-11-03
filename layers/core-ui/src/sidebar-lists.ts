@@ -316,6 +316,7 @@ export function noteWhat(change: ChangeRow, names: Names, you: string): string {
 	if (change.object === "document" && change.kind === "changed") return `Edited by ${who}`;
 	if (change.object === "thread" && after.type === "review") return `${who} raised a review`;
 	if (change.object === "thread" && after.type === "questionnaire") return `${who} asks`;
+	if (change.kind === "message" && after.type === "huddle") return `${who} started a huddle`;
 	if (change.kind === "message")
 		return mentions(change, you) ? `Mentioned you · ${who}` : `New reply · ${who}`;
 	if (change.kind === "created") return `New ${change.object} · ${who}`;

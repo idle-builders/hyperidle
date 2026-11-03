@@ -1,6 +1,7 @@
 import {
 	type ActivityEntry,
 	type DocumentRow,
+	type HuddlePayload,
 	isRedactedPayload,
 	type Message,
 	type PlainReadPayload,
@@ -10,17 +11,43 @@ import {
 	type Task,
 	type VerdictPayload,
 } from "@hyperidle/domain-model";
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+	Fragment,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { AppCard, MadeCard } from "./Apps";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
 import { Failed } from "./Failed";
+import {
+	getActiveHuddleId,
+	isMicOpen,
+	isMuted,
+	muteHuddleCall,
+	onCallChange,
+	onHuddleProblem,
+	startHuddleCall,
+	stopHuddleCall,
+	updateHuddlePeople,
+} from "./huddle-call";
 import { listen } from "./live";
 import { Avatar, Event, Msg } from "./Msg";
 import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
-import { clock, duration, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
+import {
+	clock,
+	duration,
+	huddleLabel,
+	stepFrom,
+	timeline,
+	titleFrom,
+	workState,
+} from "./thread-timeline";
 import { useAction } from "./useAction";
 
 /**
@@ -326,6 +353,7 @@ export function Body({
 }) {
 	if (message.redactedAt || isRedactedPayload(message.payload))
 		return <p className="msg-para msg-gone">This message was removed.</p>;
+	if (message.type === "huddle") return null;
 	const by = resolving.get(message.id);
 	if (message.type === "questionnaire") {
 		const answer = by?.type === "answer" ? (by.payload as { option?: string }).option : undefined;
@@ -421,6 +449,95 @@ export function ThreadPage({ id }: { id: string }) {
 		.reverse();
 	const resolving = resolvingOf(messages);
 	const entries = timeline(messages, tasks, sessions, firstName, madeHere.data ?? NO_DOCS);
+	const [openHuddleKeys, setOpenHuddleKeys] = useState<ReadonlySet<string>>(new Set());
+	const [callProblem, setCallProblem] = useState<string | null>(null);
+
+	useEffect(() => {
+		onHuddleProblem(setCallProblem);
+		return () => {
+			onHuddleProblem(null);
+		};
+	}, []);
+	// The live huddle in this thread, if any.
+	const liveHuddleEntry = entries.find(
+		(e): e is Extract<(typeof entries)[number], { kind: "huddle" }> =>
+			e.kind === "huddle" && (e.huddleMessage.payload as HuddlePayload).endedAt === null,
+	);
+	const liveHuddle = liveHuddleEntry?.huddleMessage;
+	const liveHuddlePayload = liveHuddle ? (liveHuddle.payload as HuddlePayload) : null;
+	// Ref to read the latest payload in effects without re-triggering on every payload change.
+	const latestHuddlePayload = useRef(liveHuddlePayload);
+	latestHuddlePayload.current = liveHuddlePayload;
+	const inHuddle =
+		liveHuddlePayload?.people.some((p) => p.id === you && p.leftAt === null) ?? false;
+	/** True when the call module is running for this thread's live huddle. */
+	const activeHuddleId = useSyncExternalStore(onCallChange, getActiveHuddleId);
+	const inCall = activeHuddleId === liveHuddle?.id;
+	const micOpen = useSyncExternalStore(onCallChange, isMicOpen);
+	const muted = useSyncExternalStore(onCallChange, isMuted);
+	const otherHumans = (view.data?.members ?? []).filter((m) => !m.isAgent && m.id !== you);
+	const canStartHuddle = !!window.__HYPERIDLE__ && otherHumans.length > 0 && !liveHuddle;
+
+	// Auto-open the live huddle entry when you are in it.
+	useEffect(() => {
+		if (liveHuddleEntry?.key && inHuddle) {
+			setOpenHuddleKeys((s) => new Set([...s, liveHuddleEntry.key]));
+		}
+	}, [liveHuddleEntry?.key, inHuddle]);
+
+	// Keep connections in sync with the current huddle people list.
+	const huddlePeopleKey = liveHuddlePayload ? JSON.stringify(liveHuddlePayload.people) : "";
+	useEffect(() => {
+		if (!(huddlePeopleKey && getActiveHuddleId())) return;
+		updateHuddlePeople(latestHuddlePayload.current?.people ?? []);
+	}, [huddlePeopleKey]);
+
+	const startHuddle = async (): Promise<void> => {
+		setCallProblem(null);
+		const res = await call("send_message", { threadId: id, huddle: {} });
+		if (!res.ok) {
+			setProblem(res.problems[0]?.message ?? "Could not start huddle.");
+			return;
+		}
+		view.reload();
+		const huddleId = (res.data.message as Message).id;
+		const failed = await startHuddleCall(huddleId, you, id, []);
+		if (failed) {
+			setProblem(failed);
+			view.reload();
+		}
+	};
+
+	const joinHuddle = async (): Promise<void> => {
+		if (!liveHuddle) return;
+		setCallProblem(null);
+		const res = await call("adjust_thread", { id, message: { id: liveHuddle.id, huddle: "join" } });
+		if (!res.ok) {
+			setProblem(res.problems[0]?.message ?? "Could not join huddle.");
+			return;
+		}
+		view.reload();
+		// Who is in as of your join, not as this page last saw it: someone may have joined since.
+		const joined = res.data.messages.find((m) => m.id === liveHuddle.id)?.payload as
+			| HuddlePayload
+			| undefined;
+		const alreadyJoined = joined?.people.filter((p) => p.leftAt === null).map((p) => p.id) ?? [];
+		const failed = await startHuddleCall(liveHuddle.id, you, id, alreadyJoined);
+		if (failed) {
+			setProblem(failed);
+			view.reload();
+		}
+	};
+
+	const leaveHuddle = async (): Promise<void> => {
+		if (!liveHuddle) return;
+		stopHuddleCall();
+		await call("adjust_thread", { id, message: { id: liveHuddle.id, huddle: "leave" } });
+		view.reload();
+	};
+
+	const toggleMute = (): void => muteHuddleCall(!muted);
+
 	const running = [
 		...[...sessions, ...partSessions].filter((s) => s.endedAt === null && s.state === "active"),
 		...answering,
@@ -488,12 +605,94 @@ export function ThreadPage({ id }: { id: string }) {
 			<header className="thread-head">
 				<span className="chip chip--quiet">Thread</span>
 				<h2 title={view.data?.thread.computedTitle}>{view.data?.thread.computedTitle ?? ""}</h2>
+				{canStartHuddle && (
+					<button type="button" className="btn btn--huddle" onClick={() => void startHuddle()}>
+						Huddle
+					</button>
+				)}
 			</header>
+
+			{inCall && (
+				<div className="huddle-strip">
+					<span className="huddle-strip-label">
+						{micOpen ? "In huddle" : "Waiting for the microphone. If macOS asks, allow it."}
+					</span>
+					<button type="button" className={muted ? "btn btn--accent" : "btn"} onClick={toggleMute}>
+						{muted ? "Unmute" : "Mute"}
+					</button>
+					<button type="button" className="btn btn--leave" onClick={() => void leaveHuddle()}>
+						Leave
+					</button>
+				</div>
+			)}
+			{!inCall && liveHuddle && (
+				<div className="huddle-banner">
+					<span>
+						{firstName(liveHuddle.senderId)} started a huddle
+						{window.__HYPERIDLE__ ? "" : " · join it from the desktop app"}
+					</span>
+					{window.__HYPERIDLE__ && (
+						<button type="button" className="btn" onClick={() => void joinHuddle()}>
+							Join
+						</button>
+					)}
+				</div>
+			)}
+			{callProblem && <p className="composer-problem">{callProblem}</p>}
 
 			<div className="thread-scroll" ref={scroll} role="log" aria-label="Messages">
 				{entries.map((e) => {
 					if (e.kind === "event") return <Event key={e.key}>{e.text}</Event>;
 					if (e.kind === "made") return <MadeCard key={e.key} doc={e.doc} />;
+					if (e.kind === "huddle") {
+						const hp = e.huddleMessage.payload as HuddlePayload;
+						const isOpen = openHuddleKeys.has(e.key);
+						return (
+							<div key={e.key}>
+								<button
+									type="button"
+									className="huddle-fold-btn"
+									onClick={() =>
+										setOpenHuddleKeys((s) => {
+											const n = new Set(s);
+											if (n.has(e.key)) n.delete(e.key);
+											else n.add(e.key);
+											return n;
+										})
+									}
+								>
+									{huddleLabel(hp, firstName)}
+								</button>
+								{isOpen &&
+									e.messages.map((m) => {
+										const sender = people.get(m.senderId);
+										return (
+											<Msg
+												key={m.id}
+												who={initials(sender?.name ?? "")}
+												human={sender?.human}
+												name={m.senderId === you ? "You" : (sender?.name ?? "")}
+												at={clock(m.createdAt)}
+											>
+												<Body
+													message={m}
+													threadId={id}
+													you={you}
+													people={people}
+													resolving={resolving}
+													onAnswer={(question, option) =>
+														void send({
+															threadId: id,
+															answer: { resolvesMessageId: question.id, option },
+														})
+													}
+												/>
+											</Msg>
+										);
+									})}
+							</div>
+						);
+					}
 					if (e.kind === "task")
 						return (
 							<WorkItem

@@ -11,6 +11,9 @@ export type {
 	ThreadSearchRow,
 } from "./thread-service.js";
 export {
+	canRelayHuddleSignal,
+	endLiveHuddles,
+	findLiveHuddlesForPerson,
 	findThread,
 	listMessages,
 	listReviewsOpenedBy,
