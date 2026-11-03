@@ -29,11 +29,9 @@ import {
 	huddlePayloadSchema,
 	type Identity,
 	IdentitySchema,
-	type MarkReviewOpenedInput,
 	type Message,
 	MessageSchema,
 	type MessageType,
-	markReviewOpened as markReviewOpenedDeclaration,
 	type OpenThreadInput,
 	openThread as openThreadDeclaration,
 	type Problem,
@@ -106,6 +104,12 @@ export interface ThreadActionsDeps {
 	readonly linkReviewToSession: (sessionId: string, reviewMessageId: string) => Promise<void>;
 	/** Move a task to `review` state after a review card is filed for it. Called after the message is committed. */
 	readonly moveTaskToReview: (taskId: string, ctx: ActionContext) => Promise<void>;
+	/** Settle the task a review belongs to once a person has decided it: approve closes it, reject sends it back to work. */
+	readonly settleTaskAfterVerdict: (
+		taskId: string,
+		decision: "approve" | "reject",
+		ctx: ActionContext,
+	) => Promise<void>;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
 	/**
 	 * Optional: deliver a message directly into a live agent run for the given
@@ -557,15 +561,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			if (isReplaced) supersededIds.add(id);
 		}
 
-		// A review is no longer a need for the viewer once they have opened it.
-		const openedIds = await store.listReviewsOpenedBy(ctx.db, viewer, openReviewIds);
-
 		const senders = await deps.users.listByIds(ctx.db, [...new Set(open.map((m) => m.senderId))]);
 		const agents = new Set(senders.filter((u) => u.kind === "ai").map((u) => u.id));
-		// Filter out opened and superseded reviews; questionnaires are unaffected.
-		const active = open.filter(
-			(m) => m.type !== "review" || !(openedIds.has(m.id) || supersededIds.has(m.id)),
-		);
+		// Filter out superseded reviews; questionnaires are unaffected.
+		const active = open.filter((m) => m.type !== "review" || !supersededIds.has(m.id));
 		const byThread = new Map<string, typeof active>();
 		for (const m of active) byThread.set(m.threadId, [...(byThread.get(m.threadId) ?? []), m]);
 		return new Map(
@@ -1361,6 +1360,13 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 
 		const reply = replyOf(input);
+		if (input.verdict !== undefined && resolvesMessageRow?.type === "review") {
+			const { decision } = input.verdict;
+			const taskId = (JSON.parse(resolvesMessageRow.payload) as { taskId?: unknown }).taskId;
+			if (typeof taskId === "string" && (decision === "approve" || decision === "reject")) {
+				await deps.settleTaskAfterVerdict(taskId, decision, ctx);
+			}
+		}
 		// The agent whose own session a verdict or answer brings back; it gets no second run.
 		let resumed: string | null = null;
 		if (reply !== undefined && resolvesMessageRow) {
@@ -1822,30 +1828,11 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		return { ok: true, data: await assembleThreadView(ctx, finalRow) };
 	}
 
-	async function markReviewOpenedRun(
-		ctx: ActionContext,
-		input: MarkReviewOpenedInput,
-	): Promise<ActionResult<Record<string, never>>> {
-		await store.upsertReviewOpened(ctx.db, input.reviewMessageId, ctx.actor, ctx.now);
-		// Nudge the conversation list so the sidebar and person page refetch without a reload.
-		if (deps.wsPush) {
-			const msg = await store.findMessage(ctx.db, { id: input.reviewMessageId });
-			if (msg) {
-				const threadTopic = `thread:${msg.threadId}`;
-				const nudge = { type: "update", topic: "conversations", kind: "thread.changed" };
-				deps.wsPush("conversations", nudge);
-				deps.wsPush(threadTopic, { ...nudge, topic: threadTopic });
-			}
-		}
-		return { ok: true, data: {} };
-	}
-
 	return [
 		{ declaration: searchThreadsDeclaration, run: searchThreadsRun } as Action,
 		{ declaration: openThreadDeclaration, run: openThreadRun } as Action,
 		{ declaration: sendMessageDeclaration, run: sendMessageRun } as Action,
 		{ declaration: adjustThreadDeclaration, run: adjustThreadRun } as Action,
-		{ declaration: markReviewOpenedDeclaration, run: markReviewOpenedRun } as Action,
 	];
 }
 

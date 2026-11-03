@@ -114,4 +114,6 @@ links back to round 1, shows its rejection reason and how many questions are sti
 
 **Approve** or **Reject**. A reject must say why — the reason goes back to the agent and its
 session. There is no send-back: to ask for a change, comment. Either verdict resolves the review,
-which changes the thread's and the task's need at once.
+which changes the thread's and the task's need at once. A review stays in the reviewer's waiting list
+and count until they decide it; opening it does not clear it. Approve ticks the task's person-review
+line and closes the task once nothing else is open; Reject puts it back with the agent.

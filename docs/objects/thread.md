@@ -62,7 +62,7 @@ A plain message may carry `refs: InlineRef[]`. `InlineRef` is a discriminated un
 
 A review is resolved by a verdict; a questionnaire is resolved by an answer. Nothing else resolves either. Resolving sets `resolvedAt` on the resolved message.
 
-- **Verdict** — two decisions, `approve` and `reject` (`VERDICT_DECISIONS`, `thread.ts`). A `reject` must carry a non-empty `note` saying why; `send_message` refuses one without (`reject_needs_reason`). There is no "request changes" verdict — to ask for a change, comment. Only a human gives a verdict, and never on their own review.
+- **Verdict** — two decisions, `approve` and `reject` (`VERDICT_DECISIONS`, `thread.ts`). A `reject` must carry a non-empty `note` saying why; `send_message` refuses one without (`reject_needs_reason`). There is no "request changes" verdict — to ask for a change, comment. Only a human gives a verdict, and never on their own review. A verdict also settles the review's task in core, with no agent running: `approve` marks its open person-review lines met and moves it to `done` when no line is left open (else back to `in_progress`); `reject` moves it to `in_progress`.
 - **Answer** — names one of the questionnaire's options (`answer_unknown_option` if it is not one of them) or gives non-empty text of its own. Humans and agents answer the same way.
 
 ## The review flow

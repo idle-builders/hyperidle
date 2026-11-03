@@ -257,6 +257,7 @@ export function threadDeps(overrides: Partial<ThreadActionsDeps> = {}): ThreadAc
 		linkReviewToSession: vi.fn(async () => undefined),
 		// @lore: no-op here; cross-module task-state effect is tested in layers/core-api/src/__tests__/
 		moveTaskToReview: async () => undefined,
+		settleTaskAfterVerdict: async () => undefined,
 		...overrides,
 	};
 }

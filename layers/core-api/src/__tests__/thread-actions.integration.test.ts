@@ -1822,4 +1822,71 @@ describe("send_message — review requires a task for agents", () => {
 		const [taskRow] = await db.select().from(tasks).where(eq(tasks.id, "rgt3-task"));
 		expect(taskRow?.state).toBe("review");
 	});
+
+	test("a person's verdict alone settles the task: approve closes it and ticks the review line, reject sends it back", async ({
+		db,
+		agentOrchestration,
+		eventBus,
+	}) => {
+		await seedTeam(db, "vrd-1");
+		await seedAgent(db, "vrd-agent", "vrd-1");
+		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
+			buildRealActions(agentOrchestration),
+			"send_message",
+		);
+		const doneWhen = JSON.stringify([
+			{ id: "c1", what: "Tests pass", by: "check", state: "met", how: null },
+			{ id: "r1", what: "Looks right", by: "review", state: "open", how: "Founder" },
+		]);
+		const review = async (taskId: string) => {
+			const threadId = await seedTaskWithThread(db, taskId, "vrd-1", { ownerAgentId: "vrd-agent" });
+			await db.update(tasks).set({ doneWhen }).where(eq(tasks.id, taskId));
+			await db
+				.update(threads)
+				.set({ participants: JSON.stringify(["vrd-agent", FOUNDER_ID]) })
+				.where(eq(threads.id, threadId));
+			const sent = await sendRun(
+				{
+					actor: "vrd-agent",
+					db,
+					eventBus,
+					now: new Date().toISOString(),
+					caller: { sessionId: `${taskId}-sess`, taskId, threadId },
+				},
+				{ threadId, review: { title: "Please review", reasoning: ["shipped"] } },
+			);
+			if (!sent.ok) throw new Error("review not sent");
+			return { threadId, reviewId: sent.data.message.id };
+		};
+		const decide = (threadId: string, reviewId: string, decision: "approve" | "reject") =>
+			sendRun(
+				{ actor: FOUNDER_ID, db, eventBus, now: new Date().toISOString() },
+				{
+					threadId,
+					verdict: {
+						resolvesMessageId: reviewId,
+						decision,
+						...(decision === "reject" ? { note: "Redo the header" } : {}),
+					},
+				},
+			);
+
+		const ok = await review("vrd-ok-task");
+		expect((await decide(ok.threadId, ok.reviewId, "approve")).ok).toBe(true);
+		const [approved] = await db.select().from(tasks).where(eq(tasks.id, "vrd-ok-task"));
+		expect(approved?.state).toBe("done");
+		expect(JSON.parse(approved?.doneWhen ?? "[]").map((l: { state: string }) => l.state)).toEqual([
+			"met",
+			"met",
+		]);
+
+		const no = await review("vrd-no-task");
+		expect((await decide(no.threadId, no.reviewId, "reject")).ok).toBe(true);
+		const [rejected] = await db.select().from(tasks).where(eq(tasks.id, "vrd-no-task"));
+		expect(rejected?.state).toBe("in_progress");
+		expect(JSON.parse(rejected?.doneWhen ?? "[]").map((l: { state: string }) => l.state)).toEqual([
+			"met",
+			"open",
+		]);
+	});
 });
