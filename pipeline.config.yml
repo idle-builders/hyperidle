@@ -25,10 +25,10 @@ paths:
   docs: ["docs/**"]
 
 # The design system /design and /visual-polish render and score against.
-# AU44 dissolved framework/design-system into layers/core-ui/src/ds.
+# AU44 dissolved framework/design-system into layers/core-ui/src.
 designSystem:
-  path: "layers/core-ui/src/ds"
-  tokens: "layers/core-ui/src/ds/tokens.css"
+  path: "layers/core-ui/src"
+  tokens: "layers/core-ui/src/tokens.css"
 
 # Version control + where /ship opens PRs and waits for CI.
 vcs: github
