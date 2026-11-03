@@ -32,18 +32,25 @@ function parseThreadTurnSourceId(
 	return { messageId: sourceId.slice(0, i), agentId: sourceId.slice(i + 1) };
 }
 
-/** One short, plain-English reason per failure code — no invented detail. */
+/**
+ * What a person reads when an agent could not start: plain words and, where
+ * there is one, the next step. No internal nouns ("harness", "provisioning").
+ * @lore: the notice must be written by a thread member (a DM refuses anyone
+ * else), so it goes out under the agent's id — the words speak as HyperIdle
+ * instead. The no-program wording matches `NoEligibleHarnessError`'s hint.
+ */
 const THREAD_TURN_FAILURE_REASON: Record<AgentRunAdmissionFailureCode, string> = {
-	INVALID_WORK_SOURCE: "the message it was answering is no longer available",
-	MAX_ATTEMPTS_EXCEEDED: "it could not be started after repeated attempts",
-	TARGET_AGENT_NOT_RUNNABLE: "the agent is not available to run right now",
-	PROVISIONING_FAILED: "no harness is available on this machine",
+	INVALID_WORK_SOURCE: "The message it was answering is gone.",
+	MAX_ATTEMPTS_EXCEEDED: "It still failed after several tries. Send your message again in a moment.",
+	TARGET_AGENT_NOT_RUNNABLE: "It is switched off right now.",
+	PROVISIONING_FAILED:
+		"No agent program is signed in on this computer. Sign in to one under [Agent programs](/people/me), then send your message again.",
 };
 
 /**
  * The never-silent net's sibling case (`session-not-returned-notice.ts`
  * covers "ended without answering"; this covers "could not even start"):
- * post ONE plain notice into the thread the turn came from, sent AS the
+ * post ONE plain notice into the thread the turn came from, sent under the id of the
  * agent that could not be started — but ONLY when the thread has at least
  * one HUMAN member. The notice exists to tell a person; with no person in
  * the thread there is nobody to tell, and skipping it also closes a
@@ -97,7 +104,7 @@ async function notifyThreadTurnAdmissionFailure(
 		{
 			threadId: sourceMessage.threadId,
 			clientKey: `thread-turn-admission-failed:${event.intentId}`,
-			text: `${displayName} could not be started: ${THREAD_TURN_FAILURE_REASON[event.failureCode]}.`,
+			text: `HyperIdle could not start ${displayName}. ${THREAD_TURN_FAILURE_REASON[event.failureCode]}`,
 		},
 	);
 	if (!result.ok) {

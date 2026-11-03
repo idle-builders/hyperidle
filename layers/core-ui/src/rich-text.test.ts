@@ -25,6 +25,21 @@ describe("parseRich", () => {
 			],
 		},
 		{
+			label: "a link to a page inside the app",
+			text: "Sign in under [Agent programs](/people/me), then retry",
+			mentions: [],
+			blocks: [
+				{
+					kind: "para",
+					inline: [
+						{ kind: "text", text: "Sign in under " },
+						{ kind: "link", text: "Agent programs", href: "/people/me" },
+						{ kind: "text", text: ", then retry" },
+					],
+				},
+			],
+		},
+		{
 			label: "only a mention the server resolved is one, the longest name winning",
 			text: "@Maya Chen and @Maya, not @nobody or me@maya.co",
 			mentions: ["@Maya", "@Maya Chen"],

@@ -331,7 +331,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		expect(notice).toBeDefined();
 		const payload = notice?.payload as { text?: string };
 		expect(payload.text).toBe(
-			"Agent could not be started: it could not be started after repeated attempts.",
+			"HyperIdle could not start Agent. It still failed after several tries. Send your message again in a moment.",
 		);
 
 		const changeRows = await db
@@ -406,6 +406,11 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			const opened = await openThread(app, "sub-turn2-thread");
 			expect(opened.body.data?.messages).toHaveLength(2);
 		});
+		const first = await openThread(app, "sub-turn2-thread");
+		const noProgram = first.body.data?.messages.find((m) => m.senderId === "sub-turn2-agent");
+		expect((noProgram?.payload as { text?: string }).text).toBe(
+			"HyperIdle could not start Agent. No agent program is signed in on this computer. Sign in to one under [Agent programs](/people/me), then send your message again.",
+		);
 
 		// The retry orchestration would report the SAME intent failing again —
 		// the reaction's own `clientKey` (derived from `intentId`) must make a
