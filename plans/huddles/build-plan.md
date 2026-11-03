@@ -1,9 +1,8 @@
 # Huddles — build plan
 
 Architecture pass, 2026-10-31, checked against main `dd9efe7b5`. Goes with
-[concept.md](concept.md). Pieces 3 and 4 are shipped on branch
-`feat/T-dyh78h-huddle-call`; pieces 1-2 (speech/record) and 5 (agents) are not
-yet built.
+[concept.md](concept.md). Pieces 1-2 (speech/record) are on main; pieces 3 and 4
+are on branch `feat/T-dyh78h-huddle-call`; piece 5 (agents) is not yet built.
 
 ## Two foundations that do not exist yet
 
