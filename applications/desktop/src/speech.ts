@@ -13,13 +13,18 @@ type SpeechText = { kind: "partial" | "final"; text: string } | { kind: "error";
  */
 export function registerSpeechHandlers(helperPath: string): void {
 	let helper: ChildProcess | null = null;
+	/** Helpers told to stop; their exit is expected, not a failure. */
+	const stopped = new WeakSet<ChildProcess>();
 	/** The page that started a huddle helper, the only one whose sound it takes. */
 	let huddlePage: WebContents | null = null;
 
 	ipcMain.handle(
 		"speech:start",
 		(event: { sender: WebContents }, opts?: { utterances?: boolean }) => {
-			helper?.kill();
+			if (helper) {
+				stopped.add(helper);
+				helper.kill();
+			}
 			const sender = event.sender;
 			const send = (text: SpeechText) => {
 				if (!sender.isDestroyed()) sender.send("speech:text", text);
@@ -28,6 +33,8 @@ export function registerSpeechHandlers(helperPath: string): void {
 				stdio: ["pipe", "pipe", "ignore"],
 			});
 			helper = child;
+			// The helper can die while sound is still being written to it; its exit says why.
+			child.stdin?.on("error", () => undefined);
 			huddlePage = opts?.utterances ? sender : null;
 			// A page that reloads or closes can no longer stop its helper, so the microphone would stay on.
 			const pageGone = () => child.kill();
@@ -53,12 +60,14 @@ export function registerSpeechHandlers(helperPath: string): void {
 					sender.off("did-navigate", pageGone);
 					sender.off("destroyed", pageGone);
 				}
-				if (!ended) send({ kind: "error", message: "The speech helper stopped unexpectedly." });
+				if (!(ended || stopped.has(child)))
+					send({ kind: "error", message: "The speech helper stopped unexpectedly." });
 			});
 		},
 	);
 
 	ipcMain.handle("speech:stop", () => {
+		if (helper) stopped.add(helper);
 		helper?.stdin?.end();
 	});
 

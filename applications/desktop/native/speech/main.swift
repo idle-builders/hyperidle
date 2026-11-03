@@ -1,6 +1,7 @@
-// The desktop app's speech helper: listens to the microphone and writes down what is said, on this
-// Mac only. Each result is one JSON line on stdout: {"kind":"partial"|"final","text"} or
-// {"kind":"error","message"}. Closing stdin ends the recording; the last line is then "final".
+// The desktop app's speech helper: writes down what is said, on this Mac only. For Record it listens
+// to the microphone; in a huddle (--utterances) it reads the call's sound from stdin. Each result is
+// one JSON line on stdout: {"kind":"partial"|"final","text"} or {"kind":"error","message"}. Closing
+// stdin ends it; the last line is then "final".
 import AVFoundation
 import Foundation
 import Speech
@@ -72,7 +73,7 @@ func listen() {
 	}
 }
 
-/** Mutable reference wrapper: lets the audio tap closure capture a replaceable request by pointer. */
+/** Mutable reference wrapper: lets the stdin reader feed whichever request is current. */
 final class Box<T> {
 	var value: T
 	init(_ value: T) { self.value = value }
@@ -113,10 +114,13 @@ func listenUtterances() {
 	var generation = 0
 	var currentTask: SFSpeechRecognitionTask?
 	// Tracks the last error code; set on first error, cleared on a good result.
-	// If the restarted task immediately fails with the same code, it is fatal.
+	// If the restarted task fails with the same code right away, it is fatal. The same error after a
+	// while, such as nothing said during a long silence, just starts listening again.
 	var lastErrorCode: Int?
+	var startedAt = Date()
 
 	func startRecognition() {
+		startedAt = Date()
 		generation += 1
 		let myGeneration = generation
 		let req = makeRequest()
@@ -150,8 +154,7 @@ func listenUtterances() {
 					if e.domain == "kLSRErrorDomain" && e.code == 201 {
 						fail("Writing down the huddle needs Dictation on. Turn it on in System Settings → Keyboard → Dictation, then leave the huddle and join again.")
 					}
-					// One restart per distinct error; the same code twice in a row is fatal.
-					if lastErrorCode == e.code {
+					if lastErrorCode == e.code && Date().timeIntervalSince(startedAt) < 2 {
 						fail(error.localizedDescription)
 					}
 					lastErrorCode = e.code
@@ -191,11 +194,12 @@ func readAudio(into append: @escaping (AVAudioPCMBuffer) -> Void, format: AVAudi
 				let channel = buffer.floatChannelData?[0]
 			else { continue }
 			pending.withUnsafeBytes { raw in
-				for i in 0..<frames { channel[i] = raw.load(fromByteOffset: i * 4, as: Float.self) }
+				for i in 0..<frames { channel[i] = raw.loadUnaligned(fromByteOffset: i * 4, as: Float.self) }
 			}
 			buffer.frameLength = AVAudioFrameCount(frames)
 			pending.removeFirst(frames * 4)
-			append(buffer)
+			// The current request is swapped on the main thread, so it is fed there too.
+			DispatchQueue.main.async { append(buffer) }
 		}
 		DispatchQueue.main.async {
 			stopping = true
