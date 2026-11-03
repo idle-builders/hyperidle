@@ -10,7 +10,7 @@
  * subscriptions live at extensions["io.hyperidle"].agents[] / .subscriptions[].
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { OBJECT_EVENTS } from "@hyperidle/domain-model";
 
@@ -150,7 +150,9 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 	const manifestPath = join(pluginRoot, "plugin.json");
 	let raw: unknown;
 	try {
-		raw = JSON.parse(readFileSync(manifestPath, "utf8"));
+		const text = readContainedFile(pluginRoot, manifestPath);
+		if (text === null) throw new Error("file is missing or outside the plugin");
+		raw = JSON.parse(text);
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
 		return { ok: false, reason: `Cannot read plugin.json: ${msg}` };
@@ -246,7 +248,7 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 	const version = typeof obj.version === "string" ? obj.version : "0";
 	const description = typeof obj.description === "string" ? obj.description : null;
 
-	const skills = scanSkills(pluginRoot, warnings);
+	const skills = scanSkills(pluginRoot);
 
 	return {
 		ok: true,
@@ -274,18 +276,29 @@ function parseInstallScope(value: unknown, warnings: ManifestWarning[]): "team" 
 	return "team";
 }
 
-// Returns true iff filePath resolves strictly inside root. Prevents path traversal.
-export function isContainedWithin(filePath: string, root: string): boolean {
-	const resolvedRoot = resolve(root);
-	const resolvedFile = resolve(filePath);
-	return resolvedFile.startsWith(`${resolvedRoot}/`) || resolvedFile === resolvedRoot;
+/**
+ * Read a file only if its real path (symlinks followed) lies inside the real
+ * plugin root. Returns null for a path that escapes, a broken symlink, or a
+ * missing/unreadable file.
+ *
+ * @lore: resolve()d paths compared as text never follow symlinks, so root and file are both realpath'd.
+ */
+function readContainedFile(root: string, filePath: string): string | null {
+	try {
+		const realRoot = realpathSync(root);
+		const realFile = realpathSync(filePath);
+		if (realFile !== realRoot && !realFile.startsWith(realRoot + sep)) return null;
+		return readFileSync(realFile, "utf8");
+	} catch {
+		return null;
+	}
 }
 
 /**
  * Scan the plugin's skills/ directory for immediate child dirs with SKILL.md.
  * Reads and returns each skill's content. Silently skips unparseable entries.
  */
-function scanSkills(pluginRoot: string, warnings: ManifestWarning[]): ParsedSkill[] {
+function scanSkills(pluginRoot: string): ParsedSkill[] {
 	const skillsDir = join(pluginRoot, "skills");
 	if (!existsSync(skillsDir)) return [];
 
@@ -306,23 +319,8 @@ function scanSkills(pluginRoot: string, warnings: ManifestWarning[]): ParsedSkil
 			continue;
 		}
 
-		const skillMdPath = join(skillDir, "SKILL.md");
-		if (!isContainedWithin(skillMdPath, pluginRoot)) {
-			warnings.push({
-				code: "UNKNOWN_TOP_LEVEL_FIELD",
-				message: `Skill "${dirName}" has a SKILL.md path outside the plugin root — skipped`,
-			});
-			continue;
-		}
-
-		if (!existsSync(skillMdPath)) continue;
-
-		let body: string;
-		try {
-			body = readFileSync(skillMdPath, "utf8");
-		} catch {
-			continue;
-		}
+		const body = readContainedFile(pluginRoot, join(skillDir, "SKILL.md"));
+		if (body === null) continue;
 
 		skills.push({ dirName, body });
 	}
@@ -337,11 +335,11 @@ function scanSkills(pluginRoot: string, warnings: ManifestWarning[]): ParsedSkil
  */
 export function parseMcpJson(pluginRoot: string): ParsedMcpServer[] {
 	const mcpPath = join(pluginRoot, "mcp.json");
-	if (!existsSync(mcpPath)) return [];
-
 	let raw: unknown;
 	try {
-		raw = JSON.parse(readFileSync(mcpPath, "utf8"));
+		const text = readContainedFile(pluginRoot, mcpPath);
+		if (text === null) return [];
+		raw = JSON.parse(text);
 	} catch {
 		return [];
 	}
@@ -426,16 +424,7 @@ function parsePluginAgent(
  * ask for; resolving and re-checking the prefix is what stops it.
  */
 function readPluginFile(pluginRoot: string, relativePath: string): string | null {
-	const resolvedRoot = resolve(pluginRoot);
-	const target = resolve(resolvedRoot, relativePath);
-	if (target !== resolvedRoot && !target.startsWith(resolvedRoot + sep)) {
-		return null;
-	}
-	try {
-		return readFileSync(target, "utf8");
-	} catch {
-		return null;
-	}
+	return readContainedFile(pluginRoot, resolve(pluginRoot, relativePath));
 }
 
 // `event` must be one of the nine object events; `schedule` is a bare cron expression. Exactly one required.
