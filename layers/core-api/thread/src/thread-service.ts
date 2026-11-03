@@ -8,7 +8,9 @@ import {
 	type Thread,
 	threads,
 } from "@hyperidle/db";
+import { huddlePayloadSchema } from "@hyperidle/domain-model";
 import { and, asc, desc, eq, gte, inArray, isNull, like, type SQL, sql } from "drizzle-orm";
+import { isRelayAllowed } from "./huddle-operations.js";
 
 // =============================================================================
 // Filter types
@@ -238,17 +240,38 @@ export async function findLiveHuddleForThread(
 	});
 }
 
-/** Find a huddle message by id for identity-based queries (e.g. relay check). */
-export async function findHuddleMessage(
+/** Whether a call signal from `from` may reach `to`: both are in the stored huddle, and it is live. */
+export async function canRelayHuddleSignal(
 	exec: HyperIdleDb,
-	id: string,
-): Promise<Message | undefined> {
+	huddleId: string,
+	from: string,
+	to: string,
+): Promise<boolean> {
 	const [row] = await exec
 		.select()
 		.from(messages)
-		.where(and(eq(messages.id, id), eq(messages.type, "huddle")))
+		.where(and(eq(messages.id, huddleId), eq(messages.type, "huddle")))
 		.limit(1);
-	return row;
+	if (!row) return false;
+	const parsed = huddlePayloadSchema.safeParse(JSON.parse(row.payload));
+	return parsed.success && isRelayAllowed(parsed.data, from, to);
+}
+
+/** Ends every live huddle and takes everyone out. For server start, when nobody can be connected yet. */
+export async function endLiveHuddles(exec: HyperIdleDb, now: string): Promise<void> {
+	const rows = await exec
+		.select()
+		.from(messages)
+		.where(and(eq(messages.type, "huddle"), like(messages.payload, '%"endedAt":null%')));
+	for (const row of rows) {
+		const parsed = huddlePayloadSchema.safeParse(JSON.parse(row.payload));
+		if (!parsed.success) continue;
+		const people = parsed.data.people.map((p) => ({ ...p, leftAt: p.leftAt ?? now }));
+		await exec
+			.update(messages)
+			.set({ payload: JSON.stringify({ ...parsed.data, people, endedAt: now }) })
+			.where(eq(messages.id, row.id));
+	}
 }
 
 /** All live huddles a person is currently in (for dropped-connection cleanup). */

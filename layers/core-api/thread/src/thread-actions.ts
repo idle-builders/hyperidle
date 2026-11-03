@@ -415,6 +415,13 @@ function emitObjectEvents(
 const logger = createLogger({ pkg: "thread.thread-actions" });
 
 class VerdictRaceConflict extends Error {}
+class HuddleAlreadyLive extends Error {}
+/** A refusal found inside a transaction, after a re-read under lock. */
+class AdjustRefused extends Error {
+	constructor(readonly problems: Problem[]) {
+		super("adjust refused");
+	}
+}
 
 export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] {
 	/** Assembles ThreadView from an already-permission-checked row — no guard here; `adjustThreadRun({id,deleted:true})` calls this directly because routing through `openThreadRun` would answer `not_found` for the row it just deleted. */
@@ -1002,18 +1009,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					],
 				};
 			}
-			const liveHuddle = await store.findLiveHuddleForThread(ctx.db, threadRow.id);
-			if (liveHuddle !== undefined) {
-				return {
-					ok: false,
-					problems: [
-						{
-							code: "huddle_already_live",
-							message: "A huddle is already active in this thread. Join it instead.",
-						},
-					],
-				};
-			}
 		}
 
 		const resolvesMessageId = (input.verdict ?? input.answer)?.resolvesMessageId;
@@ -1141,6 +1136,13 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						id: effectiveThreadId,
 					});
 					if (lockedRow) finalMembers = parseParticipants(lockedRow.participants);
+					// Under the thread's lock, so two people pressing Huddle at once start one.
+					if (
+						body.type === "huddle" &&
+						(await store.findLiveHuddleForThread(tx as HyperIdleDb, effectiveThreadId)) !==
+							undefined
+					)
+						throw new HuddleAlreadyLive();
 				}
 
 				// join the sender on a host-scoped thread it is not yet a member of.
@@ -1309,6 +1311,17 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				return {
 					ok: false,
 					problems: [{ code: "verdict_race", message: "This review was already resolved." }],
+				};
+			}
+			if (e instanceof HuddleAlreadyLive) {
+				return {
+					ok: false,
+					problems: [
+						{
+							code: "huddle_already_live",
+							message: "A huddle is already active in this thread. Join it instead.",
+						},
+					],
 				};
 			}
 			throw e;
@@ -1590,6 +1603,20 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						{ code: "huddle_ended", message: "This huddle has already ended.", path: "message" },
 					],
 				};
+			if (input.huddle === "join") {
+				const actor = await deps.users.getUserById(ctx.db, ctx.actor);
+				if (actor?.kind !== "human")
+					return {
+						ok: false,
+						problems: [
+							{
+								code: "huddle_not_human",
+								message: "Only a human may join a huddle.",
+								path: "message",
+							},
+						],
+					};
+			}
 			const updated =
 				input.huddle === "join"
 					? applyHuddleJoin(parsed.data, ctx.actor, ctx.now)
@@ -1733,23 +1760,42 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		if (Object.keys(after).length > 0) {
 			const changeId = randomUUID();
 			const changeBefore = { id: input.id, ...before };
-			const changeAfter = { id: input.id, ...after };
-			await ctx.db.transaction(async (tx) => {
-				if (Object.keys(patch).length > 0)
-					await store.updateThread(tx as HyperIdleDb, input.id as string, patch);
-				if (message?.ok && input.message)
-					await store.updateMessage(tx as HyperIdleDb, input.message.id, message.patch);
-				await deps.changes.appendChange(tx, {
-					id: changeId,
-					object: "thread",
-					objectId: input.id as string,
-					kind: "changed",
-					actor: ctx.actor,
-					before: JSON.stringify(changeBefore),
-					after: JSON.stringify(changeAfter),
-					at: now,
+			let changeAfter: Record<string, unknown> = { id: input.id, ...after };
+			try {
+				await ctx.db.transaction(async (tx) => {
+					let messagePatch = message?.ok ? message.patch : undefined;
+					// Join and leave rewrite the whole huddle, so read it again under the thread's lock: two
+					// people leaving at once must not undo each other.
+					if (input.message?.huddle !== undefined) {
+						await store.findThreadForUpdate(tx as HyperIdleDb, { id: input.id as string });
+						const fresh = await adjustMessage(
+							{ ...ctx, db: tx as HyperIdleDb },
+							input.id as string,
+							input.message,
+						);
+						if (!fresh.ok) throw new AdjustRefused(fresh.problems);
+						messagePatch = fresh.patch;
+						changeAfter = { ...changeAfter, message: fresh.after };
+					}
+					if (Object.keys(patch).length > 0)
+						await store.updateThread(tx as HyperIdleDb, input.id as string, patch);
+					if (messagePatch && input.message)
+						await store.updateMessage(tx as HyperIdleDb, input.message.id, messagePatch);
+					await deps.changes.appendChange(tx, {
+						id: changeId,
+						object: "thread",
+						objectId: input.id as string,
+						kind: "changed",
+						actor: ctx.actor,
+						before: JSON.stringify(changeBefore),
+						after: JSON.stringify(changeAfter),
+						at: now,
+					});
 				});
-			});
+			} catch (e) {
+				if (e instanceof AdjustRefused) return { ok: false, problems: e.problems };
+				throw e;
+			}
 			const changedRow: PushableChange = {
 				id: changeId,
 				objectId: input.id as string,

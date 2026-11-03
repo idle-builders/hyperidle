@@ -23,8 +23,8 @@ import { createJoinRoutes, type SignIn } from "./routes/join.js";
 
 export type { SignIn };
 
-import { huddlePayloadSchema } from "@hyperidle/domain-model";
-import { findHuddleMessage, findLiveHuddlesForPerson, isRelayAllowed } from "@hyperidle/thread";
+import { createLogger } from "@hyperidle/diagnostics";
+import { canRelayHuddleSignal, endLiveHuddles, findLiveHuddlesForPerson } from "@hyperidle/thread";
 import { type ApiMiddlewareStack, createApiMiddlewareStack } from "./api-middleware-stack.js";
 import {
 	type AppOptions,
@@ -156,11 +156,7 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 
 	const relaySignal = db
 		? async (from: string, huddleId: string, to: string, data: unknown): Promise<boolean> => {
-				const row = await findHuddleMessage(db as HyperIdleDb, huddleId);
-				if (!row) return false;
-				const parsed = huddlePayloadSchema.safeParse(JSON.parse(row.payload));
-				if (!parsed.success) return false;
-				if (!isRelayAllowed(parsed.data, from, to)) return false;
+				if (!(await canRelayHuddleSignal(db as HyperIdleDb, huddleId, from, to))) return false;
 				wsHub.sendToIdentity(to, JSON.stringify({ type: "signal", from, huddleId, data }));
 				return true;
 			}
@@ -168,21 +164,29 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 
 	const onIdentityDisconnect = db
 		? (identity: string): void => {
-				// Leave all live huddles for this identity. Best-effort; no await.
-				void findLiveHuddlesForPerson(db as HyperIdleDb, identity).then((huddles) => {
-					for (const huddle of huddles) {
-						void callActionAsDeferred?.(
-							"adjust_thread",
-							{
-								id: huddle.threadId,
-								message: { id: huddle.id, huddle: "leave" },
-							},
-							identity,
+				// The socket is gone, so nobody waits on the result; a failure is only logged.
+				findLiveHuddlesForPerson(db as HyperIdleDb, identity)
+					.then((huddles) =>
+						Promise.all(
+							huddles.map((huddle) =>
+								callActionAsDeferred?.(
+									"adjust_thread",
+									{ id: huddle.threadId, message: { id: huddle.id, huddle: "leave" } },
+									identity,
+								),
+							),
+						),
+					)
+					.catch((err: unknown) => {
+						createLogger({ pkg: "server" }).error(
+							`Leaving huddles after a dropped connection failed: ${err instanceof Error ? err.message : String(err)}`,
 						);
-					}
-				});
+					});
 			}
 		: null;
+
+	// A huddle lives only as long as its people's connections, and none survive a restart.
+	if (db) await endLiveHuddles(db as HyperIdleDb, new Date().toISOString());
 
 	const registerWebSocket =
 		options?.registerWebSocket ??

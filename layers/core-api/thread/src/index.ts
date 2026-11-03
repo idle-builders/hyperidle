@@ -3,7 +3,6 @@
  * Typed functions only — must NOT re-export raw `threads`/`messages` pgTable objects (table ownership).
  */
 
-export { isRelayAllowed } from "./huddle-operations.js";
 export { createThreadActions, type ThreadActionsDeps } from "./thread-actions.js";
 export type {
 	AppMessageRow,
@@ -12,7 +11,8 @@ export type {
 	ThreadSearchRow,
 } from "./thread-service.js";
 export {
-	findHuddleMessage,
+	canRelayHuddleSignal,
+	endLiveHuddles,
 	findLiveHuddlesForPerson,
 	findThread,
 	listMessages,

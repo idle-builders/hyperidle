@@ -1,6 +1,7 @@
 /**
  * Huddle lifecycle: start → join → plain gets fold mark → leave → ended.
- * Server-side rules: agent refused, no other human refused, duplicate refused.
+ * Server-side rules: agent refused, no other human refused, duplicate refused, concurrent leaves kept,
+ * call signals only between people in the huddle, server start ends live huddles.
  */
 
 import { type HyperIdleDb, messages } from "@hyperidle/db";
@@ -9,6 +10,7 @@ import type { HuddlePayload } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { createThreadActions } from "../thread-actions.js";
+import { canRelayHuddleSignal, endLiveHuddles } from "../thread-service.js";
 import {
 	actionFor,
 	ctxFor,
@@ -19,6 +21,16 @@ import {
 	seedThreadRow,
 	threadDeps,
 } from "./_helpers.js";
+
+async function liveHuddleId(db: HyperIdleDb, threadId: string): Promise<string> {
+	const rows = await db.select().from(messages).where(eq(messages.threadId, threadId));
+	return rows.find((r) => r.type === "huddle")?.id ?? "";
+}
+
+async function huddlePayload(db: HyperIdleDb, huddleId: string): Promise<HuddlePayload> {
+	const [row] = await db.select().from(messages).where(eq(messages.id, huddleId));
+	return JSON.parse(row?.payload ?? "{}") as HuddlePayload;
+}
 
 async function makeContext(db: HyperIdleDb) {
 	const eventBus = new EventBus();
@@ -142,11 +154,61 @@ describe("huddle lifecycle", () => {
 		expect(ended.endedAt).not.toBeNull();
 	});
 
-	test("agent cannot start a huddle", async ({ db }) => {
-		const { agent, threadId, send } = await makeContext(db);
-		const res = await send({ threadId, huddle: {} }, agent);
-		expect(res.ok).toBe(false);
-		expect(res.problems?.map((p) => p.code)).toContain("huddle_not_human");
+	test("agent can neither start nor join a huddle", async ({ db }) => {
+		const { alice, agent, threadId, send, adjust } = await makeContext(db);
+		const start = await send({ threadId, huddle: {} }, agent);
+		expect(start.problems?.map((p) => p.code)).toEqual(["huddle_not_human"]);
+
+		await send({ threadId, huddle: {} }, alice);
+		const huddleId = await liveHuddleId(db, threadId);
+		const join = await adjust({ id: threadId, message: { id: huddleId, huddle: "join" } }, agent);
+		expect(join.problems?.map((p) => p.code)).toEqual(["huddle_not_human"]);
+	});
+
+	test("two people leaving at once both leave, and the huddle ends", async ({ db }) => {
+		const { alice, bob, threadId, send, adjust } = await makeContext(db);
+		await send({ threadId, huddle: {} }, alice);
+		const huddleId = await liveHuddleId(db, threadId);
+		await adjust({ id: threadId, message: { id: huddleId, huddle: "join" } }, bob);
+
+		const results = await Promise.all(
+			[alice, bob].map((who) =>
+				adjust({ id: threadId, message: { id: huddleId, huddle: "leave" } }, who),
+			),
+		);
+		expect(results.map((r) => r.ok)).toEqual([true, true]);
+		const ended = await huddlePayload(db, huddleId);
+		expect(ended.people.map((p) => p.leftAt === null)).toEqual([false, false]);
+		expect(ended.endedAt).not.toBeNull();
+	});
+
+	test("at server start every live huddle ends with everyone out", async ({ db }) => {
+		const { alice, bob, threadId, send, adjust } = await makeContext(db);
+		await send({ threadId, huddle: {} }, alice);
+		const huddleId = await liveHuddleId(db, threadId);
+		await adjust({ id: threadId, message: { id: huddleId, huddle: "join" } }, bob);
+
+		await endLiveHuddles(db, "2026-11-03T12:00:00.000Z");
+
+		const ended = await huddlePayload(db, huddleId);
+		expect(ended.endedAt).toBe("2026-11-03T12:00:00.000Z");
+		expect(ended.people.map((p) => p.leftAt)).toEqual([
+			"2026-11-03T12:00:00.000Z",
+			"2026-11-03T12:00:00.000Z",
+		]);
+	});
+
+	test("a call signal passes only between two people in the live huddle", async ({ db }) => {
+		const { alice, bob, threadId, send, adjust } = await makeContext(db);
+		await send({ threadId, huddle: {} }, alice);
+		const huddleId = await liveHuddleId(db, threadId);
+		await adjust({ id: threadId, message: { id: huddleId, huddle: "join" } }, bob);
+		const outsider = "u-outsider";
+
+		expect(await canRelayHuddleSignal(db, huddleId, alice, bob)).toBe(true);
+		expect(await canRelayHuddleSignal(db, huddleId, outsider, bob)).toBe(false);
+		await adjust({ id: threadId, message: { id: huddleId, huddle: "leave" } }, bob);
+		expect(await canRelayHuddleSignal(db, huddleId, alice, bob)).toBe(false);
 	});
 
 	test("no second huddle when one is already live", async ({ db }) => {

@@ -96,7 +96,13 @@ function registerWsRoute(
 							ws.send(JSON.stringify({ type: "unsubscribed", topic: msg.topic }));
 							return;
 						}
-						if (msg.type === "signal" && msg.huddleId && msg.to && adapter && relaySignal) {
+						if (
+							msg.type === "signal" &&
+							typeof msg.huddleId === "string" &&
+							typeof msg.to === "string" &&
+							adapter &&
+							relaySignal
+						) {
 							const from = identityByAdapter.get(adapter);
 							if (from) {
 								const relayed = await relaySignal(from, msg.huddleId, msg.to, msg.data ?? null);
