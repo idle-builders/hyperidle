@@ -465,7 +465,6 @@ export function ThreadPage({ id }: { id: string }) {
 			e.kind === "huddle" && (e.huddleMessage.payload as HuddlePayload).endedAt === null,
 	);
 	const liveHuddle = liveHuddleEntry?.huddleMessage;
-	const liveHuddleId = liveHuddle?.id ?? null;
 	const liveHuddlePayload = liveHuddle ? (liveHuddle.payload as HuddlePayload) : null;
 	// Ref to read the latest payload in effects without re-triggering on every payload change.
 	const latestHuddlePayload = useRef(liveHuddlePayload);
@@ -485,16 +484,6 @@ export function ThreadPage({ id }: { id: string }) {
 			setOpenHuddleKeys((s) => new Set([...s, liveHuddleEntry.key]));
 		}
 	}, [liveHuddleEntry?.key, inHuddle]);
-
-	// Auto-start the call if we're in the huddle payload but the module is not running.
-	useEffect(() => {
-		if (!(inHuddle && liveHuddleId) || activeHuddleId !== null) return;
-		const alreadyJoined =
-			latestHuddlePayload.current?.people.filter((p) => p.leftAt === null).map((p) => p.id) ?? [];
-		void startHuddleCall(liveHuddleId, you, id, alreadyJoined).then((failed) => {
-			if (failed) setProblem(failed);
-		});
-	}, [inHuddle, liveHuddleId, you, id, activeHuddleId]);
 
 	// Keep connections in sync with the current huddle people list.
 	const huddlePeopleKey = liveHuddlePayload ? JSON.stringify(liveHuddlePayload.people) : "";
@@ -537,10 +526,10 @@ export function ThreadPage({ id }: { id: string }) {
 
 	const leaveHuddle = async (): Promise<void> => {
 		if (!liveHuddle) return;
-		await call("adjust_thread", { id, message: { id: liveHuddle.id, huddle: "leave" } });
-		view.reload();
 		stopHuddleCall();
 		setMuted(false);
+		await call("adjust_thread", { id, message: { id: liveHuddle.id, huddle: "leave" } });
+		view.reload();
 	};
 
 	const toggleMute = (): void => {
@@ -623,7 +612,7 @@ export function ThreadPage({ id }: { id: string }) {
 				)}
 			</header>
 
-			{inCall && inHuddle && (
+			{inCall && (
 				<>
 					<div className="huddle-strip">
 						<span className="huddle-strip-label">
@@ -643,7 +632,7 @@ export function ThreadPage({ id }: { id: string }) {
 					{speechProblem && <p className="composer-problem">{speechProblem}</p>}
 				</>
 			)}
-			{!inCall && liveHuddle && inHuddle === false && (
+			{!inCall && liveHuddle && (
 				<div className="huddle-banner">
 					<span>{firstName(liveHuddle.senderId)} started a huddle</span>
 					<button type="button" className="btn" onClick={() => void joinHuddle()}>

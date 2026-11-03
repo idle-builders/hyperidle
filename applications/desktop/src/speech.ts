@@ -25,6 +25,10 @@ export function registerSpeechHandlers(helperPath: string): void {
 				stdio: ["pipe", "pipe", "ignore"],
 			});
 			helper = child;
+			// A page that reloads or closes can no longer stop its helper, so the microphone would stay on.
+			const pageGone = () => child.kill();
+			sender.once("did-navigate", pageGone);
+			sender.once("destroyed", pageGone);
 			let ended = false;
 			readline.createInterface({ input: child.stdout }).on("line", (line) => {
 				const text = JSON.parse(line) as SpeechText;
@@ -38,6 +42,10 @@ export function registerSpeechHandlers(helperPath: string): void {
 			});
 			child.on("close", () => {
 				if (helper === child) helper = null;
+				if (!sender.isDestroyed()) {
+					sender.off("did-navigate", pageGone);
+					sender.off("destroyed", pageGone);
+				}
 				if (!ended) send({ kind: "error", message: "The speech helper stopped unexpectedly." });
 			});
 		},
