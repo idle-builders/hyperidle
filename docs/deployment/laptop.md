@@ -23,6 +23,16 @@ export HYPERIDLE_API_KEY=your-key-here
 
 The server entry point is `applications/remote-server/src/index.ts` (the `@hyperidle/remote-server` application). Like `npm run dev`, it runs no agents — see [where agents run](index.md).
 
+## Desktop app: menu-bar mode
+
+The packaged desktop app in local mode keeps its server and agents running after the window closes (`applications/desktop/src/main.ts`).
+
+- **Close window or ⌘Q:** windows close, the Dock icon hides, the process keeps running. A Mac logout or shutdown still goes through.
+- **Menu-bar icon:** shows **HyperIdle is running**, **Open HyperIdle**, **Stop HyperIdle**. Double-click opens a window. Clicking the Dock icon opens one too.
+- **Stop HyperIdle** (or SIGTERM) disposes the server and exits. This is the only way to stop it.
+- **Login item:** the first packaged start registers HyperIdle to open at login. A login start has no window and no Dock icon. The app records that it did this (`loginItemSet` in `config.json`) and never sets it again. Remove it in System Settings → General → Login Items. Dev builds never register it.
+- **Shared mode** (joined server): no menu-bar icon, no login item. ⌘Q quits the app.
+
 ## Other profiles
 
 - Server-hosted profiles (cloud): [self-hosting](self-hosting.md)
