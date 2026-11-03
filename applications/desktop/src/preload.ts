@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 					return ipcRenderer.invoke("speech:start", opts);
 				},
 				stop: (): Promise<void> => ipcRenderer.invoke("speech:stop"),
+				audio: (samples: Float32Array): void => ipcRenderer.send("speech:audio", samples),
 			}
 		: undefined,
 });

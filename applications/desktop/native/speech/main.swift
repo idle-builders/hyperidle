@@ -79,8 +79,11 @@ final class Box<T> {
 }
 
 /**
- * Continuous utterance loop: 1.5 s of silence emits a `final`, swaps the recognition request
- * (no gap in the audio tap), and starts listening again. Runs until stdin closes.
+ * Continuous utterance loop for a huddle: 1.5 s of silence emits a `final`, swaps the recognition
+ * request (no gap in the audio), and starts listening again. The sound comes on stdin, not from the
+ * microphone: 16 kHz mono float32 from the call's own microphone track, which has the call's echo
+ * cancellation applied, so the other people coming out of the speakers are not written down as you.
+ * Runs until stdin closes.
  *
  * Generation numbers guard against stale task callbacks: each startRecognition increments
  * `generation`; callbacks whose captured `myGeneration` is behind are silently dropped.
@@ -92,8 +95,9 @@ func listenUtterances() {
 		fail("This Mac cannot write down speech on the device for \(Locale.current.identifier).")
 	}
 
-	let engine = AVAudioEngine()
-	let input = engine.inputNode
+	guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false) else {
+		fail("The speech helper could not set up its audio format.")
+	}
 
 	func makeRequest() -> SFSpeechAudioBufferRecognitionRequest {
 		let req = SFSpeechAudioBufferRecognitionRequest()
@@ -158,18 +162,11 @@ func listenUtterances() {
 		}
 	}
 
-	input.installTap(onBus: 0, bufferSize: 4096, format: input.outputFormat(forBus: 0)) { buffer, _ in
-		box.value.append(buffer)
-	}
-	engine.prepare()
-	do { try engine.start() } catch { fail("The microphone could not start: \(error.localizedDescription)") }
-
 	startRecognition()
+	readAudio(into: { box.value.append($0) }, format: format)
 
 	stopListening = {
 		silenceTimer?.cancel()
-		engine.stop()
-		input.removeTap(onBus: 0)
 		box.value.endAudio()
 		currentTask?.cancel()
 		DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
@@ -181,13 +178,44 @@ func listenUtterances() {
 	}
 }
 
+/** Reads the call's sound from stdin until it closes, then stops. */
+func readAudio(into append: @escaping (AVAudioPCMBuffer) -> Void, format: AVAudioFormat) {
+	DispatchQueue.global().async {
+		var pending = Data()
+		while true {
+			let chunk = FileHandle.standardInput.availableData
+			if chunk.isEmpty { break }
+			pending.append(chunk)
+			let frames = pending.count / 4
+			guard frames > 0, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames)),
+				let channel = buffer.floatChannelData?[0]
+			else { continue }
+			pending.withUnsafeBytes { raw in
+				for i in 0..<frames { channel[i] = raw.load(fromByteOffset: i * 4, as: Float.self) }
+			}
+			buffer.frameLength = AVAudioFrameCount(frames)
+			pending.removeFirst(frames * 4)
+			append(buffer)
+		}
+		DispatchQueue.main.async {
+			stopping = true
+			stopListening?()
+		}
+	}
+}
+
+let utterances = CommandLine.arguments.contains("--utterances")
+
 // Stop can come while macOS is still asking for permission, so stdin is watched from the start.
-DispatchQueue.global().async {
-	while readLine() != nil {}
-	DispatchQueue.main.async {
-		stopping = true
-		guard let stopListening else { finish() }
-		stopListening()
+// In a huddle stdin carries the sound, and its reader starts once listening has.
+if !utterances {
+	DispatchQueue.global().async {
+		while readLine() != nil {}
+		DispatchQueue.main.async {
+			stopping = true
+			guard let stopListening else { finish() }
+			stopListening()
+		}
 	}
 }
 
@@ -196,16 +224,17 @@ SFSpeechRecognizer.requestAuthorization { status in
 		guard status == .authorized else {
 			fail("Speech recognition is off for HyperIdle. Turn it on in System Settings → Privacy & Security → Speech Recognition.")
 		}
+		// In a huddle the page holds the microphone and sends its sound here.
+		if utterances {
+			listenUtterances()
+			return
+		}
 		AVCaptureDevice.requestAccess(for: .audio) { granted in
 			DispatchQueue.main.async {
 				guard granted else {
 					fail("The microphone is off for HyperIdle. Turn it on in System Settings → Privacy & Security → Microphone.")
 				}
-				if CommandLine.arguments.contains("--utterances") {
-					listenUtterances()
-				} else {
-					listen()
-				}
+				listen()
 			}
 		}
 	}

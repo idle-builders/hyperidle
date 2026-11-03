@@ -38,6 +38,8 @@ declare global {
 				/** Each result replaces the last; `final` is the last one of a recording. */
 				start(onText: (text: SpokenText) => void, opts?: { utterances?: boolean }): Promise<void>;
 				stop(): Promise<void>;
+				/** In a huddle (`utterances`): the call's microphone sound, 16 kHz mono. */
+				audio(samples: Float32Array): void;
 			};
 		};
 	}

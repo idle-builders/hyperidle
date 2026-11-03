@@ -123,9 +123,47 @@ async function handleSignal(from: string, huddleId: string, data: unknown): Prom
 	}
 }
 
+/**
+ * Hands each 100 ms of microphone sound to the page. A processor with no outputs still runs, so
+ * nothing is played back.
+ */
+const SOUND_TAP = `registerProcessor("sound-tap", class extends AudioWorkletProcessor {
+	chunk = new Float32Array(1600);
+	filled = 0;
+	process(inputs) {
+		for (const sample of inputs[0][0] ?? []) {
+			this.chunk[this.filled++] = sample;
+			if (this.filled === this.chunk.length) {
+				this.port.postMessage(this.chunk);
+				this.chunk = new Float32Array(1600);
+				this.filled = 0;
+			}
+		}
+		return true;
+	}
+});`;
+
+/**
+ * Sends the call's microphone track to the speech helper. That track has the call's echo
+ * cancellation, so the other people coming out of the speakers are not written down as you.
+ */
+async function tapSound(
+	stream: MediaStream,
+	send: (samples: Float32Array) => void,
+): Promise<() => void> {
+	const context = new AudioContext({ sampleRate: 16000 });
+	const url = URL.createObjectURL(new Blob([SOUND_TAP], { type: "text/javascript" }));
+	await context.audioWorklet.addModule(url);
+	URL.revokeObjectURL(url);
+	const tap = new AudioWorkletNode(context, "sound-tap", { numberOfOutputs: 0 });
+	tap.port.onmessage = (event: MessageEvent<Float32Array>) => send(event.data);
+	context.createMediaStreamSource(stream).connect(tap);
+	return () => void context.close();
+}
+
 async function startSpeech(): Promise<void> {
 	const speech = window.__HYPERIDLE__?.speech;
-	if (!speech) return;
+	if (!(speech && localStream)) return;
 	await speech.start(
 		(spoken) => {
 			if (spoken.kind === "error") {
@@ -136,7 +174,11 @@ async function startSpeech(): Promise<void> {
 		},
 		{ utterances: true },
 	);
-	speechStop = speech.stop.bind(speech);
+	const untap = await tapSound(localStream, (samples) => speech.audio(samples));
+	speechStop = () => {
+		untap();
+		return speech.stop();
+	};
 }
 
 /**
