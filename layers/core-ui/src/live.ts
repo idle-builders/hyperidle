@@ -11,6 +11,7 @@ type SignalHandler = (from: string, huddleId: string, data: unknown) => void;
 
 const listeners = new Map<string, Set<Nudge>>();
 const signalHandlers = new Set<SignalHandler>();
+const disconnectHandlers = new Set<() => void>();
 const RETRY_MS = [1000, 2000, 4000, 8000, 15000];
 let socket: WebSocket | null = null;
 let connecting = false;
@@ -44,7 +45,9 @@ async function connect(): Promise<void> {
 		`${scheme}://${window.location.host}/api/ws?token=${encodeURIComponent(token)}`,
 	);
 	socket = ws;
+	let opened = false;
 	ws.onopen = () => {
+		opened = true;
 		failures = 0;
 		for (const topic of listeners.keys()) send({ type: "subscribe", topic });
 		if (wasOpen) nudgeAll();
@@ -69,6 +72,7 @@ async function connect(): Promise<void> {
 	};
 	ws.onclose = () => {
 		socket = null;
+		if (opened) for (const handler of disconnectHandlers) handler();
 		retry();
 	};
 }
@@ -77,6 +81,12 @@ async function connect(): Promise<void> {
 export function onSignal(handler: SignalHandler): () => void {
 	signalHandlers.add(handler);
 	return () => signalHandlers.delete(handler);
+}
+
+/** Be told when an open connection drops. Returns the way to stop. */
+export function onDisconnect(handler: () => void): () => void {
+	disconnectHandlers.add(handler);
+	return () => disconnectHandlers.delete(handler);
 }
 
 /** Send a WebRTC signal to another identity in the same huddle. */

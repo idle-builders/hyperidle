@@ -4,18 +4,18 @@
  * layer. ICE candidates arriving before the remote SDP is set are queued and flushed after.
  */
 import { call } from "./api";
-import { onSignal, sendSignal } from "./live";
+import { onDisconnect, onSignal, sendSignal } from "./live";
 
 const ICE_SERVERS: RTCConfiguration = {
 	iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }],
 };
 
 const peers = new Map<string, RTCPeerConnection>();
-let onSpeechErrorCallback: ((message: string) => void) | null = null;
+let onProblemCallback: ((message: string) => void) | null = null;
 
-/** Subscribe to speech errors during a call (e.g. Dictation off). Pass null to unsubscribe. */
-export function onHuddleSpeechError(cb: ((message: string) => void) | null): void {
-	onSpeechErrorCallback = cb;
+/** Hear what went wrong during a call (Dictation off, connection lost). Pass null to stop. */
+export function onHuddleProblem(cb: ((message: string) => void) | null): void {
+	onProblemCallback = cb;
 }
 
 const callChangeListeners = new Set<() => void>();
@@ -39,6 +39,10 @@ const iceCandidateQueues = new Map<string, RTCIceCandidateInit[]>();
 const remoteAudios = new Map<string, HTMLAudioElement>();
 let localStream: MediaStream | null = null;
 let stopSignalListener: (() => void) | null = null;
+let stopDisconnectListener: (() => void) | null = null;
+/** Signals that arrive while macOS still asks about the microphone; answered once it opens. */
+let earlySignals: Array<[string, string, unknown]> = [];
+let muted = false;
 let activeHuddleId: string | null = null;
 let activeThreadId: string | null = null;
 let activeSelf: string | null = null;
@@ -53,10 +57,15 @@ export function isMicOpen(): boolean {
 	return localStream !== null;
 }
 
+export function isMuted(): boolean {
+	return muted;
+}
+
 function makeConnection(huddleId: string, remoteId: string): RTCPeerConnection {
 	const pc = new RTCPeerConnection(ICE_SERVERS);
 	peers.set(remoteId, pc);
-	iceCandidateQueues.set(remoteId, []);
+	// Candidates can come before the offer; keep them.
+	if (!iceCandidateQueues.has(remoteId)) iceCandidateQueues.set(remoteId, []);
 
 	if (localStream) {
 		for (const track of localStream.getTracks()) pc.addTrack(track, localStream);
@@ -167,18 +176,24 @@ async function startSpeech(): Promise<void> {
 	await speech.start(
 		(spoken) => {
 			if (spoken.kind === "error") {
-				onSpeechErrorCallback?.(spoken.message);
+				onProblemCallback?.(spoken.message);
 			} else if (spoken.kind === "final" && spoken.text && activeHuddleId && activeThreadId) {
 				void call("send_message", { threadId: activeThreadId, text: spoken.text });
 			}
 		},
 		{ utterances: true },
 	);
-	const untap = await tapSound(localStream, (samples) => speech.audio(samples));
+	const stream = localStream;
+	const untap = await tapSound(stream, (samples) => speech.audio(samples));
 	speechStop = () => {
 		untap();
 		return speech.stop();
 	};
+	// Left while the helper was starting: nobody else will stop it.
+	if (localStream !== stream) {
+		void speechStop();
+		speechStop = null;
+	}
 }
 
 /**
@@ -195,6 +210,16 @@ export async function startHuddleCall(
 	activeHuddleId = huddleId;
 	activeThreadId = threadId;
 	activeSelf = self;
+	// Someone may join while macOS asks about the microphone; their offer must not be lost.
+	stopSignalListener = onSignal((from, hId, data) => {
+		if (localStream) void handleSignal(from, hId, data);
+		else earlySignals.push([from, hId, data]);
+	});
+	// The server takes you out when your connection drops, so the call here ends too.
+	stopDisconnectListener = onDisconnect(() => {
+		stopHuddleCall();
+		onProblemCallback?.("The connection dropped, so you left the huddle. Join again.");
+	});
 	notifyCallChange();
 
 	try {
@@ -202,19 +227,15 @@ export async function startHuddleCall(
 			audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
 		});
 	} catch (error) {
-		activeHuddleId = null;
-		activeThreadId = null;
-		activeSelf = null;
-		notifyCallChange();
+		stopHuddleCall();
 		await call("adjust_thread", { id: threadId, message: { id: huddleId, huddle: "leave" } });
 		return error instanceof DOMException && error.name === "NotAllowedError"
 			? "The microphone is off for HyperIdle. Turn it on in System Settings → Privacy & Security → Microphone, then join again."
 			: `The microphone could not start: ${error instanceof Error ? error.message : String(error)}`;
 	}
 
-	stopSignalListener = onSignal((from, hId, data) => {
-		void handleSignal(from, hId, data);
-	});
+	for (const [from, hId, data] of earlySignals) await handleSignal(from, hId, data);
+	earlySignals = [];
 
 	for (const remoteId of alreadyJoined) {
 		if (remoteId === self) continue;
@@ -253,21 +274,11 @@ export function updateHuddlePeople(
 	}
 }
 
-/** Mute or unmute: disable local audio tracks and pause/resume speech recognition. */
+/** Mute or unmute. A muted track sends silence, so the speech helper writes nothing down either. */
 export function muteHuddleCall(nowMuted: boolean): void {
-	if (localStream) {
-		for (const track of localStream.getAudioTracks()) {
-			track.enabled = !nowMuted;
-		}
-	}
-	if (nowMuted) {
-		if (speechStop)
-			void speechStop().finally(() => {
-				speechStop = null;
-			});
-	} else if (activeThreadId) {
-		void startSpeech();
-	}
+	muted = nowMuted;
+	for (const track of localStream?.getAudioTracks() ?? []) track.enabled = !nowMuted;
+	notifyCallChange();
 }
 
 /** Close all peer connections and stop local audio. */
@@ -284,6 +295,10 @@ export function stopHuddleCall(): void {
 	localStream = null;
 	stopSignalListener?.();
 	stopSignalListener = null;
+	stopDisconnectListener?.();
+	stopDisconnectListener = null;
+	earlySignals = [];
+	muted = false;
 	if (speechStop)
 		void speechStop().finally(() => {
 			speechStop = null;

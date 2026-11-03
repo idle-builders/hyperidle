@@ -27,9 +27,10 @@ import { Failed } from "./Failed";
 import {
 	getActiveHuddleId,
 	isMicOpen,
+	isMuted,
 	muteHuddleCall,
 	onCallChange,
-	onHuddleSpeechError,
+	onHuddleProblem,
 	startHuddleCall,
 	stopHuddleCall,
 	updateHuddlePeople,
@@ -448,15 +449,13 @@ export function ThreadPage({ id }: { id: string }) {
 		.reverse();
 	const resolving = resolvingOf(messages);
 	const entries = timeline(messages, tasks, sessions, firstName, madeHere.data ?? NO_DOCS);
-	const [muted, setMuted] = useState(false);
 	const [openHuddleKeys, setOpenHuddleKeys] = useState<ReadonlySet<string>>(new Set());
-	const [speechProblem, setSpeechProblem] = useState<string | null>(null);
+	const [callProblem, setCallProblem] = useState<string | null>(null);
 
-	// Receive speech errors (e.g. Dictation off) from the call module.
 	useEffect(() => {
-		onHuddleSpeechError((msg) => setSpeechProblem(msg));
+		onHuddleProblem(setCallProblem);
 		return () => {
-			onHuddleSpeechError(null);
+			onHuddleProblem(null);
 		};
 	}, []);
 	// The live huddle in this thread, if any.
@@ -475,6 +474,7 @@ export function ThreadPage({ id }: { id: string }) {
 	const activeHuddleId = useSyncExternalStore(onCallChange, getActiveHuddleId);
 	const inCall = activeHuddleId === liveHuddle?.id;
 	const micOpen = useSyncExternalStore(onCallChange, isMicOpen);
+	const muted = useSyncExternalStore(onCallChange, isMuted);
 	const otherHumans = (view.data?.members ?? []).filter((m) => !m.isAgent && m.id !== you);
 	const canStartHuddle = !!window.__HYPERIDLE__ && otherHumans.length > 0 && !liveHuddle;
 
@@ -493,6 +493,7 @@ export function ThreadPage({ id }: { id: string }) {
 	}, [huddlePeopleKey]);
 
 	const startHuddle = async (): Promise<void> => {
+		setCallProblem(null);
 		const res = await call("send_message", { threadId: id, huddle: {} });
 		if (!res.ok) {
 			setProblem(res.problems[0]?.message ?? "Could not start huddle.");
@@ -509,14 +510,18 @@ export function ThreadPage({ id }: { id: string }) {
 
 	const joinHuddle = async (): Promise<void> => {
 		if (!liveHuddle) return;
+		setCallProblem(null);
 		const res = await call("adjust_thread", { id, message: { id: liveHuddle.id, huddle: "join" } });
 		if (!res.ok) {
 			setProblem(res.problems[0]?.message ?? "Could not join huddle.");
 			return;
 		}
 		view.reload();
-		const alreadyJoined =
-			liveHuddlePayload?.people.filter((p) => p.leftAt === null).map((p) => p.id) ?? [];
+		// Who is in as of your join, not as this page last saw it: someone may have joined since.
+		const joined = res.data.messages.find((m) => m.id === liveHuddle.id)?.payload as
+			| HuddlePayload
+			| undefined;
+		const alreadyJoined = joined?.people.filter((p) => p.leftAt === null).map((p) => p.id) ?? [];
 		const failed = await startHuddleCall(liveHuddle.id, you, id, alreadyJoined);
 		if (failed) {
 			setProblem(failed);
@@ -527,16 +532,11 @@ export function ThreadPage({ id }: { id: string }) {
 	const leaveHuddle = async (): Promise<void> => {
 		if (!liveHuddle) return;
 		stopHuddleCall();
-		setMuted(false);
 		await call("adjust_thread", { id, message: { id: liveHuddle.id, huddle: "leave" } });
 		view.reload();
 	};
 
-	const toggleMute = (): void => {
-		const next = !muted;
-		setMuted(next);
-		muteHuddleCall(next);
-	};
+	const toggleMute = (): void => muteHuddleCall(!muted);
 
 	const running = [
 		...[...sessions, ...partSessions].filter((s) => s.endedAt === null && s.state === "active"),
@@ -613,33 +613,32 @@ export function ThreadPage({ id }: { id: string }) {
 			</header>
 
 			{inCall && (
-				<>
-					<div className="huddle-strip">
-						<span className="huddle-strip-label">
-							{micOpen ? "In huddle" : "Waiting for the microphone. If macOS asks, allow it."}
-						</span>
-						<button
-							type="button"
-							className={muted ? "btn btn--accent" : "btn"}
-							onClick={toggleMute}
-						>
-							{muted ? "Unmute" : "Mute"}
-						</button>
-						<button type="button" className="btn btn--leave" onClick={() => void leaveHuddle()}>
-							Leave
-						</button>
-					</div>
-					{speechProblem && <p className="composer-problem">{speechProblem}</p>}
-				</>
-			)}
-			{!inCall && liveHuddle && (
-				<div className="huddle-banner">
-					<span>{firstName(liveHuddle.senderId)} started a huddle</span>
-					<button type="button" className="btn" onClick={() => void joinHuddle()}>
-						Join
+				<div className="huddle-strip">
+					<span className="huddle-strip-label">
+						{micOpen ? "In huddle" : "Waiting for the microphone. If macOS asks, allow it."}
+					</span>
+					<button type="button" className={muted ? "btn btn--accent" : "btn"} onClick={toggleMute}>
+						{muted ? "Unmute" : "Mute"}
+					</button>
+					<button type="button" className="btn btn--leave" onClick={() => void leaveHuddle()}>
+						Leave
 					</button>
 				</div>
 			)}
+			{!inCall && liveHuddle && (
+				<div className="huddle-banner">
+					<span>
+						{firstName(liveHuddle.senderId)} started a huddle
+						{window.__HYPERIDLE__ ? "" : " · join it from the desktop app"}
+					</span>
+					{window.__HYPERIDLE__ && (
+						<button type="button" className="btn" onClick={() => void joinHuddle()}>
+							Join
+						</button>
+					)}
+				</div>
+			)}
+			{callProblem && <p className="composer-problem">{callProblem}</p>}
 
 			<div className="thread-scroll" ref={scroll} role="log" aria-label="Messages">
 				{entries.map((e) => {

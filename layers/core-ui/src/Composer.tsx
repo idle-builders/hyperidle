@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CHAT_FORMATS, type Format, FormatBar } from "./FormatBar";
+import { getActiveHuddleId, onCallChange } from "./huddle-call";
 import { MentionPicker, useMentionables } from "./MentionPicker";
 import { type Mentionable, matching, typedMention } from "./mentionables";
 import { addFormat, escapeRegExp } from "./rich-text";
@@ -40,6 +41,8 @@ export function Composer({
 	const speech = window.__HYPERIDLE__?.speech;
 	const [recording, setRecording] = useState<"on" | "stopping" | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
+	// One speech helper at a time, and a huddle already writes down what you say.
+	const inCall = useSyncExternalStore(onCallChange, getActiveHuddleId) !== null;
 
 	// Leaving "on" — by Stop, or by leaving the thread — turns the microphone off.
 	useEffect(() => {
@@ -184,7 +187,8 @@ export function Composer({
 								type="button"
 								className="btn composer-record"
 								aria-pressed={recording !== null}
-								disabled={recording === "stopping"}
+								disabled={recording === "stopping" || inCall}
+								title={inCall ? "Your words are already written down in the huddle" : undefined}
 								onClick={record}
 							>
 								{recording ? "Stop" : "Record"}
