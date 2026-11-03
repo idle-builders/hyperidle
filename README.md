@@ -2,7 +2,7 @@
 
 Agentic operating system for managing product teams of AI agents. Two founders (CEO + CPO) run a "Product Factory" — a portfolio of digital products where AI agents do the implementation work.
 
-See `ETHOS.md` for the builder philosophy and `CLAUDE.md` for the absolute rules. Architecture lives in `docs/architecture/`; work packages in `.pipeline/` — one `<track>.md` registry per track, one `work/<id>/` folder per item.
+See `ETHOS.md` for the builder philosophy and `CLAUDE.md` for the absolute rules. Architecture lives in `docs/architecture/`; work is tracked as idle tasks.
 
 ---
 
@@ -21,11 +21,11 @@ Open <http://localhost:5173>.
 
 ## Pipeline (autonomous batch story execution)
 
-The `/pipeline` skill drives the loop — `plan → tests → code → reviews → DoD → verify → ship → retro`. Each work item is one folder, `.pipeline/work/<id>/`, holding its `plan.md` and its `retro.jsonl`; tracks are registered in `.pipeline/<track>.md`.
+The `/pipeline` skill drives the loop — `plan → tests → code → reviews → DoD → verify → ship → retro`. Work items are idle tasks; worktrees are created in `.worktrees/<id>/` per item.
 
 ### `/pipeline` — interactive Claude Code skill
 
-Inside `claude`, type `/pipeline <target>` (e.g. `/pipeline L`) to run the loop in your current session — read every transcript and step in when you want.
+Inside `claude`, type `/pipeline <target>` to run the loop in your current session — read every transcript and step in when you want.
 
 ### Run the pipeline in Docker (recommended)
 
@@ -50,8 +50,6 @@ gh auth login
 claude               # then:  /pipeline <workpackages>
 ```
 
-Each item's state lives in its own `.pipeline/work/<id>/` folder — re-running `/pipeline <target>` resumes where the last run left off.
-
 ### Run the pipeline directly on the host
 
 If you have Node.js, Claude Code, and Playwright installed locally, the in-container step is optional:
@@ -60,8 +58,6 @@ If you have Node.js, Claude Code, and Playwright installed locally, the in-conta
 claude                # in this repo root
 # then:  /pipeline K
 ```
-
-The runner writes to `.pipeline/work/<id>/`. Worktrees are created in `.worktrees/<story-id>/` per story.
 
 ---
 
@@ -111,7 +107,7 @@ hyperidle/
 │   └── design-system/ # Tier 1 + 2 components (TSX + HTML reference)
 ├── docs/            # Architecture, requirements, work packages
 ├── bin/             # Shell wrappers (setup, service)
-└── .pipeline/       # Track registries (<track>.md) + one folder per work item (work/<id>/)
+└── .pipeline/       # Pipeline rule slots (rules/) and audit ledgers (audits/)
 ```
 
 ---
@@ -122,6 +118,6 @@ hyperidle/
 - `docs/guides/user/` — using HyperIdle as an end user
 - `docs/deployment/` — VPS / cloud deployment
 - `docs/architecture/` — four-layer system overview
-- `.pipeline/<track>.md` — per-track work-package registries; `.pipeline/work/<id>/` — per-item plans and artifacts
+- `.pipeline/rules/` — pipeline rule slots; `.pipeline/audits/` — product and security audit ledgers
 - `CLAUDE.md` — rules for AI agents working in this repo
 - `ETHOS.md` — builder philosophy

@@ -4,8 +4,8 @@
  * Founder ruling at the concept gate (verbatim): *"lets avoid overengineering. we don't need to be
  * able to catch every exotic catch, linting is engineering guidance not protection against malicious
  * actors."* The rule this ships is exactly the reduced one §7.2/§7.3 specify, ported from the
- * executed prototype at `.pipeline/work/AU31/probes/p12-r2-escape-predicate/` (git history —
- * retired at ship; `git log --all -- '*p12*'` recovers it) onto the live census rather than a
+ * executed prototype in git history (retired at ship;
+ * `git log --all -- '*p12*'` recovers it) onto the live census rather than a
  * standalone CLI.
  *
  * WHAT IT READS: a layer root package's own modules reachable from its `exports` map (reachability

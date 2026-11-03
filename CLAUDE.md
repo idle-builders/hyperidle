@@ -1,8 +1,8 @@
 # HyperIdle — Claude Code Rules
 
-HyperIdle is an agentic operating system for AI-first companies. Flat teams of humans and AI agents collaborate through conversations, manage work as time-boxed bets, and build shared knowledge — like Slack + Linear + Notion + GitHub in one app, with AI agents as first-class participants.
+HyperIdle is an agentic operating system for AI-first companies. Flat teams of humans and AI agents collaborate through conversations, manage work as tasks, and build shared knowledge — like Slack + Linear + Notion + GitHub in one app, with AI agents as first-class participants.
 
-**Status:** Actively developed. Core platform shipped. Work packages build incrementally. The `pipeline@agent-pipeline` plugin's work-planning skill registers every work package the same way: a per-track coordination file `.pipeline/<track>.md` holds the registry row, and a package that has entered the pipeline seeds its full spec at `.pipeline/work/<id>/plan.md`. There is one location per track — nothing lives outside that shape.
+**Status:** Actively developed. Core platform shipped. Work is tracked as idle tasks.
 
 **Builder philosophy:** Read `ETHOS.md` — four principles (**Build for the Fast, Not the Enterprise**, **Trust Agents and Humans**, Boil the Lake, Search Before Building) that guide all agent behavior. We build for fast-moving small teams (never enterprise features); we trust agents and humans and live by self-reliance. **Security is never preemptive — it is earned from real learnings, never a wall built first.** "Irreversible" alone is not a reason to gate; review rides AL7 only where a human chose it or a learning earned it. Never design for paranoia, a rogue agent, or a gate-by-default classifier.
 
@@ -115,12 +115,10 @@ The one rule that is stated above rather than pointed at is which **world** a fi
 - `objects/` — task, thread, document, user, session, folders
 - `interface/` — navigation, messages, reviews, UI design
 
-Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipeline:architecture` identify which docs are relevant for a workpackage — downstream skills read the plan, not docs directly.
+Each folder has an `index.md` with section links. The `refine` and `architecture` skills (idle-skills) identify which docs are relevant for a task — downstream skills read the task record, not docs directly.
 
-**Pipeline** — `.pipeline/` (tracked durable pipeline state):
+**Pipeline** — `.pipeline/` (pipeline tooling state only — work is tracked as idle tasks):
 
-- `<track>.md` — per-track coordination file (item registry table + dependency graph). An item that has not been refined yet has only its registry row.
-- `work/<id>/` — per-item folder: `plan.md`, the item's durable account, 50–100 lines; and `retro.jsonl`, its retro observations.
 - `audits/` — product and security audit ledgers, read by `product-deep-review` and `security-audit`.
 - `rules/` — the pipeline rule slots named in `pipeline.config.yml`. Files with no `paths:` frontmatter are real files here; file-scoped rules are real files in `.claude/rules/` and symlinked in. Maintainer-authored — a pipeline run may not edit them.
 
@@ -176,7 +174,7 @@ For "where is this used / what does a change to it affect" questions, use the `h
 
 ## Explore Agent
 
-Use the built-in Explore agent (subagent_type=Explore) for codebase exploration and research that spans more than 3 queries — finding files by pattern, searching code for keywords, understanding how subsystems connect. Prefer Explore over manual grep chains when the search space is broad or uncertain. The pipeline uses Explore for `/pipeline:retro` (Phase 6) and any read-heavy research tasks.
+Use the built-in Explore agent (subagent_type=Explore) for codebase exploration and research that spans more than 3 queries — finding files by pattern, searching code for keywords, understanding how subsystems connect. Prefer Explore over manual grep chains when the search space is broad or uncertain. The `retro` skill and read-heavy research tasks use Explore too.
 
 ---
 

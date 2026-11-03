@@ -42,7 +42,7 @@ export const noPlanningIdInTest: Rule.RuleModule = createRule({
 			filename:
 				"Test file name '{{name}}' starts with a planning id. Name the file after the behavior it tests, not the workpackage that asked for it.",
 			title:
-				"Title '{{title}}' starts with a planning id. Say the behavior — planning labels stay inside .pipeline/ (testing.md § Structure).",
+				"Title '{{title}}' starts with a planning id. Say the behavior — planning labels belong in idle tasks, not test names (testing.md § Structure).",
 		},
 	},
 	create(context) {
