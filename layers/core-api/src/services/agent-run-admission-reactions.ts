@@ -34,7 +34,7 @@ function parseThreadTurnSourceId(
 
 /**
  * What a person reads when an agent could not start: plain words and, where
- * there is one, the next step. No internal nouns ("harness", "provisioning").
+ * there is one, the next step. No internal nouns (no engine jargon).
  * @lore: notice goes out under the agent id (a DM refuses non-members), so the words speak as HyperIdle; no-program text matches NoEligibleHarnessError's hint
  */
 const THREAD_TURN_FAILURE_REASON: Record<AgentRunAdmissionFailureCode, string> = {
@@ -55,7 +55,7 @@ const THREAD_TURN_FAILURE_REASON: Record<AgentRunAdmissionFailureCode, string> =
  * the thread there is nobody to tell, and skipping it also closes a
  * ping-pong: `agentsToWake` (`@hyperidle/domain-model`'s `actions/thread.ts`)
  * excludes the sender but, in a 2-member thread, wakes the OTHER member when
- * that member is an agent. In an agent↔agent direct thread with no harness
+ * that member is an agent. In an agent↔agent direct thread with no agent program
  * available, A's failed turn would post a notice as A, which wakes B; B's
  * turn then fails too, posts as B (a new intent id, so a new `clientKey`),
  * which wakes A — unbounded, with no agent ever actually running in

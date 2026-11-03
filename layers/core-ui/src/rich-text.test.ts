@@ -73,6 +73,18 @@ describe("parseRich", () => {
 	});
 });
 
+describe("parseRich in-app links", () => {
+	test.each(["/\\evil.com", "//evil.com", "/%5Cevil.com", "/a\\b", "javascript:alert(1)"])(
+		"[x](%s) is not a link",
+		(href) => {
+			const kinds = parseRich(`[x](${href})`).flatMap((b) =>
+				b.kind === "para" ? b.inline.map((i) => i.kind) : [],
+			);
+			expect(kinds).not.toContain("link");
+		},
+	);
+});
+
 describe("addFormat", () => {
 	test.each([
 		{ kind: "bold", text: "a word", sel: [2, 6], out: { text: "a **word**", start: 4, end: 8 } },

@@ -25,7 +25,7 @@ function inlinePattern(mentions: readonly string[]): RegExp {
 		"`([^`]+)`",
 		"\\*\\*(.+?)\\*\\*",
 		"\\*([^*\\s](?:[^*]*?[^*\\s])?)\\*",
-		"\\[([^\\]]+)\\]\\((https?://[^\\s)]+|/[^\\s)/][^\\s)]*)\\)",
+		"\\[([^\\]]+)\\]\\((https?://[^\\s)]+|/[A-Za-z0-9_~.-][A-Za-z0-9_~./?#=&%+-]*)\\)",
 	];
 	const names = [...mentions].sort((a, b) => b.length - a.length).map(escapeRegExp);
 	if (names.length > 0) parts.push(`(?<!\\S)(${names.join("|")})(?!\\w)`);
