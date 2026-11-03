@@ -115,7 +115,7 @@ The one rule that is stated above rather than pointed at is which **world** a fi
 - `objects/` — task, thread, document, user, session, folders
 - `interface/` — navigation, messages, reviews, UI design
 
-Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipeline:architecture` identify which docs are relevant for a work item — downstream skills read the item's task record, not docs directly.
+Each folder has an `index.md` with section links. The `refine` and `architecture` skills (idle-skills) identify which docs are relevant for a task — downstream skills read the task record, not docs directly.
 
 **Pipeline** — `.pipeline/` (pipeline tooling state only — work is tracked as idle tasks):
 
@@ -174,7 +174,7 @@ For "where is this used / what does a change to it affect" questions, use the `h
 
 ## Explore Agent
 
-Use the built-in Explore agent (subagent_type=Explore) for codebase exploration and research that spans more than 3 queries — finding files by pattern, searching code for keywords, understanding how subsystems connect. Prefer Explore over manual grep chains when the search space is broad or uncertain. The pipeline uses Explore for `/pipeline:retro` (Phase 6) and any read-heavy research tasks.
+Use the built-in Explore agent (subagent_type=Explore) for codebase exploration and research that spans more than 3 queries — finding files by pattern, searching code for keywords, understanding how subsystems connect. Prefer Explore over manual grep chains when the search space is broad or uncertain. The `retro` skill and read-heavy research tasks use Explore too.
 
 ---
 
