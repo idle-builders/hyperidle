@@ -48,6 +48,11 @@ export function getActiveHuddleId(): string | null {
 	return activeHuddleId;
 }
 
+/** False while the call waits for the microphone, which macOS may be asking the person about. */
+export function isMicOpen(): boolean {
+	return localStream !== null;
+}
+
 function makeConnection(huddleId: string, remoteId: string): RTCPeerConnection {
 	const pc = new RTCPeerConnection(ICE_SERVERS);
 	peers.set(remoteId, pc);
@@ -148,6 +153,7 @@ export async function startHuddleCall(
 	activeHuddleId = huddleId;
 	activeThreadId = threadId;
 	activeSelf = self;
+	notifyCallChange();
 
 	try {
 		localStream = await navigator.mediaDevices.getUserMedia({

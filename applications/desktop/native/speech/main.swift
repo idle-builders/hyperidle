@@ -144,7 +144,7 @@ func listenUtterances() {
 					if stopping { return }
 					let e = error as NSError
 					if e.domain == "kLSRErrorDomain" && e.code == 201 {
-						fail("Recording needs Dictation on. Turn it on in System Settings → Keyboard → Dictation, then press Record again.")
+						fail("Writing down the huddle needs Dictation on. Turn it on in System Settings → Keyboard → Dictation, then leave the huddle and join again.")
 					}
 					// One restart per distinct error; the same code twice in a row is fatal.
 					if lastErrorCode == e.code {

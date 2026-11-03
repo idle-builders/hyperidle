@@ -26,6 +26,7 @@ import { Composer } from "./Composer";
 import { Failed } from "./Failed";
 import {
 	getActiveHuddleId,
+	isMicOpen,
 	muteHuddleCall,
 	onCallChange,
 	onHuddleSpeechError,
@@ -474,6 +475,7 @@ export function ThreadPage({ id }: { id: string }) {
 	/** True when the call module is running for this thread's live huddle. */
 	const activeHuddleId = useSyncExternalStore(onCallChange, getActiveHuddleId);
 	const inCall = activeHuddleId === liveHuddle?.id;
+	const micOpen = useSyncExternalStore(onCallChange, isMicOpen);
 	const otherHumans = (view.data?.members ?? []).filter((m) => !m.isAgent && m.id !== you);
 	const canStartHuddle = !!window.__HYPERIDLE__ && otherHumans.length > 0 && !liveHuddle;
 
@@ -624,7 +626,9 @@ export function ThreadPage({ id }: { id: string }) {
 			{inCall && inHuddle && (
 				<>
 					<div className="huddle-strip">
-						<span className="huddle-strip-label">In huddle</span>
+						<span className="huddle-strip-label">
+							{micOpen ? "In huddle" : "Waiting for the microphone. If macOS asks, allow it."}
+						</span>
 						<button
 							type="button"
 							className={muted ? "btn btn--accent" : "btn"}
