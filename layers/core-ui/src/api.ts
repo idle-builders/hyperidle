@@ -32,7 +32,9 @@ declare global {
 			readonly join?: (form: {
 				address: string;
 				team?: string;
-			}) => Promise<{ ok: boolean; problem?: string; needsTeam?: boolean }>;
+			}) => Promise<{ ok: boolean; problem?: string; needsTeam?: boolean; cancelled?: boolean }>;
+			/** Desktop only: stop a sign-in still waiting for the browser. */
+			readonly cancelJoin?: () => Promise<void>;
 			/** Desktop on a Mac only: write down what is said, on this computer. */
 			readonly speech?: {
 				/** Each result replaces the last; `final` is the last one of a recording. */

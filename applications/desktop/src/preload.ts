@@ -10,8 +10,10 @@ contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 	join: (form: {
 		address: string;
 		team?: string;
-	}): Promise<{ ok: boolean; problem?: string; needsTeam?: boolean }> =>
+	}): Promise<{ ok: boolean; problem?: string; needsTeam?: boolean; cancelled?: boolean }> =>
 		ipcRenderer.invoke("backend:join", form),
+	/** Stops a sign-in that is still waiting for the browser. */
+	cancelJoin: (): Promise<void> => ipcRenderer.invoke("backend:cancel-join"),
 	/** Only when the speech helper shipped with this app; the page never sees the IPC event. */
 	speech: process.argv.includes("--speech")
 		? {
