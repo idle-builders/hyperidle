@@ -489,7 +489,9 @@ export function ThreadPage({ id }: { id: string }) {
 		if (!(inHuddle && liveHuddleId) || activeHuddleId !== null) return;
 		const alreadyJoined =
 			latestHuddlePayload.current?.people.filter((p) => p.leftAt === null).map((p) => p.id) ?? [];
-		void startHuddleCall(liveHuddleId, you, id, alreadyJoined);
+		void startHuddleCall(liveHuddleId, you, id, alreadyJoined).then((failed) => {
+			if (failed) setProblem(failed);
+		});
 	}, [inHuddle, liveHuddleId, you, id, activeHuddleId]);
 
 	// Keep connections in sync with the current huddle people list.
@@ -507,7 +509,11 @@ export function ThreadPage({ id }: { id: string }) {
 		}
 		view.reload();
 		const huddleId = (res.data.message as Message).id;
-		await startHuddleCall(huddleId, you, id, []);
+		const failed = await startHuddleCall(huddleId, you, id, []);
+		if (failed) {
+			setProblem(failed);
+			view.reload();
+		}
 	};
 
 	const joinHuddle = async (): Promise<void> => {
@@ -520,7 +526,11 @@ export function ThreadPage({ id }: { id: string }) {
 		view.reload();
 		const alreadyJoined =
 			liveHuddlePayload?.people.filter((p) => p.leftAt === null).map((p) => p.id) ?? [];
-		await startHuddleCall(liveHuddle.id, you, id, alreadyJoined);
+		const failed = await startHuddleCall(liveHuddle.id, you, id, alreadyJoined);
+		if (failed) {
+			setProblem(failed);
+			view.reload();
+		}
 	};
 
 	const leaveHuddle = async (): Promise<void> => {

@@ -134,20 +134,35 @@ async function startSpeech(): Promise<void> {
 	speechStop = speech.stop.bind(speech);
 }
 
-/** Begin a huddle call. `alreadyJoined` are the people already present; offer to each. */
+/**
+ * Begin a huddle call. `alreadyJoined` are the people already present; offer to each.
+ * Returns why the call could not start (the microphone did not open), or null once it runs. A call
+ * without a microphone leaves the huddle, so nobody waits on a silent person.
+ */
 export async function startHuddleCall(
 	huddleId: string,
 	self: string,
 	threadId: string,
 	alreadyJoined: readonly string[],
-): Promise<void> {
+): Promise<string | null> {
 	activeHuddleId = huddleId;
 	activeThreadId = threadId;
 	activeSelf = self;
 
-	localStream = await navigator.mediaDevices.getUserMedia({
-		audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-	});
+	try {
+		localStream = await navigator.mediaDevices.getUserMedia({
+			audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+		});
+	} catch (error) {
+		activeHuddleId = null;
+		activeThreadId = null;
+		activeSelf = null;
+		notifyCallChange();
+		await call("adjust_thread", { id: threadId, message: { id: huddleId, huddle: "leave" } });
+		return error instanceof DOMException && error.name === "NotAllowedError"
+			? "The microphone is off for HyperIdle. Turn it on in System Settings → Privacy & Security → Microphone, then join again."
+			: `The microphone could not start: ${error instanceof Error ? error.message : String(error)}`;
+	}
 
 	stopSignalListener = onSignal((from, hId, data) => {
 		void handleSignal(from, hId, data);
@@ -163,6 +178,7 @@ export async function startHuddleCall(
 
 	notifyCallChange();
 	void startSpeech();
+	return null;
 }
 
 /**
