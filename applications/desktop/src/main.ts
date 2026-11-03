@@ -29,6 +29,7 @@ import { resolveMigrationsFolder, runMigrations } from "./migrate.js";
 import { keepPersonKey, readPersonKey } from "./safe-credentials.js";
 import { type Provider, signIn } from "./sign-in.js";
 import { registerSpeechHandlers } from "./speech.js";
+import { guardContents } from "./window-guard.js";
 
 function log(message: string, data?: Record<string, unknown>): void {
 	const ts = new Date().toISOString();
@@ -560,6 +561,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 			},
 			show: false,
 		});
+		guardContents(win.webContents, appUrl, (url) => void shell.openExternal(url));
 		win.show();
 		if (state.isMaximized) win.maximize();
 		if (state.isFullScreen) win.setFullScreen(true);
@@ -698,6 +700,7 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		show: false,
 	});
 
+	guardContents(mainWindow.webContents, serverUrl, (url) => void shell.openExternal(url));
 	const splashPath = path.join(Dirname, "splash.html");
 	mainWindow.loadFile(splashPath);
 	mainWindow.show();

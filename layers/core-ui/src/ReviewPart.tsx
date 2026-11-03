@@ -1,6 +1,6 @@
 import type { ReviewPart as Part, Spot } from "@hyperidle/domain-model";
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { APP_SANDBOX, appSrcdoc } from "./app-frame";
+import { APP_SANDBOX, appSrcdoc, isInlinePage } from "./app-frame";
 import { ask, type Box, POINTER, readTold } from "./page-pointer";
 import type { PinThread } from "./review-page";
 
@@ -125,6 +125,22 @@ function locate(body: HTMLElement, spot: Spot | undefined): At | null {
 	}
 }
 
+/** The sealed shell for an inline page, once fetched; null until then and for pages that are not inline. */
+export function useSealedPage(url: string, inline: boolean, prefix = ""): string | null {
+	const [page, setPage] = useState<string | null>(null);
+	useEffect(() => {
+		if (!inline) return;
+		let current = true;
+		void fetch(url)
+			.then((r) => r.text())
+			.then((html) => current && setPage(appSrcdoc(prefix + html)));
+		return () => {
+			current = false;
+		};
+	}, [url, inline, prefix]);
+	return page;
+}
+
 /** Where the pinned elements of each sealed preview are, as its page last told. */
 const placesIn = new WeakMap<HTMLIFrameElement, Readonly<Record<string, Box>>>();
 
@@ -147,27 +163,16 @@ function Preview({
 	onPoint: (p: Point) => void;
 }) {
 	const frame = useRef<HTMLIFrameElement>(null);
-	const inline = url.startsWith("data:");
+	const inline = isInlinePage(url);
 	// A page from our own address, given scripts and its origin, could lift its sandbox and reach into ours.
 	const ours = !inline && new URL(url, location.href).origin === location.origin;
-	const [page, setPage] = useState<string | null>(null);
+	const page = useSealedPage(url, inline, POINTER);
 	const [height, setHeight] = useState(480);
 	const [hover, setHover] = useState<Box | null>(null);
 	const [mode, setMode] = useState<"use" | "comment">("use");
 	const wanted = useRef(selectors);
 	wanted.current = selectors;
 	const asked = selectors.join("\n");
-
-	useEffect(() => {
-		if (!inline) return;
-		let current = true;
-		void fetch(url)
-			.then((r) => r.text())
-			.then((html) => current && setPage(appSrcdoc(POINTER + html)));
-		return () => {
-			current = false;
-		};
-	}, [url, inline]);
 
 	// The page's own window, inside the box's shell. Across origins only `length` may be read before indexing.
 	const inner = useCallback((): Window | null => {
