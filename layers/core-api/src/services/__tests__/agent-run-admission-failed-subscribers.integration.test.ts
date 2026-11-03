@@ -408,7 +408,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		});
 		const first = await openThread(app, "sub-turn2-thread");
 		const noProgram = first.body.data?.messages.find((m) => m.senderId === "sub-turn2-agent");
-		expect((noProgram?.payload as { text?: string }).text).toBe(
+		expect((noProgram?.payload as { text?: string } | undefined)?.text).toBe(
 			"HyperIdle could not start Agent. No agent program is signed in on this computer. Sign in to one under [Agent programs](/people/me), then send your message again.",
 		);
 

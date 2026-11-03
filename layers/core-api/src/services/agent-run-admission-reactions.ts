@@ -35,13 +35,12 @@ function parseThreadTurnSourceId(
 /**
  * What a person reads when an agent could not start: plain words and, where
  * there is one, the next step. No internal nouns ("harness", "provisioning").
- * @lore: the notice must be written by a thread member (a DM refuses anyone
- * else), so it goes out under the agent's id — the words speak as HyperIdle
- * instead. The no-program wording matches `NoEligibleHarnessError`'s hint.
+ * @lore: notice goes out under the agent id (a DM refuses non-members), so the words speak as HyperIdle; no-program text matches NoEligibleHarnessError's hint
  */
 const THREAD_TURN_FAILURE_REASON: Record<AgentRunAdmissionFailureCode, string> = {
 	INVALID_WORK_SOURCE: "The message it was answering is gone.",
-	MAX_ATTEMPTS_EXCEEDED: "It still failed after several tries. Send your message again in a moment.",
+	MAX_ATTEMPTS_EXCEEDED:
+		"It still failed after several tries. Send your message again in a moment.",
 	TARGET_AGENT_NOT_RUNNABLE: "It is switched off right now.",
 	PROVISIONING_FAILED:
 		"No agent program is signed in on this computer. Sign in to one under [Agent programs](/people/me), then send your message again.",
