@@ -67,6 +67,18 @@ Now just reply. To give Builder a piece of work, mention it with `@` — see [Co
 
 The desktop app has no settings menu; [your page](./your-page.md) holds your settings. The **Help** menu has **Open Logs Folder** and **Open Data Folder**.
 
+## Closing, quitting, and the menu-bar icon
+
+On your own computer, HyperIdle keeps running when you close the window or press ⌘Q. Your agents keep working. The Dock icon goes away and a small icon stays in the macOS menu bar.
+
+- **Click the icon** to see **HyperIdle is running** (a label only), **Open HyperIdle**, and **Stop HyperIdle**. To open a window again, pick **Open HyperIdle** or click the Dock icon while it shows.
+- **Open HyperIdle** brings back your window, or opens a new one.
+- **Stop HyperIdle** is the way to really stop it (logging out, shutting down or Force Quit also end it). It shuts down the server and every running agent.
+
+HyperIdle also opens when you log in to your Mac, with no window, only the menu-bar icon. It sets this up the first time the installed app starts. To turn it off, open System Settings → General → Login Items and remove HyperIdle. The app has no switch for it, and it does not turn it back on.
+
+When you join a shared server, HyperIdle turns open-at-login off. A joined app has no menu-bar icon, and closing the window or pressing ⌘Q quits it.
+
 ---
 
 Next: [The interface](./the-interface.md)
