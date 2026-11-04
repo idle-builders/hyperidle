@@ -8,10 +8,12 @@ import { describe, expect, it } from "vitest";
 import {
 	adjustThreadInvariants,
 	agentsToWake,
+	canPostToThread,
 	canReadThread,
 	canWriteThread,
 	resolvesMessageInvariants,
 	type SendMessageInput,
+	SYSTEM_ACTOR_ID,
 	sendMessageInvariants,
 } from "../actions/thread.js";
 
@@ -363,10 +365,47 @@ describe("canReadThread / canWriteThread — the read/write/join predicate", () 
 	it("canWriteThread delegates to canReadThread exactly (same function)", () => {
 		expect(canWriteThread).toBe(canReadThread);
 	});
+
+	it("only the system actor may post into a thread it is not in; it still cannot read or write it", () => {
+		for (const hostKind of ["user", "agent"] as const) {
+			const thread = { hostKind, members: ["u1", "u2"] };
+			expect(canPostToThread(SYSTEM_ACTOR_ID, thread)).toBe(true);
+			expect(canPostToThread("a-stranger", thread)).toBe(false);
+			expect(canReadThread(SYSTEM_ACTOR_ID, thread)).toBe(false);
+			expect(canWriteThread(SYSTEM_ACTOR_ID, thread)).toBe(false);
+		}
+	});
 });
 
 describe("agentsToWake", () => {
 	const isAgentIn = (agentIds: readonly string[]) => (id: string) => agentIds.includes(id);
+
+	it("a sender outside a two-member thread wakes nobody, whichever member was listed first", () => {
+		// A thread lists its creator first, so an agent-started DM is [agent, person].
+		for (const members of [
+			["agent-1", "human-1"],
+			["human-1", "agent-1"],
+		]) {
+			expect(
+				agentsToWake({
+					members,
+					senderId: SYSTEM_ACTOR_ID,
+					mentionedIds: [],
+					isAgent: isAgentIn(["agent-1"]),
+				}),
+			).toEqual([]);
+		}
+	});
+
+	it("a sender outside a two-member thread wakes nobody (person first)", () => {
+		const woken = agentsToWake({
+			members: ["human-1", "agent-1"],
+			senderId: SYSTEM_ACTOR_ID,
+			mentionedIds: [],
+			isAgent: isAgentIn(["agent-1"]),
+		});
+		expect(woken).toEqual([]);
+	});
 
 	it("wakes a mentioned agent", () => {
 		const woken = agentsToWake({

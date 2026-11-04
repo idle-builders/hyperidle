@@ -36,6 +36,7 @@ import {
 	PERSON_REASONS,
 	type Problem,
 	type SearchUsersInput,
+	SYSTEM_ACTOR_ID,
 	searchUsers as searchUsersDeclaration,
 	teamMembershipProblems,
 	type UserKind,
@@ -1376,6 +1377,11 @@ export function createUserActions(deps: UserActionsDeps): readonly Action[] {
 	function editUserRun(ctx: ActionContext, input: EditUserInput): Promise<Result<UserView>> {
 		const pureProblems = editUserInvariants(input);
 		if (pureProblems.length > 0) return Promise.resolve({ ok: false, problems: pureProblems });
+		if (input.id === SYSTEM_ACTOR_ID)
+			return Promise.resolve({
+				ok: false,
+				problems: [{ code: "system_actor", message: "HyperIdle's own voice cannot be edited." }],
+			});
 		const identity = identityPortFor(ctx);
 		if (input.id === undefined) return createUserRun(ctx, deps, identity, input);
 		return editExistingUserRun(ctx, deps, identity, input);

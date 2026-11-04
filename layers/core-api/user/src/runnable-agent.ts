@@ -19,7 +19,8 @@ export async function requireRunnableAgent(
 	agentId: string,
 ): Promise<RunnableAgent> {
 	const agent = await findUser(db, { id: agentId });
-	if (agent?.kind !== "ai" || !RUNNABLE_STATUSES.has(agent.status)) {
+	// The system actor is HyperIdle's voice, never an agent that can be started.
+	if (agent?.kind !== "ai" || agent.role === "system" || !RUNNABLE_STATUSES.has(agent.status)) {
 		throw new AgentNotRunnableError(`Agent ${agentId} is not a runnable AI agent`);
 	}
 	return { ...agent, teamId: agent.teamIds[0] ?? null };

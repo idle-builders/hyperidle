@@ -17,11 +17,13 @@ describe("system:propagation is present after bootstrap", () => {
 		await applyFactoryCoreState(db);
 
 		const [row] = await db
-			.select({ id: users.id })
+			.select({ id: users.id, name: users.name })
 			.from(users)
 			.where(eq(users.id, "system:propagation"))
 			.limit(1);
 
 		expect(row?.id).toBe("system:propagation");
+		// The system actor speaks in threads, so its name is what people read as the sender.
+		expect(row?.name).toBe("HyperIdle");
 	});
 });

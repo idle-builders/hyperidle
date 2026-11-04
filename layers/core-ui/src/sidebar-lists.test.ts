@@ -1,5 +1,11 @@
 /** How a person or agent is drawn in an avatar, how a task reads in Work, and what waits while you focus. */
-import type { ChangeRow, DocumentRow, Task, ThreadListRow } from "@hyperidle/domain-model";
+import {
+	type ChangeRow,
+	type DocumentRow,
+	SYSTEM_ACTOR_ID,
+	type Task,
+	type ThreadListRow,
+} from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
 import {
 	conversationItems,
@@ -8,10 +14,15 @@ import {
 	type Inbox,
 	initials,
 	knowledgeTree,
+	namesOf,
 	newSince,
 	noteWhat,
 	workItems,
 } from "./sidebar-lists";
+
+test("the system sender reads as HyperIdle even though no user list returns it", () => {
+	expect(namesOf([]).get(SYSTEM_ACTOR_ID)).toBe("HyperIdle");
+});
 
 test.each([
 	["Maya Chen", "MC"],

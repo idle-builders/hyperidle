@@ -2,7 +2,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import { DoneWhenLineSchema, type TaskState } from "@hyperidle/domain-model";
+import { DoneWhenLineSchema, SYSTEM_ACTOR_ID, type TaskState } from "@hyperidle/domain-model";
 import type {
 	EventBus,
 	EventByType,
@@ -63,7 +63,7 @@ function isInvalidTransitionError(err: unknown): err is Error & { name: "Invalid
 }
 
 /** ID of the system agent that authors propagation review threads. */
-const SYSTEM_PROPAGATION_AGENT_ID = "system:propagation";
+const SYSTEM_PROPAGATION_AGENT_ID = SYSTEM_ACTOR_ID;
 
 /** Terminal task states — tasks in these states count as finished. */
 const TERMINAL_TASK_STATES = new Set(["done", "killed"]);

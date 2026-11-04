@@ -40,6 +40,18 @@ describe("requireRunnableAgent — shared ast-<userId> runnability invariant", (
 		});
 	});
 
+	test("rejects the system actor even though it is an active ai user", async ({ db }) => {
+		await db.insert(users).values({
+			id: "system:propagation",
+			kind: "ai",
+			name: "HyperIdle",
+			role: "system",
+			status: "active",
+			createdAt: new Date().toISOString(),
+		});
+		await expect(requireRunnableAgent(db, "system:propagation")).rejects.toThrow(/not a runnable/);
+	});
+
 	test("rejects a human user id (never trusts the human sender as the agent)", async ({ db }) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({

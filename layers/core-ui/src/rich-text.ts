@@ -2,7 +2,7 @@ import type { Format } from "./FormatBar";
 
 /**
  * The small piece of formatting a message carries, written the way people type it: **bold**,
- * *italic*, `code`, [a link](https://…), a line starting "- " for a list and "> " for a quote. A
+ * *italic*, `code`, [a link](https://…) or [a page in the app](/people/me), a line starting "- " for a list and "> " for a quote. A
  * mention is any `@Name` the server resolved for that message.
  */
 export type Inline =
@@ -25,7 +25,7 @@ function inlinePattern(mentions: readonly string[]): RegExp {
 		"`([^`]+)`",
 		"\\*\\*(.+?)\\*\\*",
 		"\\*([^*\\s](?:[^*]*?[^*\\s])?)\\*",
-		"\\[([^\\]]+)\\]\\((https?://[^\\s)]+)\\)",
+		"\\[([^\\]]+)\\]\\((https?://[^\\s)]+|/[A-Za-z0-9_~.-][A-Za-z0-9_~./?#=&%+-]*)\\)",
 	];
 	const names = [...mentions].sort((a, b) => b.length - a.length).map(escapeRegExp);
 	if (names.length > 0) parts.push(`(?<!\\S)(${names.join("|")})(?!\\w)`);

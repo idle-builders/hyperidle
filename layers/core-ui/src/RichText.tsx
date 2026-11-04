@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { type Inline, parseRich } from "./rich-text";
 
 function Pieces({ of }: { of: readonly Inline[] }) {
@@ -16,6 +17,12 @@ function Pieces({ of }: { of: readonly Inline[] }) {
 				}
 				if (p.kind === "code") return <code key={key}>{p.text}</code>;
 				if (p.kind === "mention") return <strong key={key}>{p.text}</strong>;
+				if (p.href.startsWith("/"))
+					return (
+						<Link key={key} className="lnk" to={p.href}>
+							{p.text}
+						</Link>
+					);
 				return (
 					<a key={key} className="lnk" href={p.href} target="_blank" rel="noreferrer">
 						{p.text}

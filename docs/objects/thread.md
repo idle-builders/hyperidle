@@ -77,7 +77,7 @@ Appends carry a `clientKey`. The unique constraint `(thread_id, sender_id, clien
 
 ## Who may post
 
-Anyone who can read a thread may also post to it (`canWriteThread = canReadThread`). For `team` and `factory` hosts that is any signed-in user; for `agent` and `user` hosts it is members only.
+Anyone who can read a thread may also post to it (`canWriteThread = canReadThread`). For `team` and `factory` hosts that is any signed-in user; for `agent` and `user` hosts it is members only. One exception, for posting only: HyperIdle itself (the system actor, shown as "HyperIdle") may post a notice into any thread (`canPostToThread`). It cannot read, adjust or join it, and its messages wake no agent.
 
 ## Huddle join and leave
 
@@ -90,7 +90,7 @@ The server auto-leaves any live huddles for a person when their last WebSocket c
 After a message lands, agents are woken if:
 
 - They were mentioned in the message text.
-- The thread has exactly two members and the other one is an agent.
+- The thread has exactly two members, the sender is one of them, and the other one is an agent.
 
 The sender is never woken. Huddle messages never wake agents. Code: `agentsToWake`, `actions/thread.ts`.
 
