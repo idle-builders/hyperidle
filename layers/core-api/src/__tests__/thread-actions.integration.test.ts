@@ -21,6 +21,7 @@ import {
 	type HyperIdleDb,
 	messages,
 	reviewSessions,
+	sessions,
 	tasks,
 	teams,
 	threads,
@@ -1821,6 +1822,61 @@ describe("send_message — review requires a task for agents", () => {
 		// The agent named rgt3-task via the review body; task moves to review
 		const [taskRow] = await db.select().from(tasks).where(eq(tasks.id, "rgt3-task"));
 		expect(taskRow?.state).toBe("review");
+	});
+
+	test("approving a review an agent's session asked brings that session back carrying the task", async ({
+		db,
+		agentOrchestration,
+		eventBus,
+	}) => {
+		await seedTeam(db, "rsm-1");
+		await seedAgent(db, "rsm-agent", "rsm-1");
+		const threadId = await seedTaskWithThread(db, "rsm-task", "rsm-1", {
+			ownerAgentId: "rsm-agent",
+		});
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["rsm-agent", FOUNDER_ID]) })
+			.where(eq(threads.id, threadId));
+		await db.insert(sessions).values({
+			id: "rsm-sess",
+			agentId: "rsm-agent",
+			taskId: "rsm-task",
+			state: "ended" as const,
+			modelTier: "workhorse" as const,
+			startedAt: new Date().toISOString(),
+			harnessSessionId: "harness-native-id",
+			sandboxSnapshot: "/tmp/sandbox",
+		});
+		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
+			buildRealActions(agentOrchestration),
+			"send_message",
+		);
+		const sent = await sendRun(
+			{
+				actor: "rsm-agent",
+				db,
+				eventBus,
+				now: new Date().toISOString(),
+				caller: { sessionId: "rsm-sess", taskId: "rsm-task", threadId },
+			},
+			{ threadId, review: { title: "Go ahead?", reasoning: ["plan"] } },
+		);
+		if (!sent.ok) throw new Error("review not sent");
+		const approved = await sendRun(
+			{ actor: FOUNDER_ID, db, eventBus, now: new Date().toISOString() },
+			{ threadId, verdict: { resolvesMessageId: sent.data.message.id, decision: "approve" } },
+		);
+		expect(approved.ok).toBe(true);
+
+		await drainIntents({ ...queueDeps(db), eventBus });
+		const [resume] = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.sourceKind, "review_resume"));
+		expect(resume?.taskId).toBe("rsm-task");
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, "rsm-task"));
+		expect(task?.state).toBe("in_progress");
 	});
 
 	test("a person's verdict alone settles the task: approve closes it and ticks the review line, reject sends it back", async ({

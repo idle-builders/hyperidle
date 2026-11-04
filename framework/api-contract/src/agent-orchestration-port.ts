@@ -66,6 +66,8 @@ export interface AgentOrchestrationReviewVerdictInput {
 	 * opaque here for the same reason `bakedRequest` is.
 	 */
 	readonly agentConfig?: unknown;
+	/** The task the review belongs to, carried onto the resumed session. */
+	readonly taskId?: string;
 }
 
 export interface AgentOrchestrationIntentsPort {

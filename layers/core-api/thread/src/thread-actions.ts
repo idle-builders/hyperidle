@@ -1362,6 +1362,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 
 		const reply = replyOf(input);
+		const resolvedTaskId =
+			resolvesMessageRow?.type === "review"
+				? ((JSON.parse(resolvesMessageRow.payload) as { taskId?: unknown }).taskId ?? null)
+				: null;
 		// The agent whose own session a verdict or answer brings back; it gets no second run.
 		let resumed: string | null = null;
 		let verdictResumesAgent = false;
@@ -1380,6 +1384,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					reviewMessageId: resolvesMessageRow.id,
 					decidedBy: ctx.actor,
 					threadId: effectiveThreadId,
+					...(typeof resolvedTaskId === "string" ? { taskId: resolvedTaskId } : {}),
 					...(askingAgent
 						? {
 								agentConfig: bakeAgentRunnableConfig(
@@ -1424,7 +1429,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		// @lore: settle after the resume outcome is known; approve closes the task at once only when no agent comes back
 		if (input.verdict !== undefined && resolvesMessageRow?.type === "review") {
 			const { decision } = input.verdict;
-			const taskId = (JSON.parse(resolvesMessageRow.payload) as { taskId?: unknown }).taskId;
+			const taskId = resolvedTaskId;
 			if (typeof taskId === "string" && (decision === "approve" || decision === "reject")) {
 				await deps.settleTaskAfterVerdict(taskId, decision, verdictResumesAgent, ctx);
 			}

@@ -115,6 +115,7 @@ export async function recordReviewVerdict(
 		readonly decidedBy: string;
 		readonly threadId: string;
 		readonly agentConfig?: BakedAgentRunnableConfig;
+		readonly taskId?: string;
 	},
 	enqueue: ResumeIntentEnqueuer,
 	tryDeliverToLive?: LiveSessionDeliverer,
@@ -166,6 +167,7 @@ export async function recordReviewVerdict(
 			threadId: input.threadId,
 			agentId: session.agentId,
 			...(input.agentConfig ? { agentConfig: input.agentConfig } : {}),
+			...(input.taskId !== undefined ? { taskId: input.taskId } : {}),
 		},
 	});
 	return { status: "queued" };

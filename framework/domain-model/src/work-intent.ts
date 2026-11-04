@@ -350,6 +350,8 @@ export interface BakedSessionResumeRequest extends SessionResumeReply {
 	 * deactivated agent and refuses the run.
 	 */
 	readonly agentConfig?: BakedAgentRunnableConfig;
+	/** The task the review belongs to; the resumed session carries it, so its ending can close the task. */
+	readonly taskId?: string;
 }
 
 /**
@@ -390,5 +392,7 @@ export type ReviewVerdictRecorderFn = (
 		readonly threadId: string;
 		/** The asking agent's runnable-config snapshot, baked by the caller (core state). */
 		readonly agentConfig?: BakedAgentRunnableConfig;
+		/** The task the review belongs to, so the resumed session ends on it; orchestration never reads core. */
+		readonly taskId?: string;
 	},
 ) => Promise<ReviewVerdictOutcome>;
