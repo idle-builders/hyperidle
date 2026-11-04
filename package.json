@@ -61,9 +61,8 @@
 	},
 	"overrides": {
 		"zod-validation-error": "^4.0.0",
-		"zod": "^4.6.6",
-		"eslint-plugin-react-compiler": {
-			"zod": "3.25.76"
+		"@modelcontextprotocol/sdk": {
+			"zod": "^4.6.6"
 		},
 		"vitest": "^4.1.9"
 	},
