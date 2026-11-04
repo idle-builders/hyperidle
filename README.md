@@ -1,123 +1,37 @@
 # HyperIdle
 
-Agentic operating system for managing product teams of AI agents. Two founders (CEO + CPO) run a "Product Factory" — a portfolio of digital products where AI agents do the implementation work.
+An operating system for AI-first companies. Agents do the work, people check it, knowledge builds up. HyperIdle handles teams, work, and knowledge around the agent programs you already use (`claude`, `codex`, `opencode`, `cursor-agent`). Those programs keep their own logins; HyperIdle needs no API key.
 
-See `ETHOS.md` for the builder philosophy and `CLAUDE.md` for the absolute rules. Architecture lives in `docs/architecture/`; work is tracked as idle tasks.
-
----
-
-## Quick start (local dev)
+## Install the desktop app
 
 ```bash
+brew tap idle-builders/tap && brew install --cask hyperidle
+```
+
+Or download the DMG from the [releases page](https://github.com/idle-builders/hyperidle/releases).
+
+## Run from source
+
+Needs Node.js 24 or newer and Git.
+
+```bash
+git clone git@github.com:idle-builders/hyperidle.git
+cd hyperidle
 npm install
-npm run setup -- --profile laptop   # creates SQLite DB, runs migrations, seeds data
-export HYPERIDLE_API_KEY=my-local-dev-key
-npm run dev                          # server :3001 + web :5173
+npm run setup          # local database + migrations
+npm run dev            # server :3001 + web :5173
 ```
 
-Open <http://localhost:5173>.
+Open <http://localhost:5173>. Do not set `HYPERIDLE_API_KEY`: the dev server and web app share a default key, and a custom one gets every request refused with 401.
 
----
+`npm run dev` runs no agents. To run agents from source, use `npm run dev:desktop` (desktop shell + web dev server).
 
-## Pipeline (autonomous batch story execution)
+## Docs
 
-The `/pipeline` skill drives the loop — `plan → tests → code → reviews → DoD → verify → ship → retro`. Work items are idle tasks; worktrees are created in `.worktrees/<id>/` per item.
+Start at [`docs/index.md`](docs/index.md): product, user guide, developer guide, deployment, architecture, agent layer, objects, interface.
 
-### `/pipeline` — interactive Claude Code skill
+## Contributing
 
-Inside `claude`, type `/pipeline <target>` to run the loop in your current session — read every transcript and step in when you want.
-
-### Run the pipeline in Docker (recommended)
-
-The repo ships a `Dockerfile` with a full agent-ready toolchain pre-installed (Node.js, Claude Code, Playwright + Chromium, `git`, `gh`, `sudo`).
-
-```bash
-# 1. Build the image (one-time, or after Dockerfile changes)
-docker build -t hyperidle .
-
-# 2. Start the container (bind-mount the repo so changes persist)
-docker run -it -v "$(pwd):/workspace" -p 3001:3001 -p 5173:5173 --name hyperidle-dev hyperidle
-
-#2b. Restart the container
-docker start -ai hyperidle-dev
-
-# 3. Inside the container
-npm install
-claude login   
-gh auth login 
-
-# 4. start the pipeline
-claude               # then:  /pipeline <workpackages>
-```
-
-### Run the pipeline directly on the host
-
-If you have Node.js, Claude Code, and Playwright installed locally, the in-container step is optional:
-
-```bash
-claude                # in this repo root
-# then:  /pipeline K
-```
-
----
-
-## VPS deployment (production stack)
-
-Separate from the pipeline container — this is the **deployment** stack (Postgres + server + web), wired through `docker-compose.yml`.
-
-```bash
-cp .env.example .env
-# set POSTGRES_PASSWORD (at minimum)
-npm run setup -- --profile vps
-docker compose up -d
-npm run db:migrate:pg
-npm run db:seed:pg
-```
-
-See `docs/deployment/` for the full operator guide.
-
----
-
-## Common commands
-
-| Command | What |
-|---|---|
-| `npm run dev` | Server (3001) + web (5173) in parallel |
-| `npm run check` | TypeScript type check |
-| `npm run lint` | Biome + ESLint |
-| `npm run lint:fix` | Auto-fix lint issues |
-| `npm run test` | Vitest (unit + integration) |
-| `npm run db:migrate` | Apply migrations (migrations are hand-written — see `framework/db/drizzle/README.md`) |
-| `npm run ds:serve` | Design-system component viewer (`:8098`) |
-| `npm run ds:sync` | HTML ↔ TSX visual regression check |
-| `bin/service` | Manage a macOS LaunchAgent for the prod server |
-
----
-
-## Project layout
-
-```
-hyperidle/
-├── packages/
-│   ├── db/          # Drizzle ORM schema, migrations, seed, setup CLI
-│   ├── server/      # Hono API server (port 3001)
-│   ├── web/         # React + Vite frontend (port 5173)
-│   ├── shared/      # Shared types, constants, TOON codec
-│   ├── fabric/      # Knowledge fabric, context assembly, file watching, writeback
-│   └── design-system/ # Tier 1 + 2 components (TSX + HTML reference)
-├── docs/            # Architecture, requirements, work packages
-├── bin/             # Shell wrappers (setup, service)
-└── .pipeline/       # Pipeline rule slots (rules/) and audit ledgers (audits/)
-```
-
----
-
-## More docs
-
-- `docs/guides/developer/` — get from zero to running tests in under 10 minutes
-- `docs/guides/user/` — using HyperIdle as an end user
-- `docs/deployment/` — VPS / cloud deployment
-- `docs/architecture/` — four-layer system overview
-- `.pipeline/rules/` — pipeline rule slots; `.pipeline/audits/` — product and security audit ledgers
-- `CLAUDE.md` — rules for AI agents working in this repo
-- `ETHOS.md` — builder philosophy
+- [`CLAUDE.md`](CLAUDE.md) — rules for working in this repo
+- [`ETHOS.md`](ETHOS.md) — builder philosophy
+- [`docs/guides/developer/`](docs/guides/developer/index.md) — getting started, commands, testing, linting
