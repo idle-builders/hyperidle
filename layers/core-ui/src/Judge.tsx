@@ -1,5 +1,5 @@
 import type { Message, PlainReadPayload, Task, VerdictPayload } from "@hyperidle/domain-model";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { call, type InputOf } from "./api";
 import { Composer } from "./Composer";
@@ -67,11 +67,6 @@ export function Judge({ threadId, reviewId }: { threadId: string; reviewId: stri
 		if (sent.ok) view.reload();
 		return sent.ok;
 	};
-
-	// Record that this reviewer has opened this review — stops it nagging them.
-	useEffect(() => {
-		void call("mark_review_opened", { reviewMessageId: reviewId });
-	}, [reviewId]);
 
 	if (view.problems || (view.data && !round))
 		return (
@@ -284,7 +279,9 @@ export function Judge({ threadId, reviewId }: { threadId: string; reviewId: stri
 							{approved
 								? [
 										"Approved",
-										task?.state === "done" ? "work item closed" : open > 0 && `${open} open`,
+										task?.state === "done" && "work item closed",
+										// After approval only a person's comment is still open: no one has answered it.
+										open > 0 && `${open} unanswered ${open === 1 ? "comment" : "comments"}`,
 									]
 										.filter(Boolean)
 										.join(" · ")

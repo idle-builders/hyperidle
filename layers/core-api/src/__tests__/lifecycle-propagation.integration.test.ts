@@ -24,7 +24,12 @@ import {
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import type { ActionResult, ThreadView } from "@hyperidle/domain-model";
+import type {
+	ActionResult,
+	ReviewVerdictRecorderFn,
+	SendMessageInput,
+	ThreadView,
+} from "@hyperidle/domain-model";
 import type {
 	EventBus,
 	PropagationAppliedEvent,
@@ -44,11 +49,14 @@ import { buildCoreActions } from "../actions/compose.js";
  * task's existing thread (`lifecycle-propagation.ts`'s
  * `createShipConfirmationThread`).
  */
-function buildPolicyDeps(agentOrchestration: AgentOrchestrationPort): PolicyDeps {
+function buildPolicyDeps(
+	agentOrchestration: AgentOrchestrationPort,
+	reviewVerdictRecorder: ReviewVerdictRecorderFn = async () => ({ status: "not_a_review_session" }),
+): PolicyDeps {
 	const actions = buildCoreActions({
 		agentOrchestration,
 		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+		reviewVerdictRecorder,
 	});
 	const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
@@ -630,5 +638,99 @@ describe("registerLifecyclePropagation — ship-confirmation review", () => {
 		const review = body.data.messages.find((m) => m.type === "review");
 		expect(review).toBeDefined();
 		expect(review?.senderId).toBe(SYSTEM_PROPAGATION_ID);
+	});
+});
+
+// ─── A person's approval and what closes the task ────────────────────────────
+
+describe("a person's approval of a task review", () => {
+	let unsubscribe: (() => void) | undefined;
+	afterEach(() => unsubscribe?.());
+
+	async function approve(
+		db: HyperIdleDb,
+		eventBus: EventBus,
+		agentOrchestration: AgentOrchestrationPort,
+		recorder: ReviewVerdictRecorderFn,
+	): Promise<void> {
+		await seedBase(db);
+		const now = new Date().toISOString();
+		await db.insert(users).values({
+			id: "human-1",
+			kind: "human",
+			name: "Reviewer",
+			role: "owner",
+			status: "active",
+			createdAt: now,
+		});
+		await seedTask(db, "task-ap", "in_progress");
+		await db
+			.update(tasks)
+			.set({
+				doneWhen: JSON.stringify([
+					{ id: "r1", what: "Looks right", by: "review", state: "open", how: null },
+				]),
+			})
+			.where(eq(tasks.id, "task-ap"));
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["agent-1", "human-1"]) })
+			.where(eq(threads.id, "thr-task-ap"));
+		const deps = buildPolicyDeps(agentOrchestration, recorder);
+		unsubscribe = registerLifecyclePropagation(db, eventBus, deps);
+		const send = deps.sendMessage as unknown as (
+			ctx: unknown,
+			input: SendMessageInput,
+		) => Promise<ActionResult<{ message: { id: string } }>>;
+		const ctx = (actor: string) => ({ actor, db, eventBus, now: new Date().toISOString() });
+		const sent = await send(
+			{
+				...ctx("agent-1"),
+				caller: { sessionId: "s-ap", taskId: "task-ap", threadId: "thr-task-ap" },
+			},
+			{ threadId: "thr-task-ap", review: { title: "Go ahead?", reasoning: ["plan"] } },
+		);
+		if (!sent.ok) throw new Error("review not sent");
+		const decided = await send(ctx("human-1"), {
+			threadId: "thr-task-ap",
+			verdict: { resolvesMessageId: sent.data.message.id, decision: "approve" },
+		});
+		expect(decided.ok).toBe(true);
+	}
+	const stateOf = async (db: HyperIdleDb) =>
+		(await db.select().from(tasks).where(eq(tasks.id, "task-ap")))[0];
+
+	test("with an agent coming back the task returns to work, and the agent's finished session closes it", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await approve(db, eventBus, agentOrchestration, async () => ({ status: "queued" }));
+		const approved = await stateOf(db);
+		expect(approved?.state).toBe("in_progress");
+		expect(JSON.parse(approved?.doneWhen ?? "[]")[0].state).toBe("met");
+
+		await seedSession(db, "s-resumed", "task-ap", "active");
+		eventBus.emit({
+			type: "session_ended",
+			streamId: "s-resumed",
+			sessionId: "s-resumed",
+			agentId: "agent-1",
+			taskId: "task-ap",
+			timestamp: Date.now(),
+			outcome: "completed",
+		});
+		await vi.waitFor(async () => expect((await stateOf(db))?.state).toBe("done"));
+	});
+
+	test("with no agent to come back the task closes at once", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await approve(db, eventBus, agentOrchestration, async () => ({
+			status: "not_a_review_session",
+		}));
+		expect((await stateOf(db))?.state).toBe("done");
 	});
 });

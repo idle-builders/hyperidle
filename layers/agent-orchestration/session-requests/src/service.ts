@@ -575,7 +575,7 @@ async function createResumeRequestInternal(
 		sourceId: intent.sourceId,
 		streamId: `review_resume:${intent.sourceId}`,
 		agentId: resume.agentId,
-		taskId: null,
+		taskId: resume.taskId ?? null,
 		promptMode: "resume",
 		idempotencyKey: intent.idempotencyKey,
 		sourceCorrelation: {

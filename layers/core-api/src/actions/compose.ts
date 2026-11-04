@@ -80,6 +80,7 @@ function buildThreadActionsDeps(
 	},
 	searchDocuments: SearchDocumentsRunFn,
 	moveTaskToReview: (taskId: string, ctx: ActionContext) => Promise<void>,
+	settleTaskAfterVerdict: SettleTaskAfterVerdict,
 ): ThreadActionsDeps {
 	return {
 		changes: { appendChange },
@@ -109,6 +110,7 @@ function buildThreadActionsDeps(
 			return result === "delivered" ? "delivered" : "not_delivered";
 		},
 		moveTaskToReview,
+		settleTaskAfterVerdict,
 		...(bindings.wsPush ? { wsPush: bindings.wsPush } : {}),
 	};
 }
@@ -177,6 +179,46 @@ function lazyMoveTaskToReview(
 		const editTask = runnerFor<EditTaskInput, TaskView>(getTaskActions(), "edit_task");
 		await editTask({ ...ctx, internal: true }, { id: taskId, state: "review" });
 		// non-ok silently ignored: task may already be in a terminal state
+	};
+}
+
+type SettleTaskAfterVerdict = (
+	taskId: string,
+	decision: "approve" | "reject",
+	agentResumes: boolean,
+	ctx: ActionContext,
+) => Promise<void>;
+
+/**
+ * A person's verdict on a task in review settles the task on its own, so nothing waits on an agent to move it.
+ * Approve ticks the open review lines. A resumed agent carries the task on (it closes through its session ending);
+ * with no agent coming back the task closes here once nothing else is open. Reject sends it back to work.
+ */
+function lazySettleTaskAfterVerdict(
+	getTaskActions: () => readonly Action[],
+): SettleTaskAfterVerdict {
+	return async (taskId, decision, agentResumes, ctx) => {
+		const taskActions = getTaskActions();
+		const openTask = runnerFor<{ readonly id: string }, TaskView>(taskActions, "open_task");
+		const editTask = runnerFor<EditTaskInput, TaskView>(taskActions, "edit_task");
+		const opened = await openTask(ctx, { id: taskId });
+		// non-ok or not in review: the task is gone or already moved on
+		if (!opened.ok || opened.data.task.state !== "review") return;
+		if (decision === "reject") {
+			await editTask({ ...ctx, internal: true }, { id: taskId, state: "in_progress" });
+			return;
+		}
+		const doneWhen = opened.data.task.doneWhen.map((l) =>
+			l.by === "review" && l.state === "open" ? { ...l, state: "met" as const } : l,
+		);
+		await editTask(
+			{ ...ctx, internal: true },
+			{
+				id: taskId,
+				doneWhen,
+				state: !agentResumes && doneWhen.every((l) => l.state === "met") ? "done" : "in_progress",
+			},
+		);
 	};
 }
 
@@ -414,8 +456,9 @@ export function buildCoreActions(bindings: {
 	let taskActionsForThread: readonly Action[] = [];
 	const searchDocuments = lazySearchDocuments(() => documentActions);
 	const moveTaskToReview = lazyMoveTaskToReview(() => taskActionsForThread);
+	const settleTaskAfterVerdict = lazySettleTaskAfterVerdict(() => taskActionsForThread);
 	const threadActions = createThreadActions(
-		buildThreadActionsDeps(bindings, searchDocuments, moveTaskToReview),
+		buildThreadActionsDeps(bindings, searchDocuments, moveTaskToReview, settleTaskAfterVerdict),
 	) as readonly Action[];
 	const adjustThread = runnerFor<AdjustThreadInput, ThreadView>(threadActions, "adjust_thread");
 	const openThread = runnerFor<OpenThreadInput, ThreadView>(threadActions, "open_thread");
