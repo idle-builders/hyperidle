@@ -1368,7 +1368,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				: null;
 		// The agent whose own session a verdict or answer brings back; it gets no second run.
 		let resumed: string | null = null;
-		let verdictResumesAgent = false;
 		if (reply !== undefined && resolvesMessageRow) {
 			let verdictOutcome: ReviewVerdictOutcome;
 			try {
@@ -1401,7 +1400,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				};
 			}
 			if (verdictOutcome.status === "queued") resumed = resolvesMessageRow.senderId;
-			verdictResumesAgent = verdictOutcome.status === "queued";
 			if (verdictOutcome.status === "not_resumable") {
 				// Said by the agent that asked: written as the person, it read as if they had typed it.
 				const what =
@@ -1431,7 +1429,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			const { decision } = input.verdict;
 			const taskId = resolvedTaskId;
 			if (typeof taskId === "string" && (decision === "approve" || decision === "reject")) {
-				await deps.settleTaskAfterVerdict(taskId, decision, verdictResumesAgent, ctx);
+				await deps.settleTaskAfterVerdict(taskId, decision, resumed !== null, ctx);
 			}
 		}
 
