@@ -4,11 +4,11 @@
  * temp files (no DB needed — pure filesystem).
  */
 
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parsePluginManifest } from "../plugin-manifest.js";
+import { parseMcpJson, parsePluginManifest } from "../plugin-manifest.js";
 
 const VALID_SCHEMA = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
 
@@ -171,5 +171,82 @@ describe("parsePluginManifest", () => {
 		const result = parsePluginManifest(tempDir);
 		if (!result.ok) throw new Error(result.reason);
 		expect(result.manifest.agents.map((a) => a.what)).toEqual([what]);
+	});
+});
+
+describe("symlink containment", () => {
+	let outside: string;
+	beforeEach(() => {
+		outside = join(
+			tmpdir(),
+			`manifest-outside-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
+		mkdirSync(outside, { recursive: true });
+		writeFileSync(join(outside, "secret.md"), "SERVER SECRET", "utf8");
+		writeManifest({ $schema: VALID_SCHEMA, name: "my-plugin" });
+	});
+	afterEach(() => {
+		rmSync(outside, { recursive: true, force: true });
+	});
+
+	function skillBodies(): string[] {
+		const result = parsePluginManifest(tempDir);
+		if (!result.ok) throw new Error(result.reason);
+		return result.manifest.skills.map((s) => s.body);
+	}
+
+	it("refuses a SKILL.md symlinked to a file outside the plugin", () => {
+		mkdirSync(join(tempDir, "skills", "evil"), { recursive: true });
+		symlinkSync(join(outside, "secret.md"), join(tempDir, "skills", "evil", "SKILL.md"));
+		expect(skillBodies()).toEqual([]);
+	});
+
+	it("refuses a skill directory symlinked outside the plugin", () => {
+		mkdirSync(join(tempDir, "skills"), { recursive: true });
+		writeFileSync(join(outside, "SKILL.md"), "SERVER SECRET", "utf8");
+		symlinkSync(outside, join(tempDir, "skills", "evil"));
+		expect(skillBodies()).toEqual([]);
+	});
+
+	it("refuses a broken SKILL.md symlink", () => {
+		mkdirSync(join(tempDir, "skills", "broken"), { recursive: true });
+		symlinkSync(join(outside, "missing.md"), join(tempDir, "skills", "broken", "SKILL.md"));
+		expect(skillBodies()).toEqual([]);
+	});
+
+	it("still reads a regular skill", () => {
+		mkdirSync(join(tempDir, "skills", "ok"), { recursive: true });
+		writeFileSync(join(tempDir, "skills", "ok", "SKILL.md"), "fine", "utf8");
+		expect(skillBodies()).toEqual(["fine"]);
+	});
+
+	it("refuses an agent identity file reached through a symlinked directory", () => {
+		symlinkSync(outside, join(tempDir, "docs"));
+		writeManifest({
+			$schema: VALID_SCHEMA,
+			name: "my-plugin",
+			extensions: {
+				"io.hyperidle": {
+					agents: [
+						{
+							id: "a",
+							name: "A",
+							discipline: "ops",
+							agentCategory: "team",
+							identity: "docs/secret.md",
+						},
+					],
+				},
+			},
+		});
+		const result = parsePluginManifest(tempDir);
+		if (!result.ok) throw new Error(result.reason);
+		expect(result.manifest.agents[0]?.identity ?? null).toBeNull();
+	});
+
+	it("refuses an mcp.json symlinked outside the plugin", () => {
+		writeFileSync(join(outside, "mcp.json"), JSON.stringify({ leak: { command: "x" } }), "utf8");
+		symlinkSync(join(outside, "mcp.json"), join(tempDir, "mcp.json"));
+		expect(parseMcpJson(tempDir)).toEqual([]);
 	});
 });
