@@ -161,6 +161,8 @@ export {
 	SearchThreadsInputSchema,
 	SendMessageInputSchema,
 	SendMessageOutputSchema,
+	SYSTEM_ACTOR_ID,
+	SYSTEM_ACTOR_NAME,
 	searchThreads,
 	sendMessage,
 	sendMessageInvariants,

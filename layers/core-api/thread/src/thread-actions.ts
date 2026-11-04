@@ -1149,7 +1149,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				const hostKind = (creatingThread?.hostKind ?? threadRow?.hostKind) as HostKind;
 				if (
 					!finalMembers.includes(ctx.actor) &&
-					canWriteThread(ctx.actor, { hostKind, members: finalMembers })
+					canReadThread(ctx.actor, { hostKind, members: finalMembers })
 				) {
 					finalMembers = [...finalMembers, ctx.actor];
 					membersChanged = true;

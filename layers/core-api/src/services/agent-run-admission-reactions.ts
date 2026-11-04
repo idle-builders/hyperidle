@@ -2,6 +2,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
+import { SYSTEM_ACTOR_ID } from "@hyperidle/domain-model";
 import type {
 	AgentRunAdmissionFailedEvent,
 	AgentRunAdmissionFailureCode,
@@ -99,11 +100,11 @@ async function notifyThreadTurnAdmissionFailure(
 	const agent = await findUser(db, { id: agentId });
 	const displayName = agent?.name ?? agentId;
 	const result = await sendMessage(
-		{ actor: agentId, db, eventBus, now: new Date(event.timestamp).toISOString() },
+		{ actor: SYSTEM_ACTOR_ID, db, eventBus, now: new Date(event.timestamp).toISOString() },
 		{
 			threadId: sourceMessage.threadId,
 			clientKey: `thread-turn-admission-failed:${event.intentId}`,
-			text: `HyperIdle could not start ${displayName}. ${THREAD_TURN_FAILURE_REASON[event.failureCode]}`,
+			text: `${displayName} could not start. ${THREAD_TURN_FAILURE_REASON[event.failureCode]}`,
 		},
 	);
 	if (!result.ok) {

@@ -8,6 +8,8 @@ import {
 	type QuestionnairePayload,
 	type ReviewPayload,
 	type SessionRow,
+	SYSTEM_ACTOR_ID,
+	SYSTEM_ACTOR_NAME,
 	type Task,
 	type VerdictPayload,
 } from "@hyperidle/domain-model";
@@ -402,7 +404,13 @@ export function resolvingOf(messages: readonly Message[]): ReadonlyMap<string, M
 export function peopleOf(
 	users: readonly { readonly id: string; readonly name: string; readonly kind: string }[],
 ): People {
-	return new Map(users.map((u) => [u.id, { name: u.name, human: u.kind === "human" }]));
+	return new Map([
+		[SYSTEM_ACTOR_ID, { name: SYSTEM_ACTOR_NAME, human: false }],
+		...users.map((u): [string, { name: string; human: boolean }] => [
+			u.id,
+			{ name: u.name, human: u.kind === "human" },
+		]),
+	]);
 }
 
 export function ThreadPage({ id }: { id: string }) {

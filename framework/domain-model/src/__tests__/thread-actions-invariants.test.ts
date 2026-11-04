@@ -12,6 +12,7 @@ import {
 	canWriteThread,
 	resolvesMessageInvariants,
 	type SendMessageInput,
+	SYSTEM_ACTOR_ID,
 	sendMessageInvariants,
 } from "../actions/thread.js";
 
@@ -360,13 +361,26 @@ describe("canReadThread / canWriteThread — the read/write/join predicate", () 
 		}
 	});
 
-	it("canWriteThread delegates to canReadThread exactly (same function)", () => {
-		expect(canWriteThread).toBe(canReadThread);
+	it("the system actor may write into any thread, but read stays members-only", () => {
+		for (const hostKind of ["user", "agent"] as const) {
+			expect(canWriteThread(SYSTEM_ACTOR_ID, { hostKind, members: ["u1", "u2"] })).toBe(true);
+			expect(canReadThread(SYSTEM_ACTOR_ID, { hostKind, members: ["u1", "u2"] })).toBe(false);
+		}
 	});
 });
 
 describe("agentsToWake", () => {
 	const isAgentIn = (agentIds: readonly string[]) => (id: string) => agentIds.includes(id);
+
+	it("a sender outside a two-member thread wakes nobody", () => {
+		const woken = agentsToWake({
+			members: ["human-1", "agent-1"],
+			senderId: SYSTEM_ACTOR_ID,
+			mentionedIds: [],
+			isAgent: isAgentIn(["agent-1"]),
+		});
+		expect(woken).toEqual([]);
+	});
 
 	it("wakes a mentioned agent", () => {
 		const woken = agentsToWake({

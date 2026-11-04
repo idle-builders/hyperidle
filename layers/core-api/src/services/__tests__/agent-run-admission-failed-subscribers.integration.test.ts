@@ -23,7 +23,7 @@ import {
 	users,
 	userTeams,
 } from "@hyperidle/db";
-import type { ThreadView } from "@hyperidle/domain-model";
+import { SYSTEM_ACTOR_ID, type ThreadView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { and, eq, sql } from "drizzle-orm";
@@ -31,6 +31,7 @@ import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import type { ActionContext } from "../../actions/action.js";
 import { buildCoreActions } from "../../actions/compose.js";
+import { applyFactoryCoreState } from "../../bootstrap/factory-state.js";
 
 interface ActionEnvelope<T> {
 	readonly ok: boolean;
@@ -268,6 +269,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		eventBus,
 		app,
 	}) => {
+		await applyFactoryCoreState(db);
 		const { teamId } = await seedTeam(db, "sub-turn");
 		await seedAgent(db, "sub-turn-agent", { teamId });
 		await db.insert(users).values({
@@ -327,11 +329,11 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			expect(opened.body.data?.messages).toHaveLength(2);
 		});
 		const opened = await openThread(app, "sub-turn-thread");
-		const notice = opened.body.data?.messages.find((m) => m.senderId === "sub-turn-agent");
+		const notice = opened.body.data?.messages.find((m) => m.senderId === SYSTEM_ACTOR_ID);
 		expect(notice).toBeDefined();
 		const payload = notice?.payload as { text?: string };
 		expect(payload.text).toBe(
-			"HyperIdle could not start Agent. It still failed after several tries. Send your message again in a moment.",
+			"Agent could not start. It still failed after several tries. Send your message again in a moment.",
 		);
 
 		const changeRows = await db
@@ -361,6 +363,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		eventBus,
 		app,
 	}) => {
+		await applyFactoryCoreState(db);
 		const { teamId } = await seedTeam(db, "sub-turn2");
 		await seedAgent(db, "sub-turn2-agent", { teamId });
 		await db.insert(users).values({
@@ -407,9 +410,9 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			expect(opened.body.data?.messages).toHaveLength(2);
 		});
 		const first = await openThread(app, "sub-turn2-thread");
-		const noProgram = first.body.data?.messages.find((m) => m.senderId === "sub-turn2-agent");
+		const noProgram = first.body.data?.messages.find((m) => m.senderId === SYSTEM_ACTOR_ID);
 		expect((noProgram?.payload as { text?: string } | undefined)?.text).toBe(
-			"HyperIdle could not start Agent. No agent program is signed in on this computer. Sign in to one under [Agent programs](/people/me), then send your message again.",
+			"Agent could not start. No agent program is signed in on this computer. Sign in to one under [Agent programs](/people/me), then send your message again.",
 		);
 
 		// The retry orchestration would report the SAME intent failing again —
@@ -484,10 +487,11 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		expect(turnIntents).toHaveLength(0);
 	});
 
-	test("thread_turn: notice refused (agent no longer a member) — no throw, one error log line", async ({
+	test("thread_turn: HyperIdle posts the notice into a direct thread it is not a member of, without waking the agent", async ({
 		db,
 		eventBus,
 	}) => {
+		await applyFactoryCoreState(db);
 		const { teamId } = await seedTeam(db, "sub-turn-refuse");
 		await seedAgent(db, "sub-turn-refuse-agent", { teamId });
 		await db.insert(users).values({
@@ -503,8 +507,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			hostKind: "user",
 			hostId: "sub-turn-refuse-human",
 			initiatorId: "sub-turn-refuse-human",
-			// the agent was removed from the thread before its admission failed
-			participants: JSON.stringify(["sub-turn-refuse-human"]),
+			participants: JSON.stringify(["sub-turn-refuse-human", "sub-turn-refuse-agent"]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
@@ -513,13 +516,12 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			senderId: "sub-turn-refuse-human",
 			threadId: "sub-turn-refuse-thread",
 			type: "plain",
-			payload: JSON.stringify({ text: "@agent still there?" }),
+			payload: JSON.stringify({ text: "still there?" }),
 			clientKey: "sub-turn-refuse-message",
 			createdAt: NOW,
 		});
 
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-		const event = {
+		eventBus.emit({
 			type: "agent_run_admission_failed" as const,
 			streamId: "thread_turn:sub-turn-refuse-message:sub-turn-refuse-agent",
 			intentId: "sub-turn-refuse-intent",
@@ -529,18 +531,25 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			failureCode: "PROVISIONING_FAILED" as const,
 			terminal: true,
 			timestamp: Date.now(),
-		};
-
-		expect(() => eventBus.emit(event)).not.toThrow();
-		await flush();
-
-		const posted = await db
+		});
+		await vi.waitFor(async () => {
+			const posted = await db
+				.select()
+				.from(messages)
+				.where(eq(messages.threadId, "sub-turn-refuse-thread"));
+			expect(posted).toHaveLength(2);
+		});
+		const [thread] = await db
 			.select()
-			.from(messages)
-			.where(eq(messages.threadId, "sub-turn-refuse-thread"));
-		expect(posted).toHaveLength(1); // only the original — the notice was refused
-		expect(errorSpy).toHaveBeenCalledTimes(1);
-		errorSpy.mockRestore();
+			.from(threads)
+			.where(eq(threads.id, "sub-turn-refuse-thread"));
+		// HyperIdle did not become a member, and nothing was queued to wake the agent.
+		expect(JSON.parse(thread?.participants ?? "[]")).not.toContain(SYSTEM_ACTOR_ID);
+		const turnIntents = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.kind, "thread_turn"));
+		expect(turnIntents).toHaveLength(0);
 	});
 
 	test("thread_turn: source message is gone — nothing is posted, nothing throws, one log line", async ({

@@ -1,10 +1,12 @@
-import type {
-	ChangeRow,
-	DocumentRow,
-	Task,
-	ThreadListRow,
-	UserRow,
-	UserView,
+import {
+	type ChangeRow,
+	type DocumentRow,
+	SYSTEM_ACTOR_ID,
+	SYSTEM_ACTOR_NAME,
+	type Task,
+	type ThreadListRow,
+	type UserRow,
+	type UserView,
 } from "@hyperidle/domain-model";
 
 /**
@@ -82,7 +84,11 @@ export function initials(name: string): string {
 
 /** A list row names people by their first name, as people do. */
 export function namesOf(users: readonly UserRow[]): Map<string, string> {
-	return new Map(users.map((u) => [u.id, u.name.split(" ")[0] ?? u.name]));
+	// The system sender is hidden from the user list, yet its notices are read in threads.
+	return new Map([
+		[SYSTEM_ACTOR_ID, SYSTEM_ACTOR_NAME],
+		...users.map((u): [string, string] => [u.id, u.name.split(" ")[0] ?? u.name]),
+	]);
 }
 
 /** Every team anyone is in, by name — there is one organisation and nothing names it. */

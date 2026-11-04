@@ -658,7 +658,19 @@ export function canReadThread(
 	return thread.members.includes(actor); // `user`/`agent` hosts — every DM: members only
 }
 
-export const canWriteThread = canReadThread;
+/**
+ * HyperIdle's own voice: the one actor that may post in any thread without being a
+ * member (a notice to the people there), and is shown by `SYSTEM_ACTOR_NAME`.
+ */
+export const SYSTEM_ACTOR_ID = "system:propagation";
+export const SYSTEM_ACTOR_NAME = "HyperIdle";
+
+export function canWriteThread(
+	actor: string,
+	thread: { readonly hostKind: HostKind; readonly members: readonly string[] },
+): boolean {
+	return actor === SYSTEM_ACTOR_ID || canReadThread(actor, thread);
+}
 
 export function agentsToWake(input: {
 	readonly members: readonly string[]; // after the send's mention-adds
@@ -668,7 +680,8 @@ export function agentsToWake(input: {
 }): readonly string[] {
 	const woken = new Set<string>();
 	for (const id of input.mentionedIds) if (input.isAgent(id)) woken.add(id);
-	if (input.members.length === 2) {
+	// The implicit "other member" wake is a reply to a member; a sender outside the thread has none.
+	if (input.members.length === 2 && input.members.includes(input.senderId)) {
 		const other = input.members.find((m) => m !== input.senderId);
 		if (other !== undefined && input.isAgent(other)) woken.add(other);
 	}
