@@ -42,7 +42,7 @@ Host is immutable after creation.
 - **answer** — answers a questionnaire; carries `resolvesMessageId` and exactly one of `option` (one of the questionnaire's options, word for word) or `text` (the sender's own words).
 - **huddle** — a voice call between the human members of a thread. Payload: `{ startedAt, endedAt: null | string, people: [{ id, joinedAt, leftAt: null | string }] }`. Only a human can start one (`huddle_not_human`); the thread must have at least one other human member (`huddle_no_other_human`); at most one live huddle per thread (`huddle_already_live`). The starter is the first entry in `people`. Agents never appear in `people`. The huddle ends when the last person leaves (`endedAt` set). Joining an ended huddle is refused (`huddle_ended`). Plain messages posted while a huddle is live carry `payload.huddle = <huddleId>` (set by the server). Huddle messages never wake agents.
 
-Messages are append-only. Payload is immutable after persistence. Soft-delete via `deletedAt`. Redaction replaces payload with `{ redacted: true, redactedBy, redactedAt, reason }`.
+Only a message's sender can edit it: `send_message` with its `messageId` replaces the payload. Anyone else — person or agent — is refused (`not_your_message`). Soft-delete via `deletedAt`. Redaction replaces payload with `{ redacted: true, redactedBy, redactedAt, reason }`.
 
 ## Comments on a document
 

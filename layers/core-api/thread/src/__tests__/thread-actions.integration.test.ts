@@ -182,6 +182,50 @@ describe("send_message — thread resolution and idempotency", () => {
 		const after = JSON.parse(messageRow?.after as string) as { clientKey: string };
 		expect(after.clientKey).toBe(storedMessage?.clientKey);
 	});
+
+	test("only the author may edit a message — another member, human or agent, is refused and the text stays", async ({
+		db,
+	}) => {
+		const eventBus = new EventBus();
+		const actions = createThreadActions(threadDeps());
+		await seedTeam(db, "sm-team-4");
+		await seedHuman(db, "sm-member-4", "sm-team-4");
+		await seedAgent(db, "sm-agent-4", "sm-team-4");
+		const created = await call<{ message: { id: string }; thread: { id: string } }>(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{ recipients: ["sm-member-4", "sm-agent-4"], text: "founder's words" },
+		);
+		const threadId = created.body.data?.thread.id as string;
+		const messageId = created.body.data?.message.id as string;
+
+		for (const intruder of ["sm-member-4", "sm-agent-4"]) {
+			const edit = await call(
+				actions,
+				db,
+				eventBus,
+				"send_message",
+				{ threadId, messageId, text: `rewritten by ${intruder}` },
+				intruder,
+			);
+			expect(edit.status).toBe(422);
+			expect(edit.body.problems?.[0]?.code).toBe("not_your_message");
+		}
+
+		const [stored] = await db.select().from(messages).where(eq(messages.id, messageId));
+		expect(JSON.parse(stored?.payload as string)).toMatchObject({ text: "founder's words" });
+
+		const own = await call(actions, db, eventBus, "send_message", {
+			threadId,
+			messageId,
+			text: "founder's edit",
+		});
+		expect(own.status).toBe(200);
+		const [edited] = await db.select().from(messages).where(eq(messages.id, messageId));
+		expect(JSON.parse(edited?.payload as string)).toMatchObject({ text: "founder's edit" });
+	});
 });
 
 describe("send_message — verdict trio and races", () => {

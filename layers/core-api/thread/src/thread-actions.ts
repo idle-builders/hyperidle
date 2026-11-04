@@ -963,6 +963,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					],
 				};
 			}
+			if (existingMessageRow.senderId !== ctx.actor) {
+				return {
+					ok: false,
+					problems: [{ code: "not_your_message", message: "Only the author can edit a message." }],
+				};
+			}
 		}
 
 		if (input.review?.producedItemId !== undefined && ctx.caller?.taskId) {
