@@ -350,6 +350,8 @@ function registerCommonIpcHandlers(ctx: BootContext): void {
 			if (!keepPersonKey(ctx.credentialsPath, body.key))
 				return { ok: false, problem: "The keychain is unavailable, so your key cannot be kept." };
 			saveClientConfig(ctx.configPath, { backendMode: "shared", serverUrl });
+			// A joined Mac runs nothing locally, so it has no reason to open at login.
+			if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: false });
 			app.relaunch();
 			app.exit(0);
 			return { ok: true };
