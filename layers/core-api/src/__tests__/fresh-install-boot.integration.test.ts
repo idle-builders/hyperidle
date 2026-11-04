@@ -3,15 +3,15 @@
  *
  * Boot writes only the hidden system actor — the row system writes are
  * attributed to — and no list of users shows it. The welcome screen then
- * makes two `edit_user` calls: the person with their team, and their
- * assistant, owned by them, on the picked harness, with no identity text and
- * one subscription per object event, none with a prompt. After that the
- * install holds the person, their team and one agent: no second agent, no
- * documents of any kind.
+ * goes through POST /api/start, which runs `edit_user` in-process as nobody
+ * to create the person with their team, and their assistant, owned by them,
+ * on the picked harness, with no identity text and one subscription per
+ * object event, none with a prompt. After that the install holds the person,
+ * their team and one agent: no second agent, no documents of any kind.
  *
- * Driven through the real app on a freshly migrated database: the boot face
- * the desktop app calls on every launch, then the same two request bodies the
- * welcome screen sends, then `search_users`/`open_user` read it back.
+ * Driven through the real app on a freshly migrated database: the person is
+ * made in-process as nobody, as first start does, then the assistant and the
+ * reads go through the HTTP door as that person.
  */
 import { documents, subscriptions, teams, users } from "@hyperidle/db";
 import {
@@ -22,6 +22,7 @@ import {
 } from "@hyperidle/domain-model";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+import { buildCoreActions } from "../actions/compose.js";
 import { applyFactoryCoreState } from "../bootstrap/factory-state.js";
 
 interface ActionEnvelope<T> {
@@ -50,17 +51,12 @@ async function call<T>(
 const PICKED_HARNESS = { harnessType: "claude-code" };
 
 describe("a fresh install", () => {
-	test("boot writes only the hidden system actor, again and again", async ({ db, app }) => {
+	test("boot writes only the hidden system actor, again and again", async ({ db }) => {
 		await applyFactoryCoreState(db);
 		await applyFactoryCoreState(db);
 
 		const rows = await db.select({ id: users.id, role: users.role }).from(users);
 		expect(rows).toEqual([{ id: "system:propagation", role: "system" }]);
-
-		expect(await call<UserRow[]>(app, "search_users", {})).toEqual([]);
-		expect(await call<UserRow[]>(app, "search_users", { kind: "ai" })).toEqual([]);
-		const named = await call<UserRow[]>(app, "search_users", { ids: ["system:propagation"] });
-		expect(named.map((u) => u.id)).toEqual(["system:propagation"]);
 
 		expect(await db.select().from(documents)).toEqual([]);
 	});
@@ -69,17 +65,30 @@ describe("a fresh install", () => {
 		db,
 		app,
 		asPerson,
+		agentOrchestration,
+		eventBus,
 	}) => {
 		await applyFactoryCoreState(db);
 
-		const person = await call<UserView>(app, "edit_user", {
-			kind: "human",
-			name: "Ada",
-			teams: ["My Team"],
+		// First start makes the person in-process as nobody (`routes/start.ts`); the HTTP door refuses nobody.
+		const bootstrapActions = buildCoreActions({
+			agentOrchestration,
+			agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+			reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 		});
+		const editUserAction = bootstrapActions.find((a) => a.declaration.name === "edit_user");
+		if (!editUserAction) throw new Error("edit_user action not found");
+		const personResult = await editUserAction.run(
+			{ actor: "", db, eventBus, now: new Date().toISOString() },
+			{ kind: "human", name: "Ada", teams: ["My Team"] },
+		);
+		if (!personResult.ok) throw new Error(`edit_user failed: ${JSON.stringify(personResult)}`);
+		const person = personResult.data as UserView;
 		const personId = person.user?.id;
 		expect(personId).toBeDefined();
 		await asPerson(personId as string);
+		const named = await call<UserRow[]>(app, "search_users", { ids: ["system:propagation"] });
+		expect(named.map((u) => u.id)).toEqual(["system:propagation"]);
 
 		await call<UserView>(app, "edit_user", {
 			kind: "ai",

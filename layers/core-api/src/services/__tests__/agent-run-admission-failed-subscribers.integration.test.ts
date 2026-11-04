@@ -268,6 +268,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		db,
 		eventBus,
 		app,
+		asPerson,
 	}) => {
 		await applyFactoryCoreState(db);
 		const { teamId } = await seedTeam(db, "sub-turn");
@@ -280,6 +281,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			status: "active",
 			createdAt: NOW,
 		});
+		await asPerson("sub-turn-human");
 		await db.insert(threads).values({
 			id: "sub-turn-thread",
 			hostKind: "team",
@@ -362,6 +364,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		db,
 		eventBus,
 		app,
+		asPerson,
 	}) => {
 		await applyFactoryCoreState(db);
 		const { teamId } = await seedTeam(db, "sub-turn2");
@@ -374,6 +377,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			status: "active",
 			createdAt: NOW,
 		});
+		await asPerson("sub-turn2-human");
 		await db.insert(threads).values({
 			id: "sub-turn2-thread",
 			hostKind: "team",

@@ -259,8 +259,13 @@ describe("a plugin's agent comes with an identity", () => {
 		expect(promptDoc?.parentId).toBeTruthy();
 	});
 
-	test("an agent with no identity file is still installed, just bare", async ({ db, app }) => {
+	test("an agent with no identity file is still installed, just bare", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
 		await seedFounder(db);
+		await asPerson("u-founder");
 		const dir = join(tmpdir(), `bare-${Date.now()}`);
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(

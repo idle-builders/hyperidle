@@ -134,10 +134,12 @@ describe("registerSessionNotReturnedNotice — the never-silent net, through sen
 	test("a not_returned session WITH a callingThreadId gets exactly one notice in that thread, sent by the agent, with no wake", async ({
 		db,
 		app,
+		asPerson,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedTeam(db, "snr-team-1");
+		await asPerson("u-founder");
 		await seedAgent(db, "snr-agent-1", "snr-team-1");
 		await seedCallingThread(db, "snr-thread-1", "snr-team-1", "snr-agent-1");
 
