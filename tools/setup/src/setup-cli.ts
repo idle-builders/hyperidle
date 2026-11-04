@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -72,6 +73,7 @@ interface ParsedArgs {
 	readonly help: boolean;
 	readonly dryRun: boolean;
 	readonly demo: boolean;
+	readonly secrets: string | undefined;
 }
 
 const USAGE = [
@@ -83,6 +85,7 @@ const USAGE = [
 	"  --db-url <url>                Postgres URL (vps/cloud profile). Default from env DATABASE_URL.",
 	"  --root <path>                 Repo root override (used to locate docker-compose.yml).",
 	"  --demo                        Seed the Northwind demo world (people, agents, work) after factory bootstrap.",
+	"  --secrets <path>              With --demo: the desktop app's secrets.json; its key becomes the founder's.",
 	"  --dry-run                     Print planned actions without executing.",
 	"  --help                        Show this message.",
 	"",
@@ -96,6 +99,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 	let help = false;
 	let dryRun = false;
 	let demo = false;
+	let secrets: string | undefined;
 
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
@@ -122,12 +126,15 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 			case "--root":
 				root = argv[++i];
 				break;
+			case "--secrets":
+				secrets = argv[++i];
+				break;
 			default:
 				// Unknown flag — ignore silently (allow npm/node extras).
 				break;
 		}
 	}
-	return { profile, dbPath, dbUrl, root, help, dryRun, demo };
+	return { profile, dbPath, dbUrl, root, help, dryRun, demo, secrets };
 }
 
 function defaultRoot(cwd: string | undefined): string {
@@ -179,6 +186,23 @@ export function validateDbPath(input: string, cwd: string): string {
 }
 
 /**
+ * The key in the desktop app's `secrets.json`, made the way the app makes it when the file is not
+ * there yet — so a demo seeded before the app's first launch still opens as the founder.
+ */
+function readOrMakeComputerKey(secretsPath: string): string {
+	if (fs.existsSync(secretsPath)) {
+		const { apiKey } = JSON.parse(fs.readFileSync(secretsPath, "utf-8")) as { apiKey?: unknown };
+		if (typeof apiKey !== "string" || apiKey === "")
+			throw new Error(`${secretsPath} holds no apiKey`);
+		return apiKey;
+	}
+	const apiKey = crypto.randomBytes(32).toString("hex");
+	fs.mkdirSync(path.dirname(secretsPath), { recursive: true });
+	fs.writeFileSync(secretsPath, JSON.stringify({ apiKey }), { mode: 0o600 });
+	return apiKey;
+}
+
+/**
  * Apply migrations for the laptop profile using the shared applyMigrations
  * function, then seed the database.
  *
@@ -192,6 +216,7 @@ async function applyLaptopMigrations(
 	dataDir: string,
 	migrationsFolder: string,
 	demo = false,
+	founderKey?: string,
 ): Promise<void> {
 	const { applyMigrations, createPgliteDb } = await import("@hyperidle/db");
 	await applyMigrations(dataDir, migrationsFolder);
@@ -203,7 +228,11 @@ async function applyLaptopMigrations(
 		// @lore AF17: demo mode seeds the Northwind demo world — opt-in only.
 		// Without --demo, factory bootstrap only (no demo data in production DBs).
 		if (demo) {
-			await seedDemoWorld(handle.db, { pluginsBaseDir: installedPluginsDir(dataDir) });
+			await seedDemoWorld(handle.db, {
+				pluginsBaseDir: installedPluginsDir(dataDir),
+				foldersDir: path.join(path.dirname(dataDir), "demo-folders"),
+				founderKey,
+			});
 		}
 	} finally {
 		await handle.close();
@@ -242,7 +271,9 @@ async function runLaptop(
 	// to redirect the migrations lookup. Matches the pre-AU29 behavior where
 	// framework/db/src/setup-cli.ts anchored on its own Dirname.
 	const migrationsFolder = path.resolve(Dirname, "..", "..", "..", "framework", "db", "drizzle");
-	await applyLaptopMigrations(dataDir, migrationsFolder, args.demo);
+	const founderKey =
+		args.demo && args.secrets ? readOrMakeComputerKey(path.resolve(cwd, args.secrets)) : undefined;
+	await applyLaptopMigrations(dataDir, migrationsFolder, args.demo, founderKey);
 
 	if (args.demo) {
 		io.stdout("[setup] Demo mode: seeded the Northwind demo world.");

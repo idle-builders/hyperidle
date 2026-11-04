@@ -1,7 +1,10 @@
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
+import { createPgliteDb } from "@hyperidle/db";
+import { findPersonByKey } from "@hyperidle/user";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runSetup, validateDbPath } from "../setup-cli.js";
 
@@ -207,7 +210,7 @@ describe("--demo flag behavior", () => {
 		}
 	});
 
-	it("with --demo: setup produces the Product demo team + demo founder", {
+	it("with --demo: setup produces the Product demo team, the founder, and agents' folders as real repos", {
 		timeout: 60_000,
 	}, async () => {
 		const dataDir = path.join(tmpdir, "hyperidle-pg-demo");
@@ -237,10 +240,66 @@ describe("--demo flag behavior", () => {
 			);
 			expect(founderResult.rows.length).toBe(1);
 			expect(founderResult.rows[0]?.kind).toBe("human");
+
+			// An agent's code folder is a git repo on this computer, so its session can mount it.
+			const folders = await client.query<{ agent: string; ref: string }>(
+				`SELECT i.agent_user_id AS agent, f.resource_ref AS ref FROM filesystem_injections i
+				 JOIN filesystems f ON f.id = i.filesystem_id ORDER BY i.agent_user_id`,
+			);
+			const repos = folders.rows.map((row) => ({
+				agent: row.agent,
+				main: execFileSync(
+					"git",
+					[
+						"-C",
+						(JSON.parse(row.ref) as { repo: string }).repo,
+						"rev-parse",
+						"--abbrev-ref",
+						"HEAD",
+					],
+					{ encoding: "utf8" },
+				).trim(),
+			}));
+			expect(repos).toEqual([
+				{ agent: "demo-agent-builder", main: "main" },
+				{ agent: "demo-agent-designer", main: "main" },
+			]);
 		} finally {
 			await client.close();
 		}
 	});
+
+	it.each([
+		{ secretsFile: "the desktop app's key", existing: "computer-key-from-secrets" },
+		{ secretsFile: "a key made for the app to find", existing: undefined },
+	])(
+		"with --demo --secrets: the founder holds $secretsFile",
+		{
+			timeout: 60_000,
+		},
+		async ({ existing }) => {
+			const dataDir = path.join(tmpdir, "hyperidle-pg");
+			const secretsPath = path.join(tmpdir, "secrets.json");
+			if (existing) fs.writeFileSync(secretsPath, JSON.stringify({ apiKey: existing }));
+			const { io } = makeIo();
+
+			const exit = await runSetup(
+				["--profile", "laptop", "--db-path", dataDir, "--demo", "--secrets", secretsPath],
+				io,
+				{ env: {} },
+			);
+			expect(exit).toBe(0);
+
+			const { apiKey } = JSON.parse(fs.readFileSync(secretsPath, "utf-8")) as { apiKey: string };
+			const handle = await createPgliteDb(dataDir);
+			try {
+				expect(await findPersonByKey(handle.db, apiKey)).toBe("demo-founder");
+				expect(await findPersonByKey(handle.db, "hyperidle-dev-local")).toBeUndefined();
+			} finally {
+				await handle.close();
+			}
+		},
+	);
 
 	it("--demo dry-run mentions demo seeding without executing", async () => {
 		const { io, captured } = makeIo();

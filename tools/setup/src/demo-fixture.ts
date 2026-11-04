@@ -13,6 +13,7 @@
 
 import { type HyperIdleDb, teams } from "@hyperidle/db";
 import { givePersonKey } from "@hyperidle/user";
+import type { DemoWorldPlaces } from "./demo-world/cast.js";
 import { FOUNDER_ID, PRODUCT_TEAM_ID, SUPPORT_TEAM_ID } from "./demo-world/ids.js";
 import { seedDemoWorldContent } from "./demo-world/index.js";
 import { createDemoClock } from "./demo-world/time.js";
@@ -20,14 +21,14 @@ import { createDemoClock } from "./demo-world/time.js";
 /**
  * Seed the demo world. Idempotent: fixed `demo-*` ids with
  * `onConflictDoNothing` throughout, and the plugin install re-runs in place.
- * `pluginsBaseDir` is where the server will keep installed plugins, so the
- * demo's plugin can put its own version back.
+ * `founderKey` is the key the window will send — the desktop app's
+ * `secrets.json` key, or the laptop server's own key when none is given.
  *
  * @returns the Product team id and the founder's user id.
  */
 export async function seedDemoWorld(
 	db: HyperIdleDb,
-	opts: { readonly pluginsBaseDir?: string } = {},
+	opts: DemoWorldPlaces & { readonly founderKey?: string } = {},
 ): Promise<{ teamId: string; founderId: string }> {
 	const clock = createDemoClock();
 	await db
@@ -37,8 +38,12 @@ export async function seedDemoWorld(
 			{ id: SUPPORT_TEAM_ID, name: "Support", createdAt: clock.daysAgo(98) },
 		])
 		.onConflictDoNothing();
-	await seedDemoWorldContent(db, clock, opts.pluginsBaseDir);
-	// The demo opens as its founder: the key the laptop server runs with (its dev default without one) is his.
-	await givePersonKey(db, FOUNDER_ID, process.env.HYPERIDLE_API_KEY ?? "hyperidle-dev-local");
+	await seedDemoWorldContent(db, clock, opts);
+	// The demo opens as its founder: the key the window sends is his.
+	await givePersonKey(
+		db,
+		FOUNDER_ID,
+		opts.founderKey ?? process.env.HYPERIDLE_API_KEY ?? "hyperidle-dev-local",
+	);
 	return { teamId: PRODUCT_TEAM_ID, founderId: FOUNDER_ID };
 }
