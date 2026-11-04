@@ -28,10 +28,8 @@ import { type DoorKind, listEvents, queryDoors, queryEvent, queryUses } from "./
 
 const kindEnum = z.enum(["ui", "agent", "scheduler"]).optional();
 
-// @lore Mirrors mcp-bridge.ts AF4/§9: the MCP SDK dedupes zod to 3.25.76 while
-// this package uses zod 4.x — the $ZodType brands are nominally distinct, so a
-// zod-4 schema is not directly assignable to the SDK's AnySchema. The runtime
-// object is identical; this bridges the brand only. NOT a wire-shape change.
+// @lore Mirrors mcp-bridge.ts: brand-only cast between the SDK AnySchema type and our zod schemas
+// (runtime object identical; NOT a wire-shape change).
 function asMcpInputSchema(schema: unknown): McpAnySchema {
 	return schema as McpAnySchema;
 }
