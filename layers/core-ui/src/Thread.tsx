@@ -24,6 +24,7 @@ import {
 import { useNavigate, useSearchParams } from "react-router";
 import { AppCard, MadeCard } from "./Apps";
 import { call, type InputOf } from "./api";
+import { APP_SANDBOX, isInlinePage } from "./app-frame";
 import { Composer } from "./Composer";
 import { Failed } from "./Failed";
 import {
@@ -39,6 +40,7 @@ import {
 } from "./huddle-call";
 import { listen } from "./live";
 import { Avatar, Event, Msg } from "./Msg";
+import { useSealedPage } from "./ReviewPart";
 import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
 import {
@@ -249,6 +251,23 @@ function Question({
 }
 
 /** A review card: title, first reasoning line, file count, preview thumbnail, "Look at it". */
+/** The small look at a review's page. It runs in the same seal as the live preview, so it can neither open windows nor reach the app. */
+function Thumb({ url }: { url: string }) {
+	const inline = isInlinePage(url);
+	const page = useSealedPage(url, inline);
+	// @lore: a sealed frame whose srcdoc arrives after an empty first load stays blank in the packaged app (measured) — mount it with its page
+	if (inline && page === null) return null;
+	return (
+		<iframe
+			title="Review preview"
+			tabIndex={-1}
+			className="review-thumb-frame"
+			sandbox={APP_SANDBOX}
+			{...(inline ? { srcDoc: page ?? "" } : { src: url })}
+		/>
+	);
+}
+
 function Review({
 	message,
 	verdict,
@@ -304,12 +323,7 @@ function Review({
 			)}
 			{previewUrl && (
 				<div className="review-thumb" aria-hidden="true">
-					<iframe
-						src={previewUrl}
-						title="Review preview"
-						tabIndex={-1}
-						className="review-thumb-frame"
-					/>
+					<Thumb url={previewUrl} />
 				</div>
 			)}
 			<div className="review-foot">

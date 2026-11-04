@@ -100,6 +100,7 @@ const gateVerdictInputSchema = z.object({
 	// because zod strips what it does not name, and a silently dropped agent
 	// config surfaces much later as "agent is not runnable".
 	agentConfig: z.unknown().optional(),
+	taskId: z.string().min(1).optional(),
 }) satisfies z.ZodType<AgentOrchestrationReviewVerdictInput>;
 
 export function createAgentOrchestrationIntakeRoutes(
@@ -162,6 +163,7 @@ export function createAgentOrchestrationIntakeRoutes(
 				...(body.answer !== undefined ? { answer: body.answer } : {}),
 				decidedBy: body.decidedBy,
 				threadId: body.threadId,
+				...(body.taskId !== undefined ? { taskId: body.taskId } : {}),
 				...(body.agentConfig ? { agentConfig: body.agentConfig as BakedAgentRunnableConfig } : {}),
 			},
 			(input) => enqueueWorkIntent(db, input),

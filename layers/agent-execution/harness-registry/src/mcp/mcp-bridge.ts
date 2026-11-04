@@ -5,7 +5,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import type { AnySchema as McpAnySchema } from "@modelcontextprotocol/sdk/server/zod-compat.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
-// @lore: asMcpInputSchema — MCP SDK uses zod 3.x while server uses zod 4.x; brands nominally distinct; cast is behaviour-neutral (same validation)
+// @lore: asMcpInputSchema — brand-only cast between the SDK AnySchema type and our zod schemas; same validation, no wire change
 function asMcpInputSchema(schema: unknown): McpAnySchema {
 	return schema as McpAnySchema;
 }

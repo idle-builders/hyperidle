@@ -10,9 +10,32 @@ import * as http from "node:http";
 export const SIGN_IN_REDIRECT = "http://127.0.0.1:52817/callback";
 const WAIT_MS = 5 * 60 * 1000;
 
+/** The person (or a newer attempt) ended the wait; not a failure worth showing. */
+export class SignInCancelled extends Error {
+	constructor() {
+		super("The sign-in was cancelled.");
+	}
+}
+
+// @lore: one sign-in at a time — the redirect port is fixed, so an abandoned attempt would hold it and break every retry
+let endWaiting: (() => void) | null = null;
+
+/** Ends the sign-in that is waiting, if any, and frees the port. */
+export function cancelSignIn(): void {
+	endWaiting?.();
+}
+
+const listenProblem = (error: Error): Error =>
+	(error as NodeJS.ErrnoException).code === "EADDRINUSE"
+		? new Error(
+				"Another program is using the port HyperIdle needs to sign you in. Close it and try again.",
+			)
+		: new Error("HyperIdle could not start listening for the sign-in. Try again.");
+
 const base64Url = (buf: Buffer): string => buf.toString("base64url");
 
 function waitForCode(state: string): Promise<string> {
+	cancelSignIn();
 	return new Promise((resolve, reject) => {
 		const server = http.createServer((req, res) => {
 			const url = new URL(req.url ?? "/", SIGN_IN_REDIRECT);
@@ -26,11 +49,14 @@ function waitForCode(state: string): Promise<string> {
 		const timer = setTimeout(() => finish(new Error("The sign-in took too long.")), WAIT_MS);
 		const finish = (error: Error | null, code = ""): void => {
 			clearTimeout(timer);
+			if (endWaiting === cancel) endWaiting = null;
 			server.close();
 			if (error) reject(error);
 			else resolve(code);
 		};
-		server.on("error", (error) => finish(error));
+		const cancel = (): void => finish(new SignInCancelled());
+		endWaiting = cancel;
+		server.on("error", (error) => finish(listenProblem(error)));
 		server.listen(52817, "127.0.0.1");
 	});
 }

@@ -5,6 +5,9 @@
  * page and nothing else, so no caller can loosen them.
  */
 
+/** A page carried in the review itself (`data:`), which must run sealed. The scheme is case-blind, as the server's check is. */
+export const isInlinePage = (url: string): boolean => /^data:/i.test(url);
+
 // @lore: two layers — a page's own navigation ignores its CSP; nested in our shell it hits the shell's frame-src 'none' (measured: one layer leaked)
 
 // @lore: allow-scripts WITHOUT allow-same-origin — together they hand the app window.parent, the API key and its own sandbox (measured)

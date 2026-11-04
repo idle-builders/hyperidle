@@ -16,11 +16,9 @@ export {
 	findLiveHuddlesForPerson,
 	findThread,
 	listMessages,
-	listReviewsOpenedBy,
 	listThreads,
 	searchAppMessages,
 	searchConversations,
-	upsertReviewOpened,
 } from "./thread-service.js";
 export { registerThreadSessionLiveUpdates } from "./thread-session-live-updates.js";
 export type { BakedThreadTurnRequest, ThreadTurnResolverDeps } from "./thread-turn-resolver.js";
