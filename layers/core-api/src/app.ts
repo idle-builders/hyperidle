@@ -2,6 +2,7 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { assembleSessionDocuments } from "@hyperidle/document";
+import { SYSTEM_ACTOR_ID } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool } from "@hyperidle/harness-protocol";
 import { checkAndUnblockDependents, registerTaskLiveUpdates } from "@hyperidle/task";
@@ -452,7 +453,7 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		const unsubDepWatcher = eventBus.on("task.changed", (event) => {
 			if (event.change.after.state === "done") {
 				void checkAndUnblockDependents(
-					{ actor: "system:propagation", db, eventBus, now: new Date().toISOString() },
+					{ actor: SYSTEM_ACTOR_ID, db, eventBus, now: new Date().toISOString() },
 					event.change.objectId,
 					editTask,
 				).catch((err) => {

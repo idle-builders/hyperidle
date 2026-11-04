@@ -14,11 +14,12 @@
 
 import { type HyperIdleDb, messages, threads, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import type {
-	DocumentRow,
-	ReviewVerdictOutcome,
-	SendMessageInput,
-	ThreadView,
+import {
+	type DocumentRow,
+	type ReviewVerdictOutcome,
+	type SendMessageInput,
+	SYSTEM_ACTOR_ID,
+	type ThreadView,
 } from "@hyperidle/domain-model";
 import type { ObjectChangeEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
@@ -181,6 +182,76 @@ describe("send_message — thread resolution and idempotency", () => {
 		const [storedMessage] = await db.select().from(messages).where(eq(messages.id, messageId));
 		const after = JSON.parse(messageRow?.after as string) as { clientKey: string };
 		expect(after.clientKey).toBe(storedMessage?.clientKey);
+	});
+});
+
+describe("the system actor in a direct thread it is not a member of", () => {
+	async function seedDm(db: HyperIdleDb) {
+		await seedTeam(db, "sys-team");
+		await seedHuman(db, "sys-alice", "sys-team");
+		await seedAgent(db, "sys-bot", "sys-team");
+		await db
+			.insert(users)
+			.values({
+				id: SYSTEM_ACTOR_ID,
+				kind: "ai",
+				name: "HyperIdle",
+				role: "system",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			})
+			.onConflictDoNothing();
+		// the agent started it, so it is listed first
+		await seedThreadRow(db, "sys-dm", {
+			hostKind: "user",
+			hostId: "sys-alice",
+			initiatorId: "sys-bot",
+			members: ["sys-bot", "sys-alice"],
+		});
+		return createThreadActions(threadDeps());
+	}
+
+	test("can post, without joining and without waking the agent", async ({ db }) => {
+		const actions = await seedDm(db);
+		const woke: string[] = [];
+		const eventBus = new EventBus();
+		eventBus.on("thread.message", (e) => woke.push(...(e.woke ?? [])));
+		const res = await call(
+			actions,
+			db,
+			eventBus,
+			"send_message",
+			{
+				threadId: "sys-dm",
+				clientKey: "sys-notice-1",
+				text: "hello from HyperIdle",
+			},
+			SYSTEM_ACTOR_ID,
+		);
+		expect(res.body.ok).toBe(true);
+		expect(await readThreadMembers(db, "sys-dm")).toEqual(["sys-bot", "sys-alice"]);
+		expect(woke).toEqual([]);
+	});
+
+	test("cannot adjust, delete or join it", async ({ db }) => {
+		const actions = await seedDm(db);
+		const eventBus = new EventBus();
+		for (const patch of [
+			{ pinned: true },
+			{ deleted: true },
+			{ members: ["sys-bot", "sys-alice", SYSTEM_ACTOR_ID] },
+		]) {
+			const res = await call(
+				actions,
+				db,
+				eventBus,
+				"adjust_thread",
+				{ id: "sys-dm", ...patch },
+				SYSTEM_ACTOR_ID,
+			);
+			expect(res.body.ok).toBe(false);
+		}
+		expect(await readThreadMembers(db, "sys-dm")).toEqual(["sys-bot", "sys-alice"]);
 	});
 });
 

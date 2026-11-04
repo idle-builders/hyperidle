@@ -36,7 +36,7 @@ function parseThreadTurnSourceId(
 /**
  * What a person reads when an agent could not start: plain words and, where
  * there is one, the next step. No internal nouns (no engine jargon).
- * @lore: notice goes out under the agent id (a DM refuses non-members), so the words speak as HyperIdle; no-program text matches NoEligibleHarnessError's hint
+ * @lore: the notice is posted by HyperIdle (the system actor), never as the agent; no-program text matches NoEligibleHarnessError's hint
  */
 const THREAD_TURN_FAILURE_REASON: Record<AgentRunAdmissionFailureCode, string> = {
 	INVALID_WORK_SOURCE: "The message it was answering is gone.",
@@ -50,18 +50,10 @@ const THREAD_TURN_FAILURE_REASON: Record<AgentRunAdmissionFailureCode, string> =
 /**
  * The never-silent net's sibling case (`session-not-returned-notice.ts`
  * covers "ended without answering"; this covers "could not even start"):
- * post ONE plain notice into the thread the turn came from, sent under the id of the
- * agent that could not be started — but ONLY when the thread has at least
- * one HUMAN member. The notice exists to tell a person; with no person in
- * the thread there is nobody to tell, and skipping it also closes a
- * ping-pong: `agentsToWake` (`@hyperidle/domain-model`'s `actions/thread.ts`)
- * excludes the sender but, in a 2-member thread, wakes the OTHER member when
- * that member is an agent. In an agent↔agent direct thread with no agent program
- * available, A's failed turn would post a notice as A, which wakes B; B's
- * turn then fails too, posts as B (a new intent id, so a new `clientKey`),
- * which wakes A — unbounded, with no agent ever actually running in
- * between. Requiring a human member breaks that loop at its source: an
- * all-agent thread never posts here at all.
+ * post ONE plain notice into the thread the turn came from, posted by HyperIdle
+ * itself (the system actor, which may post in any thread and wakes nobody) — but
+ * ONLY when the thread has at least one HUMAN member. The notice exists to tell a
+ * person; with no person in the thread there is nobody to tell.
  */
 async function notifyThreadTurnAdmissionFailure(
 	db: HyperIdleDb,

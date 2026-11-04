@@ -85,6 +85,30 @@ function actionsFor(deps: UserActionsDeps) {
 	};
 }
 
+describe("edit_user — the system actor", () => {
+	test("is refused, so nobody can make HyperIdle's own voice a runnable or subscribed agent", async ({
+		db,
+	}) => {
+		await seedFounder(db);
+		await db.insert(users).values({
+			id: "system:propagation",
+			kind: "ai",
+			name: "HyperIdle",
+			role: "system",
+			status: "active",
+			createdAt: NOW,
+		});
+		const { editUser } = actionsFor(buildDeps());
+		const result = await editUser(ctxFor(db, "u-founder"), {
+			id: "system:propagation",
+			runConfig: { harnessType: "claude-code" },
+		});
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.problems[0]?.code).toBe("system_actor");
+	});
+});
+
 describe("edit_user — create a person with a team by name", () => {
 	test("names a team that does not exist yet — it is created", async ({ db }) => {
 		await seedFounder(db);

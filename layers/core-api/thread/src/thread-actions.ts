@@ -19,6 +19,7 @@ import {
 	agentsToWake,
 	appTitle,
 	bakeAgentRunnableConfig,
+	canPostToThread,
 	canReadThread,
 	canWriteThread,
 	computeThreadNeed,
@@ -941,7 +942,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			}
 			currentMembers = parseParticipants(threadRow.participants);
 			if (
-				!canWriteThread(ctx.actor, {
+				!canPostToThread(ctx.actor, {
 					hostKind: threadRow.hostKind as HostKind,
 					members: currentMembers,
 				})

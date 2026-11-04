@@ -140,6 +140,7 @@ export {
 	adjustThread,
 	adjustThreadInvariants,
 	agentsToWake,
+	canPostToThread,
 	canReadThread,
 	canWriteThread,
 	entityRefSchema,

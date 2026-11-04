@@ -17,6 +17,7 @@ import {
 	ReasonSchema,
 	type SearchDocumentsInput,
 	type SearchTasksInput,
+	SYSTEM_ACTOR_ID,
 	searchTasks as searchTasksDeclaration,
 	type TaskListItem,
 	type TaskNeed,
@@ -1059,7 +1060,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		}
 		for (const killed of killedTasks) {
 			await handleDependencyKilled(
-				{ actor: "system:propagation", db: ctx.db, eventBus: ctx.eventBus, now: ctx.now },
+				{ actor: SYSTEM_ACTOR_ID, db: ctx.db, eventBus: ctx.eventBus, now: ctx.now },
 				killed.id,
 				editTaskRun,
 			);

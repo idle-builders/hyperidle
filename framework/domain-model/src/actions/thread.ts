@@ -658,18 +658,20 @@ export function canReadThread(
 	return thread.members.includes(actor); // `user`/`agent` hosts — every DM: members only
 }
 
+export const canWriteThread = canReadThread;
+
 /**
- * HyperIdle's own voice: the one actor that may post in any thread without being a
- * member (a notice to the people there), and is shown by `SYSTEM_ACTOR_NAME`.
+ * HyperIdle's own voice: the one actor that may post a notice in any thread without being a
+ * member, shown as `SYSTEM_ACTOR_NAME`. Posting only — it cannot read, adjust or join.
  */
 export const SYSTEM_ACTOR_ID = "system:propagation";
 export const SYSTEM_ACTOR_NAME = "HyperIdle";
 
-export function canWriteThread(
+export function canPostToThread(
 	actor: string,
 	thread: { readonly hostKind: HostKind; readonly members: readonly string[] },
 ): boolean {
-	return actor === SYSTEM_ACTOR_ID || canReadThread(actor, thread);
+	return actor === SYSTEM_ACTOR_ID || canWriteThread(actor, thread);
 }
 
 export function agentsToWake(input: {

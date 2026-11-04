@@ -6,7 +6,7 @@ import type {
 	PersonReason,
 	Problem,
 } from "@hyperidle/domain-model";
-import { OBJECT_EVENTS } from "@hyperidle/domain-model";
+import { OBJECT_EVENTS, SYSTEM_ACTOR_ID } from "@hyperidle/domain-model";
 import type { EventBus, ObjectChangeEvent } from "@hyperidle/event-bus";
 import type { ActionContext, SearchDocumentsRunFn } from "./action-types.js";
 import { AgentNotRunnableError } from "./runnable-agent.js";
@@ -282,6 +282,13 @@ async function fireForEvent(
 		const reached = await reaches(db, eventBus, subscriber, change, deps);
 		if (!reached) continue;
 		if (subscriber.kind === "ai") {
+			// @lore: a notice HyperIdle posts is for the people in the thread; it must not wake the agent it is about
+			if (
+				change.actor === SYSTEM_ACTOR_ID &&
+				change.object === "thread" &&
+				change.kind === "message"
+			)
+				continue;
 			await wakeAgent(db, eventBus, sub, subscriber, change, deps);
 		} else if (sub.objectId === null || (await hearsFollows(db, subscriber.id))) {
 			await notifyPerson(db, subscriber, change, deps.wsPush);

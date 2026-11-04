@@ -25,7 +25,7 @@ import {
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { createDocumentActions, type DocumentActionsDeps } from "@hyperidle/document";
-import { canReadThread, type HostKind } from "@hyperidle/domain-model";
+import { canReadThread, type HostKind, SYSTEM_ACTOR_ID } from "@hyperidle/domain-model";
 import { EventBus, objectEvent } from "@hyperidle/event-bus";
 import { eq, inArray } from "drizzle-orm";
 import type { Action } from "../action-types.js";
@@ -97,10 +97,11 @@ async function insertChangeRow(
 	objectId: string,
 	actor: string,
 	at: string = LATER,
+	kind = "changed",
 ): Promise<Change> {
 	const [row] = await db
 		.insert(changes)
-		.values({ id, object, objectId, kind: "changed", actor, before: null, after: "{}", at })
+		.values({ id, object, objectId, kind, actor, before: null, after: "{}", at })
 		.returning();
 	if (!row) throw new Error("insertChangeRow: insert returned no row");
 	return row;
@@ -302,6 +303,48 @@ describe("registerSubscriptionFire — task reach (team rule)", () => {
 		const unsub = fire(db, eventBus, deps);
 		try {
 			const change = await insertChangeRow(db, "c3", "task", "task-3", "agent-a");
+			eventBus.emit(objectEvent(change));
+			await new Promise((r) => setTimeout(r, 50));
+		} finally {
+			unsub();
+		}
+		expect(woken).toHaveLength(0);
+	});
+
+	test("a message HyperIdle itself posts wakes no agent subscription", async ({ db }) => {
+		const eventBus = new EventBus();
+		await seedTeam(db, "team-a");
+		await seedUser(db, "agent-a", { kind: "ai", teamId: "team-a", status: "active" });
+		await seedUser(db, SYSTEM_ACTOR_ID, { kind: "ai", status: "active", role: "system" });
+		await seedTaskWithThread(db, "task-sys", "team-a", null);
+		await insertSubscription(db, {
+			id: "sub-sys",
+			userId: "agent-a",
+			event: "thread.message",
+			schedule: null,
+			paused: false,
+			nextRunAt: null,
+			createdAt: TS,
+			updatedAt: TS,
+		});
+		const woken: string[] = [];
+		const deps = buildDeps(db, {
+			agentWorkIntentRecorder: async (input) => {
+				if (input.kind === "subscription_run") woken.push(input.sourceId);
+				return { id: "intent-sys", idempotencyKey: input.idempotencyKey };
+			},
+		});
+		const unsub = fire(db, eventBus, deps);
+		try {
+			const change = await insertChangeRow(
+				db,
+				"c-sys",
+				"thread",
+				"task-sys-thread",
+				SYSTEM_ACTOR_ID,
+				LATER,
+				"message",
+			);
 			eventBus.emit(objectEvent(change));
 			await new Promise((r) => setTimeout(r, 50));
 		} finally {
