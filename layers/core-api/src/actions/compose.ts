@@ -185,17 +185,19 @@ function lazyMoveTaskToReview(
 type SettleTaskAfterVerdict = (
 	taskId: string,
 	decision: "approve" | "reject",
+	agentResumes: boolean,
 	ctx: ActionContext,
 ) => Promise<void>;
 
 /**
  * A person's verdict on a task in review settles the task on its own, so nothing waits on an agent to move it.
- * Approve ticks the open review lines and closes the task once nothing else is open; reject sends it back to work.
+ * Approve ticks the open review lines. A resumed agent carries the task on (it closes through its session ending);
+ * with no agent coming back the task closes here once nothing else is open. Reject sends it back to work.
  */
 function lazySettleTaskAfterVerdict(
 	getTaskActions: () => readonly Action[],
 ): SettleTaskAfterVerdict {
-	return async (taskId, decision, ctx) => {
+	return async (taskId, decision, agentResumes, ctx) => {
 		const taskActions = getTaskActions();
 		const openTask = runnerFor<{ readonly id: string }, TaskView>(taskActions, "open_task");
 		const editTask = runnerFor<EditTaskInput, TaskView>(taskActions, "edit_task");
@@ -214,7 +216,7 @@ function lazySettleTaskAfterVerdict(
 			{
 				id: taskId,
 				doneWhen,
-				state: doneWhen.every((l) => l.state === "met") ? "done" : "in_progress",
+				state: !agentResumes && doneWhen.every((l) => l.state === "met") ? "done" : "in_progress",
 			},
 		);
 	};

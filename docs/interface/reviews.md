@@ -116,4 +116,4 @@ links back to round 1, shows its rejection reason and how many questions are sti
 session. There is no send-back: to ask for a change, comment. Either verdict resolves the review,
 which changes the thread's and the task's need at once. A review stays in the reviewer's waiting list
 and count until they decide it; opening it does not clear it. Approve ticks the task's person-review
-line and closes the task once nothing else is open; Reject puts it back with the agent.
+line; the task goes back to the agent, and closes at once only when no agent comes back; Reject puts it back with the agent.
