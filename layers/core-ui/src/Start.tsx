@@ -68,7 +68,7 @@ function Join({ onBack }: { onBack: () => void }) {
 			...(team?.trim() ? { team: team.trim() } : {}),
 		});
 		setJoining(false);
-		if (joined.ok) return;
+		if (joined.ok || joined.cancelled) return;
 		if (joined.needsTeam && team === null) setTeam("");
 		setProblem(joined.problem ?? "That did not work.");
 	};
@@ -110,6 +110,11 @@ function Join({ onBack }: { onBack: () => void }) {
 						onClick={() => void join()}
 					>
 						{joining ? "Signing in…" : "Sign in and join"}
+					</button>
+				)}
+				{joining && (
+					<button type="button" className="btn" onClick={() => void bridge?.cancelJoin?.()}>
+						Cancel
 					</button>
 				)}
 				<button type="button" className="first-other" onClick={onBack}>

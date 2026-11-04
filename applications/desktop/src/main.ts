@@ -27,7 +27,7 @@ import type { LogRotator } from "./log-rotation.js";
 import { createLogRotator } from "./log-rotation.js";
 import { resolveMigrationsFolder, runMigrations } from "./migrate.js";
 import { keepPersonKey, readPersonKey } from "./safe-credentials.js";
-import { type Provider, signIn } from "./sign-in.js";
+import { cancelSignIn, type Provider, SignInCancelled, signIn } from "./sign-in.js";
 import { registerSpeechHandlers } from "./speech.js";
 import { guardContents } from "./window-guard.js";
 
@@ -303,12 +303,13 @@ function registerCommonIpcHandlers(ctx: BootContext): void {
 	registerSpeechHandlers(SPEECH_HELPER);
 	// First start's "Join a team on a server": the person signs in in their browser, the server
 	// hands back their own key; that key is kept and the app reopens on the server as them.
+	ipcMain.handle("backend:cancel-join", () => cancelSignIn());
 	ipcMain.handle(
 		"backend:join",
 		async (
 			_event: unknown,
 			form: { address: string; team?: string },
-		): Promise<{ ok: boolean; problem?: string; needsTeam?: boolean }> => {
+		): Promise<{ ok: boolean; problem?: string; needsTeam?: boolean; cancelled?: boolean }> => {
 			const trimmed = form.address.trim().replace(/\/$/, "");
 			const serverUrl = /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
 			if (!URL.canParse(serverUrl)) return { ok: false, problem: "That is not a server address." };
@@ -323,6 +324,7 @@ function registerCommonIpcHandlers(ctx: BootContext): void {
 				const idToken = await signIn(provider, (url) => shell.openExternal(url)).catch(
 					(error: unknown) => (error instanceof Error ? error : new Error(String(error))),
 				);
+				if (idToken instanceof SignInCancelled) return { ok: false, cancelled: true };
 				if (idToken instanceof Error) return { ok: false, problem: idToken.message };
 				signedIn = { serverUrl, idToken };
 			}
