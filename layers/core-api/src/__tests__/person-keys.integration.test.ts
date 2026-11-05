@@ -6,7 +6,7 @@
  */
 import * as http from "node:http";
 import type { AddressInfo } from "node:net";
-import { users } from "@hyperidle/db";
+import { changes, users } from "@hyperidle/db";
 import type { Hono } from "hono";
 import { exportJWK, generateKeyPair, type JWTPayload, SignJWT } from "jose";
 import { afterAll, beforeAll, describe, expect } from "vitest";
@@ -182,6 +182,32 @@ describe("joining a shared backend", () => {
 		expect([unproven.status, otherApp.status, forged.status, teamKeyOnly.status]).toEqual([
 			401, 401, 401, 401,
 		]);
+	});
+
+	test("the team key alone is nobody: it can ask who it is, and any other action is refused, not crashed", async ({
+		db,
+		eventBus,
+	}) => {
+		const app = await createTestApp({
+			db,
+			eventBus,
+			authApiKey: TEAM_KEY,
+			signIn: { issuer, clientId: CLIENT_ID },
+		});
+		const alex = await act<Me>(app, await joined(app, "alex@example.com", "Alex"), "open_user", {});
+		const changesBefore = (await db.select().from(changes)).length;
+
+		const who = await act<Me>(app, TEAM_KEY, "open_user", {});
+		const send = await app.request("/api/actions/send_message", {
+			method: "POST",
+			headers: { "Content-Type": "application/json", "X-API-Key": TEAM_KEY },
+			body: JSON.stringify({ recipients: [alex.data.user?.id], text: "hello from nobody" }),
+		});
+
+		expect(who.data.user).toBeNull();
+		expect(send.status).toBe(403);
+		expect(await send.json()).toMatchObject({ ok: false, problems: [{ code: "no_person" }] });
+		expect((await db.select().from(changes)).length).toBe(changesBefore);
 	});
 
 	test("a server without a sign-in has no join, and a key nobody holds is refused", async ({

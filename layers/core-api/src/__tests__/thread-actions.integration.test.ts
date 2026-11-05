@@ -393,10 +393,12 @@ describe("send_message — membership, read/write/join", () => {
 	test("a non-member open_thread on a user-hosted DM returns not_found, byte-identical to a deleted thread and a nonexistent id", async ({
 		db,
 		app,
+		asPerson,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedTeam(db, "sm-team-6");
+		await asPerson(FOUNDER_ID);
 		await seedHuman(db, "sm-owner-6", "sm-team-6");
 		await seedHuman(db, "sm-outsider-6", "sm-team-6");
 		await seedThreadRow(db, "sm-dm-6", {
@@ -1118,8 +1120,10 @@ describe("send_message — the agent fallback via ctx.caller", () => {
 	test("a human HTTP caller naming neither is stopped by the pure no_target invariant", async ({
 		app,
 		db,
+		asPerson,
 	}) => {
 		await seedTeam(db, "cf-4");
+		await asPerson(FOUNDER_ID);
 		const res = await call(app, "send_message", { text: "nowhere to go" });
 		expect(res.status).toBe(422);
 		expect((res.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("no_target");
@@ -1230,10 +1234,12 @@ describe("send_message — review taskId stamping", () => {
 	test("a review sent with caller.taskId set stores that taskId, and open_thread returns it", async ({
 		db,
 		app,
+		asPerson,
 		agentOrchestration,
 		eventBus,
 	}) => {
 		await seedTeam(db, "tid-1");
+		await asPerson(FOUNDER_ID);
 		await seedAgent(db, "tid-agent-1", "tid-1");
 		const threadId = await seedTaskWithThread(db, "tid1-task", "tid-1", {
 			ownerAgentId: "tid-agent-1",
@@ -1624,7 +1630,13 @@ describe("edit_task — every task gets a thread", () => {
 // ============================================================================
 
 describe("invariant wiring", () => {
-	test("send_message: two_targets reaches the HTTP door as a 422 problem", async ({ app }) => {
+	test("send_message: two_targets reaches the HTTP door as a 422 problem", async ({
+		app,
+		db,
+		asPerson,
+	}) => {
+		await seedTeam(db, "inv-two-targets");
+		await asPerson(FOUNDER_ID);
 		const res = await call(app, "send_message", {
 			threadId: "x",
 			recipients: [FOUNDER_ID],
@@ -1636,7 +1648,10 @@ describe("invariant wiring", () => {
 	test("adjust_thread: adjust_empty reaches the HTTP door as a 422 problem", async ({
 		app,
 		db,
+		asPerson,
 	}) => {
+		await seedTeam(db, "inv-adjust-empty");
+		await asPerson(FOUNDER_ID);
 		await seedThreadRow(db, "pi-adjust-1", {
 			hostKind: "user",
 			hostId: FOUNDER_ID,
@@ -1694,7 +1709,11 @@ describe("the MCP door — actionsAsTools fills caller for every actor", () => {
 describe("HTTP door — 422 problem lists", () => {
 	test("a refused send returns a 422 with a problems array over POST /api/actions/send_message", async ({
 		app,
+		db,
+		asPerson,
 	}) => {
+		await seedTeam(db, "inv-422-send");
+		await asPerson(FOUNDER_ID);
 		const res = await call(app, "send_message", {});
 		expect(res.status).toBe(422);
 		expect(Array.isArray((res.body as ActionEnvelope<unknown>).problems)).toBe(true);

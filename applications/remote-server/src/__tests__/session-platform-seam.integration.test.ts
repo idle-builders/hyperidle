@@ -560,6 +560,7 @@ describe("session-platform seam — the five entries answer the same to a person
 			try {
 				await seedHuman(db, "seam-founder-refused");
 				await seedAgent(db, "seam-agent-refused", "seam-founder-refused");
+				await givePersonKey(db, "seam-founder-refused", handle.apiKey);
 
 				const httpRes = await callAction(handle, "edit_plugin", { id: "seam-plugin-refused" });
 				expect(httpRes.status).toBe(422);

@@ -2268,7 +2268,10 @@ describe("cross-door proof — onBodyChanged detaches a plugin contribution on a
 describe("HTTP door — 422 problem lists", () => {
 	test("a refused edit returns a 422 with a problems array over POST /api/actions/edit_document", async ({
 		app,
+		db,
+		asPerson,
 	}) => {
+		await seedTeam(db, "c422-refused", asPerson);
 		const res = await app.request("/api/actions/edit_document", {
 			method: "POST",
 			headers: authHeaders(),

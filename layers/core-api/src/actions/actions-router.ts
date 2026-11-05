@@ -1,7 +1,9 @@
 import type { HyperIdleDb } from "@hyperidle/db";
+import { openUser } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import { Hono } from "hono";
+import { NOBODY } from "../middleware/auth.js";
 import type { Action } from "./action.js";
 
 /**
@@ -24,9 +26,24 @@ export function createActionsRouter(
 			async (c) => {
 				// @lore: @hono/zod-validator typechecks against its own deduped zod; server schemas are a different instance; this cast is required
 				const input = c.req.valid("json" as never);
+				const actor = c.get("userId");
+				// Nobody may only ask who it is — the answer, no one yet, is what sends the app to first start.
+				if (actor === NOBODY && action.declaration.name !== openUser.name)
+					return c.json(
+						{
+							ok: false,
+							problems: [
+								{
+									code: "no_person",
+									message: "This key belongs to no one yet. Start HyperIdle or join a team first.",
+								},
+							],
+						},
+						403,
+					);
 				const result = await action.run(
 					{
-						actor: c.get("userId"),
+						actor,
 						db: deps.db,
 						eventBus: deps.eventBus,
 						now: new Date().toISOString(),

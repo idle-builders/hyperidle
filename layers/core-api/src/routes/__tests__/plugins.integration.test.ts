@@ -5,17 +5,33 @@
  *
  * Uses the real DB + app fixtures (no stubs).
  */
-import { plugins } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
+import { plugins, users } from "@hyperidle/db";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
-const API_KEY = "test-plugins";
-
 function authHeaders(): Record<string, string> {
-	return { "X-API-Key": API_KEY, "Content-Type": "application/json" };
+	return { "Content-Type": "application/json" };
+}
+
+/** Seed the founder so HTTP actions run as a person, not nobody. */
+async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db
+		.insert(users)
+		.values({
+			id: "u-founder",
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			createdAt: "2026-01-01T00:00:00Z",
+		})
+		.onConflictDoNothing();
 }
 
 describe("edit_plugin — not found", () => {
-	test("state on a non-existent id is unknown_plugin", async ({ app }) => {
+	test("state on a non-existent id is unknown_plugin", async ({ app, db, asPerson }) => {
+		await seedFounder(db);
+		await asPerson("u-founder");
 		const res = await app.request("/api/actions/edit_plugin", {
 			method: "POST",
 			headers: authHeaders(),
@@ -26,7 +42,9 @@ describe("edit_plugin — not found", () => {
 		expect(body.problems?.[0]?.code).toBe("unknown_plugin");
 	});
 
-	test("disable on a non-existent id is unknown_plugin", async ({ app }) => {
+	test("disable on a non-existent id is unknown_plugin", async ({ app, db, asPerson }) => {
+		await seedFounder(db);
+		await asPerson("u-founder");
 		const res = await app.request("/api/actions/edit_plugin", {
 			method: "POST",
 			headers: authHeaders(),
@@ -37,7 +55,9 @@ describe("edit_plugin — not found", () => {
 		expect(body.problems?.[0]?.code).toBe("unknown_plugin");
 	});
 
-	test("remove on a non-existent id is unknown_plugin", async ({ app }) => {
+	test("remove on a non-existent id is unknown_plugin", async ({ app, db, asPerson }) => {
+		await seedFounder(db);
+		await asPerson("u-founder");
 		const res = await app.request("/api/actions/edit_plugin", {
 			method: "POST",
 			headers: authHeaders(),
@@ -48,7 +68,9 @@ describe("edit_plugin — not found", () => {
 		expect(body.problems?.[0]?.code).toBe("unknown_plugin");
 	});
 
-	test("restore on a non-existent id is unknown_plugin", async ({ app }) => {
+	test("restore on a non-existent id is unknown_plugin", async ({ app, db, asPerson }) => {
+		await seedFounder(db);
+		await asPerson("u-founder");
 		const res = await app.request("/api/actions/edit_plugin", {
 			method: "POST",
 			headers: authHeaders(),
@@ -59,7 +81,13 @@ describe("edit_plugin — not found", () => {
 		expect(body.problems?.[0]?.code).toBe("unknown_plugin");
 	});
 
-	test("remove on a removed (state=removed) plugin is plugin_removed", async ({ db, app }) => {
+	test("remove on a removed (state=removed) plugin is plugin_removed", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
+		await seedFounder(db);
+		await asPerson("u-founder");
 		const now = "2026-01-01T00:00:00Z";
 		await db.insert(plugins).values({
 			id: "removed-plugin",
@@ -84,7 +112,13 @@ describe("edit_plugin — not found", () => {
 		expect(body.problems?.[0]?.code).toBe("plugin_removed");
 	});
 
-	test("search_plugins returns an empty list when no plugins are installed", async ({ app }) => {
+	test("search_plugins returns an empty list when no plugins are installed", async ({
+		app,
+		db,
+		asPerson,
+	}) => {
+		await seedFounder(db);
+		await asPerson("u-founder");
 		const res = await app.request("/api/actions/search_plugins", {
 			method: "POST",
 			headers: authHeaders(),

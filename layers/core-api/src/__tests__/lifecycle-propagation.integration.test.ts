@@ -591,10 +591,22 @@ describe("registerLifecyclePropagation — ship-confirmation review", () => {
 	test("posts the ship-confirmation review through send_message: a changes row on the root's thread, and open_thread returns it", async ({
 		db,
 		app,
+		asPerson,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedBase(db);
+		// seedBase inserts agent-1 (AI) but not a human. We need a person to call open_thread via HTTP.
+		const now = new Date().toISOString();
+		await db.insert(users).values({
+			id: "lp-reader",
+			kind: "human",
+			name: "Reader",
+			role: "member",
+			status: "active",
+			createdAt: now,
+		});
+		await asPerson("lp-reader");
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
 		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));

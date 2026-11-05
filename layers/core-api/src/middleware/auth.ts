@@ -17,7 +17,7 @@ export interface AuthMiddlewareOptions {
 }
 
 /** The caller with only the team key: no person yet. */
-const NOBODY = "";
+export const NOBODY = "";
 
 const authLogger = createLogger({ pkg: "server.auth" });
 

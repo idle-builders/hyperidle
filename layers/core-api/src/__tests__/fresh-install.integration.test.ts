@@ -196,11 +196,19 @@ describe("a fresh install, end to end", () => {
 		const { search, edit, pluginsBaseDir } = pluginActions(agentOrchestration, db, eventBus);
 
 		// A person, and their own assistant.
-		const ada = await call<UserView>(app, "edit_user", {
-			kind: "human",
-			name: "Ada",
-			teams: ["Ada's Team"],
-		});
+		// First start makes the person in-process as nobody (`routes/start.ts`); the HTTP door refuses nobody.
+		const bootstrapEditUser = buildCoreActions({
+			agentOrchestration,
+			agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+			reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+		}).find((a) => a.declaration.name === "edit_user");
+		if (!bootstrapEditUser) throw new Error("edit_user not found");
+		const adaResult = await bootstrapEditUser.run(
+			{ actor: "", db, eventBus, now: new Date().toISOString() },
+			{ kind: "human", name: "Ada", teams: ["Ada's Team"] },
+		);
+		if (!adaResult.ok) throw new Error(`edit_user failed: ${JSON.stringify(adaResult)}`);
+		const ada = adaResult.data as UserView;
 		const adaId = ada.user?.id ?? "";
 		const teamA = ada.user?.teams[0]?.id ?? "";
 		expect(adaId).not.toBe("");
