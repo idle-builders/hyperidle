@@ -52,27 +52,23 @@ function resolveEventBus(deps: RuntimeDeps): EventBus {
 	return deps.eventBus ?? new EventBus();
 }
 
-/** 6h cadence for the terminal-intent/task-attempt reaper. */
-const AGENT_LAYER_REAP_INTERVAL_MS = 6 * 60 * 60 * 1000;
-
 function assertStartable(deps: RuntimeDeps): asserts deps is RuntimeDeps & {
 	ports: RuntimePorts;
-	durableQueue: NonNullable<RuntimeDeps["durableQueue"]>;
 	composition: RuntimeDeps["composition"] & {
 		provisioner: NonNullable<RuntimeDeps["composition"]["provisioner"]>;
 		writeback: NonNullable<RuntimeDeps["composition"]["writeback"]>;
 	};
 } {
 	if (
-		!(deps.ports && deps.durableQueue && deps.composition.provisioner && deps.composition.writeback)
+		!(deps.ports && deps.composition.provisioner && deps.composition.writeback)
 	) {
 		throw new Error(
-			"startRuntime requires ports, durable queue, provisioner, and writeback composition",
+			"startRuntime requires ports, provisioner, and writeback composition",
 		);
 	}
 }
 
-/** Request custody is separate from intent handoff: only this drain executes rows. */
+/** Only this drain executes request rows. */
 async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 	assertStartable(deps);
 	if (!deps.runtime) return 0;
@@ -173,7 +169,6 @@ async function bootAgentLayer(deps: RuntimeDeps): Promise<AgentLayerHandle> {
 	const eventBus = resolveEventBus(deps);
 	await recoverRunningRequests(deps.db, eventBus, deps.ports);
 	await deps.ports.sessionLifecycle.recoverRequestedTerminations(deps.db, eventBus);
-	await deps.ports.sessionRequests.reapExpired(deps.db);
 	// @lore: dispose — service lane reuses fixture DB after dispose(); stop triggers synchronously first, then join the async wake path before DB is truncated
 	let stopping = false;
 	let active: Promise<void> | null = null;
@@ -183,7 +178,6 @@ async function bootAgentLayer(deps: RuntimeDeps): Promise<AgentLayerHandle> {
 		if (stopping) return Promise.resolve();
 		if (active) return active;
 		const observed = (async () => {
-			await deps.ports.sessionRequests.drainIntents(deps.durableQueue);
 			if (runtime) await drainAgentSessionRequests(deps);
 		})();
 		active = observed;
@@ -199,23 +193,13 @@ async function bootAgentLayer(deps: RuntimeDeps): Promise<AgentLayerHandle> {
 		return observed;
 	};
 	await wake();
-	// The 1-second polling interval is the sole drain trigger and covers
-	// process-death recovery. Work intents enqueued via threads, bets, and
-	// session-start reactions (buildSeamBackedWorkIntentRecorder →
-	// intents.submit HTTP seam → enqueueWorkIntent) rely on this poll
-	// (≤1s latency) — the intake route has no EventBus access.
+	// The 1-second poll is the drain trigger and covers process-death recovery.
 	const timer = setInterval(() => void wake(), 1_000);
-	const reapTimer = setInterval(
-		() => void deps.ports.sessionRequests.reapExpired(deps.db),
-		AGENT_LAYER_REAP_INTERVAL_MS,
-	);
-	reapTimer.unref();
 	timer.unref();
 	const stop = (): void => {
 		if (stopping) return;
 		stopping = true;
 		clearInterval(timer);
-		clearInterval(reapTimer);
 	};
 	const join = (): Promise<void> => {
 		stop();

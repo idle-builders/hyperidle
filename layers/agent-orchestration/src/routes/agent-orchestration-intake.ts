@@ -2,31 +2,18 @@ import type {
 	AgentOrchestrationConnectionCreateInput,
 	AgentOrchestrationFolderCreateInput,
 	AgentOrchestrationFolderListQuery,
-	AgentOrchestrationReviewVerdictInput,
 	AgentOrchestrationRunConfigPatch,
-	AgentOrchestrationWorkIntentInput,
 } from "@hyperidle/api-contract";
 import type { InheritedReach } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { BakedAgentRunnableConfig } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
-import type { EventBus } from "@hyperidle/event-bus";
 import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
 import {
 	type DEFAULT_AGENT_RUN_CONFIG,
-	endRunForHandoff,
 	readAgentRunConfig,
 	readAgentRunConfigs,
-	recordReviewSession,
-	recordReviewVerdict,
-	requestRunStopForTasks,
 	writeAgentRunConfig,
 } from "@hyperidle/run-orchestration";
-import {
-	enqueueWorkIntent,
-	sessionRunRegistry,
-	type WorkIntentInput,
-} from "@hyperidle/session-requests";
 import { Hono } from "hono";
 import { z } from "zod";
 import { isPrivateHostLiteral } from "../ssrf.js";
@@ -38,74 +25,8 @@ import {
 } from "./connections.js";
 import { listFolders, registerFolder, removeFolder, takeFolder } from "./filesystems.js";
 
-const WORK_INTENT_KINDS = [
-	"thread_turn",
-	"task_run",
-	"session_resume",
-	"subscription_run",
-] as const;
-
-/** Audited cast: sourceKind and bakedRequest are wire-loose (string/unknown) at the port boundary; forwarded as-is, not narrowed. */
-function toWorkIntentInput(body: AgentOrchestrationWorkIntentInput): WorkIntentInput {
-	// session_resume carries a resume, not a start request; split keeps the cast audited per field on both branches
-	if (body.kind === "session_resume") {
-		return {
-			kind: "session_resume",
-			sourceKind: "review_verdict",
-			sourceId: body.sourceId,
-			requestedBy: body.requestedBy,
-			idempotencyKey: body.idempotencyKey,
-			resume: body.resume as Extract<WorkIntentInput, { kind: "session_resume" }>["resume"],
-		};
-	}
-	return {
-		kind: body.kind,
-		sourceKind: body.sourceKind as Exclude<
-			WorkIntentInput,
-			{ kind: "session_resume" }
-		>["sourceKind"],
-		sourceId: body.sourceId,
-		requestedBy: body.requestedBy,
-		idempotencyKey: body.idempotencyKey,
-		bakedRequest: body.bakedRequest as Exclude<
-			WorkIntentInput,
-			{ kind: "session_resume" }
-		>["bakedRequest"],
-	};
-}
-
-const workIntentInputSchema = z.object({
-	kind: z.enum(WORK_INTENT_KINDS),
-	sourceKind: z.string().min(1),
-	sourceId: z.string().min(1),
-	requestedBy: z.string().optional(),
-	idempotencyKey: z.string().min(1),
-	bakedRequest: z.unknown().optional(),
-	resume: z.unknown().optional(),
-}) satisfies z.ZodType<AgentOrchestrationWorkIntentInput>;
-
-const gateLinkInputSchema = z.object({
-	sessionId: z.string().min(1),
-	reviewMessageId: z.string().min(1),
-});
-
-const gateVerdictInputSchema = z.object({
-	reviewMessageId: z.string().min(1),
-	decision: z.enum(["approve", "decline", "answer"]),
-	note: z.string().optional(),
-	answer: z.union([z.object({ option: z.string() }), z.object({ text: z.string() })]).optional(),
-	decidedBy: z.string().min(1),
-	threadId: z.string().min(1),
-	// Carried opaque, like `bakedRequest` on the intent schema above. Declared
-	// because zod strips what it does not name, and a silently dropped agent
-	// config surfaces much later as "agent is not runnable".
-	agentConfig: z.unknown().optional(),
-	taskId: z.string().min(1).optional(),
-}) satisfies z.ZodType<AgentOrchestrationReviewVerdictInput>;
-
 export function createAgentOrchestrationIntakeRoutes(
 	db: HyperIdleDb,
-	eventBus: EventBus,
 	/**
 	 * The `folders`/`connections` families' own extras: the reach
 	 * cache `connections.list` unions in, and the cipher `connections.add`
@@ -128,100 +49,6 @@ export function createAgentOrchestrationIntakeRoutes(
 		(() => {
 			throw new Error("Encryption secret not configured");
 		});
-
-	// ── intents.submit — POST /agent-orchestration/intents ──────────────────
-	router.post("/intents", validateBody(workIntentInputSchema), async (c) => {
-		const body = c.req.valid("json");
-		const intent = await enqueueWorkIntent(db, toWorkIntentInput(body));
-		return c.json({ id: intent.id, idempotencyKey: intent.idempotencyKey });
-	});
-
-	// ── gate.linkReview — POST /agent-orchestration/review-links ────────────
-	//
-	router.post("/review-links", validateBody(gateLinkInputSchema), async (c) => {
-		const body = c.req.valid("json");
-		await recordReviewSession(
-			db,
-			{ reviewMessageId: body.reviewMessageId, sessionId: body.sessionId },
-			new Date().toISOString(),
-		);
-		return c.json({ ok: true });
-	});
-
-	// ── intents.recordReviewVerdict — POST /agent-orchestration/review-verdicts ──
-	//
-	router.post("/review-verdicts", validateBody(gateVerdictInputSchema), async (c) => {
-		const body = c.req.valid("json");
-		// One audited cast, same idiom as `toWorkIntentInput`'s: the wire carries the
-		// agent config opaque and nothing here inspects it, only forwards it.
-		const outcome = await recordReviewVerdict(
-			db,
-			{
-				reviewMessageId: body.reviewMessageId,
-				decision: body.decision,
-				...(body.note !== undefined ? { note: body.note } : {}),
-				...(body.answer !== undefined ? { answer: body.answer } : {}),
-				decidedBy: body.decidedBy,
-				threadId: body.threadId,
-				...(body.taskId !== undefined ? { taskId: body.taskId } : {}),
-				...(body.agentConfig ? { agentConfig: body.agentConfig as BakedAgentRunnableConfig } : {}),
-			},
-			(input) => enqueueWorkIntent(db, input),
-			(sessionId, text) => sessionRunRegistry.deliverToSession(sessionId, text),
-		);
-		return c.json(outcome);
-	});
-
-	// ── runs.stopForTasks — POST /agent-orchestration/runs/stop-for-tasks ────
-	//
-	router.post(
-		"/runs/stop-for-tasks",
-		validateBody(
-			z.object({
-				taskIds: z.array(z.string().min(1)),
-			}),
-		),
-		async (c) => {
-			const body = c.req.valid("json");
-			const stopped = await requestRunStopForTasks(db, eventBus, body.taskIds, (sessionId) =>
-				sessionRunRegistry.abort(sessionId, "stop"),
-			);
-			return c.json({ stopped });
-		},
-	);
-
-	// ── runs.endForHandoff — POST /agent-orchestration/runs/end-for-handoff ──
-	router.post(
-		"/runs/end-for-handoff",
-		validateBody(z.object({ sessionId: z.string().min(1), endedAt: z.string().min(1) })),
-		async (c) => {
-			const body = c.req.valid("json");
-			await endRunForHandoff(db, body.sessionId, body.endedAt);
-			return c.json({ ok: true });
-		},
-	);
-
-	// ── runs.deliverToConversation — POST /agent-orchestration/runs/deliver-to-conversation ──
-	router.post(
-		"/runs/deliver-to-conversation",
-		validateBody(
-			z.object({
-				agentId: z.string().min(1),
-				threadId: z.string().min(1),
-				text: z.string().min(1),
-			}),
-		),
-		async (c) => {
-			const body = c.req.valid("json");
-			const deliveryResult = await sessionRunRegistry.deliverToConversation(
-				body.agentId,
-				body.threadId,
-				body.text,
-			);
-			const result = deliveryResult === "delivered" ? "delivered" : "not_delivered";
-			return c.json({ result });
-		},
-	);
 
 	// ── runConfig.read — GET /agent-orchestration/run-config/:agentId ────────
 	router.get("/run-config/:agentId", async (c) => {

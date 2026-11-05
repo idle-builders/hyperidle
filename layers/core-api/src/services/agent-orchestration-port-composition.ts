@@ -9,21 +9,10 @@ import type {
 	AgentOrchestrationPersistInjectionResult,
 	AgentOrchestrationPort,
 	AgentOrchestrationRemoveResult,
-	AgentOrchestrationReviewVerdictInput,
-	AgentOrchestrationReviewVerdictOutcome,
 	AgentOrchestrationRunConfigPatch,
 	AgentOrchestrationRunConfigView,
-	AgentOrchestrationSessionWireRow,
-	AgentOrchestrationStoppedRun,
 	AgentOrchestrationTransport,
-	AgentOrchestrationWorkIntentInput,
-	AgentOrchestrationWorkIntentReceipt,
 } from "@hyperidle/api-contract";
-import type {
-	AgentWorkIntentRecorderFn,
-	AgentWorkIntentRecorderInput,
-	ReviewVerdictRecorderFn,
-} from "@hyperidle/domain-model";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 import type { AppType } from "../schemas/index.js";
@@ -35,46 +24,6 @@ import type { AppType } from "../schemas/index.js";
  */
 interface AgentOrchestrationHcClient {
 	readonly "agent-orchestration": {
-		readonly sessions: {
-			readonly ":sessionId": {
-				$get(args: { readonly param: { readonly sessionId: string } }): Promise<Response>;
-			};
-		};
-		readonly intents: {
-			$post(args: { readonly json: AgentOrchestrationWorkIntentInput }): Promise<Response>;
-		};
-		readonly "review-verdicts": {
-			$post(args: { readonly json: AgentOrchestrationReviewVerdictInput }): Promise<Response>;
-		};
-		readonly "review-links": {
-			$post(args: {
-				readonly json: { readonly sessionId: string; readonly reviewMessageId: string };
-			}): Promise<Response>;
-		};
-		readonly runs: {
-			readonly "stop-for-tasks": {
-				$post(args: { readonly json: { readonly taskIds: readonly string[] } }): Promise<Response>;
-			};
-			readonly "end-for-handoff": {
-				$post(args: {
-					readonly json: { readonly sessionId: string; readonly endedAt: string };
-				}): Promise<Response>;
-			};
-			readonly "is-at-capacity": {
-				$post(args: {
-					readonly json: { readonly agentId: string; readonly maxConcurrentSessions: number };
-				}): Promise<Response>;
-			};
-			readonly "deliver-to-conversation": {
-				$post(args: {
-					readonly json: {
-						readonly agentId: string;
-						readonly threadId: string;
-						readonly text: string;
-					};
-				}): Promise<Response>;
-			};
-		};
 		readonly "run-config": {
 			readonly ":agentId": {
 				$get(args: { readonly param: { readonly agentId: string } }): Promise<Response>;
@@ -195,67 +144,6 @@ export function buildAgentOrchestrationPort(
 	const client = buildAgentOrchestrationHcClient(fetchAdapter);
 
 	return {
-		sessions: {
-			async getById(sessionId: string): Promise<AgentOrchestrationSessionWireRow | null> {
-				const res = await client["agent-orchestration"].sessions[":sessionId"].$get({
-					param: { sessionId },
-				});
-				if (res.status === 404) return null;
-				if (!res.ok) return throwSeamError("sessions.getById", res);
-				const body = (await res.json()) as {
-					readonly session: AgentOrchestrationSessionWireRow;
-				};
-				return body.session;
-			},
-		},
-		intents: {
-			async submit(
-				input: AgentOrchestrationWorkIntentInput,
-			): Promise<AgentOrchestrationWorkIntentReceipt> {
-				const res = await client["agent-orchestration"].intents.$post({ json: input });
-				if (!res.ok) return throwSeamError("intents.submit", res);
-				return (await res.json()) as AgentOrchestrationWorkIntentReceipt;
-			},
-			async recordReviewVerdict(
-				input: AgentOrchestrationReviewVerdictInput,
-			): Promise<AgentOrchestrationReviewVerdictOutcome> {
-				const res = await client["agent-orchestration"]["review-verdicts"].$post({ json: input });
-				if (!res.ok) return throwSeamError("intents.recordReviewVerdict", res);
-				return (await res.json()) as AgentOrchestrationReviewVerdictOutcome;
-			},
-		},
-		runs: {
-			async stopForTasks(
-				taskIds: readonly string[],
-			): Promise<ReadonlyArray<AgentOrchestrationStoppedRun>> {
-				const res = await client["agent-orchestration"].runs["stop-for-tasks"].$post({
-					json: { taskIds },
-				});
-				if (!res.ok) return throwSeamError("runs.stopForTasks", res);
-				const body = (await res.json()) as {
-					readonly stopped: ReadonlyArray<AgentOrchestrationStoppedRun>;
-				};
-				return body.stopped;
-			},
-			async endForHandoff(sessionId: string, endedAt: string): Promise<void> {
-				const res = await client["agent-orchestration"].runs["end-for-handoff"].$post({
-					json: { sessionId, endedAt },
-				});
-				if (!res.ok) return throwSeamError("runs.endForHandoff", res);
-			},
-			async deliverToConversation(
-				agentId: string,
-				threadId: string,
-				text: string,
-			): Promise<"delivered" | "not_delivered"> {
-				const res = await client["agent-orchestration"].runs["deliver-to-conversation"].$post({
-					json: { agentId, threadId, text },
-				});
-				if (!res.ok) return "not_delivered";
-				const body = (await res.json()) as { readonly result: string };
-				return body.result === "delivered" ? "delivered" : "not_delivered";
-			},
-		},
 		runConfig: {
 			async read(agentId: string): Promise<AgentOrchestrationRunConfigView> {
 				const res = await client["agent-orchestration"]["run-config"][":agentId"].$get({
@@ -312,14 +200,6 @@ export function buildAgentOrchestrationPort(
 							};
 					  }
 					| { readonly ok: false; readonly code: "NOT_FOUND" | "CONFLICT" };
-			},
-		},
-		gate: {
-			async linkReview(sessionId: string, reviewMessageId: string): Promise<void> {
-				const res = await client["agent-orchestration"]["review-links"].$post({
-					json: { sessionId, reviewMessageId },
-				});
-				if (!res.ok) return throwSeamError("gate.linkReview", res);
 			},
 		},
 		folders: {
@@ -407,19 +287,6 @@ export function buildAgentOrchestrationPort(
 			},
 		},
 	};
-}
-
-// @lore: work-intent recorder — seam call is HTTP; cannot join caller transaction; commit core write first, call AFTER
-export function buildSeamBackedWorkIntentRecorder(
-	port: AgentOrchestrationPort,
-): AgentWorkIntentRecorderFn {
-	return (input: AgentWorkIntentRecorderInput) => port.intents.submit(input);
-}
-
-export function buildSeamBackedReviewVerdictRecorder(
-	port: AgentOrchestrationPort,
-): ReviewVerdictRecorderFn {
-	return (input) => port.intents.recordReviewVerdict(input);
 }
 
 /**

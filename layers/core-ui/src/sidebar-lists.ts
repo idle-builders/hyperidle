@@ -52,7 +52,14 @@ export interface Team {
 	name: string;
 }
 
-export type Inbox = NonNullable<UserView["inbox"]>;
+type InboxRow = NonNullable<UserView["inbox"]>[number];
+/** A person's notifications: inbox rows about something that changed. */
+export type Inbox = readonly (InboxRow & { readonly change: ChangeRow })[];
+
+/** The rows a window shows — every one of a person's rows is about a change. */
+export function notificationsOf(rows: UserView["inbox"]): Inbox {
+	return (rows ?? []).filter((r): r is InboxRow & { readonly change: ChangeRow } => r.change !== null);
+}
 type Names = ReadonlyMap<string, string>;
 
 const MINUTE = 60_000;

@@ -6,9 +6,9 @@ import type { PolicyDeps } from "@hyperidle/policy";
 import { registerLifecyclePropagation } from "@hyperidle/policy";
 import * as taskDb from "@hyperidle/task";
 import { listMessages } from "@hyperidle/thread";
+import { deleteReadInboxRowsBefore } from "@hyperidle/user";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
-import { reapInbox } from "./services/inbox-reaper.js";
 import { registerSessionNotReturnedNotice } from "./services/session-not-returned-notice.js";
 import { registerWorkSessionEndReactions } from "./services/work-session-end-reactions.js";
 import { registerWorkSessionStartedReactions } from "./services/work-session-started-reactions.js";
@@ -147,7 +147,7 @@ export function registerCoreDomainServices(ctx: {
 	const runRetentionSweep = async (): Promise<void> => {
 		const nowMs = Date.now();
 		const termCutoff = new Date(nowMs - TERMINAL_LOG_TTL_MS).toISOString();
-		await reapInbox(db, termCutoff);
+		await deleteReadInboxRowsBefore(db, termCutoff);
 		await reapTerminalTaskDispatchAttempts(db, termCutoff, TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE);
 	};
 	const retentionHandle = setInterval(() => {

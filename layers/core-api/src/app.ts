@@ -1,10 +1,8 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import { assembleSessionDocuments } from "@hyperidle/document";
 import { SYSTEM_ACTOR_ID } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
-import type { RegisteredTool } from "@hyperidle/harness-protocol";
 import { checkAndUnblockDependents, registerTaskLiveUpdates } from "@hyperidle/task";
 import { registerThreadSessionLiveUpdates } from "@hyperidle/thread";
 import {
@@ -16,7 +14,6 @@ import {
 } from "@hyperidle/user";
 import { Hono } from "hono";
 import type { Action, ActionContext } from "./actions/action.js";
-import { actionsAsTools } from "./actions/actions-as-tools.js";
 import { createActionsRouter } from "./actions/actions-router.js";
 import { buildCoreActions, runnerFor } from "./actions/compose.js";
 import { createAuthRoutes } from "./routes/auth.js";
@@ -24,8 +21,6 @@ import { authHealth } from "./routes/health.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { createStartRoutes } from "./routes/start.js";
 import {
-	buildSeamBackedReviewVerdictRecorder,
-	buildSeamBackedWorkIntentRecorder,
 } from "./services/agent-orchestration-port-composition.js";
 import type { HarnessCapabilityReader } from "./services/harness-capability-reader.js";
 
@@ -136,17 +131,6 @@ interface AppOptions {
 	 */
 	adapterPool?: HarnessCapabilityReader;
 	/**
-	 * Application-injected cross-Layer
-	 * `agent_work_intents` recorder (`@hyperidle/work-intent-port`-typed)
-	 * — the threads routes must not cross by importing
-	 * `@hyperidle/session-requests` directly. Defaults to the seam-backed
-	 * recorder built over `agentOrchestration` (`buildSeamBackedWorkIntentRecorder`);
-	 * tests may override for isolation.
-	 */
-	agentWorkIntentRecorder?: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn;
-	// Application-injected verdict recorder; tests may override. Injected because the threads routes may not read agent-orchestration.
-	reviewVerdictRecorder?: import("@hyperidle/domain-model").ReviewVerdictRecorderFn;
-	/**
 	 * Base directory where plugin files are persisted on install.
 	 * When provided, `installPlugin` copies the plugin source to
 	 * `{pluginsBaseDir}/{pluginId}/` and stores the path in `plugins.install_path`.
@@ -166,8 +150,7 @@ interface AppOptions {
 }
 
 const APP_DISPOSERS = new WeakMap<Hono, Array<() => void>>();
-const APP_ACTION_TOOLS = new WeakMap<Hono, ReadonlyArray<RegisteredTool<HyperIdleDb>>>();
-/** Raw action list — exposed so `boot.ts` can build `CoreApiBoot.callActionAs` without re-constructing the actions. Same take-once idiom as `APP_ACTION_TOOLS`. */
+/** Raw action list — exposed so `boot.ts` can build `CoreApiBoot.callActionAs` and the agents' tool list without re-constructing the actions. */
 const APP_ACTIONS = new WeakMap<Hono, readonly Action[]>();
 // @lore: APP_DOCUMENT_RUNNERS — boot.ts needs raw edit_document/search_documents runners, not MCP-wrapped; separate WeakMap keeps different consumer shapes apart
 const APP_DOCUMENT_RUNNERS = new WeakMap<
@@ -229,13 +212,9 @@ export function registerCoreApiPreAuthRoutes(
 function buildCoreActionsBindings(
 	options: AppOptions,
 	agentOrchestration: AgentOrchestrationPort,
-	agentWorkIntentRecorder: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn,
-	reviewVerdictRecorder: import("@hyperidle/domain-model").ReviewVerdictRecorderFn,
 ): Parameters<typeof buildCoreActions>[0] {
 	return {
 		agentOrchestration,
-		agentWorkIntentRecorder,
-		reviewVerdictRecorder,
 		...(options.pluginsBaseDir ? { pluginsBaseDir: options.pluginsBaseDir } : {}),
 		...(options.bundledPluginsDir ? { bundledPluginsDir: options.bundledPluginsDir } : {}),
 		...(options.wsHub
@@ -255,16 +234,12 @@ function buildCoreActionsBindings(
  * `createCoreApiApp` —
  * that function's own cognitive-complexity budget is already spent.
  * `searchTasksRun`/`searchThreadsRun`/`searchDocumentsRun` are reach's own
- * doors (already extracted in `createCoreApiApp`, never `open_*`);
- * `assembleSessionDocuments` is this Layer's own
- * (never a nested Service's) import, exactly like
- * `task-run-resolver-bindings.ts`'s equivalent wiring.
+ * doors (already extracted in `createCoreApiApp`, never `open_*`).
  */
 function registerSubscriptionServices(
 	options: AppOptions,
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	agentWorkIntentRecorder: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn,
 	runners: {
 		readonly searchTasksRun: import("@hyperidle/user").SearchTasksReachFn;
 		readonly searchThreadsRun: import("@hyperidle/user").SearchThreadsReachFn;
@@ -276,21 +251,13 @@ function registerSubscriptionServices(
 				options.wsHub?.broadcast(topic, JSON.stringify(envelope))
 		: undefined;
 	const unsubSubscriptionFire = registerSubscriptionFire(db, eventBus, {
-		agentWorkIntentRecorder,
 		searchTasks: runners.searchTasksRun,
 		searchThreads: runners.searchThreadsRun,
 		searchDocuments: runners.searchDocumentsRun,
-		assembleSessionDocuments,
 		...(wsPush ? { wsPush } : {}),
 	});
-	// The schedule half — started and stopped alongside the fire
-	// mechanism, needing the SAME composed runners `registerAgentLayerServices`
-	// never had (its own composition root is deliberately built without them).
-	const subscriptionClock = startSubscriptionClock(db, eventBus, {
-		agentWorkIntentRecorder,
-		searchDocuments: runners.searchDocumentsRun,
-		assembleSessionDocuments,
-	});
+	// The schedule half — started and stopped alongside the fire mechanism.
+	const subscriptionClock = startSubscriptionClock(db, wsPush ? { wsPush } : {});
 	return [
 		unsubSubscriptionFire,
 		subscriptionClock.stop,
@@ -333,23 +300,12 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 					"buildAgentOrchestrationPort(transport) and pass it explicitly (no ambient transport).",
 			);
 		}
-		const defaultAgentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder(agentOrchestration);
-		const defaultGateVerdictRecorder = buildSeamBackedReviewVerdictRecorder(agentOrchestration);
-		const agentWorkIntentRecorder =
-			options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder;
-		const reviewVerdictRecorder = options.reviewVerdictRecorder ?? defaultGateVerdictRecorder;
 
 		// action list mounted at POST /api/actions/<name> — one loop, never a per-object route factory
 		const actions: readonly Action[] = buildCoreActions(
-			buildCoreActionsBindings(
-				options,
-				agentOrchestration,
-				agentWorkIntentRecorder,
-				reviewVerdictRecorder,
-			),
+			buildCoreActionsBindings(options, agentOrchestration),
 		);
 		api.route("/actions", createActionsRouter(actions, { db: options.db, eventBus }));
-		APP_ACTION_TOOLS.set(api, actionsAsTools(actions));
 		APP_ACTIONS.set(api, actions);
 		const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
 		if (!editTaskAction) {
@@ -471,7 +427,7 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// schedule half, registered beside the dependency watcher above.
 		// Extracted here — this function's own cognitive-complexity budget is already spent.
 		disposers.push(
-			...registerSubscriptionServices(options, db, eventBus, agentWorkIntentRecorder, {
+			...registerSubscriptionServices(options, db, eventBus, {
 				searchTasksRun,
 				searchThreadsRun,
 				searchDocumentsRun,
@@ -498,16 +454,7 @@ export function takeAppDisposers(hono: Hono): Array<() => void> {
 	return bag;
 }
 
-// Detach and return the composed action list's tool projection. Undefined when db was not supplied.
-export function takeAppActionTools(
-	hono: Hono,
-): ReadonlyArray<RegisteredTool<HyperIdleDb>> | undefined {
-	const tools = APP_ACTION_TOOLS.get(hono);
-	APP_ACTION_TOOLS.delete(hono);
-	return tools;
-}
-
-/** Detach and return the raw action list. `undefined` when `db` was never supplied. Read exactly once, by `bootCoreApi`, the same idiom as `takeAppActionTools`. */
+/** Detach and return the raw action list. `undefined` when `db` was never supplied. Read exactly once, by `bootCoreApi`. */
 export function takeAppActions(hono: Hono): readonly Action[] | undefined {
 	const actions = APP_ACTIONS.get(hono);
 	APP_ACTIONS.delete(hono);
@@ -517,8 +464,7 @@ export function takeAppActions(hono: Hono): readonly Action[] | undefined {
 /**
  * §8.4 — detach and return the composed `edit_document`/`search_documents`
  * runners. `undefined` when `db` was never supplied (no actions were built).
- * Read exactly once, by `bootCoreApi`, the same idiom `takeAppActionTools`
- * already gives.
+ * Read exactly once, by `bootCoreApi`.
  */
 export function takeAppDocumentRunners(hono: Hono): ReturnType<typeof APP_DOCUMENT_RUNNERS.get> {
 	const runners = APP_DOCUMENT_RUNNERS.get(hono);

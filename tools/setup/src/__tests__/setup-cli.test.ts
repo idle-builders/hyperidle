@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { createPgliteDb } from "@hyperidle/db";
-import { findPersonByKey } from "@hyperidle/user";
+import { findUserByKey } from "@hyperidle/user";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runSetup, validateDbPath } from "../setup-cli.js";
 
@@ -293,8 +293,8 @@ describe("--demo flag behavior", () => {
 			const { apiKey } = JSON.parse(fs.readFileSync(secretsPath, "utf-8")) as { apiKey: string };
 			const handle = await createPgliteDb(dataDir);
 			try {
-				expect(await findPersonByKey(handle.db, apiKey)).toBe("demo-founder");
-				expect(await findPersonByKey(handle.db, "hyperidle-dev-local")).toBeUndefined();
+				expect((await findUserByKey(handle.db, apiKey))?.id).toBe("demo-founder");
+				expect(await findUserByKey(handle.db, "hyperidle-dev-local")).toBeUndefined();
 			} finally {
 				await handle.close();
 			}

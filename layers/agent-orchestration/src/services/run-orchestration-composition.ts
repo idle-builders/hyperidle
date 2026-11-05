@@ -31,11 +31,9 @@ import {
 } from "@hyperidle/run-orchestration";
 import {
 	claimSessionRequest,
-	drainIntents,
 	findSessionRequest,
 	listPendingByStream,
 	listSessionRequests,
-	reapExpired,
 	releaseClaim,
 	renewClaim,
 	sessionRunRegistry,
@@ -257,8 +255,6 @@ const runOrchestrationPorts: RuntimePorts = {
 		releaseClaim,
 		renewClaim,
 		transitionSessionRequest,
-		drainIntents,
-		reapExpired,
 		abortSessionRun: (sessionId, reason) => sessionRunRegistry.abort(sessionId, reason),
 	},
 	sessionLifecycle: sessionLifecyclePort,
@@ -311,8 +307,6 @@ export function buildRunOrchestrationComposition(config: {
 			...rest,
 			...(runtime ? { runtime: runtime as RuntimeInput } : {}),
 			ports: overrides.ports ?? runOrchestrationPorts,
-			// @lore: durableQueue — must include the real eventBus so `failOrRelease` emits `agent_run_admission_failed` in production
-			durableQueue: overrides.durableQueue ?? { db, eventBus },
 			composition: {
 				context: contextPorts,
 				provisioner: sessionLifecyclePorts,

@@ -76,12 +76,9 @@ export async function sessionAwaitsVerdict(db: HyperIdleDb, sessionId: string): 
 	return row !== undefined;
 }
 
-/** Queues one `session_resume` intent. Injected so this file does no enqueueing of its own. */
-export type ResumeIntentEnqueuer = (input: {
-	readonly kind: "session_resume";
-	readonly sourceKind: "review_verdict";
-	readonly sourceId: string;
-	readonly requestedBy?: string;
+/** Queues one resume. Injected so this file does no enqueueing of its own. */
+export type ResumeEnqueuer = (input: {
+	readonly reviewMessageId: string;
 	readonly idempotencyKey: string;
 	readonly resume: BakedSessionResumeRequest;
 }) => Promise<unknown>;
@@ -96,7 +93,8 @@ export type ResumeIntentEnqueuer = (input: {
  *   to resume and nothing wrong. A review created any other way lands here.
  * - **not_resumable** — a session filed it, but cannot be brought back. The human
  *   answered something that will not reach anyone, so they have to be told.
- * - **queued** — the resume is durable and the drain will carry it.
+ * - **queued** — the resume is durable and the drain will carry it, or the answer
+ *   reached the still-running session.
  */
 /**
  * Optional: try delivering the verdict directly into a still-running session
@@ -112,12 +110,11 @@ export async function recordReviewVerdict(
 	db: HyperIdleDb,
 	input: SessionResumeReply & {
 		readonly reviewMessageId: string;
-		readonly decidedBy: string;
 		readonly threadId: string;
 		readonly agentConfig?: BakedAgentRunnableConfig;
 		readonly taskId?: string;
 	},
-	enqueue: ResumeIntentEnqueuer,
+	enqueue: ResumeEnqueuer,
 	tryDeliverToLive?: LiveSessionDeliverer,
 ): Promise<ReviewVerdictOutcome> {
 	const link = await findReviewSession(db, input.reviewMessageId);
@@ -131,7 +128,7 @@ export async function recordReviewVerdict(
 		};
 	}
 
-	// Try delivering to an active run via stdin before queuing a resume intent.
+	// Try delivering to an active run via stdin before queuing a resume.
 	if (tryDeliverToLive !== undefined) {
 		const verdictText = buildVerdictMessage(input);
 		const deliveryResult = await tryDeliverToLive(link.sessionId, verdictText);
@@ -148,10 +145,7 @@ export async function recordReviewVerdict(
 	}
 
 	await enqueue({
-		kind: "session_resume",
-		sourceKind: "review_verdict",
-		sourceId: input.reviewMessageId,
-		requestedBy: input.decidedBy,
+		reviewMessageId: input.reviewMessageId,
 		// One resume per verdict on one review. A second verdict on the same review
 		// is a re-open, which the thread route already refuses first.
 		idempotencyKey: `review-verdict:${input.reviewMessageId}`,

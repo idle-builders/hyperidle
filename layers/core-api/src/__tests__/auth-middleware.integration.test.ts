@@ -6,7 +6,7 @@
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { givePersonKey } from "@hyperidle/user";
+import { giveUserKey } from "@hyperidle/user";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -47,7 +47,7 @@ describe("auth middleware — the API key is the one credential", () => {
 
 	test("a valid key resolves the caller to the human row", async ({ db }) => {
 		await seedHuman(db, "u-auth-human");
-		await givePersonKey(db, "u-auth-human", TEST_API_KEY);
+		await giveUserKey(db, "u-auth-human", TEST_API_KEY);
 		const res = await makeProbeApp(db).request("/probe", {
 			headers: { "X-API-Key": TEST_API_KEY },
 		});
@@ -58,7 +58,7 @@ describe("auth middleware — the API key is the one credential", () => {
 	test("with several humans, the key resolves to the one it is bound to", async ({ db }) => {
 		await seedHuman(db, "u-auth-first");
 		await seedHuman(db, "u-auth-second");
-		await givePersonKey(db, "u-auth-first", TEST_API_KEY);
+		await giveUserKey(db, "u-auth-first", TEST_API_KEY);
 		const res = await makeProbeApp(db).request("/probe", {
 			headers: { "X-API-Key": TEST_API_KEY },
 		});
@@ -69,7 +69,7 @@ describe("auth middleware — the API key is the one credential", () => {
 		db,
 	}) => {
 		await seedHuman(db, "u-auth-human");
-		await givePersonKey(db, "u-auth-human", TEST_API_KEY);
+		await giveUserKey(db, "u-auth-human", TEST_API_KEY);
 		const res = await makeProbeApp(db).request("/probe", {
 			headers: { "X-API-Key": TEST_API_KEY, "x-hyperidle-actor-id": "agent-1" },
 		});

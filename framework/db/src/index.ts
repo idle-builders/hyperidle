@@ -8,10 +8,8 @@ export { applyMigrations, isDowngrade, type MigrationResult } from "./migrate.js
 export * as schema from "./schema.js";
 export {
 	type AgentSessionRequest,
-	type AgentWorkIntent,
 	agentRunConfig,
 	agentSessionRequests,
-	agentWorkIntents,
 	type Change,
 	changes,
 	type DocumentRow,

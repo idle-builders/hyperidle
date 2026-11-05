@@ -148,8 +148,13 @@ export async function seedChanges(db: HyperIdleDb, clock: DemoClock): Promise<vo
 			await db
 				.insert(inbox)
 				.values({
+					id: `${FOUNDER_ID}:${spec.id}`,
 					userId: FOUNDER_ID,
+					reason: "subscription",
+					key: `change:${spec.id}`,
 					changeId: spec.id,
+					objectId: spec.objectId,
+					createdAt: spec.at,
 					seenAt: spec.told.readAt,
 					readAt: spec.told.readAt,
 				})

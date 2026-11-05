@@ -2,8 +2,13 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
-import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { findPersonByKey } from "@hyperidle/user";
+import {
+	constantTimeStringEqual,
+	type HyperIdleEnv,
+	parseRunContext,
+	RUN_CONTEXT_HEADER,
+} from "@hyperidle/domain-model/http";
+import { findUserByKey } from "@hyperidle/user";
 import type { Context, MiddlewareHandler } from "hono";
 
 /**
@@ -47,8 +52,9 @@ function rejectUnauthorized(c: Context, message: string, logMessage: string): Re
 }
 
 /**
- * Who a request is: the person whose own key it carries. The team key alone is nobody yet — it
- * reaches only what needs no person, such as joining or a laptop's first start.
+ * Who a request is: the person or agent whose own key it carries. The team key alone is nobody
+ * yet — it reaches only what needs no person, such as joining or a laptop's first start. An agent's
+ * request may also name the run it comes from; the actions check the task or thread, not the run.
  */
 export function createAuthMiddleware(
 	options: AuthMiddlewareOptions,
@@ -58,9 +64,9 @@ export function createAuthMiddleware(
 
 	return async (c, next) => {
 		const apiKey = c.req.header("X-API-Key") ?? "";
-		const person = await findPersonByKey(db, apiKey);
+		const holder = await findUserByKey(db, apiKey);
 
-		if (!(person || constantTimeStringEqual(apiKey, expectedApiKey))) {
+		if (!(holder || constantTimeStringEqual(apiKey, expectedApiKey))) {
 			return rejectUnauthorized(
 				c,
 				"Missing or invalid API key",
@@ -68,7 +74,9 @@ export function createAuthMiddleware(
 			);
 		}
 
-		c.set("userId", person ?? NOBODY);
+		c.set("userId", holder?.id ?? NOBODY);
+		const run = holder?.kind === "ai" ? parseRunContext(c.req.header(RUN_CONTEXT_HEADER)) : undefined;
+		if (run) c.set("run", run);
 
 		await next();
 	};

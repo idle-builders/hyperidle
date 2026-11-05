@@ -9,7 +9,7 @@ import type {
 	EventBus,
 } from "@hyperidle/event-bus";
 import * as work from "@hyperidle/task";
-import { findThread, listMessages } from "@hyperidle/thread";
+import { findThread } from "@hyperidle/thread";
 import { findUser, listUsers } from "@hyperidle/user";
 import type { SendMessageRunFn } from "../actions/action.js";
 
@@ -19,29 +19,12 @@ const logger = createLogger({ pkg: "core-api.agent-run-admission-reactions" });
 const registeredBuses = new WeakSet<EventBus>();
 
 /**
- * Parse a `thread_turn` intent's `sourceId`, built by `thread-actions.ts`'s
- * wake loop as `` `${messageId}:${agentId}` `` (see `resolveThreadTurnRequest`'s
- * caller in `thread-actions.ts`). `messageId` is always a `randomUUID()` — it
- * never contains `:` — so splitting on the FIRST `:` is safe even though an
- * agent id theoretically could.
- */
-function parseThreadTurnSourceId(
-	sourceId: string,
-): { readonly messageId: string; readonly agentId: string } | undefined {
-	const i = sourceId.indexOf(":");
-	if (i < 0) return undefined;
-	return { messageId: sourceId.slice(0, i), agentId: sourceId.slice(i + 1) };
-}
-
-/**
  * What a person reads when an agent could not start: plain words and, where
  * there is one, the next step. No internal nouns (no engine jargon).
  * @lore: the notice is posted by HyperIdle (the system actor), never as the agent; no-program text matches NoEligibleHarnessError's hint
  */
 const THREAD_TURN_FAILURE_REASON: Record<AgentRunAdmissionFailureCode, string> = {
 	INVALID_WORK_SOURCE: "The message it was answering is gone.",
-	MAX_ATTEMPTS_EXCEEDED:
-		"It still failed after several tries. Send your message again in a moment.",
 	TARGET_AGENT_NOT_RUNNABLE: "It is switched off right now.",
 	PROVISIONING_FAILED:
 		"No agent program is signed in on this computer. Sign in to one under [Agent programs](/people/me), then send your message again.",
@@ -59,29 +42,10 @@ async function notifyThreadTurnAdmissionFailure(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	event: AgentRunAdmissionFailedEvent,
+	threadId: string,
 	sendMessage: SendMessageRunFn,
 ): Promise<void> {
-	const parsed = parseThreadTurnSourceId(event.sourceId);
-	if (!parsed) {
-		logger.error("thread_turn admission failure: sourceId is not <messageId>:<agentId>", {
-			intentId: event.intentId,
-			sourceId: event.sourceId,
-		});
-		return;
-	}
-	const { messageId, agentId } = parsed;
-	const [sourceMessage] = await listMessages(db, { id: messageId });
-	if (!sourceMessage) {
-		// The message the turn came from is gone — nowhere left to post the
-		// notice. Logged, never thrown: this is a reaction, not a request.
-		logger.error("thread_turn admission failure: source message is gone, notice dropped", {
-			intentId: event.intentId,
-			messageId,
-			agentId,
-		});
-		return;
-	}
-	const thread = await findThread(db, { id: sourceMessage.threadId });
+	const thread = await findThread(db, { id: threadId });
 	const members = thread ? (JSON.parse(thread.participants) as string[]) : [];
 	const humanMembers =
 		members.length > 0 ? await listUsers(db, { ids: members, kind: "human" }) : [];
@@ -89,20 +53,19 @@ async function notifyThreadTurnAdmissionFailure(
 		// Nobody to tell — see the ping-pong note above.
 		return;
 	}
-	const agent = await findUser(db, { id: agentId });
-	const displayName = agent?.name ?? agentId;
+	const agent = await findUser(db, { id: event.agentId });
+	const displayName = agent?.name ?? event.agentId;
 	const result = await sendMessage(
 		{ actor: SYSTEM_ACTOR_ID, db, eventBus, now: new Date(event.timestamp).toISOString() },
 		{
-			threadId: sourceMessage.threadId,
-			clientKey: `thread-turn-admission-failed:${event.intentId}`,
+			threadId,
+			clientKey: `run-admission-failed:${event.streamId}:${event.sourceId}:${event.agentId}`,
 			text: `${displayName} could not start. ${THREAD_TURN_FAILURE_REASON[event.failureCode]}`,
 		},
 	);
 	if (!result.ok) {
 		logger.error("thread turn admission notice refused", {
-			intentId: event.intentId,
-			threadId: sourceMessage.threadId,
+			threadId,
 			problems: result.problems,
 		});
 	}
@@ -114,23 +77,22 @@ async function reactToAdmissionFailure(
 	event: AgentRunAdmissionFailedEvent,
 	threadDeps: { readonly sendMessage: SendMessageRunFn },
 ): Promise<void> {
-	switch (event.kind) {
-		// A subscription's wake carries no run row to finalize, so a refused
-		// wake is just logged.
-		case "subscription_run":
-			logger.warn("subscription wake refused admission", {
-				intentId: event.intentId,
-				sourceId: event.sourceId,
-				failureCode: event.failureCode,
-			});
-			return;
-		case "task_run":
-			await work.taskDispatchAttemptStore.markFailed(db, event.sourceId);
-			return;
-		case "thread_turn":
-			await notifyThreadTurnAdmissionFailure(db, eventBus, event, threadDeps.sendMessage);
-			return;
+	// A task run that never started fails its dispatch attempt, so the task shows it.
+	if (event.taskId !== null && event.sourceKind === "task") {
+		await work.taskDispatchAttemptStore.markLatestRequestedFailed(db, event.taskId);
+		return;
 	}
+	// A turn in a thread tells the people there. A subscription's wake has no one waiting.
+	if (event.threadId !== null && event.sourceKind === "assistant") {
+		await notifyThreadTurnAdmissionFailure(db, eventBus, event, event.threadId, threadDeps.sendMessage);
+		return;
+	}
+	logger.warn("agent run refused admission", {
+		agentId: event.agentId,
+		sourceKind: event.sourceKind,
+		sourceId: event.sourceId,
+		failureCode: event.failureCode,
+	});
 }
 
 /**
@@ -154,11 +116,10 @@ export function registerAgentRunAdmissionReactions(
 	const unsubscribe = eventBus.on(
 		"agent_run_admission_failed",
 		(event: AgentRunAdmissionFailedEvent) => {
-			if (!event.terminal) return;
 			void reactToAdmissionFailure(db, eventBus, event, threadDeps).catch((error: unknown) => {
 				logger.error("agent_run_admission_failed reaction failed", {
-					kind: event.kind,
-					intentId: event.intentId,
+					sourceKind: event.sourceKind,
+					sourceId: event.sourceId,
 					error: error instanceof Error ? error.message : String(error),
 				});
 			});

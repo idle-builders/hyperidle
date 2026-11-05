@@ -41,12 +41,14 @@ export function createActionsRouter(
 						},
 						403,
 					);
+				const run = c.get("run");
 				const result = await action.run(
 					{
 						actor,
 						db: deps.db,
 						eventBus: deps.eventBus,
 						now: new Date().toISOString(),
+						...(run ? { caller: run } : {}),
 					},
 					input,
 				);

@@ -1,4 +1,4 @@
-import type { AgentSessionRequest, AgentWorkIntent, HyperIdleDb } from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
@@ -70,12 +70,6 @@ export interface HarnessPort<TDb = unknown> {
 	): Promise<HarnessRunOutput>;
 }
 
-interface DurableQueueDeps {
-	readonly db: HyperIdleDb;
-	// @lore: DurableQueueDeps.eventBus — admission failures must emit; a missing bus silently drops failed admission events
-	readonly eventBus: EventBus;
-}
-
 type RunOrchestrationTerminationReason = "user_done" | "user_crashed" | "handoff" | "shutdown";
 
 interface RunOrchestrationSessionContext {
@@ -136,13 +130,6 @@ export interface RuntimePorts {
 			exec: HyperIdleDb,
 			query: { by: "claimActive"; requestId: string; claimToken: string; now: Date },
 		): Promise<boolean>;
-		findSessionRequest(
-			exec: HyperIdleDb,
-			query: { by: "intentSource"; requestId: string },
-		): Promise<
-			| Pick<AgentWorkIntent, "id" | "kind" | "idempotencyKey" | "sourceId" | "sourceKind">
-			| undefined
-		>;
 		listSessionRequests(
 			exec: HyperIdleDb,
 			filter: { source: { kind: AgentSessionSourceKind; id: string } } | { status: "running" },
@@ -187,14 +174,6 @@ export interface RuntimePorts {
 			| "conflict"
 			| "terminal"
 		>;
-		drainIntents(
-			deps: DurableQueueDeps,
-			options?: { now?: () => Date; leaseMs?: number; maxAttempts?: number },
-		): Promise<void>;
-		reapExpired(
-			db: HyperIdleDb,
-			options?: { now?: Date; retentionDays?: number; batchSize?: number },
-		): Promise<{ intents: number }>;
 		abortSessionRun(sessionId: string, reason: "stop" | "return"): Promise<boolean>;
 	};
 	readonly sessionLifecycle: RunOrchestrationSessionLifecycleRuntime;
@@ -251,7 +230,6 @@ export interface RuntimeDeps {
 	 * not assistant-only). Absent means "no override, tier only".
 	 */
 	readonly ports?: RuntimePorts;
-	readonly durableQueue?: Parameters<RuntimePorts["sessionRequests"]["drainIntents"]>[0];
 	readonly composition: {
 		readonly context: Parameters<typeof import("./context.js").createContextAssembler>[0];
 		readonly provisioner?: Omit<

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { call } from "./api";
 import { UNTITLED } from "./doc-page";
@@ -19,6 +19,7 @@ import {
 	namesOf,
 	newSince,
 	noteWhat,
+	notificationsOf,
 	age as relative,
 	teamsOf,
 	workItems,
@@ -274,7 +275,7 @@ function Notifications({
 		});
 	}, [wanted]);
 
-	const unread = inbox.filter((r) => r.readAt === null).map((r) => r.change.id);
+	const unread = inbox.filter((r) => r.readAt === null).map((r) => r.id);
 	const markRead = async (ids: string[]) => {
 		if (ids.length > 0) await call("edit_user", { id: you, inbox: { read: ids } });
 		onChanged();
@@ -294,13 +295,13 @@ function Notifications({
 			{inbox.length === 0 && (
 				<p className="nav-empty">Nothing yet. What happens in what you follow shows up here.</p>
 			)}
-			{inbox.map(({ change, readAt }) => (
+			{inbox.map(({ id, change, readAt }) => (
 				<button
-					key={change.id}
+					key={id}
 					type="button"
 					className="note"
 					onClick={() => {
-						void markRead(readAt === null ? [change.id] : []);
+						void markRead(readAt === null ? [id] : []);
 						onClose();
 						navigate(`/${ROUTE_OF[change.object]}/${change.objectId}`);
 					}}
@@ -340,7 +341,6 @@ const EMPTY: Record<Spine, string> = {
 	knowledge: "No documents yet.",
 };
 
-const NO_INBOX: Inbox = [];
 
 export function Sidebar() {
 	const navigate = useNavigate();
@@ -381,7 +381,7 @@ export function Sidebar() {
 
 	const names = namesOf(users.data ?? []);
 	const teams = teamsOf(users.data ?? []);
-	const inbox: Inbox = me.data?.inbox ?? NO_INBOX;
+	const inbox: Inbox = useMemo(() => notificationsOf(me.data?.inbox ?? null), [me.data?.inbox]);
 	const newestFirst = [...inbox].sort((a, b) => b.change.at.localeCompare(a.change.at));
 	// Opening something reads what you were told about it.
 	const readHere = inbox
@@ -389,7 +389,7 @@ export function Sidebar() {
 			(r) =>
 				r.readAt === null && r.change.objectId === here && ROUTE_OF[r.change.object] === section,
 		)
-		.map((r) => r.change.id)
+		.map((r) => r.id)
 		.join(" ");
 	useEffect(() => {
 		if (you && readHere)

@@ -12,7 +12,7 @@ import {
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
-import { findUser, givePersonKey } from "@hyperidle/user";
+import { findUser, giveUserKey } from "@hyperidle/user";
 import { Hono } from "hono";
 import z from "zod";
 import type { Action, ActionContext } from "../actions/action.js";
@@ -88,7 +88,7 @@ export function createStartRoutes(
 		const you = person.ok ? person.data.user?.id : undefined;
 		if (!you) throw new Error("first start: the person was not made");
 		// The laptop's one person: the key this computer already holds becomes theirs.
-		await givePersonKey(db, you, c.req.header("X-API-Key") ?? "");
+		await giveUserKey(db, you, c.req.header("X-API-Key") ?? "");
 		const agent = await editUser(ctx(you), {
 			kind: "ai",
 			name: FIRST_AGENT,

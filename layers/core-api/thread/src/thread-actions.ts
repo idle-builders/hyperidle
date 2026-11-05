@@ -8,17 +8,13 @@ import type {
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
-import { createLogger } from "@hyperidle/diagnostics";
 import {
 	type ActionResult,
 	type AdjustThreadInput,
-	type AgentWorkIntentRecorderFn,
-	type AgentWorkIntentRecorderInput,
 	adjustThread as adjustThreadDeclaration,
 	adjustThreadInvariants,
 	agentsToWake,
 	appTitle,
-	bakeAgentRunnableConfig,
 	canPostToThread,
 	canReadThread,
 	canWriteThread,
@@ -38,8 +34,6 @@ import {
 	type Problem,
 	pinProblems,
 	proposedChangeSchema,
-	type ReviewVerdictOutcome,
-	type ReviewVerdictRecorderFn,
 	resolvesMessageInvariants,
 	reviewPayloadSchema,
 	type SearchDocumentsInput,
@@ -60,7 +54,6 @@ import type { Action, ActionContext } from "./action-types.js";
 import { applyHuddleJoin, applyHuddleLeave } from "./huddle-operations.js";
 import { resolveMentionsForMessage } from "./mention-resolver.js";
 import * as store from "./thread-service.js";
-import { resolveThreadTurnRequest } from "./thread-turn-resolver.js";
 import { resolveThreadTitles } from "./title-ladder.js";
 
 /**
@@ -70,8 +63,14 @@ import { resolveThreadTitles } from "./title-ladder.js";
 /** A user row with every team they are in — one for an agent. */
 type UserWithTeams = User & { readonly teamIds: readonly string[] };
 
-/** A runnable agent with its one team, `null` only for a factory-wide agent. */
-export type RunnableAgentRow = UserWithTeams & { readonly teamId: string | null };
+/** One row for an agent's inbox; the binding writes it only for an agent that can run. */
+export interface AgentInboxTell {
+	readonly userId: string;
+	readonly reason: "message" | "review_answered";
+	readonly key: string;
+	readonly objectId: string;
+	readonly changeId?: string;
+}
 
 export interface ThreadActionsDeps {
 	readonly changes: {
@@ -95,14 +94,10 @@ export interface ThreadActionsDeps {
 		input: SearchDocumentsInput,
 	) => Promise<ActionResult<DocumentRow[]>>;
 	readonly org: { getTeam(exec: WriteExecutor, q: { id: string }): Promise<Team | undefined> };
-	readonly agents: {
-		requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<RunnableAgentRow>;
-		/** Via `searchDocuments` — needs the full ctx, not just `db`. */
-		getAgentIdentity(ctx: ActionContext, agentId: string): Promise<string | null>;
+	/** An agent's inbox: each message for it, and each answer to its review or question. */
+	readonly inbox: {
+		tellAgent(db: HyperIdleDb, tell: AgentInboxTell): Promise<void>;
 	};
-	readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
-	readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
-	readonly linkReviewToSession: (sessionId: string, reviewMessageId: string) => Promise<void>;
 	/** Move a task to `review` state after a review card is filed for it. Called after the message is committed. */
 	readonly moveTaskToReview: (taskId: string, ctx: ActionContext) => Promise<void>;
 	/** Settle the task a review belongs to once a person has decided it: approve closes it, reject sends it back to work. */
@@ -114,17 +109,6 @@ export interface ThreadActionsDeps {
 		ctx: ActionContext,
 	) => Promise<void>;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
-	/**
-	 * Optional: deliver a message directly into a live agent run for the given
-	 * (agentId, threadId) pair, bypassing the work-intent queue.
-	 * Returns "delivered" when the message reached the running session,
-	 * "not_delivered" when no live session was found or delivery was unsupported.
-	 */
-	readonly tryDeliverToActiveRun?: (
-		agentId: string,
-		threadId: string,
-		text: string,
-	) => Promise<"delivered" | "not_delivered">;
 }
 
 // ---------------------------------------------------------------------------
@@ -418,8 +402,6 @@ function emitObjectEvents(
 		eventBus.emit(objectEvent(changesRow, { woke }));
 	}
 }
-
-const logger = createLogger({ pkg: "thread.thread-actions" });
 
 class VerdictRaceConflict extends Error {}
 class HuddleAlreadyLive extends Error {}
@@ -1358,143 +1340,48 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		// the create (if any) and the resolve/reopen (if any).
 		emitObjectEvents(ctx.eventBus, pushRows, woke);
 
-		// A question ends the asking session the same way a review does, so it is
-		// linked the same way — the answer is what brings that session back.
-		if ((body.type === "review" || body.type === "questionnaire") && ctx.caller?.sessionId) {
-			await deps.linkReviewToSession(ctx.caller.sessionId, messageId);
-		}
-
 		if (body.type === "review" && reviewTaskId !== null) {
 			await deps.moveTaskToReview(reviewTaskId, ctx);
 		}
 
-		const reply = replyOf(input);
-		const resolvedTaskId =
-			resolvesMessageRow?.type === "review"
-				? ((JSON.parse(resolvesMessageRow.payload) as { taskId?: unknown }).taskId ?? null)
-				: null;
-		// The agent whose own session a verdict or answer brings back; it gets no second run.
-		let resumed: string | null = null;
-		if (reply !== undefined && resolvesMessageRow) {
-			let verdictOutcome: ReviewVerdictOutcome;
-			try {
-				// The agent that asked is the review's own sender. Its runnable
-				// config is core state, so it is baked here and carried across —
-				// admission treats a missing bake as a deactivated agent.
-				const askingAgent = await deps.users.getUserById(ctx.db, resolvesMessageRow.senderId);
-				const persona = askingAgent
-					? await deps.agents.getAgentIdentity(ctx, askingAgent.id)
-					: null;
-				verdictOutcome = await deps.reviewVerdictRecorder({
-					...reply,
-					reviewMessageId: resolvesMessageRow.id,
-					decidedBy: ctx.actor,
-					threadId: effectiveThreadId,
-					...(typeof resolvedTaskId === "string" ? { taskId: resolvedTaskId } : {}),
-					...(askingAgent
-						? {
-								agentConfig: bakeAgentRunnableConfig(
-									{ ...askingAgent, teamId: askingAgent.teamIds[0] ?? null },
-									persona,
-								),
-							}
-						: {}),
-				});
-			} catch (gateErr) {
-				verdictOutcome = {
-					status: "not_resumable",
-					reason: gateErr instanceof Error ? gateErr.message : "unknown error",
-				};
-			}
-			if (verdictOutcome.status === "queued") resumed = resolvesMessageRow.senderId;
-			if (verdictOutcome.status === "not_resumable") {
-				// Said by the agent that asked: written as the person, it read as if they had typed it.
-				const what =
-					reply.decision === "approve"
-						? "approval"
-						: reply.decision === "answer"
-							? "answer"
-							: "rejection";
-				await sendMessageRun(
-					{
-						actor: resolvesMessageRow.senderId,
-						db: ctx.db,
-						eventBus: ctx.eventBus,
-						// @lore: the notice must sort after the verdict it answers; sharing ctx.now ties their createdAt and the newest-message pick goes random
-						now: new Date(Math.max(Date.now(), Date.parse(ctx.now) + 1)).toISOString(),
-					},
-					{
-						threadId: effectiveThreadId,
-						text: `Your ${what} could not reach my session (${verdictOutcome.reason}), so I have not acted on it. Tell me again in a message if it still stands.`,
-					},
-				);
-			}
+		// Every agent this message is for gets it in its inbox; its runner hands it to a live run in
+		// this thread or starts one. The agent whose review or question this answers gets the answer
+		// as its own reason, and no second row for the same message.
+		const messageChangeId = pushRows.find((r) => r.kind === "message")?.id;
+		const asker = resolvesMessageRow?.senderId ?? null;
+		const askerIsAgent =
+			asker !== null &&
+			replyOf(input) !== undefined &&
+			(await deps.users.getUserById(ctx.db, asker))?.kind === "ai";
+		if (askerIsAgent && resolvesMessageRow && asker !== null) {
+			await deps.inbox.tellAgent(ctx.db, {
+				userId: asker,
+				reason: "review_answered",
+				key: `review:${resolvesMessageRow.id}`,
+				objectId: resolvesMessageRow.id,
+				...(messageChangeId ? { changeId: messageChangeId } : {}),
+			});
 		}
+		const resumed = askerIsAgent ? asker : null;
 
-		// @lore: settle after the resume outcome is known; approve closes the task at once only when no agent comes back
+		// @lore: settle once whether an agent comes back is known; approve closes the task at once only when no agent comes back
 		if (input.verdict !== undefined && resolvesMessageRow?.type === "review") {
 			const { decision } = input.verdict;
-			const taskId = resolvedTaskId;
+			const taskId =
+				(JSON.parse(resolvesMessageRow.payload) as { taskId?: unknown }).taskId ?? null;
 			if (typeof taskId === "string" && (decision === "approve" || decision === "reject")) {
 				await deps.settleTaskAfterVerdict(taskId, decision, resumed !== null, ctx);
 			}
 		}
 
-		// wake
-		// Lazy lookup: only resolved when there is a live deliver target and text to
-		// send. Cached so one DB call covers all woken agents in this message.
-		let deliverSenderName: string | undefined;
 		for (const agentId of woken.filter((id) => id !== resumed)) {
-			try {
-				// Deliver directly into a live run when possible — avoids spawning a
-				// new work intent for an agent that is already running and waiting.
-				if (deps.tryDeliverToActiveRun !== undefined && input.text !== undefined) {
-					try {
-						if (deliverSenderName === undefined) {
-							deliverSenderName =
-								(await deps.users.getUserById(ctx.db, ctx.actor))?.name ?? ctx.actor;
-						}
-						const deliveryResult = await deps.tryDeliverToActiveRun(
-							agentId,
-							effectiveThreadId,
-							`${deliverSenderName} wrote in the conversation: ${input.text}`,
-						);
-						if (deliveryResult === "delivered") continue;
-					} catch (deliverErr) {
-						// Deliver threw (e.g. adapter bug, unbound method) — log and fall through
-						// to the normal queue path so the message still reaches the agent.
-						logger.warn("deliver to active run failed, queuing instead", {
-							messageId,
-							agentId,
-							error: deliverErr instanceof Error ? deliverErr.message : String(deliverErr),
-						});
-					}
-				}
-				const bakedRequest = await resolveThreadTurnRequest(ctx.db, messageId, agentId, {
-					requireRunnableAgent: deps.agents.requireRunnableAgent,
-					// `resolveThreadTurnRequest`'s dep shape only threads `db`,
-					// not the full ctx `getAgentIdentity` needs — close over `ctx`
-					// rather than widening that module's interface.
-					getAgentIdentity: (_db, id) => deps.agents.getAgentIdentity(ctx, id),
-				});
-				await deps.agentWorkIntentRecorder({
-					kind: "thread_turn",
-					sourceKind: "thread_message",
-					sourceId: `${messageId}:${agentId}`,
-					requestedBy: ctx.actor,
-					idempotencyKey: `thread-turn:${messageId}:${agentId}`,
-					bakedRequest,
-				} as AgentWorkIntentRecorderInput);
-			} catch (error) {
-				// a bake failure (e.g. a deactivated agent) drops that one wake —
-				// the message stays committed and the other wakes are unaffected —
-				// but the drop must be LOGGED, never silent.
-				logger.error("thread turn wake failed", {
-					messageId,
-					agentId,
-					error: error instanceof Error ? error.message : String(error),
-				});
-			}
+			await deps.inbox.tellAgent(ctx.db, {
+				userId: agentId,
+				reason: "message",
+				key: `message:${messageId}`,
+				objectId: effectiveThreadId,
+				...(messageChangeId ? { changeId: messageChangeId } : {}),
+			});
 		}
 
 		pushChanges(deps, pushRows);

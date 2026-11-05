@@ -3,8 +3,6 @@ export type {
 	AgentRunAdmissionFailedEvent,
 	AgentRunAdmissionFailureCode,
 	AgentRunLifecycleChangedEvent,
-	AgentWorkIntentKind,
-	AgentWorkIntentSourceKind,
 	ChangesRow,
 	DomainEvent,
 	EventByType,
@@ -23,4 +21,4 @@ export type {
 	WildcardHandler,
 	WildcardType,
 } from "./events.js";
-export { AGENT_WORK_INTENT_KINDS, EVENT_TYPES, objectEvent } from "./events.js";
+export { EVENT_TYPES, objectEvent } from "./events.js";

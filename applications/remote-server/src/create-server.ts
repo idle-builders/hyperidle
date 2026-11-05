@@ -67,7 +67,6 @@ export interface CreateServerDeps {
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
-	readonly actionTools: CoreApiBoot["actionTools"];
 	/** Call any registered action in-process as a specific actor — for multi-actor integration test scenarios. */
 	readonly callActionAs: NonNullable<CoreApiBoot["callActionAs"]>;
 	/** Mint a WebSocket upgrade token for a specific actor — for integration tests that connect as non-default users. */
@@ -222,7 +221,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		pluginMcpContributions: coreApi.pluginMcpContributions,
 	} satisfies ApplicationProvisionSessionDeps;
 
-	let actionTools = coreApi.actionTools;
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
@@ -231,7 +229,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		runtime: {
 			harnessRuntime: harnessRuntimeAdapter,
 			returnStatusTool: returnStatusToolAdapter,
-			actionTools: () => actionTools,
+			// This server runs no agent, so no core action is an agent's tool here: an agent's tools
+			// live with its runner, which calls this server through the door.
+			actionTools: () => agentOrchestration.actionTools,
 			editDocument: coreApi.editDocument,
 			searchDocuments: coreApi.searchDocuments,
 			session: runtimeSessionDeps,
@@ -242,7 +242,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
 	});
-	actionTools = [...coreApi.actionTools, ...agentOrchestration.actionTools];
 	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();
 
 	const app = composeApiApplication({
@@ -356,7 +355,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	return {
 		httpServer,
 		dispose,
-		actionTools,
 		callActionAs: coreApi.callActionAs,
 		mintWsTokenFor: coreApi.mintWsTokenFor,
 	};

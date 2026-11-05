@@ -61,6 +61,12 @@ export const DocumentRowSchema = z.object({
 	icon: z.string().nullable(),
 	/** Derived, never stored — see `documentAs` below. */
 	as: z.enum(DOCUMENT_AS),
+	/** Only in a `forSession` answer: the documents above it, root first, so a session files it in place. */
+	parentChain: z
+		.array(
+			z.object({ id: z.string(), title: z.string(), scopeKind: z.string(), version: z.number() }),
+		)
+		.optional(),
 });
 export type DocumentRow = z.infer<typeof DocumentRowSchema>;
 
@@ -93,6 +99,14 @@ export const SearchDocumentsInputSchema = z
 		sort: z.enum(["least_used", "most_read"]).optional(),
 		limit: z.number().int().min(1).max(500).optional(), // default 200
 		offset: z.number().int().min(0).optional(),
+		/**
+		 * The documents a session of yours reads, ranked for what it is about, with your skills,
+		 * rules and identity — and counted as used. Ignores every other filter.
+		 */
+		forSession: z
+			.object({ about: z.string(), teamId: z.string().min(1).optional() })
+			.strict()
+			.optional(),
 	})
 	.strict();
 export type SearchDocumentsInput = z.infer<typeof SearchDocumentsInputSchema>;

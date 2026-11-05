@@ -45,7 +45,7 @@ export {
 } from "./request-run-stop-for-tasks.js";
 export {
 	findReviewSession,
-	type ResumeIntentEnqueuer,
+	type ResumeEnqueuer,
 	type ReviewSessionLink,
 	recordReviewSession,
 	recordReviewVerdict,

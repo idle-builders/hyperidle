@@ -14,15 +14,8 @@ export {
 	TaskDependencyNotFoundError,
 	TaskInvalidTransitionError,
 } from "./errors.js";
-export { createTaskActions, type TaskActionsDeps } from "./task-actions.js";
+export { createTaskActions, type TaskActionsDeps, type TaskInboxTell } from "./task-actions.js";
 export { registerTaskLiveUpdates } from "./task-live-updates.js";
-// -- unified emit-time resolver --
-export type {
-	BakedTaskRunRequest,
-	ResolveInput,
-	TaskRunResolverDeps,
-} from "./task-run-resolver.js";
-export { bakeTaskContextBundle, resolveTaskRunRequest } from "./task-run-resolver.js";
 // -- task-service (tasks repository — the sole table path) --
 export type {
 	AppendNoteOp,

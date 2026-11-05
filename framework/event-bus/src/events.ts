@@ -9,53 +9,22 @@ import type {
 	SessionOutcome,
 } from "@hyperidle/domain-model";
 
-/**
- * The canonical runtime-checkable list `AgentWorkIntentKind` is built from —
- * kept in lockstep with `agent_work_intents_kind_ck`
- * (`framework/db/src/schema.ts`) and consumed by
- * `AgentWorkIntentRecorderInput` so a kind-set drift test (`framework/db`) can derive its
- * accept-list mechanically from this single source instead of a second
- * hardcoded copy.
- */
-export const AGENT_WORK_INTENT_KINDS = ["thread_turn", "task_run", "subscription_run"] as const;
-
-export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
-
-/**
- * The RAW `agent_work_intents.source_kind` vocabulary (the identity an intent
- * was recorded under, pre-resolution) — distinct from `AgentSessionSourceKind`
- * (the RESOLVED "session-source" vocabulary a chosen agent's request ends up
- * carrying, e.g. `"subscription"`/`"knowledge"`). `AgentRunAdmissionFailedEvent`
- * fires from the drain against the STORED intent row, before (or instead of)
- * resolution succeeds, so it carries this pre-resolution vocabulary verbatim.
- */
-export type AgentWorkIntentSourceKind = "thread_message" | "task_dispatch_attempt" | "subscription";
-
 export type AgentRunAdmissionFailureCode =
-	| "INVALID_WORK_SOURCE" // baked payload's source no longer exists / no longer eligible (domain-state staleness)
-	| "MAX_ATTEMPTS_EXCEEDED" // orchestration's own claim/dedup attempt budget (agentWorkIntents.attempts) exhausted
-	| "TARGET_AGENT_NOT_RUNNABLE" // resolved agent deactivated/non-existent between emit and provisioning
-	| "PROVISIONING_FAILED"; // hard infra failure building/deploying the session (harness/sandbox), not a domain problem
+	| "INVALID_WORK_SOURCE" // what the agent was asked to act on is gone, or no longer its to act on
+	| "TARGET_AGENT_NOT_RUNNABLE" // the agent is switched off or gone
+	| "PROVISIONING_FAILED"; // building or starting the session failed (no program, sandbox), not a domain problem
 
-/**
- * The pre-handoff failure report-back
- * channel: `failOrRelease` (session-requests) emits this on every failed
- * claim/dispatch attempt (before any session exists). `terminal===true`
- * means orchestration's own claim/attempt budget is spent (or the error is
- * unrecoverable by retry) — core-api MUST finalize its own state and decide
- * retry(re-emit a fresh intent)/abandon. `terminal===false` is informational
- * only (orchestration is still retrying internally); no core-api state
- * mutation.
- */
+/** A run that never started. Emitted by the run side; core tells the people waiting on it. */
 export interface AgentRunAdmissionFailedEvent {
 	readonly type: "agent_run_admission_failed";
 	readonly streamId: string;
-	readonly intentId: string;
-	readonly kind: AgentWorkIntentKind;
-	readonly sourceKind: AgentWorkIntentSourceKind;
+	readonly agentId: string;
+	readonly sourceKind: AgentSessionSourceKind;
 	readonly sourceId: string;
+	/** The thread the run would have answered in; null for a subscription run. */
+	readonly threadId: string | null;
+	readonly taskId: string | null;
 	readonly failureCode: AgentRunAdmissionFailureCode;
-	readonly terminal: boolean;
 	readonly timestamp: number;
 }
 

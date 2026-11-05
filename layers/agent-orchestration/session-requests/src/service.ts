@@ -1,34 +1,17 @@
 import { randomUUID } from "node:crypto";
-import type {
-	AgentSessionRequest,
-	AgentWorkIntent,
-	HyperIdleDb,
-	WriteExecutor,
-} from "@hyperidle/db";
-import { agentSessionRequests, agentWorkIntents } from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import { agentSessionRequests } from "@hyperidle/db";
 import type {
 	AgentSessionRequestInput,
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
+	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	BakedSessionResumeRequest,
 } from "@hyperidle/domain-model";
 import { agentSessionRequestInputSchema } from "@hyperidle/domain-model";
-import type { AgentRunAdmissionFailureCode, EventBus } from "@hyperidle/event-bus";
-import { and, asc, eq, gt, inArray, lt, lte, notInArray, or, sql } from "drizzle-orm";
-import { executeRows } from "./execute-rows.js";
-import { isAgentWorkIntentKind, isAgentWorkIntentSourceKind } from "./guards.js";
+import { and, asc, eq, gt, inArray, lt, notInArray, or, sql } from "drizzle-orm";
 
-type IntentOptions = {
-	readonly now?: () => Date;
-	readonly leaseMs?: number;
-	readonly maxAttempts?: number;
-};
-type ReapOptions = {
-	readonly now?: Date;
-	readonly retentionDays?: number;
-	readonly batchSize?: number;
-};
 type TerminalInput =
 	| {
 			readonly requestId: string;
@@ -412,174 +395,23 @@ async function requestTerminationInternal(
 	return updated.length === 1 ? "accepted" : "conflict";
 }
 
-var DEFAULT_LEASE_MS = 3e4;
-var DEFAULT_MAX_ATTEMPTS = 5;
-var MAX_BACKOFF_MS = 6e4;
-var InvalidAgentWorkSourceError = class extends Error {};
-async function claimIntentInternal(
-	db: HyperIdleDb,
-	input: { readonly now: Date; readonly leaseMs: number; readonly workerId: string },
-) {
-	const nowIso2 = input.now.toISOString();
-	const [candidate] = await db
-		.select()
-		.from(agentWorkIntents)
-		.where(
-			or(
-				and(eq(agentWorkIntents.status, "pending"), lte(agentWorkIntents.updatedAt, nowIso2)),
-				and(eq(agentWorkIntents.status, "claimed"), lt(agentWorkIntents.claimExpiresAt, nowIso2)),
-			),
-		)
-		.orderBy(asc(agentWorkIntents.createdAt))
-		.limit(1);
-	if (!candidate) return null;
-	const token = randomUUID();
-	const expires = new Date(input.now.getTime() + input.leaseMs).toISOString();
-	const predicate =
-		candidate.status === "pending"
-			? and(
-					eq(agentWorkIntents.id, candidate.id),
-					eq(agentWorkIntents.status, "pending"),
-					eq(agentWorkIntents.updatedAt, candidate.updatedAt),
-				)
-			: and(
-					eq(agentWorkIntents.id, candidate.id),
-					eq(agentWorkIntents.status, "claimed"),
-					eq(agentWorkIntents.claimToken, candidate.claimToken ?? ""),
-					eq(agentWorkIntents.claimExpiresAt, candidate.claimExpiresAt ?? ""),
-					lt(agentWorkIntents.claimExpiresAt, nowIso2),
-				);
-	const [claimed] = await db
-		.update(agentWorkIntents)
-		.set({
-			status: "claimed",
-			claimToken: token,
-			claimExpiresAt: expires,
-			attempts: candidate.attempts + 1,
-			updatedAt: nowIso2,
-		})
-		.where(predicate)
-		.returning();
-	return claimed ?? null;
-}
-async function failOrRelease(
-	db: HyperIdleDb,
-	eventBus: EventBus | undefined,
-	intent: AgentWorkIntent,
-	error: unknown,
-	options: IntentOptions,
-) {
-	if (!intent.claimToken) throw new Error(`Claimed intent ${intent.id} has no claim token`);
-	const now = (options.now ?? (() => /* @__PURE__ */ new Date()))();
-	const terminal =
-		error instanceof InvalidAgentWorkSourceError ||
-		intent.attempts >= (options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
-	const delay = Math.min(1e3 * 2 ** Math.max(0, intent.attempts - 1), MAX_BACKOFF_MS);
-	const failureCode: AgentRunAdmissionFailureCode =
-		error instanceof InvalidAgentWorkSourceError ? "INVALID_WORK_SOURCE" : "MAX_ATTEMPTS_EXCEEDED";
-	await db
-		.update(agentWorkIntents)
-		.set({
-			status: terminal ? "failed" : "pending",
-			claimToken: null,
-			claimExpiresAt: null,
-			lastError: error instanceof Error ? error.message : String(error),
-			lastErrorCode: terminal ? failureCode : null,
-			updatedAt: terminal ? now.toISOString() : new Date(now.getTime() + delay).toISOString(),
-		})
-		.where(
-			and(eq(agentWorkIntents.id, intent.id), eq(agentWorkIntents.claimToken, intent.claimToken)),
-		);
-	// @lore: admission failure event — every terminal failure reported here; no service writes run-row outcome directly; shared event type, no shared import
-	if (
-		eventBus &&
-		isAgentWorkIntentKind(intent.kind) &&
-		isAgentWorkIntentSourceKind(intent.sourceKind)
-	) {
-		eventBus.emit({
-			type: "agent_run_admission_failed",
-			streamId: `${intent.kind}:${intent.sourceId}`,
-			intentId: intent.id,
-			kind: intent.kind,
-			sourceKind: intent.sourceKind,
-			sourceId: intent.sourceId,
-			failureCode,
-			terminal,
-			timestamp: now.getTime(),
-		});
-	}
-}
-/**
- * Before claiming/dispatching, check whether a FRESHER
- * pending/claimed intent already exists for the same `(kind, sourceId)` work
- * identity (a re-emit bumped `idempotencyKey` for outstanding work). Reuses
- * the existing identity shape and its compare-and-set; own-state only, no core-api read.
- */
-async function findNewerPendingSiblingInternal(
-	db: HyperIdleDb,
-	intent: AgentWorkIntent,
-): Promise<AgentWorkIntent | undefined> {
-	const [newer] = await db
-		.select()
-		.from(agentWorkIntents)
-		.where(
-			and(
-				eq(agentWorkIntents.kind, intent.kind),
-				eq(agentWorkIntents.sourceId, intent.sourceId),
-				sql`${agentWorkIntents.id} != ${intent.id}`,
-				inArray(agentWorkIntents.status, ["pending", "claimed"]),
-				or(
-					gt(agentWorkIntents.createdAt, intent.createdAt),
-					and(eq(agentWorkIntents.createdAt, intent.createdAt), gt(agentWorkIntents.id, intent.id)),
-				),
-			),
-		)
-		.orderBy(asc(agentWorkIntents.createdAt), asc(agentWorkIntents.id))
-		.limit(1);
-	return newer;
-}
-async function markSupersededInternal(db: HyperIdleDb, intent: AgentWorkIntent): Promise<void> {
-	if (!intent.claimToken) throw new Error(`Claimed intent ${intent.id} has no claim token`);
-	await db
-		.update(agentWorkIntents)
-		.set({
-			status: "superseded",
-			claimToken: null,
-			claimExpiresAt: null,
-			lastError: null,
-			updatedAt: /* @__PURE__ */ new Date().toISOString(),
-		})
-		.where(
-			and(eq(agentWorkIntents.id, intent.id), eq(agentWorkIntents.claimToken, intent.claimToken)),
-		);
-}
-/** `intent.bakedRequestJson` parsed, or `undefined` when the intent carries none. */
-function parseBakedRequest(intent: AgentWorkIntent): BakedWorkIntentRequest | undefined {
-	if (!intent.bakedRequestJson) return undefined;
-	return JSON.parse(intent.bakedRequestJson) as BakedWorkIntentRequest;
-}
-
-function parseBakedResume(intent: AgentWorkIntent): BakedSessionResumeRequest | undefined {
-	if (!intent.bakedRequestJson) return undefined;
-	return JSON.parse(intent.bakedRequestJson) as BakedSessionResumeRequest;
-}
-
 /** Turn a baked resume into the session request that carries it. Resume takes the same provisioning path; sourceKind of its own so it's not mistaken for a new start. */
-async function createResumeRequestInternal(
+async function queueResumeInternal(
 	db: HyperIdleDb,
-	intent: AgentWorkIntent,
+	reviewMessageId: string,
 	resume: BakedSessionResumeRequest,
-): Promise<{ readonly request: AgentSessionRequest }> {
+	idempotencyKey: string,
+): Promise<AgentSessionRequest> {
 	const requestInput = agentSessionRequestInputSchema.parse({
 		sourceKind: "review_resume",
-		sourceId: intent.sourceId,
-		streamId: `review_resume:${intent.sourceId}`,
+		sourceId: reviewMessageId,
+		streamId: `review_resume:${reviewMessageId}`,
 		agentId: resume.agentId,
 		taskId: resume.taskId ?? null,
 		promptMode: "resume",
-		idempotencyKey: intent.idempotencyKey,
+		idempotencyKey,
 		sourceCorrelation: {
-			reviewMessageId: intent.sourceId,
+			reviewMessageId,
 			threadId: resume.threadId,
 			resumedSessionId: resume.sessionId,
 		},
@@ -590,22 +422,14 @@ async function createResumeRequestInternal(
 			...(resume.agentConfig ? { agentConfig: resume.agentConfig } : {}),
 		}),
 	});
-	const request = await insertRequestInternal(db, requestInput);
-	return { request };
+	return insertRequestInternal(db, requestInput);
 }
-/**
- * Co-existence scaffolding — an already-baked request is
- * used DIRECTLY (zero domain reads): reconstruct the full `triggered` request
- * shape from the persisted baked fields plus the two pieces trivially
- * re-derivable from the intent row itself (`eventType`, `idempotencyKey`),
- * then insert the session request straight away — no trigger-rule matching,
- * no re-validation. The emit-time resolver already did that work.
- */
-async function createFromBakedRequestInternal(
+/** Queue a run the runner built from an inbox row; the same key twice is one request. */
+async function queueRunInternal(
 	db: HyperIdleDb,
-	intent: AgentWorkIntent,
-	baked: BakedWorkIntentRequest,
-): Promise<{ readonly request: AgentSessionRequest }> {
+	baked: BakedRunRequest,
+	idempotencyKey: string,
+): Promise<AgentSessionRequest> {
 	const requestInput = agentSessionRequestInputSchema.parse({
 		sourceKind: baked.sourceKind,
 		sourceId: baked.sourceId,
@@ -615,7 +439,7 @@ async function createFromBakedRequestInternal(
 		userId: baked.userId,
 		taskId: baked.taskId,
 		promptMode: PROMPT_MODE_BY_SOURCE[baked.sourceKind],
-		idempotencyKey: intent.idempotencyKey,
+		idempotencyKey,
 		sourceCorrelation: baked.sourceCorrelation,
 		// baked transcript/contextBundle/agentConfig/callingThreadId ride payloadJson onto the created AgentSessionRequest; model override is NOT baked (dispatch reads it live from agent_run_config)
 		...(baked.transcript !== undefined ||
@@ -635,193 +459,8 @@ async function createFromBakedRequestInternal(
 				}
 			: {}),
 	});
-	const request = await insertRequestInternal(db, requestInput);
-	return { request };
+	return insertRequestInternal(db, requestInput);
 }
-async function handOffInternal(
-	db: HyperIdleDb,
-	intent: AgentWorkIntent,
-	claimToken: string,
-	now: Date,
-	createRequest: (tx: WriteExecutor) => Promise<{ readonly request: AgentSessionRequest }>,
-): Promise<void> {
-	await db.transaction(async (tx: WriteExecutor) => {
-		const { request } = await createRequest(tx);
-		const checkpoint = await tx
-			.update(agentWorkIntents)
-			.set({
-				status: "handed_off",
-				requestId: request.id,
-				claimToken: null,
-				claimExpiresAt: null,
-				lastError: null,
-				updatedAt: now.toISOString(),
-			})
-			.where(and(eq(agentWorkIntents.id, intent.id), eq(agentWorkIntents.claimToken, claimToken)))
-			.returning({ id: agentWorkIntents.id });
-		if (checkpoint.length !== 1) throw new Error(`Lost intent custody ${intent.id}`);
-	});
-}
-async function processIntentsInternal(
-	db: HyperIdleDb,
-	eventBus: EventBus | undefined,
-	options: IntentOptions = {},
-) {
-	for (;;) {
-		const now = (options.now ?? (() => /* @__PURE__ */ new Date()))();
-		const intent = await claimIntentInternal(db, {
-			now,
-			leaseMs: options.leaseMs ?? DEFAULT_LEASE_MS,
-			workerId: "drain",
-		});
-		if (!intent) return;
-		if (!intent.claimToken) throw new Error(`Claimed intent ${intent.id} has no claim token`);
-		const claimToken = intent.claimToken;
-
-		const supersededBy = await findNewerPendingSiblingInternal(db, intent);
-		if (supersededBy) {
-			await markSupersededInternal(db, intent);
-			continue;
-		}
-
-		try {
-			if (intent.kind === "session_resume") {
-				const resume = parseBakedResume(intent);
-				if (!resume) {
-					throw new InvalidAgentWorkSourceError(
-						`Intent ${intent.id} (kind: session_resume) has no baked resume`,
-					);
-				}
-				await handOffInternal(db, intent, claimToken, now, (tx) =>
-					createResumeRequestInternal(tx as HyperIdleDb, intent, resume),
-				);
-				continue;
-			}
-			const baked = parseBakedRequest(intent);
-			if (baked) {
-				await handOffInternal(db, intent, claimToken, now, (tx) =>
-					createFromBakedRequestInternal(tx, intent, baked),
-				);
-				// Nudge the thread so the waiting-line appears live without polling.
-				if (eventBus && baked.streamId.startsWith("thread:")) {
-					eventBus.emit({
-						type: "session_request_queued",
-						streamId: baked.streamId,
-						timestamp: now.getTime(),
-					});
-				}
-			} else {
-				throw new InvalidAgentWorkSourceError(
-					`Intent ${intent.id} (kind: ${intent.kind}) has no bakedRequestJson`,
-				);
-			}
-		} catch (error) {
-			await failOrRelease(db, eventBus, intent, error, options);
-		}
-	}
-}
-
-var defaultRetentionDays = 30;
-var defaultRetentionBatchSize = 500;
-async function insertIntentInternal(db: WriteExecutor, input: WorkIntentInput) {
-	const existing = await db
-		.select()
-		.from(agentWorkIntents)
-		.where(
-			and(
-				eq(agentWorkIntents.kind, input.kind),
-				eq(agentWorkIntents.sourceId, input.sourceId),
-				eq(agentWorkIntents.idempotencyKey, input.idempotencyKey),
-			),
-		)
-		.limit(1);
-	if (existing[0]) return existing[0];
-	const timestamp = /* @__PURE__ */ new Date().toISOString();
-	const [inserted] = await db
-		.insert(agentWorkIntents)
-		.values({
-			id: randomUUID(),
-			kind: input.kind,
-			sourceKind: input.sourceKind,
-			sourceId: input.sourceId,
-			requestedBy: input.requestedBy ?? null,
-			idempotencyKey: input.idempotencyKey,
-			status: "pending",
-			// session_resume bakes a resume, not a start request (same column, different shape).
-			bakedRequestJson: JSON.stringify(
-				input.kind === "session_resume" ? input.resume : input.bakedRequest,
-			),
-			createdAt: timestamp,
-			updatedAt: timestamp,
-		})
-		.onConflictDoNothing()
-		.returning();
-	if (inserted) return inserted;
-	const [raced] = await db
-		.select()
-		.from(agentWorkIntents)
-		.where(
-			and(
-				eq(agentWorkIntents.kind, input.kind),
-				eq(agentWorkIntents.sourceId, input.sourceId),
-				eq(agentWorkIntents.idempotencyKey, input.idempotencyKey),
-			),
-		);
-	if (!raced) throw new Error("Failed to record agent work intent");
-	return raced;
-}
-async function findIntentSourceInternal(
-	db: HyperIdleDb,
-	kind: WorkIntentInput["kind"],
-	sourceId: string,
-) {
-	const [row] = await db
-		.select()
-		.from(agentWorkIntents)
-		.where(and(eq(agentWorkIntents.kind, kind), eq(agentWorkIntents.sourceId, sourceId)))
-		.limit(1);
-	return row;
-}
-async function findIntentRequestInternal(db: HyperIdleDb, requestId: string) {
-	const [row] = await db
-		.select({
-			id: agentWorkIntents.id,
-			kind: agentWorkIntents.kind,
-			sourceId: agentWorkIntents.sourceId,
-			sourceKind: agentWorkIntents.sourceKind,
-			idempotencyKey: agentWorkIntents.idempotencyKey,
-		})
-		.from(agentWorkIntents)
-		.where(eq(agentWorkIntents.requestId, requestId))
-		.limit(1);
-	return row;
-}
-async function reapIntentsInternal(db: HyperIdleDb, options: ReapOptions = {}) {
-	const now = options.now ?? /* @__PURE__ */ new Date();
-	const retentionDays = options.retentionDays ?? defaultRetentionDays;
-	const batchSize = options.batchSize ?? defaultRetentionBatchSize;
-	const cutoff = new Date(now.getTime() - retentionDays * 864e5).toISOString();
-	return await db.transaction(async (tx: WriteExecutor) => {
-		const candidates = (await tx.execute(sql`
-			select i.id
-			from agent_work_intents i
-			left join agent_session_requests r on r.id = i.request_id
-			where i.status in ('handed_off', 'failed')
-			  and i.updated_at < ${cutoff}
-			  and (i.request_id is null or r.status in ('completed', 'failed', 'cancelled'))
-			order by i.updated_at, i.id
-			limit ${batchSize}
-		`)) as unknown as
-			| ReadonlyArray<{ readonly id: string }>
-			| { readonly rows: ReadonlyArray<{ readonly id: string }> };
-		const ids = executeRows(candidates).map((row) => row.id);
-		if (ids.length > 0) {
-			await tx.delete(agentWorkIntents).where(inArray(agentWorkIntents.id, ids));
-		}
-		return { intents: ids.length };
-	});
-}
-
 function queryRequestInternal(exec: HyperIdleDb, query: FindQuery) {
 	switch (query.by) {
 		case "id":
@@ -836,11 +475,6 @@ function queryRequestInternal(exec: HyperIdleDb, query: FindQuery) {
 				claimToken: query.claimToken,
 				now: query.now,
 			});
-		case "intentSource":
-			if ("kind" in query) {
-				return findIntentSourceInternal(exec, query.kind, query.sourceId);
-			}
-			return findIntentRequestInternal(exec, query.requestId);
 	}
 }
 function mutateRequestInternal(
@@ -894,25 +528,8 @@ const PROMPT_MODE_BY_SOURCE: Record<string, string> = {
 	subscription: "subscription",
 };
 
-export type WorkIntentInput =
-	| {
-			readonly kind: "thread_turn" | "task_run" | "subscription_run";
-			readonly sourceKind: "thread_message" | "task_dispatch_attempt" | "subscription";
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			readonly bakedRequest: BakedWorkIntentRequest;
-	  }
-	| {
-			readonly kind: "session_resume";
-			readonly sourceKind: "review_verdict";
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			readonly resume: BakedSessionResumeRequest;
-	  };
-/** Extended baked work-intent payload for session-requests' drain. Adds `callingThreadId` — a field not in domain-model's BakedWorkIntentRequest. Structural superset. */
-export type BakedWorkIntentRequest = {
+/** A run the runner built from an inbox row: who runs, what it is about, and what the session reads. */
+export type BakedRunRequest = {
 	readonly defaultAgentId: string;
 	readonly sourceKind: AgentSessionSourceKind;
 	readonly sourceId: string;
@@ -921,30 +538,15 @@ export type BakedWorkIntentRequest = {
 	readonly teamId?: string;
 	readonly userId?: string;
 	readonly sourceCorrelation: AgentSessionSourceCorrelation;
-	/**
-	 * The `assistant_turn` family's baked
-	 * thread transcript (`conversation`'s `resolveAssistantTurnRequest`).
-	 * Absent for every other kind — carried through onto the created
-	 * `AgentSessionRequest.payloadJson` so `dispatch` sources the harness
-	 * conversation from the baked payload instead of a live read.
-	 */
+	/** A thread turn's transcript, oldest first. Absent for task and subscription runs, which carry a `contextBundle`. */
 	readonly transcript?: ReadonlyArray<{
 		readonly senderId: string;
 		readonly payload: string;
 		readonly type: string;
 	}>;
 	readonly contextBundle?: BakedContextBundle;
-	readonly agentConfig?: {
-		readonly kind: string;
-		readonly status: string;
-		readonly role: string;
-		readonly teamId: string | null;
-	};
-	/**
-	 * The session's calling thread id. Absent
-	 * for `subscription_run` — see `BakedWorkIntentRequest` in
-	 * `@hyperidle/work-intent-port` for the full `@lore`.
-	 */
+	readonly agentConfig?: BakedAgentRunnableConfig;
+	/** The thread the session answers in. Absent for a subscription run. */
 	readonly callingThreadId?: string;
 };
 export type FindQuery =
@@ -955,12 +557,6 @@ export type FindQuery =
 			readonly requestId: string;
 			readonly claimToken: string;
 			readonly now: Date;
-	  }
-	| { readonly by: "intentSource"; readonly requestId: string }
-	| {
-			readonly by: "intentSource";
-			readonly kind: WorkIntentInput["kind"];
-			readonly sourceId: string;
 	  }
 	| { readonly by: "terminationReason"; readonly requestId: string };
 type TransitionSpec =
@@ -1001,13 +597,19 @@ export interface ClaimOptions {
 	readonly now: Date;
 	readonly leaseMs: number;
 }
-type DurableQueueDeps = {
-	readonly db: HyperIdleDb;
-	readonly eventBus: EventBus;
-};
 
-export function enqueueWorkIntent(exec: WriteExecutor, input: WorkIntentInput) {
-	return insertIntentInternal(exec, input);
+export function queueRun(db: HyperIdleDb, baked: BakedRunRequest, idempotencyKey: string) {
+	return queueRunInternal(db, baked, idempotencyKey);
+}
+export function queueResume(
+	db: HyperIdleDb,
+	input: {
+		readonly reviewMessageId: string;
+		readonly resume: BakedSessionResumeRequest;
+		readonly idempotencyKey: string;
+	},
+) {
+	return queueResumeInternal(db, input.reviewMessageId, input.resume, input.idempotencyKey);
 }
 export function findSessionRequest(
 	exec: HyperIdleDb,
@@ -1025,12 +627,6 @@ export function findSessionRequest(
 	exec: HyperIdleDb,
 	query: Extract<FindQuery, { by: "claimActive" }>,
 ): Promise<boolean>;
-export function findSessionRequest(
-	exec: HyperIdleDb,
-	query: Extract<FindQuery, { by: "intentSource" }>,
-): Promise<
-	Pick<AgentWorkIntent, "id" | "kind" | "idempotencyKey" | "sourceId" | "sourceKind"> | undefined
->;
 export function findSessionRequest(exec: HyperIdleDb, query: FindQuery) {
 	return queryRequestInternal(exec, query);
 }
@@ -1087,16 +683,4 @@ export function transitionSessionRequest(
 		...options,
 		existingTransaction: transaction === "existing",
 	});
-}
-export function drainIntents(
-	deps: DurableQueueDeps,
-	options?: { readonly now?: () => Date; readonly leaseMs?: number; readonly maxAttempts?: number },
-) {
-	return processIntentsInternal(deps.db, deps.eventBus, options);
-}
-export function reapExpired(
-	db: HyperIdleDb,
-	options?: { readonly now?: Date; readonly retentionDays?: number; readonly batchSize?: number },
-) {
-	return reapIntentsInternal(db, options);
 }

@@ -3,7 +3,6 @@ import type { Change, HyperIdleDb, NewChange, NewTask, User, WriteExecutor } fro
 import {
 	type ActionResult,
 	type AdjustThreadInput,
-	type AgentWorkIntentRecorderInput,
 	canTransitionTaskState,
 	computeTaskNeed,
 	type DocumentRow,
@@ -29,8 +28,6 @@ import {
 import { objectEvent } from "@hyperidle/event-bus";
 import type { Action, ActionContext } from "./action-types.js";
 import { handleDependencyKilled } from "./dependency-watcher.js";
-import type { BakedTaskRunRequest, TaskRunResolverDeps } from "./task-run-resolver.js";
-import { resolveTaskRunRequest } from "./task-run-resolver.js";
 import type { Task } from "./task-service.js";
 import * as taskDb from "./task-service.js";
 import { taskDispatchAttemptStore } from "./task-service.js";
@@ -75,12 +72,9 @@ export interface TaskActionsDeps {
 	readonly changes: {
 		appendChange(exec: WriteExecutor, row: NewChange): Promise<Change>;
 	};
-	readonly agentOrchestration: {
-		submitWorkIntent(input: AgentWorkIntentRecorderInput): Promise<void>;
-		stopRunsForTasks(
-			taskIds: readonly string[],
-		): Promise<readonly { taskId: string; sessionId: string }[]>;
-		endRunForHandoff(sessionId: string, endedAt: string): Promise<void>;
+	/** An agent's inbox: a task to work, or a run on a task to stop. */
+	readonly inbox: {
+		tellAgent(db: HyperIdleDb, tell: TaskInboxTell): Promise<void>;
 	};
 	readonly users: { getUserById(exec: WriteExecutor, id: string): Promise<User | undefined> };
 	/** The ONE door onto `document` — task never imports `@hyperidle/document`, never opens a document, and never calls this inside its own open transaction (a runner call inside `ctx.db.transaction` hangs PGlite). */
@@ -88,7 +82,6 @@ export interface TaskActionsDeps {
 		ctx: ActionContext,
 		input: SearchDocumentsInput,
 	) => Promise<ActionResult<DocumentRow[]>>;
-	readonly taskRunResolver: TaskRunResolverDeps;
 	readonly adjustThread: (
 		ctx: ActionContext,
 		input: AdjustThreadInput,
@@ -114,6 +107,15 @@ export interface TaskActionsDeps {
 			readonly resolvedAt: string | null;
 		}>
 	>;
+}
+
+/** One row for an agent's inbox; the binding writes it only for an agent that can run. */
+export interface TaskInboxTell {
+	readonly userId: string;
+	readonly reason: "task_run" | "task_stop";
+	readonly key: string;
+	readonly objectId: string;
+	readonly changeId?: string;
 }
 
 /** Tasks a kill cascade never touches when it meets them BENEATH the root. */
@@ -582,30 +584,39 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 
 	/** Send the owner back to a part a stop cut off; one restart per stop, so it is not one-per-occasion. */
 	async function restart(ctx: ActionContext, taskId: string, agentId: string): Promise<void> {
-		const dispatched = await ctx.db.transaction(async (tx) => {
-			const inserted = await taskDispatchAttemptStore.insertAttempt(tx, {
+		const inserted = await ctx.db.transaction((tx) =>
+			taskDispatchAttemptStore.insertAttempt(tx, {
 				taskId,
 				occasion: "restart",
 				agentId,
 				now: ctx.now,
+			}),
+		);
+		if (!inserted.id) return;
+		await deps.inbox.tellAgent(ctx.db, {
+			userId: agentId,
+			reason: "task_run",
+			key: `task-run:${inserted.id}`,
+			objectId: taskId,
+		});
+	}
+
+	/** Each agent working one of these tasks is told to stop; `why` keeps a later stop its own row. */
+	async function tellOwnersToStop(
+		ctx: ActionContext,
+		taskIds: readonly string[],
+		why: string,
+	): Promise<void> {
+		if (taskIds.length === 0) return;
+		for (const t of await taskDb.list(ctx.db, "task", { ids: [...taskIds] })) {
+			if (!t.ownerAgentId) continue;
+			await deps.inbox.tellAgent(ctx.db, {
+				userId: t.ownerAgentId,
+				reason: "task_stop",
+				key: `task-stop:${t.id}:${why}`,
+				objectId: t.id,
 			});
-			if (!inserted.id) return null;
-			const bakedRequest = await resolveTaskRunRequest(
-				tx as HyperIdleDb,
-				{ kind: "task_run", attemptId: inserted.id },
-				deps.taskRunResolver,
-			);
-			return { attemptId: inserted.id, bakedRequest };
-		});
-		if (!dispatched) return;
-		await deps.agentOrchestration.submitWorkIntent({
-			kind: "task_run",
-			sourceKind: "task_dispatch_attempt",
-			sourceId: dispatched.attemptId,
-			requestedBy: agentId,
-			idempotencyKey: `task-dispatch:${dispatched.attemptId}`,
-			bakedRequest: dispatched.bakedRequest,
-		});
+		}
 	}
 
 	async function editTaskRun(
@@ -847,7 +858,6 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					attemptId: string;
 					ownerAgentId: string;
 					occasion: "accepted" | "retry" | "owner_handoff";
-					bakedRequest: BakedTaskRunRequest;
 			  }
 			| undefined;
 		let predecessorSessionId: string | undefined;
@@ -970,19 +980,9 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					agentId: next.ownerAgentId,
 					now,
 				});
-				// A unique-index conflict leaves `inserted.id` undefined — skip bake and dispatch rather than reading a fabricated id.
+				// A unique-index conflict leaves `inserted.id` undefined — no dispatch rather than a fabricated id.
 				if (inserted.id) {
-					const bakedRequest = await resolveTaskRunRequest(
-						tx as HyperIdleDb,
-						{ kind: "task_run", attemptId: inserted.id },
-						deps.taskRunResolver,
-					);
-					dispatch = {
-						attemptId: inserted.id,
-						ownerAgentId: next.ownerAgentId,
-						occasion,
-						bakedRequest,
-					};
+					dispatch = { attemptId: inserted.id, ownerAgentId: next.ownerAgentId, occasion };
 				}
 			} else if (
 				input.ownerAgentId !== undefined &&
@@ -998,29 +998,31 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					predecessorSessionId: predecessorSessionId ?? null,
 					now,
 				});
-				// A swallowed conflict means no row — no bake and no dispatch.
+				// A swallowed conflict means no row — no dispatch.
 				if (inserted.id) {
-					const bakedRequest = await resolveTaskRunRequest(
-						tx as HyperIdleDb,
-						{ kind: "task_run", attemptId: inserted.id },
-						deps.taskRunResolver,
-					);
 					dispatch = {
 						attemptId: inserted.id,
 						ownerAgentId: input.ownerAgentId,
 						occasion: "owner_handoff",
-						bakedRequest,
 					};
 				}
 			}
 		});
 
 		// -- 5. after commit --------------------------------------------------------
-		if (killedTasks.length > 0) {
-			await deps.agentOrchestration.stopRunsForTasks(killedTasks.map((k) => k.id));
-		}
-		if (predecessorSessionId && dispatch?.occasion === "owner_handoff") {
-			await deps.agentOrchestration.endRunForHandoff(predecessorSessionId, now);
+		await tellOwnersToStop(
+			ctx,
+			killedTasks.map((k) => k.id),
+			"killed",
+		);
+		// The agent the task was handed away from ends its run on it; its runner sees the new owner.
+		if (prev?.ownerAgentId && dispatch?.occasion === "owner_handoff") {
+			await deps.inbox.tellAgent(ctx.db, {
+				userId: prev.ownerAgentId,
+				reason: "task_stop",
+				key: `task-stop:${prev.id}:${dispatch.attemptId}`,
+				objectId: prev.id,
+			});
 		}
 		// Every change row this call appended is one object event, post
 		// commit — the main row always (a
@@ -1043,19 +1045,20 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		}
 		for (const row of pausedParts) ctx.eventBus.emit(objectEvent(row));
 		if (prev && pauseMoved && next.paused === "stopped") {
-			await deps.agentOrchestration.stopRunsForTasks(await taskDb.listSubtreeIds(ctx.db, prev.id));
+			await tellOwnersToStop(ctx, await taskDb.listSubtreeIds(ctx.db, prev.id), `stopped:${now}`);
 		}
 		if (prev && pauseMoved && next.paused === null) {
 			await resumeSubtree(ctx, prev.id, prev.paused === "stopped");
 		}
 		if (dispatch) {
-			await deps.agentOrchestration.submitWorkIntent({
-				kind: "task_run",
-				sourceKind: "task_dispatch_attempt",
-				sourceId: dispatch.attemptId,
-				requestedBy: dispatch.ownerAgentId,
-				idempotencyKey: `task-dispatch:${dispatch.attemptId}`,
-				bakedRequest: dispatch.bakedRequest,
+			// Assigned inside the transaction callback, so the compiler cannot see it set.
+			const dispatchChange = mainChangeRow as Change | null;
+			await deps.inbox.tellAgent(ctx.db, {
+				userId: dispatch.ownerAgentId,
+				reason: "task_run",
+				key: `task-run:${dispatch.attemptId}`,
+				objectId: prev?.id ?? next.id,
+				...(dispatchChange ? { changeId: dispatchChange.id } : {}),
 			});
 		}
 		for (const killed of killedTasks) {

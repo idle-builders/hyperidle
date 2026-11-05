@@ -28,6 +28,7 @@ import {
 } from "@hyperidle/domain-model";
 import { type ChangesRow, objectEvent } from "@hyperidle/event-bus";
 import type { Action, ActionContext } from "./action-types.js";
+import { assembleSessionDocuments } from "./session-documents.js";
 import {
 	assertParentInvariants,
 	assertSlotFree,
@@ -418,6 +419,21 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 	> {
 		const pureProblems = searchDocumentsInvariants(input);
 		if (pureProblems.length > 0) return { ok: false, problems: pureProblems };
+
+		if (input.forSession) {
+			const me = await deps.users.getUserById(ctx.db, ctx.actor);
+			const teamId = input.forSession.teamId ?? me?.teamIds[0];
+			const items = await assembleSessionDocuments(ctx.db, {
+				...(teamId ? { teamId } : {}),
+				taskDescription: input.forSession.about,
+				agentId: ctx.actor,
+				agentDiscipline: me?.discipline ?? null,
+			});
+			return {
+				ok: true,
+				data: items.map((item) => ({ ...toDocumentRow(item), parentChain: [...item.parentChain] })),
+			};
+		}
 
 		const viewer = await resolveViewer(ctx, deps);
 		const rows = await searchDocumentRows(ctx.db, toSearchFilter(input), viewer);
