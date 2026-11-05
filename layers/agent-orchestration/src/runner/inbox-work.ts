@@ -254,11 +254,18 @@ async function actOnReviewAnswered(
 	// No session can take it back, so the agent reads the answer in a new turn.
 	logger.info("answer starts a new turn", { reviewMessageId, outcome: outcome.status });
 	// Core left an approved task open for the session that asked; with none coming back, the agent
-	// closes it here.
+	// closes it here — by core's own rule, only when every line of it is met.
 	if (typeof askedTaskId === "string" && replyOf(reply).decision === "approve") {
-		const closed = await deps.door.call(agent.key, "edit_task", { id: askedTaskId, state: "done" });
-		if (!closed.ok) {
-			logger.info("approved task left open", { taskId: askedTaskId, problems: closed.problems });
+		const asked = await deps.door.call<TaskView>(agent.key, "open_task", { id: askedTaskId });
+		const allMet = asked.ok && asked.data.task.doneWhen.every((l) => l.state === "met");
+		if (asked.ok && asked.data.task.state === "in_progress" && allMet) {
+			const closed = await deps.door.call(agent.key, "edit_task", {
+				id: askedTaskId,
+				state: "done",
+			});
+			if (!closed.ok) {
+				logger.info("approved task left open", { taskId: askedTaskId, problems: closed.problems });
+			}
 		}
 	}
 	await queueThreadTurn(
@@ -286,14 +293,11 @@ async function actOnTaskRun(
 	if (!WORKABLE_TASK_STATES.has(task.state)) throw new NothingToDo(`the task is ${task.state}`);
 	if (task.ownerAgentId && task.ownerAgentId !== me.id) throw new NothingToDo("the task moved on");
 	if (task.paused !== null) throw new NotYet("the task is paused");
+	// The same start told twice (a restart and a row that waited) is one run. Only this agent's
+	// waiting runs count: a run still running may be one a stop just ended.
 	const queued = await listPendingByStream(deps.db, `task:${task.id}`);
-	const live = await listSessions(deps.db, {
-		taskId: task.id,
-		agentIds: [me.id],
-		state: "active",
-		limit: 1,
-	});
-	if (queued.length > 0 || live.length > 0) throw new NothingToDo("a run on the task is under way");
+	if (queued.some((r) => r.agentId === me.id))
+		throw new NothingToDo("a run on the task is waiting");
 	const team = me.teams.find((t) => t.id === task.teamId);
 	const contextBundle: BakedContextBundle | undefined = team
 		? {
@@ -409,6 +413,7 @@ async function actOnTaskStop(
 		});
 		for (const session of live)
 			await endRunForHandoff(deps.db, session.id, new Date().toISOString());
+		await cancelPendingForTasks(deps.db, [taskId], new Date().toISOString(), me.id);
 		return;
 	}
 	await cancelPendingForTasks(deps.db, [taskId], new Date().toISOString());

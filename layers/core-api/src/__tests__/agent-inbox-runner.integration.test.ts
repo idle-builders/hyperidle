@@ -5,9 +5,11 @@
  */
 
 import {
+	agentSessionRequests,
 	type HyperIdleDb,
 	inbox,
 	messages,
+	sessions,
 	subscriptions,
 	tasks,
 	teams,
@@ -242,11 +244,56 @@ describe("an agent acts on its inbox", () => {
 				"review_answered",
 				review.id,
 			]);
-			// The answering run carries the task, so its end closes the approved task.
+			// No session takes the approval back here, so the runner closes the task: every line is met.
 			await waitFor("the approved task to close", async () => {
 				const [task] = await db.select().from(tasks).where(eq(tasks.id, created.task.id));
 				return task?.state === "done" ? task : undefined;
 			});
+		});
+	});
+
+	test("an approval leaves the task open while another of its lines is not met", async ({
+		db,
+		eventBus,
+	}) => {
+		const filesReviewFirst: RunScript = async (run) => {
+			if (run.index === 0) {
+				await run.call("send_message", { review: { title: "Notes ready", reasoning: ["Done."] } });
+				return;
+			}
+			await run.call("send_message", { text: "pong" });
+		};
+		await withWorld(db, eventBus, filesReviewFirst, async (world) => {
+			await world.runner.start();
+			const created = await asPerson<{ task: { id: string } }>(world, "edit_task", {
+				title: "Write the notes",
+				teamId: TEAM,
+				ownerAgentId: BUILDER,
+				doneWhen: [
+					{ id: "tests", what: "Tests pass", by: "check", state: "open", how: "npm test" },
+					{ id: "look", what: "Looks right", by: "review", state: "open", how: null },
+				],
+			});
+			await asPerson(world, "edit_task", { id: created.task.id, state: "accepted" });
+			const review = await waitFor("Builder's review", async () => {
+				const [found] = await db
+					.select()
+					.from(messages)
+					.where(and(eq(messages.senderId, BUILDER), eq(messages.type, "review")));
+				return found;
+			});
+
+			await asPerson(world, "send_message", {
+				threadId: review.threadId,
+				verdict: { decision: "approve", resolvesMessageId: review.id },
+			});
+
+			await waitFor("Builder's answer to the verdict", async () => {
+				const found = await saidBy(db, BUILDER, "pong");
+				return found.length > 0 ? found : undefined;
+			});
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, created.task.id));
+			expect(task?.state).toBe("in_progress");
 		});
 	});
 
@@ -366,6 +413,52 @@ describe("an agent acts on its inbox", () => {
 			});
 
 			expect(interceptCount).toBe(3);
+		});
+	});
+
+	test("a task handed on while its run waits starts for the new owner, and the old run is cancelled", async ({
+		db,
+		eventBus,
+	}) => {
+		await withWorld(db, eventBus, answersPong, async (world) => {
+			// Builder is busy elsewhere, so its run on the task waits.
+			await db.insert(sessions).values({
+				id: "busy-elsewhere",
+				agentId: BUILDER,
+				modelTier: "workhorse",
+				startedAt: new Date().toISOString(),
+				state: "active",
+			});
+			await world.runner.start();
+			const created = await asPerson<{ task: { id: string; threadId: string } }>(
+				world,
+				"edit_task",
+				{ title: "Hand me on", teamId: TEAM, ownerAgentId: BUILDER },
+			);
+			await asPerson(world, "edit_task", { id: created.task.id, state: "accepted" });
+			await waitFor("Builder's waiting run", async () => {
+				const [found] = await db
+					.select()
+					.from(agentSessionRequests)
+					.where(eq(agentSessionRequests.agentId, BUILDER));
+				return found?.status === "pending" ? found : undefined;
+			});
+
+			await asPerson(world, "edit_task", { id: created.task.id, ownerAgentId: OTHER });
+
+			const [reply] = await waitFor("Other's run on the task", async () => {
+				const found = await saidBy(db, OTHER, "pong");
+				return found.length > 0 ? found : undefined;
+			});
+			expect(reply?.threadId).toBe(created.task.threadId);
+			await waitFor("Builder's waiting run cancelled", async () => {
+				const [found] = await db
+					.select()
+					.from(agentSessionRequests)
+					.where(eq(agentSessionRequests.agentId, BUILDER));
+				return found?.status === "cancelled" ? found : undefined;
+			});
+			await db.delete(sessions).where(eq(sessions.id, "busy-elsewhere"));
 		});
 	});
 

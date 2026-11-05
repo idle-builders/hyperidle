@@ -87,11 +87,12 @@ export function listPendingByStream(db: HyperIdleDb, streamId: string) {
 	return listPendingByStreamInternal(db, streamId);
 }
 
-/** Cancel the runs still waiting to start on these tasks, so a stop also stops what has not begun. */
+/** Cancel the runs still waiting to start on these tasks — one agent's, or everyone's — so a stop also stops what has not begun. */
 export async function cancelPendingForTasks(
 	db: HyperIdleDb,
 	taskIds: readonly string[],
 	now: string,
+	agentId?: string,
 ): Promise<number> {
 	if (taskIds.length === 0) return 0;
 	const cancelled = await db
@@ -101,6 +102,7 @@ export async function cancelPendingForTasks(
 			and(
 				inArray(agentSessionRequests.taskId, [...taskIds]),
 				eq(agentSessionRequests.status, "pending"),
+				...(agentId ? [eq(agentSessionRequests.agentId, agentId)] : []),
 			),
 		)
 		.returning({ id: agentSessionRequests.id });
