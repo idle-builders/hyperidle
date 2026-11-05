@@ -133,7 +133,6 @@ interface SessionLifecycleHarnessAdapter {
 
 interface SessionLifecycleAdapterMeta {
 	readonly name: string;
-	readonly kind: "local" | "remote";
 	readonly type?: string;
 	readonly modelProviders: readonly string[];
 	readonly maxConcurrent: number;

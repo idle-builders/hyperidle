@@ -19,7 +19,6 @@ import { createStartRoutes } from "../start.js";
 const program = (state: "ready" | "unauthenticated"): HarnessCapabilityDescriptor => ({
 	type: "claude-code",
 	name: "Claude Code",
-	kind: "local",
 	authAction: { kind: "native_cli_login", label: "Sign in", command: ["claude", "login"] },
 	discovery: { state },
 	models: [],

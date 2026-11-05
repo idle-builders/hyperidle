@@ -21,7 +21,6 @@ function descriptorWith(
 	return {
 		type: harnessType,
 		name: harnessType,
-		kind: "local",
 		authAction: { kind: "native_cli_login", label: "Log in" },
 		discovery: { state: "ready" },
 		models: modelIds.map((id) => ({

@@ -8,7 +8,6 @@ import type { HarnessDiscoveryInput } from "../harness-discovery.js";
 
 const OPENCODE_META: AdapterMeta = {
 	name: "OpenCode",
-	kind: "local",
 	type: "opencode",
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 	maxConcurrent: 8,
@@ -28,7 +27,6 @@ describe("harness capability descriptor builders", () => {
 		const descriptor = catalog.describe(
 			{
 				name: "Claude Code",
-				kind: "local",
 				type: "claude-code",
 				modelProviders: ["anthropic"],
 				maxConcurrent: 4,

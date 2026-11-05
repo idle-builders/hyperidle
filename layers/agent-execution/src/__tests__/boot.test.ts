@@ -6,7 +6,7 @@
  * direct call against the boot's return value.
  */
 
-import type { ToolRegistry, WorkerRegisterMessage } from "@hyperidle/harness-protocol";
+import type { ToolRegistry } from "@hyperidle/harness-protocol";
 import type { CliAvailabilityDeps, HarnessProbeDeps } from "@hyperidle/harness-registry";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
@@ -66,33 +66,6 @@ describe("bootAgentExecution", () => {
 			for (const type of registered) {
 				expect(["claude-code", "codex", "opencode", "cursor-agent"]).toContain(type);
 			}
-		});
-	});
-
-	describe("worker adapter construction", () => {
-		it("builds a HarnessAdapter from a worker WS registration", async () => {
-			const boot = await bootAgentExecution({
-				topology: "disabled",
-				mcpBaseUrl: "http://localhost:9999",
-			});
-			const fakeWs = {
-				send: () => {},
-				close: () => {},
-				onmessage: null,
-				onclose: null,
-				onerror: null,
-			};
-			const registration: WorkerRegisterMessage = {
-				type: "register",
-				id: "worker-1",
-				name: "test-worker",
-				modelProviders: ["anthropic"],
-				maxConcurrent: 2,
-			};
-
-			const adapter = boot.adapters.createWorkerAdapter(fakeWs, registration);
-
-			expect(adapter.getCapabilities().modelProviders).toEqual(["anthropic"]);
 		});
 	});
 

@@ -111,7 +111,6 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	api.use("*", stack.cors);
 	api.onError(stack.errorHandler);
 	coreApi.registerPreAuthRoutes(api);
-	agentOrchestration?.registerPreAuthRoutes(api);
 	options?.registerPreAuthRoutes?.(api);
 	api.use("*", stack.auth);
 	api.route("/", coreApi.app);

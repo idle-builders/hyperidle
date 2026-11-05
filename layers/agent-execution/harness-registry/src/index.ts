@@ -23,7 +23,6 @@ export {
 	type ProvisionOptions,
 	provisionHarnessEnvironment,
 } from "./provision-harness-environment.js";
-export { RemoteHarnessAdapter, type WsLike } from "./remote-harness-adapter.js";
 export { createReturnEnforcement } from "./return-enforcement.js";
 export {
 	createSandboxAdapter,

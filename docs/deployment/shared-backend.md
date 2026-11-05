@@ -8,8 +8,8 @@ Desktop clients join at first start: "Join a team on a server" takes the server'
 
 - **Profile:** runs `HYPERIDLE_PROFILE=cloud` (Postgres via `DATABASE_URL`, network-exposed, mandatory `HYPERIDLE_API_KEY` — `applications/remote-server/src/validate-startup-env.ts`). No new profile is introduced.
 - **Stateless compute:** all durable state in Postgres; pod rootfs read-only, writes go only to the `/tmp` and `/data` emptyDir mounts (`HYPERIDLE_WORKSPACES_DIR=/data/workspaces`). Replicas are interchangeable.
-- **Serves SPA + API:** one Hono server serves the web bundle at `/` (`HYPERIDLE_STATIC_DIR=/app/layers/core-ui/dist`) and the API at `/api/*`. Runs **no agents** — it takes sessions only from a worker connected over `/ws/worker`, and no app in this repo runs one (see [where agents run](./index.md)).
-- **Auth:** each person's own key, handed out when they join by signing in at the deployment's OpenID Connect provider ([signing in](./self-hosting.md#signing-in)). The chart sets `HYPERIDLE_SIGN_IN_ISSUER` and `HYPERIDLE_SIGN_IN_CLIENT_ID`; who may sign in is set at the provider. The server's own `HYPERIDLE_API_KEY` (K8s secret `app-secrets`) is for workers and checks by hand.
+- **Serves SPA + API:** one Hono server serves the web bundle at `/` (`HYPERIDLE_STATIC_DIR=/app/layers/core-ui/dist`) and the API at `/api/*`. Runs **no agents** (see [where agents run](./index.md)).
+- **Auth:** each person's own key, handed out when they join by signing in at the deployment's OpenID Connect provider ([signing in](./self-hosting.md#signing-in)). The chart sets `HYPERIDLE_SIGN_IN_ISSUER` and `HYPERIDLE_SIGN_IN_CLIENT_ID`; who may sign in is set at the provider. The server's own `HYPERIDLE_API_KEY` (K8s secret `app-secrets`) is for checks by hand.
 
 ## Where a deployment lives
 

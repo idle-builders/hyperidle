@@ -5,12 +5,7 @@
  */
 
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
-import type {
-	HarnessAdapter,
-	RegisteredTool,
-	ToolRegistry,
-	WorkerRegisterMessage,
-} from "@hyperidle/harness-protocol";
+import type { RegisteredTool, ToolRegistry } from "@hyperidle/harness-protocol";
 import type { EnforcementRegistry as BaseEnforcementRegistry } from "@hyperidle/harness-registry";
 import {
 	AdapterPool,
@@ -20,9 +15,7 @@ import {
 	createSandboxAdapter,
 	type HarnessProbeDeps,
 	provisionHarnessEnvironment,
-	RemoteHarnessAdapter,
 	type SandboxAdapter,
-	type WsLike,
 	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
 import { createMcpToolBridge, returnStatusTool } from "@hyperidle/harness-registry/mcp";
@@ -36,9 +29,8 @@ type ReturnGate = ReturnType<EnforcementRegistry["createGate"]>;
 export interface AgentExecutionBootOptions {
 	/**
 	 * "local": in-process CLI harness discovery + a real local sandbox — the
-	 * `desktop` Application's shape. "disabled": an empty pool, populated only
-	 * by remote workers registering over the worker WS route, no local
-	 * sandbox — the `remote-server` Application's shape.
+	 * `desktop` Application's shape. "disabled": an empty pool and no local
+	 * sandbox, so no agent runs — the `remote-server` Application's shape.
 	 */
 	readonly topology: "local" | "disabled";
 	/** The Application's own origin — spells the MCP bridge's dialable URL (`${mcpBaseUrl}/api/mcp/:token`). */
@@ -102,8 +94,6 @@ export interface AgentExecutionAdapters {
 	readonly pool: AdapterPool;
 	readonly sandbox: SandboxAdapter;
 	readonly harnessRuntime: AgentExecutionHarnessRuntime;
-	/** Builds a HarnessAdapter for a worker's WebSocket registration. */
-	createWorkerAdapter(ws: unknown, registration: WorkerRegisterMessage): HarnessAdapter;
 	/**
 	 * returnStatusTool rides this bundle rather than being imported by agent-orchestration (it reads this boot's enforcement registry).
 	 */
@@ -167,8 +157,6 @@ export async function bootAgentExecution(
 			pool,
 			sandbox,
 			harnessRuntime,
-			createWorkerAdapter: (ws, registration) =>
-				new RemoteHarnessAdapter(ws as WsLike, registration),
 			returnStatusTool,
 		},
 		dispose: () => {

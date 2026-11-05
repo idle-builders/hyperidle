@@ -63,7 +63,7 @@ No env setup is needed unless you set your own key.
 |------|-----------------|
 | `layers/` | Shipping services: `core-ui` (React + Vite frontend, plain CSS with tokens), `core-api` (Hono API, per-domain services), `agent-orchestration` (sessions, connections, filesystems), `agent-execution` (harness registry, CLI/LLM adapters) |
 | `framework/` | One package per cross-cutting concern: `db`, `domain-model`, `api-contract`, `event-bus`, `diagnostics`, `harness-capability`, `harness-protocol` |
-| `applications/` | Entry points: `desktop` (Electron), `remote-server` (standalone Hono), `remote-worker` (the worker client library), `website` |
+| `applications/` | Entry points: `desktop` (Electron), `remote-server` (standalone Hono), `website` |
 | `tools/` | Build-time tools: `eslint-plugin-authz`, `eslint-plugin-design`, `eval`, `governance`, `repo-gates`, `setup`, `trace` |
 
 Cross-package imports use npm workspace aliases (`@hyperidle/db`, `@hyperidle/domain-model`, …).

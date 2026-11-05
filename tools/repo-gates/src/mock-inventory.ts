@@ -520,7 +520,7 @@ function emitQueue(rows: InventoryRow[], repoRoot: string): string {
  * Increment 2/5 dissolved it into the `core-api`/`agent-orchestration`/
  * `agent-execution` Layer packages (each with its own composition-root
  * `src/` PLUS many nested `packages/<layer>/<service>/src/` Service
- * packages) and the `remote-server`/`remote-worker` Application bootstraps.
+ * packages) and the `remote-server` Application bootstrap.
  * Mirrors `table-ownership-guard.ts`'s `nestedServiceRoots()` discovery
  * pattern rather than hand-listing ~31 Service dirs (same rationale: a
  * hardcoded list silently goes blind when a Service package is
@@ -529,7 +529,7 @@ function emitQueue(rows: InventoryRow[], repoRoot: string): string {
 function collectAU19SrcDirs(repoRoot: string): string[] {
 	const dirs: string[] = [];
 	const layers = ["core-api", "agent-orchestration", "agent-execution"];
-	const applications = ["remote-server", "remote-worker"];
+	const applications = ["remote-server"];
 
 	for (const layer of layers) {
 		const layerDir = join(repoRoot, "layers", layer);

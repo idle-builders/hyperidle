@@ -16,19 +16,5 @@ export function createAuthRoutes(store: UpgradeTokenStore | null): Hono<HyperIdl
 		});
 	}
 
-	router.post("/worker-token", (c) => {
-		const workerToken = process.env.HYPERIDLE_WORKER_TOKEN;
-		if (!workerToken) {
-			return c.json(
-				{
-					error: "Worker registration is not enabled on this server",
-					code: "NOT_FOUND",
-				},
-				404,
-			);
-		}
-		return c.json({ token: workerToken });
-	});
-
 	return router;
 }

@@ -1,6 +1,6 @@
 /**
  * AdapterPool: registration, selection (capacity, model providers, harness
- * type, disabled types, pause/resume), failure reporting, capability lookup,
+ * type, disabled types), failure reporting, capability lookup,
  * and the createLocalAdapterPool factory's hermetic behavior.
  *
  * Real-binary discovery lives in adapter-pool-real-discovery.integration.test.ts.
@@ -46,19 +46,17 @@ function makeAdapter(caps?: Partial<HarnessCapabilities>): HarnessAdapter {
 
 const LOCAL_META: AdapterMeta = {
 	name: "local",
-	kind: "local",
 	modelProviders: ["anthropic"],
 	maxConcurrent: 4,
 };
 
-const REMOTE_META: AdapterMeta = {
-	name: "remote-1",
-	kind: "remote",
+const SECOND_META: AdapterMeta = {
+	name: "second",
 	modelProviders: ["anthropic"],
 	maxConcurrent: 2,
 };
 
-describe("AdapterPool register/unregister", () => {
+describe("AdapterPool register", () => {
 	it("starts empty", () => {
 		const pool = new AdapterPool();
 		expect(pool.size).toBe(0);
@@ -75,24 +73,8 @@ describe("AdapterPool register/unregister", () => {
 	it("register multiple adapters", () => {
 		const pool = new AdapterPool();
 		pool.register("local", makeAdapter(), LOCAL_META);
-		pool.register("remote-1", makeAdapter(), REMOTE_META);
+		pool.register("second", makeAdapter(), SECOND_META);
 		expect(pool.size).toBe(2);
-	});
-
-	it("unregister removes entry from pool", () => {
-		const pool = new AdapterPool();
-		pool.register("local", makeAdapter(), LOCAL_META);
-		pool.register("remote-1", makeAdapter(), REMOTE_META);
-		pool.unregister("remote-1");
-		expect(pool.size).toBe(1);
-		expect(pool.has("remote-1")).toBe(false);
-	});
-
-	it("unregister on unknown id is a no-op", () => {
-		const pool = new AdapterPool();
-		pool.register("local", makeAdapter(), LOCAL_META);
-		pool.unregister("nonexistent");
-		expect(pool.size).toBe(1);
 	});
 });
 
@@ -118,19 +100,19 @@ describe("AdapterPool select — capacity and load balancing", () => {
 	it("picks the least-loaded adapter", () => {
 		const pool = new AdapterPool();
 		pool.register("local", makeAdapter(), LOCAL_META);
-		pool.register("remote-1", makeAdapter(), REMOTE_META);
+		pool.register("second", makeAdapter(), SECOND_META);
 		pool.select(); // local=1 (tied at 0, pick first)
 		pool.select(); // remote-1=1 (0 < 1)
 		pool.select(); // tied at 1; pick first → local=2
-		expect(pool.select()?.meta.name).toBe("remote-1"); // 1 < 2
+		expect(pool.select()?.meta.name).toBe("second"); // 1 < 2
 	});
 
 	it("returns the non-full adapter when the other is at capacity", () => {
 		const pool = new AdapterPool();
 		pool.register("local", makeAdapter(), { ...LOCAL_META, maxConcurrent: 1 });
-		pool.register("remote-1", makeAdapter(), REMOTE_META);
+		pool.register("second", makeAdapter(), SECOND_META);
 		pool.select(); // fills local
-		expect(pool.select()?.meta.name).toBe("remote-1");
+		expect(pool.select()?.meta.name).toBe("second");
 	});
 
 	it("release frees a slot so the adapter becomes selectable again", () => {
@@ -165,7 +147,7 @@ describe("AdapterPool select — modelProviders requirement", () => {
 			modelProviders: ["anthropic"],
 		});
 		pool.register("openai-worker", makeAdapter(), {
-			...REMOTE_META,
+			...SECOND_META,
 			name: "openai-worker",
 			modelProviders: ["openai"],
 		});
@@ -219,7 +201,7 @@ describe("AdapterPool select — harnessType filter", () => {
 			name: "claude-code-1",
 			type: "claude-code",
 		});
-		pool.register("aider-1", makeAdapter(), { ...REMOTE_META, name: "aider-1", type: "aider" });
+		pool.register("aider-1", makeAdapter(), { ...SECOND_META, name: "aider-1", type: "aider" });
 		expect(pool.select({ harnessType: "aider" })?.meta.name).toBe("aider-1");
 	});
 
@@ -236,7 +218,7 @@ describe("AdapterPool select — harnessType filter", () => {
 	it("returns null when the matching type exists but is at capacity", () => {
 		const pool = new AdapterPool();
 		pool.register("aider-1", makeAdapter(), {
-			...REMOTE_META,
+			...SECOND_META,
 			name: "aider-1",
 			type: "aider",
 			maxConcurrent: 1,
@@ -248,13 +230,13 @@ describe("AdapterPool select — harnessType filter", () => {
 	it("harnessType stacks with modelProviders", () => {
 		const pool = new AdapterPool();
 		pool.register("aider-openai", makeAdapter(), {
-			...REMOTE_META,
+			...SECOND_META,
 			name: "aider-openai",
 			type: "aider",
 			modelProviders: ["openai"],
 		});
 		pool.register("aider-anthropic", makeAdapter(), {
-			...REMOTE_META,
+			...SECOND_META,
 			name: "aider-anthropic",
 			type: "aider",
 			modelProviders: ["anthropic"],
@@ -266,55 +248,9 @@ describe("AdapterPool select — harnessType filter", () => {
 
 	it("an adapter registered without a type is only selectable when no harnessType is requested", () => {
 		const pool = new AdapterPool();
-		pool.register("old-worker", makeAdapter(), { ...REMOTE_META, name: "old-worker" });
-		expect(pool.select()?.meta.name).toBe("old-worker");
+		pool.register("untyped", makeAdapter(), { ...SECOND_META, name: "untyped" });
+		expect(pool.select()?.meta.name).toBe("untyped");
 		expect(pool.select({ harnessType: "claude-code" })).toBeNull();
-	});
-});
-
-describe("AdapterPool pause/resume", () => {
-	const META: AdapterMeta = {
-		name: "worker-1",
-		kind: "remote",
-		modelProviders: ["anthropic"],
-		maxConcurrent: 4,
-	};
-
-	it("register initialises paused: false", () => {
-		const pool = new AdapterPool();
-		pool.register("w1", makeAdapter(), META);
-		expect(pool.select()?.id).toBe("w1");
-	});
-
-	it("pause(id) makes the adapter unselectable even with capacity free", () => {
-		const pool = new AdapterPool();
-		pool.register("w1", makeAdapter(), META);
-		pool.pause("w1");
-		expect(pool.select()).toBeNull();
-	});
-
-	it("resume(id) makes the adapter selectable again", () => {
-		const pool = new AdapterPool();
-		pool.register("w1", makeAdapter(), META);
-		pool.pause("w1");
-		pool.resume("w1");
-		expect(pool.select()?.id).toBe("w1");
-	});
-
-	it("pausing one adapter does not affect another", () => {
-		const pool = new AdapterPool();
-		pool.register("w1", makeAdapter(), META);
-		pool.register("w2", makeAdapter(), { ...META, name: "worker-2" });
-		pool.pause("w1");
-		expect(pool.select()?.id).toBe("w2");
-	});
-
-	it("pause/resume on an unknown id is a no-op", () => {
-		const pool = new AdapterPool();
-		pool.register("w1", makeAdapter(), META);
-		pool.pause("nonexistent");
-		pool.resume("nonexistent");
-		expect(pool.select()?.id).toBe("w1");
 	});
 });
 
@@ -322,7 +258,6 @@ describe("AdapterPool.describeSelectFailure", () => {
 	function meta(overrides: Partial<AdapterMeta> = {}): AdapterMeta {
 		return {
 			name: "local",
-			kind: "local",
 			type: "claude",
 			modelProviders: ["anthropic"],
 			maxConcurrent: 1,
@@ -344,13 +279,6 @@ describe("AdapterPool.describeSelectFailure", () => {
 		expect(reason).toContain("claude");
 	});
 
-	it("says so when every adapter is paused", () => {
-		const pool = new AdapterPool();
-		pool.register("a", makeAdapter(), meta());
-		pool.pause("a");
-		expect(pool.describeSelectFailure()).toMatch(/paused/i);
-	});
-
 	it("still reports capacity when capacity really is the problem", () => {
 		const pool = new AdapterPool();
 		pool.register("a", makeAdapter(), meta({ maxConcurrent: 1 }));
@@ -362,7 +290,6 @@ describe("AdapterPool.describeSelectFailure", () => {
 describe("AdapterPool.describe — capability lookup by type", () => {
 	const BASE_META: AdapterMeta = {
 		name: "test-adapter",
-		kind: "local",
 		modelProviders: ["anthropic"],
 		maxConcurrent: 4,
 	};
@@ -475,14 +402,12 @@ describe("createLocalAdapterPool — hermetic behavior", () => {
 		const pool = new AdapterPool();
 		pool.register("existing-adapter", makeAdapter(), {
 			name: "Existing",
-			kind: "local",
 			type: "existing-type",
 			modelProviders: ["anthropic"],
 			maxConcurrent: 4,
 		});
 		pool.register("new-adapter", makeAdapter({ mcpSupport: true }), {
 			name: "New Tool",
-			kind: "local",
 			type: "new-type",
 			modelProviders: [],
 			maxConcurrent: 2,
@@ -505,7 +430,6 @@ describe("createLocalAdapterPool — hermetic behavior", () => {
 		);
 		pool.register("local-cli-opencode", cliAdapter, {
 			name: "CLI: opencode",
-			kind: "local",
 			type: "opencode",
 			modelProviders: [],
 			maxConcurrent: 2,

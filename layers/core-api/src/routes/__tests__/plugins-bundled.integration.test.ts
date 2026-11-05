@@ -41,7 +41,6 @@ const BUNDLED = resolve("plugins");
 const MISSING: HarnessCapabilityDescriptor = {
 	type: "codex",
 	name: "Codex",
-	kind: "local",
 	authAction: { kind: "native_cli_login", label: "Log in" },
 	discovery: { state: "missing" },
 	models: [],
@@ -51,7 +50,6 @@ const MISSING: HarnessCapabilityDescriptor = {
 const READY: HarnessCapabilityDescriptor = {
 	type: "claude-code",
 	name: "Claude Code",
-	kind: "local",
 	authAction: { kind: "none", label: "Ready" },
 	discovery: { state: "ready" },
 	models: [

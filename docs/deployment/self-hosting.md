@@ -1,6 +1,6 @@
 # Self-Hosting
 
-The **cloud** profile runs HyperIdle against a managed Postgres instance. The remote-server application boots with an empty harness pool, so it runs no agents itself; it takes sessions only from a worker connected over `/ws/worker`, and no app in this repo runs one (see [where agents run](index.md)).
+The **cloud** profile runs HyperIdle against a managed Postgres instance. The remote-server application boots with an empty harness pool, so it runs no agents (see [where agents run](index.md)).
 
 Profile defaults are in `applications/remote-server/src/profiles.ts`.
 
@@ -8,7 +8,7 @@ Profile defaults are in `applications/remote-server/src/profiles.ts`.
 
 | Variable | Required | Notes |
 |---|---|---|
-| `HYPERIDLE_API_KEY` | **Yes** | The server's own key, for workers and checks by hand. Server exits at startup without it for vps/cloud profiles (`applications/remote-server/src/validate-startup-env.ts`). |
+| `HYPERIDLE_API_KEY` | **Yes** | The server's own key, for checks by hand. Server exits at startup without it for vps/cloud profiles (`applications/remote-server/src/validate-startup-env.ts`). |
 | `DATABASE_URL` | **Yes** | PostgreSQL connection string. |
 | `HYPERIDLE_PROFILE` | No | `cloud` (default: `laptop`). |
 | `PORT` | No | Default `3001`. |

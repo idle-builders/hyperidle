@@ -21,11 +21,7 @@ import {
 	listInjectedFilesystemsForProvisioning,
 	updateFilesystemState,
 } from "@hyperidle/filesystems";
-import type {
-	HarnessAdapter,
-	RegisteredTool,
-	WorkerRegisterMessage,
-} from "@hyperidle/harness-protocol";
+import type { RegisteredTool } from "@hyperidle/harness-protocol";
 import type {
 	HeldConnectionsReaderPort,
 	InjectedFilesystemsReaderPort,
@@ -36,7 +32,6 @@ import type {
 } from "@hyperidle/run-orchestration";
 import { RegistryFilesystemMounter } from "@hyperidle/run-orchestration";
 import type { Hono } from "hono";
-import type { UpgradeWebSocket } from "hono/ws";
 import { createAgentOrchestrationApp } from "./app.js";
 import { createGitRunner } from "./git-runner.js";
 import {
@@ -62,14 +57,6 @@ export interface AgentOrchestrationRuntimeOptions {
 	readonly returnStatusTool: RunOrchestrationReturnStatusToolAdapter;
 	readonly session: ApplicationProvisionSessionDeps;
 	readonly sandboxBasePath?: string;
-	/** For worker WebSocket registration (`registerWorkerWebSocket`) — the local `AdapterPool` instance and its remote-adapter factory, both from the execution adapters bundle. Absent on a `remote-server`-shaped boot with no local pool of its own. */
-	readonly worker?: {
-		readonly pool: NonNullable<RuntimeDeps["composition"]["worker"]>["pool"];
-		readonly createWorkerAdapter: (
-			ws: unknown,
-			registration: WorkerRegisterMessage,
-		) => HarnessAdapter;
-	};
 	/** Test override only — intercepts writeback without a real seam. */
 	readonly writeback?: RuntimeDeps["composition"]["writeback"];
 	readonly reapers?: RuntimeDeps["composition"]["reapers"];
@@ -97,8 +84,6 @@ export interface AgentOrchestrationRuntimeOptions {
 export interface AgentOrchestrationBootOptions {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	/** WS upgrade adapter for worker registration. Absent → no worker route registered. */
-	readonly upgradeWebSocket?: UpgradeWebSocket;
 	/** Session activity push to browser. Absent → no push; gateway still subscribes and buffer fills. */
 	readonly wsPush?: SessionActivityPush;
 	/** Await initial inherited-reach probe before returning. Absent → cache empty until first redetect. */
@@ -113,7 +98,6 @@ export interface AgentOrchestrationBoot {
 	readonly actionTools: readonly RegisteredTool<HyperIdleDb>[];
 	/** Always built; Application wires `refresh` into core-api's onHarnessRedetect. */
 	readonly inheritedReach: InheritedReach;
-	readonly registerPreAuthRoutes: (apiRouter: Hono) => void;
 	/** The one-shot session runner, bound to this boot's execution adapters and seam transport. Absent when `options.runtime` was not supplied. */
 	readonly runSession?: (deps: ProvisionSessionDeps, spec: RunOptions) => Promise<RunResult>;
 	/** Dispose run runtime before calling `dispose()` — the Application's shutdown must keep them as separate named phases. Absent when no runtime. */
@@ -133,28 +117,12 @@ export interface AgentOrchestrationBoot {
 	readonly provisioning?: OrchestrationProvisioningReads;
 }
 
-/** Audited cast: recovers WorkerRegisterMessage from the narrowed seam type; design/no-unknown-cast bans double-assertion, not a named single-cast helper. */
-function widenWorkerRegistration(registration: unknown): WorkerRegisterMessage {
-	return registration as WorkerRegisterMessage;
-}
-
-/** Builds `runtimeDeps`'s `composition` override from the Application-supplied worker/writeback/reaper wiring — a plain helper so the `worker` branch's narrowing survives into the nested closure (a ternary spread inline loses it). */
+/** Builds `runtimeDeps`'s `composition` override from the Application-supplied writeback/reaper wiring. */
 function buildRuntimeComposition(
 	runtime: AgentOrchestrationRuntimeOptions,
 ): RuntimeDeps["composition"] {
-	const { worker, writeback, reapers } = runtime;
+	const { writeback, reapers } = runtime;
 	return {
-		...(worker
-			? {
-					worker: {
-						pool: worker.pool,
-						adapterFactory: {
-							create: (ws: unknown, registration: unknown) =>
-								worker.createWorkerAdapter(ws, widenWorkerRegistration(registration)),
-						},
-					},
-				}
-			: {}),
 		...(writeback ? { writeback } : {}),
 		...(reapers ? { reapers } : {}),
 	} as RuntimeDeps["composition"];
@@ -226,7 +194,7 @@ function buildProvisioningReads(
 export async function bootAgentOrchestration(
 	options: AgentOrchestrationBootOptions,
 ): Promise<AgentOrchestrationBoot> {
-	const { db, eventBus, upgradeWebSocket, wsPush, probeInheritedReach, runtime } = options;
+	const { db, eventBus, wsPush, probeInheritedReach, runtime } = options;
 	const decrypt = decryptCredentialValue;
 
 	const inheritedReach = createInheritedReach();
@@ -290,11 +258,6 @@ export async function bootAgentOrchestration(
 		inheritedReach,
 		...(runSession ? { runSession } : {}),
 		...(runRuntime ? { disposeRuntime: () => runRuntime.dispose() } : {}),
-		registerPreAuthRoutes: (apiRouter) => {
-			if (runRuntime && upgradeWebSocket) {
-				runRuntime.registerWorkerWebSocket(apiRouter, upgradeWebSocket);
-			}
-		},
 		dispose: () => {
 			disposeGateway();
 			activityBuffer.stop();

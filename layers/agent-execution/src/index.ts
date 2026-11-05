@@ -10,8 +10,3 @@ export type {
 	AgentExecutionHarnessRuntime,
 } from "./boot.js";
 export { bootAgentExecution } from "./boot.js";
-export {
-	RemoteWorkerClient,
-	type RemoteWorkerClientOptions,
-	type WorkerStatus,
-} from "./remote-worker-client.js";

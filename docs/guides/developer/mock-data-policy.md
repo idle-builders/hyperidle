@@ -42,7 +42,7 @@ The surface is decided by path alone. Adding a permitted location means editing 
 
 1. **No mock data in runtime production code.** Two checks enforce it:
    - `design/no-mock-data-import` + `design/no-mock-data-symbol`, at error in `eslint.config.ts`, on `layers/core-api/src/**`.
-   - `tools/repo-gates/src/mock-inventory.ts`, which scans `layers/core-ui/src`, every `src/` under `layers/core-api`, `layers/agent-orchestration` and `layers/agent-execution`, and `applications/remote-server` and `applications/remote-worker`. It writes what it finds to `tools/repo-gates/mock-inventory/inventory.json`; `npm run mock-inventory:check` (in `npm run verify`) fails when that file no longer matches, so a new offender fails the build.
+   - `tools/repo-gates/src/mock-inventory.ts`, which scans `layers/core-ui/src`, every `src/` under `layers/core-api`, `layers/agent-orchestration` and `layers/agent-execution`, and `applications/remote-server`. It writes what it finds to `tools/repo-gates/mock-inventory/inventory.json`; `npm run mock-inventory:check` (in `npm run verify`) fails when that file no longer matches, so a new offender fails the build.
 2. **Every surviving offender is listed** under [Tracked-out survivors](#tracked-out-survivors) with what it stands in for.
 3. **No fabricated fallback.** `useFoo() ?? FALLBACK_FOO` is forbidden; the page shows an honest empty, loading or "did not load" state when the source is silent.
 

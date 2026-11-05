@@ -275,7 +275,6 @@ describe("AdapterPool capability catalog merge", () => {
 		pool.register("opencode", adapter, {
 			type: "opencode",
 			name: "OpenCode",
-			kind: "local",
 			modelProviders: ["openrouter"],
 			maxConcurrent: 1,
 		});

@@ -1,6 +1,6 @@
 # Architecture overview
 
-HyperIdle is one Node.js process with four layers and three shipped applications.
+HyperIdle is one Node.js process with four layers and two shipped applications.
 
 ## Applications
 
@@ -8,7 +8,6 @@ HyperIdle is one Node.js process with four layers and three shipped applications
 |---|---|
 | `applications/desktop` | Electron shell — runs the server and its agents on this computer over a local database, or opens a team's server; keeps that server's key encrypted with the computer's keychain (Electron `safeStorage`) |
 | `applications/remote-server` | Node HTTP server for shared-backend deployments |
-| `applications/remote-worker` | Exports `RemoteWorkerClient`, the client a machine uses to take sessions from a remote server over `/ws/worker`. It has no start command, and no app in this repo runs it |
 
 The website (`applications/website`) is an Astro static site that publishes the user-facing docs.
 
@@ -56,7 +55,7 @@ Alongside the 18 actions, agents have one extra tool: `return_status` (`layers/a
 
 The routes that fall outside the action loop remain as explicit Hono route files:
 
-- **Auth** — `POST /api/auth/ws-token` (one-time token for the browser's socket at `/api/ws`), `POST /api/auth/worker-token` and `/ws/worker` (a remote worker registers)
+- **Auth** — `POST /api/auth/ws-token` (one-time token for the browser's socket at `/api/ws`)
 - **Health** — `GET /api/health` (no key), `GET /api/health/auth` (with the key)
 - **Cross-object search** — `GET /api/search` (hand-written; queries task, thread, document, user in one response)
 - **First start** — `POST /api/start/look` (look for the agent programs on this computer again), `POST /api/start` (make the first person, team, agent and conversation)
@@ -113,7 +112,7 @@ Users manage their subscriptions through `edit_user`. The install itself creates
 
 1. An intent is drained from `agent_work_intents`.
 2. The run provisioner builds a working directory in `HYPERIDLE_WORKSPACES_DIR` (default: OS temp), writes `AGENTS.md` / `CLAUDE.md`, `.mcp.json`, held connection files, and a return-enforcement hook.
-3. The harness adapter (`CliHarnessAdapter` or `RemoteHarnessAdapter`) spawns the process.
+3. The harness adapter (for example `CliHarnessAdapter`) spawns the process.
 4. The MCP bridge (`/api/mcp/:token`) serves the 18 actions to the agent.
 5. On turn end, the return gate evaluates whether the agent returned. Writeback (`filesystem_injections`) syncs any file changes.
 6. The session ends; a bus event signals core-api.

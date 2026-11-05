@@ -1,5 +1,4 @@
 export type {
-	AdapterInfo,
 	AdapterMeta,
 	ConversationMessage,
 	HarnessAdapter,
@@ -45,16 +44,3 @@ export type {
 	ToolResult,
 } from "./harness/tool-seam.js";
 export { err, ok } from "./harness/tool-seam.js";
-export type {
-	ServerDispatchMessage,
-	ServerRegisteredMessage,
-	ServerStopMessage,
-	ServerToWorkerMessage,
-	WorkerErrorMessage,
-	WorkerEventMessage,
-	WorkerPauseMessage,
-	WorkerRegisterMessage,
-	WorkerResumeMessage,
-	WorkerSessionResultMessage,
-	WorkerToServerMessage,
-} from "./harness/worker-protocol.js";

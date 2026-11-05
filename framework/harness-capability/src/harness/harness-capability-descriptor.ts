@@ -8,7 +8,7 @@ import type { ModelProvider } from "@hyperidle/domain-model";
  *   "sdk-inprocess"   — dead; no adapter declares this
  *   "settings-claude" — HyperIdle writes .claude/settings.json Stop hook (BLOCKING)
  *   "settings-codex"  — HyperIdle writes .codex/hooks.json Stop hook (BLOCKING)
- *   "process-reengage"— no native block — HyperIdle re-invokes the CLI in its sandbox (opencode, remote default)
+ *   "process-reengage"— no native block — HyperIdle re-invokes the CLI in its sandbox (opencode)
  *   "soft-continue"   — native soft re-prompt (inert until spawnable)
  *   "none"            — no enforcement artifact — drain-gate floor only (last-resort remote)
  */
@@ -89,7 +89,6 @@ export interface HarnessDiscoveryStatus {
 export interface HarnessCapabilityDescriptor {
 	readonly type: string;
 	readonly name: string;
-	readonly kind: "local" | "remote";
 	readonly authAction: HarnessAuthActionDescriptor;
 	readonly discovery: HarnessDiscoveryStatus;
 	readonly models: readonly HarnessModelDescriptor[];

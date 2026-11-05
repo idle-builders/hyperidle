@@ -91,7 +91,6 @@ describe("harness type vocabulary", () => {
 			const pool = new AdapterPool();
 			const meta: AdapterMeta = {
 				name: type,
-				kind: "local",
 				type,
 				modelProviders: [],
 				maxConcurrent: 1,
@@ -106,7 +105,6 @@ describe("harness type vocabulary", () => {
 		const pool = new AdapterPool();
 		pool.register("local-claude-code", makeAdapter(), {
 			name: "Claude Code",
-			kind: "local",
 			type: "claude-code",
 			modelProviders: [],
 			maxConcurrent: 1,

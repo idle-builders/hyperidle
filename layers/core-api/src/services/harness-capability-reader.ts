@@ -3,7 +3,6 @@ import type { AdapterMeta, HarnessCapabilities } from "@hyperidle/harness-protoc
 
 export interface HarnessCapabilityFilter {
 	readonly type?: string;
-	readonly kind?: "local" | "remote";
 	readonly includeKnownMissing?: boolean;
 }
 
@@ -49,7 +48,6 @@ export function harnessRegistrationMeta(
 	return descriptor
 		? {
 				name: descriptor.name,
-				kind: descriptor.kind,
 				type: descriptor.type,
 				modelProviders: descriptor.modelProviders,
 				maxConcurrent: 1,

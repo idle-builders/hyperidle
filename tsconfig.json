@@ -54,9 +54,6 @@
 		},
 		{
 			"path": "applications/remote-server"
-		},
-		{
-			"path": "applications/remote-worker"
 		}
 	],
 	"exclude": ["node_modules", "dist"],

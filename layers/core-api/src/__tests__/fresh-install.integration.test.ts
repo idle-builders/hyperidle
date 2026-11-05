@@ -64,7 +64,6 @@ const BUNDLED = fileURLToPath(new URL("../../../../plugins", import.meta.url));
 const READY: HarnessCapabilityDescriptor = {
 	type: "claude-code",
 	name: "Claude Code",
-	kind: "local",
 	authAction: { kind: "none", label: "Ready" },
 	discovery: { state: "ready" },
 	models: [

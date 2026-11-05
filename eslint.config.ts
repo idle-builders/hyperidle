@@ -301,13 +301,11 @@ export default [
 		// guard polices now live there, not under `packages/server`.
 		// @lore AU19 Increment 5 (item 2): `packages/server` dissolved —
 		// the composition-root services relocated to `layers/core-api/src/
-		// services/**`, and `desktop-worker-client.ts` (a forwarding relay)
-		// relocated to `applications/remote-worker/src/**`.
+		// services/**`.
 		files: [
 			"layers/core-api/src/services/**/*.ts",
 			"layers/agent-execution/harness-registry/src/**/*.ts",
 			"applications/desktop/src/**/*.ts",
-			"applications/remote-worker/src/**/*.ts",
 		],
 		ignores: [
 			"layers/core-api/src/services/**/__tests__/**",

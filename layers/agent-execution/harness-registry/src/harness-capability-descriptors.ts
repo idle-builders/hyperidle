@@ -77,7 +77,6 @@ function describe(
 			type,
 			// A program is named the way people know it, whatever the pool registered it as.
 			name: KNOWN_HARNESS_NAMES[type],
-			kind: meta.kind,
 			authAction: caps.authAction ?? {
 				kind: "native_cli_login",
 				label: `Log in to ${KNOWN_HARNESS_NAMES[type]}`,
@@ -97,7 +96,6 @@ function describe(
 	return {
 		type,
 		name: meta.name,
-		kind: meta.kind,
 		authAction: caps.authAction ?? { kind: "none", label: "Configured externally" },
 		discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
 		models,
@@ -123,7 +121,6 @@ function missing(
 		return {
 			type,
 			name: KNOWN_HARNESS_NAMES[type],
-			kind: "local",
 			authAction: authActionOrDefault(type, discoveryInput?.authAction),
 			discovery,
 			models: cliModelsFromInput(discoveryInput?.models),

@@ -87,7 +87,6 @@ function scanDeclaredActionNames(
  */
 const PLUMBING_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/auth.ts|POST /ws-token",
-	"layers/core-api/src/routes/auth.ts|POST /worker-token",
 	"layers/core-api/src/app.ts|GET /health",
 	"layers/core-api/src/routes/health.ts|GET /health",
 	"layers/core-api/src/routes/health.ts|GET /auth",
@@ -149,13 +148,12 @@ const PLATFORM_EVENTS: readonly string[] = [
 
 /**
  * Every route registered in a production file that is neither a declared
- * action route nor one of the eighteen plumbing doors. Re-derived after the
+ * action route nor one of the plumbing doors. Re-derived after the
  * unreachable-route deletion on main removed fourteen of the 107 entries
  * this rule started with, `coach.ts`/`hints.ts` wholesale among them, so
  * those rows shrank ahead of this item. Only shrinks: an entry whose route is gone is a
  * finding, so the deletion and the row land in the same PR. Includes the
- * three remaining socket/protocol transports (mcp-route, worker-ingress,
- * ws) — each is a socket/protocol handshake, not a request/response route,
+ * two remaining socket/protocol transports (mcp-route, ws) — each is a socket/protocol handshake, not a request/response route,
  * so it stays a shrink-list entry rather than becoming plumbing or an
  * action today. `session-stream-ws`'s
  * own row left with the file: the second websocket is deleted, and
@@ -163,7 +161,6 @@ const PLATFORM_EVENTS: readonly string[] = [
  */
 const LEGACY_ROUTES: readonly string[] = [
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|ALL /mcp/:token",
-	"layers/agent-orchestration/run-orchestration/src/worker-ingress.ts|GET /ws/worker",
 	"layers/core-api/src/routes/search.ts|GET /",
 	"layers/core-api/src/routes/ws.ts|GET /ws",
 ];

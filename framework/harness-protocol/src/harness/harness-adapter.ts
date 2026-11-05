@@ -182,26 +182,10 @@ export interface HarnessCapabilities {
  */
 export interface AdapterMeta {
 	readonly name: string;
-	readonly kind: "local" | "remote";
 	/** Harness type for agent preference matching (e.g. "claude-code", "opencode"). */
 	readonly type?: string;
 	readonly modelProviders: readonly string[];
 	readonly maxConcurrent: number;
-}
-
-/** Public view of a pool entry (used by GET /api/workers). */
-export interface AdapterInfo {
-	readonly id: string;
-	readonly name: string;
-	readonly kind: "local" | "remote";
-	/** Harness type for agent preference matching. */
-	readonly type?: string;
-	readonly modelProviders: readonly string[];
-	readonly currentLoad: number;
-	readonly maxConcurrent: number;
-	readonly connectedSince: string;
-	/** true when the worker has sent a pause message — skipped by select() */
-	readonly paused: boolean;
 }
 
 /**

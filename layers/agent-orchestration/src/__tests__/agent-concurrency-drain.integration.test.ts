@@ -52,7 +52,7 @@ function buildDeps(db: HyperIdleDb, eventBus: EventBus): ProvisionSessionDeps {
 						returnEnforcement: "none",
 					}),
 				},
-				meta: { name: "Fake", kind: "local", modelProviders: [], maxConcurrent: 5 },
+				meta: { name: "Fake", modelProviders: [], maxConcurrent: 5 },
 			}),
 			release: () => {},
 			describeSelectFailure: () => "test pool selected nothing",
@@ -96,7 +96,6 @@ function startRuntime(db: HyperIdleDb, eventBus: EventBus) {
 			composition: {
 				...base.composition,
 				writeback: { db, document: {} as never },
-				worker: { pool: {} as never, adapterFactory: {} as never },
 			},
 		}),
 	);

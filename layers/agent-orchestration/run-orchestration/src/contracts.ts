@@ -264,12 +264,6 @@ export interface RuntimeDeps {
 			>[0],
 			"eventBus"
 		>;
-		readonly worker?: {
-			readonly pool: Parameters<typeof import("./worker-ingress.js").createWorkerIngress>[0];
-			readonly adapterFactory: Parameters<
-				typeof import("./worker-ingress.js").createWorkerIngress
-			>[1];
-		};
 		readonly reapers?: {
 			readonly sandboxes?: Parameters<
 				ReturnType<typeof import("./runtime-reapers.js").createRuntimeReapers>["startSandboxes"]
@@ -278,10 +272,5 @@ export interface RuntimeDeps {
 	};
 }
 export interface RuntimeHandle {
-	registerWorkerWebSocket(
-		...args: Parameters<
-			ReturnType<typeof import("./worker-ingress.js").createWorkerIngress>["register"]
-		>
-	): () => void;
 	dispose(): Promise<void>;
 }

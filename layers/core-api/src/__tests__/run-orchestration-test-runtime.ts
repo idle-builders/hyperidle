@@ -7,13 +7,9 @@ import {
 import { type DocumentRow as DbDocumentRow, documents, type HyperIdleDb } from "@hyperidle/db";
 import type { ActionResult, DocumentRow, DocumentView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 import {
-	AdapterPool,
 	createReturnEnforcement,
 	provisionHarnessEnvironment,
-	RemoteHarnessAdapter,
-	type WsLike,
 	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
@@ -175,7 +171,6 @@ export function startTestRuntime(
 	const composition = buildTestRunOrchestrationComposition();
 	const base = composition.runtimeDeps(db, eventBus);
 	if (!base.ports) throw new Error("runtimeDeps did not provide production ports");
-	const workerPool = new AdapterPool();
 	return composition.startRuntime(
 		composition.runtimeDeps(db, eventBus, {
 			runtime,
@@ -185,23 +180,6 @@ export function startTestRuntime(
 				writeback: {
 					db,
 					document: realDocumentWritebackPort(db, eventBus),
-				},
-				worker: {
-					pool: workerPool,
-					adapterFactory: {
-						create: (ws, registration) => {
-							const message: WorkerRegisterMessage = {
-								type: "register",
-								id: registration.id,
-								name: String(registration.name),
-								modelProviders: Array.isArray(registration.modelProviders)
-									? registration.modelProviders.map(String)
-									: [],
-								maxConcurrent: Number(registration.maxConcurrent),
-							};
-							return new RemoteHarnessAdapter(ws as WsLike, message);
-						},
-					},
 				},
 			},
 		}),
