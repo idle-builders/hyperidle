@@ -36,6 +36,7 @@ test-output.toon
 framework/design-system/inspiration/
 installed-plugins/
 hyperidle-pg/
+demo-folders/
 eval-results*.json
 docs/product/.vitepress/cache
 # Astro generated types + content sync cache (applications/website)

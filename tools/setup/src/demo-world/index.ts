@@ -9,7 +9,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { seedActivity } from "./activity.js";
 import { seedAgentFiles } from "./agent-files.js";
 import { seedApps } from "./apps.js";
-import { seedCast } from "./cast.js";
+import { type DemoWorldPlaces, seedCast } from "./cast.js";
 import { seedChanges } from "./changes-seed.js";
 import { seedConversations } from "./conversations.js";
 import { seedDocuments } from "./documents.js";
@@ -19,9 +19,9 @@ import { seedWork } from "./work.js";
 export async function seedDemoWorldContent(
 	db: HyperIdleDb,
 	clock: DemoClock,
-	pluginsBaseDir?: string,
+	places: DemoWorldPlaces,
 ): Promise<void> {
-	await seedCast(db, clock, pluginsBaseDir);
+	await seedCast(db, clock, places);
 	await seedAgentFiles(db, clock);
 	await seedDocuments(db, clock);
 	await seedConversations(db, clock);

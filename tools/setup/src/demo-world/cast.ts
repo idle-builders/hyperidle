@@ -2,11 +2,13 @@
  * The demo world's people and agents. Finn Olsen founded the company and is in
  * Product and Support; Maya Chen runs support. Builder and Growth work for
  * Finn in Product, Designer for Maya in Support, and Facilitation comes from
- * the Team habits plugin and works for everyone. Finn is the FIRST human by
- * `created_at` — local-mode auth resolves the first human, so Finn is who
- * lands in the app.
+ * the Team habits plugin and works for everyone. Finn holds the computer's key
+ * (`demo-fixture.ts`), so he is who lands in the app.
  */
 
+import { execFileSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { installPluginOutsideServer } from "@hyperidle/core-api";
 import {
 	agentRunConfig,
@@ -137,16 +139,78 @@ const FOLDERS = [
 	{
 		id: "demo-folder-northwind",
 		team: PRODUCT_TEAM_ID,
-		repo: "~/code/northwind",
+		name: "northwind",
+		readme: "# Northwind\n\nThe app: sign-up, trials, billing.\n",
 		agent: BUILDER_ID,
 	},
 	{
 		id: "demo-folder-northwind-site",
 		team: SUPPORT_TEAM_ID,
-		repo: "~/code/northwind-site",
+		name: "northwind-site",
+		readme: "# Northwind site\n\nThe marketing site and pricing page.\n",
 		agent: DESIGNER_ID,
 	},
 ] as const;
+
+/** Where the demo keeps what lives on this computer, beside its database. */
+export interface DemoWorldPlaces {
+	/** Where the server keeps installed plugins, so the demo's plugin can put its own version back. */
+	readonly pluginsBaseDir?: string;
+	/**
+	 * Where the teams' code folders are made. Without it the demo has no folders: a folder that is
+	 * not on this computer only fails every session that mounts it.
+	 */
+	readonly foldersDir?: string;
+}
+
+/**
+ * A folder is a real git repo on this computer, or an agent's session cannot mount it: make one
+ * with a README on `main` the first time.
+ */
+function makeRepo(dir: string, readme: string): void {
+	if (fs.existsSync(path.join(dir, ".git"))) return;
+	fs.mkdirSync(dir, { recursive: true });
+	fs.writeFileSync(path.join(dir, "README.md"), readme);
+	const git = (...args: string[]): void => {
+		execFileSync("git", args, { cwd: dir, stdio: "ignore" });
+	};
+	git("init", "-q", "-b", "main");
+	git("add", "README.md");
+	git(
+		"-c",
+		"user.name=Finn Olsen",
+		"-c",
+		"user.email=finn@northwind.test",
+		"commit",
+		"-q",
+		"-m",
+		"Start",
+	);
+}
+
+async function seedFolders(db: HyperIdleDb, clock: DemoClock, foldersDir: string): Promise<void> {
+	for (const folder of FOLDERS) {
+		const repo = path.join(foldersDir, folder.name);
+		makeRepo(repo, folder.readme);
+		await db
+			.insert(filesystems)
+			.values({
+				id: folder.id,
+				teamId: folder.team,
+				source: "local",
+				kind: "code",
+				resourceRef: JSON.stringify({ kind: "code", repo, branch: "main" }),
+				writeback: "git",
+				state: "attached",
+				createdAt: clock.daysAgo(90),
+			})
+			.onConflictDoNothing();
+		await db
+			.insert(filesystemInjections)
+			.values({ agentUserId: folder.agent, filesystemId: folder.id, createdAt: clock.daysAgo(90) })
+			.onConflictDoNothing();
+	}
+}
 
 /**
  * The services each person connected, as MCP servers; every agent of theirs reaches them unless
@@ -202,7 +266,7 @@ const PLUGIN_EDITS = [
 export async function seedCast(
 	db: HyperIdleDb,
 	clock: DemoClock,
-	pluginsBaseDir?: string,
+	opts: DemoWorldPlaces,
 ): Promise<void> {
 	for (const person of PEOPLE) {
 		await db
@@ -310,25 +374,7 @@ export async function seedCast(
 		await setRunConfig(db, agent.id, agent.harness, agent.sessions);
 	}
 
-	for (const folder of FOLDERS) {
-		await db
-			.insert(filesystems)
-			.values({
-				id: folder.id,
-				teamId: folder.team,
-				source: "local",
-				kind: "code",
-				resourceRef: JSON.stringify({ kind: "code", repo: folder.repo, branch: "main" }),
-				writeback: "git",
-				state: "attached",
-				createdAt: clock.daysAgo(90),
-			})
-			.onConflictDoNothing();
-		await db
-			.insert(filesystemInjections)
-			.values({ agentUserId: folder.agent, filesystemId: folder.id, createdAt: clock.daysAgo(90) })
-			.onConflictDoNothing();
-	}
+	if (opts.foldersDir) await seedFolders(db, clock, opts.foldersDir);
 
 	for (const service of SERVICES)
 		for (const agentUserId of service.keptFrom)
@@ -338,7 +384,7 @@ export async function seedCast(
 				.onConflictDoNothing();
 
 	await seedGrowthsMonday(db, clock);
-	await seedTeamHabits(db, clock, pluginsBaseDir);
+	await seedTeamHabits(db, clock, opts.pluginsBaseDir);
 }
 
 async function setRunConfig(
