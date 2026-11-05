@@ -702,7 +702,7 @@ describe("task.changed", () => {
 });
 
 describe("dispatch", () => {
-	test("accept-with-owner inserts one dispatch attempt and records the work intent", async ({
+	test("accept-with-owner inserts one dispatch attempt and bakes a run config", async ({
 		db,
 		app,
 		asPerson,

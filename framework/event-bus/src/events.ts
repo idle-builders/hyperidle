@@ -10,7 +10,6 @@ import type {
 } from "@hyperidle/domain-model";
 
 export type AgentRunAdmissionFailureCode =
-	| "INVALID_WORK_SOURCE" // what the agent was asked to act on is gone, or no longer its to act on
 	| "TARGET_AGENT_NOT_RUNNABLE" // the agent is switched off or gone
 	| "PROVISIONING_FAILED"; // building or starting the session failed (no program, sandbox), not a domain problem
 

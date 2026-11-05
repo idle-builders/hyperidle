@@ -61,6 +61,11 @@ interface ToolRegistryLike {
 	invoke(name: string, args: unknown): Promise<unknown>;
 }
 
+export interface RunnerWorldOptions {
+	/** Intercept door requests before they reach the app — return a Response to override, null to pass through. */
+	fetchInterceptor?: (req: Request) => Promise<Response | null>;
+}
+
 /**
  * Boots the world; the runner is built but not started, so a test decides when the computer
  * comes on. `personKey` is the key of the person whose computer this is.
@@ -70,6 +75,7 @@ export async function bootRunnerWorld(
 	eventBus: EventBus,
 	personKey: string,
 	script: RunScript,
+	options?: RunnerWorldOptions,
 ): Promise<RunnerWorld> {
 	// The server's own seam calls carry the deployment key, read from the environment.
 	vi.stubEnv("HYPERIDLE_API_KEY", TEAM_KEY);
@@ -93,8 +99,12 @@ export async function bootRunnerWorld(
 	});
 
 	let appFetch: ((req: Request) => Promise<Response>) | undefined;
-	const door = createCoreDoor((req) => {
+	const door = createCoreDoor(async (req) => {
 		if (!appFetch) throw new Error("called before the app was built");
+		if (options?.fetchInterceptor) {
+			const intercepted = await options.fetchInterceptor(req);
+			if (intercepted !== null) return intercepted;
+		}
 		return appFetch(req);
 	}, "http://hyperidle.local/api");
 	const runner = createAgentRunner({

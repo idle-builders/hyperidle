@@ -587,7 +587,7 @@ function createUserInvariants(input: EditUserInput): Problem[] {
 	return problems;
 }
 
-/** `name_required`, `kind_is_create_only`, `owner_is_create_only` — only meaningful on an edit (`id` given). */
+/** `name_required`, `kind_is_create_only`, `owner_is_create_only`, `key_alone` — only meaningful on an edit (`id` given). */
 function editExistingUserInvariants(input: EditUserInput): Problem[] {
 	const problems: Problem[] = [];
 	if (input.name !== undefined && input.name.trim().length === 0) {
@@ -607,6 +607,18 @@ function editExistingUserInvariants(input: EditUserInput): Problem[] {
 			message: "An agent's owner cannot change after it is created.",
 			path: "ownerUserId",
 		});
+	}
+	if (input.key !== undefined) {
+		// A key refresh is atomic: mixing it with other changes risks saving the new key but failing
+		// another field, leaving the caller with a dead key and no way to recover it.
+		const { id: _id, key: _key, ...rest } = input;
+		if (Object.values(rest).some((v) => v !== undefined)) {
+			problems.push({
+				code: "key_alone",
+				message: "A key refresh cannot be combined with other changes.",
+				path: "key",
+			});
+		}
 	}
 	return problems;
 }

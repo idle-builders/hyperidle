@@ -2,10 +2,11 @@
  * The auth middleware: the X-API-Key is the one credential. A valid key makes
  * the caller the person whose own key it is. The team key with no person bound
  * resolves to nobody (""). The x-hyperidle-actor-id header is ignored.
+ * X-HyperIdle-Run is honoured only for an agent's key — a human key never gets a run context.
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
+import { type HyperIdleEnv, RUN_CONTEXT_HEADER } from "@hyperidle/domain-model/http";
 import { giveUserKey } from "@hyperidle/user";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -28,11 +29,33 @@ async function seedHuman(db: HyperIdleDb, id: string): Promise<void> {
 		.onConflictDoNothing();
 }
 
+async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
+	await db
+		.insert(users)
+		.values({
+			id,
+			kind: "ai",
+			name: `Agent ${id}`,
+			role: "member",
+			status: "active",
+			createdAt: new Date().toISOString(),
+		})
+		.onConflictDoNothing();
+}
+
 /** A minimal app that echoes the resolved caller. */
 function makeProbeApp(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const app = new Hono<HyperIdleEnv>();
 	app.use("*", createAuthMiddleware({ db }));
 	app.get("/probe", (c) => c.json({ userId: c.get("userId") }));
+	return app;
+}
+
+/** A probe that also exposes the run context, to test X-HyperIdle-Run wiring. */
+function makeRunProbeApp(db: HyperIdleDb): Hono<HyperIdleEnv> {
+	const app = new Hono<HyperIdleEnv>();
+	app.use("*", createAuthMiddleware({ db }));
+	app.get("/probe", (c) => c.json({ userId: c.get("userId"), run: c.get("run") ?? null }));
 	return app;
 }
 
@@ -110,5 +133,41 @@ describe("the current user is open_user, not an auth route", () => {
 	test("GET /api/auth/me is not a route", async ({ app }) => {
 		const res = await app.request("/api/auth/me");
 		expect(res.status).toBe(404);
+	});
+});
+
+describe("X-HyperIdle-Run — only an agent's key may carry a run context", () => {
+	const RUN_HEADER_VALUE = JSON.stringify({ sessionId: "s-1", taskId: "t-1", threadId: null });
+
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("agent key with run header sets the run context on the request", async ({ db }) => {
+		await seedAgent(db, "u-auth-agent");
+		await giveUserKey(db, "u-auth-agent", TEST_API_KEY);
+		const res = await makeRunProbeApp(db).request("/probe", {
+			headers: { "X-API-Key": TEST_API_KEY, [RUN_CONTEXT_HEADER]: RUN_HEADER_VALUE },
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { userId: string; run: unknown };
+		expect(body.userId).toBe("u-auth-agent");
+		expect(body.run).toMatchObject({ sessionId: "s-1", taskId: "t-1", threadId: null });
+	});
+
+	test("human key with run header does not get a run context", async ({ db }) => {
+		await seedHuman(db, "u-auth-human-run");
+		await giveUserKey(db, "u-auth-human-run", TEST_API_KEY);
+		const res = await makeRunProbeApp(db).request("/probe", {
+			headers: { "X-API-Key": TEST_API_KEY, [RUN_CONTEXT_HEADER]: RUN_HEADER_VALUE },
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { userId: string; run: unknown };
+		expect(body.userId).toBe("u-auth-human-run");
+		expect(body.run).toBeNull();
 	});
 });

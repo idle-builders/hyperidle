@@ -7,7 +7,7 @@ import type { DoneWhenLine, Reason } from "./actions/task.js";
 import type { ChangeRow } from "./actions/user.js";
 
 /**
- * The target agent's admission-relevant configuration, baked at emit time from
+ * The target agent's admission-relevant configuration, baked when the inbox row is written from
  * the same `agent: User` row `requireRunnableAgent` loads. Carries runnability
  * predicate (`kind`/`status`), `role` for prompt assembly, and home `teamId`.
  *
@@ -32,13 +32,12 @@ export interface BakedAgentRunnableConfig {
 }
 
 /**
- * Map a resolver's already-loaded `agent: User` row (or any object structurally
- * satisfying `BakedAgentRunnableConfig`'s fields — `@hyperidle/work-intent-port` has zero
- * `@hyperidle/db` dependency, so this stays duck-typed, same idiom as
- * `SessionDocumentLike`) onto the exact whitelisted `BakedAgentRunnableConfig`
- * shape. A deliberate whitelist pick, not a spread — `User` carries other
- * columns (name, avatar, credentials, etc.) that must never ride onto the
- * baked `AgentSessionRequest.payloadJson`.
+ * Map an already-loaded `agent: User` row (or any object structurally
+ * satisfying `BakedAgentRunnableConfig`'s fields — duck-typed so callers carry
+ * zero `@hyperidle/db` dependency, same idiom as `SessionDocumentLike`) onto the
+ * exact whitelisted `BakedAgentRunnableConfig` shape. A deliberate whitelist
+ * pick, not a spread — `User` carries other columns (name, avatar, credentials,
+ * etc.) that must never ride onto the baked `AgentSessionRequest.payloadJson`.
  */
 export function bakeAgentRunnableConfig(
 	agent: BakedAgentRunnableConfig,
@@ -86,8 +85,8 @@ export interface BakedContextDocument {
 
 /**
  * Duck-typed shape of `SessionDocument` from `@hyperidle/document`'s
- * `assembleSessionDocuments`. Per-kind resolvers type their injected dependency
- * here so they need no direct import of `@hyperidle/document`.
+ * `assembleSessionDocuments`. Callers type their injected dependency here so
+ * they need no direct import of `@hyperidle/document`.
  *
  * @lore: parentChain and scopeKind REQUIRED — ?? [] causes flat placement; missing scopeKind routes to wrong scope; callers must resolve via resolveParentChain
  */
@@ -111,8 +110,7 @@ export interface SessionDocumentLike {
 /**
  * Map `assembleSessionDocuments`'s ranked+budgeted output onto the
  * `BakedContextDocument[]` shape every `contextBundle` variant carries —
- * one shared mapper so `task-run-resolver.ts`/the subscription-wake resolver
- * doesn't reimplement the same field-pick.
+ * one shared mapper so each run-bake path doesn't reimplement the same field-pick.
  */
 export function toBakedContextDocuments(
 	items: readonly SessionDocumentLike[],
@@ -228,7 +226,7 @@ export interface BakedSessionResumeRequest extends SessionResumeReply {
 	readonly agentId: string;
 	/**
 	 * The asking agent's runnable-config snapshot. Baked when the human decides,
-	 * like every other intent kind — `admitSession` treats an absent bake as a
+	 * like every other run-bake variant — `admitSession` treats an absent bake as a
 	 * deactivated agent and refuses the run.
 	 */
 	readonly agentConfig?: BakedAgentRunnableConfig;

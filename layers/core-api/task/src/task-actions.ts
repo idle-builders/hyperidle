@@ -74,7 +74,10 @@ export interface TaskActionsDeps {
 	};
 	/** An agent's inbox: a task to work, or a run on a task to stop. */
 	readonly inbox: {
+		/** Only for runnable agents — returns false when the agent is not runnable. */
 		tellAgent(db: HyperIdleDb, tell: TaskInboxTell): Promise<boolean>;
+		/** Unconditional stop for any ai owner, regardless of runnable status. */
+		tellAgentAlways(db: HyperIdleDb, tell: TaskInboxTell): Promise<void>;
 	};
 	readonly users: { getUserById(exec: WriteExecutor, id: string): Promise<User | undefined> };
 	/** The ONE door onto `document` — task never imports `@hyperidle/document`, never opens a document, and never calls this inside its own open transaction (a runner call inside `ctx.db.transaction` hangs PGlite). */
@@ -109,7 +112,7 @@ export interface TaskActionsDeps {
 	>;
 }
 
-/** One row for an agent's inbox; the binding writes it only for an agent that can run. */
+/** One row for an agent's inbox. */
 export interface TaskInboxTell {
 	readonly userId: string;
 	readonly reason: "task_run" | "task_stop";
@@ -601,7 +604,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		});
 	}
 
-	/** Each agent working one of these tasks is told to stop; `why` keeps a later stop its own row. */
+	/** Each ai owner of these tasks is told to stop — even a non-runnable one, so a runner that switched off mid-run still receives the stop. */
 	async function tellOwnersToStop(
 		ctx: ActionContext,
 		taskIds: readonly string[],
@@ -610,7 +613,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		if (taskIds.length === 0) return;
 		for (const t of await taskDb.list(ctx.db, "task", { ids: [...taskIds] })) {
 			if (!t.ownerAgentId) continue;
-			await deps.inbox.tellAgent(ctx.db, {
+			await deps.inbox.tellAgentAlways(ctx.db, {
 				userId: t.ownerAgentId,
 				reason: "task_stop",
 				key: `task-stop:${t.id}:${why}`,

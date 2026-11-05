@@ -19,6 +19,7 @@ import {
 	answersPong,
 	bootRunnerWorld,
 	type RunnerWorld,
+	type RunnerWorldOptions,
 	type RunScript,
 } from "../__testing__/agent-runner-test-support.js";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
@@ -95,6 +96,22 @@ async function withWorld(
 ): Promise<void> {
 	await seedPeople(db);
 	const world = await bootRunnerWorld(db, eventBus, PERSON_KEY, script);
+	try {
+		await body(world);
+	} finally {
+		await world.stop();
+	}
+}
+
+async function withWorldOpts(
+	db: HyperIdleDb,
+	eventBus: Parameters<typeof bootRunnerWorld>[1],
+	script: RunScript,
+	options: RunnerWorldOptions,
+	body: (world: RunnerWorld) => Promise<void>,
+): Promise<void> {
+	await seedPeople(db);
+	const world = await bootRunnerWorld(db, eventBus, PERSON_KEY, script, options);
 	try {
 		await body(world);
 	} finally {
@@ -245,6 +262,87 @@ describe("an agent acts on its inbox", () => {
 			});
 			const [answered] = await inboxOf(db, BUILDER);
 			expect(answered?.readAt).not.toBeNull();
+		});
+	});
+
+	test("a row that keeps failing is given up after 3 tries and later rows are still acted on", async ({
+		db,
+		eventBus,
+	}) => {
+		let failTaskId = "";
+		let interceptCount = 0;
+		// Intercept open_task for the failing task to simulate a server error.
+		const fetchInterceptor = async (req: Request): Promise<Response | null> => {
+			if (!failTaskId) return null;
+			const url = new URL(req.url);
+			if (!url.pathname.endsWith("/actions/open_task")) return null;
+			const body = (await req.clone().json()) as { id?: string };
+			if (body.id !== failTaskId || interceptCount >= 3) return null;
+			interceptCount++;
+			return new Response("server error", { status: 500 });
+		};
+		await withWorldOpts(db, eventBus, answersPong, { fetchInterceptor }, async (world) => {
+			// Task row: open_task returns 500 each time, so this row keeps failing
+			const failTask = await asPerson<{ task: { id: string } }>(world, "edit_task", {
+				title: "Failing task",
+				teamId: TEAM,
+				ownerAgentId: BUILDER,
+			});
+			await asPerson(world, "edit_task", { id: failTask.task.id, state: "accepted" });
+			failTaskId = failTask.task.id;
+
+			// Message row: succeeds normally
+			await asPerson(world, "send_message", { recipients: [BUILDER], text: "ping" });
+
+			await world.runner.start();
+
+			// Pass 1: task row errors (count=1), message row succeeds → pong sent
+			await waitFor("Builder's pong on the message row", async () => {
+				const found = await saidBy(db, BUILDER, "pong");
+				return found.length > 0 ? found : undefined;
+			});
+
+			// Trigger 2 more passes to reach the failure limit (count=3)
+			world.nudge(`user:${BUILDER}`, {});
+			world.nudge(`user:${BUILDER}`, {});
+
+			// Wait for the task row to be marked read (given up after 3 failures)
+			await waitFor("task_run row to be given up after 3 failures", async () => {
+				const rows = await inboxOf(db, BUILDER);
+				const row = rows.find((r) => r.reason === "task_run" && r.objectId === failTask.task.id);
+				return row && row.readAt !== null ? row : undefined;
+			});
+
+			expect(interceptCount).toBe(3);
+		});
+	});
+
+	test("a task_run row for a paused task is skipped without starting a run", async ({
+		db,
+		eventBus,
+	}) => {
+		await withWorld(db, eventBus, answersPong, async (world) => {
+			// Create a task for the agent
+			const created = await asPerson<{ task: { id: string } }>(world, "edit_task", {
+				title: "Paused work",
+				teamId: TEAM,
+				ownerAgentId: BUILDER,
+			});
+			// Accept it so a task_run inbox row is created
+			await asPerson(world, "edit_task", { id: created.task.id, state: "accepted" });
+			// Pause the task before the runner starts
+			await asPerson(world, "edit_task", { id: created.task.id, paused: "hold" });
+
+			await world.runner.start();
+
+			// The task_run row is marked read (NothingToDo), but no run was started
+			await waitFor("task_run row to be read", async () => {
+				const rows = await inboxOf(db, BUILDER);
+				const row = rows.find((r) => r.reason === "task_run" && r.objectId === created.task.id);
+				return row && row.readAt !== null ? row : undefined;
+			});
+
+			expect(world.runs).toEqual([]);
 		});
 	});
 });

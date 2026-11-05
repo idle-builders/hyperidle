@@ -79,6 +79,17 @@ function agentInbox(
 	};
 }
 
+/** Unconditional stop row for any ai owner — skips the runnable check so a runner that switched off mid-run still receives the stop. */
+function agentInboxAlways(
+	wsPush: ((topic: string, envelope: unknown) => void) | undefined,
+): (db: HyperIdleDb, tell: InboxTell) => Promise<void> {
+	return async (db, tell) => {
+		const agent = await findUser(db, { id: tell.userId });
+		if (agent?.kind !== "ai") return;
+		await tellUser(db, tell, new Date().toISOString(), wsPush);
+	};
+}
+
 function buildThreadActionsDeps(
 	bindings: { readonly wsPush?: (topic: string, envelope: unknown) => void },
 	searchDocuments: SearchDocumentsRunFn,
@@ -110,7 +121,7 @@ function buildTaskActionsDeps(
 ): TaskActionsDeps {
 	return {
 		changes: { appendChange },
-		inbox: { tellAgent: agentInbox(wsPush) },
+		inbox: { tellAgent: agentInbox(wsPush), tellAgentAlways: agentInboxAlways(wsPush) },
 		users: { getUserById: (exec, id) => findUser(exec, { id }) },
 		searchDocuments,
 		adjustThread,

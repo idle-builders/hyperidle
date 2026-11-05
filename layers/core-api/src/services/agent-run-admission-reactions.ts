@@ -24,7 +24,6 @@ const registeredBuses = new WeakSet<EventBus>();
  * @lore: the notice is posted by HyperIdle (the system actor), never as the agent; no-program text matches NoEligibleHarnessError's hint
  */
 const THREAD_TURN_FAILURE_REASON: Record<AgentRunAdmissionFailureCode, string> = {
-	INVALID_WORK_SOURCE: "The message it was answering is gone.",
 	TARGET_AGENT_NOT_RUNNABLE: "It is switched off right now.",
 	PROVISIONING_FAILED:
 		"No agent program is signed in on this computer. Sign in to one under [Agent programs](/people/me), then send your message again.",

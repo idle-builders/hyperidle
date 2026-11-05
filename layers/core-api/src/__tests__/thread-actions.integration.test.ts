@@ -1,7 +1,7 @@
 /**
  * The layer's cross-module proof for `send_message`/`adjust_thread`: the
  * cases whose real effect belongs to ANOTHER module composed in here
- * (document search's title/parent reads, agent-orchestration's work-intent
+ * (document search's title/parent reads, agent-orchestration's run-bake
  * and review-verdict pipeline, the review-gate link) — proven end to end
  * against the real `{ db, app, eventBus }` fixture, plus direct
  * `action.run()` calls for the `ctx.caller`-dependent cases the HTTP door

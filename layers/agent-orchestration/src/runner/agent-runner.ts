@@ -2,8 +2,8 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { UserRow, UserView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { CoreDoor } from "./core-door.js";
-import { actOnInboxRow } from "./inbox-work.js";
+import { type CoreDoor, DoorError } from "./core-door.js";
+import { actOnInboxRow, postFailureNotice } from "./inbox-work.js";
 
 const logger = createLogger({ pkg: "agent-orchestration.runner" });
 
@@ -34,6 +34,9 @@ export interface AgentRunner {
 	stop(): Promise<void>;
 }
 
+/** Tries a failing row gets before the runner gives up on it and tells the people in its thread. */
+const ROW_FAILURE_LIMIT = 3;
+
 /**
  * The agents' runner on this computer. It gets a fresh key for every agent the person here may
  * hold — the newest key wins, so the agent lives here now — then works through each agent's inbox
@@ -44,8 +47,19 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 	const unsubscribers = new Map<string, () => void>();
 	const draining = new Map<string, Promise<void>>();
 	const again = new Set<string>();
+	/** Failed tries per row still being retried. */
+	const rowFailures = new Map<string, number>();
 	let timer: ReturnType<typeof setInterval> | undefined;
 	let stopped = false;
+
+	function dropAgent(agentId: string): void {
+		keys.delete(agentId);
+		const off = unsubscribers.get(agentId);
+		if (off) {
+			off();
+			unsubscribers.delete(agentId);
+		}
+	}
 
 	function mayHold(agent: UserRow, personId: string): boolean {
 		return (
@@ -95,12 +109,51 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 			const self = await deps.door.call<UserView>(key, "open_user", { unread: true });
 			if (!self.ok) return;
 			const rows = self.data.inbox ?? [];
+			let acted = 0;
 			for (const row of rows) {
 				if (stopped) return;
-				await actOnInboxRow(deps, { key, self: self.data }, row);
-				await deps.door.call(key, "edit_user", { id: agentId, inbox: { read: [row.id] } });
+				let rowActed = false;
+				try {
+					await actOnInboxRow(deps, { key, self: self.data }, row);
+					rowActed = true;
+				} catch (error) {
+					// A 401 means the key expired — drop the agent so a fresh key can be fetched.
+					if (error instanceof DoorError && error.status === 401) throw error;
+					const count = (rowFailures.get(row.id) ?? 0) + 1;
+					if (count >= ROW_FAILURE_LIMIT) {
+						rowFailures.delete(row.id);
+						logger.error("inbox row given up after repeated failures, marked read", {
+							agentId,
+							rowId: row.id,
+							reason: row.reason,
+							error: error instanceof Error ? error.message : String(error),
+						});
+						rowActed = true;
+						void postFailureNotice(deps, { key, self: self.data }, row).catch((e) => {
+							logger.error("failure notice could not be posted", {
+								agentId,
+								rowId: row.id,
+								error: e instanceof Error ? e.message : String(e),
+							});
+						});
+					} else {
+						rowFailures.set(row.id, count);
+						logger.error("inbox row failed; will retry", {
+							agentId,
+							rowId: row.id,
+							reason: row.reason,
+							attempt: count,
+							error: error instanceof Error ? error.message : String(error),
+						});
+					}
+				}
+				if (rowActed) {
+					await deps.door.call(key, "edit_user", { id: agentId, inbox: { read: [row.id] } });
+					acted++;
+				}
 			}
-			if (rows.length < INBOX_PAGE) return;
+			// Stop paging when no progress: all remaining rows are retrying failures.
+			if (rows.length < INBOX_PAGE || acted === 0) return;
 		}
 	}
 
@@ -117,6 +170,11 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 				try {
 					await workInbox(agentId);
 				} catch (error) {
+					if (error instanceof DoorError && error.status === 401) {
+						// Stale key — drop the agent so the next sweep can fetch a fresh one.
+						dropAgent(agentId);
+						return;
+					}
 					logger.error("inbox pass failed; the rows wait for the next one", {
 						agentId,
 						error: error instanceof Error ? error.message : String(error),

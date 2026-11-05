@@ -9,12 +9,20 @@
  * which this test never seeds a row for).
  */
 
-import { agentSessionRequests, type HyperIdleDb, teams, users } from "@hyperidle/db";
+import {
+	agentSessionRequests,
+	type HyperIdleDb,
+	tasks,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import type { HarnessAdapter, SessionHandle } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
 import {
+	cancelPendingForTasks,
 	claimSessionRequest,
 	findSessionRequest,
 	listSessionRequests,
@@ -329,6 +337,45 @@ describe("agent session request repository", () => {
 			}),
 		]);
 		expect(results.filter(Boolean)).toHaveLength(1);
+	});
+
+	test("stopping a task cancels its runs that have not started, and leaves the others", async ({
+		db,
+	}) => {
+		const now = new Date().toISOString();
+		await db.insert(teams).values({ id: "team-stop", name: "Stop", createdAt: now });
+		await db.insert(threads).values({
+			id: "thr-stop",
+			hostKind: "team",
+			hostId: "team-stop",
+			initiatorId: "team-stop",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+		});
+		await db.insert(tasks).values({
+			id: "task-stop",
+			threadId: "thr-stop",
+			teamId: "team-stop",
+			title: "Stop me",
+			state: "in_progress",
+			createdAt: now,
+			updatedAt: now,
+		});
+		const waiting = await createAssistantRequest(db, "stop-waiting");
+		const elsewhere = await createAssistantRequest(db, "stop-elsewhere");
+		await db
+			.update(agentSessionRequests)
+			.set({ taskId: "task-stop" })
+			.where(eq(agentSessionRequests.id, waiting.id));
+
+		expect(await cancelPendingForTasks(db, ["task-stop"], now)).toBe(1);
+
+		const rows = await db.select().from(agentSessionRequests);
+		expect(Object.fromEntries(rows.map((r) => [r.id, r.status]))).toEqual({
+			[waiting.id]: "cancelled",
+			[elsewhere.id]: "pending",
+		});
 	});
 
 	test("live run registry replaces, aborts, and deregisters runtime handles", async () => {

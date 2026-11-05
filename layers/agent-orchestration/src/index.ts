@@ -12,7 +12,7 @@ export {
 	type AgentRunnerDeps,
 	createAgentRunner,
 } from "./runner/agent-runner.js";
-export { type CoreDoor, type CoreFetch, createCoreDoor } from "./runner/core-door.js";
+export { type CoreDoor, type CoreFetch, createCoreDoor, DoorError } from "./runner/core-door.js";
 /** Exposed for callers with no HTTP composition root (e.g. `tools/eval`'s `runEvalSession`). */
 export type {
 	ProvisionSessionDeps,

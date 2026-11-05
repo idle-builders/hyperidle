@@ -22,6 +22,7 @@ import {
 } from "@hyperidle/run-orchestration";
 import {
 	type BakedRunRequest,
+	cancelPendingForTasks,
 	queueResume,
 	queueRun,
 	sessionRunRegistry,
@@ -242,6 +243,54 @@ async function actOnReviewAnswered(
 	if (outcome.status === "queued") return;
 	// No session can take it back, so the agent reads the answer in a new turn.
 	logger.info("answer starts a new turn", { reviewMessageId, outcome: outcome.status });
+	// When the review was about a task, queue a task run so lifecycle propagation fires on completion.
+	if (typeof askedTaskId === "string") {
+		const taskOpened = await deps.door.call<TaskView>(agent.key, "open_task", { id: askedTaskId });
+		if (taskOpened.ok) {
+			const { task, ancestors } = taskOpened.data;
+			const me = selfRow(agent);
+			const team = me.teams.find((t) => t.id === task.teamId);
+			const contextBundle: BakedContextBundle | undefined = team
+				? {
+						kind: "task",
+						task: {
+							id: task.id,
+							title: task.title,
+							description: task.description,
+							state: task.state,
+							doneWhen: task.doneWhen,
+							reasons: task.reasons,
+						},
+						ancestors: ancestors.map((a) => ({
+							id: a.id,
+							title: a.title,
+							description: a.description,
+							doneWhen: a.doneWhen,
+						})),
+						agent: { id: me.id, name: me.name, role: me.role },
+						team: { id: team.id, name: team.name },
+						documents: await documentsFor(deps, agent, task.description ?? task.title, task.teamId),
+					}
+				: undefined;
+			await queue(
+				deps,
+				{
+					defaultAgentId: me.id,
+					sourceKind: "task",
+					sourceId: task.id,
+					streamId: `task:${task.id}`,
+					taskId: task.id,
+					teamId: task.teamId,
+					sourceCorrelation: { taskId: task.id, teamId: task.teamId },
+					agentConfig: await agentConfigOf(deps, agent),
+					callingThreadId: task.threadId,
+					...(contextBundle ? { contextBundle } : {}),
+				},
+				row,
+			);
+			return;
+		}
+	}
 	await queueThreadTurn(deps, agent, row, thread, reply.id, decidedBy);
 }
 
@@ -257,6 +306,7 @@ async function actOnTaskRun(
 	must<TaskView>(opened, "the task");
 	const { task, ancestors } = opened.data;
 	if (!WORKABLE_TASK_STATES.has(task.state)) throw new NothingToDo(`the task is ${task.state}`);
+	if (task.paused !== null) throw new NothingToDo("the task is paused");
 	if (task.ownerAgentId && task.ownerAgentId !== me.id) throw new NothingToDo("the task moved on");
 	const team = me.teams.find((t) => t.id === task.teamId);
 	const contextBundle: BakedContextBundle | undefined = team
@@ -375,9 +425,42 @@ async function actOnTaskStop(
 			await endRunForHandoff(deps.db, session.id, new Date().toISOString());
 		return;
 	}
+	await cancelPendingForTasks(deps.db, [taskId], new Date().toISOString());
 	await requestRunStopForTasks(deps.db, deps.eventBus, [taskId], (sessionId) =>
 		sessionRunRegistry.abort(sessionId, "stop"),
 	);
+}
+
+/**
+ * Post a brief notice in the relevant thread when a row is given up after repeated failures.
+ * Best-effort — the caller ignores errors.
+ */
+export async function postFailureNotice(
+	deps: InboxWorkDeps,
+	agent: HeldAgent,
+	row: InboxRowView,
+): Promise<void> {
+	let threadId: string | undefined;
+	if (row.reason === "message") {
+		threadId = row.objectId ?? undefined;
+	} else if (row.reason === "review_answered") {
+		threadId = row.change?.objectId;
+	} else if (row.reason === "task_run") {
+		if (!row.objectId) return;
+		const opened = await deps.door.call<TaskView>(agent.key, "open_task", { id: row.objectId });
+		threadId = opened.ok ? opened.data.task.threadId : undefined;
+	} else {
+		logger.error("inbox row gave up after 3 failures, no thread to notify", {
+			rowId: row.id,
+			reason: row.reason,
+		});
+		return;
+	}
+	if (!threadId) return;
+	await deps.door.call(agent.key, "send_message", {
+		threadId,
+		text: "I couldn't pick this up after several tries.",
+	});
 }
 
 /**

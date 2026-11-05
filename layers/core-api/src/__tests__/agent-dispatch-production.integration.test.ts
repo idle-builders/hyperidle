@@ -1,3 +1,7 @@
+/**
+ * Atomic production handoffs: dependency-watcher acceptance writes a dispatch attempt row and an
+ * inbox wake; an assistant message command stores the message and creates the inbox row.
+ */
 import {
 	agentRunConfig,
 	type HyperIdleDb,

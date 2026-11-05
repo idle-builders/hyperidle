@@ -6,7 +6,7 @@
  * `createThreadActions` over `threadDeps()` (`./_helpers.js`) — real queries
  * for every port thread-actions.ts owns the shape of, fakes only for the
  * ports that reach a sibling module (document search, the
- * agent-orchestration work-intent/review-verdict pipeline). Cases needing
+ * agent-orchestration run-bake/review-verdict pipeline). Cases needing
  * one of those real cross-module effects stay at
  * `layers/core-api/src/__tests__/thread-actions.integration.test.ts`, the
  * layer that composes those modules together.
