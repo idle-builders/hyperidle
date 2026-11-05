@@ -47,7 +47,7 @@ No env setup is needed unless you set your own key.
 
 ### Demo data
 
-`npm run setup -- --demo` fills a fresh database with the Northwind demo world (`tools/setup/src/demo-world/`): two people, four agents, the trials task and its parts, the hand-off and its reviews, and the knowledge tree. It opens as the founder, Finn: his key is the server's own (`HYPERIDLE_API_KEY`, or the dev default), or with `--secrets <path>` the key in the desktop app's `secrets.json`. Builder's and Designer's code folders are small git repos it makes in `demo-folders/` beside the database. The app's code holds no made-up data — the demo world is where the story lives, and the e2e tests run against it. Postgres: `npm run db:bootstrap:pg -- --demo`.
+`npm run setup -- --demo` fills a fresh database with the Northwind demo world (`tools/setup/src/demo-world/`): two people, four agents, the trials task and its parts, the hand-off and its reviews, and the knowledge tree. It opens as the founder, Finn: his key is the server's own (`HYPERIDLE_API_KEY`, or the dev default), or with `--secrets <path>` the key in the desktop app's `secrets.json`. Builder's and Designer's code folders are small git repos it makes in `demo-folders/` beside the database (laptop only: the Postgres demo seeds no folders). The app's code holds no made-up data — the demo world is where the story lives, and the e2e tests run against it. Postgres: `npm run db:bootstrap:pg -- --demo`.
 
 ## Database
 

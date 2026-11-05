@@ -342,6 +342,9 @@ export async function runSetup(
 	}
 
 	io.stdout(`[setup] Profile: ${resolved.profile} (db=${resolved.dbDriver})`);
+	if (parsed.secrets && !(parsed.demo && resolved.profile === "laptop")) {
+		io.stderr("[setup] --secrets is used only with --demo on the laptop profile; ignoring it.");
+	}
 
 	const cwd = ctx.cwd ?? process.cwd();
 	const root = parsed.root ?? defaultRoot(ctx.cwd);

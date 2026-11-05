@@ -24,7 +24,7 @@ test("the team page lists each person with their agents, and the agents of every
 	await expect(page).toHaveURL(new RegExp(`${BUILDER}$`));
 	await expect(page.getByRole("heading", { name: "On now" })).toBeVisible();
 	await expect(box(page, "Builder")).toContainText("Agent · works for you");
-	await expect(box(page, "Builder")).toContainText("~/code/northwind");
+	await expect(box(page, "Builder")).toContainText("demo-folders/northwind");
 });
 
 test("editing an agent saves what it does and its discipline; pausing it says so", async ({
