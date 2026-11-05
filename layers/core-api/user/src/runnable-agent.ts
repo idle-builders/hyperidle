@@ -14,6 +14,11 @@ const RUNNABLE_STATUSES: ReadonlySet<string> = new Set(["active", "idle"]);
 /** A runnable agent with its one team — `null` only for a factory-wide agent. */
 export type RunnableAgent = UserWithTeams & { readonly teamId: string | null };
 
+/** An agent that may be started: never a person, never HyperIdle's own voice, never retired. */
+export function isRunnableAgent(user: UserWithTeams): boolean {
+	return user.kind === "ai" && user.role !== "system" && RUNNABLE_STATUSES.has(user.status);
+}
+
 export async function requireRunnableAgent(
 	db: HyperIdleDb,
 	agentId: string,

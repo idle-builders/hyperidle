@@ -1,8 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
-	type AgentSessionRequest,
 	agentRunConfig,
-	agentSessionRequests,
 	changes,
 	type DocumentRow as DbDocumentRow,
 	documents,
@@ -12,24 +10,22 @@ import {
 } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import type { EditTaskInput, TaskView } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
 import {
 	HARNESS_TEST_MODELS,
 	requireHarness,
 	type SupportedHarnessName,
 	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
-import { drainIntents } from "@hyperidle/session-requests";
+import { giveUserKey } from "@hyperidle/user";
 import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
-import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import {
-	assertRunOutcomeCompleted,
+	assertSessionRowDone,
 	HARNESS_TYPE,
 	runnerFor,
 	setUpLiveHarnessRun,
+	waitForSessionCompleted,
 } from "../__testing__/live-harness-test-support.js";
-import type { Action } from "../actions/action.js";
 
 const NOW = "2026-09-22T00:00:00.000Z";
 
@@ -109,59 +105,6 @@ async function seedFixtureDocument(
 	return row;
 }
 
-/**
- * The human's/founder's door onto task dispatch: `edit_task`, created
- * already `accepted` and owned by the agent in one call — the same branch
- * `task-actions.ts`'s "-- the dispatch branch: an accept, or an owner
- * change to an agent --" comment names, firing on `prev === null` exactly
- * as it does on a live accept. Bakes a `task_run` work intent
- * (`sourceKind: "task_dispatch_attempt"`), which `drainIntents` — the same
- * drain the poller calls on a timer, invoked once here — turns into a real
- * `agent_session_requests` row whose `sourceId` is the task's own id
- * (`resolveTaskRunRequest`'s task_run arm).
- */
-async function createAndDrainTaskDispatchRequest(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	actions: readonly Action[],
-	opts: {
-		readonly founderId: string;
-		readonly agentId: string;
-		readonly teamId: string;
-		readonly title: string;
-		readonly description: string;
-	},
-): Promise<{ readonly request: AgentSessionRequest; readonly taskId: string }> {
-	const editTask = runnerFor<EditTaskInput, TaskView>(actions, "edit_task");
-	const result = await editTask(
-		{ actor: opts.founderId, db, eventBus, now: new Date().toISOString() },
-		{
-			teamId: opts.teamId,
-			title: opts.title,
-			description: opts.description,
-			ownerAgentId: opts.agentId,
-			state: "accepted",
-		},
-	);
-	if (!result.ok) {
-		throw new Error(`edit_task (create+accept) failed: ${JSON.stringify(result.problems)}`);
-	}
-	const taskId = result.data.task.id;
-
-	await drainIntents({ ...queueDeps(db), eventBus });
-
-	const [request] = await db
-		.select()
-		.from(agentSessionRequests)
-		.where(eq(agentSessionRequests.sourceId, taskId));
-	if (!request) {
-		throw new Error(
-			`drainIntents did not produce an agent_session_requests row for task ${taskId}`,
-		);
-	}
-	return { request, taskId };
-}
-
 describe("a real agent writes a memory, writes a task artifact, and reads a document back through the document tools (real harness)", () => {
 	/**
 	 * Shared proof body — every harness runs the identical real path, driven
@@ -178,6 +121,7 @@ describe("a real agent writes a memory, writes a task artifact, and reads a docu
 		const founderId = `founder-doc-tools-${harness}`;
 		const agentId = `agent-doc-tools-${harness}`;
 		const teamId = `team-doc-tools-${harness}`;
+		const personKey = `person-key-doc-tools-${harness}`;
 		const harnessType = HARNESS_TYPE[harness];
 
 		await seedFounderAgentAndTeam(db, {
@@ -187,6 +131,7 @@ describe("a real agent writes a memory, writes a task artifact, and reads a docu
 			harnessType,
 			modelId: HARNESS_TEST_MODELS[harness].model,
 		});
+		await giveUserKey(db, founderId, personKey);
 
 		const token = randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
 		const taskTitle = `Document tools probe ${harness} ${token}`;
@@ -217,26 +162,30 @@ describe("a real agent writes a memory, writes a task artifact, and reads a docu
 			`4. Call search_tasks with text="${taskTitle}" to find this task, then call edit_task with its id and state="done" to finish.`,
 		].join("\n");
 
-		const run = await setUpLiveHarnessRun(db, `doc-tools-${harness}`);
+		const run = await setUpLiveHarnessRun(db, `doc-tools-${harness}`, personKey);
 
 		try {
-			const { request, taskId } = await createAndDrainTaskDispatchRequest(
-				db,
-				run.eventBus,
-				run.actions,
-				{ founderId, agentId, teamId, title: taskTitle, description: taskDescription },
-			);
+			await run.runner.start();
 
-			const adapterPool = run.adapterPool;
-			const workspace = run.workspace;
-			const result = await run.composition.runSession(
-				{ db, eventBus: run.eventBus, adapterPool, workspace },
-				{ mode: "durable", request, sandboxBasePath: run.sandboxBasePath, completion: "await" },
+			// Create the task (accepted + owned → triggers task_run inbox row → runner queues session).
+			const editTask = runnerFor<EditTaskInput, TaskView>(run.actions, "edit_task");
+			const editResult = await editTask(
+				{ actor: founderId, db, eventBus: run.eventBus, now: new Date().toISOString() },
+				{
+					teamId,
+					title: taskTitle,
+					description: taskDescription,
+					ownerAgentId: agentId,
+					state: "accepted",
+				},
 			);
+			if (!editResult.ok) {
+				throw new Error(`edit_task (create+accept) failed: ${JSON.stringify(editResult.problems)}`);
+			}
+			const taskId = editResult.data.task.id;
 
-			expect(result.mode).toBe("completed");
-			if (result.mode !== "completed") return;
-			await assertRunOutcomeCompleted(db, request, result, harness);
+			// Wait for the session to complete (the agent finishes by calling edit_task(state=done)).
+			const sessionId = await waitForSessionCompleted(db, agentId, harness, 180_000);
 
 			// -- (a) the memory ---------------------------------------------------
 			const [memoryDoc] = await db.select().from(documents).where(eq(documents.title, memoryTitle));
@@ -288,6 +237,8 @@ describe("a real agent writes a memory, writes a task artifact, and reads a docu
 				distractorAfter?.readCount,
 				`the distractor document's read_count moved on ${harness} — the agent opened the wrong document`,
 			).toBe(distractor.readCount);
+
+			await assertSessionRowDone(db, sessionId, harness);
 		} finally {
 			await run.teardown();
 		}

@@ -3,10 +3,22 @@ import { EventBus } from "@hyperidle/event-bus";
 import { type AgentIdentityPort, createAgentIdentityPort } from "@hyperidle/user";
 import type { ActionContext, SearchDocumentsRunFn } from "../actions/action.js";
 import { buildStandaloneDocumentRunners } from "../actions/compose.js";
-import { resolveAgentIdentityBody } from "../services/task-run-resolver-bindings.js";
 
 function readCtx(db: HyperIdleDb, actor: string): ActionContext {
 	return { actor, db, eventBus: new EventBus(), now: new Date().toISOString() };
+}
+
+async function resolveAgentIdentityBody(
+	ctx: ActionContext,
+	agentId: string,
+	searchDocuments: SearchDocumentsRunFn,
+): Promise<string | null> {
+	const result = await searchDocuments(ctx, {
+		parent: { kind: "agent", id: agentId },
+		slot: "agent_file",
+		status: "active",
+	});
+	return result.ok ? (result.data[0]?.body ?? null) : null;
 }
 
 export function makeDocumentReadPorts(searchDocuments: SearchDocumentsRunFn): {

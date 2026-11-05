@@ -1,6 +1,9 @@
+/**
+ * Atomic production handoffs: dependency-watcher acceptance writes a dispatch attempt row and an
+ * inbox wake; an assistant message command stores the message and creates the inbox row.
+ */
 import {
 	agentRunConfig,
-	agentWorkIntents,
 	type HyperIdleDb,
 	messages,
 	taskDispatchAttempts,
@@ -11,7 +14,8 @@ import {
 	userTeams,
 } from "@hyperidle/db";
 import { checkAndUnblockDependents } from "@hyperidle/task";
-import { eq, sql } from "drizzle-orm";
+import { listInboxRows } from "@hyperidle/user";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { buildCoreActions } from "../actions/compose.js";
 
@@ -21,7 +25,6 @@ const authHeaders = {
 };
 
 async function seedExplicitSessionAuthority(db: HyperIdleDb) {
-	await db.execute(sql`drop trigger if exists au9_reject_intent_write on agent_work_intents`);
 	const now = new Date().toISOString();
 	await db
 		.insert(teams)
@@ -97,25 +100,6 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 	});
 }
 
-let cleanupRejectedIntentWrites: (() => Promise<void>) | undefined;
-
-async function rejectIntentWrites(db: HyperIdleDb) {
-	await db.execute(sql`drop trigger if exists au9_reject_intent_write on agent_work_intents`);
-	cleanupRejectedIntentWrites = async () => {
-		await db.execute(sql`drop trigger if exists au9_reject_intent_write on agent_work_intents`);
-	};
-	await db.execute(sql`
-		create or replace function au9_reject_intent_write() returns trigger as $$
-		begin raise exception 'injected intent write failure'; end;
-		$$ language plpgsql
-	`);
-	await db.execute(sql`
-		create trigger au9_reject_intent_write
-		before insert on agent_work_intents
-		for each row execute function au9_reject_intent_write()
-	`);
-}
-
 async function seedAssistantThread(db: HyperIdleDb) {
 	const now = new Date().toISOString();
 	await db.insert(users).values([
@@ -156,10 +140,8 @@ async function seedAssistantThread(db: HyperIdleDb) {
 
 describe("atomic production handoffs", () => {
 	beforeEach(() => vi.stubEnv("HYPERIDLE_API_KEY", "test-api-key"));
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await cleanupRejectedIntentWrites?.();
-		cleanupRejectedIntentWrites = undefined;
 	});
 
 	test("dependency watcher acceptance records a distinct dispatch occasion", async ({
@@ -197,8 +179,6 @@ describe("atomic production handoffs", () => {
 		// the real seam, not a hand-rolled `workIntents` closure.
 		const editTaskAction = buildCoreActions({
 			agentOrchestration,
-			agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-			reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 		}).find((a) => a.declaration.name === "edit_task");
 		if (!editTaskAction) throw new Error("edit_task action not found");
 		await checkAndUnblockDependents(
@@ -216,25 +196,19 @@ describe("atomic production handoffs", () => {
 			.select()
 			.from(taskDispatchAttempts)
 			.where(eq(taskDispatchAttempts.taskId, "prodintent-production-dependent"));
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, attempts[0]?.id ?? ""));
-		expect(intents).toHaveLength(1);
 		// the architecture doc §5 step 4's occasion table: `hold` -> `accepted`
 		// (this dependency-watcher unblock) is the "retry" occasion, distinct
 		// from a first-time accept from a non-hold state.
 		expect(attempts[0]?.occasion).toBe("retry");
 	});
 
-	test("real assistant message command: the message survives even when the intent write fails", async ({
+	test("real assistant message command: the message is stored and an inbox row is created for the agent", async ({
 		db,
 		app,
 		asPerson,
 	}) => {
 		await seedAssistantThread(db);
 		await asPerson("prodintent-assistant-human");
-		await rejectIntentWrites(db);
 
 		const response = await app.request("/api/actions/send_message", {
 			method: "POST",
@@ -246,14 +220,12 @@ describe("atomic production handoffs", () => {
 			}),
 		});
 
-		// The wake loop's intent-record call fails against the rejecting
-		// trigger, but that failure is caught per-agent and dropped — the
-		// action still reports ok:true; the message insert already
-		// committed inside its own transaction before the wake loop ran.
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as { ok: boolean };
 		expect(body.ok).toBe(true);
 		expect(await db.select().from(messages)).toHaveLength(1);
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
+		// The inbox-based wake: an inbox row is created for the agent.
+		const inboxRows = await listInboxRows(db, { userId: "ast-prodintent-assistant-human" });
+		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(1);
 	});
 });

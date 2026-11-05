@@ -11,20 +11,19 @@
 
 import {
 	agentSessionRequests,
-	agentWorkIntents,
 	type HyperIdleDb,
+	tasks,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import { EventBus } from "@hyperidle/event-bus";
 import type { HarnessAdapter, SessionHandle } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
 import {
+	cancelPendingForTasks,
 	claimSessionRequest,
-	drainIntents,
-	enqueueWorkIntent,
 	findSessionRequest,
 	listSessionRequests,
 	releaseClaim,
@@ -249,75 +248,6 @@ describe("agent session request repository", () => {
 		expect(reclaimed?.claimToken).not.toBe(claimed?.claimToken);
 	});
 
-	test("concurrent intent drains process one durable attempt", async ({ db }) => {
-		const intent = await enqueueWorkIntent(db, {
-			kind: "thread_turn",
-			sourceKind: "thread_message",
-			sourceId: "thread:intent-lease",
-			requestedBy: "agent-intent-lease",
-			idempotencyKey: "thread_turn:intent-lease",
-			// The drain will fail (no real FKs) — that's fine, test only proves
-			// claim-exclusivity (one attempt despite two concurrent drains).
-			bakedRequest: {
-				defaultAgentId: "agent-intent-lease",
-				sourceKind: "assistant",
-				sourceId: "thread:intent-lease",
-				streamId: "thread:intent-lease",
-				sourceCorrelation: {
-					threadId: "thread:intent-lease",
-					messageId: "msg-1",
-					userId: "user-1",
-					agentId: "agent-intent-lease",
-				},
-			},
-		});
-		const deps = { db, eventBus: new EventBus() };
-		await Promise.all([
-			drainIntents(deps, { maxAttempts: 1 }),
-			drainIntents(deps, { maxAttempts: 1 }),
-		]);
-		const [stored] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.id, intent.id));
-		expect(stored).toMatchObject({ status: "failed", attempts: 1 });
-	});
-
-	test("enqueueWorkIntent is idempotent on (kind, sourceId, idempotencyKey)", async ({ db }) => {
-		const fireId = "subscription-idem-fire";
-		const ownerAgentId = "idem-owner";
-		// bakedRequest required; drain is never called in this test so content is irrelevant.
-		const idemBaked = {
-			defaultAgentId: ownerAgentId,
-			sourceKind: "subscription" as const,
-			sourceId: fireId,
-			streamId: `subscription:${fireId}`,
-			sourceCorrelation: { subscriptionId: "sub-1", teamId: "t" },
-		};
-		const first = await enqueueWorkIntent(db, {
-			kind: "subscription_run",
-			sourceKind: "subscription",
-			sourceId: fireId,
-			requestedBy: ownerAgentId,
-			idempotencyKey: `subscription:${fireId}`,
-			bakedRequest: idemBaked,
-		});
-		const second = await enqueueWorkIntent(db, {
-			kind: "subscription_run",
-			sourceKind: "subscription",
-			sourceId: fireId,
-			requestedBy: ownerAgentId,
-			idempotencyKey: `subscription:${fireId}`,
-			bakedRequest: idemBaked,
-		});
-		expect(second.id).toBe(first.id);
-		const rows = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, fireId));
-		expect(rows).toHaveLength(1);
-	});
-
 	test("parameterized reads preserve payloads and source/running filters", async ({ db }) => {
 		const request = await createAssistantRequest(db, "reads", '{"mode":"deep"}');
 		expect((await findSessionRequest(db, { by: "id", requestId: request.id }))?.payloadJson).toBe(
@@ -407,6 +337,45 @@ describe("agent session request repository", () => {
 			}),
 		]);
 		expect(results.filter(Boolean)).toHaveLength(1);
+	});
+
+	test("stopping a task cancels its runs that have not started, and leaves the others", async ({
+		db,
+	}) => {
+		const now = new Date().toISOString();
+		await db.insert(teams).values({ id: "team-stop", name: "Stop", createdAt: now });
+		await db.insert(threads).values({
+			id: "thr-stop",
+			hostKind: "team",
+			hostId: "team-stop",
+			initiatorId: "team-stop",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+		});
+		await db.insert(tasks).values({
+			id: "task-stop",
+			threadId: "thr-stop",
+			teamId: "team-stop",
+			title: "Stop me",
+			state: "in_progress",
+			createdAt: now,
+			updatedAt: now,
+		});
+		const waiting = await createAssistantRequest(db, "stop-waiting");
+		const elsewhere = await createAssistantRequest(db, "stop-elsewhere");
+		await db
+			.update(agentSessionRequests)
+			.set({ taskId: "task-stop" })
+			.where(eq(agentSessionRequests.id, waiting.id));
+
+		expect(await cancelPendingForTasks(db, ["task-stop"], now)).toBe(1);
+
+		const rows = await db.select().from(agentSessionRequests);
+		expect(Object.fromEntries(rows.map((r) => [r.id, r.status]))).toEqual({
+			[waiting.id]: "cancelled",
+			[elsewhere.id]: "pending",
+		});
 	});
 
 	test("live run registry replaces, aborts, and deregisters runtime handles", async () => {

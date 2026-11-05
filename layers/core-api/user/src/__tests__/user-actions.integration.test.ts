@@ -18,6 +18,7 @@ import {
 } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
+import { findUserByKey } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 import type { ActionContext } from "../action-types.js";
 import { createUserActions, type UserActionsDeps } from "../user-actions.js";
@@ -419,6 +420,10 @@ describe("edit_user — inbox marks", () => {
 			.returning();
 		const { insertInboxRow } = await import("../subscriptions-store.js");
 		await insertInboxRow(db, {
+			id: "inbox-reader-1",
+			key: "inbox-reader-1",
+			reason: "message",
+			createdAt: NOW,
 			userId: "u-reader",
 			changeId: changeRow?.id as string,
 			seenAt: null,
@@ -429,14 +434,14 @@ describe("edit_user — inbox marks", () => {
 		const { editUser, openUser } = actionsFor(deps);
 		const result = await editUser(ctxFor(db, "u-reader"), {
 			id: "u-reader",
-			inbox: { read: ["c1"] },
+			inbox: { read: ["inbox-reader-1"] },
 		});
 		expect(result.ok).toBe(true);
 
 		const reopened = await openUser(ctxFor(db, "u-reader"), {});
 		expect(reopened.ok).toBe(true);
 		if (!reopened.ok) return;
-		const row = reopened.data.inbox?.find((r) => r.change.id === "c1");
+		const row = reopened.data.inbox?.find((r) => r.change?.id === "c1");
 		expect(row?.readAt).not.toBeNull();
 		expect(row?.seenAt).not.toBeNull();
 	});
@@ -733,5 +738,108 @@ describe("edit_user — a discipline edge resolves to the users holding it", () 
 		expect(reopenedEdge?.resolvedUserIds).toContain(
 			designer.ok ? designer.data.user?.id : undefined,
 		);
+	});
+});
+
+describe("edit_user — key minting security rules", () => {
+	test("non-owner asking key:new for an owned agent is refused", async ({ db }) => {
+		await seedFounder(db);
+		await db.insert(users).values([
+			{
+				id: "u-other-human",
+				kind: "human",
+				name: "Other",
+				role: "member",
+				status: "active",
+				createdAt: NOW,
+			},
+			{
+				id: "u-owned-agent",
+				kind: "ai",
+				name: "Bot",
+				role: "agent",
+				status: "active",
+				ownerUserId: "u-founder",
+				createdAt: NOW,
+			},
+		]);
+		await db
+			.insert(teams)
+			.values({ id: "t-alpha", name: "Alpha", createdAt: NOW })
+			.onConflictDoNothing();
+		await db.insert(userTeams).values({ userId: "u-owned-agent", teamId: "t-alpha" });
+
+		const { editUser } = actionsFor(buildDeps());
+		const result = await editUser(ctxFor(db, "u-other-human"), {
+			id: "u-owned-agent",
+			key: "new",
+		});
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.problems[0]?.code).toBe("owner_only");
+	});
+
+	test("key:new for a human user is refused", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+
+		const result = await editUser(ctxFor(db, "u-founder"), { id: "u-founder", key: "new" });
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.problems[0]?.code).toBe("agents_only");
+	});
+
+	test("newest key wins: second mint invalidates the first", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+		const agent = await editUser(ctxFor(db, "u-founder"), {
+			kind: "ai",
+			name: "Runner",
+			teams: ["Alpha"],
+		});
+		expect(agent.ok).toBe(true);
+		if (!agent.ok) return;
+		const agentId = agent.data.user?.id;
+		if (!agentId) return;
+
+		const first = await editUser(ctxFor(db, "u-founder"), { id: agentId, key: "new" });
+		expect(first.ok).toBe(true);
+		if (!first.ok) return;
+		const key1 = first.data.key;
+		expect(key1).toBeDefined();
+		if (!key1) return;
+
+		const second = await editUser(ctxFor(db, "u-founder"), { id: agentId, key: "new" });
+		expect(second.ok).toBe(true);
+		if (!second.ok) return;
+		const key2 = second.data.key;
+		expect(key2).toBeDefined();
+		if (!key2) return;
+
+		expect(await findUserByKey(db, key1)).toBeUndefined();
+		expect(await findUserByKey(db, key2)).toMatchObject({ id: agentId });
+	});
+
+	test("key:new combined with another field is refused", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+		const agent = await editUser(ctxFor(db, "u-founder"), {
+			kind: "ai",
+			name: "Bot",
+			teams: ["Alpha"],
+		});
+		expect(agent.ok).toBe(true);
+		if (!agent.ok) return;
+		const agentId = agent.data.user?.id;
+		if (!agentId) return;
+
+		const result = await editUser(ctxFor(db, "u-founder"), {
+			id: agentId,
+			key: "new",
+			name: "NewName",
+		});
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.problems[0]?.code).toBe("key_alone");
 	});
 });

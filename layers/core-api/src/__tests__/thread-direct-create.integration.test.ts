@@ -28,8 +28,6 @@ async function sendMessageAs(
 ): Promise<{ readonly ok: boolean; readonly data?: SendMessageOutput }> {
 	const actions = buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
 	const sendMessage = actions.find((a) => a.declaration.name === "send_message");
 	if (!sendMessage) throw new Error("send_message action not found");

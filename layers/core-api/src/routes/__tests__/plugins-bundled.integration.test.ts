@@ -91,8 +91,6 @@ function actionsFor(
 	baseDirs.push(pluginsBaseDir);
 	const actions = buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 		pluginsBaseDir,
 		bundledPluginsDir: BUNDLED,
 		adapterPool: pool,

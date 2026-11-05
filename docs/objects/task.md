@@ -66,7 +66,7 @@ Code: `createShipConfirmationThread`, `lifecycle-propagation.ts`.
 
 ## Handoff
 
-Setting `ownerAgentId` on an `accepted` or `in_progress` task is a handoff. The previous owner's session ends, a new `task_dispatch_attempts` row with `occasion: "owner_handoff"` is inserted, and the new agent's run begins. Code: `task-actions.ts`.
+Setting `ownerAgentId` on an `accepted` or `in_progress` task is a handoff. A new `task_dispatch_attempts` row with `occasion: "owner_handoff"` is inserted; the previous owner gets a `task_stop` row in its inbox, so its run ends, and the new owner gets a `task_run` row, so its run begins ([How an agent gets work](../architecture/overview.md#how-an-agent-gets-work)). Code: `task-actions.ts`.
 
 ## Hold and stop
 

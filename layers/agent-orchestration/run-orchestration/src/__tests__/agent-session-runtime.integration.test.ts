@@ -1,6 +1,5 @@
 import {
 	agentSessionRequests,
-	agentWorkIntents,
 	type HyperIdleDb,
 	sessions,
 	tasks,
@@ -510,21 +509,6 @@ describe("agent session runtime consumer", () => {
 			idempotencyKey: "task:task-race:deactivated",
 			sourceCorrelation: { taskId: "task-race", teamId: "team-race" },
 		});
-		// The already-handed-off intent this session request was baked from —
-		// `reportPreAdmissionProvisioningFailure` correlates the failure back to
-		// ITS identity (`sourceKind:"task_dispatch_attempt"`), not the resolved
-		// request's own (`sourceKind:"task"`).
-		await db.insert(agentWorkIntents).values({
-			id: "intent-race",
-			kind: "task_run",
-			sourceKind: "task_dispatch_attempt",
-			sourceId: "attempt-race",
-			idempotencyKey: "task:task-race:deactivated",
-			status: "handed_off",
-			requestId: request.id,
-			createdAt,
-			updatedAt: createdAt,
-		});
 
 		const ports = buildTestPorts();
 		vi.mocked(ports.sessionProvisioner!.admitSession).mockRejectedValue(
@@ -545,12 +529,11 @@ describe("agent session runtime consumer", () => {
 		expect(emitted).toHaveLength(1);
 		expect(emitted[0]).toMatchObject({
 			type: "agent_run_admission_failed",
-			intentId: "intent-race",
-			kind: "task_run",
-			sourceKind: "task_dispatch_attempt",
-			sourceId: "attempt-race",
+			streamId: "task:task-race",
+			agentId: "agent-race",
+			sourceKind: "task",
+			sourceId: "task-race",
 			failureCode: "TARGET_AGENT_NOT_RUNNABLE",
-			terminal: true,
 		});
 
 		// Never proceeds with authority: no session/running request exists.

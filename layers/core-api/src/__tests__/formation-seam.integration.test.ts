@@ -14,16 +14,19 @@
  * not two.
  */
 
-import { agentRunConfig, agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
-import type { BakedAgentRunnableConfig } from "@hyperidle/domain-model";
+import { agentRunConfig, type HyperIdleDb, threads, users } from "@hyperidle/db";
 import { readAgentRunConfig } from "@hyperidle/run-orchestration";
-import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { makeAgentIdentityTestPort } from "../__testing__/document-read-test-ports.js";
+import { listInboxRows } from "../../user/src/subscriptions-store.js";
+import {
+	makeAgentIdentityTestPort,
+	makeDocumentReadPorts,
+} from "../__testing__/document-read-test-ports.js";
 // This file drives real HTTP routes only, never a tool dispatch or the
 // `CoreApiPort` seam directly, so nothing here needs a seam transport.
 import { test } from "../__testing__/test-fixtures.js";
+import { buildStandaloneDocumentRunners } from "../actions/compose.js";
 
 const agentIdentity = makeAgentIdentityTestPort();
 
@@ -79,10 +82,10 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 }
 
 /**
- * Sends a message on the assistant thread through `send_message`, proves the
- * `thread_turn` intent was emitted for the woken assistant, and returns the
- * persona the drain will run that turn with — read through the production
- * `readAgentRunConfig`.
+ * Sends a message on the assistant thread through `send_message`, proves an
+ * inbox row was created for the assistant (the turn was triggered), and
+ * returns the persona the inbox runner will read at session creation time —
+ * the current body of the agent's identity document.
  */
 async function postAndResolveTurnPersona(
 	app: Hono,
@@ -105,29 +108,25 @@ async function postAndResolveTurnPersona(
 	const body = (await res.json()) as { data: { message: { id: string } } };
 	const messageId = body.data.message.id;
 
-	const [intent] = await db
-		.select()
-		.from(agentWorkIntents)
-		.where(
-			and(
-				eq(agentWorkIntents.kind, "thread_turn"),
-				eq(agentWorkIntents.sourceId, `${messageId}:${ASSISTANT_ID}`),
-			),
-		);
-	expect(intent).toBeDefined();
-	const baked = JSON.parse(intent?.bakedRequestJson ?? "{}") as {
-		agentConfig?: BakedAgentRunnableConfig & { systemPrompt?: unknown };
-	};
-	expect(baked.agentConfig).toBeDefined();
-	// The identity has ONE home. It is not a run-config field, so the old
-	// `systemPrompt` spelling must not reappear anywhere on the request.
-	expect(baked.agentConfig).not.toHaveProperty("systemPrompt");
+	// The inbox row for this specific message proves the agent was woken.
+	const agentInboxRows = await listInboxRows(db, { userId: ASSISTANT_ID });
+	const thisMessageRow = agentInboxRows.find(
+		(r) => r.reason === "message" && r.key === `message:${messageId}`,
+	);
+	expect(thisMessageRow).toBeDefined();
+
+	// The formation seam: the inbox runner reads the identity document at
+	// session creation time. The persona is the current document body.
+	const { getAgentIdentity } = makeDocumentReadPorts(
+		buildStandaloneDocumentRunners().searchDocuments,
+	);
+	const persona = await getAgentIdentity(db, ASSISTANT_ID);
+
+	// The old systemPrompt spelling must not appear on the run config.
 	const runConfig = await readAgentRunConfig(db, ASSISTANT_ID);
 	expect(runConfig).not.toHaveProperty("systemPrompt");
 
-	// What `admitSession` (`provisioner.ts`) reads to build the "## Identity"
-	// section of this turn's AGENTS.md.
-	return baked.agentConfig?.persona ?? null;
+	return persona;
 }
 
 describe("formation seam — editing the assistant's identity document changes its next turn", () => {

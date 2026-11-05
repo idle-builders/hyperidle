@@ -26,10 +26,6 @@ import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import type { ActionContext } from "../actions/action.js";
 import { buildCoreActions } from "../actions/compose.js";
-import {
-	buildSeamBackedReviewVerdictRecorder,
-	buildSeamBackedWorkIntentRecorder,
-} from "../services/agent-orchestration-port-composition.js";
 
 const FOUNDER_ID = "u-founder";
 
@@ -58,8 +54,6 @@ function buildActionsWithHub(
 ) {
 	return buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),
-		reviewVerdictRecorder: buildSeamBackedReviewVerdictRecorder(agentOrchestration),
 		wsPush: (topic: string, envelope: unknown) => {
 			broadcasts.push({ topic, envelope: envelope as CapturedBroadcast["envelope"] });
 		},
@@ -229,8 +223,6 @@ describe("send_message — the websocket nudge", () => {
 		// no `wsPush` in the bindings — the dep is optional.
 		const actions = buildCoreActions({
 			agentOrchestration,
-			agentWorkIntentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),
-			reviewVerdictRecorder: buildSeamBackedReviewVerdictRecorder(agentOrchestration),
 		});
 		const sendMessage = runnerFor<SendMessageInput, SendMessageOutput>(actions, "send_message");
 

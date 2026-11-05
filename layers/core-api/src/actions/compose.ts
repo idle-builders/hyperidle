@@ -12,14 +12,12 @@ import { createDocumentActions, type DocumentActionsDeps } from "@hyperidle/docu
 import type {
 	ActionResult,
 	AdjustThreadInput,
-	AgentWorkIntentRecorderFn,
 	DocumentRow,
 	DocumentView,
 	EditDocumentInput,
 	EditTaskInput,
 	HarnessDescriptor,
 	OpenThreadInput,
-	ReviewVerdictRecorderFn,
 	SearchDocumentsInput,
 	TaskView,
 	ThreadView,
@@ -34,24 +32,22 @@ import {
 	findUser,
 	getSubscription,
 	getTeam,
+	type InboxTell,
 	insertSubscription,
 	insertUserIfAbsent,
+	isRunnableAgent,
 	listSubscriptions,
 	listUsers,
 	nextCronMatch,
 	parseCron,
-	requireRunnableAgent,
 	setAgentsStatus,
 	setSubscriptionsPaused,
+	tellUser,
 	type UserActionsDeps,
 	updateSubscription,
 	updateUser,
 } from "@hyperidle/user";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
-import {
-	buildTaskRunResolverDeps,
-	resolveAgentIdentityBody,
-} from "../services/task-run-resolver-bindings.js";
 import type { Action, ActionContext, SearchDocumentsRunFn } from "./action.js";
 
 /**
@@ -71,13 +67,31 @@ async function soleHumanForAgent(exec: WriteExecutor, agentId: string): Promise<
 	return [...anyHumans].sort(byCreated)[0];
 }
 
+/** An agent's inbox row, written only for an agent that can run; its runner is nudged. False → nobody was told. */
+function agentInbox(
+	wsPush: ((topic: string, envelope: unknown) => void) | undefined,
+): (db: HyperIdleDb, tell: InboxTell) => Promise<boolean> {
+	return async (db, tell) => {
+		const agent = await findUser(db, { id: tell.userId });
+		if (!(agent && isRunnableAgent(agent))) return false;
+		await tellUser(db, tell, new Date().toISOString(), wsPush);
+		return true;
+	};
+}
+
+/** Unconditional stop row for any ai owner — skips the runnable check so a runner that switched off mid-run still receives the stop. */
+function agentInboxAlways(
+	wsPush: ((topic: string, envelope: unknown) => void) | undefined,
+): (db: HyperIdleDb, tell: InboxTell) => Promise<void> {
+	return async (db, tell) => {
+		const agent = await findUser(db, { id: tell.userId });
+		if (agent?.kind !== "ai") return;
+		await tellUser(db, tell, new Date().toISOString(), wsPush);
+	};
+}
+
 function buildThreadActionsDeps(
-	bindings: {
-		readonly agentOrchestration: AgentOrchestrationPort;
-		readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
-		readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
-		readonly wsPush?: (topic: string, envelope: unknown) => void;
-	},
+	bindings: { readonly wsPush?: (topic: string, envelope: unknown) => void },
 	searchDocuments: SearchDocumentsRunFn,
 	moveTaskToReview: (taskId: string, ctx: ActionContext) => Promise<void>,
 	settleTaskAfterVerdict: SettleTaskAfterVerdict,
@@ -92,23 +106,7 @@ function buildThreadActionsDeps(
 		},
 		searchDocuments,
 		org: { getTeam: (exec, q) => getTeam(exec, q) },
-		agents: {
-			requireRunnableAgent: (db, agentId) => requireRunnableAgent(db, agentId),
-			// bound to searchDocuments; never a direct table read
-			getAgentIdentity: (ctx, agentId) => resolveAgentIdentityBody(ctx, agentId, searchDocuments),
-		},
-		agentWorkIntentRecorder: bindings.agentWorkIntentRecorder,
-		reviewVerdictRecorder: bindings.reviewVerdictRecorder,
-		linkReviewToSession: (sessionId, reviewMessageId) =>
-			bindings.agentOrchestration.gate.linkReview(sessionId, reviewMessageId),
-		tryDeliverToActiveRun: async (agentId, threadId, text) => {
-			const result = await bindings.agentOrchestration.runs.deliverToConversation(
-				agentId,
-				threadId,
-				text,
-			);
-			return result === "delivered" ? "delivered" : "not_delivered";
-		},
+		inbox: { tellAgent: agentInbox(bindings.wsPush) },
 		moveTaskToReview,
 		settleTaskAfterVerdict,
 		...(bindings.wsPush ? { wsPush: bindings.wsPush } : {}),
@@ -116,24 +114,16 @@ function buildThreadActionsDeps(
 }
 
 function buildTaskActionsDeps(
-	agentOrchestration: AgentOrchestrationPort,
+	wsPush: ((topic: string, envelope: unknown) => void) | undefined,
 	adjustThread: (ctx: ActionContext, input: AdjustThreadInput) => Promise<ActionResult<ThreadView>>,
 	openThread: (ctx: ActionContext, input: OpenThreadInput) => Promise<ActionResult<ThreadView>>,
 	searchDocuments: SearchDocumentsRunFn,
 ): TaskActionsDeps {
 	return {
 		changes: { appendChange },
-		agentOrchestration: {
-			submitWorkIntent: async (input) => {
-				await agentOrchestration.intents.submit(input);
-			},
-			stopRunsForTasks: (taskIds) => agentOrchestration.runs.stopForTasks(taskIds),
-			endRunForHandoff: (sessionId, endedAt) =>
-				agentOrchestration.runs.endForHandoff(sessionId, endedAt),
-		},
+		inbox: { tellAgent: agentInbox(wsPush), tellAgentAlways: agentInboxAlways(wsPush) },
 		users: { getUserById: (exec, id) => findUser(exec, { id }) },
 		searchDocuments,
-		taskRunResolver: buildTaskRunResolverDeps(searchDocuments),
 		adjustThread,
 		openThread,
 		listAsksForThreads: (db, threadIds) => {
@@ -148,7 +138,7 @@ function buildTaskActionsDeps(
 
 /**
  * Runner lookup by declaration name, structurally typed — same shape both
- * `createActionsRouter`/`actionsAsTools` already loop over. Generic over both
+ * `createActionsRouter`/`actionCatalog` already loop over. Generic over both
  * the input and output type so every call site (`adjust_thread`/`open_thread`
  * sharing `ThreadView`, `open_task` returning `TaskView`) can be looked up
  * here through the one function.
@@ -444,8 +434,6 @@ function buildUserActionsDeps(
  */
 export function buildCoreActions(bindings: {
 	readonly agentOrchestration: AgentOrchestrationPort;
-	readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
-	readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
 	readonly pluginsBaseDir?: string;
 	readonly bundledPluginsDir?: string;
@@ -463,7 +451,7 @@ export function buildCoreActions(bindings: {
 	const adjustThread = runnerFor<AdjustThreadInput, ThreadView>(threadActions, "adjust_thread");
 	const openThread = runnerFor<OpenThreadInput, ThreadView>(threadActions, "open_thread");
 	const taskActions = createTaskActions(
-		buildTaskActionsDeps(bindings.agentOrchestration, adjustThread, openThread, searchDocuments),
+		buildTaskActionsDeps(bindings.wsPush, adjustThread, openThread, searchDocuments),
 	) as readonly Action[];
 	taskActionsForThread = taskActions;
 	documentActions = createDocumentActions(

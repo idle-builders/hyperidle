@@ -29,6 +29,7 @@ import {
 	editUser as editUserDeclaration,
 	editUserInvariants,
 	type HarnessDescriptor,
+	type InboxReason,
 	type ObjectEventName,
 	type OpenUserInput,
 	type OrgEdgeMechanism,
@@ -66,6 +67,7 @@ import {
 	updateSubscription,
 } from "./subscriptions-store.js";
 import { createTeam, getTeam, listTeams } from "./team-lookup.js";
+import { giveUserKey, newUserKey } from "./user-key.js";
 import {
 	findUser,
 	insertUser,
@@ -387,6 +389,7 @@ async function buildUserView(
 	deps: UserActionsDeps,
 	userRow: UserWithTeams | null,
 	isSelf: boolean,
+	unread = false,
 ): Promise<UserView> {
 	const runsOn = deps.harnesses ? [...deps.harnesses.describe()] : [];
 
@@ -454,16 +457,22 @@ async function buildUserView(
 
 	let inbox: UserView["inbox"] = null;
 	if (isSelf) {
-		const inboxRows = await listInboxRows(ctx.db, { userId: userRow.id, limit: 50 });
+		const inboxRows = await listInboxRows(ctx.db, { userId: userRow.id, limit: 50, unread });
 		const changeRows = await deps.changes.listByIds(
 			ctx.db,
-			inboxRows.map((r) => r.changeId),
+			inboxRows.flatMap((r) => (r.changeId ? [r.changeId] : [])),
 		);
 		const changeById = new Map(changeRows.map((c) => [c.id, objectEvent(c).change] as const));
-		inbox = inboxRows.flatMap((r) => {
-			const change = changeById.get(r.changeId);
-			return change ? [{ change, seenAt: r.seenAt, readAt: r.readAt }] : [];
-		});
+		inbox = inboxRows.map((r) => ({
+			id: r.id,
+			reason: r.reason as InboxReason,
+			change: r.changeId ? (changeById.get(r.changeId) ?? null) : null,
+			subscriptionId: r.subscriptionId,
+			objectId: r.objectId,
+			createdAt: r.createdAt,
+			seenAt: r.seenAt,
+			readAt: r.readAt,
+		}));
 	}
 
 	// Cast: `runConfig`/`folders`/`connections` come straight off
@@ -502,7 +511,7 @@ function makeOpenUserRun(deps: UserActionsDeps) {
 			return { ok: true, data };
 		}
 		const isSelf = userRow.id === ctx.actor;
-		const data = await buildUserView(ctx, deps, userRow, isSelf);
+		const data = await buildUserView(ctx, deps, userRow, isSelf, input.unread === true);
 		return { ok: true, data };
 	};
 }
@@ -1108,6 +1117,22 @@ async function editExistingUserRun(
 	if (input.inbox !== undefined && ctx.actor !== id) {
 		return problem("yourself_only", "Your inbox is edited on your own view only.", "inbox");
 	}
+	if (input.key !== undefined) {
+		if (existing.kind !== "ai" || existing.role === "system") {
+			return problem(
+				"agents_only",
+				"Only an agent is given a key here; a person gets theirs by signing in.",
+				"key",
+			);
+		}
+		if (existing.ownerUserId !== null && existing.ownerUserId !== ctx.actor) {
+			return problem(
+				"owner_only",
+				"Only the person this agent works for may give it a key.",
+				"key",
+			);
+		}
+	}
 
 	// Only a "direct" edge's target is a userId — see the create-side `@lore`.
 	for (const e of input.edges?.add ?? []) {
@@ -1351,6 +1376,10 @@ async function editExistingUserRun(
 
 	if (input.redetectHarnesses && deps.harnesses) await deps.harnesses.redetect();
 
+	// The newest key wins: the runner that asked last is where the agent lives now.
+	const key = input.key === "new" ? newUserKey() : undefined;
+	if (key) await giveUserKey(ctx.db, id, key);
+
 	if (mainChangeRow) ctx.eventBus.emit(objectEvent(mainChangeRow));
 
 	if (stepProblem) return { ok: false, problems: [stepProblem] };
@@ -1358,7 +1387,7 @@ async function editExistingUserRun(
 	const userRow = await findUser(ctx.db, { id });
 	const isSelf = id === ctx.actor;
 	const data = await buildUserView(ctx, deps, userRow ?? null, isSelf);
-	return { ok: true, data };
+	return { ok: true, data: key ? { ...data, key } : data };
 }
 
 // ---------------------------------------------------------------------------

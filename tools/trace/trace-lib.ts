@@ -712,7 +712,6 @@ export interface DiBinding {
 
 const DI_BINDING_FILES = [
 	"layers/core-api/src/service-bootstrap.ts",
-	"layers/core-api/src/services/task-run-resolver-bindings.ts",
 	"layers/agent-orchestration/src/services/run-orchestration-composition.ts",
 ];
 
@@ -1001,16 +1000,6 @@ export function fingerprint(anchor: ts.Node, file: string): Fingerprint {
 					) {
 						const start = /coreApi|agentOrchestration/i.test(chain[0] ?? "") ? 0 : 1;
 						fp.ports.add(chain.slice(start).join("."));
-					}
-					if (chain.includes("enqueueWorkIntent") || /\.intents\./.test(`.${joined}.`)) {
-						fp.ports.add("enqueueWorkIntent");
-					}
-					if (
-						name === "record" &&
-						/IntentRecorder/i.test(chain[0] ?? "") &&
-						n.arguments.length >= 2
-					) {
-						fp.ports.add("enqueueWorkIntent");
 					}
 					if (ts.isIdentifier(callee.expression)) {
 						follow(name, curFile, callee.expression.text, depth);

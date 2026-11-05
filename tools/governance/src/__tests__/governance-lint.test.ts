@@ -68,7 +68,7 @@ describe("classifyFile — the settled production/development rule", () => {
 		"applications/desktop/build/icon.icns",
 		"applications/remote-server/src/index.ts",
 		"layers/core-api/src/app.ts",
-		"layers/core-api/work/src/task-run-resolver.ts",
+		"layers/core-api/task/src/task-actions.ts",
 	])("%s is production by default", (path) => {
 		const record = classifyFile(path);
 		expect(record.kind).toBe("production");

@@ -2,12 +2,8 @@
  * Shared setup for core-api's real-agent (live-harness) integration tests
  * (`subscription-wake-live-harness`, `thread-turn-live-harness`,
  * `document-tools-live-harness`, `real-harness-return-enforcement-realbinary`)
- * — each drives a real installed harness binary and only differs in the one
- * call that dispatches its session or fires its hook. One copy here instead
- * of several: the composition rides `@hyperidle/agent-execution`'s own real
- * boot (`bootAgentExecution`), the same boot `agent-orchestration`'s own
- * `boot-provisioning-wiring.integration.test.ts` already takes as a
- * devDependency — never a hand-copied field-for-field stand-in.
+ * — each drives a real installed harness binary and only differs in the
+ * trigger call and the effect it asserts. One copy here instead of several.
  *
  * The sandbox-directory and clean-env helpers ride
  * `@hyperidle/harness-registry/test-fixtures` — the published subpath for
@@ -20,33 +16,36 @@ import { serve } from "@hono/node-server";
 import { bootAgentExecution } from "@hyperidle/agent-execution";
 import {
 	type AgentOrchestrationBoot,
+	type AgentRunner,
+	actionToolsThroughDoor,
 	bootAgentOrchestration,
-	buildRunOrchestrationComposition,
-	type RunOrchestrationComposition,
+	createAgentRunner,
+	createCoreDoor,
 } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
-import { type AgentSessionRequest, agentSessionRequests, type HyperIdleDb } from "@hyperidle/db";
+import { agentSessionRequests, type HyperIdleDb } from "@hyperidle/db";
 import type { ActionResult } from "@hyperidle/domain-model";
-import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { EventBus } from "@hyperidle/event-bus";
-import type { AdapterPool, EnforcementRegistry, SandboxAdapter } from "@hyperidle/harness-registry";
+import type { EnforcementRegistry } from "@hyperidle/harness-registry";
 import {
 	buildCleanEnv,
 	createHarnessSandbox,
 	type HarnessSandbox,
 } from "@hyperidle/harness-registry/test-fixtures";
 import type { SupportedHarnessName } from "@hyperidle/harness-registry/test-utils";
-import { findSessionById, type RunResult } from "@hyperidle/run-orchestration";
-import { eq } from "drizzle-orm";
+import { findSessionById } from "@hyperidle/run-orchestration";
+import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
-import { expect } from "vitest";
+import { expect, vi } from "vitest";
 import type { Action, ActionContext } from "../actions/action.js";
-import { actionsAsTools } from "../actions/actions-as-tools.js";
 import { buildCoreActions } from "../actions/compose.js";
+import { disposeApp } from "../app.js";
+import { bootCoreApi } from "../boot.js";
+import { composeApiApplication } from "../compose-api-application.js";
+import { registerAgentLayerServices, registerCoreDomainServices } from "../service-bootstrap.js";
 import {
 	buildAgentOrchestrationPort,
-	buildSeamBackedReviewVerdictRecorder,
-	buildSeamBackedWorkIntentRecorder,
+	createInProcessAgentOrchestrationTransport,
 } from "../services/agent-orchestration-port-composition.js";
 
 export { buildCleanEnv, createHarnessSandbox, type HarnessSandbox };
@@ -58,23 +57,6 @@ export const HARNESS_TYPE: Record<SupportedHarnessName, string> = {
 	opencode: "opencode",
 	"cursor-agent": "cursor-agent",
 };
-
-/**
- * Deliberately skips the middleware stack (auth, fail-closed) — this proves
- * the seam route's effect, not the door's authentication.
- */
-export function fixtureAgentOrchestrationTransport(
-	app: Hono<HyperIdleEnv>,
-): AgentOrchestrationTransport {
-	return async (req: Request) => {
-		const url = new URL(req.url);
-		const strippedPath = url.pathname.replace(/^\/api/, "");
-		const target = new URL(`${strippedPath}${url.search}`, url.origin);
-		const hasBody = req.method !== "GET" && req.method !== "HEAD";
-		const body = hasBody ? await req.text() : undefined;
-		return app.fetch(new Request(target, { method: req.method, headers: req.headers, body }));
-	};
-}
 
 export function runnerFor<I, O>(actions: readonly Action[], name: string) {
 	const found = actions.find((a) => a.declaration.name === name);
@@ -103,43 +85,76 @@ export interface LiveHarnessRun {
 	readonly eventBus: EventBus;
 	readonly orchestrationBoot: AgentOrchestrationBoot;
 	readonly actions: readonly Action[];
-	readonly agentWorkIntentRecorder: ReturnType<typeof buildSeamBackedWorkIntentRecorder>;
-	readonly composition: RunOrchestrationComposition;
-	readonly adapterPool: AdapterPool;
-	readonly workspace: SandboxAdapter;
-	readonly sandboxBasePath: string;
-	/** Disposes the execution boot, the orchestration boot, closes the bridge server, and removes the sandbox dir. */
+	/** The runner for the person whose computer this is — start it explicitly in the test after seeding. */
+	readonly runner: AgentRunner;
+	/** Stops the runner, drains in-flight sessions, tears down all runtime components. */
 	teardown(): Promise<void>;
 }
 
+/** The server's own seam calls carry the deployment key read from the environment. */
+const LIVE_HARNESS_TEAM_KEY = "live-harness-test-team-key";
+
 /**
- * Builds the full live-harness composition every real-agent proof needs: a
- * booted agent-orchestration Layer wired to a real action list, `agent-
- * execution`'s own real boot (adapter pool, sandbox adapter, MCP bridge
- * server, return enforcement — the identical pieces an Application boots),
- * and a fresh sandbox dir.
+ * Boots the full live-harness composition: core, agent orchestration with the
+ * real `agent-execution` runtime (adapter pool, MCP bridge, return
+ * enforcement), the person's runner, and the HTTP door. The runner is exposed
+ * for the test to start explicitly after seeding — call `runner.start()` only
+ * after `giveUserKey(db, personId, personKey)` for the person this runner
+ * belongs to.
  */
 export async function setUpLiveHarnessRun(
 	db: HyperIdleDb,
 	sandboxPrefix: string,
+	personKey: string,
 ): Promise<LiveHarnessRun> {
+	vi.stubEnv("HYPERIDLE_API_KEY", LIVE_HARNESS_TEAM_KEY);
+	const sandbox = createHarnessSandbox(sandboxPrefix);
+	const sandboxBasePath = sandbox.path;
 	const eventBus = new EventBus();
-	const orchestrationBoot = await bootAgentOrchestration({ db, eventBus });
-	const agentOrchestration = buildAgentOrchestrationPort(
-		fixtureAgentOrchestrationTransport(orchestrationBoot.app),
-	);
-	const agentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder(agentOrchestration);
-	const actions = buildCoreActions({
-		agentOrchestration,
-		agentWorkIntentRecorder,
-		reviewVerdictRecorder: buildSeamBackedReviewVerdictRecorder(agentOrchestration),
-	});
-	const actionTools = actionsAsTools(actions);
 
+	// Deferred transport so the door and agent-orchestration port resolve to the composed app after it is built.
+	let transport: AgentOrchestrationTransport | undefined;
+	const agentOrchestration = buildAgentOrchestrationPort((req) => {
+		if (!transport) throw new Error("called before the app was built");
+		return transport(req);
+	});
+
+	const coreApi = await bootCoreApi({
+		db,
+		eventBus,
+		agentOrchestration,
+		serviceBootstrap: (ctx) => [
+			...registerCoreDomainServices({ ...ctx, canProvision: true }),
+			...registerAgentLayerServices({ ...ctx, canProvision: true }),
+		],
+	});
+
+	let appFetch: ((req: Request) => Promise<Response>) | undefined;
+	const door = createCoreDoor((req) => {
+		if (!appFetch) throw new Error("called before the app was built");
+		return appFetch(req);
+	}, "http://hyperidle.local/api");
+
+	const runner = createAgentRunner({
+		db,
+		eventBus,
+		door,
+		personKey: () => personKey,
+		subscribeInbox: (agentId, onNudge) => {
+			const client = { send: () => onNudge() };
+			coreApi.wsHub.addClient(client, agentId);
+			void coreApi.wsHub.subscribe(client, `user:${agentId}`);
+			return () => coreApi.wsHub.removeClient(client);
+		},
+		sweepMs: 60_000,
+	});
+
+	const coreTools = actionToolsThroughDoor(coreApi.actionCatalog, door, runner.keyFor);
+
+	// Real MCP bridge server for harness connections.
 	const port = await getFreePort();
 	const mcpBaseUrl = `http://127.0.0.1:${port}`;
 	const execution = await bootAgentExecution({ topology: "local", mcpBaseUrl });
-
 	const bridgeApp = new Hono();
 	const bridgeApi = new Hono();
 	execution.mountMcpRouter(bridgeApi);
@@ -148,33 +163,150 @@ export async function setUpLiveHarnessRun(
 		const server = serve({ fetch: bridgeApp.fetch, port }, () => resolve(server));
 	});
 
-	const sandbox = createHarnessSandbox(sandboxPrefix);
-
-	const composition = buildRunOrchestrationComposition({
-		harnessRuntime: execution.adapters.harnessRuntime,
-		returnStatusTool: execution.adapters.returnStatusTool,
-		// `actionTools` never changes mid-run, so a constant-returning closure is enough.
-		actionTools: () => actionTools,
+	// Boot orchestration with the real runtime — sessions run automatically once the runner queues them.
+	const orchestrationBoot = await bootAgentOrchestration({
+		db,
+		eventBus,
+		runtime: {
+			harnessRuntime: execution.adapters.harnessRuntime,
+			returnStatusTool: execution.adapters.returnStatusTool,
+			actionTools: () => [...coreTools, ...orchestrationBoot.actionTools],
+			editDocument: coreApi.editDocument,
+			searchDocuments: coreApi.searchDocuments,
+			sandboxBasePath,
+			session: {
+				db,
+				eventBus,
+				adapterPool: execution.adapters.pool,
+				workspace: execution.adapters.sandbox,
+				pluginMcpContributions: coreApi.pluginMcpContributions,
+			},
+		},
 	});
+
+	// In-process actions for the human (founder) door — same agentOrchestration port as the app.
+	// The server's live nudge, so a row reaches the runner at once — as in production.
+	const actions = buildCoreActions({
+		agentOrchestration,
+		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
+	});
+
+	const app = composeApiApplication({
+		middleware: coreApi.middleware,
+		preAuthRegistrars: [coreApi.registerPreAuthRoutes],
+		apps: [coreApi.app, orchestrationBoot.app],
+	});
+	transport = createInProcessAgentOrchestrationTransport(app);
+	appFetch = (req) => Promise.resolve(app.fetch(req));
 
 	return {
 		eventBus,
 		orchestrationBoot,
 		actions,
-		agentWorkIntentRecorder,
-		composition,
-		adapterPool: execution.adapters.pool,
-		workspace: execution.adapters.sandbox,
-		sandboxBasePath: sandbox.path,
+		runner,
 		async teardown() {
-			execution.dispose();
+			await runner.stop();
+			// Let any sessions still in-flight finish before tearing down the runtime.
+			const deadline = Date.now() + 10_000;
+			while (Date.now() < deadline) {
+				const open = await db
+					.select({ id: agentSessionRequests.id })
+					.from(agentSessionRequests)
+					.where(inArray(agentSessionRequests.status, ["pending", "claimed", "running"]));
+				if (open.length === 0) break;
+				await new Promise((r) => setTimeout(r, 25));
+			}
+			await orchestrationBoot.disposeRuntime?.();
 			orchestrationBoot.dispose();
+			await orchestrationBoot.joinLifecycleDrain();
+			execution.dispose();
+			disposeApp(app);
+			for (const dispose of coreApi.disposers) dispose();
 			await new Promise<void>((resolve, reject) => {
 				httpServer.close((err: Error | undefined) => (err ? reject(err) : resolve()));
 			});
 			await sandbox.cleanup();
+			vi.unstubAllEnvs();
 		},
 	};
+}
+
+/**
+ * Polls until the most recent session request for `agentId` reaches a terminal
+ * state, asserts it completed successfully, and returns its `sessionId` for
+ * further row checks. Throws with the error code/message when the session
+ * failed instead of completing.
+ */
+export async function waitForSessionCompleted(
+	db: HyperIdleDb,
+	agentId: string,
+	harness: SupportedHarnessName,
+	timeoutMs = 30_000,
+): Promise<string> {
+	const deadline = Date.now() + timeoutMs;
+	for (;;) {
+		const [req] = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(
+				and(
+					eq(agentSessionRequests.agentId, agentId),
+					inArray(agentSessionRequests.status, ["completed", "failed", "cancelled"]),
+				),
+			);
+		if (req) {
+			if (req.status !== "completed") {
+				throw new Error(
+					`session on ${harness} did not complete: status=${req.status} ` +
+						`errorCode=${req.errorCode ?? "none"} errorMessage=${req.errorMessage ?? "none"}`,
+				);
+			}
+			if (!req.sessionId) {
+				throw new Error(`session request for ${harness} has no sessionId`);
+			}
+			return req.sessionId;
+		}
+		if (Date.now() > deadline) {
+			throw new Error(`no terminal session for ${harness} agent ${agentId} within ${timeoutMs}ms`);
+		}
+		await new Promise((r) => setTimeout(r, 100));
+	}
+}
+
+/**
+ * Polls until `probe` returns a defined value, then returns it. Useful for
+ * waiting for the agent's real effect (a reply, an edited document, etc.)
+ * before asserting on it.
+ */
+export async function waitForEffect<T>(
+	what: string,
+	probe: () => Promise<T | undefined>,
+	timeoutMs = 120_000,
+): Promise<T> {
+	const deadline = Date.now() + timeoutMs;
+	for (;;) {
+		const found = await probe();
+		if (found !== undefined) return found;
+		if (Date.now() > deadline) throw new Error(`timed out waiting for ${what}`);
+		await new Promise((r) => setTimeout(r, 200));
+	}
+}
+
+/** Asserts the session row for `sessionId` is `done` and `completed`. */
+export async function assertSessionRowDone(
+	db: HyperIdleDb,
+	sessionId: string,
+	harness: SupportedHarnessName,
+): Promise<void> {
+	const sessionRow = await findSessionById(db, sessionId);
+	expect(
+		sessionRow?.state,
+		`session row for ${harness} (session ${sessionId}) was not marked done`,
+	).toBe("done");
+	expect(
+		sessionRow?.outcome,
+		`session row for ${harness} (session ${sessionId}) was not marked completed`,
+	).toBe("completed");
 }
 
 /**
@@ -241,44 +373,4 @@ export async function setUpLiveHarnessMcpServer(sessionId: string): Promise<Live
 			});
 		},
 	};
-}
-
-/**
- * Asserts a completed run's persisted `outcome` is `"completed"`, diagnosing
- * with the real failure reason (`agent_session_requests.error_code`/
- * `error_message`, written by `transitionAgentRunLifecycle`) instead of a
- * bare outcome mismatch.
- */
-export async function assertRunOutcomeCompleted(
-	db: HyperIdleDb,
-	request: AgentSessionRequest,
-	result: Extract<RunResult, { mode: "completed" }>,
-	harness: SupportedHarnessName,
-): Promise<void> {
-	if (result.outcome === "completed") return;
-	const [failedRequest] = await db
-		.select()
-		.from(agentSessionRequests)
-		.where(eq(agentSessionRequests.id, request.id));
-	throw new Error(
-		`session on ${harness} did not complete: outcome=${result.outcome} ` +
-			`errorCode=${failedRequest?.errorCode ?? "none"} errorMessage=${failedRequest?.errorMessage ?? "none"}`,
-	);
-}
-
-/** The independent proof that teardown persisted the same verdict the in-memory result reported — the bug this guards against (a harness's own return persisted as "stopped" while the in-memory result said "completed") passed on in-memory assertions alone. */
-export async function assertSessionRowDone(
-	db: HyperIdleDb,
-	sessionId: string,
-	harness: SupportedHarnessName,
-): Promise<void> {
-	const sessionRow = await findSessionById(db, sessionId);
-	expect(
-		sessionRow?.state,
-		`session row for ${harness} (session ${sessionId}) was not marked done`,
-	).toBe("done");
-	expect(
-		sessionRow?.outcome,
-		`session row for ${harness} (session ${sessionId}) was not marked completed`,
-	).toBe("completed");
 }

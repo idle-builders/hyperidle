@@ -31,8 +31,6 @@ function makeCtx(db: HyperIdleDb, eventBus: EventBus): ActionContext {
 function makeRunners(agentOrchestration: AgentOrchestrationPort) {
 	const actions = buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
 	const editTask = actions.find((a) => a.declaration.name === "edit_task")!.run as (
 		ctx: ActionContext,

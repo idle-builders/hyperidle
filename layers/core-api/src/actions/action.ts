@@ -12,7 +12,7 @@ import type {
 import type { EventBus } from "@hyperidle/event-bus";
 
 // ActionContext carries db alongside actor/eventBus/now.
-// @lore: `caller` filled ONLY by the MCP loop from ToolContext, never from a request body or header; no action reads it for authorization
+// @lore: `caller` comes only from an agent key's run header (auth middleware); no action reads it for authorization — the task or thread is checked, not the run
 export interface ActionContext {
 	readonly actor: string;
 	readonly db: HyperIdleDb;

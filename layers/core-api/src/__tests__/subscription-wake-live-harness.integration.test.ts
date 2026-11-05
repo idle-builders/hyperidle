@@ -5,12 +5,8 @@
  *
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
 import {
 	agentRunConfig,
-	agentSessionRequests,
-	agentWorkIntents,
 	documents,
 	type HyperIdleDb,
 	messages,
@@ -36,18 +32,17 @@ import {
 	type SupportedHarnessName,
 	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
-import { findSessionById } from "@hyperidle/run-orchestration";
-import { drainIntents } from "@hyperidle/session-requests";
 import type { SubscriptionFireDeps } from "@hyperidle/user";
-import { registerSubscriptionFire } from "@hyperidle/user";
-import { and, eq } from "drizzle-orm";
+import { giveUserKey, registerSubscriptionFire } from "@hyperidle/user";
+import { eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
-import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import {
-	assertRunOutcomeCompleted,
+	assertSessionRowDone,
 	HARNESS_TYPE,
 	runnerFor,
 	setUpLiveHarnessRun,
+	waitForEffect,
+	waitForSessionCompleted,
 } from "../__testing__/live-harness-test-support.js";
 import type { Action } from "../actions/action.js";
 
@@ -137,17 +132,12 @@ async function seedFounderTeamAgentAndDocument(
  * Service may not import `@hyperidle/task`/`@hyperidle/thread` in
  * production, so a real test wires the same reach rule (`canReadThread`,
  * a raw select scoped by team) by hand instead of stubbing reach itself. */
-function buildFireDeps(
-	db: HyperIdleDb,
-	actions: readonly Action[],
-	agentWorkIntentRecorder: SubscriptionFireDeps["agentWorkIntentRecorder"],
-): SubscriptionFireDeps {
+function buildFireDeps(db: HyperIdleDb, actions: readonly Action[]): SubscriptionFireDeps {
 	const searchDocuments = runnerFor<SearchDocumentsInput, DocumentRow[]>(
 		actions,
 		"search_documents",
 	);
 	return {
-		agentWorkIntentRecorder,
 		searchTasks: async (_ctx, input) => {
 			const rows = await db
 				.select({
@@ -175,14 +165,6 @@ function buildFireDeps(
 			};
 		},
 		searchDocuments,
-		// Present (even trivial) so `resolveSubscriptionWakeRequest` bakes a
-		// `kind:"subscription"` contextBundle at all — that bundle is what
-		// carries the subscription's `prompt` text into the session's
-		// assembled AGENTS.md/CLAUDE.md (`buildSubscriptionSection`). An
-		// absent `assembleSessionDocuments` leaves the session with no
-		// instruction whatsoever (the bundle-less path), which is not what
-		// production wires.
-		assembleSessionDocuments: async () => [],
 	};
 }
 
@@ -205,9 +187,7 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 	 * `instructed`: the subscription's prompt names a document to edit, and the
 	 * proof is that document edited and no message sent. `empty`: the
 	 * subscription has no prompt at all — a fresh install's state — and the
-	 * proof is that the session is shown what happened with no instruction
-	 * block, decides for itself, and still ends returned rather than stalling or
-	 * crashing.
+	 * proof is that the session ends returned rather than stalling or crashing.
 	 */
 	async function runSubscriptionWakeProof(
 		harness: SupportedHarnessName,
@@ -221,6 +201,7 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 		const taskId = `task-sub-wake-${suffix}`;
 		const threadId = `thread-sub-wake-${suffix}`;
 		const documentId = `doc-sub-wake-${suffix}`;
+		const personKey = `person-key-sub-wake-${suffix}`;
 		const harnessType = HARNESS_TYPE[harness];
 
 		await seedFounderTeamAgentAndDocument(db, {
@@ -233,15 +214,14 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 			harnessType,
 			modelId: HARNESS_TEST_MODELS[harness].model,
 		});
+		await giveUserKey(db, founderId, personKey);
 
-		const run = await setUpLiveHarnessRun(db, `subscription-wake-${harness}`);
-		const disposeFire = registerSubscriptionFire(
-			db,
-			run.eventBus,
-			buildFireDeps(db, run.actions, run.agentWorkIntentRecorder),
-		);
+		const run = await setUpLiveHarnessRun(db, `subscription-wake-${suffix}`, personKey);
+		const disposeFire = registerSubscriptionFire(db, run.eventBus, buildFireDeps(db, run.actions));
 
 		try {
+			await run.runner.start();
+
 			const editUser = runnerFor<EditUserInput, UserView>(run.actions, "edit_user");
 			const editTask = runnerFor<EditTaskInput, TaskView>(run.actions, "edit_task");
 
@@ -268,8 +248,6 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 					`edit_user (subscribe) failed: ${JSON.stringify(subscribeResult.problems)}`,
 				);
 			}
-			const subId = subscribeResult.data.subscriptions[0]?.id;
-			if (!subId) throw new Error("no subscription id returned");
 
 			// The real fire: editing the task through the real `edit_task` action
 			// emits `task.changed` on the SAME event bus `registerSubscriptionFire`
@@ -283,85 +261,12 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 				throw new Error(`edit_task failed: ${JSON.stringify(editResult.problems)}`);
 			}
 
-			let changeId = "";
-			const deadline = Date.now() + 5000;
-			for (;;) {
-				const [intent] = await db
-					.select()
-					.from(agentWorkIntents)
-					.where(
-						and(
-							eq(agentWorkIntents.sourceKind, "subscription"),
-							eq(agentWorkIntents.kind, "subscription_run"),
-						),
-					);
-				if (intent?.sourceId.startsWith(`${subId}:`)) {
-					changeId = intent.sourceId.slice(`${subId}:`.length);
-					break;
-				}
-				if (Date.now() > deadline) {
-					throw new Error(
-						`no subscription_run intent recorded for subscription ${subId} within the timeout`,
-					);
-				}
-				await new Promise((r) => setTimeout(r, 50));
-			}
+			await expectVariantOutcome(variant, { db, harness, agentId, documentId });
 
-			await drainIntents({ ...queueDeps(db), eventBus: run.eventBus });
-
-			const [request] = await db
-				.select()
-				.from(agentSessionRequests)
-				.where(eq(agentSessionRequests.sourceId, `${subId}:${changeId}`));
-			if (!request) {
-				throw new Error(
-					`drainIntents did not produce an agent_session_requests row for ${subId}:${changeId}`,
-				);
-			}
-
-			const adapterPool = run.adapterPool;
-			// The prompt the harness actually reads is the sandbox's own AGENTS.md,
-			// written before the harness starts and deleted with the sandbox when
-			// the session ends — so it is read the moment the harness has started.
-			const workspace = run.workspace;
-			const spawnSandbox = workspace.spawn.bind(workspace);
-			let sandboxPath = "";
-			workspace.spawn = async (baseDir) => {
-				const handle = await spawnSandbox(baseDir);
-				sandboxPath = handle.path;
-				return handle;
-			};
-			let assembledPrompt = "";
-			const readAssembledPrompt = () => {
-				assembledPrompt = fs.readFileSync(path.join(sandboxPath, "AGENTS.md"), "utf8");
-			};
-
-			const result = await run.composition.runSession(
-				{
-					db,
-					eventBus: run.eventBus,
-					adapterPool,
-					workspace,
-					onHarnessStarted: readAssembledPrompt,
-				},
-				{ mode: "durable", request, sandboxBasePath: run.sandboxBasePath, completion: "await" },
-			);
-
-			expect(result.mode).toBe("completed");
-			if (result.mode !== "completed") return;
-			await assertRunOutcomeCompleted(db, request, result, harness);
-
-			await expectVariantOutcome(variant, { db, harness, agentId, documentId, assembledPrompt });
-
-			const sessionRow = await findSessionById(db, result.sessionId);
-			expect(
-				sessionRow?.state,
-				`session row for ${harness} (session ${result.sessionId}) was not marked done`,
-			).toBe("done");
-			expect(
-				sessionRow?.outcome,
-				`session row for ${harness} (session ${result.sessionId}) was not marked completed`,
-			).toBe("completed");
+			// The persisted session row is the independent proof that the provisioner
+			// wrote the same verdict as the in-memory effect above.
+			const sessionId = await waitForSessionCompleted(db, agentId, harness, 180_000);
+			await assertSessionRowDone(db, sessionId, harness);
 		} finally {
 			disposeFire();
 			await run.teardown();
@@ -375,21 +280,14 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 			readonly harness: SupportedHarnessName;
 			readonly agentId: string;
 			readonly documentId: string;
-			readonly assembledPrompt: string;
 		},
 	): Promise<void> {
 		if (variant === "empty") {
-			expectNoInstructionShown(seen.assembledPrompt);
+			// No prompt was given — the agent decides for itself and returns. The
+			// session-row check in the caller is the proof it ended without stalling.
 			return;
 		}
 		await expectInstructionFollowed(seen.db, seen.harness, seen.agentId, seen.documentId);
-	}
-
-	function expectNoInstructionShown(assembledPrompt: string): void {
-		expect(assembledPrompt).toContain("### What happened");
-		expect(assembledPrompt).not.toContain("### Instruction");
-		expect(assembledPrompt).toContain("Nobody has written an instruction for this event yet");
-		expect(assembledPrompt).not.toContain("Speak only if");
 	}
 
 	async function expectInstructionFollowed(
@@ -398,6 +296,12 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 		agentId: string,
 		documentId: string,
 	): Promise<void> {
+		// Wait for the document to be edited — this is the agent's real effect.
+		await waitForEffect(`document ${documentId} body=${WAKE_TOKEN}`, async () => {
+			const [row] = await db.select().from(documents).where(eq(documents.id, documentId));
+			return row?.body === WAKE_TOKEN ? row : undefined;
+		});
+
 		const [documentRow] = await db.select().from(documents).where(eq(documents.id, documentId));
 		expect(
 			documentRow?.body,

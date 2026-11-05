@@ -85,8 +85,6 @@ function buildEditUser(
 ): EditUserRunFn {
 	const actions = buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
 	const editUserAction = actions.find((a) => a.declaration.name === "edit_user");
 	if (!editUserAction) throw new Error("edit_user action not found");

@@ -26,11 +26,8 @@ import {
 } from "@hyperidle/connections";
 import { agentSessionRequests, type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
 import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";
-import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
-import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import {
 	afterEach,
 	beforeEach,
@@ -86,41 +83,38 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 }
 
 /**
- * Emit + drain a real intent, exactly as a per-kind resolver's baked emit does.
- * Returns the real `agent_session_requests` row the drain handed off — the
- * request a spawn would later claim.
+ * Insert a real `agent_session_requests` row, simulating what the inbox-based
+ * orchestration produces after a wake is emitted. Returns the row's payloadJson
+ * (null — no baked snapshot is carried on the request).
  */
 async function emitAndDrain(
 	db: HyperIdleDb,
-	eventBus: EventBus,
 	idempotencyKey: string,
 ): Promise<{ readonly payloadJson: string | null }> {
-	await enqueueWorkIntent(db, {
-		kind: "thread_turn",
-		sourceKind: "thread_message",
+	const now = new Date().toISOString();
+	await db.insert(agentSessionRequests).values({
+		id: `${idempotencyKey}-req`,
+		sourceKind: "assistant",
 		sourceId: `${idempotencyKey}-message`,
-		idempotencyKey,
-		bakedRequest: {
-			defaultAgentId: AGENT_ID,
-			sourceKind: "assistant",
-			sourceId: `${idempotencyKey}-message`,
-			streamId: `thread:${idempotencyKey}-thread`,
+		streamId: `thread:${idempotencyKey}-thread`,
+		agentId: AGENT_ID,
+		promptMode: "conversation",
+		sourceCorrelationJson: JSON.stringify({
+			threadId: `${idempotencyKey}-thread`,
+			messageId: `${idempotencyKey}-message`,
 			userId: HUMAN_ID,
-			sourceCorrelation: {
-				threadId: `${idempotencyKey}-thread`,
-				messageId: `${idempotencyKey}-message`,
-				userId: HUMAN_ID,
-				agentId: AGENT_ID,
-			},
-		},
+			agentId: AGENT_ID,
+		}),
+		idempotencyKey,
+		status: "pending",
+		createdAt: now,
+		updatedAt: now,
 	});
-	await drainIntents({ ...queueDeps(db), eventBus });
-
 	const [request] = await db
 		.select()
 		.from(agentSessionRequests)
 		.where(eq(agentSessionRequests.sourceId, `${idempotencyKey}-message`));
-	if (!request) throw new Error("the drain did not hand off a request row");
+	if (!request) throw new Error("failed to create request row");
 	return { payloadJson: request.payloadJson };
 }
 
@@ -170,12 +164,11 @@ async function provisionConnections(
 describe("held connections are read live at spawn, never carried on the request", () => {
 	test("a connection added AFTER the intent is emitted and drained is still provisioned at spawn", async ({
 		db,
-		eventBus,
 	}) => {
 		await seedPrincipals(db);
 
 		// 1. The emit is genuinely over before the connection exists.
-		const { payloadJson } = await emitAndDrain(db, eventBus, "add-after-emit");
+		const { payloadJson } = await emitAndDrain(db, "add-after-emit");
 		expect(await db.select().from(serviceConnections)).toEqual([]);
 
 		// The request carries NOTHING about connections — nothing is baked, so
@@ -214,7 +207,6 @@ describe("held connections are read live at spawn, never carried on the request"
 
 	test("a connection REMOVED after the intent is emitted and drained is not provisioned at spawn", async ({
 		db,
-		eventBus,
 	}) => {
 		await seedPrincipals(db);
 		await db.insert(serviceConnections).values({
@@ -230,7 +222,7 @@ describe("held connections are read live at spawn, never carried on the request"
 			updatedAt: NOW,
 		});
 
-		await emitAndDrain(db, eventBus, "remove-after-emit");
+		await emitAndDrain(db, "remove-after-emit");
 
 		await db.delete(serviceConnections).where(eq(serviceConnections.id, "sc-removed-late"));
 

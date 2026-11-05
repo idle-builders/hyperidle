@@ -13,9 +13,9 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { deleteReadInboxRowsBefore } from "@hyperidle/user";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { reapTerminalTaskDispatchAttempts, TERMINAL_LOG_TTL_MS } from "../service-bootstrap.js";
-import { reapInbox } from "../services/inbox-reaper.js";
 
 const now = new Date("2026-07-13T12:00:00.000Z");
 const DAY = 86_400_000;
@@ -139,16 +139,23 @@ describe("retention reaper — individual owning-service sweeps", () => {
 				after: "{}",
 				at: changeAt,
 			});
-			await db
-				.insert(inbox)
-				.values({ userId: agentId, changeId: change.id, seenAt: readAt, readAt });
+			await db.insert(inbox).values({
+				id,
+				key: id,
+				reason: "subscription",
+				createdAt: changeAt,
+				userId: agentId,
+				changeId: change.id,
+				seenAt: readAt,
+				readAt,
+			});
 		}
 		await seedInboxRow("ib-old-read", oldIso, readIso);
 		await seedInboxRow("ib-old-unread", oldIso, null);
 		await seedInboxRow("ib-recent-read", now.toISOString(), readIso);
 
 		const termCutoff = new Date(now.getTime() - TERMINAL_LOG_TTL_MS).toISOString();
-		const deletedCount = await reapInbox(db, termCutoff);
+		const deletedCount = await deleteReadInboxRowsBefore(db, termCutoff);
 		expect(deletedCount).toBe(1);
 
 		const survivors = await db.select({ changeId: inbox.changeId }).from(inbox);

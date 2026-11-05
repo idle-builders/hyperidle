@@ -25,13 +25,13 @@ export type { SignIn };
 
 import { createLogger } from "@hyperidle/diagnostics";
 import { canRelayHuddleSignal, endLiveHuddles, findLiveHuddlesForPerson } from "@hyperidle/thread";
+import { type ActionToolDeclaration, actionCatalog } from "./actions/action-catalog.js";
 import { type ApiMiddlewareStack, createApiMiddlewareStack } from "./api-middleware-stack.js";
 import {
 	type AppOptions,
 	createCoreApiApp,
 	registerCoreApiPreAuthRoutes,
 	takeAppActions,
-	takeAppActionTools,
 	takeAppDisposers,
 	takeAppDocumentRunners,
 } from "./app.js";
@@ -76,10 +76,8 @@ export interface CoreApiBoot {
 			}[]
 		>;
 	};
-	/** Present whenever `db` is provided. */
-	readonly actionTools: ReadonlyArray<
-		import("@hyperidle/harness-protocol").RegisteredTool<HyperIdleDb>
-	>;
+	/** Every action as an agent's tool; empty when `db` is not provided. The runner calls each through the door. */
+	readonly actionCatalog: readonly ActionToolDeclaration[];
 	readonly editDocument: (
 		caller: {
 			readonly actor: string;
@@ -224,8 +222,8 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 	};
 
 	const disposers: Array<() => void> = [...takeAppDisposers(app)];
-	const actionTools = takeAppActionTools(app) ?? [];
 	const rawActions = takeAppActions(app);
+	const actionTools = actionCatalog(rawActions ?? []);
 
 	const documentRunners = takeAppDocumentRunners(app);
 	const documentRunnerEventBus = options?.eventBus ?? new EventBus();
@@ -310,7 +308,7 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 		}),
 		disposers,
 		disposeWebSocket,
-		actionTools,
+		actionCatalog: actionTools,
 		editDocument,
 		searchDocuments,
 		wsHub,

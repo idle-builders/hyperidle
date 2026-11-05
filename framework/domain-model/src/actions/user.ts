@@ -135,7 +135,13 @@ export const searchUsers: ActionDeclaration<SearchUsersInput, UserRow[]> = {
 	output: z.array(UserRowSchema),
 };
 
-export const OpenUserInputSchema = z.object({ id: z.string().min(1).optional() }).strict();
+export const OpenUserInputSchema = z
+	.object({
+		id: z.string().min(1).optional(),
+		/** Your inbox as only the rows not yet read, oldest first — what an agent's runner works through. */
+		unread: z.boolean().optional(),
+	})
+	.strict();
 export type OpenUserInput = z.infer<typeof OpenUserInputSchema>;
 
 const HarnessOptionChoiceSchema = z.object({ value: z.string(), label: z.string() });
@@ -250,11 +256,33 @@ export const SubscriptionViewSchema = z.object({
 });
 export type SubscriptionView = z.infer<typeof SubscriptionViewSchema>;
 
+/**
+ * Why an inbox row exists. A person gets `subscription` rows; an agent gets every reason it has
+ * to act, and its runner works through them: a message for it, a task to work or to stop, an
+ * answer to its review, or a subscription firing.
+ */
+export const INBOX_REASONS = [
+	"subscription",
+	"message",
+	"task_run",
+	"task_stop",
+	"review_answered",
+] as const;
+export type InboxReason = (typeof INBOX_REASONS)[number];
+
 const InboxRowViewSchema = z.object({
-	change: ChangeRowSchema,
+	id: z.string(),
+	reason: z.enum(INBOX_REASONS),
+	/** Null when nothing changed: a schedule fired on its own. */
+	change: ChangeRowSchema.nullable(),
+	subscriptionId: z.string().nullable(),
+	/** The task, thread or review message the row is about. */
+	objectId: z.string().nullable(),
+	createdAt: z.string(),
 	seenAt: z.string().nullable(),
 	readAt: z.string().nullable(),
 });
+export type InboxRowView = z.infer<typeof InboxRowViewSchema>;
 
 const RunConfigViewSchema = z.object({
 	harnessType: z.enum(HARNESS_TYPES).nullable(),
@@ -285,8 +313,10 @@ export const UserViewSchema = z.object({
 			inherited: z.array(ConnectionViewSchema),
 		})
 		.nullable(),
-	/** Self only, newest 50. */
+	/** Self only: newest 50, or with `unread` the oldest 50 not yet read. */
 	inbox: z.array(InboxRowViewSchema).nullable(),
+	/** Only in the answer to `edit_user {key: "new"}`: the agent's new key, shown this once. */
+	key: z.string().optional(),
 });
 export type UserView = z.infer<typeof UserViewSchema>;
 
@@ -442,6 +472,8 @@ export const EditUserInputSchema = z
 		connections: EditUserConnectionsSchema.optional(),
 		subscriptions: EditUserSubscriptionsSchema.optional(),
 		inbox: EditUserInboxSchema.optional(),
+		/** An agent only: a fresh key, returned once. The agent's older key stops working. */
+		key: z.literal("new").optional(),
 		redetectHarnesses: z.literal(true).optional(),
 	})
 	.strict();
@@ -454,7 +486,7 @@ export const editUser: ActionDeclaration<EditUserInput, UserView> = {
 		"or not. Name, role, teams (by name — created if they do not exist; a person may be in " +
 		"several, an agent in exactly one), status, who they report " +
 		"to, harness and model, folders given or taken, connections added or removed, subscriptions " +
-		"added, changed, paused or removed, inbox rows marked read.",
+		"added, changed, paused or removed, inbox rows marked read, a fresh key for an agent.",
 	input: EditUserInputSchema,
 	output: UserViewSchema,
 };
@@ -555,7 +587,7 @@ function createUserInvariants(input: EditUserInput): Problem[] {
 	return problems;
 }
 
-/** `name_required`, `kind_is_create_only`, `owner_is_create_only` — only meaningful on an edit (`id` given). */
+/** `name_required`, `kind_is_create_only`, `owner_is_create_only`, `key_alone` — only meaningful on an edit (`id` given). */
 function editExistingUserInvariants(input: EditUserInput): Problem[] {
 	const problems: Problem[] = [];
 	if (input.name !== undefined && input.name.trim().length === 0) {
@@ -575,6 +607,18 @@ function editExistingUserInvariants(input: EditUserInput): Problem[] {
 			message: "An agent's owner cannot change after it is created.",
 			path: "ownerUserId",
 		});
+	}
+	if (input.key !== undefined) {
+		// A key refresh is atomic: mixing it with other changes risks saving the new key but failing
+		// another field, leaving the caller with a dead key and no way to recover it.
+		const { id: _id, key: _key, ...rest } = input;
+		if (Object.values(rest).some((v) => v !== undefined)) {
+			problems.push({
+				code: "key_alone",
+				message: "A key refresh cannot be combined with other changes.",
+				path: "key",
+			});
+		}
 	}
 	return problems;
 }

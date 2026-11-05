@@ -23,12 +23,7 @@ import type {
 	RuntimeDeps,
 	RuntimePorts,
 } from "./contracts.js";
-import {
-	ConcurrencyLimitError,
-	isAgentWorkIntentKind,
-	isAgentWorkIntentSourceKind,
-	TargetAgentNotRunnableError,
-} from "./errors.js";
+import { ConcurrencyLimitError, TargetAgentNotRunnableError } from "./errors.js";
 import { createProvisioner } from "./provisioner.js";
 
 const logger = createLogger({ pkg: "run-orchestration.runtime" });
@@ -236,43 +231,26 @@ async function ensureClaimedRequest(
 }
 
 /**
- * A PRE-admission failure in
- * `runClaimedRequest` is the real "provisioning failed" gap — a deactivated
- * agent or any other hard infra failure before the session started running.
- * Reported via the pre-handoff `agent_run_admission_failed` channel.
+ * A PRE-admission failure in `runClaimedRequest` — a deactivated agent or a hard infra failure
+ * before the session started running — is told to core so the people waiting hear of it.
  */
-async function reportPreAdmissionProvisioningFailure(
+function reportPreAdmissionProvisioningFailure(
 	deps: RuntimeProvisionDeps,
-	ports: ExecutionPorts,
-	requestId: string,
+	request: AgentSessionRequest,
 	err: unknown,
-): Promise<void> {
-	const correlatedIntent = await ports.sessionRequests.findSessionRequest(deps.db, {
-		by: "intentSource",
-		requestId,
-	});
-	if (
-		!(
-			correlatedIntent &&
-			isAgentWorkIntentKind(correlatedIntent.kind) &&
-			isAgentWorkIntentSourceKind(correlatedIntent.sourceKind)
-		)
-	) {
-		return;
-	}
-	// Two services share the event type, not an emit helper (they don't import each other).
+): void {
 	deps.eventBus.emit({
 		type: "agent_run_admission_failed",
-		streamId: `${correlatedIntent.kind}:${correlatedIntent.sourceId}`,
-		intentId: correlatedIntent.id,
-		kind: correlatedIntent.kind,
-		sourceKind: correlatedIntent.sourceKind,
-		sourceId: correlatedIntent.sourceId,
+		streamId: request.streamId,
+		agentId: request.agentId,
+		sourceKind: request.sourceKind as AgentSessionSourceKind,
+		sourceId: request.sourceId,
+		threadId: parseBakedCallingThreadId(request) ?? null,
+		taskId: request.taskId ?? null,
 		failureCode:
 			err instanceof TargetAgentNotRunnableError
 				? "TARGET_AGENT_NOT_RUNNABLE"
 				: "PROVISIONING_FAILED",
-		terminal: true,
 		timestamp: Date.now(),
 	});
 }
@@ -426,7 +404,7 @@ async function runClaimedRequest(
 		// call above already covers that via the existing post-session
 		// channel, so only a PRE-admission failure reports here.
 		if (!admitted) {
-			await reportPreAdmissionProvisioningFailure(deps, ports, request.id, err);
+			reportPreAdmissionProvisioningFailure(deps, request, err);
 		}
 		throw err;
 	}

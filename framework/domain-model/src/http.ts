@@ -4,13 +4,41 @@ import type { Context, Env, MiddlewareHandler } from "hono";
 import type { z } from "zod";
 import { API_ERROR_CODES, type ApiErrorResponse } from "./api-types.js";
 
+/** The run an agent's request comes from: which session, and the task or thread it works in. */
+export interface RunContext {
+	readonly sessionId: string;
+	readonly taskId: string | null;
+	readonly threadId: string | null;
+}
+
+/** The header an agent's runner sends its run context in, as JSON. Only an agent's key may send it. */
+export const RUN_CONTEXT_HEADER = "X-HyperIdle-Run";
+
+/** The run context a header carries, or undefined when it is missing or not one. */
+export function parseRunContext(header: string | undefined): RunContext | undefined {
+	if (!header) return undefined;
+	try {
+		const value = JSON.parse(header) as Record<string, unknown>;
+		if (typeof value.sessionId !== "string" || value.sessionId === "") return undefined;
+		return {
+			sessionId: value.sessionId,
+			taskId: typeof value.taskId === "string" && value.taskId !== "" ? value.taskId : null,
+			threadId: typeof value.threadId === "string" && value.threadId !== "" ? value.threadId : null,
+		};
+	} catch {
+		return undefined;
+	}
+}
+
 /**
  * The authenticated Hono context type both HTTP applications run on.
- * `userId` is the caller the auth middleware resolved from the API key.
+ * `userId` is the caller the auth middleware resolved from the API key; `run` is set only for an
+ * agent's key that names the run it comes from.
  */
 export type HyperIdleEnv = {
 	Variables: {
 		userId: string;
+		run?: RunContext;
 	};
 };
 

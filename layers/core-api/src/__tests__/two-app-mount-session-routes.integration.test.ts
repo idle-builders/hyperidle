@@ -16,14 +16,10 @@
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import { type HyperIdleDb, sessions, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
 import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
-import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { createCoreApiApp } from "../app.js";
-import {
-	buildAgentOrchestrationPort,
-	createInProcessAgentOrchestrationTransport,
-} from "../services/agent-orchestration-port-composition.js";
+import { buildAgentOrchestrationPort } from "../services/agent-orchestration-port-composition.js";
 
 const TEST_API_KEY = "test-key-two-app-mount";
 
@@ -122,18 +118,6 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AgentOrchestrationPort.sessions.getById returns the full session wire row", async ({
-		db,
-		app,
-	}) => {
-		await seed(db);
-		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
-		const got = await port.sessions.getById("sess-1");
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, "sess-1"));
-		expect(got).toEqual(JSON.parse(JSON.stringify(row)));
-		expect(await port.sessions.getById("nope")).toBeNull();
-	});
-
 	test("the plumbing session route 401s without auth", async ({ db, requestWithoutAuth }) => {
 		await seed(db);
 		const res = await requestWithoutAuth("/api/agent-orchestration/sessions/sess-1", {
@@ -164,9 +148,6 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		const collisions = [...routeKeys(coreOnly)].filter((k) => orchKeys.has(k));
 		expect(collisions).toEqual([]);
 
-		// …and the moved routes really are orchestration's: core alone does not serve them.
-		expect([...routeKeys(coreOnly)]).not.toContain("GET /agent-orchestration/sessions/:sessionId");
-		expect(orchKeys.has("GET /agent-orchestration/sessions/:sessionId")).toBe(true);
 		// orchestration's own /actions mount — stop_session resolves here,
 		// never on core's own mount.
 		expect([...routeKeys(coreOnly)]).not.toContain("POST /actions/stop_session");

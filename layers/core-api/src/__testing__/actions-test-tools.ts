@@ -1,28 +1,25 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { err, ok, type RegisteredTool, type ToolResult } from "@hyperidle/harness-protocol";
-import type { Action } from "./action.js";
+import { err, ok, type RegisteredTool } from "@hyperidle/harness-protocol";
+import type { Action } from "../actions/action.js";
 
 /**
- * the MCP loop: for each action, register a tool with the action's
- * name, sentence and shape, calling it in-process as the session's agent —
- * the first tool that does not dial its own process over HTTP. No `roles`:
- * every actor gets every action; authorization is an invariant, not a
- * filter.
+ * Test helper: wraps actions as tools with handlers that call `action.run()` in-process,
+ * filling `ctx.caller` from the tool context — the same logic `agent-orchestration`'s
+ * own `actionsAsTools` uses. For use in integration tests that drive the agent door
+ * in-process rather than through the HTTP door.
  */
 export function actionsAsTools(actions: readonly Action[]): readonly RegisteredTool<HyperIdleDb>[] {
 	return actions.map((action) => ({
 		name: action.declaration.name,
 		description: action.declaration.sentence,
 		inputSchema: action.declaration.input,
-		handler: async (args, ctx): Promise<ToolResult> => {
+		handler: async (args, ctx) => {
 			const result = await action.run(
 				{
 					actor: ctx.agentId,
 					db: ctx.db,
 					eventBus: ctx.eventBus,
 					now: new Date().toISOString(),
-					// filled ONLY here, from the session's own `ToolContext` — never
-					// from a request body, never from a header.
 					caller: {
 						sessionId: ctx.sessionId,
 						taskId: ctx.taskId || null,

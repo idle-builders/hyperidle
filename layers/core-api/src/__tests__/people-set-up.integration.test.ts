@@ -20,8 +20,6 @@ const TEAM = "team-people";
 function actionsOf(agentOrchestration: AgentOrchestrationPort) {
 	const actions = buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
 	const run = async <T>(
 		name: string,

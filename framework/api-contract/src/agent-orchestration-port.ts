@@ -1,104 +1,3 @@
-// @lore: AgentOrchestrationSessionWireRow — NOT a narrowing; POST /api/sessions returns verbatim; narrowed shape would silently drop fields from responses
-export interface AgentOrchestrationSessionWireRow {
-	readonly id: string;
-	readonly taskId: string | null;
-	readonly requestId: string | null;
-	readonly sourceKind: string | null;
-	readonly sourceId: string | null;
-	readonly sourceCorrelationJson: string | null;
-	readonly agentId: string;
-	readonly modelTier: string;
-	readonly startedAt: string;
-	readonly endedAt: string | null;
-	readonly state: string;
-	readonly sandboxSnapshot: string | null;
-	readonly outcome: string | null;
-	readonly notes: string | null;
-}
-
-export interface AgentOrchestrationSessionsPort {
-	getById(sessionId: string): Promise<AgentOrchestrationSessionWireRow | null>;
-}
-
-/** Mirrors `AgentWorkIntentRecorderInput`'s discriminant (`@hyperidle/shared`). */
-export type AgentOrchestrationWorkIntentKind =
-	| "thread_turn"
-	| "task_run"
-	| "session_resume"
-	| "subscription_run";
-
-export interface AgentOrchestrationWorkIntentInput {
-	readonly kind: AgentOrchestrationWorkIntentKind;
-	readonly sourceKind: string;
-	readonly sourceId: string;
-	readonly requestedBy?: string;
-	readonly idempotencyKey: string;
-	readonly bakedRequest?: unknown;
-	/** Separate from `bakedRequest`: one starts a session, the other returns to one — a reader should not need to know the kind to know which shape arrived. */
-	readonly resume?: unknown;
-}
-
-/** Mirrors the row `enqueueWorkIntent` returns — `id` + `idempotencyKey` only. */
-export interface AgentOrchestrationWorkIntentReceipt {
-	readonly id: string;
-	readonly idempotencyKey: string;
-}
-
-export type AgentOrchestrationReviewVerdictOutcome =
-	| { readonly status: "queued" }
-	| { readonly status: "not_a_review_session" }
-	| { readonly status: "not_resumable"; readonly reason: string };
-
-export interface AgentOrchestrationReviewVerdictInput {
-	readonly reviewMessageId: string;
-	/** Mirrors `SessionResumeReply` (`@hyperidle/domain-model`). */
-	readonly decision: "approve" | "decline" | "answer";
-	readonly note?: string;
-	readonly answer?: { readonly option: string } | { readonly text: string };
-	readonly decidedBy: string;
-	readonly threadId: string;
-	/**
-	 * The asking agent's runnable-config snapshot, baked core-side because
-	 * `users` is core state.
-	 *
-	 * Every intent kind bakes this — a missing bake is a hard provisioning
-	 * failure, never a silent allow — and a resume is no exception. Carried
-	 * opaque here for the same reason `bakedRequest` is.
-	 */
-	readonly agentConfig?: unknown;
-	/** The task the review belongs to, carried onto the resumed session. */
-	readonly taskId?: string;
-}
-
-export interface AgentOrchestrationIntentsPort {
-	submit(input: AgentOrchestrationWorkIntentInput): Promise<AgentOrchestrationWorkIntentReceipt>;
-	/** Returns what happened — the human who approved must be told when the agent cannot be resumed. */
-	recordReviewVerdict(
-		input: AgentOrchestrationReviewVerdictInput,
-	): Promise<AgentOrchestrationReviewVerdictOutcome>;
-}
-
-/** One run actually stopped by `runs.stopForTasks` — mirrors `StoppedRun`. */
-export interface AgentOrchestrationStoppedRun {
-	readonly taskId: string;
-	readonly sessionId: string;
-}
-
-export interface AgentOrchestrationRunsPort {
-	stopForTasks(taskIds: readonly string[]): Promise<ReadonlyArray<AgentOrchestrationStoppedRun>>;
-	endForHandoff(sessionId: string, endedAt: string): Promise<void>;
-	/**
-	 * Deliver a message into the live session for the given (agentId, threadId).
-	 * Returns "delivered" when the message reached a running session,
-	 * "not_delivered" when no live session was found or stdin delivery is unsupported.
-	 */
-	deliverToConversation(
-		agentId: string,
-		threadId: string,
-		text: string,
-	): Promise<"delivered" | "not_delivered">;
-}
-
 /** Mirrors `AgentRunConfig` (`@hyperidle/agent-run-config`). */
 export interface AgentOrchestrationRunConfigView {
 	// The agent's identity is NOT here. It is the `agent_file` document
@@ -248,20 +147,12 @@ export interface AgentOrchestrationFoldersPort {
 }
 
 export interface AgentOrchestrationPort {
-	readonly sessions: AgentOrchestrationSessionsPort;
-	readonly intents: AgentOrchestrationIntentsPort;
-	readonly runs: AgentOrchestrationRunsPort;
 	readonly runConfig: AgentOrchestrationRunConfigPort;
 	readonly filesystems: AgentOrchestrationFilesystemsPort;
 	/** A team's folders, given to and taken from an agent. */
 	readonly folders: AgentOrchestrationFoldersPort;
 	/** One user's held connections plus the machine's inherited reach. */
 	readonly connections: AgentOrchestrationConnectionsPort;
-	readonly gate: AgentOrchestrationGatePort;
-}
-
-export interface AgentOrchestrationGatePort {
-	linkReview(sessionId: string, reviewMessageId: string): Promise<void>;
 }
 
 export type AgentOrchestrationTransport = (req: Request) => Promise<Response>;

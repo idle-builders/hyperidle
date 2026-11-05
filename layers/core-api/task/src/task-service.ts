@@ -147,14 +147,21 @@ export const taskDispatchAttemptStore = {
 				),
 			);
 	},
-	/** Marks the attempt failed by its OWN id — distinct from `updateIfActive` which keys on `requestId` (never assigned for a pre-handoff failure). */
-	markFailed: async (exec: WriteExecutor, id: string) => {
+	/** A task's newest attempt still waiting to start, failed — its run never started. */
+	markLatestRequestedFailed: async (exec: WriteExecutor, taskId: string) => {
+		const [row] = await exec
+			.select({ id: taskDispatchAttempts.id })
+			.from(taskDispatchAttempts)
+			.where(
+				and(eq(taskDispatchAttempts.taskId, taskId), eq(taskDispatchAttempts.status, "requested")),
+			)
+			.orderBy(desc(taskDispatchAttempts.ordinal))
+			.limit(1);
+		if (!row) return;
 		await exec
 			.update(taskDispatchAttempts)
 			.set({ status: "failed", updatedAt: new Date().toISOString() })
-			.where(
-				and(eq(taskDispatchAttempts.id, id), inArray(taskDispatchAttempts.status, ["requested"])),
-			);
+			.where(eq(taskDispatchAttempts.id, row.id));
 	},
 	reapTerminal: async (exec: WriteExecutor, cutoff: string, batchSize: number) => {
 		const rows = await exec

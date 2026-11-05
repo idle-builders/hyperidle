@@ -1,45 +1,14 @@
 /**
- * Real end-to-end proof that the three user entries — `search_users`,
- * `open_user`, `edit_user` — answer the same whether a person calls them
- * over HTTP or an agent calls them through the MCP tool seam, and that a
- * subscription actually wakes the right subscribers on a real change. Boots
- * the REAL server (`createServer`), drives every action through BOTH real
- * doors — `POST /api/actions/<name>` with `X-API-Key`, and the registered
- * handler on the joined `ServerHandle.actionTools` — against the same
- * seeded state. Modelled line for line on
- * `session-platform-seam.integration.test.ts` in this folder: real
- * `createServer`, a real TCP socket, a real `ws` client.
- *
- * `edit_user` cannot be driven twice against the literal SAME row and prove
- * anything — the second call would see the first call's write. It is driven
- * the same way `edit_plugin`'s `state` branch is in the model file: ONE
- * user's `status` is set to `"idle"` first through one door, then
- * (already idle — idempotent) again through the other, so the compared
- * views are literally the same entity and the doors are proven interchangeable.
- *
- * The subscription half proves the subscription fire mechanism end to
- * end: a person and an agent both subscribe to `task.changed`; a third,
- * out-of-reach agent subscribes too; a fourth user (neither subscriber) edits
- * a task the subscribed team can see — the person's `user:<id>` frame
- * arrives over the one websocket and `open_user` shows the inbox row, a
- * `subscription_run` row lands in `agent_work_intents` for the in-reach
- * agent, the out-of-reach agent gets none, and pausing both subscriptions
- * silences a second edit for both.
+ * The real server (`createServer`, a real socket, a real `ws` client): the three user entries
+ * answer over `POST /api/actions/<name>`, and a subscription wakes the right subscribers on a real
+ * change — the person gets a `user:<id>` frame and an inbox row, the in-reach agent a `subscription`
+ * row, the out-of-reach agent none — and pausing both subscriptions silences a second edit.
  */
 
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	agentWorkIntents,
-	type HyperIdleDb,
-	tasks,
-	teams,
-	threads,
-	users,
-	userTeams,
-} from "@hyperidle/db";
+import { type HyperIdleDb, inbox, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, vi } from "vitest";
 import { createServer, type ServerHandle } from "../create-server.js";
 
@@ -85,26 +54,6 @@ async function callAction(
 		? { ok: true, data: result.data }
 		: { ok: false, problems: result.problems };
 	return { status, json: json as Record<string, unknown> };
-}
-
-/** The registered MCP tool for `name` on the joined list — throws with a clear message if the join dropped it. */
-function toolFor(handle: Booted, name: string): ServerHandle["actionTools"][number] {
-	const tool = handle.server.actionTools.find((t) => t.name === name);
-	if (!tool) throw new Error(`"${name}" is not on the joined ServerHandle.actionTools`);
-	return tool;
-}
-
-/** The tool door's own `ToolContext` — same shape `session-platform-seam` builds by hand, never a `@hyperidle/harness-protocol` import (an `applications/*` file has no reach there). */
-function agentToolCtx(db: HyperIdleDb, agentId: string, sessionId: string) {
-	return {
-		db,
-		eventBus: new EventBus(),
-		agentId,
-		sessionId,
-		taskId: "",
-		sandboxPath: os.tmpdir(),
-		ingestion: { dispose: () => {} },
-	};
 }
 
 function mintWsToken(handle: Booted, actorId: string): string {
@@ -276,13 +225,13 @@ async function seedTaskWithThread(
 	});
 }
 
-describe("user-subscription seam — the three entries answer the same to a person and an agent", () => {
+describe("user-subscription seam — the three entries over HTTP", () => {
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
 	describe("search_users", () => {
-		test("HTTP door and TOOL door see the identical list", async ({ db }) => {
+		test("HTTP door returns the user list", async ({ db }) => {
 			const handle = await boot(db);
 			try {
 				await seedTeam(db, "seam-team-search-users");
@@ -299,16 +248,6 @@ describe("user-subscription seam — the three entries answer the same to a pers
 				);
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
-
-				const tool = toolFor(handle, "search_users");
-				const toolResult = await tool.handler(
-					{ ids },
-					agentToolCtx(db, "seam-user-b-search", "seam-tool-search-users"),
-				);
-				if (!toolResult.success)
-					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
-
-				expect(toolResult.data).toEqual(httpRes.json.data);
 				expect((httpRes.json.data as Array<{ id: string }>).map((r) => r.id).sort()).toEqual(
 					[...ids].sort(),
 				);
@@ -319,12 +258,11 @@ describe("user-subscription seam — the three entries answer the same to a pers
 	});
 
 	describe("open_user", () => {
-		test("HTTP door and TOOL door see the identical row for a third user", async ({ db }) => {
+		test("HTTP door returns the user row", async ({ db }) => {
 			const handle = await boot(db);
 			try {
 				await seedTeam(db, "seam-team-open-user");
 				await seedHuman(db, "seam-founder-open-user", "seam-team-open-user");
-				await seedAgent(db, "seam-user-viewer-agent", "seam-team-open-user");
 				await seedAgent(db, "seam-user-target-open", "seam-team-open-user");
 
 				const httpRes = await callAction(
@@ -335,16 +273,6 @@ describe("user-subscription seam — the three entries answer the same to a pers
 				);
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
-
-				const tool = toolFor(handle, "open_user");
-				const toolResult = await tool.handler(
-					{ id: "seam-user-target-open" },
-					agentToolCtx(db, "seam-user-viewer-agent", "seam-tool-open-user"),
-				);
-				if (!toolResult.success)
-					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
-
-				expect(toolResult.data).toEqual(httpRes.json.data);
 				const data = httpRes.json.data as { user: { id: string } | null };
 				expect(data.user?.id).toBe("seam-user-target-open");
 			} finally {
@@ -354,15 +282,13 @@ describe("user-subscription seam — the three entries answer the same to a pers
 	});
 
 	describe("edit_user", () => {
-		test("status set idempotently — both doors agree", async ({ db }) => {
+		test("HTTP door sets the user status", async ({ db }) => {
 			const handle = await boot(db);
 			try {
 				await seedTeam(db, "seam-team-edit-user");
 				await seedHuman(db, "seam-founder-edit-user", "seam-team-edit-user");
-				await seedAgent(db, "seam-user-editor-agent", "seam-team-edit-user");
 				await seedAgent(db, "seam-user-target-edit", "seam-team-edit-user");
 
-				// First through HTTP — the write.
 				const httpRes = await callAction(
 					handle,
 					"edit_user",
@@ -371,22 +297,8 @@ describe("user-subscription seam — the three entries answer the same to a pers
 				);
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
-
-				// Same input, again — through the TOOL door. Already idle, so this
-				// is a no-op write and the returned view must be byte-identical.
-				const tool = toolFor(handle, "edit_user");
-				const toolResult = await tool.handler(
-					{ id: "seam-user-target-edit", status: "idle" },
-					agentToolCtx(db, "seam-user-editor-agent", "seam-tool-edit-user"),
-				);
-				if (!toolResult.success)
-					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
-
 				const httpData = httpRes.json.data as { user: { status: string } | null };
-				const toolData = toolResult.data as { user: { status: string } | null };
 				expect(httpData.user?.status).toBe("idle");
-				expect(toolData.user?.status).toBe("idle");
-				expect(toolResult.data).toEqual(httpRes.json.data);
 			} finally {
 				await handle.server.dispose();
 			}
@@ -442,17 +354,15 @@ describe("user-subscription seam — reach, wake, and pause", () => {
 				),
 				"the in-reach agent",
 			);
-			const agentOutSubId = firstSubscriptionId(
-				expectOk(
-					await callAction(
-						handle,
-						"edit_user",
-						{ id: "seam-sub-agent-out", subscriptions: { add: [{ event: "task.changed" }] } },
-						"seam-sub-editor",
-					),
-					"subscribe out-of-reach agent",
+			// subscribe out-of-reach agent (no ID needed — only proves it got no inbox row)
+			expectOk(
+				await callAction(
+					handle,
+					"edit_user",
+					{ id: "seam-sub-agent-out", subscriptions: { add: [{ event: "task.changed" }] } },
+					"seam-sub-editor",
 				),
-				"the out-of-reach agent",
+				"subscribe out-of-reach agent",
 			);
 
 			const token = mintWsToken(handle, "seam-sub-person");
@@ -478,39 +388,41 @@ describe("user-subscription seam — reach, wake, and pause", () => {
 
 			const frame = await nudge;
 			expect(frame.kind).toBe("inbox");
-			const changeId = (frame.data as { changeId: string }).changeId;
-			expect(typeof changeId).toBe("string");
+			const inboxRowId = (frame.data as { id: string }).id;
+			expect(typeof inboxRowId).toBe("string");
 
 			// open_user, as the person themself, shows the inbox row.
 			const openData = expectOk(
 				await callAction(handle, "open_user", {}, "seam-sub-person"),
 				"open_user",
 			);
-			const inbox = openData.inbox as Array<{ change: { id: string } }> | null;
-			expect(inbox?.some((row) => row.change.id === changeId)).toBe(true);
+			const personInbox = openData.inbox as Array<{ id: string }> | null;
+			expect(personInbox?.some((row) => row.id === inboxRowId)).toBe(true);
 
-			// a subscription_run intent exists for the in-reach agent. Plain JS
-			// filtering, not drizzle-orm's eq/like — an `applications/*` package
-			// declares no direct dependency on it (it only ever reaches the ORM
-			// through `@hyperidle/db`), the same idiom `stop_session`'s own
-			// comparison in `session-platform-seam` uses.
+			// an inbox row exists for the in-reach agent.
 			await waitUntil(async () => {
-				const rows = await db.select().from(agentWorkIntents);
+				const rows = await db.select().from(inbox);
 				return rows.some(
-					(r) => r.sourceKind === "subscription" && r.sourceId === `${agentInSubId}:${changeId}`,
+					(r) =>
+						r.userId === "seam-sub-agent-in" &&
+						r.reason === "subscription" &&
+						r.subscriptionId === agentInSubId,
 				);
 			});
-			const allIntents = await db.select().from(agentWorkIntents);
-			const agentInIntent = allIntents.find(
-				(r) => r.sourceKind === "subscription" && r.sourceId === `${agentInSubId}:${changeId}`,
+			const allInboxRows = await db.select().from(inbox);
+			const agentInInboxRow = allInboxRows.find(
+				(r) =>
+					r.userId === "seam-sub-agent-in" &&
+					r.reason === "subscription" &&
+					r.subscriptionId === agentInSubId,
 			);
-			expect(agentInIntent?.kind).toBe("subscription_run");
+			expect(agentInInboxRow).toBeDefined();
 
 			// the out-of-reach agent got none.
-			const outReachIntents = allIntents.filter(
-				(r) => r.sourceKind === "subscription" && r.sourceId.startsWith(`${agentOutSubId}:`),
+			const outReachInboxRows = allInboxRows.filter(
+				(r) => r.userId === "seam-sub-agent-out" && r.reason === "subscription",
 			);
-			expect(outReachIntents).toHaveLength(0);
+			expect(outReachInboxRows).toHaveLength(0);
 
 			// pausing stops both.
 			expectOk(
@@ -550,13 +462,16 @@ describe("user-subscription seam — reach, wake, and pause", () => {
 			);
 			await noNudge;
 
-			// give the fire handler its usual window, then confirm no new intent landed.
+			// give the fire handler its usual window, then confirm no new inbox row landed.
 			await new Promise((r) => setTimeout(r, 300));
-			const allIntentsAfterPause = await db.select().from(agentWorkIntents);
-			const agentInIntentsAfterPause = allIntentsAfterPause.filter(
-				(r) => r.sourceKind === "subscription" && r.sourceId.startsWith(`${agentInSubId}:`),
+			const allInboxAfterPause = await db.select().from(inbox);
+			const agentInInboxAfterPause = allInboxAfterPause.filter(
+				(r) =>
+					r.userId === "seam-sub-agent-in" &&
+					r.reason === "subscription" &&
+					r.subscriptionId === agentInSubId,
 			);
-			expect(agentInIntentsAfterPause).toHaveLength(1); // only the pre-pause one from above
+			expect(agentInInboxAfterPause).toHaveLength(1); // only the pre-pause one from above
 		} finally {
 			ws?.close();
 			await handle.server.dispose();

@@ -18,8 +18,6 @@ export {
 } from "./service-bootstrap.js";
 export {
 	buildAgentOrchestrationPort,
-	buildSeamBackedReviewVerdictRecorder,
-	buildSeamBackedWorkIntentRecorder,
 	createInProcessAgentOrchestrationTransport,
 	createNetworkAgentOrchestrationTransport,
 } from "./services/agent-orchestration-port-composition.js";

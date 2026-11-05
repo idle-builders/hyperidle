@@ -1,64 +1,13 @@
 /**
- * Cross-layer seam: `agent_work_intents` is owned by the `agent-orchestration`
- * layer's `session-requests` service; a core-api route must not import it
- * directly — the composition root injects the concrete recorder/reader.
- *
- * `@hyperidle/work-intent-port` has zero `@hyperidle/db` dependency (leaf
- * package); the composition root instantiates with its own `HyperIdleDb` and
- * assigns `enqueueWorkIntent` unchanged — no adapter needed (structural superset).
+ * What a run is started from: the agent's runnable config, the context bundle, and what a resume
+ * carries back. The runner builds these from what it reads through the door.
  */
 
 import type { DoneWhenLine, Reason } from "./actions/task.js";
 import type { ChangeRow } from "./actions/user.js";
-import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./session-request.js";
 
 /**
- * The emit-time-resolved request a per-kind core-api resolver produces. Carried
- * on the `AgentWorkIntentRecorder` payload so the drain dispatches directly with
- * ZERO domain reads.
- */
-export interface BakedWorkIntentRequest {
-	readonly defaultAgentId: string;
-	readonly sourceKind: AgentSessionSourceKind;
-	readonly sourceId: string;
-	readonly streamId: string;
-	readonly taskId?: string | null;
-	readonly teamId?: string;
-	readonly userId?: string;
-	readonly sourceCorrelation: AgentSessionSourceCorrelation;
-	/**
-	 * The `assistant_turn` family's baked thread transcript.
-	 * Absent for every other kind — `task_run`/`subscription_run` bake a `contextBundle` instead.
-	 */
-	readonly transcript?: ReadonlyArray<{
-		readonly senderId: string;
-		readonly payload: string;
-		readonly type: string;
-	}>;
-	/**
-	 * The `task_run`/`subscription_run` families' baked entity content plus ranked+budgeted
-	 * documents, assembled at emit time so `run-orchestration` makes zero domain reads at
-	 * session-launch time. Absent for `assistant_turn` (bakes `transcript` instead).
-	 */
-	readonly contextBundle?: BakedContextBundle;
-	/**
-	 * The target agent's runnable-config snapshot, baked at emit time by every per-kind
-	 * resolver from the same `agent: User` row `requireRunnableAgent` loaded and validated.
-	 * The runnability gate is never dropped, only its data source changes.
-	 */
-	readonly agentConfig?: BakedAgentRunnableConfig;
-	/**
-	 */
-	/**
-	 * Calling thread id, baked at emit time by resolvers that have a real thread host.
-	 * `subscription_run` bakes none; its `reply` falls back to a direct thread with the sole human user.
-	 * Carried on `AgentSessionRequest.payloadJson` so `reply` has somewhere to post with zero orchestration → core read.
-	 */
-	readonly callingThreadId?: string;
-}
-
-/**
- * The target agent's admission-relevant configuration, baked at emit time from
+ * The target agent's admission-relevant configuration, baked when the inbox row is written from
  * the same `agent: User` row `requireRunnableAgent` loads. Carries runnability
  * predicate (`kind`/`status`), `role` for prompt assembly, and home `teamId`.
  *
@@ -83,13 +32,12 @@ export interface BakedAgentRunnableConfig {
 }
 
 /**
- * Map a resolver's already-loaded `agent: User` row (or any object structurally
- * satisfying `BakedAgentRunnableConfig`'s fields — `@hyperidle/work-intent-port` has zero
- * `@hyperidle/db` dependency, so this stays duck-typed, same idiom as
- * `SessionDocumentLike`) onto the exact whitelisted `BakedAgentRunnableConfig`
- * shape. A deliberate whitelist pick, not a spread — `User` carries other
- * columns (name, avatar, credentials, etc.) that must never ride onto the
- * baked `AgentSessionRequest.payloadJson`.
+ * Map an already-loaded `agent: User` row (or any object structurally
+ * satisfying `BakedAgentRunnableConfig`'s fields — duck-typed so callers carry
+ * zero `@hyperidle/db` dependency, same idiom as `SessionDocumentLike`) onto the
+ * exact whitelisted `BakedAgentRunnableConfig` shape. A deliberate whitelist
+ * pick, not a spread — `User` carries other columns (name, avatar, credentials,
+ * etc.) that must never ride onto the baked `AgentSessionRequest.payloadJson`.
  */
 export function bakeAgentRunnableConfig(
 	agent: BakedAgentRunnableConfig,
@@ -137,8 +85,8 @@ export interface BakedContextDocument {
 
 /**
  * Duck-typed shape of `SessionDocument` from `@hyperidle/document`'s
- * `assembleSessionDocuments`. Per-kind resolvers type their injected dependency
- * here so they need no direct import of `@hyperidle/document`.
+ * `assembleSessionDocuments`. Callers type their injected dependency here so
+ * they need no direct import of `@hyperidle/document`.
  *
  * @lore: parentChain and scopeKind REQUIRED — ?? [] causes flat placement; missing scopeKind routes to wrong scope; callers must resolve via resolveParentChain
  */
@@ -162,8 +110,7 @@ export interface SessionDocumentLike {
 /**
  * Map `assembleSessionDocuments`'s ranked+budgeted output onto the
  * `BakedContextDocument[]` shape every `contextBundle` variant carries —
- * one shared mapper so `task-run-resolver.ts`/the subscription-wake resolver
- * doesn't reimplement the same field-pick.
+ * one shared mapper so each run-bake path doesn't reimplement the same field-pick.
  */
 export function toBakedContextDocuments(
 	items: readonly SessionDocumentLike[],
@@ -244,73 +191,6 @@ export type BakedContextBundle =
 	  };
 
 /**
- * The one discriminated union every emitter of an `agent_work_intents` row
- * imports — matching `agent_work_intents_kind_ck` +
- * `agent_work_intents_kind_source_compat_ck` (`framework/db/src/schema.ts`)
- * exactly. See `AGENT_WORK_INTENT_KINDS` below for the runtime-checkable kind
- * list this union's discriminant is built from.
- */
-export type AgentWorkIntentRecorderInput =
-	| {
-			readonly kind: "thread_turn";
-			readonly sourceKind: "thread_message";
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by the `thread` module's wake rule. */
-			readonly bakedRequest?: BakedWorkIntentRequest;
-	  }
-	| {
-			readonly kind: "task_run";
-			readonly sourceKind: "task_dispatch_attempt";
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by `task-run-resolver.ts`. */
-			readonly bakedRequest?: BakedWorkIntentRequest;
-	  }
-	| {
-			/** Does NOT start a session — no agent to resolve, no context to assemble, no prompt. Everything a resume needs is the session to return to and what to tell it. */
-			readonly kind: "session_resume";
-			readonly sourceKind: "review_verdict";
-			/** The review message the human decided on. */
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			readonly resume: BakedSessionResumeRequest;
-	  }
-	| {
-			/**
-			 * A subscription's wake. `sourceKind` is `"subscription"`, not
-			 * `"subscription_run"` — matching `agent_work_intents_kind_source_
-			 * compat_ck`'s pairing exactly.
-			 */
-			readonly kind: "subscription_run";
-			readonly sourceKind: "subscription";
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by the user module's subscription fire. */
-			readonly bakedRequest?: BakedWorkIntentRequest;
-	  };
-
-/**
- * The canonical runtime-checkable list `AgentWorkIntentRecorderInput`'s `kind`
- * discriminant is built from — kept in lockstep with `agent_work_intents_kind_ck`
- * (`framework/db/src/schema.ts`) so a kind-set drift test can derive its
- * accept-list mechanically from this single source.
- *
- */
-export const AGENT_WORK_INTENT_KINDS = [
-	"thread_turn",
-	"task_run",
-	"session_resume",
-	"subscription_run",
-] as const;
-
-export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
-
-/**
  * What the person said back to the agent's review or question — the part of a
  * resume the agent reads.
  */
@@ -346,53 +226,10 @@ export interface BakedSessionResumeRequest extends SessionResumeReply {
 	readonly agentId: string;
 	/**
 	 * The asking agent's runnable-config snapshot. Baked when the human decides,
-	 * like every other intent kind — `admitSession` treats an absent bake as a
+	 * like every other run-bake variant — `admitSession` treats an absent bake as a
 	 * deactivated agent and refuses the run.
 	 */
 	readonly agentConfig?: BakedAgentRunnableConfig;
 	/** The task the review belongs to; the resumed session carries it, so its ending can close the task. */
 	readonly taskId?: string;
 }
-
-/**
- * Function type for recording work intents. Seam calls never join a caller's
- * transaction — this is a plain async function, not a transactional interface.
- */
-export type AgentWorkIntentRecorderFn = (
-	input: AgentWorkIntentRecorderInput,
-) => Promise<{ readonly id: string; readonly idempotencyKey: string }>;
-
-/**
- * What happened when a verdict tried to send an agent back to its work.
- *
- */
-export type ReviewVerdictOutcome =
-	/** The resume is queued. The agent will be brought back. */
-	| { readonly status: "queued" }
-	/** No session filed this review. Nothing to resume, and nothing wrong. */
-	| { readonly status: "not_a_review_session" }
-	/** A session filed it but cannot be brought back. The human has to be told. */
-	| { readonly status: "not_resumable"; readonly reason: string };
-
-/**
- * Records a person's verdict on a review, or answer to a question, that an
- * agent's session filed, and queues the resume that carries it back to the agent.
- *
- * Injected into the core-api thread route the same way `AgentWorkIntentRecorderFn`
- * is, and for the same reason: `review_sessions` belongs to the agent-orchestration
- * layer, and a core-api route may not read it.
- */
-export type ReviewVerdictRecorderFn = (
-	input: SessionResumeReply & {
-		/** The review or questionnaire message the reply resolved. */
-		readonly reviewMessageId: string;
-		/** The person who replied. */
-		readonly decidedBy: string;
-		/** The thread the review lives in — where a failure has to be reported. */
-		readonly threadId: string;
-		/** The asking agent's runnable-config snapshot, baked by the caller (core state). */
-		readonly agentConfig?: BakedAgentRunnableConfig;
-		/** The task the review belongs to, so the resumed session ends on it; orchestration never reads core. */
-		readonly taskId?: string;
-	},
-) => Promise<ReviewVerdictOutcome>;

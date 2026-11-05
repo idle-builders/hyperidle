@@ -49,10 +49,7 @@ function deps(): RuntimeDeps {
 	const ports = {
 		sessionRequests: {
 			listSessionRequests: vi.fn(async () => []),
-			reapExpired: vi.fn(async () => ({
-				intents: 0,
-			})),
-			drainIntents: vi.fn(async () => undefined),
+			claimSessionRequest: vi.fn(async () => null),
 		},
 		sessionLifecycle: {
 			recoverRequestedTerminations: vi.fn(async () => 0),
@@ -62,7 +59,6 @@ function deps(): RuntimeDeps {
 		db: {} as HyperIdleDb,
 		eventBus: new EventBus(),
 		ports,
-		durableQueue: {} as NonNullable<RuntimeDeps["durableQueue"]>,
 		composition: {
 			context: {} as RuntimeDeps["composition"]["context"],
 			provisioner: {} as NonNullable<RuntimeDeps["composition"]["provisioner"]>,
@@ -94,13 +90,16 @@ describe("startRuntime resource ownership", () => {
 		expect(state.writebackDispose).toHaveBeenCalledOnce();
 	});
 
-	it("stops new intent wakes and waits for an active wake before disposal completes", async () => {
+	it("stops new claim drains and waits for an active drain before disposal completes", async () => {
 		vi.useFakeTimers();
-		const runtimeDeps = deps();
+		const runtimeDeps: RuntimeDeps = {
+			...deps(),
+			runtime: {} as NonNullable<RuntimeDeps["runtime"]>,
+		};
 		const entered = deferred();
 		const release = deferred();
 		const disposalReachedShutdown = deferred();
-		let drainCalls = 0;
+		let claimCalls = 0;
 		let listCalls = 0;
 		if (!runtimeDeps.ports) throw new Error("test runtime ports missing");
 		runtimeDeps.ports.sessionRequests.listSessionRequests = vi.fn(async () => {
@@ -108,12 +107,13 @@ describe("startRuntime resource ownership", () => {
 			if (listCalls > 1) disposalReachedShutdown.resolve();
 			return [];
 		});
-		runtimeDeps.ports.sessionRequests.drainIntents = vi.fn(async () => {
-			drainCalls += 1;
-			if (drainCalls > 1) {
+		runtimeDeps.ports.sessionRequests.claimSessionRequest = vi.fn(async () => {
+			claimCalls += 1;
+			if (claimCalls > 1) {
 				entered.resolve();
 				await release.promise;
 			}
+			return null;
 		});
 		const runtime = await startRuntime(runtimeDeps);
 		vi.advanceTimersByTime(1_000);
@@ -132,7 +132,7 @@ describe("startRuntime resource ownership", () => {
 		release.resolve();
 		await disposal;
 		await vi.advanceTimersByTimeAsync(2_000);
-		expect(drainCalls).toBe(2);
+		expect(claimCalls).toBe(2);
 	});
 
 	it("stops every live agent on disposal instead of waiting for it to finish", async () => {

@@ -6,7 +6,10 @@ import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import { bootAgentExecution } from "@hyperidle/agent-execution";
 import {
 	type ApplicationProvisionSessionDeps,
+	actionToolsThroughDoor,
 	bootAgentOrchestration,
+	createAgentRunner,
+	createCoreDoor,
 	type RunOrchestrationHarnessRuntimeAdapter,
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "@hyperidle/agent-orchestration";
@@ -20,7 +23,7 @@ import {
 	registerCoreDomainServices,
 } from "@hyperidle/core-api";
 import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
-import { bootCoreApi, type CoreApiBoot } from "@hyperidle/core-api/boot";
+import { bootCoreApi } from "@hyperidle/core-api/boot";
 import { createPgliteDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { WebSocketServer } from "ws";
@@ -43,7 +46,8 @@ export interface CreateServerDeps {
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
-	readonly actionTools: CoreApiBoot["actionTools"];
+	/** The tools an agent's session gets: core's actions through the door, and this layer's own. */
+	readonly actionTools: ReturnType<typeof actionToolsThroughDoor>;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -200,7 +204,26 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		pluginMcpContributions: coreApi.pluginMcpContributions,
 	} satisfies ApplicationProvisionSessionDeps;
 
-	let actionTools = coreApi.actionTools;
+	// The agents' runner talks to this server through the same door a window uses, in-process.
+	let appFetch: ((req: Request) => Promise<Response>) | undefined;
+	const door = createCoreDoor((req) => {
+		if (!appFetch) throw new Error("The runner called the server before it was built.");
+		return appFetch(req);
+	}, "http://hyperidle.local/api");
+	const runner = createAgentRunner({
+		db,
+		eventBus,
+		door,
+		personKey: () => process.env.HYPERIDLE_API_KEY,
+		subscribeInbox: (agentId, onNudge) => {
+			const client = { send: () => onNudge() };
+			coreApi.wsHub.addClient(client, agentId);
+			void coreApi.wsHub.subscribe(client, `user:${agentId}`);
+			return () => coreApi.wsHub.removeClient(client);
+		},
+	});
+	const coreTools = actionToolsThroughDoor(coreApi.actionCatalog, door, runner.keyFor);
+	let actionTools = coreTools;
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
@@ -220,7 +243,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
 	});
-	actionTools = [...coreApi.actionTools, ...agentOrchestration.actionTools];
+	actionTools = [...coreTools, ...agentOrchestration.actionTools];
 	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();
 
 	const app = composeApiApplication({
@@ -232,6 +255,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	app.route("/", health);
 
 	realAgentOrchestrationTransport = createInProcessAgentOrchestrationTransport(app);
+	appFetch = (req) => Promise.resolve(app.fetch(req));
 
 	registerAppDisposers(app, [
 		...coreApi.disposers,
@@ -248,10 +272,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		}
 	}
 
-	const appFetch = app.fetch;
 	const staticFetch = resolvedStaticDir
-		? createStaticHandler(resolvedStaticDir, appFetch)
-		: appFetch;
+		? createStaticHandler(resolvedStaticDir, app.fetch)
+		: app.fetch;
 
 	const wss = new WebSocketServer({ noServer: true });
 
@@ -283,6 +306,14 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		httpServer.once("error", onFailure);
 	});
 
+	// Agents live where a program can run them; with none here, their messages wait.
+	if (deps.topology === "local") {
+		void runner.start().catch((error: unknown) => {
+			// biome-ignore lint/suspicious/noConsole: the desktop main process has no observability adapter here
+			console.error("[HyperIdle] the agents' runner did not start", error);
+		});
+	}
+
 	let disposePromise: Promise<void> | null = null;
 	const dispose = (): Promise<void> => {
 		if (disposePromise) return disposePromise;
@@ -296,6 +327,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				}
 			};
 
+			await runPhase("runner", () => runner.stop());
 			await runPhase("run-runtime", () => agentOrchestration.disposeRuntime?.());
 			await runPhase("app-domain", () => disposeApp(app));
 			await runPhase("websocket", () => {

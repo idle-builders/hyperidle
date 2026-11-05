@@ -45,7 +45,7 @@ export {
 } from "./request-run-stop-for-tasks.js";
 export {
 	findReviewSession,
-	type ResumeIntentEnqueuer,
+	type ResumeEnqueuer,
 	type ReviewSessionLink,
 	recordReviewSession,
 	recordReviewVerdict,
@@ -69,4 +69,5 @@ export {
 } from "./session-store.js";
 export { startRuntime } from "./start-runtime.js";
 export { transitionRun } from "./transition-run.js";
+export { buildVerdictMessage } from "./verdict-message.js";
 export { createWritebackProcessor } from "./writeback-processor.js";

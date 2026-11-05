@@ -6,7 +6,7 @@ import {
 	type UserView,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { findPersonByEmail, givePersonKey, listTeams, newPersonKey } from "@hyperidle/user";
+import { findPersonByEmail, giveUserKey, listTeams, newUserKey } from "@hyperidle/user";
 import { Hono } from "hono";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import z from "zod";
@@ -106,8 +106,8 @@ export function createJoinRoutes(
 
 		const known = await findPersonByEmail(db, email.toLowerCase());
 		if (known) {
-			const key = newPersonKey();
-			await givePersonKey(db, known, key);
+			const key = newUserKey();
+			await giveUserKey(db, known, key);
 			return c.json({ key });
 		}
 		const existing = (await listTeams(db)).map((t) => t.name);
@@ -128,8 +128,8 @@ export function createJoinRoutes(
 				made.ok ? "You were not made." : (made.problems[0]?.message ?? "You were not made."),
 				API_ERROR_CODES.VALIDATION_ERROR,
 			);
-		const key = newPersonKey();
-		await givePersonKey(db, you, key, email.toLowerCase());
+		const key = newUserKey();
+		await giveUserKey(db, you, key, email.toLowerCase());
 		return c.json({ key });
 	});
 

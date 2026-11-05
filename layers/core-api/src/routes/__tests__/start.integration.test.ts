@@ -44,8 +44,6 @@ function startApp(
 	};
 	const actions = buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 		adapterPool: machine,
 	});
 	const app = new Hono<HyperIdleEnv>();

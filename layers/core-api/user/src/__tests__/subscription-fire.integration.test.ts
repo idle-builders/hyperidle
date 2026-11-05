@@ -152,10 +152,6 @@ function buildDeps(
 	const searchDocuments =
 		searchDocumentsAction.run as import("../action-types.js").SearchDocumentsRunFn;
 	return {
-		agentWorkIntentRecorder: async (input) => ({
-			id: "intent-noop",
-			idempotencyKey: input.idempotencyKey,
-		}),
 		searchTasks: async (_ctx, input) => {
 			const rows = await db
 				.select({
@@ -222,15 +218,7 @@ describe("registerSubscriptionFire — task reach (team rule)", () => {
 			createdAt: TS,
 			updatedAt: TS,
 		});
-		const calls: string[] = [];
-		const deps = buildDeps(db, {
-			agentWorkIntentRecorder: async (input) => {
-				calls.push((input as { readonly requestedBy?: string }).requestedBy ?? "");
-				if (input.kind === "subscription_run") calls.push(`woke:${input.sourceId}`);
-				return { id: "intent-1", idempotencyKey: input.idempotencyKey };
-			},
-		});
-		const unsub = fire(db, eventBus, deps);
+		const unsub = fire(db, eventBus, buildDeps(db));
 		try {
 			const change = await insertChangeRow(db, "c1", "task", "task-1", "actor");
 			eventBus.emit(objectEvent(change));
@@ -238,8 +226,10 @@ describe("registerSubscriptionFire — task reach (team rule)", () => {
 		} finally {
 			unsub();
 		}
-		expect(calls).toContain("woke:sub-a:c1");
-		expect(calls).not.toContain("woke:sub-b:c1");
+		const rowsA = await listInboxRows(db, { userId: "agent-a" });
+		const rowsB = await listInboxRows(db, { userId: "agent-b" });
+		expect(rowsA.some((r) => r.subscriptionId === "sub-a" && r.changeId === "c1")).toBe(true);
+		expect(rowsB.some((r) => r.subscriptionId === "sub-b" && r.changeId === "c1")).toBe(false);
 	});
 
 	test("a factory-wide agent (no team, no owner) hears a task change in either team", async ({
@@ -260,14 +250,7 @@ describe("registerSubscriptionFire — task reach (team rule)", () => {
 			createdAt: TS,
 			updatedAt: TS,
 		});
-		const woken: string[] = [];
-		const deps = buildDeps(db, {
-			agentWorkIntentRecorder: async (input) => {
-				if (input.kind === "subscription_run") woken.push(input.sourceId);
-				return { id: "intent-1", idempotencyKey: input.idempotencyKey };
-			},
-		});
-		const unsub = fire(db, eventBus, deps);
+		const unsub = fire(db, eventBus, buildDeps(db));
 		try {
 			const change = await insertChangeRow(db, "c2", "task", "task-2", "actor");
 			eventBus.emit(objectEvent(change));
@@ -275,7 +258,8 @@ describe("registerSubscriptionFire — task reach (team rule)", () => {
 		} finally {
 			unsub();
 		}
-		expect(woken).toContain("sub-lib:c2");
+		const rows = await listInboxRows(db, { userId: "librarian" });
+		expect(rows.some((r) => r.subscriptionId === "sub-lib" && r.changeId === "c2")).toBe(true);
 	});
 
 	test("never wakes the subscriber that made the change itself", async ({ db }) => {
@@ -293,14 +277,7 @@ describe("registerSubscriptionFire — task reach (team rule)", () => {
 			createdAt: TS,
 			updatedAt: TS,
 		});
-		const woken: string[] = [];
-		const deps = buildDeps(db, {
-			agentWorkIntentRecorder: async (input) => {
-				if (input.kind === "subscription_run") woken.push(input.sourceId);
-				return { id: "intent-1", idempotencyKey: input.idempotencyKey };
-			},
-		});
-		const unsub = fire(db, eventBus, deps);
+		const unsub = fire(db, eventBus, buildDeps(db));
 		try {
 			const change = await insertChangeRow(db, "c3", "task", "task-3", "agent-a");
 			eventBus.emit(objectEvent(change));
@@ -308,7 +285,8 @@ describe("registerSubscriptionFire — task reach (team rule)", () => {
 		} finally {
 			unsub();
 		}
-		expect(woken).toHaveLength(0);
+		const rows = await listInboxRows(db, { userId: "agent-a" });
+		expect(rows).toHaveLength(0);
 	});
 
 	test("a message HyperIdle itself posts wakes no agent subscription", async ({ db }) => {
@@ -327,14 +305,7 @@ describe("registerSubscriptionFire — task reach (team rule)", () => {
 			createdAt: TS,
 			updatedAt: TS,
 		});
-		const woken: string[] = [];
-		const deps = buildDeps(db, {
-			agentWorkIntentRecorder: async (input) => {
-				if (input.kind === "subscription_run") woken.push(input.sourceId);
-				return { id: "intent-sys", idempotencyKey: input.idempotencyKey };
-			},
-		});
-		const unsub = fire(db, eventBus, deps);
+		const unsub = fire(db, eventBus, buildDeps(db));
 		try {
 			const change = await insertChangeRow(
 				db,
@@ -350,7 +321,8 @@ describe("registerSubscriptionFire — task reach (team rule)", () => {
 		} finally {
 			unsub();
 		}
-		expect(woken).toHaveLength(0);
+		const rows = await listInboxRows(db, { userId: "agent-a" });
+		expect(rows).toHaveLength(0);
 	});
 
 	test("a paused subscription never wakes", async ({ db }) => {
@@ -369,14 +341,7 @@ describe("registerSubscriptionFire — task reach (team rule)", () => {
 			createdAt: TS,
 			updatedAt: TS,
 		});
-		const woken: string[] = [];
-		const deps = buildDeps(db, {
-			agentWorkIntentRecorder: async (input) => {
-				if (input.kind === "subscription_run") woken.push(input.sourceId);
-				return { id: "intent-1", idempotencyKey: input.idempotencyKey };
-			},
-		});
-		const unsub = fire(db, eventBus, deps);
+		const unsub = fire(db, eventBus, buildDeps(db));
 		try {
 			const change = await insertChangeRow(db, "c4", "task", "task-4", "actor");
 			eventBus.emit(objectEvent(change));
@@ -384,7 +349,8 @@ describe("registerSubscriptionFire — task reach (team rule)", () => {
 		} finally {
 			unsub();
 		}
-		expect(woken).toHaveLength(0);
+		const rows = await listInboxRows(db, { userId: "agent-a" });
+		expect(rows).toHaveLength(0);
 	});
 });
 
@@ -542,14 +508,7 @@ describe("registerSubscriptionFire — document reach", () => {
 			createdAt: TS,
 			updatedAt: TS,
 		});
-		const woken: string[] = [];
-		const deps = buildDeps(db, {
-			agentWorkIntentRecorder: async (input) => {
-				if (input.kind === "subscription_run") woken.push(input.sourceId);
-				return { id: "intent-1", idempotencyKey: input.idempotencyKey };
-			},
-		});
-		const unsub = fire(db, eventBus, deps);
+		const unsub = fire(db, eventBus, buildDeps(db));
 		try {
 			const change = await insertChangeRow(db, "c6", "document", "doc-1", "actor");
 			eventBus.emit(objectEvent(change));
@@ -557,7 +516,8 @@ describe("registerSubscriptionFire — document reach", () => {
 		} finally {
 			unsub();
 		}
-		expect(woken).toContain("sub-doc:c6");
+		const inboxRows = await listInboxRows(db, { userId: "agent-a" });
+		expect(inboxRows.some((r) => r.subscriptionId === "sub-doc" && r.changeId === "c6")).toBe(true);
 		const [row] = await db.select().from(documents).where(eq(documents.id, "doc-1"));
 		expect(row?.readCount).toBe(0);
 	});
@@ -583,52 +543,47 @@ describe("registerSubscriptionFire — one change, one session", () => {
 
 	async function wakesFor(db: HyperIdleDb, emit: (eventBus: EventBus) => Promise<void>) {
 		const eventBus = new EventBus();
-		const woken: string[] = [];
-		const deps = buildDeps(db, {
-			agentWorkIntentRecorder: async (input) => {
-				if (input.kind === "subscription_run") woken.push(input.sourceId);
-				return { id: "intent-1", idempotencyKey: input.idempotencyKey };
-			},
-		});
-		const unsub = fire(db, eventBus, deps);
+		const unsub = fire(db, eventBus, buildDeps(db));
 		try {
 			await emit(eventBus);
 			await new Promise((r) => setTimeout(r, 50));
 		} finally {
 			unsub();
 		}
-		return woken;
+		return await listInboxRows(db, { userId: "agent-a" });
 	}
 
 	test("an agent the change already woke is not woken again by its subscription", async ({
 		db,
 	}) => {
 		await seedSubscribedAgent(db, TS);
-		const woken = await wakesFor(db, async (eventBus) => {
+		const rows = await wakesFor(db, async (eventBus) => {
 			const change = await insertChangeRow(db, "c-woke", "task", "task-once", "actor");
 			eventBus.emit(objectEvent(change, { woke: ["agent-a"] }));
 		});
-		expect(woken).toEqual([]);
+		expect(rows).toHaveLength(0);
 	});
 
 	test("a subscription written at the same moment as the change does not hear it", async ({
 		db,
 	}) => {
 		await seedSubscribedAgent(db, LATER);
-		const woken = await wakesFor(db, async (eventBus) => {
+		const rows = await wakesFor(db, async (eventBus) => {
 			const change = await insertChangeRow(db, "c-same", "task", "task-once", "actor", LATER);
 			eventBus.emit(objectEvent(change));
 		});
-		expect(woken).toEqual([]);
+		expect(rows).toHaveLength(0);
 	});
 
 	test("a subscription written before the change hears it", async ({ db }) => {
 		await seedSubscribedAgent(db, TS);
-		const woken = await wakesFor(db, async (eventBus) => {
+		const rows = await wakesFor(db, async (eventBus) => {
 			const change = await insertChangeRow(db, "c-after", "task", "task-once", "actor", LATER);
 			eventBus.emit(objectEvent(change, { woke: ["someone-else"] }));
 		});
-		expect(woken).toEqual(["sub-once:c-after"]);
+		expect(rows.some((r) => r.subscriptionId === "sub-once" && r.changeId === "c-after")).toBe(
+			true,
+		);
 	});
 });
 

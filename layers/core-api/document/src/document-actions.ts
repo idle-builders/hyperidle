@@ -44,6 +44,7 @@ import {
 	searchDocumentRows,
 	updateDocument,
 } from "./document-store.js";
+import { assembleSessionDocuments } from "./session-documents.js";
 
 /**
  * The document module's outward-facing deps. `changes`
@@ -418,6 +419,21 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 	> {
 		const pureProblems = searchDocumentsInvariants(input);
 		if (pureProblems.length > 0) return { ok: false, problems: pureProblems };
+
+		if (input.forSession) {
+			const me = await deps.users.getUserById(ctx.db, ctx.actor);
+			const teamId = input.forSession.teamId ?? me?.teamIds[0];
+			const items = await assembleSessionDocuments(ctx.db, {
+				...(teamId ? { teamId } : {}),
+				taskDescription: input.forSession.about,
+				agentId: ctx.actor,
+				agentDiscipline: me?.discipline ?? null,
+			});
+			return {
+				ok: true,
+				data: items.map((item) => ({ ...toDocumentRow(item), parentChain: [...item.parentChain] })),
+			};
+		}
 
 		const viewer = await resolveViewer(ctx, deps);
 		const rows = await searchDocumentRows(ctx.db, toSearchFilter(input), viewer);

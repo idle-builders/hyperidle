@@ -2,17 +2,16 @@
  * `registerAgentRunAdmissionReactions`'s per-kind reaction to a terminal
  * `agent_run_admission_failed` event:
  *
- *   subscription_run  -> logged only; a subscription's wake carries no run
- *                        row to finalize
- *   task_run          -> work marks the taskDispatchAttempts row failed
- *   thread_turn       -> the never-silent net's sibling case: one plain notice
- *                        posted into the thread the turn came from, sent as
- *                        the agent that could not be started (never wakes it)
+ *   subscription  -> logged only; a subscription's wake carries no run
+ *                    row to finalize
+ *   task          -> work marks the taskDispatchAttempts row failed
+ *   assistant     -> the never-silent net's sibling case: one plain notice
+ *                    posted into the thread the turn came from, sent as
+ *                    the agent that could not be started (never wakes it)
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
-	agentWorkIntents,
 	changes,
 	type HyperIdleDb,
 	messages,
@@ -25,9 +24,7 @@ import {
 } from "@hyperidle/db";
 import { SYSTEM_ACTOR_ID, type ThreadView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
-import { and, eq, sql } from "drizzle-orm";
-import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
+import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import type { ActionContext } from "../../actions/action.js";
 import { buildCoreActions } from "../../actions/compose.js";
@@ -59,8 +56,6 @@ async function openThreadAs(
 ): Promise<{ readonly status: number; readonly body: ActionEnvelope<ThreadView> }> {
 	const actions = buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
 	const openThreadAction = actions.find((a) => a.declaration.name === "open_thread");
 	if (!openThreadAction) throw new Error("open_thread action not found");
@@ -73,47 +68,15 @@ async function openThreadAs(
 
 /**
  * `reactToAdmissionFailure` runs fire-and-forget internally — flush the
- * microtask queue so its `await`s have settled (same pattern as
- * `session-not-returned-notice.integration.test.ts`'s `flush`).
+ * microtask queue so its `await`s have settled.
  */
 async function flush(): Promise<void> {
 	await new Promise<void>((resolve) => setImmediate(resolve));
 }
 
-/**
- * Every test drives a BAKED intent through a Postgres trigger that rejects
- * the `agent_session_requests` insert, forcing a MAX_ATTEMPTS_EXCEEDED
- * terminal failure — the subscriber reactions fire on any terminal
- * `agent_run_admission_failed`, regardless of failureCode.
- *
- * @lore: the shared PGlite worker keeps DDL across tests — a trigger this test installs must be dropped in afterEach or it leaks into a sibling file.
- */
-let TriggerDb: HyperIdleDb | null = null;
-afterEach(async () => {
-	if (TriggerDb) {
-		await TriggerDb.execute(
-			sql`drop trigger if exists reject_session_request_write_sub on agent_session_requests`,
-		);
-		TriggerDb = null;
-	}
+afterEach(() => {
+	// no teardown needed — trigger-based setup removed
 });
-
-async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
-	TriggerDb = db;
-	await db.execute(
-		sql`drop trigger if exists reject_session_request_write_sub on agent_session_requests`,
-	);
-	await db.execute(sql`
-		create or replace function reject_session_request_write_sub() returns trigger as $$
-		begin raise exception 'injected agent_session_requests write failure (subscriber vehicle)'; end;
-		$$ language plpgsql
-	`);
-	await db.execute(sql`
-		create trigger reject_session_request_write_sub
-		before insert on agent_session_requests
-		for each row execute function reject_session_request_write_sub()
-	`);
-}
 
 const NOW = new Date().toISOString();
 
@@ -140,47 +103,34 @@ async function seedAgent(
 }
 
 describe("agent_run_admission_failed — per-kind core-api reactions", () => {
-	// `agent-run-admission-reactions.ts`'s `subscription_run` case is
-	// logged-only, since a subscription's wake carries no run row to
-	// finalize. This proves the drain reaches that case without throwing,
-	// the only externally observable behavior left.
-	test("subscription_run: a refused wake is logged, no run row to finalize", async ({
+	test("subscription: a refused wake is logged only, nothing is posted or finalized", async ({
 		db,
 		eventBus,
 	}) => {
 		const { teamId } = await seedTeam(db, "sub-subscription");
 		await seedAgent(db, "sub-subscription-owner", { teamId });
 
-		const deps = { ...queueDeps(db), eventBus };
-		await rejectSessionRequestWrites(db);
-		await enqueueWorkIntent(db, {
-			kind: "subscription_run",
+		eventBus.emit({
+			type: "agent_run_admission_failed" as const,
+			streamId: "subscription:sub-subscription",
+			agentId: "sub-subscription-owner",
 			sourceKind: "subscription",
 			sourceId: "sub-subscription:chg-1",
-			idempotencyKey: "sub-subscription-run",
-			bakedRequest: {
-				defaultAgentId: "sub-subscription-owner",
-				sourceKind: "subscription",
-				sourceId: "sub-subscription:chg-1",
-				streamId: "subscription:sub-subscription",
-				teamId,
-				sourceCorrelation: { subscriptionId: "sub-subscription", changeId: "chg-1", teamId },
-			},
+			threadId: null,
+			taskId: null,
+			failureCode: "PROVISIONING_FAILED" as const,
+			timestamp: Date.now(),
 		});
 
-		await drainIntents(deps, { maxAttempts: 1 });
+		await flush();
 
-		const [row] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.idempotencyKey, "sub-subscription-run"));
-		expect(row?.status).toBe("failed");
+		// Nothing posted — subscription wakes have no one waiting.
+		const posted = await db.select().from(messages);
+		expect(posted).toHaveLength(0);
 	});
 
-	test("task_run: marks the taskDispatchAttempts row failed", async ({ db, eventBus }) => {
+	test("task: marks the taskDispatchAttempts row failed", async ({ db, eventBus }) => {
 		const { teamId } = await seedTeam(db, "sub-task");
-		// The dispatch attempt's agent is not runnable (paused) — forces
-		// requireRunnableActor's InvalidAgentWorkSourceError at drain.
 		await seedAgent(db, "sub-task-agent", { teamId, status: "paused" });
 		await db.insert(threads).values({
 			id: `thr-${"sub-task-bet"}`,
@@ -235,25 +185,17 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			})
 			.returning();
 
-		const deps = { ...queueDeps(db), eventBus };
-		// A baked intent + trigger forces terminal failure.
-		await rejectSessionRequestWrites(db);
-		await enqueueWorkIntent(db, {
-			kind: "task_run",
-			sourceKind: "task_dispatch_attempt",
+		eventBus.emit({
+			type: "agent_run_admission_failed" as const,
+			streamId: "task:sub-task",
+			agentId: "sub-task-agent",
+			sourceKind: "task",
 			sourceId: attempt?.id ?? "",
-			idempotencyKey: "sub-task-run",
-			bakedRequest: {
-				defaultAgentId: "sub-task-agent",
-				sourceKind: "task",
-				sourceId: "sub-task",
-				streamId: "task:sub-task",
-				taskId: "sub-task",
-				teamId: "sub-task-team",
-				sourceCorrelation: { taskId: "sub-task", teamId: "sub-task-team" },
-			},
+			threadId: null,
+			taskId: "sub-task",
+			failureCode: "PROVISIONING_FAILED" as const,
+			timestamp: Date.now(),
 		});
-		await drainIntents(deps, { maxAttempts: 1 });
 
 		await vi.waitFor(async () => {
 			const [finalized] = await db
@@ -264,7 +206,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		});
 	});
 
-	test("thread_turn: failed admission posts one plain notice into the thread the turn came from", async ({
+	test("assistant: failed admission posts one plain notice into the thread the turn came from", async ({
 		db,
 		eventBus,
 		app,
@@ -301,29 +243,17 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			createdAt: NOW,
 		});
 
-		const deps = { ...queueDeps(db), eventBus };
-		// A baked intent + trigger forces terminal failure.
-		await rejectSessionRequestWrites(db);
-		await enqueueWorkIntent(db, {
-			kind: "thread_turn",
-			sourceKind: "thread_message",
-			sourceId: "sub-turn-message:sub-turn-agent",
-			idempotencyKey: "sub-turn-intent",
-			bakedRequest: {
-				defaultAgentId: "sub-turn-agent",
-				sourceKind: "assistant",
-				sourceId: "sub-turn-message",
-				streamId: "assistant:sub-turn-message",
-				userId: "sub-turn-human",
-				sourceCorrelation: {
-					threadId: "sub-turn-thread",
-					messageId: "sub-turn-message",
-					userId: "sub-turn-human",
-					agentId: "sub-turn-agent",
-				},
-			},
+		eventBus.emit({
+			type: "agent_run_admission_failed" as const,
+			streamId: "assistant:sub-turn-message",
+			agentId: "sub-turn-agent",
+			sourceKind: "assistant",
+			sourceId: "sub-turn-message",
+			threadId: "sub-turn-thread",
+			taskId: null,
+			failureCode: "PROVISIONING_FAILED" as const,
+			timestamp: Date.now(),
 		});
-		await drainIntents(deps, { maxAttempts: 1 });
 
 		await vi.waitFor(async () => {
 			const opened = await openThread(app, "sub-turn-thread");
@@ -335,7 +265,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		expect(notice).toBeDefined();
 		const payload = notice?.payload as { text?: string };
 		expect(payload.text).toBe(
-			"Agent could not start. It still failed after several tries. Send your message again in a moment.",
+			"Agent could not start. No agent program is signed in on this computer. Sign in to one under [Agent programs](/people/me), then send your message again.",
 		);
 
 		const changeRows = await db
@@ -349,18 +279,9 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 				),
 			);
 		expect(changeRows).toHaveLength(1);
-
-		// No new wake: the thread's `thread_turn` population is still exactly
-		// the one intent whose admission failed — the notice never enqueued a
-		// second one.
-		const turnIntents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "thread_turn"));
-		expect(turnIntents).toHaveLength(1);
 	});
 
-	test("thread_turn: a second failure for the same intent does not post a second notice", async ({
+	test("assistant: a second failure for the same stream does not post a second notice", async ({
 		db,
 		eventBus,
 		app,
@@ -399,13 +320,13 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 
 		const event = {
 			type: "agent_run_admission_failed" as const,
-			streamId: "thread_turn:sub-turn2-message:sub-turn2-agent",
-			intentId: "sub-turn2-intent",
-			kind: "thread_turn" as const,
-			sourceKind: "thread_message" as const,
-			sourceId: "sub-turn2-message:sub-turn2-agent",
+			streamId: "assistant:sub-turn2-message:sub-turn2-agent",
+			agentId: "sub-turn2-agent",
+			sourceKind: "assistant" as const,
+			sourceId: "sub-turn2-message",
+			threadId: "sub-turn2-thread",
+			taskId: null,
 			failureCode: "PROVISIONING_FAILED" as const,
-			terminal: true,
 			timestamp: Date.now(),
 		};
 		eventBus.emit(event);
@@ -419,9 +340,8 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			"Agent could not start. No agent program is signed in on this computer. Sign in to one under [Agent programs](/people/me), then send your message again.",
 		);
 
-		// The retry orchestration would report the SAME intent failing again —
-		// the reaction's own `clientKey` (derived from `intentId`) must make a
-		// second post a no-op, not a duplicate.
+		// The same stream emitting again — the reaction's `clientKey` (derived
+		// from streamId+sourceId+agentId) makes the second post a no-op.
 		eventBus.emit(event);
 		await vi.waitFor(async () => {
 			const opened = await openThread(app, "sub-turn2-thread");
@@ -429,7 +349,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		});
 	});
 
-	test("thread_turn: two-member agent thread has no human — no notice, no wake, breaking the ping-pong", async ({
+	test("assistant: two-member agent thread has no human — no notice, no wake, breaking the ping-pong", async ({
 		db,
 		eventBus,
 		agentOrchestration,
@@ -459,13 +379,13 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 
 		const event = {
 			type: "agent_run_admission_failed" as const,
-			streamId: "thread_turn:sub-turn-pp-message:sub-turn-pp-a",
-			intentId: "sub-turn-pp-intent",
-			kind: "thread_turn" as const,
-			sourceKind: "thread_message" as const,
-			sourceId: "sub-turn-pp-message:sub-turn-pp-a",
+			streamId: "assistant:sub-turn-pp-message:sub-turn-pp-a",
+			agentId: "sub-turn-pp-a",
+			sourceKind: "assistant" as const,
+			sourceId: "sub-turn-pp-message",
+			threadId: "sub-turn-pp-thread",
+			taskId: null,
 			failureCode: "PROVISIONING_FAILED" as const,
-			terminal: true,
 			timestamp: Date.now(),
 		};
 
@@ -483,15 +403,9 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		// Only the original message — no notice was posted as A (which would
 		// have woken B, whose own failure would then have woken A again).
 		expect(opened.body.data?.messages).toHaveLength(1);
-
-		const turnIntents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "thread_turn"));
-		expect(turnIntents).toHaveLength(0);
 	});
 
-	test("thread_turn: HyperIdle posts the notice into a direct thread it is not a member of, without waking the agent", async ({
+	test("assistant: HyperIdle posts the notice into a direct thread it is not a member of, without waking the agent", async ({
 		db,
 		eventBus,
 	}) => {
@@ -527,13 +441,13 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 
 		eventBus.emit({
 			type: "agent_run_admission_failed" as const,
-			streamId: "thread_turn:sub-turn-refuse-message:sub-turn-refuse-agent",
-			intentId: "sub-turn-refuse-intent",
-			kind: "thread_turn" as const,
-			sourceKind: "thread_message" as const,
-			sourceId: "sub-turn-refuse-message:sub-turn-refuse-agent",
+			streamId: "assistant:sub-turn-refuse-message:sub-turn-refuse-agent",
+			agentId: "sub-turn-refuse-agent",
+			sourceKind: "assistant" as const,
+			sourceId: "sub-turn-refuse-message",
+			threadId: "sub-turn-refuse-thread",
+			taskId: null,
 			failureCode: "PROVISIONING_FAILED" as const,
-			terminal: true,
 			timestamp: Date.now(),
 		});
 		await vi.waitFor(async () => {
@@ -547,16 +461,11 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			.select()
 			.from(threads)
 			.where(eq(threads.id, "sub-turn-refuse-thread"));
-		// HyperIdle did not become a member, and nothing was queued to wake the agent.
+		// HyperIdle did not become a member.
 		expect(JSON.parse(thread?.participants ?? "[]")).not.toContain(SYSTEM_ACTOR_ID);
-		const turnIntents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "thread_turn"));
-		expect(turnIntents).toHaveLength(0);
 	});
 
-	test("thread_turn: source message is gone — nothing is posted, nothing throws, one log line", async ({
+	test("assistant: source message is gone — nothing is posted, nothing throws, one log line", async ({
 		db,
 		eventBus,
 	}) => {
@@ -566,13 +475,13 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 		const event = {
 			type: "agent_run_admission_failed" as const,
-			streamId: "thread_turn:sub-turn3-missing:sub-turn3-agent",
-			intentId: "sub-turn3-intent",
-			kind: "thread_turn" as const,
-			sourceKind: "thread_message" as const,
-			sourceId: "sub-turn3-missing:sub-turn3-agent",
+			streamId: "assistant:sub-turn3-missing:sub-turn3-agent",
+			agentId: "sub-turn3-agent",
+			sourceKind: "assistant" as const,
+			sourceId: "sub-turn3-missing",
+			threadId: "sub-turn3-missing-thread",
+			taskId: null,
 			failureCode: "PROVISIONING_FAILED" as const,
-			terminal: true,
 			timestamp: Date.now(),
 		};
 

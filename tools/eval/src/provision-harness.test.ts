@@ -109,8 +109,14 @@ vi.mock("@hyperidle/user", () => ({
  * itself is covered by running the eval for real against a live harness.
  */
 vi.mock("@hyperidle/task", () => ({
-	get: vi.fn(async () => ({ id: "task", teamId: "team", title: "T", description: "d" })),
-	bakeTaskContextBundle: vi.fn(async () => undefined),
+	get: vi.fn(async () => ({
+		id: "task",
+		teamId: "team",
+		title: "T",
+		description: "d",
+		doneWhen: "[]",
+		reasons: "[]",
+	})),
 }));
 vi.mock("@hyperidle/document", () => ({
 	assembleSessionDocuments: vi.fn(async () => []),

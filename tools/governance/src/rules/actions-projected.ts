@@ -90,19 +90,12 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/core-api/src/app.ts|GET /health",
 	"layers/core-api/src/routes/health.ts|GET /health",
 	"layers/core-api/src/routes/health.ts|GET /auth",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /intents",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /review-links",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /review-verdicts",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/end-for-handoff",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /run-config/:agentId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /run-config/batch",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|PATCH /run-config/:agentId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /filesystems/:id/team",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /filesystems/:id/injections/persist",
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|POST /mcp/:token/return-status",
-	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /sessions/:sessionId",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/stop-for-tasks",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/deliver-to-conversation",
 	// `folders`/`connections` cross the port the way `runConfig`
 	// already does. `folders.give` is `POST .../filesystems/:id/injections/persist`
 	// above under a second capability name — no new row for it.

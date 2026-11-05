@@ -24,12 +24,7 @@ import {
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import type {
-	ActionResult,
-	ReviewVerdictRecorderFn,
-	SendMessageInput,
-	ThreadView,
-} from "@hyperidle/domain-model";
+import type { ActionResult, SendMessageInput, ThreadView } from "@hyperidle/domain-model";
 import type {
 	EventBus,
 	PropagationAppliedEvent,
@@ -49,15 +44,8 @@ import { buildCoreActions } from "../actions/compose.js";
  * task's existing thread (`lifecycle-propagation.ts`'s
  * `createShipConfirmationThread`).
  */
-function buildPolicyDeps(
-	agentOrchestration: AgentOrchestrationPort,
-	reviewVerdictRecorder: ReviewVerdictRecorderFn = async () => ({ status: "not_a_review_session" }),
-): PolicyDeps {
-	const actions = buildCoreActions({
-		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder,
-	});
+function buildPolicyDeps(agentOrchestration: AgentOrchestrationPort): PolicyDeps {
+	const actions = buildCoreActions({ agentOrchestration });
 	const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
 	const sendMessageAction = actions.find((a) => a.declaration.name === "send_message");
@@ -663,9 +651,10 @@ describe("a person's approval of a task review", () => {
 		db: HyperIdleDb,
 		eventBus: EventBus,
 		agentOrchestration: AgentOrchestrationPort,
-		recorder: ReviewVerdictRecorderFn,
+		askerStatus: "active" | "paused" = "active",
 	): Promise<void> {
 		await seedBase(db);
+		await db.update(users).set({ status: askerStatus }).where(eq(users.id, "agent-1"));
 		const now = new Date().toISOString();
 		await db.insert(users).values({
 			id: "human-1",
@@ -688,7 +677,7 @@ describe("a person's approval of a task review", () => {
 			.update(threads)
 			.set({ participants: JSON.stringify(["agent-1", "human-1"]) })
 			.where(eq(threads.id, "thr-task-ap"));
-		const deps = buildPolicyDeps(agentOrchestration, recorder);
+		const deps = buildPolicyDeps(agentOrchestration);
 		unsubscribe = registerLifecyclePropagation(db, eventBus, deps);
 		const send = deps.sendMessage as unknown as (
 			ctx: unknown,
@@ -717,7 +706,7 @@ describe("a person's approval of a task review", () => {
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await approve(db, eventBus, agentOrchestration, async () => ({ status: "queued" }));
+		await approve(db, eventBus, agentOrchestration);
 		const approved = await stateOf(db);
 		expect(approved?.state).toBe("in_progress");
 		expect(JSON.parse(approved?.doneWhen ?? "[]")[0].state).toBe("met");
@@ -740,9 +729,7 @@ describe("a person's approval of a task review", () => {
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await approve(db, eventBus, agentOrchestration, async () => ({
-			status: "not_a_review_session",
-		}));
+		await approve(db, eventBus, agentOrchestration, "paused");
 		expect((await stateOf(db))?.state).toBe("done");
 	});
 });

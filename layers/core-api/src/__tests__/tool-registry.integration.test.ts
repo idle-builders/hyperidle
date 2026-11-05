@@ -6,8 +6,8 @@ import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import type { BuildToolRegistryOptions } from "@hyperidle/tool-handlers";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import { describe, expect } from "vitest";
+import { actionsAsTools } from "../__testing__/actions-test-tools.js";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
-import { actionsAsTools } from "../actions/actions-as-tools.js";
 import { buildCoreActions } from "../actions/compose.js";
 
 /**
@@ -25,8 +25,6 @@ const test = baseTest.extend<{
 		const actionTools = actionsAsTools(
 			buildCoreActions({
 				agentOrchestration,
-				agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-				reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 			}),
 		);
 		await use((ctx, options) =>
@@ -67,8 +65,6 @@ describe("buildToolRegistry", () => {
 		const composedActionNames = new Set(
 			buildCoreActions({
 				agentOrchestration,
-				agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-				reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 			}).map((a) => a.declaration.name),
 		);
 		// Set equality, never toContain: proves the registered set is EXACTLY

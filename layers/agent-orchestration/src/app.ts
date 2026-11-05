@@ -15,7 +15,6 @@ import type { Action } from "./actions/action.js";
 import { actionsAsTools } from "./actions/actions-as-tools.js";
 import { createActionsRouter } from "./actions/actions-router.js";
 import { createAgentOrchestrationIntakeRoutes } from "./routes/agent-orchestration-intake.js";
-import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions.js";
 
 export interface AgentOrchestrationAppOptions {
 	readonly db: HyperIdleDb;
@@ -42,10 +41,9 @@ export function createAgentOrchestrationApp(
 	app.route("/actions", createActionsRouter(sessionActions, { db, eventBus }));
 	const actionTools = actionsAsTools(sessionActions);
 
-	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db));
 	app.route(
 		"/agent-orchestration",
-		createAgentOrchestrationIntakeRoutes(db, eventBus, { inheritedReach, cipher }),
+		createAgentOrchestrationIntakeRoutes(db, { inheritedReach, cipher }),
 	);
 
 	return { app, actionTools };

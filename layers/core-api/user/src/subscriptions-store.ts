@@ -1,8 +1,8 @@
 /**
  * Subscriptions and inbox — the single owner of `subscriptions`/`inbox` row
  * reads and writes. A subscription is one row per
- * `user · event | schedule · document? · paused`; an inbox row is a pointer
- * at a `changes` row a person has (or has not) seen/read.
+ * `user · event | schedule · document? · paused`; an inbox row is one reason
+ * for a person or an agent to look at something, seen and read or not.
  */
 import {
 	type HyperIdleDb,
@@ -11,7 +11,7 @@ import {
 	type NewSubscription,
 	subscriptions,
 } from "@hyperidle/db";
-import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt } from "drizzle-orm";
 
 export type NewSubscriptionRow = NewSubscription;
 
@@ -108,22 +108,30 @@ export async function deleteSubscription(db: HyperIdleDb, id: string): Promise<v
 export interface InboxRowFilter {
 	readonly userId: string;
 	readonly limit?: number;
+	/** Only the rows not yet read, oldest first — what an agent's runner works through. */
+	readonly unread?: boolean;
 }
 
-/** Newest first, by `change_id` insertion order — `open_user`'s "newest 50". */
+/** Newest first — `open_user`'s "newest 50" — or, `unread`, oldest unread first. */
 export function listInboxRows(
 	db: HyperIdleDb,
 	filter: InboxRowFilter,
 ): Promise<Array<typeof inbox.$inferSelect>> {
-	const q = db
-		.select()
-		.from(inbox)
-		.where(eq(inbox.userId, filter.userId))
-		.orderBy(desc(inbox.changeId));
+	const q = filter.unread
+		? db
+				.select()
+				.from(inbox)
+				.where(and(eq(inbox.userId, filter.userId), isNull(inbox.readAt)))
+				.orderBy(asc(inbox.createdAt), asc(inbox.id))
+		: db
+				.select()
+				.from(inbox)
+				.where(eq(inbox.userId, filter.userId))
+				.orderBy(desc(inbox.createdAt), desc(inbox.id));
 	return filter.limit !== undefined ? q.limit(filter.limit) : q;
 }
 
-/** Idempotent — a subscriber can only ever see a change once. */
+/** Idempotent on `(userId, key)` — the same wake is one row. */
 export async function insertInboxRow(
 	db: HyperIdleDb,
 	values: NewInboxRow,
@@ -132,60 +140,38 @@ export async function insertInboxRow(
 	return row;
 }
 
-/** `seen: "all"` marks every unseen row for this user; a list marks only those ids. */
+/** `seen: "all"` marks every unseen row for this user; a list marks only those rows. */
 export async function markInboxSeen(
 	db: HyperIdleDb,
 	userId: string,
-	changeIds: "all" | readonly string[],
+	ids: "all" | readonly string[],
 	seenAt: string,
 ): Promise<void> {
 	const scope =
-		changeIds === "all"
+		ids === "all"
 			? and(eq(inbox.userId, userId), isNull(inbox.seenAt))
-			: and(eq(inbox.userId, userId), inArray(inbox.changeId, Array.from(changeIds)));
+			: and(eq(inbox.userId, userId), inArray(inbox.id, Array.from(ids)));
 	await db.update(inbox).set({ seenAt }).where(scope);
 }
 
 export async function markInboxRead(
 	db: HyperIdleDb,
 	userId: string,
-	changeIds: readonly string[],
+	ids: readonly string[],
 	readAt: string,
 ): Promise<void> {
-	if (changeIds.length === 0) return;
+	if (ids.length === 0) return;
 	await db
 		.update(inbox)
 		.set({ readAt, seenAt: readAt })
-		.where(and(eq(inbox.userId, userId), inArray(inbox.changeId, Array.from(changeIds))));
+		.where(and(eq(inbox.userId, userId), inArray(inbox.id, Array.from(ids))));
 }
 
-/**
- * Distinct change ids behind a read inbox row, across every user — the
- * retention sweep's first step (`@hyperidle/changes`' `listChanges` answers
- * how old each one is; `inbox` carries no timestamp of its own).
- */
-export async function listReadInboxChangeIds(db: HyperIdleDb): Promise<string[]> {
-	const rows = await db
-		.selectDistinct({ changeId: inbox.changeId })
-		.from(inbox)
-		.where(isNotNull(inbox.readAt));
-	return rows.map((r) => r.changeId);
-}
-
-/**
- * Delete every read inbox row behind one of these change ids — the
- * retention sweep's second step, once the caller has decided (via
- * `@hyperidle/changes`) which change ids are older than the cutoff. Returns
- * the count deleted.
- */
-export async function deleteReapableInboxRows(
-	db: HyperIdleDb,
-	changeIds: readonly string[],
-): Promise<number> {
-	if (changeIds.length === 0) return 0;
+/** Delete every read inbox row written before `cutoff`. Returns the count deleted. */
+export async function deleteReadInboxRowsBefore(db: HyperIdleDb, cutoff: string): Promise<number> {
 	const deleted = await db
 		.delete(inbox)
-		.where(and(isNotNull(inbox.readAt), inArray(inbox.changeId, Array.from(changeIds))))
-		.returning({ changeId: inbox.changeId });
+		.where(and(isNotNull(inbox.readAt), lt(inbox.createdAt, cutoff)))
+		.returning({ id: inbox.id });
 	return deleted.length;
 }

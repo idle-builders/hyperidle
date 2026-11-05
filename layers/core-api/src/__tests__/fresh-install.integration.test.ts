@@ -28,10 +28,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
-	agentWorkIntents,
 	changes,
 	documents,
 	type HyperIdleDb,
+	inbox,
 	messages,
 	plugins,
 	subscriptions,
@@ -50,6 +50,7 @@ import {
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
+import { listInboxRows } from "@hyperidle/user";
 import { eq, or } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect, vi } from "vitest";
@@ -122,8 +123,6 @@ function pluginActions(
 	baseDirs.push(pluginsBaseDir);
 	const actions = buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 		pluginsBaseDir,
 		bundledPluginsDir: BUNDLED,
 		adapterPool: machineHarnesses,
@@ -198,8 +197,6 @@ describe("a fresh install, end to end", () => {
 		// First start makes the person in-process as nobody (`routes/start.ts`); the HTTP door refuses nobody.
 		const bootstrapEditUser = buildCoreActions({
 			agentOrchestration,
-			agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-			reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 		}).find((a) => a.declaration.name === "edit_user");
 		if (!bootstrapEditUser) throw new Error("edit_user not found");
 		const adaResult = await bootstrapEditUser.run(
@@ -245,7 +242,7 @@ describe("a fresh install, end to end", () => {
 		expect(await db.select().from(threads)).toEqual([]);
 
 		// A message to the assistant starts its thread turn and nothing else.
-		// The subscription-wake rule only counts a change strictly after the
+		// A subscription only counts a change strictly after the
 		// subscription's own `createdAt` — spin until the clock ticks past the
 		// millisecond the subscribe-on-create call above landed in, a real
 		// (deterministic) tick rather than a guessed sleep duration.
@@ -305,25 +302,16 @@ describe("a fresh install, end to end", () => {
 		await call(app, "send_message", { threadId: sentinelThreadId, text: "sentinel ping" });
 
 		await vi.waitFor(async () => {
-			const sentinelIntents = (await db.select().from(agentWorkIntents)).filter((i) =>
-				i.sourceId.includes("sentinel-once-install"),
-			);
-			expect(sentinelIntents.map((i) => i.kind)).toEqual(["subscription_run"]);
+			const sentinelRows = await listInboxRows(db, { userId: "sentinel-once-install" });
+			expect(sentinelRows.map((r) => r.reason)).toEqual(["subscription"]);
 		});
-		const afterMessage = await db.select().from(agentWorkIntents);
-		expect(
-			afterMessage.filter((i) => !i.sourceId.includes("sentinel-once-install")).map((i) => i.kind),
-		).toEqual(["thread_turn"]);
+		const assistantRows = await listInboxRows(db, { userId: assistantId });
+		expect(assistantRows.map((r) => r.reason)).toEqual(["message"]);
 
 		// The sentinel was scaffolding for the completion signal above, not a
 		// fixture this end-to-end test's later agent-count assertions expect —
 		// remove it and everything it touched, FK-dependent rows first.
-		const sentinelIntentRows = (await db.select().from(agentWorkIntents)).filter((i) =>
-			i.sourceId.includes("sentinel-once-install"),
-		);
-		for (const row of sentinelIntentRows) {
-			await db.delete(agentWorkIntents).where(eq(agentWorkIntents.id, row.id));
-		}
+		await db.delete(inbox).where(eq(inbox.userId, "sentinel-once-install"));
 		await db.delete(messages).where(eq(messages.threadId, sentinelThreadId));
 		await db.delete(changes).where(eq(changes.objectId, sentinelThreadId));
 		await db.delete(threads).where(eq(threads.id, sentinelThreadId));
@@ -335,8 +323,8 @@ describe("a fresh install, end to end", () => {
 		// The subscriptions are live: a change the assistant did not start does wake it.
 		await call(app, "edit_task", { teamId: teamA, title: "Plan the week" });
 		await vi.waitFor(async () => {
-			const afterTask = await db.select().from(agentWorkIntents);
-			expect(afterTask.some((i) => i.kind === "subscription_run")).toBe(true);
+			const afterTask = await listInboxRows(db, { userId: assistantId });
+			expect(afterTask.some((r) => r.reason === "subscription")).toBe(true);
 		});
 
 		// A second person on a second team.

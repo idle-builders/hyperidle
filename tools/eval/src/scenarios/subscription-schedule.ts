@@ -16,10 +16,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { agentWorkIntents, subscriptions } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/event-bus";
+import { inbox, subscriptions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { buildEvalAgentOrchestrationPort } from "../agent-orchestration-fixture.js";
 import { seedMinimalWorld, seedSubscription } from "../seeding.js";
 import { fireSubscription } from "../subscription-trigger.js";
 import type {
@@ -68,14 +66,7 @@ const ssScheduleFire: EvalScenario = {
 	},
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
 		const startMs = Date.now();
-		const eventBus = new EventBus();
-		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
-		const result = await fireSubscription(
-			ctx.db,
-			eventBus,
-			agentOrchestration,
-			scheduleSubscriptionId,
-		);
+		const result = await fireSubscription(ctx.db, scheduleSubscriptionId);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -84,16 +75,14 @@ const ssScheduleFire: EvalScenario = {
 				id: "intent_recorded",
 				label: "subscription_run Intent Recorded",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					// `sourceId` carries the fired-at instant, so match by owner
-					// rather than the full string.
 					const owned = await ctx.db
-						.select({ id: agentWorkIntents.id })
-						.from(agentWorkIntents)
-						.where(eq(agentWorkIntents.requestedBy, scheduleSubscriptionOwnerId));
+						.select({ id: inbox.id })
+						.from(inbox)
+						.where(eq(inbox.userId, scheduleSubscriptionOwnerId));
 					const recorded = owned.length > 0;
 					return {
 						score: recorded ? 1.0 : 0.0,
-						note: recorded ? undefined : "No subscription_run intent recorded for the owner",
+						note: recorded ? undefined : "No subscription inbox row recorded for the owner",
 					};
 				},
 			},

@@ -11,7 +11,7 @@ import {
 } from "@hyperidle/db/test-fixtures";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { EventBus } from "@hyperidle/event-bus";
-import { findPersonByKey, givePersonKey, newPersonKey } from "@hyperidle/user";
+import { findUserByKey, giveUserKey, newUserKey } from "@hyperidle/user";
 import type { Hono } from "hono";
 import { buildCoreActions } from "../actions/compose.js";
 import { disposeApp } from "../app.js";
@@ -135,8 +135,6 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		// `service-bootstrap.integration.test.ts` builds.
 		const fixtureActions = buildCoreActions({
 			agentOrchestration,
-			agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-			reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 		});
 		const sendMessageAction = fixtureActions.find((a) => a.declaration.name === "send_message");
 		if (!sendMessageAction) {
@@ -184,9 +182,9 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 			const key = appKeys.get(through);
 			if (!key) throw new Error("asPerson: not a fixture app");
 			// One key is one person: whoever held it gets a fresh one.
-			const holder = await findPersonByKey(db, key);
-			if (holder && holder !== userId) await givePersonKey(db, holder, newPersonKey());
-			await givePersonKey(db, userId, key);
+			const holder = await findUserByKey(db, key);
+			if (holder && holder.id !== userId) await giveUserKey(db, holder.id, newUserKey());
+			await giveUserKey(db, userId, key);
 		});
 	},
 	pluginsApp: async ({ db, eventBus }, use) => {

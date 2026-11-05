@@ -67,7 +67,7 @@ A review is resolved by a verdict; a questionnaire is resolved by an answer. Not
 
 ## The review flow
 
-An agent asks for a human decision by sending a review or a questionnaire (`send_message({ review: ... })` / `send_message({ questionnaire: ... })`). That session ends. The `review_sessions` table records the link between the asking message and the session. When the verdict or answer arrives, `send_message` (`thread-actions.ts`) calls the review-verdict recorder, which queues a `session_resume` work intent. The session resumes with a message that says what came back — approved (with the note), rejected (with the reason), or the option picked or words written (`verdict-message.ts`).
+An agent asks for a human decision by sending a review or a questionnaire (`send_message({ review: ... })` / `send_message({ questionnaire: ... })`). That session ends. The agent's runner records which session filed it (`review_sessions`). When the verdict or answer arrives, `send_message` (`thread-actions.ts`) writes a `review_answered` row into the asking agent's inbox. Its runner brings the session that asked back — the answer goes into it while it is still live, or it is resumed; if neither can happen, the agent gets a new turn in the thread ([How an agent gets work](../architecture/overview.md#how-an-agent-gets-work)). The session reads a message that says what came back — approved (with the note), rejected (with the reason), or the option picked or words written (`verdict-message.ts`).
 
 No interception exists. The agent elects to ask; nothing blocks a tool call pending approval.
 
@@ -93,6 +93,8 @@ After a message lands, agents are woken if:
 - The thread has exactly two members, the sender is one of them, and the other one is an agent.
 
 The sender is never woken. Huddle messages never wake agents. Code: `agentsToWake`, `actions/thread.ts`.
+
+Waking an agent writes a `message` row into its inbox; its runner hands the message to the agent's live run in that thread or starts a new turn ([How an agent gets work](../architecture/overview.md#how-an-agent-gets-work)).
 
 ## Review parts, pins, flags and rounds
 

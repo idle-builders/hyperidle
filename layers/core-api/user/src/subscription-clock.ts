@@ -1,19 +1,16 @@
-import type { HyperIdleDb, User } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { AgentWorkIntentRecorderFn } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
-import type { ActionContext } from "./action-types.js";
 import { nextCronMatch, parseCron } from "./cron.js";
-import { AgentNotRunnableError } from "./runnable-agent.js";
-import type { SubscriptionWakeDeps } from "./subscription-wake.js";
-import { resolveSubscriptionWakeRequest } from "./subscription-wake.js";
+import { type InboxNudge, tellUser } from "./inbox-tell.js";
+import { isRunnableAgent } from "./runnable-agent.js";
 import { listSubscriptions, updateSubscription } from "./subscriptions-store.js";
 import { findUser } from "./user-store.js";
 
 const logger = createLogger({ pkg: "user.subscription-clock" });
 
-export interface SubscriptionClockDeps extends SubscriptionWakeDeps {
-	readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
+export interface SubscriptionClockDeps {
+	/** The WS nudge for a new inbox row. Absent → no push (no WS wired). */
+	readonly wsPush?: InboxNudge;
 }
 
 export interface SubscriptionClockConfig {
@@ -25,26 +22,13 @@ export interface SubscriptionClock {
 	readonly stop: () => void;
 }
 
-function actionContextFor(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	actor: string,
-	now: string,
-): ActionContext {
-	return { actor, db, eventBus, now, internal: true };
-}
-
 /**
- * Wake one due schedule, then advance `next_run_at` regardless of whether
- * the wake itself succeeded — the same "a broken subscription must not
- * retry on every tick" reasoning `fireGenericRoutine`'s `safeNextRunAt`
- * applies, minus the state:"error" write (there is no `active`/`state`
- * column to disable here, only `paused`, and pausing on a bake failure is
- * not this module's call to make).
+ * A due schedule is a row in its agent's inbox — with no change, since nothing changed — then
+ * `next_run_at` moves on whether or not anyone acts, so a broken subscription never fires on
+ * every tick.
  */
 async function fireSchedule(
 	db: HyperIdleDb,
-	eventBus: EventBus,
 	sub: {
 		readonly id: string;
 		readonly userId: string;
@@ -55,41 +39,20 @@ async function fireSchedule(
 ): Promise<void> {
 	const dueAt = sub.nextRunAt;
 	if (dueAt === null || sub.schedule === null) return;
-	const sourceId = `${sub.id}:${dueAt}`;
 
-	const agent: User | undefined = await findUser(db, { id: sub.userId });
-	if (agent?.kind === "ai") {
-		try {
-			const bakedRequest = await resolveSubscriptionWakeRequest(
-				actionContextFor(db, eventBus, agent.id, new Date().toISOString()),
-				{
-					subscription: { id: sub.id, event: null, schedule: sub.schedule },
-					agentId: agent.id,
-					change: null,
-					sourceId,
-				},
-				deps,
-			);
-			await deps.agentWorkIntentRecorder({
-				kind: "subscription_run",
-				sourceKind: "subscription",
-				sourceId,
-				requestedBy: agent.id,
-				idempotencyKey: `subscription:${sub.id}:${dueAt}`,
-				bakedRequest,
-			});
-		} catch (error) {
-			logger.error("subscription schedule wake failed", {
+	const agent = await findUser(db, { id: sub.userId });
+	if (agent && isRunnableAgent(agent)) {
+		await tellUser(
+			db,
+			{
+				userId: agent.id,
+				reason: "subscription",
+				key: `subscription:${sub.id}:${dueAt}`,
 				subscriptionId: sub.id,
-				agentId: agent.id,
-				error:
-					error instanceof AgentNotRunnableError
-						? error.message
-						: error instanceof Error
-							? error.message
-							: String(error),
-			});
-		}
+			},
+			new Date().toISOString(),
+			deps.wsPush,
+		);
 	}
 
 	const now = new Date();
@@ -102,24 +65,19 @@ async function fireSchedule(
 	await updateSubscription(db, sub.id, { nextRunAt, updatedAt: now.toISOString() });
 }
 
-async function tick(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	deps: SubscriptionClockDeps,
-): Promise<void> {
+async function tick(db: HyperIdleDb, deps: SubscriptionClockDeps): Promise<void> {
 	const now = new Date().toISOString();
 	const candidates = await listSubscriptions(db, { paused: false });
 	const due = candidates.filter(
 		(s) => s.schedule !== null && s.nextRunAt !== null && s.nextRunAt <= now,
 	);
 	for (const sub of due) {
-		await fireSchedule(db, eventBus, sub, deps);
+		await fireSchedule(db, sub, deps);
 	}
 }
 
 export function startSubscriptionClock(
 	db: HyperIdleDb,
-	eventBus: EventBus,
 	deps: SubscriptionClockDeps,
 	config?: SubscriptionClockConfig,
 ): SubscriptionClock {
@@ -128,7 +86,7 @@ export function startSubscriptionClock(
 	const intervalId = setInterval(() => {
 		if (tickRunning) return;
 		tickRunning = true;
-		void tick(db, eventBus, deps)
+		void tick(db, deps)
 			.catch((error) => {
 				logger.error("subscription clock tick failed", {
 					error: error instanceof Error ? error.message : String(error),

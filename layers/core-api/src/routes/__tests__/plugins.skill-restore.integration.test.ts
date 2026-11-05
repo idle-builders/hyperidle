@@ -26,8 +26,6 @@ async function editDocumentAs(
 ): Promise<{ ok: boolean }> {
 	const actions = buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
 	const editDocument = actions.find((a) => a.declaration.name === "edit_document");
 	if (!editDocument) throw new Error("edit_document action not found");

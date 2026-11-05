@@ -21,7 +21,6 @@ import {
 	userTeams,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import type { ReviewVerdictOutcome } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { and, eq, inArray } from "drizzle-orm";
 import { vi } from "vitest";
@@ -233,28 +232,7 @@ export function threadDeps(overrides: Partial<ThreadActionsDeps> = {}): ThreadAc
 		org: {
 			getTeam: async (exec, q) => (await exec.select().from(teams).where(eq(teams.id, q.id)))[0],
 		},
-		agents: {
-			requireRunnableAgent: async (db, agentId) => {
-				const [row] = await db.select().from(users).where(eq(users.id, agentId));
-				const agent = await withTeams(db, row);
-				if (agent?.kind !== "ai" || !["active", "idle"].includes(agent.status)) {
-					throw new Error(`Agent ${agentId} is not a runnable AI agent`);
-				}
-				return { ...agent, teamId: agent.teamIds[0] ?? null };
-			},
-			getAgentIdentity: async () => null,
-		},
-		agentWorkIntentRecorder: vi.fn(async (input) => ({
-			id: "fake",
-			idempotencyKey: input.idempotencyKey,
-		})),
-		reviewVerdictRecorder: vi.fn(
-			async (): Promise<ReviewVerdictOutcome> => ({
-				status: "not_resumable",
-				reason: "fake reviewVerdictRecorder: no agent-orchestration gate in this test",
-			}),
-		),
-		linkReviewToSession: vi.fn(async () => undefined),
+		inbox: { tellAgent: vi.fn(async () => true) },
 		// @lore: no-op here; cross-module task-state effect is tested in layers/core-api/src/__tests__/
 		moveTaskToReview: async () => undefined,
 		settleTaskAfterVerdict: async () => undefined,

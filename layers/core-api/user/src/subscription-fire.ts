@@ -1,18 +1,12 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type {
-	AgentWorkIntentRecorderFn,
-	ChangeRow,
-	PersonReason,
-	Problem,
-} from "@hyperidle/domain-model";
+import type { ChangeRow, PersonReason, Problem } from "@hyperidle/domain-model";
 import { OBJECT_EVENTS, SYSTEM_ACTOR_ID } from "@hyperidle/domain-model";
 import type { EventBus, ObjectChangeEvent } from "@hyperidle/event-bus";
 import type { ActionContext, SearchDocumentsRunFn } from "./action-types.js";
-import { AgentNotRunnableError } from "./runnable-agent.js";
-import type { SubscriptionWakeDeps } from "./subscription-wake.js";
-import { resolveSubscriptionWakeRequest } from "./subscription-wake.js";
-import { insertInboxRow, insertSubscription, listSubscriptions } from "./subscriptions-store.js";
+import { type InboxNudge, tellUser } from "./inbox-tell.js";
+import { isRunnableAgent } from "./runnable-agent.js";
+import { insertSubscription, listSubscriptions } from "./subscriptions-store.js";
 import { findUser, type UserWithTeams } from "./user-store.js";
 
 const logger = createLogger({ pkg: "user.subscription-fire" });
@@ -46,16 +40,15 @@ export type SearchThreadsReachFn = (
 	| { readonly ok: false; readonly problems: readonly Problem[] }
 >;
 
-export interface SubscriptionFireDeps extends SubscriptionWakeDeps {
-	readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
+export interface SubscriptionFireDeps {
 	/** Reach for a `task.*` event — called once per subscriber, as that subscriber. */
 	readonly searchTasks: SearchTasksReachFn;
 	/** Reach for a `thread.*` event — called once per subscriber, as that subscriber. */
 	readonly searchThreads: SearchThreadsReachFn;
 	/** Reach for a `document.*` event — same shape as `searchDocuments` above, called as the subscriber. */
 	readonly searchDocuments: SearchDocumentsRunFn;
-	/** The WS nudge for a person's inbox row. Absent → no push (no WS wired). */
-	readonly wsPush?: (topic: string, envelope: unknown) => void;
+	/** The WS nudge for a new inbox row. Absent → no push (no WS wired). */
+	readonly wsPush?: InboxNudge;
 }
 
 function actionContextFor(
@@ -115,73 +108,50 @@ async function reaches(
 	return teams === "all" || row.teamIds.some((teamId) => teams.has(teamId));
 }
 
-async function wakeAgent(
+/** A subscription firing for an agent is a row in its inbox; its runner acts on it. */
+async function tellAgent(
 	db: HyperIdleDb,
-	eventBus: EventBus,
-	sub: { readonly id: string; readonly event: string | null; readonly schedule: string | null },
+	sub: { readonly id: string },
 	agent: UserWithTeams,
 	change: ChangeRow,
-	deps: SubscriptionFireDeps,
+	wsPush: SubscriptionFireDeps["wsPush"],
 ): Promise<void> {
-	const sourceId = `${sub.id}:${change.id}`;
-	try {
-		const bakedRequest = await resolveSubscriptionWakeRequest(
-			actionContextFor(db, eventBus, change.actor, new Date().toISOString()),
-			{
-				subscription: { id: sub.id, event: sub.event, schedule: sub.schedule },
-				agentId: agent.id,
-				change,
-				sourceId,
-			},
-			deps,
-		);
-		await deps.agentWorkIntentRecorder({
-			kind: "subscription_run",
-			sourceKind: "subscription",
-			sourceId,
-			requestedBy: change.actor,
-			idempotencyKey: `subscription:${sub.id}:${change.id}`,
-			bakedRequest,
-		});
-	} catch (error) {
-		// A bake failure (e.g. a deactivated agent) drops that one wake — the
-		// change stays committed and the other subscribers are unaffected —
-		// but the drop must be LOGGED, never silent (thread-actions.ts's mention
-		// wake idiom).
-		logger.error("subscription wake failed", {
-			subscriptionId: sub.id,
-			agentId: agent.id,
+	if (!isRunnableAgent(agent)) return;
+	await tellUser(
+		db,
+		{
+			userId: agent.id,
+			reason: "subscription",
+			key: `subscription:${sub.id}:${change.id}`,
 			changeId: change.id,
-			error:
-				error instanceof AgentNotRunnableError
-					? error.message
-					: error instanceof Error
-						? error.message
-						: String(error),
-		});
-	}
+			subscriptionId: sub.id,
+			objectId: change.objectId,
+		},
+		change.at,
+		wsPush,
+	);
 }
 
 async function notifyPerson(
 	db: HyperIdleDb,
 	person: UserWithTeams,
+	sub: { readonly id: string },
 	change: ChangeRow,
 	wsPush: SubscriptionFireDeps["wsPush"],
 ): Promise<void> {
-	const inserted = await insertInboxRow(db, {
-		userId: person.id,
-		changeId: change.id,
-		seenAt: null,
-		readAt: null,
-	});
-	if (inserted && wsPush) {
-		wsPush(`user:${person.id}`, {
-			type: "update",
-			topic: `user:${person.id}`,
-			kind: "inbox",
-			data: { changeId: change.id },
-		});
-	}
+	await tellUser(
+		db,
+		{
+			userId: person.id,
+			reason: "subscription",
+			key: `change:${change.id}`,
+			changeId: change.id,
+			subscriptionId: sub.id,
+			objectId: change.objectId,
+		},
+		change.at,
+		wsPush,
+	);
 }
 
 /** What a change says about one message or one task, read without trusting its shape. */
@@ -253,7 +223,7 @@ async function tellPeople(
 		const person = await findUser(db, { id: userId });
 		if (person?.kind !== "human") continue;
 		if (!(await reaches(db, eventBus, person, change, deps))) continue;
-		await notifyPerson(db, person, change, deps.wsPush);
+		await notifyPerson(db, person, sub, change, deps.wsPush);
 	}
 }
 
@@ -268,7 +238,7 @@ async function fireForEvent(
 	const subs = await listSubscriptions(db, { event: event.type, paused: false });
 	if (subs.length === 0) return;
 	const woke = new Set(event.woke ?? []);
-	// @lore: subscription filter — createdAt < change.at blocks self-wake on agent.created; woke set prevents double-wake when change already started this agent
+	// @lore: subscription filter — createdAt < change.at blocks self-wake on agent.created; woke set prevents a second row when the change already told this agent
 	const candidates = subs.filter(
 		(s) =>
 			s.userId !== change.actor &&
@@ -289,9 +259,9 @@ async function fireForEvent(
 				change.kind === "message"
 			)
 				continue;
-			await wakeAgent(db, eventBus, sub, subscriber, change, deps);
+			await tellAgent(db, sub, subscriber, change, deps.wsPush);
 		} else if (sub.objectId === null || (await hearsFollows(db, subscriber.id))) {
-			await notifyPerson(db, subscriber, change, deps.wsPush);
+			await notifyPerson(db, subscriber, sub, change, deps.wsPush);
 		}
 	}
 }

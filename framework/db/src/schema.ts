@@ -47,7 +47,7 @@ export const users = pgTable("users", {
 	what: text("what"),
 	/** A person's unique id on a shared backend. Null for agents and a laptop's one person. */
 	email: text("email").unique(),
-	/** sha256 of the person's own key — every request carrying that key is them. Null for agents. */
+	/** sha256 of the user's own key — every request carrying that key is them. An agent's runner holds the agent's. */
 	keyHash: text("key_hash").unique(),
 });
 
@@ -258,78 +258,6 @@ export const agentSessionRequests = pgTable(
 	],
 );
 
-// @lore: agentWorkIntents — durable handoff; EventBus is a latency hint only; process death between a domain commit and an in-memory emit must not lose work
-export const agentWorkIntents = pgTable(
-	"agent_work_intents",
-	{
-		id: text("id").primaryKey(),
-		kind: text("kind").notNull(),
-		sourceKind: text("source_kind").notNull(),
-		sourceId: text("source_id").notNull(),
-		requestedBy: text("requested_by"),
-		idempotencyKey: text("idempotency_key").notNull(),
-		status: text("status").notNull().default("pending"),
-		claimToken: text("claim_token"),
-		claimExpiresAt: text("claim_expires_at"),
-		requestId: text("request_id").references(() => agentSessionRequests.id, {
-			onDelete: "restrict",
-		}),
-		attempts: integer("attempts").notNull().default(0),
-		lastError: text("last_error"),
-		lastErrorCode: text("last_error_code"),
-		bakedRequestJson: text("baked_request_json"),
-		createdAt: text("created_at").notNull(),
-		updatedAt: text("updated_at").notNull(),
-	},
-	(table) => [
-		uniqueIndex("agent_work_intents_identity_uq").on(
-			table.kind,
-			table.sourceKind,
-			table.sourceId,
-			table.idempotencyKey,
-		),
-		uniqueIndex("agent_work_intents_request_id_uq")
-			.on(table.requestId)
-			.where(sql`${table.requestId} is not null`),
-		index("agent_work_intents_status_created_idx").on(table.status, table.createdAt),
-		index("agent_work_intents_claim_expires_idx").on(table.claimExpiresAt),
-		check(
-			"agent_work_intents_kind_ck",
-			sql`${table.kind} in ('thread_turn','task_run','session_resume','subscription_run')`,
-		),
-		check(
-			"agent_work_intents_source_kind_ck",
-			sql`${table.sourceKind} in ('thread_message','task_dispatch_attempt','review_verdict','subscription')`,
-		),
-		check(
-			"agent_work_intents_status_ck",
-			// `superseded` — a re-emit for the same (kind, sourceId) with a fresher idempotencyKey wins; older intent is retired as superseded (never dispatched), not failed (it was not an error)
-			sql`${table.status} in ('pending','claimed','handed_off','failed','superseded')`,
-		),
-		// kind/source compatibility is a closed pairing map
-		check(
-			"agent_work_intents_kind_source_compat_ck",
-			sql`
-				(${table.kind} = 'thread_turn' and ${table.sourceKind} = 'thread_message')
-				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')
-				or (${table.kind} = 'session_resume' and ${table.sourceKind} = 'review_verdict')
-				or (${table.kind} = 'subscription_run' and ${table.sourceKind} = 'subscription')
-			`,
-		),
-		// One closed per-status correlation check: pending forbids claim fields; claimed requires token+expiry; handed_off requires request_id; failed requires last_error_code
-		check(
-			"agent_work_intents_correlation_ck",
-			sql`
-				(${table.status} = 'pending' and ${table.claimToken} is null and ${table.claimExpiresAt} is null and ${table.requestId} is null)
-				or (${table.status} = 'claimed' and ${table.claimToken} is not null and ${table.claimExpiresAt} is not null and ${table.requestId} is null)
-				or (${table.status} = 'handed_off' and ${table.requestId} is not null)
-				or (${table.status} = 'failed' and ${table.lastErrorCode} is not null)
-				or (${table.status} = 'superseded' and ${table.claimToken} is null and ${table.claimExpiresAt} is null and ${table.requestId} is null)
-			`,
-		),
-	],
-);
-
 // @lore: taskDispatchAttempts — task ID alone can't identify retries or handoffs; each dispatch is durable so replay reuses it without suppressing later attempts
 export const taskDispatchAttempts = pgTable(
 	"task_dispatch_attempts",
@@ -534,19 +462,41 @@ export const subscriptions = pgTable(
 	],
 );
 
+/**
+ * A reason for a person or an agent to look at something. A person's rows come from their
+ * subscriptions; an agent's rows are every reason it has to act, which its runner reads.
+ */
 export const inbox = pgTable(
 	"inbox",
 	{
+		id: text("id").primaryKey(),
 		userId: text("user_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
-		changeId: text("change_id")
-			.notNull()
-			.references(() => changes.id, { onDelete: "cascade" }),
+		reason: text("reason").notNull(),
+		/** Null when nothing changed: a schedule fires on its own. */
+		changeId: text("change_id").references(() => changes.id, { onDelete: "cascade" }),
+		subscriptionId: text("subscription_id").references(() => subscriptions.id, {
+			onDelete: "cascade",
+		}),
+		/** The task, thread or review message the row is about. */
+		objectId: text("object_id"),
+		/** The same wake twice is one row. */
+		key: text("key").notNull(),
 		seenAt: text("seen_at"),
 		readAt: text("read_at"),
+		createdAt: text("created_at").notNull(),
 	},
-	(table) => [primaryKey({ columns: [table.userId, table.changeId] })],
+	(table) => [
+		uniqueIndex("inbox_user_key_uq").on(table.userId, table.key),
+		index("inbox_user_unread_idx")
+			.on(table.userId, table.createdAt)
+			.where(sql`${table.readAt} IS NULL`),
+		check(
+			"inbox_reason_ck",
+			sql`${table.reason} IN ('subscription', 'message', 'task_run', 'task_stop', 'review_answered')`,
+		),
+	],
 );
 
 // --- Documents ---
@@ -831,7 +781,6 @@ export type NewChange = typeof changes.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 
 export type AgentSessionRequest = typeof agentSessionRequests.$inferSelect;
-export type AgentWorkIntent = typeof agentWorkIntents.$inferSelect;
 
 export type Thread = typeof threads.$inferSelect;
 export type NewThread = typeof threads.$inferInsert;

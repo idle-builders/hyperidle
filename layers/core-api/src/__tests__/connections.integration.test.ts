@@ -37,8 +37,6 @@ function authHeadersA(extra?: Record<string, string>): Record<string, string> {
 function buildUserActions(agentOrchestration: AgentOrchestrationPort) {
 	return buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
 }
 

@@ -19,10 +19,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { agentWorkIntents } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/event-bus";
+import { inbox } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { buildEvalAgentOrchestrationPort } from "../agent-orchestration-fixture.js";
 import { seedActiveSession, seedMinimalWorld, seedSubscription, seedTask } from "../seeding.js";
 import { fireSubscription } from "../subscription-trigger.js";
 import type {
@@ -79,14 +77,7 @@ const delSuccessfulDelegation: EvalScenario = {
 	},
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
 		const startMs = Date.now();
-		const eventBus = new EventBus();
-		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
-		const result = await fireSubscription(
-			ctx.db,
-			eventBus,
-			agentOrchestration,
-			delSuccessSubscriptionId,
-		);
+		const result = await fireSubscription(ctx.db, delSuccessSubscriptionId);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -95,17 +86,17 @@ const delSuccessfulDelegation: EvalScenario = {
 				id: "intent_recorded_owner_hint",
 				label: "Intent Recorded With Owner (no delegate selection exists)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [intent] = await ctx.db
-						.select({ requestedBy: agentWorkIntents.requestedBy })
-						.from(agentWorkIntents)
-						.where(eq(agentWorkIntents.requestedBy, delSuccessOwnerAgentId))
+					const [row] = await ctx.db
+						.select({ id: inbox.id })
+						.from(inbox)
+						.where(eq(inbox.userId, delSuccessOwnerAgentId))
 						.limit(1);
-					const correct = intent !== undefined;
+					const correct = row !== undefined;
 					return {
 						score: correct ? 1.0 : 0.0,
 						note: correct
 							? undefined
-							: `Expected a subscription_run intent requestedBy the owner (${delSuccessOwnerAgentId})`,
+							: `Expected a subscription inbox row for the owner (${delSuccessOwnerAgentId})`,
 					};
 				},
 			},

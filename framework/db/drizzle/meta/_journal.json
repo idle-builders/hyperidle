@@ -792,6 +792,13 @@
 			"when": 1793572270893,
 			"tag": "0113_system_actor_name",
 			"breakpoints": true
+		},
+		{
+			"idx": 114,
+			"version": "7",
+			"when": 1793572270894,
+			"tag": "0114_agent_inbox",
+			"breakpoints": true
 		}
 	]
 }

@@ -3,7 +3,7 @@
  * items — never from `scopeId`, and never set explicitly.
  */
 import { describe, expect, it } from "vitest";
-import { toBakedContextDocuments } from "../work-intent.js";
+import { toBakedContextDocuments } from "../run-bake.js";
 
 function makeItem(overrides: {
 	id?: string;

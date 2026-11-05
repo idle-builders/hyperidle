@@ -3,8 +3,8 @@ import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import { buildToolRegistry } from "@hyperidle/tool-handlers";
+import { actionsAsTools } from "../__testing__/actions-test-tools.js";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
-import { actionsAsTools } from "../actions/actions-as-tools.js";
 import { buildCoreActions } from "../actions/compose.js";
 
 const registry: ToolRegistry = {
@@ -23,8 +23,6 @@ describe("MCP session custody", () => {
 		const definitions = actionsAsTools(
 			buildCoreActions({
 				agentOrchestration,
-				agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-				reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 			}),
 		);
 		const context: ToolContext<typeof db> = {

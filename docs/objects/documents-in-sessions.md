@@ -6,9 +6,11 @@ Source: `layers/core-api/document/src/session-documents.ts`, `layers/agent-orche
 
 ## Which sessions get documents
 
-Only `task_run` and `subscription_run` sessions get a `knowledge/` tree with documents.
+Only task runs and subscription runs get a `knowledge/` tree with documents.
 
-`thread_turn` and `session_resume` sessions do not. They get only `context/session.toon` and an empty manifest.
+Turns in a thread and resumed sessions do not. They get only `context/session.toon` and an empty manifest.
+
+The agent's runner asks for the documents through the action door as the agent: `search_documents({ forSession: { about, teamId } })` runs the selection below and answers each document with its parent chain. `about` is the task's description (or title) for a task run, and the subscription's prompt (or its event or schedule) for a subscription run. The runner puts the answer into the run it builds ([How an agent gets work](../architecture/overview.md#how-an-agent-gets-work)).
 
 ## Selection
 
@@ -41,7 +43,7 @@ The assembled documents are written as files into `knowledge/` inside the sessio
 - Each file is named `<title>_<id8>.md` (8-char id suffix for move detection); an app is `<title>_<id8>.html`.
 - Skill/rule/agent_file documents are written read-only (chmod 0444).
 
-`context/session.toon` holds a flat key-value summary of task, ancestors, agent, and team. Written from the baked context bundle; no DB reads at session start.
+`context/session.toon` holds a flat key-value summary of task, ancestors, agent, and team. Written from the context the runner built for the run; no DB reads at session start.
 
 `.fabric/manifest.json` records the document id, file path, version, and scope for every assembled item.
 
@@ -68,4 +70,4 @@ Writeback rules by path:
 
 ## Ancestors
 
-Each ordinary document in the assembled set has its parent chain resolved at bake time (`resolveParentChain`). The parent chain is used to build the `knowledge/` folder tree so an agent sees documents nested correctly.
+Each ordinary document in the assembled set has its parent chain resolved when it is selected (`resolveParentChain`). The parent chain is used to build the `knowledge/` folder tree so an agent sees documents nested correctly.

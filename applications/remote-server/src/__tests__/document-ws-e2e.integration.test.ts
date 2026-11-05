@@ -21,7 +21,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, vi } from "vitest";
 import { createServer, type ServerHandle } from "../create-server.js";
 
@@ -173,24 +172,6 @@ async function seedHuman(db: HyperIdleDb, id: string, teamId?: string): Promise<
 	if (teamId) await db.insert(userTeams).values({ userId: id, teamId }).onConflictDoNothing();
 }
 
-/** `messages.sender_id` FKs into `users` — an agent's own row, `kind:"ai"`. */
-async function seedAgent(db: HyperIdleDb, id: string, ownerUserId: string): Promise<void> {
-	const now = new Date().toISOString();
-	await db
-		.insert(users)
-		.values({
-			id,
-			kind: "ai",
-			name: id,
-			role: "assistant",
-			status: "active",
-			agentCategory: "individual",
-			ownerUserId,
-			createdAt: now,
-		})
-		.onConflictDoNothing();
-}
-
 describe("document websocket nudge — real server, real socket, both doors", () => {
 	afterEach(() => {
 		vi.unstubAllEnvs();
@@ -250,59 +231,6 @@ describe("document websocket nudge — real server, real socket, both doors", ()
 				};
 				expect(listData.before).toBeNull();
 				expect(listData.after).toBeNull();
-			} finally {
-				ws.close();
-			}
-		} finally {
-			await handle.server.dispose();
-		}
-	}, 30_000);
-
-	test("TOOL door: the registered edit_document MCP tool handler nudges the same subscriber", async ({
-		db,
-	}) => {
-		const handle = await boot(db);
-		try {
-			await seedTeam(db, "doc-e2e-team-2");
-			await seedHuman(db, FOUNDER_ID, "doc-e2e-team-2");
-			await seedAgent(db, "doc-e2e-agent-1", FOUNDER_ID);
-			const created = await editDocument(handle, { title: "tool-door v1" }, "doc-e2e-agent-1");
-
-			const token = wsTokenFor(handle, FOUNDER_ID);
-			const ws = connect(handle, token);
-			try {
-				await waitForOpen(ws);
-				ws.send(JSON.stringify({ type: "subscribe", topic: `document:${created.id}` }));
-				await waitForFrame(
-					ws,
-					(m) => m.type === "subscribed" && m.topic === `document:${created.id}`,
-				);
-
-				const docFrame = waitForFrame(
-					ws,
-					(m) => m.type === "update" && m.topic === `document:${created.id}`,
-				);
-
-				const editDocumentTool = handle.server.actionTools.find((t) => t.name === "edit_document");
-				if (!editDocumentTool) throw new Error("edit_document tool is not registered");
-				const toolResult = await editDocumentTool.handler(
-					{ id: created.id, title: "secret e2e tool-door title", version: created.version },
-					{
-						db,
-						eventBus: new EventBus(),
-						agentId: "doc-e2e-agent-1",
-						sessionId: "doc-e2e-session-1",
-						taskId: "",
-						sandboxPath: os.tmpdir(),
-						ingestion: { dispose: () => {} },
-					},
-				);
-				expect(toolResult.success).toBe(true);
-
-				const docMsg = await docFrame;
-				const docData = docMsg.data as { after: Record<string, unknown>; actor: string };
-				expect(docData.actor).toBe("doc-e2e-agent-1");
-				expect(docData.after.title).toBe("secret e2e tool-door title");
 			} finally {
 				ws.close();
 			}

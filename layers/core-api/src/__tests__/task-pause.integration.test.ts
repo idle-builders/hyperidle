@@ -5,7 +5,6 @@
  */
 
 import {
-	agentWorkIntents,
 	type HyperIdleDb,
 	messages,
 	sessions,
@@ -16,6 +15,7 @@ import {
 	users,
 	userTeams,
 } from "@hyperidle/db";
+import { listInboxRows } from "@hyperidle/user";
 import { eq, inArray } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -159,7 +159,9 @@ describe("stop and start again", () => {
 			[WAITING]: "stopped",
 			[ASKING]: "stopped",
 		});
-		expect(await sessionState(db)).toBe("stopped");
+		// Session stop is async (inbox runner); the task_stop row is the synchronous proof.
+		const inboxRows = await listInboxRows(db, { userId: AGENT });
+		expect(inboxRows.some((r) => r.reason === "task_stop" && r.objectId === WORKING)).toBe(true);
 		const after = await db.select().from(tasks).where(eq(tasks.teamId, TEAM));
 		expect(Object.fromEntries(after.map((t) => [t.id, t.state]))).toEqual(
 			Object.fromEntries(before.map((t) => [t.id, t.state])),
@@ -199,12 +201,45 @@ describe("stop and start again", () => {
 			[WAITING, "retry"],
 			[WORKING, "restart"],
 		]);
-		const restart = attempts.find((a) => a.taskId === WORKING);
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, restart?.id ?? ""));
-		expect(intents).toHaveLength(1);
+		const inboxRows = await listInboxRows(db, { userId: AGENT });
+		// WORKING restart + WAITING retry each create a task_run inbox row.
+		expect(inboxRows.filter((r) => r.reason === "task_run")).toHaveLength(2);
+	});
+
+	test("starting again also starts a part that was accepted but had not begun", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
+		await seedTree(db, asPerson);
+		const now = new Date().toISOString();
+		await db.insert(threads).values({
+			id: "thr-pause-queued",
+			hostKind: "team",
+			hostId: TEAM,
+			initiatorId: AGENT,
+			participants: JSON.stringify([AGENT]),
+			lastActiveAt: now,
+			createdAt: now,
+		});
+		await db.insert(tasks).values({
+			id: "pause-queued",
+			parentTaskId: ROOT,
+			teamId: TEAM,
+			ownerAgentId: AGENT,
+			title: "pause-queued",
+			state: "accepted",
+			threadId: "thr-pause-queued",
+			position: 9,
+			createdAt: now,
+			updatedAt: now,
+		});
+		await edit(app, { id: ROOT, paused: "stopped" });
+
+		expect((await edit(app, { id: ROOT, paused: null })).ok).toBe(true);
+
+		const restarts = (await attemptsOn(db, ["pause-queued"])).map((a) => a.occasion);
+		expect(restarts).toEqual(["restart"]);
 	});
 
 	test("a task stopped twice starts again twice", async ({ db, app, asPerson }) => {
