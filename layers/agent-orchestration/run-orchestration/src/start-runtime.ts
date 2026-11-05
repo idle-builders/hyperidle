@@ -59,12 +59,8 @@ function assertStartable(deps: RuntimeDeps): asserts deps is RuntimeDeps & {
 		writeback: NonNullable<RuntimeDeps["composition"]["writeback"]>;
 	};
 } {
-	if (
-		!(deps.ports && deps.composition.provisioner && deps.composition.writeback)
-	) {
-		throw new Error(
-			"startRuntime requires ports, provisioner, and writeback composition",
-		);
+	if (!(deps.ports && deps.composition.provisioner && deps.composition.writeback)) {
+		throw new Error("startRuntime requires ports, provisioner, and writeback composition");
 	}
 }
 

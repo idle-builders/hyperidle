@@ -1126,7 +1126,11 @@ async function editExistingUserRun(
 			);
 		}
 		if (existing.ownerUserId !== null && existing.ownerUserId !== ctx.actor) {
-			return problem("owner_only", "Only the person this agent works for may give it a key.", "key");
+			return problem(
+				"owner_only",
+				"Only the person this agent works for may give it a key.",
+				"key",
+			);
 		}
 	}
 

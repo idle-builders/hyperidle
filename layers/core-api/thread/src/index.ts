@@ -3,7 +3,11 @@
  * Typed functions only — must NOT re-export raw `threads`/`messages` pgTable objects (table ownership).
  */
 
-export { type AgentInboxTell, createThreadActions, type ThreadActionsDeps } from "./thread-actions.js";
+export {
+	type AgentInboxTell,
+	createThreadActions,
+	type ThreadActionsDeps,
+} from "./thread-actions.js";
 export type {
 	AppMessageRow,
 	MessageFilter,

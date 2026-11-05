@@ -92,7 +92,13 @@ async function reactToAdmissionFailure(
 	}
 	// A turn in a thread tells the people there. A subscription's wake has no one waiting.
 	if (event.threadId !== null && event.sourceKind === "assistant") {
-		await notifyThreadTurnAdmissionFailure(db, eventBus, event, event.threadId, threadDeps.sendMessage);
+		await notifyThreadTurnAdmissionFailure(
+			db,
+			eventBus,
+			event,
+			event.threadId,
+			threadDeps.sendMessage,
+		);
 		return;
 	}
 	logger.warn("agent run refused admission", {

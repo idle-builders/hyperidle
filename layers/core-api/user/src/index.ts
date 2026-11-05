@@ -14,11 +14,12 @@ export type { CronFields } from "./cron.js";
 export { nextCronMatch, parseCron } from "./cron.js";
 // -- factory writers (idempotent first-boot actor insert, agent status flip) --
 export { insertUserIfAbsent, setAgentsStatus } from "./factory-writers.js";
+// -- inbox rows (a reason for a person or an agent to look) --
+export type { InboxNudge, InboxTell } from "./inbox-tell.js";
+export { tellUser } from "./inbox-tell.js";
 // -- org edges --
 export type { UpsertOrgEdgeInput } from "./org-edges.js";
 export { deleteOrgEdge, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
-// -- a person's own key (who a request is) --
-export { findPersonByEmail, findUserByKey, giveUserKey, newUserKey } from "./user-key.js";
 // -- runnable-agent invariant (the shared runnable check) --
 export type { RunnableAgent } from "./runnable-agent.js";
 export { AgentNotRunnableError, isRunnableAgent, requireRunnableAgent } from "./runnable-agent.js";
@@ -37,9 +38,6 @@ export type {
 	SubscriptionFireDisposer,
 } from "./subscription-fire.js";
 export { registerSubscriptionFire } from "./subscription-fire.js";
-// -- inbox rows (a reason for a person or an agent to look) --
-export type { InboxNudge, InboxTell } from "./inbox-tell.js";
-export { tellUser } from "./inbox-tell.js";
 // -- subscriptions and inbox (subscription search/edit/wake state) --
 export type {
 	InboxRowFilter,
@@ -70,6 +68,8 @@ export { createUpgradeTokenStore } from "./upgrade-token-store.js";
 // -- user actions (search_users / open_user / edit_user) --
 export type { UserActionsDeps } from "./user-actions.js";
 export { createUserActions } from "./user-actions.js";
+// -- a person's own key (who a request is) --
+export { findPersonByEmail, findUserByKey, giveUserKey, newUserKey } from "./user-key.js";
 // -- live updates for people's pages --
 export { registerUserLiveUpdates } from "./user-live-updates.js";
 // -- user store (single owner of `users` row read/write) --

@@ -651,8 +651,10 @@ describe("a person's approval of a task review", () => {
 		db: HyperIdleDb,
 		eventBus: EventBus,
 		agentOrchestration: AgentOrchestrationPort,
+		askerStatus: "active" | "paused" = "active",
 	): Promise<void> {
 		await seedBase(db);
+		await db.update(users).set({ status: askerStatus }).where(eq(users.id, "agent-1"));
 		const now = new Date().toISOString();
 		await db.insert(users).values({
 			id: "human-1",
@@ -722,13 +724,12 @@ describe("a person's approval of a task review", () => {
 		await vi.waitFor(async () => expect((await stateOf(db))?.state).toBe("done"));
 	});
 
-	test("an agent asker always resumes via the inbox after approve", async ({
+	test("with no agent to come back the task closes at once", async ({
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await approve(db, eventBus, agentOrchestration);
-		// AI asker → agentResumes = true → task stays in_progress until the inbox runner processes the row.
-		expect((await stateOf(db))?.state).toBe("in_progress");
+		await approve(db, eventBus, agentOrchestration, "paused");
+		expect((await stateOf(db))?.state).toBe("done");
 	});
 });

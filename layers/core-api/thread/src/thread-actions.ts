@@ -94,9 +94,9 @@ export interface ThreadActionsDeps {
 		input: SearchDocumentsInput,
 	) => Promise<ActionResult<DocumentRow[]>>;
 	readonly org: { getTeam(exec: WriteExecutor, q: { id: string }): Promise<Team | undefined> };
-	/** An agent's inbox: each message for it, and each answer to its review or question. */
+	/** An agent's inbox: each message for it, and each answer to its review or question. False → the agent cannot run, so nobody was told. */
 	readonly inbox: {
-		tellAgent(db: HyperIdleDb, tell: AgentInboxTell): Promise<void>;
+		tellAgent(db: HyperIdleDb, tell: AgentInboxTell): Promise<boolean>;
 	};
 	/** Move a task to `review` state after a review card is filed for it. Called after the message is committed. */
 	readonly moveTaskToReview: (taskId: string, ctx: ActionContext) => Promise<void>;
@@ -1353,16 +1353,17 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			asker !== null &&
 			replyOf(input) !== undefined &&
 			(await deps.users.getUserById(ctx.db, asker))?.kind === "ai";
-		if (askerIsAgent && resolvesMessageRow && asker !== null) {
-			await deps.inbox.tellAgent(ctx.db, {
-				userId: asker,
-				reason: "review_answered",
-				key: `review:${resolvesMessageRow.id}`,
-				objectId: resolvesMessageRow.id,
-				...(messageChangeId ? { changeId: messageChangeId } : {}),
-			});
-		}
-		const resumed = askerIsAgent ? asker : null;
+		const askerTold =
+			askerIsAgent && asker !== null && resolvesMessageRow
+				? await deps.inbox.tellAgent(ctx.db, {
+						userId: asker,
+						reason: "review_answered",
+						key: `review:${resolvesMessageRow.id}`,
+						objectId: resolvesMessageRow.id,
+						...(messageChangeId ? { changeId: messageChangeId } : {}),
+					})
+				: false;
+		const resumed = askerTold ? asker : null;
 
 		// @lore: settle once whether an agent comes back is known; approve closes the task at once only when no agent comes back
 		if (input.verdict !== undefined && resolvesMessageRow?.type === "review") {

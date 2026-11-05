@@ -242,7 +242,7 @@ describe("a fresh install, end to end", () => {
 		expect(await db.select().from(threads)).toEqual([]);
 
 		// A message to the assistant starts its thread turn and nothing else.
-		// The subscription-wake rule only counts a change strictly after the
+		// A subscription only counts a change strictly after the
 		// subscription's own `createdAt` — spin until the clock ticks past the
 		// millisecond the subscribe-on-create call above landed in, a real
 		// (deterministic) tick rather than a guessed sleep duration.

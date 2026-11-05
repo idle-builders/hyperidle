@@ -44,8 +44,8 @@ import { bootCoreApi } from "@hyperidle/core-api/boot";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import {
-	bakeAgentRunnableConfig,
 	type BakedContextBundle,
+	bakeAgentRunnableConfig,
 	type DoneWhenLine,
 	DoneWhenLineSchema,
 	type Reason,

@@ -9,12 +9,7 @@
  * which this test never seeds a row for).
  */
 
-import {
-	agentSessionRequests,
-	type HyperIdleDb,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { agentSessionRequests, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import type { HarnessAdapter, SessionHandle } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";

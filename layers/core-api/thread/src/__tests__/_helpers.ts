@@ -232,7 +232,7 @@ export function threadDeps(overrides: Partial<ThreadActionsDeps> = {}): ThreadAc
 		org: {
 			getTeam: async (exec, q) => (await exec.select().from(teams).where(eq(teams.id, q.id)))[0],
 		},
-		inbox: { tellAgent: vi.fn(async () => undefined) },
+		inbox: { tellAgent: vi.fn(async () => true) },
 		// @lore: no-op here; cross-module task-state effect is tested in layers/core-api/src/__tests__/
 		moveTaskToReview: async () => undefined,
 		settleTaskAfterVerdict: async () => undefined,

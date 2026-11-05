@@ -7,7 +7,7 @@
  * skip it. A subscription only hears changes made after it exists, so an
  * agent never wakes on its own creation. Driven through the real app: the
  * real `send_message`/`edit_task`/`edit_user` actions and the subscription
- * fire mechanism `app.ts` registers, counted on `agent_work_intents`.
+ * fire mechanism `app.ts` registers, counted on the agent's inbox rows.
  */
 import {
 	type HyperIdleDb,

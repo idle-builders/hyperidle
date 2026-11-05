@@ -20,7 +20,12 @@ import {
 	recordReviewVerdict,
 	requestRunStopForTasks,
 } from "@hyperidle/run-orchestration";
-import { type BakedRunRequest, queueResume, queueRun, sessionRunRegistry } from "@hyperidle/session-requests";
+import {
+	type BakedRunRequest,
+	queueResume,
+	queueRun,
+	sessionRunRegistry,
+} from "@hyperidle/session-requests";
 import type { CoreDoor } from "./core-door.js";
 
 const logger = createLogger({ pkg: "agent-orchestration.runner" });
@@ -57,7 +62,10 @@ function selfRow(agent: HeldAgent): UserRow {
 	return agent.self.user;
 }
 
-async function agentConfigOf(deps: InboxWorkDeps, agent: HeldAgent): Promise<BakedAgentRunnableConfig> {
+async function agentConfigOf(
+	deps: InboxWorkDeps,
+	agent: HeldAgent,
+): Promise<BakedAgentRunnableConfig> {
 	const me = selfRow(agent);
 	const identity = await deps.door.call<DocumentRow[]>(agent.key, "search_documents", {
 		parent: { kind: "agent", id: me.id },
@@ -87,7 +95,11 @@ async function documentsFor(
 	);
 }
 
-async function queue(deps: InboxWorkDeps, baked: BakedRunRequest, row: InboxRowView): Promise<void> {
+async function queue(
+	deps: InboxWorkDeps,
+	baked: BakedRunRequest,
+	row: InboxRowView,
+): Promise<void> {
 	await queueRun(deps.db, baked, `inbox:${row.id}`);
 	if (baked.streamId.startsWith("thread:")) {
 		// The waiting line in the thread shows at once.
@@ -131,7 +143,11 @@ async function queueThreadTurn(
 	);
 }
 
-async function openThread(deps: InboxWorkDeps, agent: HeldAgent, threadId: string): Promise<ThreadView> {
+async function openThread(
+	deps: InboxWorkDeps,
+	agent: HeldAgent,
+	threadId: string,
+): Promise<ThreadView> {
 	const opened = await deps.door.call<ThreadView>(agent.key, "open_thread", { id: threadId });
 	must<ThreadView>(opened, "the thread");
 	return opened.data;
@@ -150,12 +166,17 @@ function messageOf(row: InboxRowView): {
 	return {
 		id,
 		type: after?.type,
-		payload: typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {},
+		payload:
+			typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {},
 	};
 }
 
 /** A message for the agent: into its live run in that thread, or a new turn. */
-async function actOnMessage(deps: InboxWorkDeps, agent: HeldAgent, row: InboxRowView): Promise<void> {
+async function actOnMessage(
+	deps: InboxWorkDeps,
+	agent: HeldAgent,
+	row: InboxRowView,
+): Promise<void> {
 	const threadId = row.objectId;
 	const senderId = row.change?.actor;
 	if (!(threadId && senderId)) throw new NothingToDo("the row names no thread");
@@ -225,7 +246,11 @@ async function actOnReviewAnswered(
 }
 
 /** A task to work: the agent reads the task, its parents and its documents. */
-async function actOnTaskRun(deps: InboxWorkDeps, agent: HeldAgent, row: InboxRowView): Promise<void> {
+async function actOnTaskRun(
+	deps: InboxWorkDeps,
+	agent: HeldAgent,
+	row: InboxRowView,
+): Promise<void> {
 	const me = selfRow(agent);
 	if (!row.objectId) throw new NothingToDo("the row names no task");
 	const opened = await deps.door.call<TaskView>(agent.key, "open_task", { id: row.objectId });
@@ -329,7 +354,11 @@ async function actOnSubscription(
  * Stop this agent's run on a task. Handed to someone else, its run only ends — the new owner
  * carries the work on — otherwise (killed, paused to a stop) the run is stopped.
  */
-async function actOnTaskStop(deps: InboxWorkDeps, agent: HeldAgent, row: InboxRowView): Promise<void> {
+async function actOnTaskStop(
+	deps: InboxWorkDeps,
+	agent: HeldAgent,
+	row: InboxRowView,
+): Promise<void> {
 	const me = selfRow(agent);
 	const taskId = row.objectId;
 	if (!taskId) throw new NothingToDo("the row names no task");
@@ -342,7 +371,8 @@ async function actOnTaskStop(deps: InboxWorkDeps, agent: HeldAgent, row: InboxRo
 			state: "active",
 			limit: 10,
 		});
-		for (const session of live) await endRunForHandoff(deps.db, session.id, new Date().toISOString());
+		for (const session of live)
+			await endRunForHandoff(deps.db, session.id, new Date().toISOString());
 		return;
 	}
 	await requestRunStopForTasks(deps.db, deps.eventBus, [taskId], (sessionId) =>

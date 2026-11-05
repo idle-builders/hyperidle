@@ -447,7 +447,7 @@ describe("send_message — verdict trio and races", () => {
 describe("send_message — answering a question, approving or rejecting a review", () => {
 	/** An agent asks in a task thread from its session; the founder is the other member. */
 	async function seedAsk(db: HyperIdleDb, suffix: string) {
-		const tellAgent = vi.fn(async () => undefined);
+		const tellAgent = vi.fn(async () => true);
 		const actions = createThreadActions(threadDeps({ inbox: { tellAgent } }));
 		const eventBus = new EventBus();
 		const teamId = `sm-ans-${suffix}`;

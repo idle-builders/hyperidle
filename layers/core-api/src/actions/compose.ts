@@ -67,14 +67,15 @@ async function soleHumanForAgent(exec: WriteExecutor, agentId: string): Promise<
 	return [...anyHumans].sort(byCreated)[0];
 }
 
-/** An agent's inbox row, written only for an agent that can run; its runner is nudged. */
+/** An agent's inbox row, written only for an agent that can run; its runner is nudged. False → nobody was told. */
 function agentInbox(
 	wsPush: ((topic: string, envelope: unknown) => void) | undefined,
-): (db: HyperIdleDb, tell: InboxTell) => Promise<void> {
+): (db: HyperIdleDb, tell: InboxTell) => Promise<boolean> {
 	return async (db, tell) => {
 		const agent = await findUser(db, { id: tell.userId });
-		if (!(agent && isRunnableAgent(agent))) return;
+		if (!(agent && isRunnableAgent(agent))) return false;
 		await tellUser(db, tell, new Date().toISOString(), wsPush);
+		return true;
 	};
 }
 

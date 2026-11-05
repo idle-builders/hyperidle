@@ -25,6 +25,7 @@ export type { SignIn };
 
 import { createLogger } from "@hyperidle/diagnostics";
 import { canRelayHuddleSignal, endLiveHuddles, findLiveHuddlesForPerson } from "@hyperidle/thread";
+import { type ActionToolDeclaration, actionCatalog } from "./actions/action-catalog.js";
 import { type ApiMiddlewareStack, createApiMiddlewareStack } from "./api-middleware-stack.js";
 import {
 	type AppOptions,
@@ -34,7 +35,6 @@ import {
 	takeAppDisposers,
 	takeAppDocumentRunners,
 } from "./app.js";
-import { type ActionToolDeclaration, actionCatalog } from "./actions/action-catalog.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { WsConnectionHub } from "./ws-connection-hub.js";
 import { createDbSubscribeAuthorizer } from "./ws-subscribe-authorizer.js";

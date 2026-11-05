@@ -341,7 +341,6 @@ const EMPTY: Record<Spine, string> = {
 	knowledge: "No documents yet.",
 };
 
-
 export function Sidebar() {
 	const navigate = useNavigate();
 	const { pathname, search } = useLocation();

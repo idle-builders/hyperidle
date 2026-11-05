@@ -42,8 +42,8 @@ import { Hono } from "hono";
 import { expect } from "vitest";
 import type { Action, ActionContext } from "../actions/action.js";
 import { buildCoreActions } from "../actions/compose.js";
-import { actionsAsTools } from "./actions-test-tools.js";
 import { buildAgentOrchestrationPort } from "../services/agent-orchestration-port-composition.js";
+import { actionsAsTools } from "./actions-test-tools.js";
 
 export { buildCleanEnv, createHarnessSandbox, type HarnessSandbox };
 

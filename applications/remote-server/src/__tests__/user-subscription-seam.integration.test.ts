@@ -1,30 +1,8 @@
 /**
- * Real end-to-end proof that the three user entries — `search_users`,
- * `open_user`, `edit_user` — answer the same whether a person calls them
- * over HTTP or an agent calls them through the MCP tool seam, and that a
- * subscription actually wakes the right subscribers on a real change. Boots
- * the REAL server (`createServer`), drives every action through BOTH real
- * doors — `POST /api/actions/<name>` with `X-API-Key`, and the registered
- * handler on the joined `ServerHandle.actionTools` — against the same
- * seeded state. Modelled line for line on
- * `session-platform-seam.integration.test.ts` in this folder: real
- * `createServer`, a real TCP socket, a real `ws` client.
- *
- * `edit_user` cannot be driven twice against the literal SAME row and prove
- * anything — the second call would see the first call's write. It is driven
- * the same way `edit_plugin`'s `state` branch is in the model file: ONE
- * user's `status` is set to `"idle"` first through one door, then
- * (already idle — idempotent) again through the other, so the compared
- * views are literally the same entity and the doors are proven interchangeable.
- *
- * The subscription half proves the subscription fire mechanism end to
- * end: a person and an agent both subscribe to `task.changed`; a third,
- * out-of-reach agent subscribes too; a fourth user (neither subscriber) edits
- * a task the subscribed team can see — the person's `user:<id>` frame
- * arrives over the one websocket and `open_user` shows the inbox row, a
- * `subscription_run` row lands in `agent_work_intents` for the in-reach
- * agent, the out-of-reach agent gets none, and pausing both subscriptions
- * silences a second edit for both.
+ * The real server (`createServer`, a real socket, a real `ws` client): the three user entries
+ * answer over `POST /api/actions/<name>`, and a subscription wakes the right subscribers on a real
+ * change — the person gets a `user:<id>` frame and an inbox row, the in-reach agent a `subscription`
+ * row, the out-of-reach agent none — and pausing both subscriptions silences a second edit.
  */
 
 import * as os from "node:os";
@@ -247,7 +225,7 @@ async function seedTaskWithThread(
 	});
 }
 
-describe("user-subscription seam — the three entries answer the same to a person and an agent", () => {
+describe("user-subscription seam — the three entries over HTTP", () => {
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});

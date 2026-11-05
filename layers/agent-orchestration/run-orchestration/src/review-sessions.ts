@@ -12,11 +12,19 @@ import { type HyperIdleDb, type ReviewSessionRow, reviewSessions, sessions } fro
 import type {
 	BakedAgentRunnableConfig,
 	BakedSessionResumeRequest,
-	ReviewVerdictOutcome,
 	SessionResumeReply,
 } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { buildVerdictMessage } from "./verdict-message.js";
+
+/** What happened when a verdict tried to send an agent back to its work. */
+export type ReviewVerdictOutcome =
+	/** The resume is queued. The agent will be brought back. */
+	| { readonly status: "queued" }
+	/** No session filed this review. Nothing to resume, and nothing wrong. */
+	| { readonly status: "not_a_review_session" }
+	/** A session filed it but cannot be brought back. The human has to be told. */
+	| { readonly status: "not_resumable"; readonly reason: string };
 
 export interface ReviewSessionLink {
 	readonly reviewMessageId: string;

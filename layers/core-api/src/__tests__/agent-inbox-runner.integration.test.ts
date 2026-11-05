@@ -220,7 +220,10 @@ describe("an agent acts on its inbox", () => {
 			});
 			expect(reply?.threadId).toBe(review.threadId);
 			const rows = await inboxOf(db, BUILDER);
-			expect(rows.map((r) => [r.reason, r.objectId])).toContainEqual(["review_answered", review.id]);
+			expect(rows.map((r) => [r.reason, r.objectId])).toContainEqual([
+				"review_answered",
+				review.id,
+			]);
 		});
 	});
 

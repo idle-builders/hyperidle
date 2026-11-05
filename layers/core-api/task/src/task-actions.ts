@@ -74,7 +74,7 @@ export interface TaskActionsDeps {
 	};
 	/** An agent's inbox: a task to work, or a run on a task to stop. */
 	readonly inbox: {
-		tellAgent(db: HyperIdleDb, tell: TaskInboxTell): Promise<void>;
+		tellAgent(db: HyperIdleDb, tell: TaskInboxTell): Promise<boolean>;
 	};
 	readonly users: { getUserById(exec: WriteExecutor, id: string): Promise<User | undefined> };
 	/** The ONE door onto `document` — task never imports `@hyperidle/document`, never opens a document, and never calls this inside its own open transaction (a runner call inside `ctx.db.transaction` hangs PGlite). */

@@ -337,15 +337,10 @@ export {
 	TASK_STATES,
 } from "./types.js";
 export type {
-	AgentWorkIntentRecorderFn,
-	AgentWorkIntentRecorderInput,
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	BakedContextDocument,
 	BakedSessionResumeRequest,
-	BakedWorkIntentRequest,
-	ReviewVerdictOutcome,
-	ReviewVerdictRecorderFn,
 	SessionDocumentLike,
 	SessionResumeReply,
 } from "./work-intent.js";

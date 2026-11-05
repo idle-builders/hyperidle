@@ -28,7 +28,6 @@ import {
 } from "@hyperidle/domain-model";
 import { type ChangesRow, objectEvent } from "@hyperidle/event-bus";
 import type { Action, ActionContext } from "./action-types.js";
-import { assembleSessionDocuments } from "./session-documents.js";
 import {
 	assertParentInvariants,
 	assertSlotFree,
@@ -45,6 +44,7 @@ import {
 	searchDocumentRows,
 	updateDocument,
 } from "./document-store.js";
+import { assembleSessionDocuments } from "./session-documents.js";
 
 /**
  * The document module's outward-facing deps. `changes`

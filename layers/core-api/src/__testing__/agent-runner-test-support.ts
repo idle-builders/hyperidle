@@ -9,9 +9,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	type AgentRunner,
-	type CoreDoor,
 	actionToolsThroughDoor,
 	bootAgentOrchestration,
+	type CoreDoor,
 	createAgentRunner,
 	createCoreDoor,
 } from "@hyperidle/agent-orchestration";
@@ -124,8 +124,12 @@ export async function bootRunnerWorld(
 			});
 			return { sessionId: config.sessionId };
 		},
-		streamEvents: () => ({ async *[Symbol.asyncIterator]() {} }),
-		stopSession: async () => ({ outcome: "completed", tokenUsage: { byTier: {} } }),
+		streamEvents: () => ({
+			[Symbol.asyncIterator]: () => ({
+				next: () => Promise.resolve({ done: true as const, value: undefined }),
+			}),
+		}),
+		stopSession: () => Promise.resolve({ outcome: "completed", tokenUsage: { byTier: {} } }),
 		getCapabilities: () => ({
 			preCompactionTrigger: false,
 			subAgents: false,
@@ -146,16 +150,19 @@ export async function bootRunnerWorld(
 					incrementForce: vi.fn(),
 					unregister: vi.fn(),
 				},
-				createReturnGate: () => ({ observe: () => {}, returned: false }),
+				createReturnGate: () => ({ observe: vi.fn(), returned: false }),
 				evaluateReturn: () => "returned",
-				provisionReturnHook: async () => {},
-				writeCliMcpConfig: () => {},
-				writePluginStdioMcpEntries: () => {},
-				openMcpBridge: async (options: { sessionId: string; toolRegistry: ToolRegistryLike }) => {
+				provisionReturnHook: vi.fn(async () => undefined),
+				writeCliMcpConfig: vi.fn(),
+				writePluginStdioMcpEntries: vi.fn(),
+				openMcpBridge: (options: { sessionId: string; toolRegistry: ToolRegistryLike }) => {
 					registries.set(options.sessionId, options.toolRegistry);
-					return { token: `token-${options.sessionId}`, url: "http://bridge.local" };
+					return Promise.resolve({
+						token: `token-${options.sessionId}`,
+						url: "http://bridge.local",
+					});
 				},
-				closeMcpBridge: async () => {},
+				closeMcpBridge: vi.fn(async () => undefined),
 			} as never,
 			returnStatusTool: { forRegistry: () => ({ name: "return_status" }) } as never,
 			actionTools: () => [...coreTools, ...orchestration.actionTools],
@@ -170,17 +177,17 @@ export async function bootRunnerWorld(
 						adapter: program,
 						meta: { name: "Stand-in", modelProviders: [], maxConcurrent: 5 },
 					}),
-					release: () => {},
+					release: vi.fn(),
 					describeSelectFailure: () => "nothing selected",
 				},
 				workspace: {
-					spawn: async () => {
+					spawn: () => {
 						const dir = fs.mkdtempSync(path.join(sandboxBasePath, "run-"));
-						return { sandboxId: path.basename(dir), path: dir };
+						return Promise.resolve({ sandboxId: path.basename(dir), path: dir });
 					},
-					exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-					adopt: async (dir: string) => ({ sandboxId: path.basename(dir), path: dir }),
-					destroy: async () => {},
+					exec: () => Promise.resolve({ stdout: "", stderr: "", exitCode: 0 }),
+					adopt: (dir: string) => Promise.resolve({ sandboxId: path.basename(dir), path: dir }),
+					destroy: vi.fn(async () => undefined),
 				},
 				pluginMcpContributions: coreApi.pluginMcpContributions,
 			} as never,

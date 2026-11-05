@@ -75,7 +75,8 @@ export function createAuthMiddleware(
 		}
 
 		c.set("userId", holder?.id ?? NOBODY);
-		const run = holder?.kind === "ai" ? parseRunContext(c.req.header(RUN_CONTEXT_HEADER)) : undefined;
+		const run =
+			holder?.kind === "ai" ? parseRunContext(c.req.header(RUN_CONTEXT_HEADER)) : undefined;
 		if (run) c.set("run", run);
 
 		await next();

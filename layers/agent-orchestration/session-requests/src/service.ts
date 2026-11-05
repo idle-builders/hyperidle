@@ -396,7 +396,7 @@ async function requestTerminationInternal(
 }
 
 /** Turn a baked resume into the session request that carries it. Resume takes the same provisioning path; sourceKind of its own so it's not mistaken for a new start. */
-async function queueResumeInternal(
+function queueResumeInternal(
 	db: HyperIdleDb,
 	reviewMessageId: string,
 	resume: BakedSessionResumeRequest,
@@ -424,8 +424,9 @@ async function queueResumeInternal(
 	});
 	return insertRequestInternal(db, requestInput);
 }
+
 /** Queue a run the runner built from an inbox row; the same key twice is one request. */
-async function queueRunInternal(
+function queueRunInternal(
 	db: HyperIdleDb,
 	baked: BakedRunRequest,
 	idempotencyKey: string,
