@@ -1,4 +1,5 @@
 export type {
+	AgentLogin,
 	AgentRunConfig,
 	AgentRunConfigPatch,
 } from "./agent-run-config-store.js";

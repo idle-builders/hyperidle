@@ -76,24 +76,32 @@ export const userTeams = pgTable(
  * One agent's run configuration, keyed on its `users` row.
  *
  */
-export const agentRunConfig = pgTable("agent_run_config", {
-	agentUserId: text("agent_user_id")
-		.primaryKey()
-		.references(() => users.id, { onDelete: "cascade" }),
-	harnessType: text("harness_type"),
-	modelId: text("model_id"),
-	modelProvider: text("model_provider"),
-	maxConcurrentSessions: integer("max_concurrent_sessions").notNull().default(1),
-	/**
-	 * The harness options this agent's model runs with, as a JSON object of the
-	 * option keys the harness declares for that model.
-	 *
-	 * Nullable with no default — reads as `{}` when not set. Sparse by design — only a value the user moved away from the
-	 * harness's own default is stored, so an absent key means "whatever the
-	 * harness does", not "unset".
-	 */
-	modelOptionsJson: text("model_options_json"),
-});
+export const agentRunConfig = pgTable(
+	"agent_run_config",
+	{
+		agentUserId: text("agent_user_id")
+			.primaryKey()
+			.references(() => users.id, { onDelete: "cascade" }),
+		harnessType: text("harness_type"),
+		modelId: text("model_id"),
+		modelProvider: text("model_provider"),
+		maxConcurrentSessions: integer("max_concurrent_sessions").notNull().default(1),
+		/**
+		 * The harness options this agent's model runs with, as a JSON object of the
+		 * option keys the harness declares for that model.
+		 *
+		 * Nullable with no default — reads as `{}` when not set. Sparse by design — only a value the user moved away from the
+		 * harness's own default is stored, so an absent key means "whatever the
+		 * harness does", not "unset".
+		 */
+		modelOptionsJson: text("model_options_json"),
+		/** The agent's space on this computer (`~/HyperIdle/<name>`), fixed the first time it is made. */
+		spacePath: text("space_path"),
+		/** Whose program login the agent runs with: its own, inside its space, or the computer owner's. */
+		login: text("login").notNull().default("owner"),
+	},
+	(table) => [check("agent_run_config_login_ck", sql`${table.login} in ('own', 'owner')`)],
+);
 
 // --- Process primitives ---
 

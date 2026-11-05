@@ -35,8 +35,13 @@ export interface SessionConfig {
 	 * other adapters may keep their handles internal and ignore it.
 	 */
 	readonly sessionId: string;
-	/** Absolute path to the provisioned sandbox directory. */
+	/** Absolute path to the run's working folder: one per conversation, task or subscription, inside the agent's space; it outlives the run. */
 	readonly sandboxPath: string;
+	/** The agent's space and whose program login it runs with: its own (a login folder inside the space) or the computer owner's. */
+	readonly agentSpace?: {
+		readonly path: string;
+		readonly login: "own" | "owner";
+	};
 	/** Fully assembled context prompt text, written as AGENTS.md + CLAUDE.md in the sandbox. */
 	readonly assembledPrompt: string;
 	/**
