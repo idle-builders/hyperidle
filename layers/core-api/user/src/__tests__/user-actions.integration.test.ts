@@ -17,6 +17,7 @@ import {
 	UserViewSchema,
 } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { eq } from "drizzle-orm";
 import type { ActionContext } from "../action-types.js";
 import { createUserActions, type UserActionsDeps } from "../user-actions.js";
@@ -628,8 +629,28 @@ describe("edit_user — every DB-dependent problem code", () => {
 	});
 });
 
+/** Typed as the pool's own descriptor, so a field the wire schema requires but the pool never sends fails the parse below. */
+const CLAUDE_CODE: HarnessCapabilityDescriptor = {
+	type: "claude-code",
+	name: "Claude Code",
+	authAction: { kind: "native_cli_login", label: "Sign in", command: ["claude", "login"] },
+	discovery: { state: "ready" },
+	models: [],
+	modelProviders: ["anthropic"],
+};
+
+/** The same widening `compose.ts` does: the two types differ only in array mutability. */
+function machinePrograms(
+	descriptors: readonly HarnessCapabilityDescriptor[],
+): ReturnType<NonNullable<UserActionsDeps["harnesses"]>["describe"]> {
+	const widened: unknown = descriptors;
+	return widened as ReturnType<NonNullable<UserActionsDeps["harnesses"]>["describe"]>;
+}
+
 describe("open_user — the declared output shape matches what the connections door returns", () => {
-	test("an install with inherited connections parses against UserViewSchema", async ({ db }) => {
+	test("an install with inherited connections and a program on this computer parses against UserViewSchema", async ({
+		db,
+	}) => {
 		await seedFounder(db);
 		// The real connections door (`agent-orchestration/connections`'s
 		// `projectFacts`) projects inherited rows into the same
@@ -656,6 +677,7 @@ describe("open_user — the declared output shape matches what the connections d
 					],
 				}),
 			},
+			harnesses: { describe: () => machinePrograms([CLAUDE_CODE]), redetect: async () => {} },
 		};
 		const { openUser } = actionsFor(deps);
 		const result = await openUser(ctxFor(db, "u-founder"), {});

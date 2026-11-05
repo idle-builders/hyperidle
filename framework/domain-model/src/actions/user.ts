@@ -189,7 +189,6 @@ const HarnessDiscoveryStatusSchema = z.object({
 export const HarnessDescriptorSchema = z.object({
 	type: z.string(),
 	name: z.string(),
-	kind: z.enum(["local", "remote"]),
 	authAction: HarnessAuthActionDescriptorSchema,
 	discovery: HarnessDiscoveryStatusSchema,
 	models: z.array(HarnessModelDescriptorSchema),
