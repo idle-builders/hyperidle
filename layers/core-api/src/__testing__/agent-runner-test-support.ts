@@ -34,6 +34,8 @@ export interface ScriptedRun {
 	readonly sessionId: string;
 	/** 0 for the first run the program is started for, then 1, 2… */
 	readonly index: number;
+	/** What the program was handed to read: the assembled context and the ask. */
+	readonly prompt: string;
 	call(tool: string, args: unknown): Promise<unknown>;
 }
 
@@ -123,13 +125,18 @@ export async function bootRunnerWorld(
 	const coreTools = actionToolsThroughDoor(coreApi.actionCatalog, door, runner.keyFor);
 
 	const program = {
-		startSession: async (config: { sessionId: string }) => {
+		startSession: async (config: {
+			sessionId: string;
+			assembledPrompt?: string;
+			instruction?: string;
+		}) => {
 			const index = runs.push(config.sessionId) - 1;
 			const registry = registries.get(config.sessionId);
 			if (!registry) throw new Error(`no tools for session ${config.sessionId}`);
 			await script({
 				sessionId: config.sessionId,
 				index,
+				prompt: [config.assembledPrompt, config.instruction].filter(Boolean).join("\n"),
 				call: (tool, args) => registry.invoke(tool, args),
 			});
 			return { sessionId: config.sessionId };

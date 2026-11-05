@@ -3,7 +3,7 @@ import { RUN_CONTEXT_HEADER, type RunContext } from "@hyperidle/domain-model/htt
 /** Where the door's requests go: the server in this process, or one across the network. */
 export type CoreFetch = (req: Request) => Promise<Response>;
 
-/** Thrown when the door receives an unexpected HTTP status (not 200/422/403). */
+/** An answer from the door that is neither data nor a refusal: a bad key, a server error. */
 export class DoorError extends Error {
 	readonly status: number;
 	constructor(message: string, status: number) {

@@ -206,6 +206,42 @@ describe("stop and start again", () => {
 		expect(inboxRows.filter((r) => r.reason === "task_run")).toHaveLength(2);
 	});
 
+	test("starting again also starts a part that was accepted but had not begun", async ({
+		db,
+		app,
+		asPerson,
+	}) => {
+		await seedTree(db, asPerson);
+		const now = new Date().toISOString();
+		await db.insert(threads).values({
+			id: "thr-pause-queued",
+			hostKind: "team",
+			hostId: TEAM,
+			initiatorId: AGENT,
+			participants: JSON.stringify([AGENT]),
+			lastActiveAt: now,
+			createdAt: now,
+		});
+		await db.insert(tasks).values({
+			id: "pause-queued",
+			parentTaskId: ROOT,
+			teamId: TEAM,
+			ownerAgentId: AGENT,
+			title: "pause-queued",
+			state: "accepted",
+			threadId: "thr-pause-queued",
+			position: 9,
+			createdAt: now,
+			updatedAt: now,
+		});
+		await edit(app, { id: ROOT, paused: "stopped" });
+
+		expect((await edit(app, { id: ROOT, paused: null })).ok).toBe(true);
+
+		const restarts = (await attemptsOn(db, ["pause-queued"])).map((a) => a.occasion);
+		expect(restarts).toEqual(["restart"]);
+	});
+
 	test("a task stopped twice starts again twice", async ({ db, app, asPerson }) => {
 		await seedTree(db, asPerson);
 		for (const _ of [1, 2]) {

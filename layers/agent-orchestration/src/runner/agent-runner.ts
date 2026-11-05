@@ -1,9 +1,9 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { UserRow, UserView } from "@hyperidle/domain-model";
+import type { InboxRowView, UserRow, UserView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { type CoreDoor, DoorError } from "./core-door.js";
-import { actOnInboxRow, postFailureNotice } from "./inbox-work.js";
+import { actOnInboxRow, NotYet, postFailureNotice } from "./inbox-work.js";
 
 const logger = createLogger({ pkg: "agent-orchestration.runner" });
 
@@ -102,6 +102,47 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 		}
 	}
 
+	/** Act on one row. True when it is done with — acted on, or given up on after repeated failures. */
+	async function tryRow(
+		agentId: string,
+		key: string,
+		self: UserView,
+		row: InboxRowView,
+	): Promise<boolean> {
+		try {
+			await actOnInboxRow(deps, { key, self }, row);
+			rowFailures.delete(row.id);
+			return true;
+		} catch (error) {
+			if (error instanceof NotYet) return false;
+			// The key was replaced elsewhere: the pass ends and the agent is taken again with a new one.
+			if (error instanceof DoorError && error.status === 401) throw error;
+			const count = (rowFailures.get(row.id) ?? 0) + 1;
+			const detail = {
+				agentId,
+				rowId: row.id,
+				reason: row.reason,
+				attempt: count,
+				error: error instanceof Error ? error.message : String(error),
+			};
+			if (count < ROW_FAILURE_LIMIT) {
+				rowFailures.set(row.id, count);
+				logger.error("inbox row failed; it is tried again on the next pass", detail);
+				return false;
+			}
+			rowFailures.delete(row.id);
+			logger.error("inbox row given up after repeated failures", detail);
+			await postFailureNotice(deps, { key, self }, row).catch((e: unknown) => {
+				logger.error("failure notice could not be posted", {
+					agentId,
+					rowId: row.id,
+					error: e instanceof Error ? e.message : String(e),
+				});
+			});
+			return true;
+		}
+	}
+
 	async function workInbox(agentId: string): Promise<void> {
 		for (;;) {
 			const key = keys.get(agentId);
@@ -112,47 +153,12 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 			let acted = 0;
 			for (const row of rows) {
 				if (stopped) return;
-				let rowActed = false;
-				try {
-					await actOnInboxRow(deps, { key, self: self.data }, row);
-					rowActed = true;
-				} catch (error) {
-					// A 401 means the key expired — drop the agent so a fresh key can be fetched.
-					if (error instanceof DoorError && error.status === 401) throw error;
-					const count = (rowFailures.get(row.id) ?? 0) + 1;
-					if (count >= ROW_FAILURE_LIMIT) {
-						rowFailures.delete(row.id);
-						logger.error("inbox row given up after repeated failures, marked read", {
-							agentId,
-							rowId: row.id,
-							reason: row.reason,
-							error: error instanceof Error ? error.message : String(error),
-						});
-						rowActed = true;
-						void postFailureNotice(deps, { key, self: self.data }, row).catch((e) => {
-							logger.error("failure notice could not be posted", {
-								agentId,
-								rowId: row.id,
-								error: e instanceof Error ? e.message : String(e),
-							});
-						});
-					} else {
-						rowFailures.set(row.id, count);
-						logger.error("inbox row failed; will retry", {
-							agentId,
-							rowId: row.id,
-							reason: row.reason,
-							attempt: count,
-							error: error instanceof Error ? error.message : String(error),
-						});
-					}
-				}
-				if (rowActed) {
+				if (await tryRow(agentId, key, self.data, row)) {
 					await deps.door.call(key, "edit_user", { id: agentId, inbox: { read: [row.id] } });
 					acted++;
 				}
 			}
-			// Stop paging when no progress: all remaining rows are retrying failures.
+			// A page with nothing done is rows still failing or waiting: the next pass looks again.
 			if (rows.length < INBOX_PAGE || acted === 0) return;
 		}
 	}
@@ -171,7 +177,7 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 					await workInbox(agentId);
 				} catch (error) {
 					if (error instanceof DoorError && error.status === 401) {
-						// Stale key — drop the agent so the next sweep can fetch a fresh one.
+						// The key was replaced elsewhere: drop it, and the next sweep takes the agent with a new one.
 						dropAgent(agentId);
 						return;
 					}

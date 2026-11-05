@@ -185,7 +185,11 @@ export async function setUpLiveHarnessRun(
 	});
 
 	// In-process actions for the human (founder) door — same agentOrchestration port as the app.
-	const actions = buildCoreActions({ agentOrchestration });
+	// The server's live nudge, so a row reaches the runner at once — as in production.
+	const actions = buildCoreActions({
+		agentOrchestration,
+		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
+	});
 
 	const app = composeApiApplication({
 		middleware: coreApi.middleware,

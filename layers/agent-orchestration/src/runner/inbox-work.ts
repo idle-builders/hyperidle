@@ -15,6 +15,7 @@ import {
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
+	buildVerdictMessage,
 	endRunForHandoff,
 	listSessions,
 	recordReviewVerdict,
@@ -23,6 +24,7 @@ import {
 import {
 	type BakedRunRequest,
 	cancelPendingForTasks,
+	listPendingByStream,
 	queueResume,
 	queueRun,
 	sessionRunRegistry,
@@ -48,6 +50,9 @@ export interface HeldAgent {
 
 /** What the agent was asked to act on is gone or no longer its to act on: the row is done. */
 class NothingToDo extends Error {}
+
+/** The row cannot be acted on yet (its task is paused): it stays unread and is looked at again. */
+export class NotYet extends Error {}
 
 function must<O>(
 	result: Awaited<ReturnType<CoreDoor["call"]>>,
@@ -120,6 +125,8 @@ async function queueThreadTurn(
 	thread: ThreadView,
 	messageId: string,
 	senderId: string,
+	/** Said to the agent after the conversation, in the words a resumed session reads. */
+	said?: string,
 ): Promise<void> {
 	const me = selfRow(agent);
 	const threadId = thread.thread.id;
@@ -132,11 +139,14 @@ async function queueThreadTurn(
 			streamId: `thread:${threadId}`,
 			userId: senderId,
 			sourceCorrelation: { threadId, messageId, userId: senderId, agentId: me.id },
-			transcript: [...thread.messages].reverse().map((m) => ({
-				senderId: m.senderId,
-				payload: JSON.stringify(m.payload),
-				type: m.type,
-			})),
+			transcript: [
+				...[...thread.messages].reverse().map((m) => ({
+					senderId: m.senderId,
+					payload: JSON.stringify(m.payload),
+					type: m.type,
+				})),
+				...(said ? [{ senderId, payload: JSON.stringify({ text: said }), type: "plain" }] : []),
+			],
 			callingThreadId: threadId,
 			agentConfig: await agentConfigOf(deps, agent),
 		},
@@ -243,55 +253,23 @@ async function actOnReviewAnswered(
 	if (outcome.status === "queued") return;
 	// No session can take it back, so the agent reads the answer in a new turn.
 	logger.info("answer starts a new turn", { reviewMessageId, outcome: outcome.status });
-	// When the review was about a task, queue a task run so lifecycle propagation fires on completion.
-	if (typeof askedTaskId === "string") {
-		const taskOpened = await deps.door.call<TaskView>(agent.key, "open_task", { id: askedTaskId });
-		if (taskOpened.ok) {
-			const { task, ancestors } = taskOpened.data;
-			const me = selfRow(agent);
-			const team = me.teams.find((t) => t.id === task.teamId);
-			const contextBundle: BakedContextBundle | undefined = team
-				? {
-						kind: "task",
-						task: {
-							id: task.id,
-							title: task.title,
-							description: task.description,
-							state: task.state,
-							doneWhen: task.doneWhen,
-							reasons: task.reasons,
-						},
-						ancestors: ancestors.map((a) => ({
-							id: a.id,
-							title: a.title,
-							description: a.description,
-							doneWhen: a.doneWhen,
-						})),
-						agent: { id: me.id, name: me.name, role: me.role },
-						team: { id: team.id, name: team.name },
-						documents: await documentsFor(deps, agent, task.description ?? task.title, task.teamId),
-					}
-				: undefined;
-			await queue(
-				deps,
-				{
-					defaultAgentId: me.id,
-					sourceKind: "task",
-					sourceId: task.id,
-					streamId: `task:${task.id}`,
-					taskId: task.id,
-					teamId: task.teamId,
-					sourceCorrelation: { taskId: task.id, teamId: task.teamId },
-					agentConfig: await agentConfigOf(deps, agent),
-					callingThreadId: task.threadId,
-					...(contextBundle ? { contextBundle } : {}),
-				},
-				row,
-			);
-			return;
+	// Core left an approved task open for the session that asked; with none coming back, the agent
+	// closes it here.
+	if (typeof askedTaskId === "string" && replyOf(reply).decision === "approve") {
+		const closed = await deps.door.call(agent.key, "edit_task", { id: askedTaskId, state: "done" });
+		if (!closed.ok) {
+			logger.info("approved task left open", { taskId: askedTaskId, problems: closed.problems });
 		}
 	}
-	await queueThreadTurn(deps, agent, row, thread, reply.id, decidedBy);
+	await queueThreadTurn(
+		deps,
+		agent,
+		row,
+		thread,
+		reply.id,
+		decidedBy,
+		buildVerdictMessage(replyOf(reply)),
+	);
 }
 
 /** A task to work: the agent reads the task, its parents and its documents. */
@@ -306,8 +284,16 @@ async function actOnTaskRun(
 	must<TaskView>(opened, "the task");
 	const { task, ancestors } = opened.data;
 	if (!WORKABLE_TASK_STATES.has(task.state)) throw new NothingToDo(`the task is ${task.state}`);
-	if (task.paused !== null) throw new NothingToDo("the task is paused");
 	if (task.ownerAgentId && task.ownerAgentId !== me.id) throw new NothingToDo("the task moved on");
+	if (task.paused !== null) throw new NotYet("the task is paused");
+	const queued = await listPendingByStream(deps.db, `task:${task.id}`);
+	const live = await listSessions(deps.db, {
+		taskId: task.id,
+		agentIds: [me.id],
+		state: "active",
+		limit: 1,
+	});
+	if (queued.length > 0 || live.length > 0) throw new NothingToDo("a run on the task is under way");
 	const team = me.teams.find((t) => t.id === task.teamId);
 	const contextBundle: BakedContextBundle | undefined = team
 		? {
@@ -432,8 +418,8 @@ async function actOnTaskStop(
 }
 
 /**
- * Post a brief notice in the relevant thread when a row is given up after repeated failures.
- * Best-effort — the caller ignores errors.
+ * Tell the people in the row's thread that the agent gave up on it after repeated failures.
+ * The caller logs a failure to post it.
  */
 export async function postFailureNotice(
 	deps: InboxWorkDeps,
@@ -450,7 +436,7 @@ export async function postFailureNotice(
 		const opened = await deps.door.call<TaskView>(agent.key, "open_task", { id: row.objectId });
 		threadId = opened.ok ? opened.data.task.threadId : undefined;
 	} else {
-		logger.error("inbox row gave up after 3 failures, no thread to notify", {
+		logger.error("inbox row given up, no thread to tell", {
 			rowId: row.id,
 			reason: row.reason,
 		});

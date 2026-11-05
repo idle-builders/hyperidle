@@ -548,8 +548,8 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 
 	/**
 	 * After a pause is lifted: every part that waited only for finished parts starts, and after a
-	 * stop each agent goes back to the part it was working on — a leaf still under way that waits
-	 * on nobody's answer or review.
+	 * stop each agent goes back to its part — a leaf under way, or accepted and not yet begun (the
+	 * stop cancelled its queued run), that waits on nobody's answer or review.
 	 */
 	async function resumeSubtree(
 		ctx: ActionContext,
@@ -558,30 +558,38 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 	): Promise<void> {
 		const ids = await taskDb.listSubtreeIds(ctx.db, rootTaskId);
 		const waiting = (await taskDb.list(ctx.db, "task", { ids })).filter((t) => t.state === "hold");
+		// A part freed here starts on its own; it is not sent back as well.
+		const freed = new Set<string>();
 		for (const t of waiting) {
 			const waitsFor = parseDependencyIds(t.dependencies);
 			if (waitsFor.length > 0 && !(await hasUnfinishedDependency(ctx.db, waitsFor))) {
 				await editTaskRun(ctx, { id: t.id, state: "accepted" });
+				freed.add(t.id);
 			}
+		}
+		function isRestartable(n: {
+			readonly id: string;
+			readonly state: string;
+			readonly need: unknown;
+			readonly ownerAgentId: string | null;
+		}): boolean {
+			return (
+				!freed.has(n.id) &&
+				(n.state === "in_progress" || n.state === "accepted") &&
+				n.need === null &&
+				n.ownerAgentId !== null
+			);
 		}
 		if (!wasStopped) return;
 		const view = await openTaskRun(ctx, { id: rootTaskId });
 		if (!view.ok) return;
 		const working = (nodes: readonly TaskNode[]): TaskNode[] =>
 			nodes.flatMap((n) =>
-				n.children.length > 0
-					? working(n.children)
-					: n.state === "in_progress" && n.need === null && n.ownerAgentId
-						? [n]
-						: [],
+				n.children.length > 0 ? working(n.children) : isRestartable(n) ? [n] : [],
 			);
 		const top = view.data.task;
 		const leaves =
-			view.data.children.length > 0
-				? working(view.data.children)
-				: top.state === "in_progress" && top.need === null && top.ownerAgentId
-					? [top]
-					: [];
+			view.data.children.length > 0 ? working(view.data.children) : isRestartable(top) ? [top] : [];
 		for (const leaf of leaves) await restart(ctx, leaf.id, leaf.ownerAgentId ?? "");
 	}
 
@@ -1020,7 +1028,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		);
 		// The agent the task was handed away from ends its run on it; its runner sees the new owner.
 		if (prev?.ownerAgentId && dispatch?.occasion === "owner_handoff") {
-			await deps.inbox.tellAgent(ctx.db, {
+			await deps.inbox.tellAgentAlways(ctx.db, {
 				userId: prev.ownerAgentId,
 				reason: "task_stop",
 				key: `task-stop:${prev.id}:${dispatch.attemptId}`,

@@ -9,6 +9,7 @@ import {
 	inbox,
 	messages,
 	subscriptions,
+	tasks,
 	teams,
 	users,
 	userTeams,
@@ -241,6 +242,57 @@ describe("an agent acts on its inbox", () => {
 				"review_answered",
 				review.id,
 			]);
+			// The answering run carries the task, so its end closes the approved task.
+			await waitFor("the approved task to close", async () => {
+				const [task] = await db.select().from(tasks).where(eq(tasks.id, created.task.id));
+				return task?.state === "done" ? task : undefined;
+			});
+		});
+	});
+
+	test("a rejection's note reaches the agent in the run that answers it", async ({
+		db,
+		eventBus,
+	}) => {
+		const prompts: string[] = [];
+		const filesReviewFirst: RunScript = async (run) => {
+			prompts.push(run.prompt);
+			if (run.index === 0) {
+				await run.call("send_message", { review: { title: "Notes ready", reasoning: ["Done."] } });
+				return;
+			}
+			await run.call("send_message", { text: "pong" });
+		};
+		await withWorld(db, eventBus, filesReviewFirst, async (world) => {
+			await world.runner.start();
+			const created = await asPerson<{ task: { id: string } }>(world, "edit_task", {
+				title: "Write the notes",
+				teamId: TEAM,
+				ownerAgentId: BUILDER,
+			});
+			await asPerson(world, "edit_task", { id: created.task.id, state: "accepted" });
+			const review = await waitFor("Builder's review", async () => {
+				const [found] = await db
+					.select()
+					.from(messages)
+					.where(and(eq(messages.senderId, BUILDER), eq(messages.type, "review")));
+				return found;
+			});
+
+			await asPerson(world, "send_message", {
+				threadId: review.threadId,
+				verdict: {
+					decision: "reject",
+					resolvesMessageId: review.id,
+					note: "Add the refund dates.",
+				},
+			});
+
+			await waitFor("Builder's answer to the rejection", async () => {
+				const found = await saidBy(db, BUILDER, "pong");
+				return found.length > 0 ? found : undefined;
+			});
+			expect(prompts[1]).toContain("Add the refund dates.");
 		});
 	});
 
@@ -317,32 +369,31 @@ describe("an agent acts on its inbox", () => {
 		});
 	});
 
-	test("a task_run row for a paused task is skipped without starting a run", async ({
+	test("a task started while on hold waits, and runs once the hold is lifted", async ({
 		db,
 		eventBus,
 	}) => {
 		await withWorld(db, eventBus, answersPong, async (world) => {
-			// Create a task for the agent
 			const created = await asPerson<{ task: { id: string } }>(world, "edit_task", {
-				title: "Paused work",
+				title: "Held work",
 				teamId: TEAM,
 				ownerAgentId: BUILDER,
 			});
-			// Accept it so a task_run inbox row is created
 			await asPerson(world, "edit_task", { id: created.task.id, state: "accepted" });
-			// Pause the task before the runner starts
 			await asPerson(world, "edit_task", { id: created.task.id, paused: "hold" });
 
 			await world.runner.start();
+			const [waiting] = (await inboxOf(db, BUILDER)).filter((r) => r.reason === "task_run");
+			expect([waiting?.readAt, world.runs]).toEqual([null, []]);
 
-			// The task_run row is marked read (NothingToDo), but no run was started
-			await waitFor("task_run row to be read", async () => {
-				const rows = await inboxOf(db, BUILDER);
-				const row = rows.find((r) => r.reason === "task_run" && r.objectId === created.task.id);
-				return row && row.readAt !== null ? row : undefined;
+			await asPerson(world, "edit_task", { id: created.task.id, paused: null });
+			world.nudge(`user:${BUILDER}`, {});
+
+			await waitFor("Builder's run on the task", async () => {
+				const found = await saidBy(db, BUILDER, "pong");
+				return found.length > 0 ? found : undefined;
 			});
-
-			expect(world.runs).toEqual([]);
+			expect(world.runs).toHaveLength(1);
 		});
 	});
 });
