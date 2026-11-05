@@ -10,9 +10,9 @@ import * as path from "node:path";
 import {
 	agentRunConfig,
 	agentSessionRequests,
-	agentWorkIntents,
 	documents,
 	type HyperIdleDb,
+	inbox,
 	messages,
 	tasks,
 	teams,
@@ -37,12 +37,10 @@ import {
 	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
 import { findSessionById } from "@hyperidle/run-orchestration";
-import { drainIntents } from "@hyperidle/session-requests";
 import type { SubscriptionFireDeps } from "@hyperidle/user";
 import { registerSubscriptionFire } from "@hyperidle/user";
 import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
-import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import {
 	assertRunOutcomeCompleted,
 	HARNESS_TYPE,
@@ -137,17 +135,12 @@ async function seedFounderTeamAgentAndDocument(
  * Service may not import `@hyperidle/task`/`@hyperidle/thread` in
  * production, so a real test wires the same reach rule (`canReadThread`,
  * a raw select scoped by team) by hand instead of stubbing reach itself. */
-function buildFireDeps(
-	db: HyperIdleDb,
-	actions: readonly Action[],
-	agentWorkIntentRecorder: SubscriptionFireDeps["agentWorkIntentRecorder"],
-): SubscriptionFireDeps {
+function buildFireDeps(db: HyperIdleDb, actions: readonly Action[]): SubscriptionFireDeps {
 	const searchDocuments = runnerFor<SearchDocumentsInput, DocumentRow[]>(
 		actions,
 		"search_documents",
 	);
 	return {
-		agentWorkIntentRecorder,
 		searchTasks: async (_ctx, input) => {
 			const rows = await db
 				.select({
@@ -175,14 +168,6 @@ function buildFireDeps(
 			};
 		},
 		searchDocuments,
-		// Present (even trivial) so `resolveSubscriptionWakeRequest` bakes a
-		// `kind:"subscription"` contextBundle at all — that bundle is what
-		// carries the subscription's `prompt` text into the session's
-		// assembled AGENTS.md/CLAUDE.md (`buildSubscriptionSection`). An
-		// absent `assembleSessionDocuments` leaves the session with no
-		// instruction whatsoever (the bundle-less path), which is not what
-		// production wires.
-		assembleSessionDocuments: async () => [],
 	};
 }
 
@@ -235,11 +220,7 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 		});
 
 		const run = await setUpLiveHarnessRun(db, `subscription-wake-${harness}`);
-		const disposeFire = registerSubscriptionFire(
-			db,
-			run.eventBus,
-			buildFireDeps(db, run.actions, run.agentWorkIntentRecorder),
-		);
+		const disposeFire = registerSubscriptionFire(db, run.eventBus, buildFireDeps(db, run.actions));
 
 		try {
 			const editUser = runnerFor<EditUserInput, UserView>(run.actions, "edit_user");
@@ -283,41 +264,42 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 				throw new Error(`edit_task failed: ${JSON.stringify(editResult.problems)}`);
 			}
 
-			let changeId = "";
-			const deadline = Date.now() + 5000;
+			// Wait for the inbox wake row (created by the subscription fire handler).
+			const inboxDeadline = Date.now() + 5000;
 			for (;;) {
-				const [intent] = await db
+				const [row] = await db
 					.select()
-					.from(agentWorkIntents)
-					.where(
-						and(
-							eq(agentWorkIntents.sourceKind, "subscription"),
-							eq(agentWorkIntents.kind, "subscription_run"),
-						),
-					);
-				if (intent?.sourceId.startsWith(`${subId}:`)) {
-					changeId = intent.sourceId.slice(`${subId}:`.length);
-					break;
-				}
-				if (Date.now() > deadline) {
+					.from(inbox)
+					.where(and(eq(inbox.userId, agentId), eq(inbox.reason, "subscription")));
+				if (row?.subscriptionId === subId) break;
+				if (Date.now() > inboxDeadline) {
 					throw new Error(
-						`no subscription_run intent recorded for subscription ${subId} within the timeout`,
+						`no subscription inbox row for agent ${agentId} subscription ${subId} within timeout`,
 					);
 				}
 				await new Promise((r) => setTimeout(r, 50));
 			}
 
-			await drainIntents({ ...queueDeps(db), eventBus: run.eventBus });
-
-			const [request] = await db
-				.select()
-				.from(agentSessionRequests)
-				.where(eq(agentSessionRequests.sourceId, `${subId}:${changeId}`));
-			if (!request) {
-				throw new Error(
-					`drainIntents did not produce an agent_session_requests row for ${subId}:${changeId}`,
-				);
+			// Wait for the orchestration spawn loop to hand off the agentSessionRequests row.
+			let request: typeof agentSessionRequests.$inferSelect | undefined;
+			const requestDeadline = Date.now() + 15_000;
+			for (;;) {
+				const [row] = await db
+					.select()
+					.from(agentSessionRequests)
+					.where(eq(agentSessionRequests.agentId, agentId));
+				if (row) {
+					request = row;
+					break;
+				}
+				if (Date.now() > requestDeadline) {
+					throw new Error(
+						`no agent_session_requests row for agent ${agentId} subscription ${subId} within timeout`,
+					);
+				}
+				await new Promise((r) => setTimeout(r, 100));
 			}
+			if (!request) throw new Error("request not found");
 
 			const adapterPool = run.adapterPool;
 			// The prompt the harness actually reads is the sandbox's own AGENTS.md,

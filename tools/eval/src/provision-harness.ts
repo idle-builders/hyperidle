@@ -43,7 +43,15 @@ import {
 import { bootCoreApi } from "@hyperidle/core-api/boot";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { assembleSessionDocuments } from "@hyperidle/document";
-import { bakeAgentRunnableConfig } from "@hyperidle/domain-model";
+import {
+	bakeAgentRunnableConfig,
+	type BakedContextBundle,
+	type DoneWhenLine,
+	DoneWhenLineSchema,
+	type Reason,
+	ReasonSchema,
+	toBakedContextDocuments,
+} from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
 	createLocalAdapterPool,
@@ -58,9 +66,38 @@ import {
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
 import * as work from "@hyperidle/task";
-import { bakeTaskContextBundle } from "@hyperidle/task";
 import { getTeam, requireRunnableAgent } from "@hyperidle/user";
 import type { TriggerResult } from "./types.js";
+
+// ---------------------------------------------------------------------------
+// Context bundle helpers — mirrors what the deleted bakeTaskContextBundle did
+// ---------------------------------------------------------------------------
+
+function parseDoneWhen(json: string): readonly DoneWhenLine[] {
+	try {
+		const parsed: unknown = JSON.parse(json);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.flatMap((item) => {
+			const r = DoneWhenLineSchema.safeParse(item);
+			return r.success ? [r.data] : [];
+		});
+	} catch {
+		return [];
+	}
+}
+
+function parseReasons(json: string): readonly Reason[] {
+	try {
+		const parsed: unknown = JSON.parse(json);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.flatMap((item) => {
+			const r = ReasonSchema.safeParse(item);
+			return r.success ? [r.data] : [];
+		});
+	} catch {
+		return [];
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Live server — real HTTP server with MCP bridge mounted pre-auth
@@ -276,14 +313,29 @@ export async function runEvalSession(
 		// one; an eval IS the first session, so there is no honest value to put there.
 		const evalTask = await work.get(deps.db, "task", params.taskId);
 		if (!evalTask) throw new Error(`Eval task not found: ${params.taskId}`);
-		const contextBundle = await bakeTaskContextBundle(
-			deps.db,
-			evalTask,
-			[],
-			agent,
-			(db: HyperIdleDb, id: string) => getTeam(db, { id }),
-			assembleSessionDocuments,
-		);
+		const evalTeam = await getTeam(deps.db, { id: params.teamId });
+		if (!evalTeam) throw new Error(`Eval team not found: ${params.teamId}`);
+		const rawDocuments = await assembleSessionDocuments(deps.db, {
+			teamId: params.teamId,
+			taskDescription: evalTask.description ?? evalTask.title,
+			agentId: params.agentId,
+			agentDiscipline: agent.discipline,
+		});
+		const contextBundle: BakedContextBundle = {
+			kind: "task",
+			task: {
+				id: evalTask.id,
+				title: evalTask.title,
+				description: evalTask.description ?? null,
+				state: evalTask.state,
+				doneWhen: parseDoneWhen(evalTask.doneWhen),
+				reasons: parseReasons(evalTask.reasons),
+			},
+			ancestors: [],
+			agent: { id: agent.id, name: agent.name, role: agent.role },
+			team: { id: evalTeam.id, name: evalTeam.name },
+			documents: toBakedContextDocuments(rawDocuments),
+		};
 		// The agent's identity: the `agent_file` document bound to it, read the way
 		// the emit-time pipeline reads it, with the agent as the reader.
 		const identity = await createStandaloneSearchDocuments()(

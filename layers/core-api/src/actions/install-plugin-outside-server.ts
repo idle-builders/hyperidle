@@ -40,8 +40,6 @@ export async function installPluginOutsideServer(
 ): Promise<PluginView> {
 	const actions = buildCoreActions({
 		agentOrchestration: buildAgentOrchestrationPort(() => unreachable("orchestration")),
-		agentWorkIntentRecorder: () => unreachable("the work-intent recorder"),
-		reviewVerdictRecorder: () => unreachable("the review-verdict recorder"),
 		...(input.pluginsBaseDir ? { pluginsBaseDir: input.pluginsBaseDir } : {}),
 	});
 	const editPlugin = actions.find((a) => a.declaration.name === "edit_plugin") as

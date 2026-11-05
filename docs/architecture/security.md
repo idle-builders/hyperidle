@@ -11,6 +11,7 @@ The **Principal** is the authenticated identity on a request — `c.get("userId"
 Every request carries a key as `X-API-Key`. There are no login sessions or invite codes, and no bearer token is ever an API credential.
 
 - **A person's own key** makes the caller that person. Only its sha256 is kept (`users.key_hash`); the key itself lives on the person's computer.
+- **An agent's own key** makes the caller that agent, the same way (`layers/core-api/user/src/user-key.ts`). It lives only in the runner that holds the agent. `edit_user({ id: <agent>, key: "new" })` answers a fresh key once: the agent's owner may ask, or anyone for an agent no one owns. The newest key wins and any older one stops working, so the agent lives with the runner that asked last. A request with an agent's key may name the run it comes from in the `X-HyperIdle-Run` header (session, task, thread — `framework/domain-model/src/http.ts`); the header is ignored on any other key. It becomes the action's `caller`; the actions check the task or thread, never the run.
 - **The team key** — the deployment's `HYPERIDLE_API_KEY`, compared in constant time — makes the caller nobody yet. It is for what needs no person, such as a laptop's first start, which makes the one person and keeps the key it was called with as theirs. Of the actions it may only run `open_user`, which answers that there is no one yet; every other action is refused (`no_person`).
 - **Joining** takes no key: `POST /api/join` takes an ID token from the server's sign-in service (`HYPERIDLE_SIGN_IN_ISSUER`), checked against that service's published keys, issuer, this app's id there and a proven email (`layers/core-api/src/routes/join.ts`). It makes the person (named by a unique `users.email`) and hands back their own key; signing in again hands the same person a new key, and the old one stops working. Who may sign in at all is the sign-in service's call.
 - Any other key is refused.
@@ -55,6 +56,7 @@ All WebSocket subscribes route through `createDbSubscribeAuthorizer` (`layers/co
 | **Root secret** | `HYPERIDLE_API_KEY` | OS file permissions; desktop uses `secrets.json` |
 | **Managed connection tokens** | `service_connections` rows | AES-256-GCM via `layers/agent-orchestration/connections/src/token-cipher.ts` |
 | **Joined-server key** | the person's own key for the shared server they joined | Desktop OS keychain only (`applications/desktop/src/safe-credentials.ts`); never read back into the UI |
+| **Agent keys** | each agent's own key, held by the runner on the desktop app | In the runner's memory only, fresh each time it starts; the server keeps only the hash |
 
 HyperIdle holds no model credential. A harness brings its own login; its key never passes through HyperIdle. Hiding a field from a GET response is not protection.
 

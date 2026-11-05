@@ -182,6 +182,11 @@ test.each([
 	} as ThreadListRow;
 	const inbox: Inbox = [
 		{
+			id: "ib-1",
+			reason: "message",
+			subscriptionId: null,
+			objectId: null,
+			createdAt: "2026-10-21T09:00:00.000Z",
 			change: {
 				id: "c1",
 				object: "thread",

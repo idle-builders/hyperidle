@@ -21,17 +21,11 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import {
-	agentRunConfig,
-	agentWorkIntents,
-	type HyperIdleDb,
-	messages,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { listInboxRows } from "../../user/src/subscriptions-store.js";
 import { makeAgentIdentityTestPort } from "../__testing__/document-read-test-ports.js";
 import { test } from "../__testing__/test-fixtures.js";
 import type { ActionContext } from "../actions/action.js";
@@ -40,8 +34,6 @@ import { buildCoreActions } from "../actions/compose.js";
 function buildActions(agentOrchestration: AgentOrchestrationPort) {
 	return buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
 }
 
@@ -230,16 +222,8 @@ describe("the assistant-turn trigger (service-integration)", () => {
 		);
 		expect(humanMessage).toBeDefined();
 
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(
-				and(
-					eq(agentWorkIntents.kind, "thread_turn"),
-					eq(agentWorkIntents.sourceId, `${humanMessage?.id ?? ""}:${assistantId}`),
-				),
-			);
-		expect(intents).toHaveLength(1);
+		const inboxRows = await listInboxRows(db, { userId: assistantId });
+		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(1);
 
 		// Give a short window for any async processing that shouldn't happen —
 		// no runtime is wired on this fixture, so nothing drains the intent.
@@ -296,17 +280,8 @@ describe("the assistant-turn trigger (service-integration)", () => {
 		// The self-retrigger guard is structural — `agentsToWake`
 		// only ever wakes an AGENT member, and in this 2-member thread the
 		// other member (the founder) is human, so no wake is attempted at
-		// all. The intent kind is `thread_turn` now, sourceId
-		// `"<messageId>:<agentId>"`.
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(
-				and(
-					eq(agentWorkIntents.kind, "thread_turn"),
-					eq(agentWorkIntents.sourceId, `${assistantOwnMessage?.id ?? ""}:${assistantId}`),
-				),
-			);
-		expect(intents).toHaveLength(0);
+		// all — the assistant sending its own message does not wake itself.
+		const inboxRows = await listInboxRows(db, { userId: assistantId });
+		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(0);
 	});
 });

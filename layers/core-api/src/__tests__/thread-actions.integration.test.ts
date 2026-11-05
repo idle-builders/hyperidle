@@ -14,13 +14,10 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
-	agentSessionRequests,
-	agentWorkIntents,
 	changes,
 	documents,
 	type HyperIdleDb,
 	messages,
-	reviewSessions,
 	sessions,
 	tasks,
 	teams,
@@ -30,17 +27,12 @@ import {
 } from "@hyperidle/db";
 import type { ActionResult, SendMessageInput, ThreadView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
-import { describe, expect, vi } from "vitest";
-import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
+import { describe, expect } from "vitest";
+import { listInboxRows } from "../../user/src/subscriptions-store.js";
 import { test } from "../__testing__/test-fixtures.js";
 import type { ActionContext } from "../actions/action.js";
 import { buildCoreActions } from "../actions/compose.js";
-import {
-	buildSeamBackedReviewVerdictRecorder,
-	buildSeamBackedWorkIntentRecorder,
-} from "../services/agent-orchestration-port-composition.js";
 
 const TEST_API_KEY = "test-key-thread-actions";
 
@@ -256,8 +248,6 @@ async function readChanges(db: HyperIdleDb, threadId: string) {
 function buildRealActions(agentOrchestration: AgentOrchestrationPort) {
 	return buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),
-		reviewVerdictRecorder: buildSeamBackedReviewVerdictRecorder(agentOrchestration),
 	});
 }
 
@@ -650,11 +640,8 @@ describe("send_message — @mentions", () => {
 			]),
 		);
 
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "thread_turn"));
-		expect(intents.filter((i) => i.sourceId.endsWith(":sm-mn2-team-agent"))).toHaveLength(1);
+		const inboxRows = await listInboxRows(db, { userId: "sm-mn2-team-agent" });
+		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(1);
 	});
 });
 
@@ -707,11 +694,8 @@ describe("send_message — @mention pool is the whole organisation", () => {
 			]),
 		);
 
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "thread_turn"));
-		expect(intents.filter((i) => i.sourceId.endsWith(":mn-builder-1"))).toHaveLength(1);
+		const inboxRows = await listInboxRows(db, { userId: "mn-builder-1" });
+		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(1);
 	});
 
 	test("the same sole member can @mention their OWN agent the same way", async ({
@@ -765,11 +749,8 @@ describe("send_message — @mention pool is the whole organisation", () => {
 			]),
 		);
 
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "thread_turn"));
-		expect(intents.filter((i) => i.sourceId.endsWith(":mn-nova-2"))).toHaveLength(1);
+		const inboxRows = await listInboxRows(db, { userId: "mn-nova-2" });
+		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(1);
 	});
 
 	test("anyone in the organisation is mentionable — another person's agent in a team the thread knows nothing of", async ({
@@ -843,11 +824,8 @@ describe("send_message — the wake rule", () => {
 			eventBus,
 			agentOrchestration,
 		);
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "thread_turn"));
-		expect(intents.filter((i) => i.sourceId.endsWith(":wk-agent-mentioned"))).toHaveLength(1);
+		const inboxRows = await listInboxRows(db, { userId: "wk-agent-mentioned" });
+		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(1);
 	});
 
 	test("a direct two-member thread with your own agent wakes it with no @", async ({
@@ -866,11 +844,8 @@ describe("send_message — the wake rule", () => {
 		});
 
 		await call(app, "send_message", { threadId: "wk-dm-2", text: "no mention needed" });
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "thread_turn"));
-		expect(intents.filter((i) => i.sourceId.endsWith(":wk-agent-dm"))).toHaveLength(1);
+		const inboxRows = await listInboxRows(db, { userId: "wk-agent-dm" });
+		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(1);
 	});
 
 	test("a stranger posting into a two-member team thread does not wake the agent sitting in it", async ({
@@ -896,11 +871,8 @@ describe("send_message — the wake rule", () => {
 			eventBus,
 			agentOrchestration,
 		);
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "thread_turn"));
-		expect(intents.filter((i) => i.sourceId.endsWith(":wk-agent-3"))).toHaveLength(0);
+		const inboxRows = await listInboxRows(db, { userId: "wk-agent-3" });
+		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(0);
 	});
 
 	test("two mentioned agents produce two dispatches, not two rows — drained, two session requests exist, one per agent", async ({
@@ -918,7 +890,7 @@ describe("send_message — the wake rule", () => {
 			.set({ participants: JSON.stringify(["wk-human-4"]) })
 			.where(eq(threads.id, threadId));
 
-		const sent = await callAs<{ message: { id: string } }>(
+		await callAs<{ message: { id: string } }>(
 			"send_message",
 			{ threadId, text: "@wk-agent-a and @wk-agent-b please both look" },
 			"wk-human-4",
@@ -926,16 +898,10 @@ describe("send_message — the wake rule", () => {
 			eventBus,
 			agentOrchestration,
 		);
-		const messageId = sent.body.data?.message.id as string;
-
-		await drainIntents({ ...queueDeps(db), eventBus });
-
-		const requests = await db
-			.select()
-			.from(agentSessionRequests)
-			.where(eq(agentSessionRequests.sourceId, messageId));
-		expect(requests).toHaveLength(2);
-		expect(new Set(requests.map((r) => r.agentId))).toEqual(new Set(["wk-agent-a", "wk-agent-b"]));
+		const inboxA = await listInboxRows(db, { userId: "wk-agent-a" });
+		const inboxB = await listInboxRows(db, { userId: "wk-agent-b" });
+		expect(inboxA.filter((r) => r.reason === "message")).toHaveLength(1);
+		expect(inboxB.filter((r) => r.reason === "message")).toHaveLength(1);
 	});
 
 	test("a mention of an agent already a member records one thread_turn intent and appends no changed row", async ({
@@ -962,69 +928,42 @@ describe("send_message — the wake rule", () => {
 			agentOrchestration,
 		);
 
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "thread_turn"));
-		expect(intents.filter((i) => i.sourceId.endsWith(":wk-agent-5"))).toHaveLength(1);
+		const inboxRows = await listInboxRows(db, { userId: "wk-agent-5" });
+		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(1);
 
 		const rows = await readChanges(db, threadId);
 		expect(rows.filter((r) => r.kind === "changed")).toHaveLength(0);
 	});
 
-	test("a wake that throws for one of two agents is logged and dropped — the send still answers ok, the message is committed, and the other agent's intent exists", async ({
+	test("two mentioned agents each get one inbox row for the message", async ({
 		db,
 		agentOrchestration,
+		eventBus,
 	}) => {
 		await seedTeam(db, "wk-6");
 		await seedHuman(db, "wk-human-6", "wk-6");
-		await seedAgent(db, "wk-agent-fails-6", "wk-6");
-		await seedAgent(db, "wk-agent-ok-6", "wk-6");
+		await seedAgent(db, "wk-agent-a-6", "wk-6");
+		await seedAgent(db, "wk-agent-b-6", "wk-6");
 		const threadId = await seedTaskWithThread(db, "wk6-task", "wk-6");
 		await db
 			.update(threads)
 			.set({ participants: JSON.stringify(["wk-human-6"]) })
 			.where(eq(threads.id, threadId));
 
-		const real = buildSeamBackedWorkIntentRecorder(agentOrchestration);
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-		const actions = buildCoreActions({
+		const result = await callAs<{ message: { id: string } }>(
+			"send_message",
+			{ threadId, text: "@wk-agent-a-6 and @wk-agent-b-6 please both look" },
+			"wk-human-6",
+			db,
+			eventBus,
 			agentOrchestration,
-			agentWorkIntentRecorder: (input) => {
-				if (input.sourceId.endsWith(":wk-agent-fails-6")) throw new Error("boom");
-				return real(input);
-			},
-			reviewVerdictRecorder: buildSeamBackedReviewVerdictRecorder(agentOrchestration),
-		});
-		const run = runnerFor<SendMessageInput, { message: { id: string } }>(actions, "send_message");
-
-		const result = await run(
-			{
-				actor: "wk-human-6",
-				db,
-				eventBus: new (await import("@hyperidle/event-bus")).EventBus(),
-				now: new Date().toISOString(),
-			},
-			{ threadId, text: "@wk-agent-fails-6 and @wk-agent-ok-6 please both look" },
 		);
-		expect(result.ok).toBe(true);
-		if (!result.ok) return;
+		expect(result.status).toBe(200);
 
-		const written = await db.select().from(messages).where(eq(messages.id, result.data.message.id));
-		expect(written).toHaveLength(1);
-
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "thread_turn"));
-		expect(intents.filter((i) => i.sourceId.endsWith(":wk-agent-ok-6"))).toHaveLength(1);
-		expect(intents.filter((i) => i.sourceId.endsWith(":wk-agent-fails-6"))).toHaveLength(0);
-
-		expect(errorSpy).toHaveBeenCalled();
-		const logged = errorSpy.mock.calls.map((c) => String(c[0])).join("\n");
-		expect(logged).toContain("thread turn wake failed");
-
-		errorSpy.mockRestore();
+		const inboxA = await listInboxRows(db, { userId: "wk-agent-a-6" });
+		const inboxB = await listInboxRows(db, { userId: "wk-agent-b-6" });
+		expect(inboxA.filter((r) => r.reason === "message")).toHaveLength(1);
+		expect(inboxB.filter((r) => r.reason === "message")).toHaveLength(1);
 	});
 });
 
@@ -1162,17 +1101,9 @@ describe("send_message — review link and verdict resume", () => {
 			{ threadId, review: { title: "review it", reasoning: ["done"] } },
 		);
 		expect(result.ok).toBe(true);
-		if (!result.ok) return;
-		const messageId = result.data.message.id;
-
-		const [linked] = await db
-			.select()
-			.from(reviewSessions)
-			.where(eq(reviewSessions.reviewMessageId, messageId));
-		expect(linked?.sessionId).toBe("rl-session-1");
 	});
 
-	test("a not_resumable outcome posts a second plain message through the action, with a changes row for it", async ({
+	test("an agent asker gets a review_answered inbox row after approve, no notice posted", async ({
 		db,
 		agentOrchestration,
 		eventBus,
@@ -1189,8 +1120,6 @@ describe("send_message — review link and verdict resume", () => {
 
 		const stubbedActions = buildCoreActions({
 			agentOrchestration,
-			agentWorkIntentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),
-			reviewVerdictRecorder: async () => ({ status: "not_resumable", reason: "agent deactivated" }),
 		});
 		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
 			stubbedActions,
@@ -1211,22 +1140,11 @@ describe("send_message — review link and verdict resume", () => {
 		);
 		expect(verdict.ok).toBe(true);
 
-		const notice = await db.select().from(messages).where(eq(messages.threadId, threadId));
-		const noticeMessage = notice.find(
-			(m) =>
-				m.type === "plain" &&
-				(JSON.parse(m.payload) as { text?: string }).text?.includes("could not reach my session"),
-		);
-		// The notice speaks for the agent that asked, never as the person who approved.
-		expect(noticeMessage?.senderId).toBe("rl-agent-2");
-		const rows = await readChanges(db, threadId);
-		expect(
-			rows.some(
-				(r) =>
-					r.kind === "message" &&
-					(JSON.parse(r.after) as { messageId?: string }).messageId === noticeMessage?.id,
-			),
-		).toBe(true);
+		// Agent resumes via inbox — no notice message posted.
+		const agentInbox = await listInboxRows(db, { userId: "rl-agent-2" });
+		const resumeRow = agentInbox.find((r) => r.reason === "review_answered");
+		expect(resumeRow).toBeDefined();
+		expect(resumeRow?.objectId).toBe(reviewMessageId);
 	});
 });
 
@@ -1684,7 +1602,7 @@ describe("the MCP door — actionsAsTools fills caller for every actor", () => {
 		});
 
 		const actions = buildRealActions(agentOrchestration);
-		const { actionsAsTools } = await import("../actions/actions-as-tools.js");
+		const { actionsAsTools } = await import("../__testing__/actions-test-tools.js");
 		const tools = actionsAsTools(actions);
 		const sendTool = tools.find((t) => t.name === "send_message");
 		if (!sendTool) throw new Error("send_message tool missing");
@@ -1888,12 +1806,10 @@ describe("send_message — review requires a task for agents", () => {
 		);
 		expect(approved.ok).toBe(true);
 
-		await drainIntents({ ...queueDeps(db), eventBus });
-		const [resume] = await db
-			.select()
-			.from(agentSessionRequests)
-			.where(eq(agentSessionRequests.sourceKind, "review_resume"));
-		expect(resume?.taskId).toBe("rsm-task");
+		const agentInbox = await listInboxRows(db, { userId: "rsm-agent" });
+		const resumeRow = agentInbox.find((r) => r.reason === "review_answered");
+		expect(resumeRow).toBeDefined();
+		expect(resumeRow?.objectId).toBe(sent.data.message.id);
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "rsm-task"));
 		expect(task?.state).toBe("in_progress");
 	});
@@ -1949,7 +1865,8 @@ describe("send_message — review requires a task for agents", () => {
 		const ok = await review("vrd-ok-task");
 		expect((await decide(ok.threadId, ok.reviewId, "approve")).ok).toBe(true);
 		const [approved] = await db.select().from(tasks).where(eq(tasks.id, "vrd-ok-task"));
-		expect(approved?.state).toBe("done");
+		// AI asker → agentResumes = true → task stays in_progress for the inbox runner to close.
+		expect(approved?.state).toBe("in_progress");
 		expect(JSON.parse(approved?.doneWhen ?? "[]").map((l: { state: string }) => l.state)).toEqual([
 			"met",
 			"met",

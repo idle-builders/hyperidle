@@ -5,40 +5,29 @@
  * are both interval/event-driven, with no single-call entry a scenario can
  * drive deterministically). Mirrors `subscription-clock.ts`'s own
  * `fireSchedule`/`tick` shape, built from the same exported pieces
- * (`resolveSubscriptionWakeRequest`) plus the seam-backed work-intent
- * recorder every other eval scenario already uses.
+ * (`tellUser`, `updateSubscription`, `nextCronMatch`, `parseCron`).
  *
  * `tools/eval` is a tooling composition root — importing `@hyperidle/user`
  * directly here (never from a scenario file) is the same "tooling →
  * service" crossing `@hyperidle/core-api`'s own `@lore` already allows.
  */
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import {
-	buildSeamBackedWorkIntentRecorder,
-	createStandaloneSearchDocuments,
-} from "@hyperidle/core-api";
 import { type HyperIdleDb, subscriptions, users } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/event-bus";
-import { resolveSubscriptionWakeRequest } from "@hyperidle/user";
+import { nextCronMatch, parseCron, tellUser, updateSubscription } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 
 export interface SubscriptionFireResult {
 	readonly fired: boolean;
 }
 
-const searchDocuments = createStandaloneSearchDocuments();
-
 /**
  * Fires one subscription by id, synchronously — the eval-scenario
  * equivalent of one `subscription-clock.ts` tick over a single due row.
  * Returns `{fired:false}` when the subscription or its (agent) owner is
- * missing, or when the bake refuses (an unrunnable agent) — the same
- * "drop and log" outcome `subscription-fire.ts` gives a bad wake.
+ * missing, or when the subscription has no schedule — the same "drop and
+ * log" outcome `subscription-clock.ts` gives a bad wake.
  */
 export async function fireSubscription(
 	db: HyperIdleDb,
-	eventBus: EventBus,
-	agentOrchestration: AgentOrchestrationPort,
 	subscriptionId: string,
 ): Promise<SubscriptionFireResult> {
 	const [sub] = await db
@@ -46,34 +35,34 @@ export async function fireSubscription(
 		.from(subscriptions)
 		.where(eq(subscriptions.id, subscriptionId))
 		.limit(1);
-	if (!sub) return { fired: false };
+	if (!sub || sub.schedule === null) return { fired: false };
 
 	const [agent] = await db.select().from(users).where(eq(users.id, sub.userId)).limit(1);
 	if (agent?.kind !== "ai") return { fired: false };
 
 	const dueAt = sub.nextRunAt ?? new Date().toISOString();
-	const sourceId = `${sub.id}:${dueAt}`;
-	const agentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder(agentOrchestration);
 
 	try {
-		const bakedRequest = await resolveSubscriptionWakeRequest(
-			{ actor: agent.id, db, eventBus, now: new Date().toISOString(), internal: true },
+		await tellUser(
+			db,
 			{
-				subscription: { id: sub.id, event: sub.event, schedule: sub.schedule },
-				agentId: agent.id,
-				change: null,
-				sourceId,
+				userId: agent.id,
+				reason: "subscription",
+				key: `subscription:${sub.id}:${dueAt}`,
+				subscriptionId: sub.id,
 			},
-			{ searchDocuments },
+			new Date().toISOString(),
 		);
-		await agentWorkIntentRecorder({
-			kind: "subscription_run",
-			sourceKind: "subscription",
-			sourceId,
-			requestedBy: agent.id,
-			idempotencyKey: `subscription:${sub.id}:${dueAt}`,
-			bakedRequest,
-		});
+
+		const now = new Date();
+		let nextRunAt: string | null;
+		try {
+			nextRunAt = nextCronMatch(parseCron(sub.schedule), now).toISOString();
+		} catch {
+			nextRunAt = null;
+		}
+		await updateSubscription(db, sub.id, { nextRunAt, updatedAt: now.toISOString() });
+
 		return { fired: true };
 	} catch {
 		return { fired: false };

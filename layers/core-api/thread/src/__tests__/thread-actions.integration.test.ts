@@ -16,7 +16,6 @@ import { type HyperIdleDb, messages, threads, users, userTeams } from "@hyperidl
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	type DocumentRow,
-	type ReviewVerdictOutcome,
 	type SendMessageInput,
 	SYSTEM_ACTOR_ID,
 	type ThreadView,
@@ -448,14 +447,8 @@ describe("send_message — verdict trio and races", () => {
 describe("send_message — answering a question, approving or rejecting a review", () => {
 	/** An agent asks in a task thread from its session; the founder is the other member. */
 	async function seedAsk(db: HyperIdleDb, suffix: string) {
-		const reviewVerdictRecorder = vi.fn(
-			async (): Promise<ReviewVerdictOutcome> => ({ status: "queued" }),
-		);
-		const linkReviewToSession = vi.fn(async () => {});
-		const agentWorkIntentRecorder = vi.fn(async () => ({ id: "intent", idempotencyKey: "key" }));
-		const actions = createThreadActions(
-			threadDeps({ reviewVerdictRecorder, linkReviewToSession, agentWorkIntentRecorder }),
-		);
+		const tellAgent = vi.fn(async () => undefined);
+		const actions = createThreadActions(threadDeps({ inbox: { tellAgent } }));
 		const eventBus = new EventBus();
 		const teamId = `sm-ans-${suffix}`;
 		const agentId = `sm-agent-ans-${suffix}`;
@@ -488,9 +481,7 @@ describe("send_message — answering a question, approving or rejecting a review
 			ask,
 			reply,
 			resolvedAt,
-			reviewVerdictRecorder,
-			linkReviewToSession,
-			agentWorkIntentRecorder,
+			tellAgent,
 			agentId,
 		};
 	}
@@ -504,40 +495,36 @@ describe("send_message — answering a question, approving or rejecting a review
 	test("picking one of the question's options resolves it and hands the pick to the agent's session", async ({
 		db,
 	}) => {
-		const { ask, reply, resolvedAt, reviewVerdictRecorder, linkReviewToSession } = await seedAsk(
-			db,
-			"1",
-		);
+		const { ask, reply, resolvedAt, tellAgent, agentId } = await seedAsk(db, "1");
 		const questionId = await ask({ questionnaire: billing });
-		expect(linkReviewToSession).toHaveBeenCalledWith("sess-1", questionId);
 
 		const answered = await reply({ answer: { resolvesMessageId: questionId, option: "Yearly" } });
 
 		expect(answered.status).toBe(200);
 		expect(await resolvedAt(questionId)).not.toBeNull();
-		expect(reviewVerdictRecorder).toHaveBeenCalledWith(
-			expect.objectContaining({
-				reviewMessageId: questionId,
-				decision: "answer",
-				answer: { option: "Yearly" },
-			}),
+		expect(tellAgent).toHaveBeenCalledWith(
+			expect.any(Object),
+			expect.objectContaining({ reason: "review_answered", objectId: questionId, userId: agentId }),
 		);
 	});
 
 	test("a reject the asking session takes back does not also start a second run of that agent", async ({
 		db,
 	}) => {
-		const { ask, reply, reviewVerdictRecorder, agentWorkIntentRecorder } = await seedAsk(db, "w");
+		const { ask, reply, tellAgent } = await seedAsk(db, "w");
 		const reviewId = await ask({ review: { title: "Ship it?", reasoning: ["tests pass"] } });
-		agentWorkIntentRecorder.mockClear();
 
 		const rejected = await reply({
 			verdict: { decision: "reject", resolvesMessageId: reviewId, note: "One more round." },
 		});
 
 		expect(rejected.status).toBe(200);
-		expect(reviewVerdictRecorder).toHaveBeenCalledOnce();
-		expect(agentWorkIntentRecorder).not.toHaveBeenCalled();
+		// The asker gets exactly one review_answered tell; no extra message tell for the asker.
+		expect(tellAgent).toHaveBeenCalledOnce();
+		expect(tellAgent).toHaveBeenCalledWith(
+			expect.any(Object),
+			expect.objectContaining({ reason: "review_answered" }),
+		);
 	});
 
 	test("naming an option the question does not have is refused and leaves it open", async ({
@@ -567,7 +554,7 @@ describe("send_message — answering a question, approving or rejecting a review
 	test("a reject with a reason resolves the review and hands the reason to the agent's session", async ({
 		db,
 	}) => {
-		const { ask, reply, resolvedAt, reviewVerdictRecorder } = await seedAsk(db, "4");
+		const { ask, reply, resolvedAt, tellAgent } = await seedAsk(db, "4");
 		const reviewId = await ask({ review: { title: "Ship it?", reasoning: ["tests pass"] } });
 
 		const rejected = await reply({
@@ -576,12 +563,9 @@ describe("send_message — answering a question, approving or rejecting a review
 
 		expect(rejected.status).toBe(200);
 		expect(await resolvedAt(reviewId)).not.toBeNull();
-		expect(reviewVerdictRecorder).toHaveBeenCalledWith(
-			expect.objectContaining({
-				reviewMessageId: reviewId,
-				decision: "decline",
-				note: "Wrong table.",
-			}),
+		expect(tellAgent).toHaveBeenCalledWith(
+			expect.any(Object),
+			expect.objectContaining({ reason: "review_answered", objectId: reviewId }),
 		);
 	});
 
@@ -1235,10 +1219,10 @@ describe("search_threads", () => {
 			"st-review-1",
 			"st-theirs-1",
 		]);
-		// The second review was approved (even via not_resumable), so the first is replaced — no need.
+		// The second review was approved; the verdict (from the founder) is the last message.
 		expect(byId.get("st-review-1")).toMatchObject({
 			need: null,
-			lastSenderId: "st-agent-1",
+			lastSenderId: "u-founder",
 			mentionsYou: false,
 		});
 		expect(byId.get("st-asked-1")).toMatchObject({ need: "stuck", lastSenderId: "st-agent-1" });

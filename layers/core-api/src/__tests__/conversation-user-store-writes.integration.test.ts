@@ -22,8 +22,6 @@ import { buildCoreActions } from "../actions/compose.js";
 function buildTestActions(agentOrchestration: AgentOrchestrationPort) {
 	return buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
 }
 

@@ -10,8 +10,8 @@ import {
 	type AgentSessionRequest,
 	agentRunConfig,
 	agentSessionRequests,
-	agentWorkIntents,
 	type HyperIdleDb,
+	inbox,
 	users,
 } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
@@ -28,10 +28,8 @@ import {
 	type SupportedHarnessName,
 	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
-import { drainIntents } from "@hyperidle/session-requests";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
-import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import {
 	assertRunOutcomeCompleted,
 	assertSessionRowDone,
@@ -84,10 +82,9 @@ async function seedFounderAndAgent(
 
 /**
  * The human's door: a direct `send_message` with `recipients:[agentId]`
- * (no existing thread) — opens the thread, bakes the real `thread_turn` work
- * intent (`sendMessageRun`'s wake step, `thread-actions.ts`), drains it into a
- * real `agent_session_requests` row (the same drain the poller calls on a
- * timer — invoked once here), and returns that claimable row plus the
+ * (no existing thread) — opens the thread, creates an inbox row for the agent
+ * (the inbox-based wake), waits for the orchestration to hand off a real
+ * `agent_session_requests` row, and returns that claimable row plus the
  * thread it opened.
  */
 async function postAndDrainThreadTurnRequest(
@@ -108,36 +105,35 @@ async function postAndDrainThreadTurnRequest(
 	if (!result.ok) {
 		throw new Error(`send_message failed: ${JSON.stringify(result.problems)}`);
 	}
-	const messageId = result.data.message.id;
 	const threadId = result.data.thread.id;
 
-	// The intent's own `sourceId` is `${messageId}:${agentId}` — one intent
-	// per woken agent (`thread-actions.ts`'s wake loop), not the bare
-	// message id.
-	const [intent] = await db
-		.select()
-		.from(agentWorkIntents)
-		.where(eq(agentWorkIntents.sourceId, `${messageId}:${opts.agentId}`));
-	if (!intent) {
-		throw new Error(
-			`No agent_work_intents row recorded for message ${messageId}, agent ${opts.agentId}`,
-		);
+	// Wait for the inbox wake row (created synchronously by send_message).
+	const inboxDeadline = Date.now() + 5000;
+	for (;;) {
+		const [row] = await db
+			.select()
+			.from(inbox)
+			.where(and(eq(inbox.userId, opts.agentId), eq(inbox.reason, "message")));
+		if (row) break;
+		if (Date.now() > inboxDeadline) {
+			throw new Error(`no inbox wake row for agent ${opts.agentId} within timeout`);
+		}
+		await new Promise((r) => setTimeout(r, 50));
 	}
-	expect(intent.kind).toBe("thread_turn");
 
-	await drainIntents({ ...queueDeps(db), eventBus });
-
-	// The drained `agent_session_requests` row keeps the BAKED `sourceId`
-	// (`BakedThreadTurnRequest.sourceId` = the bare message id), unlike the
-	// intent row above.
-	const [request] = await db
-		.select()
-		.from(agentSessionRequests)
-		.where(eq(agentSessionRequests.sourceId, messageId));
-	if (!request) {
-		throw new Error(`drainIntents did not produce an agent_session_requests row for ${messageId}`);
+	// Wait for the orchestration spawn loop to hand off the agentSessionRequests row.
+	const requestDeadline = Date.now() + 15_000;
+	for (;;) {
+		const [request] = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.agentId, opts.agentId));
+		if (request) return { request, threadId };
+		if (Date.now() > requestDeadline) {
+			throw new Error(`no agent_session_requests row for agent ${opts.agentId} within timeout`);
+		}
+		await new Promise((r) => setTimeout(r, 100));
 	}
-	return { request, threadId };
 }
 
 describe("a human's send_message wakes an agent, whose own send_message ends the turn (real harness)", () => {

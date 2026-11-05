@@ -13,16 +13,11 @@ Four: `active`, `done`, `stopped`, `crashed`. Declared in `SESSION_STATES` (`act
 - `stopped` — stopped by `stop_session`.
 - `crashed` — harness process exited unexpectedly, or the reaper swept it.
 
-## Work intents
+## Where a session comes from
 
-Every session starts from a work intent. Four kinds (`AGENT_WORK_INTENT_KINDS`, `work-intent.ts`):
+Every session starts from a row in its agent's inbox, which the agent's runner turns into a run: a turn in a thread (`message`), a run on a task (`task_run`), a subscription firing (`subscription`), or the session that asked a question coming back with the answer (`review_answered`). How rows are written and worked: [How an agent gets work](../architecture/overview.md#how-an-agent-gets-work).
 
-- `thread_turn` — an agent was woken by a message in a thread.
-- `task_run` — a task moved to `accepted` and a dispatch attempt was queued.
-- `session_resume` — a human gave a verdict on the agent's review, or someone answered its question; the session is resumed with the verdict or the answer.
-- `subscription_run` — a scheduled or event subscription fired.
-
-Thread turns and resumes do not assemble a `knowledge/` tree — they get an empty manifest and only `context/session.toon`. Only `task_run` and `subscription_run` get documents.
+Thread turns and resumed sessions do not assemble a `knowledge/` tree — they get an empty manifest and only `context/session.toon`. Only task and subscription runs get documents.
 
 ## Concurrency
 
@@ -30,7 +25,7 @@ Each agent has `maxConcurrentSessions` (default 1) from its run config. When a r
 
 ## Sandbox zones
 
-Every `task_run` and `subscription_run` session gets a sandbox directory with four zones:
+Every task run and subscription run gets a sandbox directory with four zones:
 
 - `context/` — read-only. Contains `session.toon`: a flat key-value file with task, ancestors, agent, team data.
 - `knowledge/` — documents the agent may read, edit, and reorganize. Changes sync back automatically.

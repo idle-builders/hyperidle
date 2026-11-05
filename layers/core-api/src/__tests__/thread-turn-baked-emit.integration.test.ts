@@ -1,20 +1,12 @@
 /**
- * The wake rule (`@hyperidle/thread`'s `send_message` action) resolves and
- * validates the woken agent AT EMIT TIME and bakes the full request onto the
- * `agent_work_intents` row, instead of enqueuing a bare identity-only intent
- * for the drain to resolve later:
- *
- *   1. The emitted intent's `bakedRequestJson` is populated at emit time.
- *   2. The drain hands the intent off from its baked payload alone — zero
- *      domain reads (`DurableAgentQueueDeps` carries no `conversation`/
- *      `users.getUserById` field to read from).
+ * The wake rule (`@hyperidle/thread`'s `send_message` action) wakes the agent
+ * via an inbox row at emit time, so the agent has a reason to run with the
+ * full context of what triggered it.
  */
 
-import { agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
-import { drainIntents } from "@hyperidle/session-requests";
-import { eq } from "drizzle-orm";
+import { type HyperIdleDb, threads, users } from "@hyperidle/db";
+import { listInboxRows } from "@hyperidle/user";
 import { describe, expect } from "vitest";
-import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { test } from "../__testing__/test-fixtures.js";
 
 interface ActionEnvelope<T> {
@@ -75,8 +67,8 @@ async function seedTwoMemberThread(
 	});
 }
 
-describe("the wake rule bakes the thread_turn request at emit time (send_message)", () => {
-	test("posting a plain message in a two-member thread bakes the woken agent's request onto the recorded intent", async ({
+describe("the wake rule creates an inbox row for the agent at emit time (send_message)", () => {
+	test("posting a plain message in a two-member thread creates an inbox row for the woken agent", async ({
 		db,
 		app,
 		asPerson,
@@ -93,67 +85,8 @@ describe("the wake rule bakes the thread_turn request at emit time (send_message
 			text: "hello agent",
 		});
 		expect(res.status).toBe(200);
-		const messageId = (res.body.data as { message: { id: string } }).message.id;
 
-		const [intent] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, `${messageId}:agent-bake-emit-1`));
-		expect(intent).toBeDefined();
-		expect(intent?.kind).toBe("thread_turn");
-
-		expect(intent?.bakedRequestJson).toBeTruthy();
-		const baked = intent?.bakedRequestJson
-			? (JSON.parse(intent.bakedRequestJson) as Record<string, unknown>)
-			: undefined;
-		expect(baked).toMatchObject({
-			defaultAgentId: "agent-bake-emit-1",
-			sourceKind: "assistant",
-			sourceId: messageId,
-			streamId: "thread:thread-bake-emit-1",
-			userId: "user-bake-emit-1",
-			sourceCorrelation: {
-				threadId: "thread-bake-emit-1",
-				messageId,
-				userId: "user-bake-emit-1",
-				agentId: "agent-bake-emit-1",
-			},
-		});
-	});
-
-	test("the drain hands off the real emitted thread_turn intent from its baked payload — zero conversation/users domain reads", async ({
-		db,
-		app,
-		eventBus,
-		asPerson,
-	}) => {
-		await seedTwoMemberThread(db, {
-			threadId: "thread-bake-emit-2",
-			senderId: "user-bake-emit-2",
-			agentId: "agent-bake-emit-2",
-		});
-		await asPerson("user-bake-emit-2");
-
-		const res = await call<{ message: { id: string } }>(app, "send_message", {
-			threadId: "thread-bake-emit-2",
-			text: "hello agent",
-		});
-		expect(res.status).toBe(200);
-		const messageId = (res.body.data as { message: { id: string } }).message.id;
-
-		// `DurableAgentQueueDeps` no longer HAS a `conversation`/
-		// `users.getUserById` field at all — the drain can only ever hand off
-		// from the baked payload; there is no domain-read fallback left to wire
-		// a throwing spy onto.
-		const deps = { ...queueDeps(db), eventBus };
-
-		await drainIntents(deps);
-
-		const [intent] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, `${messageId}:agent-bake-emit-2`));
-		expect(intent?.status).toBe("handed_off");
-		expect(intent?.requestId).toBeTruthy();
+		const inboxRows = await listInboxRows(db, { userId: "agent-bake-emit-1" });
+		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(1);
 	});
 });

@@ -7,7 +7,6 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	agentSessionRequests,
-	agentWorkIntents,
 	changes,
 	type HyperIdleDb,
 	sessions,
@@ -19,6 +18,7 @@ import {
 	userTeams,
 } from "@hyperidle/db";
 import type { EventBus, ObjectChangeEvent } from "@hyperidle/event-bus";
+import { listInboxRows } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -37,8 +37,6 @@ function editTaskFrom(
 ): Parameters<typeof registerWorkSessionStartedReactions>[2] {
 	const editTaskAction = buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	}).find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
 	return editTaskAction.run as Parameters<typeof registerWorkSessionStartedReactions>[2];
@@ -57,8 +55,6 @@ function ctxFor(actor: string, db: HyperIdleDb, eventBus: EventBus): ActionConte
 function buildTestActions(agentOrchestration: AgentOrchestrationPort) {
 	return buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
 }
 
@@ -740,11 +736,8 @@ describe("dispatch", () => {
 		expect(attempts).toHaveLength(1);
 		expect(attempts[0]?.occasion).toBe("accepted");
 
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, attempts[0]?.id ?? ""));
-		expect(intents).toHaveLength(1);
+		const inboxRows = await listInboxRows(db, { userId: "ta-agent-9" });
+		expect(inboxRows.filter((r) => r.reason === "task_run")).toHaveLength(1);
 	});
 
 	test("an owner change on an in_progress task inserts a second attempt with occasion owner_handoff, ends the predecessor's run, and records a second intent", async ({
@@ -841,17 +834,12 @@ describe("dispatch", () => {
 		expect(handoffAttempt?.predecessorSessionId).toBe("ta-handoff-session");
 		expect(handoffAttempt?.agentId).toBe("ta-agent-10b");
 
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, handoffAttempt?.id ?? ""));
-		expect(intents).toHaveLength(1);
+		const inboxRows = await listInboxRows(db, { userId: "ta-agent-10b" });
+		expect(inboxRows.filter((r) => r.reason === "task_run")).toHaveLength(1);
 
-		const [predecessorSession] = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, "ta-handoff-session"));
-		expect(predecessorSession?.state).toBe("done");
+		// The inbox runner (not running in tests) will process this stop and call endRunForHandoff.
+		const prevAgentInbox = await listInboxRows(db, { userId: "ta-agent-10a" });
+		expect(prevAgentInbox.filter((r) => r.reason === "task_stop").length).toBeGreaterThan(0);
 	});
 
 	test("a kill calls stopRunsForTasks with every killed id, including a done root", async ({
@@ -879,6 +867,7 @@ describe("dispatch", () => {
 				id: "ta-kill-live-child",
 				parentTaskId: "ta-kill-done-root",
 				teamId: "ta-team-11",
+				ownerAgentId: "ta-agent-11",
 				title: "Live child",
 				state: "in_progress",
 				threadId: killLiveChildThreadId,
@@ -901,10 +890,11 @@ describe("dispatch", () => {
 		});
 		expect(res.status).toBe(200);
 
-		const [session] = await db.select().from(sessions).where(eq(sessions.id, "ta-kill-session"));
-		// `stopForTasks` was called with the done root included — its live
-		// child's run is stopped as a result.
-		expect(session?.state).not.toBe("active");
+		// The inbox runner (not running in tests) will stop the session; a task_stop row is the synchronous proof.
+		const agentInbox = await listInboxRows(db, { userId: "ta-agent-11" });
+		expect(
+			agentInbox.some((r) => r.reason === "task_stop" && r.objectId === "ta-kill-live-child"),
+		).toBe(true);
 		const rootRow = await readTask(db, "ta-kill-done-root");
 		const childRow = await readTask(db, "ta-kill-live-child");
 		expect(rootRow?.state).toBe("killed");

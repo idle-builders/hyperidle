@@ -7,6 +7,7 @@ import {
 	type DocumentRow as DbDocumentRow,
 	documents,
 	type HyperIdleDb,
+	inbox,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -19,10 +20,8 @@ import {
 	type SupportedHarnessName,
 	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
-import { drainIntents } from "@hyperidle/session-requests";
 import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
-import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import {
 	assertRunOutcomeCompleted,
 	HARNESS_TYPE,
@@ -111,16 +110,11 @@ async function seedFixtureDocument(
 
 /**
  * The human's/founder's door onto task dispatch: `edit_task`, created
- * already `accepted` and owned by the agent in one call — the same branch
- * `task-actions.ts`'s "-- the dispatch branch: an accept, or an owner
- * change to an agent --" comment names, firing on `prev === null` exactly
- * as it does on a live accept. Bakes a `task_run` work intent
- * (`sourceKind: "task_dispatch_attempt"`), which `drainIntents` — the same
- * drain the poller calls on a timer, invoked once here — turns into a real
- * `agent_session_requests` row whose `sourceId` is the task's own id
- * (`resolveTaskRunRequest`'s task_run arm).
+ * already `accepted` and owned by the agent in one call. The inbox system
+ * writes a `task_run` row; the orchestration spawn loop reads it and
+ * creates the `agent_session_requests` row.
  */
-async function createAndDrainTaskDispatchRequest(
+async function createTaskDispatchRequest(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	actions: readonly Action[],
@@ -148,18 +142,31 @@ async function createAndDrainTaskDispatchRequest(
 	}
 	const taskId = result.data.task.id;
 
-	await drainIntents({ ...queueDeps(db), eventBus });
-
-	const [request] = await db
-		.select()
-		.from(agentSessionRequests)
-		.where(eq(agentSessionRequests.sourceId, taskId));
-	if (!request) {
-		throw new Error(
-			`drainIntents did not produce an agent_session_requests row for task ${taskId}`,
-		);
+	// Poll inbox for the task_run wake row
+	const inboxDeadline = Date.now() + 5_000;
+	for (;;) {
+		const rows = await db
+			.select()
+			.from(inbox)
+			.where(and(eq(inbox.userId, opts.agentId), eq(inbox.reason, "task_run")));
+		if (rows.some((r) => r.objectId === taskId)) break;
+		if (Date.now() > inboxDeadline)
+			throw new Error(`inbox did not get a task_run row for task ${taskId} within 5s`);
+		await new Promise((r) => setTimeout(r, 50));
 	}
-	return { request, taskId };
+
+	// Poll agentSessionRequests for the orchestration-produced row
+	const requestDeadline = Date.now() + 15_000;
+	for (;;) {
+		const [request] = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.sourceId, taskId));
+		if (request) return { request, taskId };
+		if (Date.now() > requestDeadline)
+			throw new Error(`agentSessionRequests did not get a row for task ${taskId} within 15s`);
+		await new Promise((r) => setTimeout(r, 100));
+	}
 }
 
 describe("a real agent writes a memory, writes a task artifact, and reads a document back through the document tools (real harness)", () => {
@@ -220,12 +227,13 @@ describe("a real agent writes a memory, writes a task artifact, and reads a docu
 		const run = await setUpLiveHarnessRun(db, `doc-tools-${harness}`);
 
 		try {
-			const { request, taskId } = await createAndDrainTaskDispatchRequest(
-				db,
-				run.eventBus,
-				run.actions,
-				{ founderId, agentId, teamId, title: taskTitle, description: taskDescription },
-			);
+			const { request, taskId } = await createTaskDispatchRequest(db, run.eventBus, run.actions, {
+				founderId,
+				agentId,
+				teamId,
+				title: taskTitle,
+				description: taskDescription,
+			});
 
 			const adapterPool = run.adapterPool;
 			const workspace = run.workspace;

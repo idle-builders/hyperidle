@@ -46,7 +46,15 @@ async function notifyThreadTurnAdmissionFailure(
 	sendMessage: SendMessageRunFn,
 ): Promise<void> {
 	const thread = await findThread(db, { id: threadId });
-	const members = thread ? (JSON.parse(thread.participants) as string[]) : [];
+	if (!thread) {
+		logger.error("admission notice thread not found", {
+			threadId,
+			agentId: event.agentId,
+			sourceId: event.sourceId,
+		});
+		return;
+	}
+	const members = JSON.parse(thread.participants) as string[];
 	const humanMembers =
 		members.length > 0 ? await listUsers(db, { ids: members, kind: "human" }) : [];
 	if (humanMembers.length === 0) {

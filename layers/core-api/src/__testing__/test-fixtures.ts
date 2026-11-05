@@ -135,8 +135,6 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		// `service-bootstrap.integration.test.ts` builds.
 		const fixtureActions = buildCoreActions({
 			agentOrchestration,
-			agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-			reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 		});
 		const sendMessageAction = fixtureActions.find((a) => a.declaration.name === "send_message");
 		if (!sendMessageAction) {

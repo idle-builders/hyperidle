@@ -10,7 +10,6 @@
  * fire mechanism `app.ts` registers, counted on `agent_work_intents`.
  */
 import {
-	agentWorkIntents,
 	type HyperIdleDb,
 	messages,
 	subscriptions,
@@ -21,6 +20,7 @@ import {
 	userTeams,
 } from "@hyperidle/db";
 import type { ObjectChangeEvent } from "@hyperidle/event-bus";
+import { listInboxRows } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -88,9 +88,8 @@ async function subscribe(
 	}
 }
 
-async function intentsFor(db: HyperIdleDb, agentId: string) {
-	const rows = await db.select().from(agentWorkIntents);
-	return rows.filter((r) => r.sourceId.includes(agentId) || r.requestedBy === agentId);
+async function inboxFor(db: HyperIdleDb, agentId: string) {
+	return listInboxRows(db, { userId: agentId });
 }
 
 describe("an agent subscribed to everything wakes once per change", () => {
@@ -157,12 +156,12 @@ describe("an agent subscribed to everything wakes once per change", () => {
 		await call(app, "send_message", { threadId: "sentinel-thread-once-dm", text: "sentinel ping" });
 
 		await vi.waitFor(async () => {
-			const sentinelIntents = await intentsFor(db, "sentinel-once-dm");
-			expect(sentinelIntents.map((i) => i.kind)).toEqual(["subscription_run"]);
+			const sentinelIntents = await inboxFor(db, "sentinel-once-dm");
+			expect(sentinelIntents.map((i) => i.reason)).toEqual(["subscription"]);
 		});
 
-		const intents = await intentsFor(db, "assistant-once-dm");
-		expect(intents.map((i) => i.kind)).toEqual(["thread_turn"]);
+		const intents = await inboxFor(db, "assistant-once-dm");
+		expect(intents.map((i) => i.reason)).toEqual(["message"]);
 	});
 
 	test("a task handed to an agent starts its task run and nothing else", async ({
@@ -225,12 +224,12 @@ describe("an agent subscribed to everything wakes once per change", () => {
 		});
 
 		await vi.waitFor(async () => {
-			const sentinelIntents = await intentsFor(db, "sentinel-once-task");
-			expect(sentinelIntents.map((i) => i.kind)).toEqual(["subscription_run"]);
+			const sentinelIntents = await inboxFor(db, "sentinel-once-task");
+			expect(sentinelIntents.map((i) => i.reason)).toEqual(["subscription"]);
 		});
 
-		const intents = await intentsFor(db, "agent-once-task");
-		expect(intents.map((i) => i.kind)).toEqual(["task_run"]);
+		const intents = await inboxFor(db, "agent-once-task");
+		expect(intents.map((i) => i.reason)).toEqual(["task_run"]);
 	});
 
 	test("an agent created with subscriptions does not wake on its own creation", async ({
@@ -266,14 +265,14 @@ describe("an agent subscribed to everything wakes once per change", () => {
 		});
 
 		await vi.waitFor(async () => {
-			const intents = await intentsFor(db, "sentinel-once-new");
-			expect(intents.map((i) => i.kind)).toEqual(["subscription_run"]);
+			const intents = await inboxFor(db, "sentinel-once-new");
+			expect(intents.map((i) => i.reason)).toEqual(["subscription"]);
 		});
 
 		const agentId = created.data?.user?.id ?? "";
 		expect(agentId).not.toBe("");
-		const ownIntents = await intentsFor(db, agentId);
-		expect(ownIntents.filter((r) => r.kind === "subscription_run")).toEqual([]);
+		const ownIntents = await inboxFor(db, agentId);
+		expect(ownIntents.filter((r) => r.reason === "subscription")).toEqual([]);
 	});
 
 	test("a verdict on an agent's review names the agent on every change it makes", async ({

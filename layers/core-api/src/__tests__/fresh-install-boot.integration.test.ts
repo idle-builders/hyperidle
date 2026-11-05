@@ -73,8 +73,6 @@ describe("a fresh install", () => {
 		// First start makes the person in-process as nobody (`routes/start.ts`); the HTTP door refuses nobody.
 		const bootstrapActions = buildCoreActions({
 			agentOrchestration,
-			agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-			reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 		});
 		const editUserAction = bootstrapActions.find((a) => a.declaration.name === "edit_user");
 		if (!editUserAction) throw new Error("edit_user action not found");

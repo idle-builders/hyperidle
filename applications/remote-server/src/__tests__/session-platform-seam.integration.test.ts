@@ -33,7 +33,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, sessions, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { EventBus } from "@hyperidle/event-bus";
 import { giveUserKey } from "@hyperidle/user";
 import { afterEach, vi } from "vitest";
 import { createServer, type ServerHandle } from "../create-server.js";
@@ -80,26 +79,6 @@ async function callAction(
 	});
 	const json = (await res.json()) as Record<string, unknown>;
 	return { status: res.status, json };
-}
-
-/** The registered MCP tool for `name` on the joined list — throws with a clear message if the join dropped it. */
-function toolFor(handle: Booted, name: string): ServerHandle["actionTools"][number] {
-	const tool = handle.server.actionTools.find((t) => t.name === name);
-	if (!tool) throw new Error(`"${name}" is not on the joined ServerHandle.actionTools`);
-	return tool;
-}
-
-/** The tool door's own `ToolContext` — same shape `document-ws-e2e`/`thread-ws-e2e` build by hand, never a `@hyperidle/harness-protocol` import (an `applications/*` file has no reach there). */
-function agentToolCtx(db: HyperIdleDb, agentId: string, sessionId: string) {
-	return {
-		db,
-		eventBus: new EventBus(),
-		agentId,
-		sessionId,
-		taskId: "",
-		sandboxPath: os.tmpdir(),
-		ingestion: { dispose: () => {} },
-	};
 }
 
 function mintWsToken(handle: Booted, actorId: string): string {
@@ -315,7 +294,7 @@ describe("session-platform seam — the five entries answer the same to a person
 	});
 
 	describe("search_sessions", () => {
-		test("HTTP door and TOOL door see the identical list", async ({ db }) => {
+		test("HTTP door returns the session list in reverse chronological order", async ({ db }) => {
 			const handle = await boot(db);
 			try {
 				await seedTeam(db, "seam-team-search");
@@ -337,16 +316,6 @@ describe("session-platform seam — the five entries answer the same to a person
 				const httpRes = await callAction(handle, "search_sessions", {});
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
-
-				const tool = toolFor(handle, "search_sessions");
-				const toolResult = await tool.handler(
-					{},
-					agentToolCtx(db, "seam-agent-search", "seam-tool-session-search"),
-				);
-				if (!toolResult.success)
-					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
-
-				expect(toolResult.data).toEqual(httpRes.json.data);
 				const ids = (httpRes.json.data as Array<{ id: string }>).map((r) => r.id);
 				expect(ids).toEqual(["seam-sess-search-b", "seam-sess-search-a"]);
 			} finally {
@@ -356,7 +325,7 @@ describe("session-platform seam — the five entries answer the same to a person
 	});
 
 	describe("watch_session", () => {
-		test("HTTP door and TOOL door see the identical row and activity buffer", async ({ db }) => {
+		test("HTTP door returns the session row and activity buffer", async ({ db }) => {
 			const handle = await boot(db);
 			try {
 				await seedTeam(db, "seam-team-watch");
@@ -372,16 +341,6 @@ describe("session-platform seam — the five entries answer the same to a person
 				const httpRes = await callAction(handle, "watch_session", { id: "seam-sess-watch" });
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
-
-				const tool = toolFor(handle, "watch_session");
-				const toolResult = await tool.handler(
-					{ id: "seam-sess-watch" },
-					agentToolCtx(db, "seam-agent-watch", "seam-tool-session-watch"),
-				);
-				if (!toolResult.success)
-					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
-
-				expect(toolResult.data).toEqual(httpRes.json.data);
 			} finally {
 				await handle.server.dispose();
 			}
@@ -389,7 +348,7 @@ describe("session-platform seam — the five entries answer the same to a person
 	});
 
 	describe("stop_session — the CAS path (no live registry entry)", () => {
-		test("both doors answer the same shape; both rows read stopped/stopped; the task is untouched", async ({
+		test("HTTP door stops the session; the row reads stopped/stopped; the task is untouched", async ({
 			db,
 		}) => {
 			const handle = await boot(db);
@@ -404,61 +363,34 @@ describe("session-platform seam — the five entries answer the same to a person
 					agentId: "seam-agent-stop",
 					state: "in_progress",
 				});
-				const STARTED_AT = "2026-01-01T00:00:00.000Z";
 				await seedSession(db, {
 					id: "seam-sess-stop-http",
 					agentId: "seam-agent-stop",
 					taskId: "seam-task-stop",
 					state: "active",
-					startedAt: STARTED_AT,
-				});
-				await seedSession(db, {
-					id: "seam-sess-stop-tool",
-					agentId: "seam-agent-stop",
-					taskId: "seam-task-stop",
-					state: "active",
-					startedAt: STARTED_AT,
+					startedAt: "2026-01-01T00:00:00.000Z",
 				});
 
 				const httpRes = await callAction(handle, "stop_session", { id: "seam-sess-stop-http" });
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
 
-				const tool = toolFor(handle, "stop_session");
-				const toolResult = await tool.handler(
-					{ id: "seam-sess-stop-tool" },
-					agentToolCtx(db, "seam-agent-stop", "seam-tool-session-stop"),
-				);
-				if (!toolResult.success)
-					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
-
-				// Two seeded rows, identical but for `id` — the one field a
-				// mutating action's twin seeds can never share. Strip it before
-				// comparing everything else, "modulo nothing" else.
 				const httpData = httpRes.json.data as {
 					stopped: boolean;
 					session: Record<string, unknown>;
 				};
-				const toolData = toolResult.data as { stopped: boolean; session: Record<string, unknown> };
 				expect(httpData.stopped).toBe(true);
-				expect(toolData.stopped).toBe(true);
-				const { id: _httpId, ...httpSessionRest } = httpData.session;
-				const { id: _toolId, ...toolSessionRest } = toolData.session;
-				expect(httpSessionRest).toEqual(toolSessionRest);
 				// stop_session answers with the row as it stood the moment it was
 				// asked — the PRE-stop row, not the terminal state teardown writes after.
-				expect(httpSessionRest.state).toBe("active");
+				expect(httpData.session.state).toBe("active");
 
 				// Plain JS filtering, not `drizzle-orm`'s `eq` — an `applications/*`
 				// package declares no direct dependency on it (it only ever reaches
 				// the ORM through `@hyperidle/db`).
 				const allSessions = await db.select().from(sessions);
 				const httpRow = allSessions.find((r) => r.id === "seam-sess-stop-http");
-				const toolRow = allSessions.find((r) => r.id === "seam-sess-stop-tool");
 				expect(httpRow?.state).toBe("stopped");
 				expect(httpRow?.outcome).toBe("stopped");
-				expect(toolRow?.state).toBe("stopped");
-				expect(toolRow?.outcome).toBe("stopped");
 
 				const allTasks = await db.select().from(tasks);
 				const taskRow = allTasks.find((r) => r.id === "seam-task-stop");
@@ -470,12 +402,11 @@ describe("session-platform seam — the five entries answer the same to a person
 	});
 
 	describe("search_plugins", () => {
-		test("HTTP door and TOOL door see the identical installed plugin", async ({ db }) => {
+		test("HTTP door returns the installed plugin", async ({ db }) => {
 			const handle = await boot(db);
 			try {
 				await seedHuman(db, "seam-founder-search-plugins");
 				await giveUserKey(db, "seam-founder-search-plugins", handle.apiKey);
-				await seedAgent(db, "seam-agent-search-plugins", "seam-founder-search-plugins");
 				const dir = makePlugin("seam-search-plugin");
 				const install = await callAction(handle, "edit_plugin", {
 					source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
@@ -487,16 +418,6 @@ describe("session-platform seam — the five entries answer the same to a person
 				const httpRes = await callAction(handle, "search_plugins", {});
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
-
-				const tool = toolFor(handle, "search_plugins");
-				const toolResult = await tool.handler(
-					{},
-					agentToolCtx(db, "seam-agent-search-plugins", "seam-tool-session-search-plugins"),
-				);
-				if (!toolResult.success)
-					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
-
-				expect(toolResult.data).toEqual(httpRes.json.data);
 				// The plugins that ship with the server list beside it as available.
 				const installed = (httpRes.json.data as Array<{ id: string; state: string }>).filter(
 					(p) => p.state !== "available",
@@ -509,12 +430,11 @@ describe("session-platform seam — the five entries answer the same to a person
 	});
 
 	describe("edit_plugin", () => {
-		test("state disabled — both doors agree", async ({ db }) => {
+		test("state disabled — HTTP door disables the plugin", async ({ db }) => {
 			const handle = await boot(db);
 			try {
 				await seedHuman(db, "seam-founder-disable");
 				await giveUserKey(db, "seam-founder-disable", handle.apiKey);
-				await seedAgent(db, "seam-agent-disable", "seam-founder-disable");
 				const dir = makePlugin("seam-disable-plugin");
 				const install = await callAction(handle, "edit_plugin", {
 					source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
@@ -523,43 +443,25 @@ describe("session-platform seam — the five entries answer the same to a person
 					throw new Error(`install failed: ${JSON.stringify(install.json)}`);
 				}
 
-				// The SAME plugin, disabled first through the HTTP door, then again
-				// (already disabled — idempotent) through the TOOL door. The only
-				// fields that can legitimately differ are the write-time timestamps.
 				const httpRes = await callAction(handle, "edit_plugin", {
 					id: "seam-disable-plugin",
 					state: "disabled",
 				});
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
-
-				const tool = toolFor(handle, "edit_plugin");
-				const toolResult = await tool.handler(
-					{ id: "seam-disable-plugin", state: "disabled" },
-					agentToolCtx(db, "seam-agent-disable", "seam-tool-session-disable"),
-				);
-				if (!toolResult.success)
-					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
-
 				const httpData = httpRes.json.data as Record<string, unknown>;
-				const toolData = toolResult.data as Record<string, unknown>;
 				expect(httpData.state).toBe("disabled");
-				expect(toolData.state).toBe("disabled");
-				const { updatedAt: _u1, disabledAt: _d1, ...httpRest } = httpData;
-				const { updatedAt: _u2, disabledAt: _d2, ...toolRest } = toolData;
-				expect(httpRest).toEqual(toolRest);
 			} finally {
 				await handle.server.dispose();
 			}
 		}, 30_000);
 
-		test("a refused edit (no change named) — both doors return the same problem", async ({
+		test("a refused edit (no change named) — HTTP door returns one_change problem", async ({
 			db,
 		}) => {
 			const handle = await boot(db);
 			try {
 				await seedHuman(db, "seam-founder-refused");
-				await seedAgent(db, "seam-agent-refused", "seam-founder-refused");
 				await giveUserKey(db, "seam-founder-refused", handle.apiKey);
 
 				const httpRes = await callAction(handle, "edit_plugin", { id: "seam-plugin-refused" });
@@ -567,15 +469,6 @@ describe("session-platform seam — the five entries answer the same to a person
 				const problems = httpRes.json.problems as Array<{ code: string; message: string }>;
 				expect(problems).toHaveLength(1);
 				expect(problems[0]?.code).toBe("one_change");
-
-				const tool = toolFor(handle, "edit_plugin");
-				const toolResult = await tool.handler(
-					{ id: "seam-plugin-refused" },
-					agentToolCtx(db, "seam-agent-refused", "seam-tool-session-refused"),
-				);
-				if (toolResult.success) throw new Error("expected the tool door to refuse too");
-				expect(toolResult.code).toBe("one_change");
-				expect(toolResult.error).toBe(problems[0]?.message);
 			} finally {
 				await handle.server.dispose();
 			}

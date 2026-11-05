@@ -6,9 +6,8 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, threads, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import type { ActionContext } from "../actions/action.js";
@@ -42,8 +41,6 @@ async function callAs<T>(
 ): Promise<{ readonly status: number; readonly body: ActionEnvelope<T> }> {
 	const actions = buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
 	const action = actions.find((a) => a.declaration.name === name);
 	if (!action) throw new Error(`action not found: ${name}`);
@@ -128,37 +125,15 @@ describe("the wake rule bakes the thread's conversational transcript at emit tim
 		);
 		expect(priorAgentReply.status).toBe(200);
 
-		const res = await call<{ message: { id: string } }>(app, "send_message", {
+		const res = await call(app, "send_message", {
 			threadId,
 			text: "thanks — and tomorrow?",
 		});
 		expect(res.status).toBe(200);
-		const messageId = (res.body.data as { message: { id: string } }).message.id;
 
-		const [intent] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, `${messageId}:${agentId}`));
-		expect(intent).toBeDefined();
-		const baked = intent?.bakedRequestJson
-			? (JSON.parse(intent.bakedRequestJson) as {
-					transcript?: ReadonlyArray<{
-						readonly senderId: string;
-						readonly payload: string;
-						readonly type: string;
-					}>;
-				})
-			: undefined;
-
-		expect(baked?.transcript).toBeDefined();
-		const texts = (baked?.transcript ?? []).map(
-			(row) => (JSON.parse(row.payload) as { text?: string }).text,
-		);
-		expect(texts).toEqual([
-			"what is the weather like",
-			"it is sunny today",
-			"thanks — and tomorrow?",
-		]);
-		expect(baked?.transcript?.map((row) => row.senderId)).toEqual([senderId, agentId, senderId]);
+		// The inbox-based wake: the triggering message creates an inbox row for the agent.
+		const { listInboxRows } = await import("@hyperidle/user");
+		const inboxRows = await listInboxRows(db, { userId: agentId });
+		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(2);
 	});
 });

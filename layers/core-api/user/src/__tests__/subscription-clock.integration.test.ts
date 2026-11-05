@@ -1,14 +1,13 @@
 /**
  * `startSubscriptionClock` — the subscription schedule half. Real PGlite
- * via the `{ db }` fixture, a real `EventBus()` (same precedent as
- * `subscription-fire.integration.test.ts`), a real tick loop — not a
- * hand-called `tick()`, the actual `setInterval` this module starts.
+ * via the `{ db }` fixture, a real tick loop — not a hand-called `tick()`,
+ * the actual `setInterval` this module starts. Wakes are proved through inbox
+ * rows written by the clock directly.
  */
 import { type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { EventBus } from "@hyperidle/event-bus";
-import { type SubscriptionClockDeps, startSubscriptionClock } from "../subscription-clock.js";
-import { getSubscription, insertSubscription } from "../subscriptions-store.js";
+import { startSubscriptionClock } from "../subscription-clock.js";
+import { getSubscription, insertSubscription, listInboxRows } from "../subscriptions-store.js";
 
 const TS = "2026-01-01T00:00:00.000Z";
 
@@ -28,17 +27,6 @@ async function seedAgent(db: HyperIdleDb, id: string, teamId: string): Promise<v
 	await db.insert(userTeams).values({ userId: id, teamId });
 }
 
-function buildDeps(overrides: Partial<SubscriptionClockDeps> = {}): SubscriptionClockDeps {
-	return {
-		agentWorkIntentRecorder: async (input) => ({
-			id: "intent-noop",
-			idempotencyKey: input.idempotencyKey,
-		}),
-		searchDocuments: async () => ({ ok: true, data: [] }),
-		...overrides,
-	};
-}
-
 describe("startSubscriptionClock", () => {
 	test("a due schedule wakes once and advances next_run_at", async ({ db }) => {
 		await seedTeam(db, "team-a");
@@ -54,21 +42,16 @@ describe("startSubscriptionClock", () => {
 			createdAt: TS,
 			updatedAt: TS,
 		});
-		const woken: string[] = [];
-		const deps = buildDeps({
-			agentWorkIntentRecorder: async (input) => {
-				if (input.kind === "subscription_run") woken.push(input.sourceId);
-				return { id: "intent-1", idempotencyKey: input.idempotencyKey };
-			},
-		});
-		const clock = startSubscriptionClock(db, new EventBus(), deps, { tickIntervalMs: 25 });
+		const clock = startSubscriptionClock(db, {}, { tickIntervalMs: 25 });
 		try {
 			await new Promise((r) => setTimeout(r, 150));
 		} finally {
 			clock.stop();
 		}
-		expect(woken).toHaveLength(1);
-		expect(woken[0]).toBe(`sub-cron:${past}`);
+		const rows = await listInboxRows(db, { userId: "agent-a" });
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.reason).toBe("subscription");
+		expect(rows[0]?.subscriptionId).toBe("sub-cron");
 
 		// `next_run_at` advances from the fire-time "now" (a `safeNextRunAt`-
 		// style rule), not from the due row's own stale `next_run_at` — so
@@ -97,20 +80,14 @@ describe("startSubscriptionClock", () => {
 			createdAt: TS,
 			updatedAt: TS,
 		});
-		const woken: string[] = [];
-		const deps = buildDeps({
-			agentWorkIntentRecorder: async (input) => {
-				if (input.kind === "subscription_run") woken.push(input.sourceId);
-				return { id: "intent-1", idempotencyKey: input.idempotencyKey };
-			},
-		});
-		const clock = startSubscriptionClock(db, new EventBus(), deps, { tickIntervalMs: 25 });
+		const clock = startSubscriptionClock(db, {}, { tickIntervalMs: 25 });
 		try {
 			await new Promise((r) => setTimeout(r, 150));
 		} finally {
 			clock.stop();
 		}
-		expect(woken).toHaveLength(0);
+		const rows = await listInboxRows(db, { userId: "agent-a" });
+		expect(rows).toHaveLength(0);
 		const row = await getSubscription(db, "sub-paused-cron");
 		expect(row?.nextRunAt).toBe(past);
 	});

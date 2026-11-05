@@ -18,10 +18,8 @@
 import type { AgentSessionRequest } from "@hyperidle/db";
 import {
 	claimSessionRequest,
-	drainIntents,
 	findSessionRequest,
 	listSessionRequests,
-	reapExpired,
 	releaseClaim,
 	renewClaim,
 	transitionSessionRequest,
@@ -85,8 +83,6 @@ export function buildTestPorts(): RuntimePorts {
 			transitionSessionRequest: async (exec, transition) => {
 				return await transitionSessionRequest(exec, transition);
 			},
-			drainIntents,
-			reapExpired,
 			abortSessionRun: vi.fn(async () => false),
 		},
 		sessionLifecycle: realSessionLifecyclePort,

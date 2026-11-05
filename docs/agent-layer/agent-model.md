@@ -36,7 +36,7 @@ Creating a team does not create an agent. You staff the team, or install a plugi
 
 ### The assistant
 
-Every human has one personal assistant: an `individual`-category agent, `ownerUserId = me`, installed at registration. It subscribes to all nine object events by default and runs on `thread_turn` work intents — when you send a message to it, it replies.
+Every human has one personal assistant: an `individual`-category agent, `ownerUserId = me`, installed at registration. It subscribes to all nine object events by default. When you send a message to it, the message lands in its inbox and it replies in a turn in that thread ([How an agent gets work](../architecture/overview.md#how-an-agent-gets-work)).
 
 ## Model
 

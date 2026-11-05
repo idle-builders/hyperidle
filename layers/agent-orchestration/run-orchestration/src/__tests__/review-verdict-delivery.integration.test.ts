@@ -45,7 +45,6 @@ describe("recordReviewVerdict — live-session delivery", () => {
 			{
 				reviewMessageId: "review-msg-1",
 				decision: "approve" as const,
-				decidedBy: "user-1",
 				threadId: "thread-1",
 			},
 			async (_input) => {
@@ -96,7 +95,6 @@ describe("recordReviewVerdict — live-session delivery", () => {
 			{
 				reviewMessageId: "review-msg-2",
 				decision: "approve" as const,
-				decidedBy: "user-1",
 				threadId: "thread-1",
 			},
 			async (_input) => {
@@ -140,7 +138,6 @@ describe("recordReviewVerdict — live-session delivery", () => {
 			{
 				reviewMessageId: "review-msg-3",
 				decision: "approve" as const,
-				decidedBy: "user-1",
 				threadId: "thread-1",
 			},
 			async (_input) => ({ id: "intent-3", idempotencyKey: "key-3" }),

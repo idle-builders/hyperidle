@@ -30,7 +30,8 @@ export interface AgentRunner {
 	keyFor(agentId: string): string | undefined;
 	/** Take every agent this computer may hold and answer what waited for them. */
 	start(): Promise<void>;
-	stop(): void;
+	/** Stops taking work and waits for the passes under way. */
+	stop(): Promise<void>;
 }
 
 /**
@@ -157,11 +158,12 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 			}, deps.sweepMs ?? 30_000);
 			timer.unref();
 		},
-		stop() {
+		async stop() {
 			stopped = true;
 			if (timer) clearInterval(timer);
 			for (const unsubscribe of unsubscribers.values()) unsubscribe();
 			unsubscribers.clear();
+			await Promise.all([...draining.values(), ...(taking ? [taking] : [])]);
 		},
 	};
 }

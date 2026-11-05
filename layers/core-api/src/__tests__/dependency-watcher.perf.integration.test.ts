@@ -14,8 +14,6 @@ function makeEditTask(
 ): (ctx: ActionContext, input: EditTaskInput) => Promise<ActionResult<TaskView>> {
 	const editTaskAction = buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	}).find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
 	return editTaskAction.run as (

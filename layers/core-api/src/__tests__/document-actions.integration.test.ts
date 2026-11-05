@@ -31,9 +31,9 @@ import {
 } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import { actionsAsTools } from "../__testing__/actions-test-tools.js";
 import { test } from "../__testing__/test-fixtures.js";
 import type { Action, ActionContext } from "../actions/action.js";
-import { actionsAsTools } from "../actions/actions-as-tools.js";
 import { buildCoreActions } from "../actions/compose.js";
 
 const TEST_API_KEY = "test-key-document-actions";
@@ -141,8 +141,6 @@ async function callInternal<T>(
 function buildRealActions(agentOrchestration: AgentOrchestrationPort): readonly Action[] {
 	return buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
-		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
 }
 

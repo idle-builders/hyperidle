@@ -5,7 +5,6 @@
  */
 
 import {
-	agentWorkIntents,
 	type HyperIdleDb,
 	messages,
 	sessions,
@@ -16,6 +15,7 @@ import {
 	users,
 	userTeams,
 } from "@hyperidle/db";
+import { listInboxRows } from "@hyperidle/user";
 import { eq, inArray } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -159,7 +159,9 @@ describe("stop and start again", () => {
 			[WAITING]: "stopped",
 			[ASKING]: "stopped",
 		});
-		expect(await sessionState(db)).toBe("stopped");
+		// Session stop is async (inbox runner); the task_stop row is the synchronous proof.
+		const inboxRows = await listInboxRows(db, { userId: AGENT });
+		expect(inboxRows.some((r) => r.reason === "task_stop" && r.objectId === WORKING)).toBe(true);
 		const after = await db.select().from(tasks).where(eq(tasks.teamId, TEAM));
 		expect(Object.fromEntries(after.map((t) => [t.id, t.state]))).toEqual(
 			Object.fromEntries(before.map((t) => [t.id, t.state])),
@@ -199,12 +201,9 @@ describe("stop and start again", () => {
 			[WAITING, "retry"],
 			[WORKING, "restart"],
 		]);
-		const restart = attempts.find((a) => a.taskId === WORKING);
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, restart?.id ?? ""));
-		expect(intents).toHaveLength(1);
+		const inboxRows = await listInboxRows(db, { userId: AGENT });
+		// WORKING restart + WAITING retry each create a task_run inbox row.
+		expect(inboxRows.filter((r) => r.reason === "task_run")).toHaveLength(2);
 	});
 
 	test("a task stopped twice starts again twice", async ({ db, app, asPerson }) => {

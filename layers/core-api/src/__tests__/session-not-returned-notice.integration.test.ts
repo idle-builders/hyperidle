@@ -5,25 +5,14 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import {
-	agentWorkIntents,
-	type HyperIdleDb,
-	messages,
-	teams,
-	threads,
-	users,
-	userTeams,
-} from "@hyperidle/db";
+import { type HyperIdleDb, messages, teams, threads, users, userTeams } from "@hyperidle/db";
 import type { ThreadView } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { describe } from "vitest";
+import { listInboxRows } from "../../user/src/subscriptions-store.js";
 import { expect, test } from "../__testing__/test-fixtures.js";
 import type { SendMessageRunFn } from "../actions/action.js";
 import { buildCoreActions } from "../actions/compose.js";
-import {
-	buildSeamBackedReviewVerdictRecorder,
-	buildSeamBackedWorkIntentRecorder,
-} from "../services/agent-orchestration-port-composition.js";
 import {
 	registerSessionNotReturnedNotice,
 	SESSION_NOT_RETURNED_NOTICE_TEXT,
@@ -116,8 +105,6 @@ async function seedCallingThread(
 function buildRealSendMessage(agentOrchestration: AgentOrchestrationPort): SendMessageRunFn {
 	const actions = buildCoreActions({
 		agentOrchestration,
-		agentWorkIntentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),
-		reviewVerdictRecorder: buildSeamBackedReviewVerdictRecorder(agentOrchestration),
 	});
 	const sendMessageAction = actions.find((a) => a.declaration.name === "send_message");
 	if (!sendMessageAction) throw new Error("send_message action not found");
@@ -165,11 +152,9 @@ describe("registerSessionNotReturnedNotice — the never-silent net, through sen
 		const payload = posted?.payload as { text?: string };
 		expect(payload.text).toBe(SESSION_NOT_RETURNED_NOTICE_TEXT);
 
-		const woken = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "thread_turn"));
-		expect(woken).toHaveLength(0);
+		// The notice is sent by the agent to its own thread — no wake should be recorded.
+		const agentInboxRows = await listInboxRows(db, { userId: "snr-agent-1" });
+		expect(agentInboxRows.filter((r) => r.reason === "message")).toHaveLength(0);
 
 		unregister();
 	});

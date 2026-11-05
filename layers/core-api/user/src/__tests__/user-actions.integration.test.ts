@@ -419,6 +419,10 @@ describe("edit_user — inbox marks", () => {
 			.returning();
 		const { insertInboxRow } = await import("../subscriptions-store.js");
 		await insertInboxRow(db, {
+			id: "inbox-reader-1",
+			key: "inbox-reader-1",
+			reason: "message",
+			createdAt: NOW,
 			userId: "u-reader",
 			changeId: changeRow?.id as string,
 			seenAt: null,
@@ -429,14 +433,14 @@ describe("edit_user — inbox marks", () => {
 		const { editUser, openUser } = actionsFor(deps);
 		const result = await editUser(ctxFor(db, "u-reader"), {
 			id: "u-reader",
-			inbox: { read: ["c1"] },
+			inbox: { read: ["inbox-reader-1"] },
 		});
 		expect(result.ok).toBe(true);
 
 		const reopened = await openUser(ctxFor(db, "u-reader"), {});
 		expect(reopened.ok).toBe(true);
 		if (!reopened.ok) return;
-		const row = reopened.data.inbox?.find((r) => r.change.id === "c1");
+		const row = reopened.data.inbox?.find((r) => r.change?.id === "c1");
 		expect(row?.readAt).not.toBeNull();
 		expect(row?.seenAt).not.toBeNull();
 	});

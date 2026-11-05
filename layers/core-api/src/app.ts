@@ -20,8 +20,6 @@ import { createAuthRoutes } from "./routes/auth.js";
 import { authHealth } from "./routes/health.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { createStartRoutes } from "./routes/start.js";
-import {
-} from "./services/agent-orchestration-port-composition.js";
 import type { HarnessCapabilityReader } from "./services/harness-capability-reader.js";
 
 /**

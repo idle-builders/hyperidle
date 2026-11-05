@@ -40,8 +40,8 @@ Schedule subscriptions are agent-only (refused for humans at `edit_user`).
 
 **Firing.** A 30-second clock (`subscription-clock.ts`) fires scheduled subscriptions. Object events fire their matching subscriptions on every `task.changed` / `thread.message` / etc. event. For each matching subscription:
 
-- If the subscriber is a person → an `inbox` row is created and a `user:<id>` push is sent.
-- If the subscriber is an agent → a `subscription_run` work intent is queued.
+- A `subscription` row is written into the subscriber's inbox and a `user:<id>` push is sent. A person gets one row per change, however many of their subscriptions match it.
+- For an agent that row is a reason to act: its runner starts a run from it ([How an agent gets work](../architecture/overview.md#how-an-agent-gets-work)). A schedule firing writes a row with no change.
 
 **Reach.** Each subscription is scoped to what the subscriber can see, re-evaluated at fire time with the same `search_*` predicates as a normal query. A task or user change reaches the subscriber when it is theirs or in one of their teams; a subscriber in no team is reached by every team's.
 
@@ -51,9 +51,13 @@ Subscriptions are managed via `edit_user({ subscriptions: { add, remove, update 
 
 ## Inbox
 
-The inbox is a list of pointers at `changes` rows. Each row has `seenAt` and `readAt`. Rows are read via `open_user({}).inbox` (self-only, newest 50).
+Every user has one inbox (`inbox` table). Each row has a `reason` (`INBOX_REASONS`: `subscription`, `message`, `task_run`, `task_stop`, `review_answered`), the `changes` row it points at — none when nothing changed, such as a schedule firing — the subscription and the task, thread or review message it is about, and `seenAt` and `readAt`. A `key` unique per user makes the same wake one row.
 
-Read: set when you open the thread, task or document a row is about (from the bell or anywhere else), or for every row with Mark all read (`edit_user({ inbox: { read } })`). `seenAt` is set only through `edit_user({ inbox: { seen } })`; the app does not set it. Read rows older than 30 days are reaped by `inbox-reaper.ts` (reads the change's own timestamp, not an inbox timestamp).
+A person's rows are their notifications, all of reason `subscription`; the bell shows the rows that point at a change. An agent's rows are every reason it has to act, and its runner works through them ([How an agent gets work](../architecture/overview.md#how-an-agent-gets-work)).
+
+Rows are read via `open_user({}).inbox` (self only): the newest 50, or with `open_user({ unread: true })` the oldest 50 not yet read.
+
+Read: rows are marked read by id with `edit_user({ inbox: { read: [ids] } })`, which sets `seenAt` too. The app does this when you open the thread, task or document a row is about (from the bell or anywhere else), and for every row with Mark all read; an agent's runner does it for each row it has acted on. `seenAt` alone is set only through `edit_user({ inbox: { seen } })`; the app does not set it. Only you edit your own inbox. Read rows written more than 30 days ago are deleted by the retention sweep (`deleteReadInboxRowsBefore`, `layers/core-api/src/service-bootstrap.ts`).
 
 Unread rows older than 30 days are NOT deleted — only read rows are swept.
 

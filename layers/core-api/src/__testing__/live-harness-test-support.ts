@@ -41,13 +41,9 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { expect } from "vitest";
 import type { Action, ActionContext } from "../actions/action.js";
-import { actionsAsTools } from "../actions/actions-as-tools.js";
 import { buildCoreActions } from "../actions/compose.js";
-import {
-	buildAgentOrchestrationPort,
-	buildSeamBackedReviewVerdictRecorder,
-	buildSeamBackedWorkIntentRecorder,
-} from "../services/agent-orchestration-port-composition.js";
+import { actionsAsTools } from "./actions-test-tools.js";
+import { buildAgentOrchestrationPort } from "../services/agent-orchestration-port-composition.js";
 
 export { buildCleanEnv, createHarnessSandbox, type HarnessSandbox };
 
@@ -103,7 +99,6 @@ export interface LiveHarnessRun {
 	readonly eventBus: EventBus;
 	readonly orchestrationBoot: AgentOrchestrationBoot;
 	readonly actions: readonly Action[];
-	readonly agentWorkIntentRecorder: ReturnType<typeof buildSeamBackedWorkIntentRecorder>;
 	readonly composition: RunOrchestrationComposition;
 	readonly adapterPool: AdapterPool;
 	readonly workspace: SandboxAdapter;
@@ -128,12 +123,7 @@ export async function setUpLiveHarnessRun(
 	const agentOrchestration = buildAgentOrchestrationPort(
 		fixtureAgentOrchestrationTransport(orchestrationBoot.app),
 	);
-	const agentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder(agentOrchestration);
-	const actions = buildCoreActions({
-		agentOrchestration,
-		agentWorkIntentRecorder,
-		reviewVerdictRecorder: buildSeamBackedReviewVerdictRecorder(agentOrchestration),
-	});
+	const actions = buildCoreActions({ agentOrchestration });
 	const actionTools = actionsAsTools(actions);
 
 	const port = await getFreePort();
@@ -161,7 +151,6 @@ export async function setUpLiveHarnessRun(
 		eventBus,
 		orchestrationBoot,
 		actions,
-		agentWorkIntentRecorder,
 		composition,
 		adapterPool: execution.adapters.pool,
 		workspace: execution.adapters.sandbox,

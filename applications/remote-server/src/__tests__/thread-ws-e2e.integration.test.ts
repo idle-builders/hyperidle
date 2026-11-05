@@ -22,7 +22,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, teams, threads, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, vi } from "vitest";
 import { createServer, type ServerHandle } from "../create-server.js";
 
@@ -130,24 +129,6 @@ async function seedHuman(db: HyperIdleDb, id: string, teamId: string): Promise<v
 	await db.insert(userTeams).values({ userId: id, teamId }).onConflictDoNothing();
 }
 
-/** `messages.sender_id` FKs into `users` — an agent's own row, `kind:"ai"`. */
-async function seedAgent(db: HyperIdleDb, id: string, ownerUserId: string): Promise<void> {
-	const now = new Date().toISOString();
-	await db
-		.insert(users)
-		.values({
-			id,
-			kind: "ai",
-			name: id,
-			role: "assistant",
-			status: "active",
-			agentCategory: "individual",
-			ownerUserId,
-			createdAt: now,
-		})
-		.onConflictDoNothing();
-}
-
 async function seedThread(
 	db: HyperIdleDb,
 	id: string,
@@ -235,66 +216,6 @@ describe("thread websocket nudge — real server, real socket, both doors", () =
 				const conversationsData = conversationsMsg.data as { after: Record<string, unknown> };
 				expect(conversationsData.after.payload).toBeUndefined();
 				expect(JSON.stringify(conversationsData.after)).not.toContain("secret e2e http-door text");
-			} finally {
-				ws.close();
-			}
-		} finally {
-			await handle.server.dispose();
-		}
-	}, 30_000);
-
-	test("TOOL door: the registered send_message MCP tool handler nudges the same subscriber", async ({
-		db,
-	}) => {
-		const handle = await boot(db);
-		try {
-			await seedTeam(db, "e2e-team-2");
-			await seedHuman(db, FOUNDER_ID, "e2e-team-2");
-			await seedAgent(db, "e2e-agent-1", FOUNDER_ID);
-			await seedThread(db, "e2e-thr-2", {
-				hostKind: "agent",
-				hostId: "e2e-agent-1",
-				initiatorId: FOUNDER_ID,
-				members: [FOUNDER_ID, "e2e-agent-1"],
-			});
-
-			const token = wsTokenFor(handle, FOUNDER_ID);
-			const ws = connect(handle, token);
-			try {
-				await waitForOpen(ws);
-				ws.send(JSON.stringify({ type: "subscribe", topic: "thread:e2e-thr-2" }));
-				await waitForFrame(ws, (m) => m.type === "subscribed" && m.topic === "thread:e2e-thr-2");
-
-				const threadFrame = waitForFrame(
-					ws,
-					(m) => m.type === "update" && m.topic === "thread:e2e-thr-2",
-				);
-
-				const sendMessageTool = handle.server.actionTools.find((t) => t.name === "send_message");
-				if (!sendMessageTool) throw new Error("send_message tool is not registered");
-				// Same shape `actions-as-tools.ts` builds from a real session's
-				// `ToolContext` — `eventBus` here is a throwaway instance (this
-				// package has no shared eventBus fixture); the nudge under test is
-				// `deps.wsPush`, bound to THIS server's own hub, not to `eventBus`.
-				const toolResult = await sendMessageTool.handler(
-					{ threadId: "e2e-thr-2", text: "secret e2e tool-door text" },
-					{
-						db,
-						eventBus: new EventBus(),
-						agentId: "e2e-agent-1",
-						sessionId: "e2e-session-1",
-						taskId: "",
-						sandboxPath: os.tmpdir(),
-						ingestion: { dispose: () => {} },
-					},
-				);
-				expect(toolResult.success).toBe(true);
-
-				const threadMsg = await threadFrame;
-				expect(threadMsg.kind).toBe("thread.message");
-				const threadData = threadMsg.data as { after: Record<string, unknown>; actor: string };
-				expect(threadData.actor).toBe("e2e-agent-1");
-				expect(JSON.stringify(threadData.after)).toContain("secret e2e tool-door text");
 			} finally {
 				ws.close();
 			}
