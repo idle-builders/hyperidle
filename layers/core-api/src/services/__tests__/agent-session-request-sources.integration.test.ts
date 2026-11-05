@@ -177,7 +177,6 @@ describe("agent session request sources", () => {
 		>();
 		adapterPool.register("recording", adapter, {
 			name: "Recording",
-			kind: "local",
 			type: "recording",
 			modelProviders: ["test"],
 			maxConcurrent: 8,

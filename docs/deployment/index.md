@@ -17,7 +17,7 @@ Install via DMG, or via Homebrew after adding the tap (`brew tap idle-builders/t
 
 Dev setup steps and the command reference live in [guides/developer/getting-started](../guides/developer/getting-started.md).
 
-**Where agents run.** Only the desktop app on its own database runs agents: its server looks for the agent programs on this computer and starts them. A server started with `npm run dev`, `npm start` or the server image runs none. It can take sessions from a worker that connects over `/ws/worker` (`RemoteWorkerClient`, exported by `applications/remote-worker`), but no app in this repo runs that client — so a shared server, and a desktop app joined to it, run no agents.
+**Where agents run.** Only the desktop app on its own database runs agents: its server looks for the agent programs on this computer and starts them. A server started with `npm run dev`, `npm start` or the server image runs none. So a shared server, and a desktop app joined to it, run no agents.
 
 ---
 

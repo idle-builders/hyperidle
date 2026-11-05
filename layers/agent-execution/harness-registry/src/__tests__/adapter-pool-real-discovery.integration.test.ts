@@ -17,8 +17,7 @@ describe("[harness:claude] createLocalAdapterPool — real PATH discovery", () =
 	test("registers a claude-code adapter", async () => {
 		const pool = await createLocalAdapterPool();
 		const entry = pool.select({ harnessType: "claude-code" });
-		expect(entry).not.toBeNull();
-		expect(entry?.meta.kind).toBe("local");
+		expect(entry?.id).toBe("local-claude-code");
 	});
 
 	test("registers at least the claude-code adapter", async () => {

@@ -1,5 +1,5 @@
 /**
- * AdapterPool — registry of HarnessAdapter instances (local and remote).
+ * AdapterPool — registry of this host's HarnessAdapter instances.
  *
  * Maintains a map of adapter entries keyed by stable ID. select() returns the
  * least-loaded eligible adapter and increments its active session count.
@@ -8,7 +8,7 @@
 
 import type { HarnessType } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
-import type { AdapterInfo, AdapterMeta, HarnessAdapter } from "@hyperidle/harness-protocol";
+import type { AdapterMeta, HarnessAdapter } from "@hyperidle/harness-protocol";
 import {
 	type CliAdapterConfig,
 	type CliAvailabilityDeps,
@@ -29,9 +29,6 @@ interface PoolEntry {
 	readonly adapter: HarnessAdapter;
 	readonly meta: AdapterMeta;
 	currentLoad: number;
-	/** marks this entry as paused — select() skips paused entries. */
-	paused: boolean;
-	readonly connectedSince: string;
 }
 
 /** Optional requirements for adapter selection. */
@@ -44,7 +41,6 @@ export interface SelectRequirements {
 
 export interface AdapterFilter {
 	readonly type?: string;
-	readonly kind?: AdapterInfo["kind"];
 	readonly includeKnownMissing?: boolean;
 }
 
@@ -100,41 +96,12 @@ export class AdapterPool {
 			adapter,
 			meta,
 			currentLoad: existing?.currentLoad ?? 0,
-			paused: existing?.paused ?? false,
-			connectedSince: existing?.connectedSince ?? new Date().toISOString(),
 		});
-	}
-
-	/** Remove an adapter from the pool. No-op if ID is unknown. */
-	unregister(id: string): void {
-		this.entries.delete(id);
 	}
 
 	/** Returns true if an adapter is registered under the given id. */
 	has(id: string): boolean {
 		return this.entries.has(id);
-	}
-
-	/**
-	 * Mark an adapter as paused — select() will skip it.
-	 * No-op if the ID is unknown.
-	 */
-	pause(id: string): void {
-		const entry = this.entries.get(id);
-		if (entry) {
-			entry.paused = true;
-		}
-	}
-
-	/**
-	 * Clear the paused flag — select() will consider it again.
-	 * No-op if the ID is unknown.
-	 */
-	resume(id: string): void {
-		const entry = this.entries.get(id);
-		if (entry) {
-			entry.paused = false;
-		}
 	}
 
 	/**
@@ -149,9 +116,6 @@ export class AdapterPool {
 		let best: { id: string; entry: PoolEntry } | null = null;
 
 		for (const [id, entry] of this.entries) {
-			// skip paused adapters
-			if (entry.paused) continue;
-
 			// Capacity filter
 			if (entry.currentLoad >= entry.meta.maxConcurrent) continue;
 
@@ -163,9 +127,7 @@ export class AdapterPool {
 			}
 
 			// harnessType filter — adapter type must match when specified.
-			// An adapter without a type (type: undefined) does NOT match a specific
-			// harnessType requirement (backward compat: old workers without type can
-			// still be selected when harnessType is unspecified/undefined).
+			// An adapter without a type does NOT match a specific harnessType requirement.
 			if (requirements?.harnessType) {
 				if (entry.meta.type !== requirements.harnessType) continue;
 			}
@@ -185,7 +147,7 @@ export class AdapterPool {
 	/**
 	 * Why `select(requirements)` would return null, in the caller's words.
 	 *
-	 * `select` has six distinct ways to reject every entry, and the pool is the
+	 * `select` has several distinct ways to reject every entry, and the pool is the
 	 * only thing that can tell them apart.
 	 *
 	 * Ordered most-actionable first: an empty pool is a different problem from
@@ -193,19 +155,12 @@ export class AdapterPool {
 	 */
 	describeSelectFailure(requirements?: SelectRequirements): string {
 		if (this.entries.size === 0) {
-			// Covers both ways a pool ends up empty, because the pool cannot tell
-			// them apart: a `local`-topology deployment discovered no CLI on this
-			// host, and a `disabled`-topology one (the `remote-server`
-			// Application) never discovers anything at all — it waits for remote
-			// workers to register. Naming only the first would send a
-			// remote-server operator hunting for a binary that was never meant to
-			// be installed.
-			return "no harness adapters are registered — no local harness was discovered on this host, and no remote worker has registered";
+			// Covers both ways a pool ends up empty: a `local`-topology deployment
+			// discovered no CLI on this host, and a `disabled`-topology one (the
+			// `remote-server` Application) runs no agents at all.
+			return "no harness adapters are registered — no local harness was discovered on this host, or this server runs no agents";
 		}
-		const live = [...this.entries.values()].filter((entry) => !entry.paused);
-		if (live.length === 0) {
-			return `every registered harness adapter is paused (${this.entries.size} total)`;
-		}
+		const live = [...this.entries.values()];
 		const availableTypes = [...new Set(live.map((entry) => entry.meta.type ?? "untyped"))];
 		if (requirements?.harnessType) {
 			const ofType = live.filter((entry) => entry.meta.type === requirements.harnessType);
@@ -239,7 +194,6 @@ export class AdapterPool {
 		for (const entry of this.entries.values()) {
 			if (!entry.meta.type) continue;
 			if (filter?.type && entry.meta.type !== filter.type) continue;
-			if (filter?.kind && entry.meta.kind !== filter.kind) continue;
 			if (seen.has(entry.meta.type)) continue;
 			seen.add(entry.meta.type);
 			descriptors.push(
@@ -374,7 +328,6 @@ async function registerCliAdaptersIfAvailable(
 			const adapter = name === "codex" ? new CodexAppServerAdapter() : new OpenCodeServeAdapter();
 			pool.register(`local-cli-${name}`, adapter, {
 				name: `CLI: ${name}`,
-				kind: "local",
 				type: name,
 				modelProviders: [],
 				maxConcurrent,
@@ -410,7 +363,6 @@ export async function createLocalAdapterPool(opts?: {
 	if (await CliHarnessAdapter.checkAvailability(CLAUDE_CLI_CONFIG.binary, availabilityDeps)) {
 		pool.register("local-claude-code", new CliHarnessAdapter(CLAUDE_CLI_CONFIG, { enforcement }), {
 			name: "Claude Code",
-			kind: "local",
 			type: "claude-code",
 			modelProviders: ["anthropic"],
 			maxConcurrent,
@@ -424,7 +376,6 @@ export async function createLocalAdapterPool(opts?: {
 			new CliHarnessAdapter(CURSOR_AGENT_CLI_CONFIG, { enforcement }),
 			{
 				name: "Cursor Agent",
-				kind: "local",
 				type: "cursor-agent",
 				modelProviders: [],
 				maxConcurrent,

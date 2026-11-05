@@ -54,7 +54,7 @@ server.registerTool(
 	{
 		title: "List entry points",
 		description:
-			"List every way work can enter HyperIdle: HTTP endpoints the UI calls, tools an AI agent can invoke, messages a remote worker can send, and scheduled timers. USE WHEN you want to know how the system gets triggered; where a feature starts or begins; what endpoints / routes / APIs exist; what tools agents can call; what scheduled / cron / timer jobs run; what the external surface, public interface, or attack surface is; or where to start understanding a feature. Also use it to enumerate entry points before tracing one in depth. Optional: kind narrows to ui|agent|scheduler; keyword filters results by text.",
+			"List every way work can enter HyperIdle: HTTP endpoints the UI calls, tools an AI agent can invoke, and scheduled timers. USE WHEN you want to know how the system gets triggered; where a feature starts or begins; what endpoints / routes / APIs exist; what tools agents can call; what scheduled / cron / timer jobs run; what the external surface, public interface, or attack surface is; or where to start understanding a feature. Also use it to enumerate entry points before tracing one in depth. Optional: kind narrows to ui|agent|scheduler; keyword filters results by text.",
 		inputSchema: asMcpInputSchema(z.object({ kind: kindEnum, keyword: z.string().optional() })),
 	},
 	({ kind, keyword }: DoorArgs) => {

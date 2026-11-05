@@ -31,9 +31,8 @@ import { resolveProfile } from "./profiles.js";
 /**
  * Which shape of execution face this
  * composition wants — `"local"` (in-process CLI harness discovery + a real
- * local sandbox, `desktop`'s shape) or `"disabled"` (an empty pool, populated
- * only by remote workers registering over the worker WS route,
- * `remote-server`'s shape).
+ * local sandbox, `desktop`'s shape) or `"disabled"` (an empty pool, so no
+ * agent runs — `remote-server`'s shape).
  */
 export interface CreateServerDeps {
 	readonly db?: HyperIdleDb;
@@ -227,7 +226,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
-		upgradeWebSocket,
 		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
 		probeInheritedReach: deps.topology === "local",
 		runtime: {
@@ -238,10 +236,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			searchDocuments: coreApi.searchDocuments,
 			session: runtimeSessionDeps,
 			sandboxBasePath,
-			worker: {
-				pool: agentExecution.adapters.pool,
-				createWorkerAdapter: agentExecution.adapters.createWorkerAdapter,
-			},
 			reapers: {
 				sandboxes: { sandboxBasePath },
 			},
@@ -253,11 +247,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 
 	const app = composeApiApplication({
 		middleware: coreApi.middleware,
-		preAuthRegistrars: [
-			coreApi.registerPreAuthRoutes,
-			agentOrchestration.registerPreAuthRoutes,
-			agentExecution.mountMcpRouter,
-		],
+		preAuthRegistrars: [coreApi.registerPreAuthRoutes, agentExecution.mountMcpRouter],
 		apps: [coreApi.app, agentOrchestration.app],
 	});
 	// Backward-compat: /health without auth, outside the /api tree.

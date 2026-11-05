@@ -102,7 +102,6 @@ const NAMED_PACKAGES: Readonly<Record<string, { readonly role: Role; readonly la
 	notifications: { role: "service", layer: "core-api" },
 	policy: { role: "service", layer: "core-api" },
 	"remote-server": { role: "application" },
-	"remote-worker": { role: "application" },
 	review: { role: "service", layer: "core-api" },
 	routine: { role: "service", layer: "core-api" },
 	"run-orchestration": { role: "service", layer: "agent-orchestration" },

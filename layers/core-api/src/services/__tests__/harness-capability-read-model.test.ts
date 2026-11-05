@@ -54,7 +54,6 @@ function makeAdapter(caps?: Partial<HarnessCapabilities>): HarnessAdapter {
 
 const OPENCODE_META: AdapterMeta = {
 	name: "OpenCode",
-	kind: "local",
 	type: "opencode",
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 	maxConcurrent: 1,

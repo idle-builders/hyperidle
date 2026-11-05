@@ -1,15 +1,13 @@
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "../contracts.js";
+import type { RuntimeDeps, RuntimePorts } from "../contracts.js";
 import { ConcurrencyLimitError } from "../errors.js";
 
 const state = vi.hoisted(() => ({
 	failSandboxReaperStart: false,
 	writebackDispose: vi.fn(),
 	sandboxDispose: vi.fn(),
-	workerDispose: vi.fn(),
-	registerWorker: vi.fn(),
 	runSessionThrows: null as (() => Error) | null,
 }));
 
@@ -34,11 +32,6 @@ vi.mock("../runtime-reapers.js", () => ({
 			if (state.failSandboxReaperStart) throw new Error("reaper failed");
 			return state.sandboxDispose;
 		}),
-	})),
-}));
-vi.mock("../worker-ingress.js", () => ({
-	createWorkerIngress: vi.fn(() => ({
-		register: state.registerWorker.mockImplementation(() => state.workerDispose),
 	})),
 }));
 
@@ -74,7 +67,6 @@ function deps(): RuntimeDeps {
 			context: {} as RuntimeDeps["composition"]["context"],
 			provisioner: {} as NonNullable<RuntimeDeps["composition"]["provisioner"]>,
 			writeback: {} as NonNullable<RuntimeDeps["composition"]["writeback"]>,
-			worker: {} as NonNullable<RuntimeDeps["composition"]["worker"]>,
 			reapers: {
 				sandboxes: {} as NonNullable<
 					NonNullable<RuntimeDeps["composition"]["reapers"]>["sandboxes"]
@@ -84,11 +76,6 @@ function deps(): RuntimeDeps {
 	};
 }
 
-const workerArgs = [
-	{} as Parameters<RuntimeHandle["registerWorkerWebSocket"]>[0],
-	{} as Parameters<RuntimeHandle["registerWorkerWebSocket"]>[1],
-] as const;
-
 describe("startRuntime resource ownership", () => {
 	afterEach(() => {
 		state.failSandboxReaperStart = false;
@@ -97,18 +84,14 @@ describe("startRuntime resource ownership", () => {
 		vi.useRealTimers();
 	});
 
-	it("owns late worker registration and disposes every resource exactly once", async () => {
+	it("disposes every resource exactly once", async () => {
 		vi.useFakeTimers();
 		const runtime = await startRuntime(deps());
-		runtime.registerWorkerWebSocket(...workerArgs);
 		await runtime.dispose();
 		await runtime.dispose();
 
-		expect(state.registerWorker).toHaveBeenCalledOnce();
-		expect(state.workerDispose).toHaveBeenCalledOnce();
 		expect(state.sandboxDispose).toHaveBeenCalledOnce();
 		expect(state.writebackDispose).toHaveBeenCalledOnce();
-		expect(() => runtime.registerWorkerWebSocket(...workerArgs)).toThrow("Runtime is disposed");
 	});
 
 	it("stops new intent wakes and waits for an active wake before disposal completes", async () => {
@@ -182,12 +165,11 @@ describe("startRuntime resource ownership", () => {
 	it("continues disposal after a disposer throws and retains the first error", async () => {
 		vi.useFakeTimers();
 		const runtime = await startRuntime(deps());
-		runtime.registerWorkerWebSocket(...workerArgs);
-		state.workerDispose.mockImplementationOnce(() => {
-			throw new Error("worker dispose failed");
+		state.writebackDispose.mockImplementationOnce(() => {
+			throw new Error("writeback dispose failed");
 		});
 
-		await expect(runtime.dispose()).rejects.toThrow("worker dispose failed");
+		await expect(runtime.dispose()).rejects.toThrow("writeback dispose failed");
 		expect(state.sandboxDispose).toHaveBeenCalledOnce();
 		expect(state.writebackDispose).toHaveBeenCalledOnce();
 	});

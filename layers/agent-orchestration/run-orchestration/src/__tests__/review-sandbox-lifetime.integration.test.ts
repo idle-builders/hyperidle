@@ -133,7 +133,6 @@ async function runOnce(
 				adapter: buildFakeHarnessAdapter(opts.toolName, resumed, onReturnAction),
 				meta: {
 					name: "Fake",
-					kind: "local",
 					type: undefined,
 					modelProviders: [],
 					maxConcurrent: 5,

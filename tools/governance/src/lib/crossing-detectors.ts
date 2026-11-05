@@ -734,7 +734,7 @@ export function layerServing(routes: readonly Route[], apiPath: string): string 
 		const head = have[0];
 		if (head === undefined || head.startsWith(":") || head !== want[0]) continue;
 		// A route longer than the dialled path can only serve it if every extra segment is a
-		// parameter. `/ws/worker` cannot serve `/api/ws`; `/mcp/:token` can serve `/api/mcp/`,
+		// parameter. `/ws/session` cannot serve `/api/ws`; `/mcp/:token` can serve `/api/mcp/`,
 		// which is what an interpolated tail leaves behind.
 		if (
 			have.length > want.length &&

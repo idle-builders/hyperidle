@@ -308,50 +308,9 @@ export function collectDoors(): Door[] {
 		extractScope(appFile, parse(appFile), "/api", null);
 	}
 
-	// @lore BC5 T11: the hand-written tool registry (`tool-definitions.ts`,
-	// `name: "create_team" | "add_agent"`) is deleted — the last two
-	// hand-written tools go with the CoreApiPort seam they served. There is
-	// no replacement static list to scan; agent-side doors are now the
-	// action doors `collectDoors` already walks off `app.ts`, plus the
-	// worker/mcp HTTP doors below.
-	const workerFile = "layers/agent-orchestration/run-orchestration/src/worker-ingress.ts";
-	const wsf = parse(workerFile);
-	const wvisit = (node: ts.Node): void => {
-		if (
-			ts.isCallExpression(node) &&
-			ts.isPropertyAccessExpression(node.expression) &&
-			node.expression.name.text === "literal" &&
-			ts.isIdentifier(node.expression.expression) &&
-			node.expression.expression.text === "z"
-		) {
-			const arg = node.arguments[0];
-			if (arg && ts.isStringLiteralLike(arg)) {
-				let schema = "(top-level)";
-				let cur: ts.Node | undefined = node.parent;
-				while (cur) {
-					if (ts.isVariableDeclaration(cur) && ts.isIdentifier(cur.name)) {
-						schema = cur.name.text;
-						break;
-					}
-					cur = cur.parent;
-				}
-				doors.push({
-					kind: "agent",
-					label: `WORKER ${arg.text}`,
-					file: workerFile,
-					line: lineOf(wsf, node.getStart(wsf)),
-					detail: schema,
-					anchor: null,
-				});
-			}
-		}
-		ts.forEachChild(node, wvisit);
-	};
-	wvisit(wsf);
-
+	// Agent-side doors are the action doors `collectDoors` walks off `app.ts`, plus the MCP HTTP door below.
 	for (const target of [
 		{ file: "layers/agent-execution/harness-registry/src/mcp/mcp-route.ts", note: "mcp-router" },
-		{ file: workerFile, note: "worker-ws" },
 	]) {
 		const sf = parse(target.file);
 		const visit = (node: ts.Node): void => {

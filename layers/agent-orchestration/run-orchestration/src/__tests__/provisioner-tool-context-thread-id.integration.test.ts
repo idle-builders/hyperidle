@@ -40,7 +40,6 @@ function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
 				adapter: completingHarnessAdapter(),
 				meta: {
 					name: "Fake",
-					kind: "local",
 					type: undefined,
 					modelProviders: [],
 					maxConcurrent: 5,

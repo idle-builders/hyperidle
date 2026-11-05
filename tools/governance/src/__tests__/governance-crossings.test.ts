@@ -384,14 +384,14 @@ describe("the dependency-injection detector", () => {
 
 describe("resolving a dialled path to the layer that serves it", () => {
 	const routes = [
-		{ path: "/ws/worker", layer: "agent-orchestration" },
+		{ path: "/ws/session", layer: "agent-orchestration" },
 		{ path: "/ws", layer: "core-api" },
 		{ path: "/mcp/:token", layer: "agent-execution" },
 		{ path: "/bets", layer: "core-api" },
 	].sort((a, b) => b.path.length - a.path.length);
 
 	it("prefers the longest match", () => {
-		expect(layerServing(routes, "/api/ws/worker")).toBe("agent-orchestration");
+		expect(layerServing(routes, "/api/ws/session")).toBe("agent-orchestration");
 		expect(layerServing(routes, "/api/ws")).toBe("core-api");
 	});
 

@@ -639,7 +639,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 	// ── OPENCODE CLI (binary+auth gated) ────────────────────────────────────
 	//
-	// OpenCode's process-reengage channel: used by remote-harness-adapter.ts.
+	// OpenCode's process-reengage channel: used by CliHarnessAdapter.
 	// The local production path uses OpenCodeServeAdapter (opencode serve --port 0);
 	// these tests cover the channel provisioning and binary sanity only.
 	//

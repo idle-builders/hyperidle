@@ -6,7 +6,6 @@ import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "./contracts.js";
 import { createProvisioner } from "./provisioner.js";
 import { runSession } from "./runtime.js";
 import { createRuntimeReapers } from "./runtime-reapers.js";
-import { createWorkerIngress } from "./worker-ingress.js";
 import { createWritebackProcessor } from "./writeback-processor.js";
 
 async function recoverRunningRequests(
@@ -62,20 +61,13 @@ function assertStartable(deps: RuntimeDeps): asserts deps is RuntimeDeps & {
 	composition: RuntimeDeps["composition"] & {
 		provisioner: NonNullable<RuntimeDeps["composition"]["provisioner"]>;
 		writeback: NonNullable<RuntimeDeps["composition"]["writeback"]>;
-		worker: NonNullable<RuntimeDeps["composition"]["worker"]>;
 	};
 } {
 	if (
-		!(
-			deps.ports &&
-			deps.durableQueue &&
-			deps.composition.provisioner &&
-			deps.composition.writeback &&
-			deps.composition.worker
-		)
+		!(deps.ports && deps.durableQueue && deps.composition.provisioner && deps.composition.writeback)
 	) {
 		throw new Error(
-			"startRuntime requires ports, durable queue, provisioner, writeback, and worker composition",
+			"startRuntime requires ports, durable queue, provisioner, and writeback composition",
 		);
 	}
 }
@@ -272,10 +264,6 @@ export async function startRuntime(deps: RuntimeDeps): Promise<RuntimeHandle> {
 	const ownedDeps = { ...deps, eventBus, ports };
 	const disposers: Array<() => void> = [];
 	let joinAgentLayer: (() => Promise<void>) | undefined;
-	const workerIngress = createWorkerIngress(
-		deps.composition.worker.pool,
-		deps.composition.worker.adapterFactory,
-	);
 	try {
 		const agentLayer = await bootAgentLayer(ownedDeps);
 		disposers.push(agentLayer.stop);
@@ -294,12 +282,6 @@ export async function startRuntime(deps: RuntimeDeps): Promise<RuntimeHandle> {
 	}
 	let disposed = false;
 	return {
-		registerWorkerWebSocket(...args) {
-			if (disposed) throw new Error("Runtime is disposed");
-			const unregister = workerIngress.register(...args);
-			disposers.push(unregister);
-			return unregister;
-		},
 		async dispose() {
 			if (disposed) return;
 			disposed = true;

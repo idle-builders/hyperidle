@@ -204,7 +204,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
-		upgradeWebSocket,
 		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
 		probeInheritedReach: deps.topology === "local",
 		runtime: {
@@ -215,10 +214,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			searchDocuments: coreApi.searchDocuments,
 			session: runtimeSessionDeps,
 			sandboxBasePath,
-			worker: {
-				pool: agentExecution.adapters.pool,
-				createWorkerAdapter: agentExecution.adapters.createWorkerAdapter,
-			},
 			reapers: {
 				sandboxes: { sandboxBasePath },
 			},
@@ -230,11 +225,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 
 	const app = composeApiApplication({
 		middleware: coreApi.middleware,
-		preAuthRegistrars: [
-			coreApi.registerPreAuthRoutes,
-			agentOrchestration.registerPreAuthRoutes,
-			agentExecution.mountMcpRouter,
-		],
+		preAuthRegistrars: [coreApi.registerPreAuthRoutes, agentExecution.mountMcpRouter],
 		apps: [coreApi.app, agentOrchestration.app],
 	});
 	// Backward-compat: /health without auth, outside the /api tree.

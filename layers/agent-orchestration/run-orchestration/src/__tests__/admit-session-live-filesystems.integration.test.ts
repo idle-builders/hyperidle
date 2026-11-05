@@ -56,7 +56,6 @@ function buildDeps(
 				adapter: rejectingHarnessAdapter(),
 				meta: {
 					name: "Fake",
-					kind: "local",
 					type: undefined,
 					modelProviders: [],
 					maxConcurrent: 5,

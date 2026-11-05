@@ -311,7 +311,7 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 
 	const tokenStore = options?.upgradeTokenStore ?? null;
 
-	// The /ws-token endpoint is mounted only when WS support exists. The worker-token endpoint is always mounted.
+	// The /ws-token endpoint is mounted only when WS support exists.
 	api.route("/auth", createAuthRoutes(tokenStore));
 
 	// Dev routes register INTO production (legal direction) — test fixtures pass registerTestRoutes here.

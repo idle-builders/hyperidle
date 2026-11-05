@@ -122,7 +122,6 @@ describe("the model an agent is configured with reaches its session", () => {
 					adapter: rejectingHarnessAdapter("must not be called — onBeforeHarnessStart aborts"),
 					meta: {
 						name: "Fake",
-						kind: "local",
 						type: "claude-code",
 						modelProviders: [],
 						maxConcurrent: 5,

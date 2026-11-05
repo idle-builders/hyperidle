@@ -137,7 +137,7 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 			returnStatusTool: {
 				forRegistry: (registry) => agentExecution.adapters.returnStatusTool.forRegistry(registry),
 			},
-			// `startRuntime` asserts `worker`/`writeback` composition is present
+			// `startRuntime` asserts `writeback` composition is present
 			// before it will start at all — neither `editDocument` nor
 			// `searchDocuments` is ever dialled by this test (it only proves the
 			// provisioning reads), so throwing stubs are enough to satisfy
@@ -147,11 +147,6 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 			},
 			searchDocuments: async () => {
 				throw new Error("searchDocuments should not be dialled by this provisioning-only test");
-			},
-			worker: {
-				pool: agentExecution.adapters.pool,
-				createWorkerAdapter: (ws, registration) =>
-					agentExecution.adapters.createWorkerAdapter(ws, registration),
 			},
 			session: { db, eventBus, adapterPool: agentExecution.adapters.pool },
 			sandboxBasePath: "/tmp/provisioning-wiring-provisioning-wiring",

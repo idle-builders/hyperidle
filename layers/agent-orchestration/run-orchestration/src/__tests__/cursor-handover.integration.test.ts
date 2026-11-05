@@ -110,7 +110,6 @@ function makeDeps(
 				adapter,
 				meta: {
 					name: "cursor-agent",
-					kind: "local" as const,
 					type: adapterType,
 					modelProviders: [],
 					maxConcurrent: 5,

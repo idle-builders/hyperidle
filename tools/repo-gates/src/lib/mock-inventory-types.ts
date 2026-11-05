@@ -27,7 +27,7 @@ export interface RunInventoryOptions {
 	 * string | null` (a single `packages/server/src` walk). AU19 dissolved
 	 * `packages/server` into many packages (`core-api`/`agent-orchestration`/
 	 * `agent-execution` Layer composition roots + their nested Service
-	 * packages + the `remote-server`/`remote-worker` Application bootstraps)
+	 * packages + the `remote-server` Application bootstrap)
 	 * — a single dir no longer covers the equivalent surface, so this is now
 	 * a list. See `collectAU19SrcDirs()` at the CLI entrypoint below for how
 	 * the list is discovered.

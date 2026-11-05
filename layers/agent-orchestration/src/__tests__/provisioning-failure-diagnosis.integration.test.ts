@@ -88,7 +88,7 @@ function buildDeps(db: HyperIdleDb, eventBus: EventBus): ProvisionSessionDeps {
 			select: () => null,
 			release: () => {},
 			describeSelectFailure: () =>
-				"no harness adapters are registered — no local harness was discovered on this host, and no remote worker has registered",
+				"no harness adapters are registered — no local harness was discovered on this host, or this server runs no agents",
 		},
 		workspace: {
 			spawn: () => {

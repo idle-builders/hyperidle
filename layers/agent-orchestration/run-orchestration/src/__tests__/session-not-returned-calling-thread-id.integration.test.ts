@@ -64,7 +64,6 @@ describe("session_not_returned carries callingThreadId", () => {
 					adapter: completingHarnessAdapter(),
 					meta: {
 						name: "Fake",
-						kind: "local",
 						type: undefined,
 						modelProviders: [],
 						maxConcurrent: 5,
@@ -134,7 +133,6 @@ describe("session_not_returned carries callingThreadId", () => {
 					adapter: completingHarnessAdapter(),
 					meta: {
 						name: "Fake",
-						kind: "local",
 						type: undefined,
 						modelProviders: [],
 						maxConcurrent: 5,

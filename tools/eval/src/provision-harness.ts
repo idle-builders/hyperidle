@@ -117,7 +117,6 @@ async function startEvalLiveServer(db: HyperIdleDb, eventBus: EventBus): Promise
 		middleware: coreApiBoot.middleware,
 		preAuthRegistrars: [
 			(api) => coreApiBoot.registerPreAuthRoutes(api),
-			(api) => agentOrchestrationBoot.registerPreAuthRoutes(api),
 			(api) => {
 				api.route("/", mcpBridgeRegistry.router);
 			},

@@ -12,7 +12,6 @@ const PROJECTS = [
 	"tools/trace",
 	"tools/governance",
 	"applications/remote-server",
-	"applications/remote-worker",
 	"framework/domain-model",
 	"framework/diagnostics",
 	"framework/harness-capability",

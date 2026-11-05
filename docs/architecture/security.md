@@ -34,10 +34,6 @@ A task's own thread is `team`-hosted. Posting to a host-scoped thread joins the 
 
 `canReadDocument` (`framework/domain-model/src/actions/document.ts`) — checks the document's `scope` (factory / team / user) and the viewer's team membership.
 
-## Worker
-
-A Worker is a session-execution endpoint, not an org member. Its token (`GET /ws/worker?token=<HYPERIDLE_WORKER_TOKEN>`) authorizes exactly one capability: run the sessions assigned to this worker. A worker authenticates to a server with its team key.
-
 ## WS subscribe authorization
 
 All WebSocket subscribes route through `createDbSubscribeAuthorizer` (`layers/core-api/src/ws-subscribe-authorizer.ts`):
@@ -58,7 +54,7 @@ All WebSocket subscribes route through `createDbSubscribeAuthorizer` (`layers/co
 |---|---|---|
 | **Root secret** | `HYPERIDLE_API_KEY` | OS file permissions; desktop uses `secrets.json` |
 | **Managed connection tokens** | `service_connections` rows | AES-256-GCM via `layers/agent-orchestration/connections/src/token-cipher.ts` |
-| **Deployment credential** | `shared_backend_key` (remote worker auth to a shared server) | Desktop OS keychain only (`applications/desktop/src/safe-credentials.ts`); never sent to a server, never read back into the UI |
+| **Joined-server key** | the person's own key for the shared server they joined | Desktop OS keychain only (`applications/desktop/src/safe-credentials.ts`); never read back into the UI |
 
 HyperIdle holds no model credential. A harness brings its own login; its key never passes through HyperIdle. Hiding a field from a GET response is not protection.
 
@@ -66,6 +62,5 @@ HyperIdle holds no model credential. A harness brings its own login; its key nev
 
 1. **Read parity** — detail reads require the same authorization as the list. No read path is looser than its list path.
 2. **Principal-only authorization** — a client-supplied identity header never grants access to another principal's data.
-3. **Worker confinement** — a worker token cannot read credentials beyond its assigned session, nor act as a different worker.
-4. **No plaintext secret** — no managed secret is persisted or logged in plaintext.
-5. **No over-restriction** — host-scoped resources remain readable per host visibility; tightening a team-readable thread is as much a defect as leaking a DM.
+3. **No plaintext secret** — no managed secret is persisted or logged in plaintext.
+4. **No over-restriction** — host-scoped resources remain readable per host visibility; tightening a team-readable thread is as much a defect as leaking a DM.

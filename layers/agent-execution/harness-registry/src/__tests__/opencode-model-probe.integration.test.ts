@@ -49,7 +49,6 @@ describe("opencode model probe through cohesive capability API", () => {
 		pool.register("local-opencode", adapter(), {
 			type: "opencode",
 			name: "OpenCode",
-			kind: "local",
 			modelProviders: [],
 			maxConcurrent: 1,
 		});

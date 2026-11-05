@@ -171,7 +171,6 @@ describe("generic transcript delivery", () => {
 					adapter: rejectingHarnessAdapter("must not be called — onBeforeHarnessStart aborts"),
 					meta: {
 						name: "Fake",
-						kind: "local",
 						type: undefined,
 						modelProviders: [],
 						maxConcurrent: 5,

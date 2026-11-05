@@ -418,7 +418,6 @@ describe("stopSessionRun — a live runtime entry (the abort path)", () => {
 					adapter: buildLiveHarnessAdapter(() => stopSessionCalls.push(Date.now())),
 					meta: {
 						name: "Fake",
-						kind: "local" as const,
 						type: undefined,
 						modelProviders: [],
 						maxConcurrent: 5,
@@ -606,7 +605,6 @@ describe("provisioner — an adapter's own return action is not a user stop", ()
 					},
 					meta: {
 						name: "Opencode",
-						kind: "local" as const,
 						type: "opencode" as const,
 						modelProviders: [],
 						maxConcurrent: 5,

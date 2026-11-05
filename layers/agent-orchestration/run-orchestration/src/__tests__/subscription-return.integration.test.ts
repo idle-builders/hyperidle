@@ -203,7 +203,6 @@ describe("a subscription wake's forced return is return_status, never send_messa
 					adapter: buildScriptedHarnessAdapter(events),
 					meta: {
 						name: "Fake",
-						kind: "local",
 						type: adapterType,
 						modelProviders: [],
 						maxConcurrent: 5,

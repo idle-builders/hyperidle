@@ -509,11 +509,10 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 	// `applications/remote-server/src/index.ts`, `tools/eval/src/{routines
 	// scenarios,provision-harness}.ts`, and `layers/core-ui/__scripts__/ah{1,5,6}-
 	// test-server.ts`/`src/api/client.ts` now import `@hyperidle/core-api`
-	// (repointed from the deleted `@hyperidle/server`). `remote-server` and
-	// `remote-worker` added the same increment — `remote-server` is itself a
-	// leaf-consumed-by-nothing-else Application, but building its declarations
-	// here keeps its own measurement (below) deterministic the same way every
-	// other leaf's does; `remote-worker` is consumed by `applications/desktop`.
+	// (repointed from the deleted `@hyperidle/server`). `remote-server` added the
+	// same increment — it is a leaf-consumed-by-nothing-else Application, but
+	// building its declarations here keeps its own measurement (below)
+	// deterministic the same way every other leaf's does.
 	for (const leaf of [
 		"framework/domain-model",
 		"framework/diagnostics",
@@ -551,13 +550,11 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"layers/agent-execution/harness-registry",
 		// @lore AU20 B3b: agent-execution/mcp-provider folded into harness-registry.
 		"layers/agent-orchestration/tool-handlers",
-		// @lore AU31 §2.7/[P9]: the Layer barrel itself now has a real consumer —
-		// `RemoteWorkerClient` relocated here, and `applications/desktop`/
-		// `applications/remote-worker` import the face directly. Same TS6305
-		// cascade as every other leaf without a pre-built dist.
+		// @lore AU31 §2.7/[P9]: the Layer barrel has a real consumer —
+		// `applications/desktop` imports it directly. Same TS6305 cascade as
+		// every other leaf without a pre-built dist.
 		"layers/agent-execution",
 		"applications/remote-server",
-		"applications/remote-worker",
 	]) {
 		try {
 			// Stays SERIAL: these are a dependency chain writing shared `dist/`
