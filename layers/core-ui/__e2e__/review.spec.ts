@@ -120,13 +120,13 @@ test("opening a review stops the conversation asking; Approve shows the open cou
 	await expect(verdict(page)).toContainText("3 open");
 
 	await verdict(page).getByRole("button", { name: "Approve" }).click();
-	await expect(verdict(page)).toHaveText("Approved · 1 open");
+	await expect(verdict(page)).toHaveText("Approved · work item closed · 1 unanswered comment");
 	await expect(page.getByRole("button", { name: "Pin C on the warning email" })).toBeVisible();
 
 	await page.goto(HAND_OFF);
 	await expect(
 		page.getByRole("button", { name: /^Explain what happens when a trial ends/ }),
-	).toContainText("Needs review · 1 review");
+	).toContainText("Done");
 });
 
 test("Use it lets clicks reach the page; Comment intercepts them as pins; Escape returns to Use it", async ({
