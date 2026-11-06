@@ -279,7 +279,7 @@ export function ReachDialog({
 						)}
 						<span className="reach-name">{t.name}</span>
 						<span className="reach-how">{t.how}</span>
-						{!(agent || folder) && <span className="reach-side">{t.givenTo}</span>}
+						{!(agent || folder) && <span className="reach-side">Given to {t.givenTo}</span>}
 					</div>
 				))}
 			</div>
