@@ -89,6 +89,36 @@ describe("setting someone up", () => {
 	beforeEach(() => vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "test-credential-encryption-key"));
 	afterEach(() => vi.unstubAllEnvs());
 
+	test("adding a folder to an agent that has no space yet auto-creates the space", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedPeople(db);
+		const spacesRoot = mkdtempSync(join(tmpdir(), "spaces-test-fresh-"));
+		const folderSource = realpathSync(mkdtempSync(join(tmpdir(), "fresh-src-")));
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", spacesRoot);
+		try {
+			const { edit, open } = actionsOf(agentOrchestration);
+
+			// No ensureSpace call — space_path is null; route must auto-create it.
+			const added = await edit(
+				"finn",
+				{ id: "builder", folders: { add: [{ path: folderSource }] } },
+				db,
+				eventBus,
+			);
+			expect(added.ok).toBe(true);
+
+			const folders = (await open("finn", "builder", db, eventBus)).folders;
+			expect(folders.map((f) => f.path)).toEqual([folderSource]);
+		} finally {
+			vi.unstubAllEnvs();
+			rmSync(spacesRoot, { recursive: true, force: true });
+			rmSync(folderSource, { recursive: true, force: true });
+		}
+	});
+
 	test("a folder added to an agent stays on that agent only", async ({
 		db,
 		eventBus,

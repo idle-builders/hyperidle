@@ -57,7 +57,7 @@ Address table (from `layers/core-ui/src/App.tsx` — re-read it; addresses move)
 | Review | `/conversations/demo-thread-trial-end?review=demo-msg-explainer-review-2` | Parts, the agent's flags as pins, the questions list, the link back to round 1; a comment pin; Approve or Reject (with a reason) |
 | Work (task) | `/work/demo-task-trials` | The parts graph; clicking a part puts `?part=` in the address; decisions and assumptions, Done when, summary, conversation; the box (Follow, hold, Stop / Start again, Ask for a review) |
 | Knowledge | `/knowledge/demo-doc-ten-days`, `/knowledge/demo-doc-how-we-price` | View and Edit mode, the format bar, / and @, saving; a comment in the margin; Publish / Follow; + in the tree adds a document |
-| Your page | `/people/me` | Waiting for you; the box: Works in, Can reach, Notifications switches, About, This app, Agent programs (Look again), Looks (Light / Dark / Like this computer). There is no settings screen |
+| Your page | `/people/me` | Waiting for you; the box: Folders (Add a folder), Can reach, Notifications switches, About, This app, Agent programs (Look again), Looks (Light / Dark / Like this computer). There is no settings screen |
 | Agent page | `/people/demo-agent-builder` | Open tasks; Edit and Pause / Let it work; Starts working when; a dialog opens and saves |
 | Team | `/teams/Product` | People with their agents, agents of every team, Add someone, the team's plugins |
 | Plugin | from the team page, open Team habits (`/plugins/<id>`) | How it stands, what it added; Switch off / on |

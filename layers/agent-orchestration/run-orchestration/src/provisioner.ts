@@ -1522,9 +1522,7 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
 
 		if (adapterCapabilities.cliMcpDialect) {
-			// The session's mounted filesystems (phase 4.5
-			// above) are the trusted directories — tell the harness what the
-			// Space-folder mount paths (phase 4.5) — tell the harness about them.
+			// Space-folder mount paths (phase 4.5) are the trusted directories — tell the harness about them.
 			const result = await ports.harnessRuntime.writeCliMcpConfig({
 				dialect: adapterCapabilities.cliMcpDialect,
 				sandboxPath,

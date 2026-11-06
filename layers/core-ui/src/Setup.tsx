@@ -183,7 +183,7 @@ export interface ReachRow {
 }
 
 export type NewReach =
-	| { kind: "folder"; where: string; readOnly: boolean; team?: string }
+	| { kind: "folder"; where: string }
 	| { kind: "service"; name: string; key?: string; address?: string };
 
 export interface ReachSave {
@@ -194,7 +194,6 @@ export interface ReachSave {
 	keepFrom: string[];
 }
 
-const MAY = ["Read and change", "Only read"] as const;
 const SIGN_IN = ["A key", "An MCP server"] as const;
 
 export function ReachDialog({
@@ -202,7 +201,6 @@ export function ReachDialog({
 	kind,
 	rows,
 	yourAgents,
-	teams,
 	onClose,
 	onSave,
 }: {
@@ -210,21 +208,17 @@ export function ReachDialog({
 	kind: "folder" | "service";
 	rows: readonly ReachRow[];
 	yourAgents: readonly { id: string; name: string }[];
-	/** The teams a new folder can belong to, when there is a choice. */
-	teams: readonly string[];
 	onClose: () => void;
 	onSave: (save: ReachSave) => Promise<string | null>;
 }) {
 	const agent = who.agent;
 	const folder = kind === "folder";
 	const [ticks, setTicks] = useState<Map<string, boolean>>(new Map());
-	const [may, setMay] = useState<(typeof MAY)[number]>("Read and change");
 	const [signIn, setSignIn] = useState<(typeof SIGN_IN)[number]>("A key");
 	const [where, setWhere] = useState("");
 	const [name, setName] = useState("");
 	const [key, setKey] = useState("");
 	const [address, setAddress] = useState("");
-	const [team, setTeam] = useState(teams[0] ?? "");
 	const [off, setOff] = useState<ReadonlySet<string>>(new Set());
 	const [problem, setProblem] = useState<string | null>(null);
 
@@ -237,14 +231,14 @@ export function ReachDialog({
 			: "What you and your agents can reach";
 	const sub = folder
 		? agent
-			? `${who.name} works in the folders ticked here. A folder is added once; every agent of yours gets it unless you untick it.`
-			: "Add a folder once. Every agent of yours gets it; untick it on an agent's page to keep it away from that one."
+			? `Tick the folders ${who.name} works in. Untick one to remove it from this agent.`
+			: "Connect a service once. Every agent of yours gets it; untick it on an agent's page to keep it away from that one."
 		: agent
 			? `${who.name} reaches only the services ticked here. A service is connected once; every agent of yours gets it unless you untick it.`
 			: "Connect a service once. Every agent of yours gets it; untick it on an agent's page to keep it away from that one.";
 	const added: NewReach | null = folder
 		? where.trim()
-			? { kind: "folder", where: where.trim(), readOnly: may === "Only read", team }
+			? { kind: "folder", where: where.trim() }
 			: null
 		: (signIn === "A key" ? name.trim() && key : address.trim())
 			? {
@@ -285,7 +279,6 @@ export function ReachDialog({
 						)}
 						<span className="reach-name">{t.name}</span>
 						<span className="reach-how">{t.how}</span>
-						{!agent && <span className="reach-side">Given to {t.givenTo}</span>}
 					</div>
 				))}
 			</div>
@@ -293,28 +286,18 @@ export function ReachDialog({
 			<div className="dlg-part">
 				<div className="dlg-part-h">{folder ? "Add a folder" : "Connect a service"}</div>
 				{folder ? (
-					<>
-						<Field
-							label="Where"
-							hint="A folder on this computer, or the address of a git repository. Every task works on a branch of its own."
-						>
-							<input
-								className="in"
-								value={where}
-								placeholder="~/code/project"
-								aria-label="Where"
-								onChange={(e) => setWhere(e.target.value)}
-							/>
-						</Field>
-						<Field label={agent ? `${who.name} may` : "Agents may"}>
-							<Seg label="May" options={MAY} value={may} onChange={setMay} />
-						</Field>
-						{!agent && teams.length > 1 && (
-							<Field label="Team" hint="A folder belongs to one team; its agents can be given it.">
-								<Seg label="Team" options={teams} value={team} onChange={setTeam} />
-							</Field>
-						)}
-					</>
+					<Field
+						label="Where"
+						hint="A folder on this computer, such as ~/code/project. A git repository gets a branch per task or conversation."
+					>
+						<input
+							className="in"
+							value={where}
+							placeholder="~/code/project"
+							aria-label="Where"
+							onChange={(e) => setWhere(e.target.value)}
+						/>
+					</Field>
 				) : (
 					<>
 						<Field label="Service">

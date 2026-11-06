@@ -26,7 +26,7 @@ There is one organisation, and nothing names it. A team is a group inside it —
 
 **Everyone reads every team's knowledge.** Conversations and documents are shown across all teams. A team-scoped document sits in that team's space, and goes into the context of that team's agents; it never limits who can read it.
 
-Team scope applies to documents (their space), folders registered per team, and task assignment.
+Team scope applies to documents (their space) and task assignment.
 
 ## Subscriptions
 

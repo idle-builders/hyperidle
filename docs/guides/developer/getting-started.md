@@ -61,7 +61,7 @@ No env setup is needed unless you set your own key.
 
 | Root | What lives there |
 |------|-----------------|
-| `layers/` | Shipping services: `core-ui` (React + Vite frontend, plain CSS with tokens), `core-api` (Hono API, per-domain services), `agent-orchestration` (sessions, connections, filesystems), `agent-execution` (harness registry, CLI/LLM adapters) |
+| `layers/` | Shipping services: `core-ui` (React + Vite frontend, plain CSS with tokens), `core-api` (Hono API, per-domain services), `agent-orchestration` (sessions, connections, space-folders), `agent-execution` (harness registry, CLI/LLM adapters) |
 | `framework/` | One package per cross-cutting concern: `db`, `domain-model`, `api-contract`, `event-bus`, `diagnostics`, `harness-capability`, `harness-protocol` |
 | `applications/` | Entry points: `desktop` (Electron), `remote-server` (standalone Hono), `website` |
 | `tools/` | Build-time tools: `eslint-plugin-authz`, `eslint-plugin-design`, `eval`, `governance`, `repo-gates`, `setup`, `trace` |

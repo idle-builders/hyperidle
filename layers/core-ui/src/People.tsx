@@ -23,7 +23,6 @@ import {
 	agentStand,
 	countWords,
 	crewOf,
-	folderMay,
 	folderPath,
 	folderTrouble,
 	forWords,
@@ -708,7 +707,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 	const worksIn: Pair[] = agent
 		? view.folders.map((f) => ({
 				what: folderPath(f),
-				why: [folderTrouble(f), folderMay(f)].filter(Boolean).join(" · "),
+				why: folderTrouble(f) ?? "",
 			}))
 		: [];
 	const held = view.connections?.connections ?? [];
@@ -797,7 +796,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 	const folderRows: ReachRow[] = view.folders.map((f) => ({
 		id: f.name,
 		name: folderPath(f),
-		how: `${f.isGit ? "A git repository" : "A folder"} · ${folderMay(f)}`,
+		how: f.isGit ? "A git repository" : "A folder",
 		given: true,
 		givenTo: "",
 	}));
@@ -994,6 +993,15 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 								onAdd={() => setDialog("folder")}
 							/>
 						)}
+						{!agent && isMe && (
+							<Section
+								title="Folders"
+								items={[]}
+								none="Folders live in your agents' spaces. Add one and pick which of your agents get it."
+								add="Add a folder"
+								onAdd={() => setDialog("folder")}
+							/>
+						)}
 						{view.connections && (
 							<Section
 								title="Can reach"
@@ -1129,7 +1137,6 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 					kind="folder"
 					rows={folderRows}
 					yourAgents={[]}
-					teams={[]}
 					onClose={close}
 					onSave={async (save) => {
 						const toRemove = [...save.ticks].filter(([, given]) => !given).map(([name]) => name);
@@ -1153,13 +1160,36 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 					}}
 				/>
 			)}
+			{dialog === "folder" && !agent && (
+				<ReachDialog
+					who={subject}
+					kind="folder"
+					rows={[]}
+					yourAgents={myAgents}
+					onClose={close}
+					onSave={async (save) => {
+						if (save.added?.kind === "folder") {
+							const toAdd = myAgents.filter((a) => !save.keepFrom.includes(a.id));
+							for (const a of toAdd) {
+								const r = await call("edit_user", {
+									id: a.id,
+									folders: { add: [{ path: save.added.where }] },
+								});
+								if (!r.ok) return after(r);
+							}
+						}
+						reload();
+						close();
+						return null;
+					}}
+				/>
+			)}
 			{dialog === "service" && (
 				<ReachDialog
 					who={subject}
 					kind="service"
 					rows={serviceRows}
 					yourAgents={myAgents}
-					teams={[]}
 					onClose={close}
 					onSave={async (save) => {
 						if (agent && save.ticks.size > 0) {

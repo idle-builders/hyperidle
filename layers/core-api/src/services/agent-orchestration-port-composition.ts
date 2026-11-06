@@ -45,7 +45,11 @@ interface AgentOrchestrationHcClient {
 				$get(args: { readonly param: { readonly agentId: string } }): Promise<Response>;
 				$post(args: {
 					readonly param: { readonly agentId: string };
-					readonly json: { readonly path: string; readonly name?: string };
+					readonly json: {
+						readonly path: string;
+						readonly name?: string;
+						readonly agentName: string;
+					};
 				}): Promise<Response>;
 				readonly ":name": {
 					readonly remove: {
@@ -181,11 +185,12 @@ export function buildAgentOrchestrationPort(
 			async add(
 				agentId: string,
 				path: string,
-				name?: string,
+				name: string | undefined,
+				agentName: string,
 			): Promise<AgentOrchestrationSpaceFolderAddResult> {
 				const res = await client["agent-orchestration"]["space-folders"][":agentId"].$post({
 					param: { agentId },
-					json: name !== undefined ? { path, name } : { path },
+					json: name !== undefined ? { path, name, agentName } : { path, agentName },
 				});
 				if (!res.ok) return throwSeamError("spaceFolders.add", res);
 				return (await res.json()) as AgentOrchestrationSpaceFolderAddResult;

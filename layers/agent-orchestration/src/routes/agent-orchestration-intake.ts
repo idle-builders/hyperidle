@@ -120,14 +120,24 @@ export function createAgentOrchestrationIntakeRoutes(
 	router.post(
 		"/space-folders/:agentId",
 		validateBody(
-			z.object({ path: z.string().min(1), name: z.string().min(1).optional() }).strict(),
+			z
+				.object({
+					path: z.string().min(1),
+					name: z.string().min(1).optional(),
+					agentName: z.string().min(1).optional(),
+				})
+				.strict(),
 		),
 		async (c) => {
 			const agentId = c.req.param("agentId");
-			const { path, name } = c.req.valid("json");
+			const { path, name, agentName } = c.req.valid("json");
 			const config = await readAgentRunConfig(db, agentId);
-			if (!config.spacePath) return c.json({ ok: false, code: "SPACE_NOT_SET" });
-			const result = addSpaceFolder(config.spacePath, path, name);
+			let spacePath = config.spacePath;
+			if (!spacePath) {
+				if (!agentName) return c.json({ ok: false, code: "SPACE_NOT_SET" });
+				spacePath = await ensureAgentSpace(db, agentId, agentName);
+			}
+			const result = addSpaceFolder(spacePath, path, name);
 			return c.json(result);
 		},
 	);

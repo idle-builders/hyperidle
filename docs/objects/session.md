@@ -33,12 +33,13 @@ Every task run and subscription run gets a working folder inside the agent's spa
 
 The working folder persists after the session ends. All sessions on the same task share the same working folder.
 
-The working folder contains four zones:
+The working folder contains four named zones and the agent's space folders:
 
 - `context/` — read-only. Contains `session.toon`: a flat key-value file with task, ancestors, agent, team data.
 - `knowledge/` — documents the agent may read, edit, and reorganize. Changes sync back automatically.
 - `work/` — scratch area. `work/task-notes.md` and `work/session-notes.md` are watched; writes there go to `sessions.notes`. Everything else in `work/` is ignored by writeback.
 - `.fabric/manifest.json` — manifest of assembled items; read-only for the agent.
+- **Space folders** — each symlink in the agent's space is mounted here at session start. Git repositories appear as git worktrees; plain directories appear as symlinks. See [Folders](folders.md).
 
 ## Notes
 

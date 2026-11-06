@@ -48,16 +48,16 @@ test("editing an agent saves what it does and its discipline; pausing it says so
 	await expect(box(page, "Builder").getByRole("button", { name: "Pause" })).toBeVisible();
 });
 
-test("a folder added on one agent's page goes to every agent of yours", async ({ page }) => {
+test("a folder added on an agent's page stays on that agent only", async ({ page }) => {
 	await page.goto(BUILDER);
 	await box(page, "Builder").getByRole("button", { name: "Add a folder" }).click();
 	const where = dialog(page, "Where Builder works");
-	await where.getByLabel("Where").fill("~/code/northwind-billing");
+	await where.getByLabel("Where").fill("/usr/local/bin");
 	await where.getByRole("button", { name: "Save" }).click();
 	await expect(where).toHaveCount(0);
-	await expect(box(page, "Builder")).toContainText("~/code/northwind-billing");
+	await expect(box(page, "Builder")).toContainText("/usr/local/bin");
 	await page.goto(GROWTH);
-	await expect(box(page, "Growth")).toContainText("~/code/northwind-billing");
+	await expect(box(page, "Growth")).not.toContainText("/usr/local/bin");
 });
 
 test("a service unticked for Growth no longer reaches it, and still reaches Builder", async ({

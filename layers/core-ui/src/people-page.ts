@@ -465,11 +465,6 @@ export function folderTrouble(f: FolderView): string | null {
 	return f.isMissing ? "Not found on this computer" : null;
 }
 
-/** What may be done in a folder. */
-export function folderMay(f: FolderView): string {
-	return f.isGit ? "reads and changes" : "only reads";
-}
-
 /** How a service is reached: a key, a server, or signed in on this computer. */
 export function serviceHow(c: ConnectionView): string {
 	if (c.authSource === "inherited") return "Signed in on this computer";

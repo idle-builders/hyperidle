@@ -50,9 +50,13 @@ describe("listSpaceFolders", () => {
 		expect(listSpaceFolders(spacePath)).toEqual([]);
 	});
 
-	test("excludes regular directories (non-symlink)", () => {
+	test("includes real directories (non-symlink)", () => {
 		fs.mkdirSync(path.join(spacePath, "myrepo"));
-		expect(listSpaceFolders(spacePath)).toEqual([]);
+		const result = listSpaceFolders(spacePath);
+		expect(result).toHaveLength(1);
+		expect(result[0]?.name).toBe("myrepo");
+		expect(result[0]?.isMissing).toBe(false);
+		expect(result[0]?.isGit).toBe(false);
 	});
 
 	test("includes a valid symlink pointing at an existing directory", () => {
@@ -159,6 +163,13 @@ describe("addSpaceFolder", () => {
 // ── removeSpaceFolder ─────────────────────────────────────────────────────────
 
 describe("removeSpaceFolder", () => {
+	test.each(["", ".", "..", "a/b", "a\\b", [...RESERVED_SPACE_NAMES][0] ?? "conversations"])(
+		"refuses NOT_FOUND for invalid or reserved name: %s",
+		(name) => {
+			expect(removeSpaceFolder(spacePath, name)).toMatchObject({ ok: false, code: "NOT_FOUND" });
+		},
+	);
+
 	test("removes an existing symlink and returns ok:true", () => {
 		const target = path.join(tmpDir, "real");
 		fs.mkdirSync(target);

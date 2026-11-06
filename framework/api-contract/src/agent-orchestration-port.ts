@@ -122,7 +122,8 @@ export interface AgentOrchestrationSpaceFoldersPort {
 	add(
 		agentId: string,
 		path: string,
-		name?: string,
+		name: string | undefined,
+		agentName: string,
 	): Promise<AgentOrchestrationSpaceFolderAddResult>;
 	remove(agentId: string, name: string): Promise<AgentOrchestrationSpaceFolderRemoveResult>;
 }

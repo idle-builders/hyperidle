@@ -1,10 +1,12 @@
 /**
- * Agent space folders — the top-level symlinks in an agent's space directory.
+ * Agent space folders — the top-level entries in an agent's space directory.
  *
- * Every top-level symlink under `<space>/` (except reserved names and
- * plain dot-entries that are not symlinks) is one of the agent's folders.
- * A folder can point at a git repo (gets a worktree at session time) or any
- * other directory (symlinked into the working folder directly).
+ * Every top-level symlink or real directory under `<space>/` (except reserved
+ * names, dot-entries that are not symlinks, and plain files) is one of the
+ * agent's folders. A folder can point at a git repo (gets a worktree at
+ * session time) or any other directory (symlinked into the working folder).
+ * Only symlinks can be removed — real directories are never deleted by this
+ * module.
  */
 
 import * as fs from "node:fs";
@@ -59,14 +61,11 @@ function validateName(name: string): SpaceFolderAddCode | null {
 }
 
 /**
- * List all folder symlinks in `spacePath`.
+ * List all folders in `spacePath`.
  *
- * Returns every entry that is:
- *   - a symlink (whether or not the target exists)
- *   - whose name is not in RESERVED_SPACE_NAMES
- *   - whose name does not start with `.` (hidden dot-entries that are not
- *     symlinks are skipped; a hidden symlink IS valid if it passes the name
- *     gate above, but none today are reserved with a dot)
+ * Returns every top-level entry that is a symlink (whether or not the target
+ * exists) or a real directory, whose name is not in RESERVED_SPACE_NAMES and
+ * does not start with `.` (unless it is a symlink). Regular files are skipped.
  */
 export function listSpaceFolders(spacePath: string): SpaceFolderView[] {
 	if (!fs.existsSync(spacePath)) return [];
@@ -76,22 +75,29 @@ export function listSpaceFolders(spacePath: string): SpaceFolderView[] {
 		if (RESERVED_SPACE_NAMES.has(entry.name)) continue;
 		// Hidden non-symlink entries (e.g. .DS_Store) are not folders.
 		if (entry.name.startsWith(".") && !entry.isSymbolicLink()) continue;
-		if (!entry.isSymbolicLink()) continue;
+		// Regular files are not folders — only symlinks and directories.
+		if (!(entry.isSymbolicLink() || entry.isDirectory())) continue;
 		const linkPath = path.join(spacePath, entry.name);
 		let resolvedPath: string;
 		let isMissing = false;
 		let isGit = false;
-		try {
-			resolvedPath = fs.realpathSync(linkPath);
-			isGit = fs.existsSync(path.join(resolvedPath, ".git"));
-		} catch {
-			// Dangling symlink — target no longer exists.
-			resolvedPath = fs.readlinkSync(linkPath);
-			// Expand ~ so the path is at least human-readable.
-			if (resolvedPath.startsWith("~/")) {
-				resolvedPath = path.join(os.homedir(), resolvedPath.slice(1));
+		if (entry.isSymbolicLink()) {
+			try {
+				resolvedPath = fs.realpathSync(linkPath);
+				isGit = fs.existsSync(path.join(resolvedPath, ".git"));
+			} catch {
+				// Dangling symlink — target no longer exists.
+				resolvedPath = fs.readlinkSync(linkPath);
+				// Expand ~ so the path is at least human-readable.
+				if (resolvedPath.startsWith("~/")) {
+					resolvedPath = path.join(os.homedir(), resolvedPath.slice(1));
+				}
+				isMissing = true;
 			}
-			isMissing = true;
+		} else {
+			// Real directory — always present (readdirSync just saw it).
+			resolvedPath = path.join(spacePath, entry.name);
+			isGit = fs.existsSync(path.join(resolvedPath, ".git"));
 		}
 		result.push({ name: entry.name, path: resolvedPath, isGit, isMissing });
 	}
@@ -144,9 +150,11 @@ function isSymlinkAt(p: string): boolean {
  * Remove a folder symlink from `spacePath`.
  *
  * Only removes symlinks — refuses with NOT_A_SYMLINK when the entry exists
- * but is a real directory (nothing real is ever deleted).
+ * but is a real directory (nothing real is ever deleted). An invalid or
+ * reserved name refuses with NOT_FOUND (path traversal is blocked here).
  */
 export function removeSpaceFolder(spacePath: string, name: string): SpaceFolderRemoveResult {
+	if (validateName(name) !== null) return { ok: false, code: "NOT_FOUND" };
 	const linkPath = path.join(spacePath, name);
 	let stat: fs.Stats;
 	try {

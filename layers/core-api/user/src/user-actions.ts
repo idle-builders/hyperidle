@@ -147,7 +147,8 @@ export interface UserActionsDeps {
 		add(
 			agentId: string,
 			path: string,
-			name?: string,
+			name: string | undefined,
+			agentName: string,
 		): Promise<{ readonly ok: true } | { readonly ok: false; readonly code: string }>;
 		remove(
 			agentId: string,
@@ -651,6 +652,43 @@ async function archiveSubscriptionPrompt(
 //
 // ---------------------------------------------------------------------------
 
+/** Map a SpaceFolderAddCode to a user-facing problem code and message. */
+function folderAddProblem(
+	code: string,
+	label: string,
+	sourcePath: string,
+): { code: string; message: string } {
+	switch (code) {
+		case "RESERVED_NAME":
+			return {
+				code: "folder_name_reserved",
+				message: `'${label}' is one of the agent's own folders; pick another name.`,
+			};
+		case "CONFLICT":
+			return {
+				code: "folder_exists",
+				message: `The agent already has a folder called '${label}'.`,
+			};
+		case "SOURCE_NOT_FOUND":
+			return {
+				code: "folder_not_found",
+				message: `No folder at ${sourcePath} on this computer.`,
+			};
+		case "SOURCE_NOT_DIRECTORY":
+			return {
+				code: "folder_not_directory",
+				message: `${sourcePath} is a file, not a folder.`,
+			};
+		case "INVALID_NAME":
+			return {
+				code: "folder_invalid_name",
+				message: `'${label}' can't be a folder name.`,
+			};
+		default:
+			return { code: "unknown_folder", message: `Could not add folder '${label}': ${code}.` };
+	}
+}
+
 /**
  * Apply a `folders` edit to an agent's space.
  *
@@ -663,6 +701,7 @@ async function applyUserFolders(
 	deps: UserActionsDeps,
 	id: string,
 	kind: string,
+	agentName: string,
 	folders: NonNullable<EditUserInput["folders"]>,
 ): Promise<Problem | null> {
 	if (kind !== "ai") {
@@ -675,16 +714,14 @@ async function applyUserFolders(
 	for (const { path, name } of folders.add ?? []) {
 		let result: Awaited<ReturnType<typeof deps.spaceFolders.add>>;
 		try {
-			result = await deps.spaceFolders.add(id, path, name);
+			result = await deps.spaceFolders.add(id, path, name, agentName);
 		} catch {
 			return { code: "unknown_folder", message: "Could not add that folder.", path: "folders" };
 		}
 		if (!result.ok) {
-			return {
-				code: "unknown_folder",
-				message: `Could not add folder '${name ?? path}': ${result.code}.`,
-				path: "folders",
-			};
+			const label = name ?? path;
+			const { code, message } = folderAddProblem(result.code, label, path);
+			return { code, message, path: "folders" };
 		}
 	}
 	for (const name of folders.remove ?? []) {
@@ -941,7 +978,7 @@ async function createUserRun(
 
 	let stepProblem: Problem | null = null;
 	if (input.folders) {
-		stepProblem = await applyUserFolders(deps, id, kind, input.folders);
+		stepProblem = await applyUserFolders(deps, id, kind, name, input.folders);
 	}
 	if (!stepProblem && input.connections) {
 		stepProblem = await applyUserConnections(ctx.db, deps, id, input.connections);
@@ -1273,7 +1310,7 @@ async function editExistingUserRun(
 
 	let stepProblem: Problem | null = null;
 	if (input.folders) {
-		stepProblem = await applyUserFolders(deps, id, existing.kind, input.folders);
+		stepProblem = await applyUserFolders(deps, id, existing.kind, existing.name, input.folders);
 	}
 	if (!stepProblem && input.connections) {
 		stepProblem = await applyUserConnections(ctx.db, deps, id, input.connections);

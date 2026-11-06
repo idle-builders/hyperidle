@@ -5,7 +5,7 @@ Two things decide what an agent can do outside HyperIdle:
 - **Works in** — the folders it works in, such as a code repository on your computer.
 - **Can reach** — the services it can use, such as GitHub, Stripe or a database.
 
-Both are on [your page](./your-page.md) and on each agent's page. Add a folder or service once: every agent of yours gets it. To keep one away from a single agent, untick it on that agent's page. An agent works best with only what it needs.
+Folders are added on [your page](./your-page.md); each folder goes to the agents you pick. Services are on your page and on each agent's page. An agent works best with only what it needs.
 
 How this works underneath: [Connection model](../../architecture/connections.md).
 
@@ -15,11 +15,9 @@ How this works underneath: [Connection model](../../architecture/connections.md)
 
 On your page, press **Add a folder**.
 
-1. **Where** — the folder's path, for example `~/code/project`.
-2. **Agents may** — **Read and change**, or **Only read**.
-3. **Team** — if you are in more than one team. A folder belongs to one team.
-4. **Who works in it** — all of your agents, unless you untick one.
-5. Press **Save**.
+1. **Where** — the folder's path, for example `~/code/project`. A git repository gets a branch per task or conversation.
+2. **Who works in it** — all of your agents are ticked; untick any that should not get it.
+3. Press **Save**.
 
 The first conversation's **Connect a folder** opens this same dialog.
 
