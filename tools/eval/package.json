@@ -16,6 +16,7 @@
 		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/core-api": "*",
 		"@hyperidle/db": "*",
+		"@hyperidle/runner-db": "*",
 		"@hyperidle/document": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",

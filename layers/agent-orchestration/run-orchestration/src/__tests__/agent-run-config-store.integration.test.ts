@@ -11,9 +11,10 @@
  *    semantics `PATCH /api/agents/:id` has always had).
  */
 
-import { agentRunConfig, users } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, users } from "@hyperidle/db";
+import { agentRunConfig } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import {
 	DEFAULT_AGENT_RUN_CONFIG,
 	readAgentRunConfig,
@@ -24,7 +25,7 @@ import {
 const NOW = "2026-08-04T00:00:00.000Z";
 
 async function insertAgent(
-	db: Parameters<typeof readAgentRunConfig>[0],
+	db: HyperIdleDb,
 	id: string,
 ): Promise<void> {
 	await db.insert(users).values({
@@ -39,10 +40,10 @@ async function insertAgent(
 }
 
 describe("agent run config store", () => {
-	test("an agent with no config row resolves the all-null effective config", async ({ db }) => {
+	test("an agent with no config row resolves the all-null effective config", async ({ db, runnerDb }) => {
 		await insertAgent(db, "a-none");
 
-		const config = await readAgentRunConfig(db, "a-none");
+		const config = await readAgentRunConfig(runnerDb, "a-none");
 
 		expect(config).toEqual({
 			harnessType: null,
@@ -56,10 +57,10 @@ describe("agent run config store", () => {
 		expect(config).toEqual(DEFAULT_AGENT_RUN_CONFIG);
 	});
 
-	test("a full write round-trips verbatim", async ({ db }) => {
+	test("a full write round-trips verbatim", async ({ db, runnerDb }) => {
 		await insertAgent(db, "a-full");
 
-		await writeAgentRunConfig(db, "a-full", {
+		await writeAgentRunConfig(runnerDb, "a-full", {
 			harnessType: "claude-code",
 			modelId: "claude-opus-4-8",
 			modelProvider: "anthropic",
@@ -67,7 +68,7 @@ describe("agent run config store", () => {
 			modelOptions: { effort: "high" },
 		});
 
-		expect(await readAgentRunConfig(db, "a-full")).toEqual({
+		expect(await readAgentRunConfig(runnerDb, "a-full")).toEqual({
 			harnessType: "claude-code",
 			modelId: "claude-opus-4-8",
 			modelProvider: "anthropic",
@@ -78,9 +79,9 @@ describe("agent run config store", () => {
 		});
 	});
 
-	test("a partial write patches only the named fields", async ({ db }) => {
+	test("a partial write patches only the named fields", async ({ db, runnerDb }) => {
 		await insertAgent(db, "a-partial");
-		await writeAgentRunConfig(db, "a-partial", {
+		await writeAgentRunConfig(runnerDb, "a-partial", {
 			harnessType: "opencode",
 			modelId: "claude-sonnet-4-6",
 			modelProvider: "anthropic",
@@ -88,9 +89,9 @@ describe("agent run config store", () => {
 			modelOptions: {},
 		});
 
-		await writeAgentRunConfig(db, "a-partial", { modelId: "claude-opus-4-8" });
+		await writeAgentRunConfig(runnerDb, "a-partial", { modelId: "claude-opus-4-8" });
 
-		expect(await readAgentRunConfig(db, "a-partial")).toEqual({
+		expect(await readAgentRunConfig(runnerDb, "a-partial")).toEqual({
 			harnessType: "opencode",
 			modelId: "claude-opus-4-8",
 			modelProvider: "anthropic",
@@ -101,28 +102,29 @@ describe("agent run config store", () => {
 		});
 	});
 
-	test("an explicit null in a patch clears that field only", async ({ db }) => {
+	test("an explicit null in a patch clears that field only", async ({ db, runnerDb }) => {
 		await insertAgent(db, "a-clear");
-		await writeAgentRunConfig(db, "a-clear", {
+		await writeAgentRunConfig(runnerDb, "a-clear", {
 			harnessType: "claude-code",
 			modelId: "claude-opus-4-8",
 		});
 
-		await writeAgentRunConfig(db, "a-clear", { modelId: null });
+		await writeAgentRunConfig(runnerDb, "a-clear", { modelId: null });
 
-		const config = await readAgentRunConfig(db, "a-clear");
+		const config = await readAgentRunConfig(runnerDb, "a-clear");
 		expect(config.modelId).toBeNull();
 		expect(config.harnessType).toBe("claude-code");
 	});
 
 	test("a first write for an agent with no row still lands the defaults for absent fields", async ({
 		db,
+		runnerDb,
 	}) => {
 		await insertAgent(db, "a-first");
 
-		await writeAgentRunConfig(db, "a-first", { harnessType: "opencode" });
+		await writeAgentRunConfig(runnerDb, "a-first", { harnessType: "opencode" });
 
-		expect(await readAgentRunConfig(db, "a-first")).toEqual({
+		expect(await readAgentRunConfig(runnerDb, "a-first")).toEqual({
 			harnessType: "opencode",
 			modelId: null,
 			modelProvider: null,
@@ -133,30 +135,31 @@ describe("agent run config store", () => {
 		});
 	});
 
-	test("spacePath round-trips verbatim after a write", async ({ db }) => {
+	test("spacePath round-trips verbatim after a write", async ({ db, runnerDb }) => {
 		await insertAgent(db, "a-spacepath");
 
-		await writeAgentRunConfig(db, "a-spacepath", { spacePath: "/spaces/MyAgent" });
+		await writeAgentRunConfig(runnerDb, "a-spacepath", { spacePath: "/spaces/MyAgent" });
 
-		expect((await readAgentRunConfig(db, "a-spacepath")).spacePath).toBe("/spaces/MyAgent");
+		expect((await readAgentRunConfig(runnerDb, "a-spacepath")).spacePath).toBe("/spaces/MyAgent");
 	});
 
-	test("login round-trips verbatim after a write", async ({ db }) => {
+	test("login round-trips verbatim after a write", async ({ db, runnerDb }) => {
 		await insertAgent(db, "a-login");
 
-		await writeAgentRunConfig(db, "a-login", { login: "own" });
+		await writeAgentRunConfig(runnerDb, "a-login", { login: "own" });
 
-		expect((await readAgentRunConfig(db, "a-login")).login).toBe("own");
+		expect((await readAgentRunConfig(runnerDb, "a-login")).login).toBe("own");
 	});
 
 	test("readAgentRunConfigs returns one entry per requested agent, defaulting the missing", async ({
 		db,
+		runnerDb,
 	}) => {
 		await insertAgent(db, "a-batch-1");
 		await insertAgent(db, "a-batch-2");
-		await writeAgentRunConfig(db, "a-batch-1", { maxConcurrentSessions: 5 });
+		await writeAgentRunConfig(runnerDb, "a-batch-1", { maxConcurrentSessions: 5 });
 
-		const map = await readAgentRunConfigs(db, ["a-batch-1", "a-batch-2"]);
+		const map = await readAgentRunConfigs(runnerDb, ["a-batch-1", "a-batch-2"]);
 
 		expect(map.get("a-batch-1")?.maxConcurrentSessions).toBe(5);
 		expect(map.get("a-batch-2")).toEqual(DEFAULT_AGENT_RUN_CONFIG);
@@ -164,45 +167,46 @@ describe("agent run config store", () => {
 
 	test("options an agent never configured read as none, and survive a sibling edit", async ({
 		db,
+		runnerDb,
 	}) => {
 		await insertAgent(db, "a-untouched");
-		await writeAgentRunConfig(db, "a-untouched", { harnessType: "claude-code" });
+		await writeAgentRunConfig(runnerDb, "a-untouched", { harnessType: "claude-code" });
 
 		// An agent whose options were never set reads as no options — the shape an
 		// agent configured before this column existed resolves to.
-		expect((await readAgentRunConfig(db, "a-untouched")).modelOptions).toEqual({});
+		expect((await readAgentRunConfig(runnerDb, "a-untouched")).modelOptions).toEqual({});
 
-		await writeAgentRunConfig(db, "a-untouched", { modelOptions: { effort: "max" } });
+		await writeAgentRunConfig(runnerDb, "a-untouched", { modelOptions: { effort: "max" } });
 		// Editing an unrelated field must not disturb stored options.
-		await writeAgentRunConfig(db, "a-untouched", { maxConcurrentSessions: 4 });
+		await writeAgentRunConfig(runnerDb, "a-untouched", { maxConcurrentSessions: 4 });
 
-		const config = await readAgentRunConfig(db, "a-untouched");
+		const config = await readAgentRunConfig(runnerDb, "a-untouched");
 		expect(config.modelOptions).toEqual({ effort: "max" });
 		expect(config.maxConcurrentSessions).toBe(4);
 	});
 
-	test("options round-trip every value shape a harness control can produce", async ({ db }) => {
+	test("options round-trip every value shape a harness control can produce", async ({ db, runnerDb }) => {
 		await insertAgent(db, "a-shapes");
 
-		await writeAgentRunConfig(db, "a-shapes", {
+		await writeAgentRunConfig(runnerDb, "a-shapes", {
 			modelOptions: { effort: "high", verbose: true, retries: 3 },
 		});
 
-		expect((await readAgentRunConfig(db, "a-shapes")).modelOptions).toEqual({
+		expect((await readAgentRunConfig(runnerDb, "a-shapes")).modelOptions).toEqual({
 			effort: "high",
 			verbose: true,
 			retries: 3,
 		});
 	});
 
-	test("writing empty options clears them rather than storing an empty object", async ({ db }) => {
+	test("writing empty options clears them rather than storing an empty object", async ({ db, runnerDb }) => {
 		await insertAgent(db, "a-cleared");
-		await writeAgentRunConfig(db, "a-cleared", { modelOptions: { effort: "low" } });
+		await writeAgentRunConfig(runnerDb, "a-cleared", { modelOptions: { effort: "low" } });
 
-		await writeAgentRunConfig(db, "a-cleared", { modelOptions: {} });
+		await writeAgentRunConfig(runnerDb, "a-cleared", { modelOptions: {} });
 
-		expect((await readAgentRunConfig(db, "a-cleared")).modelOptions).toEqual({});
-		const [row] = await db
+		expect((await readAgentRunConfig(runnerDb, "a-cleared")).modelOptions).toEqual({});
+		const [row] = await runnerDb
 			.select({ raw: agentRunConfig.modelOptionsJson })
 			.from(agentRunConfig)
 			.where(eq(agentRunConfig.agentUserId, "a-cleared"));
@@ -211,27 +215,28 @@ describe("agent run config store", () => {
 
 	test("a corrupted options column degrades to no options rather than failing the read", async ({
 		db,
+		runnerDb,
 	}) => {
 		await insertAgent(db, "a-corrupt");
-		await writeAgentRunConfig(db, "a-corrupt", { harnessType: "codex" });
-		await db
+		await writeAgentRunConfig(runnerDb, "a-corrupt", { harnessType: "codex" });
+		await runnerDb
 			.update(agentRunConfig)
 			.set({ modelOptionsJson: "not json at all" })
 			.where(eq(agentRunConfig.agentUserId, "a-corrupt"));
 
-		const config = await readAgentRunConfig(db, "a-corrupt");
+		const config = await readAgentRunConfig(runnerDb, "a-corrupt");
 
 		// The agent still runs — as an agent with no options, which is today's behaviour.
 		expect(config.modelOptions).toEqual({});
 		expect(config.harnessType).toBe("codex");
 	});
 
-	test("readAgentRunConfigs carries options for each agent", async ({ db }) => {
+	test("readAgentRunConfigs carries options for each agent", async ({ db, runnerDb }) => {
 		await insertAgent(db, "a-many-1");
 		await insertAgent(db, "a-many-2");
-		await writeAgentRunConfig(db, "a-many-1", { modelOptions: { effort: "xhigh" } });
+		await writeAgentRunConfig(runnerDb, "a-many-1", { modelOptions: { effort: "xhigh" } });
 
-		const map = await readAgentRunConfigs(db, ["a-many-1", "a-many-2"]);
+		const map = await readAgentRunConfigs(runnerDb, ["a-many-1", "a-many-2"]);
 
 		expect(map.get("a-many-1")?.modelOptions).toEqual({ effort: "xhigh" });
 		expect(map.get("a-many-2")?.modelOptions).toEqual({});

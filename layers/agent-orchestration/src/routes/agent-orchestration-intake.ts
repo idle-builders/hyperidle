@@ -3,7 +3,6 @@ import type {
 	AgentOrchestrationRunConfigPatch,
 } from "@hyperidle/api-contract";
 import type { InheritedReach } from "@hyperidle/connections";
-import type { HyperIdleDb } from "@hyperidle/db";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import {
 	addSpaceFolder,
@@ -15,6 +14,7 @@ import {
 	removeSpaceFolder,
 	writeAgentRunConfig,
 } from "@hyperidle/run-orchestration";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { Hono } from "hono";
 import { z } from "zod";
 import { isPrivateHostLiteral } from "../ssrf.js";
@@ -26,7 +26,7 @@ import {
 } from "./connections.js";
 
 export function createAgentOrchestrationIntakeRoutes(
-	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	/**
 	 * The `folders`/`connections` families' own extras: the reach
 	 * cache `connections.list` unions in, and the cipher `connections.add`
@@ -52,7 +52,7 @@ export function createAgentOrchestrationIntakeRoutes(
 
 	// ── runConfig.read — GET /agent-orchestration/run-config/:agentId ────────
 	router.get("/run-config/:agentId", async (c) => {
-		const config = await readAgentRunConfig(db, c.req.param("agentId"));
+		const config = await readAgentRunConfig(runnerDb, c.req.param("agentId"));
 		return c.json({ config });
 	});
 
@@ -65,7 +65,7 @@ export function createAgentOrchestrationIntakeRoutes(
 			const { agentIds } = c.req.valid("json");
 			const configs =
 				agentIds.length > 0
-					? await readAgentRunConfigs(db, agentIds)
+					? await readAgentRunConfigs(runnerDb, agentIds)
 					: new Map<string, typeof DEFAULT_AGENT_RUN_CONFIG>();
 			return c.json({ configs: Object.fromEntries(configs) });
 		},
@@ -90,7 +90,7 @@ export function createAgentOrchestrationIntakeRoutes(
 		),
 		async (c) => {
 			const patch = c.req.valid("json");
-			await writeAgentRunConfig(db, c.req.param("agentId"), patch);
+			await writeAgentRunConfig(runnerDb, c.req.param("agentId"), patch);
 			return c.json({ ok: true });
 		},
 	);
@@ -102,7 +102,7 @@ export function createAgentOrchestrationIntakeRoutes(
 		async (c) => {
 			const agentId = c.req.param("agentId");
 			const { agentName } = c.req.valid("json");
-			const spacePath = await ensureAgentSpace(db, agentId, agentName);
+			const spacePath = await ensureAgentSpace(runnerDb, agentId, agentName);
 			return c.json({ spacePath });
 		},
 	);
@@ -110,7 +110,7 @@ export function createAgentOrchestrationIntakeRoutes(
 	// ── spaceFolders.list — GET /agent-orchestration/space-folders/:agentId ───
 	router.get("/space-folders/:agentId", async (c) => {
 		const agentId = c.req.param("agentId");
-		const config = await readAgentRunConfig(db, agentId);
+		const config = await readAgentRunConfig(runnerDb, agentId);
 		if (!config.spacePath) return c.json({ folders: [] });
 		const folders = listSpaceFolders(config.spacePath);
 		return c.json({ folders });
@@ -131,10 +131,10 @@ export function createAgentOrchestrationIntakeRoutes(
 		async (c) => {
 			const agentId = c.req.param("agentId");
 			const { path, name, agentName } = c.req.valid("json");
-			const config = await readAgentRunConfig(db, agentId);
+			const config = await readAgentRunConfig(runnerDb, agentId);
 			let spacePath = config.spacePath;
 			if (!spacePath) {
-				spacePath = await ensureAgentSpace(db, agentId, agentName ?? "");
+				spacePath = await ensureAgentSpace(runnerDb, agentId, agentName ?? "");
 			}
 			const result = addSpaceFolder(spacePath, path, name);
 			return c.json(result);
@@ -148,7 +148,7 @@ export function createAgentOrchestrationIntakeRoutes(
 		async (c) => {
 			const agentId = c.req.param("agentId");
 			const { name } = c.req.valid("json");
-			const config = await readAgentRunConfig(db, agentId);
+			const config = await readAgentRunConfig(runnerDb, agentId);
 			if (!config.spacePath) return c.json({ ok: false, code: "NOT_FOUND" });
 			const result = removeSpaceFolder(config.spacePath, name);
 			return c.json(result);
@@ -157,7 +157,7 @@ export function createAgentOrchestrationIntakeRoutes(
 
 	// ── connections.list — GET /agent-orchestration/connections/:userId ──────
 	router.get("/connections/:userId", async (c) => {
-		const result = await listConnectionsForUser(db, c.req.param("userId"), inheritedReach);
+		const result = await listConnectionsForUser(runnerDb, c.req.param("userId"), inheritedReach);
 		return c.json(result);
 	});
 
@@ -194,7 +194,7 @@ export function createAgentOrchestrationIntakeRoutes(
 	// ── connections.add — POST /agent-orchestration/connections/:userId ──────
 	router.post("/connections/:userId", validateBody(connectionCreateInputSchema), async (c) => {
 		const result = await createConnectionForUser(
-			db,
+			runnerDb,
 			c.req.param("userId"),
 			c.req.valid("json"),
 			encrypt,
@@ -209,7 +209,7 @@ export function createAgentOrchestrationIntakeRoutes(
 		async (c) => {
 			const { agentUserId, keep } = c.req.valid("json");
 			const result = await withholdConnectionForUser(
-				db,
+				runnerDb,
 				c.req.param("userId"),
 				c.req.param("id"),
 				agentUserId,
@@ -221,7 +221,7 @@ export function createAgentOrchestrationIntakeRoutes(
 
 	// ── connections.remove — POST /agent-orchestration/connections/:userId/:id/remove ──
 	router.post("/connections/:userId/:id/remove", async (c) => {
-		const result = await removeConnectionForUser(db, c.req.param("userId"), c.req.param("id"));
+		const result = await removeConnectionForUser(runnerDb, c.req.param("userId"), c.req.param("id"));
 		return c.json(result);
 	});
 

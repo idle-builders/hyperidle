@@ -3,7 +3,6 @@ import { eq } from "drizzle-orm";
 import {
 	documents,
 	messages,
-	sessions,
 	subscriptions,
 	tasks,
 	teams,
@@ -182,56 +181,6 @@ describe("database schema", () => {
 
 			const result = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(result[0]?.state).toBe("in_progress");
-		});
-
-		test("inserts and reads sessions", async ({ db }) => {
-			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
-			await db.insert(users).values({
-				id: "agent-1",
-				kind: "ai",
-				name: "Builder",
-				role: "builder",
-				status: "active",
-				createdAt: now,
-			});
-			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
-			await db.insert(threads).values({
-				id: "thr-task-1",
-				hostKind: "team",
-				hostId: "prod-1",
-				initiatorId: "agent-1",
-				participants: "[]",
-				lastActiveAt: now,
-				createdAt: now,
-			});
-			await db.insert(tasks).values({
-				id: "task-1",
-				parentTaskId: null,
-				teamId: "prod-1",
-				title: "T",
-				state: "proposed",
-				threadId: "thr-task-1",
-				createdAt: now,
-				updatedAt: now,
-			});
-			await db.insert(sessions).values({
-				id: "sess-1",
-				taskId: "task-1",
-				agentId: "agent-1",
-				modelTier: "workhorse",
-				startedAt: now,
-				state: "active",
-			});
-
-			const result = await db.select().from(sessions).where(eq(sessions.id, "sess-1"));
-			expect(result[0]).toMatchObject({
-				id: "sess-1",
-				taskId: "task-1",
-				agentId: "agent-1",
-				modelTier: "workhorse",
-				state: "active",
-			});
 		});
 
 		test("inserts and reads subscriptions", async ({ db }) => {
@@ -481,42 +430,6 @@ describe("database schema", () => {
 					threadId: "thr-task-1",
 					createdAt: now,
 					updatedAt: now,
-				}),
-			).rejects.toThrow();
-		});
-
-		test("rejects session with invalid agent_id", async ({ db }) => {
-			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "P", createdAt: now });
-			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
-			await db.insert(threads).values({
-				id: "thr-task-1",
-				hostKind: "team",
-				hostId: "prod-1",
-				initiatorId: "u1",
-				participants: "[]",
-				lastActiveAt: now,
-				createdAt: now,
-			});
-			await db.insert(tasks).values({
-				id: "task-1",
-				parentTaskId: null,
-				teamId: "prod-1",
-				title: "T",
-				state: "proposed",
-				threadId: "thr-task-1",
-				createdAt: now,
-				updatedAt: now,
-			});
-
-			await expect(
-				db.insert(sessions).values({
-					id: "sess-1",
-					taskId: "task-1",
-					agentId: "nonexistent-agent",
-					modelTier: "workhorse",
-					startedAt: now,
-					state: "active",
 				}),
 			).rejects.toThrow();
 		});

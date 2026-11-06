@@ -6,7 +6,8 @@ import {
 	listWithholds,
 	resolveHeldToken,
 } from "@hyperidle/connections";
-import type { HyperIdleDb, ServiceConnectionRow } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
+import type { RunnerDb, ServiceConnectionRow } from "@hyperidle/runner-db";
 import {
 	type ActionResult,
 	type DocumentRow,
@@ -57,7 +58,7 @@ export interface AgentOrchestrationRuntimeOptions {
 	/** Whose held connections an agent's sessions get. */
 	readonly resolveProvisioningOwnerUserId?: (agentId: string) => Promise<string | null>;
 	/** Core-api action tools thunk — Application reassigns once this layer's own tools exist too; avoids construction cycle. */
-	readonly actionTools?: () => readonly RegisteredTool<HyperIdleDb>[];
+	readonly actionTools?: () => readonly RegisteredTool<RunnerDb>[];
 	/** Core's edit_document action, threaded like actionTools. Writeback binds directly — never open_document (a re-read must not count as a read). */
 	readonly editDocument?: (
 		caller: {
@@ -76,6 +77,7 @@ export interface AgentOrchestrationRuntimeOptions {
 
 export interface AgentOrchestrationBootOptions {
 	readonly db: HyperIdleDb;
+	readonly runnerDb: RunnerDb;
 	readonly eventBus: EventBus;
 	/** Session activity push to browser. Absent → no push; gateway still subscribes and buffer fills. */
 	readonly wsPush?: SessionActivityPush;
@@ -88,7 +90,7 @@ export interface AgentOrchestrationBootOptions {
 export interface AgentOrchestrationBoot {
 	readonly app: Hono<HyperIdleEnv>;
 	/** This layer's session actions (search_sessions/watch_session/stop_session), MCP-projected. Application joins with core's actionTools. */
-	readonly actionTools: readonly RegisteredTool<HyperIdleDb>[];
+	readonly actionTools: readonly RegisteredTool<RunnerDb>[];
 	/** Always built; Application wires `refresh` into core-api's onHarnessRedetect. */
 	readonly inheritedReach: InheritedReach;
 	/** The one-shot session runner, bound to this boot's execution adapters and seam transport. Absent when `options.runtime` was not supplied. */
@@ -102,7 +104,7 @@ export interface AgentOrchestrationBoot {
 	/** service_connections by auth source — stateless so Application can hand it to bootCoreApi without importing @hyperidle/connections. */
 	readonly serviceConnectionsReader: {
 		readonly listByAuthSource: (
-			db: HyperIdleDb,
+			db: RunnerDb,
 			authSource: string,
 		) => Promise<ServiceConnectionRow[]>;
 	};
@@ -130,7 +132,7 @@ interface OrchestrationProvisioningReads {
 }
 
 function buildProvisioningReads(
-	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	resolveProvisioningOwnerUserId: ((agentId: string) => Promise<string | null>) | undefined,
 	decrypt: (ciphertext: string) => string | null,
 ): OrchestrationProvisioningReads {
@@ -142,9 +144,9 @@ function buildProvisioningReads(
 						listHeldForProvisioning: async (agentId: string) => {
 							const ownerUserId = await resolveProvisioningOwnerUserId(agentId);
 							if (!ownerUserId) return [];
-							const rows = await listConnections(db, { userId: ownerUserId });
+							const rows = await listConnections(runnerDb, { userId: ownerUserId });
 							const kept = await listWithholds(
-								db,
+								runnerDb,
 								rows.map((r) => r.id),
 							);
 							return rows
@@ -163,7 +165,7 @@ function buildProvisioningReads(
 			: {}),
 		serviceConnectionResolver: {
 			resolve: (userId: string, connectionId: string) =>
-				resolveHeldToken(db, userId, connectionId, decrypt),
+				resolveHeldToken(runnerDb, userId, connectionId, decrypt),
 		},
 	};
 }
@@ -171,7 +173,7 @@ function buildProvisioningReads(
 export async function bootAgentOrchestration(
 	options: AgentOrchestrationBootOptions,
 ): Promise<AgentOrchestrationBoot> {
-	const { db, eventBus, wsPush, probeInheritedReach, runtime } = options;
+	const { runnerDb, eventBus, wsPush, probeInheritedReach, runtime } = options;
 	const decrypt = decryptCredentialValue;
 
 	const inheritedReach = createInheritedReach();
@@ -204,20 +206,20 @@ export async function bootAgentOrchestration(
 			searchDocuments: runtime.searchDocuments,
 		});
 		runSession = composition.runSession;
-		provisioningReads = buildProvisioningReads(db, runtime.resolveProvisioningOwnerUserId, decrypt);
+		provisioningReads = buildProvisioningReads(runnerDb, runtime.resolveProvisioningOwnerUserId, decrypt);
 		runRuntime = await composition.startRuntime(
-			composition.runtimeDeps(db, eventBus, {
+			composition.runtimeDeps(runnerDb, eventBus, {
 				runtime: { ...provisioningReads, ...runtime.session } as ProvisionSessionDeps,
 				composition: buildRuntimeComposition(runtime),
 			}),
 		);
 	}
 
-	const sessionActionsDeps = buildSessionActionsDeps(db, eventBus, (sessionId) =>
+	const sessionActionsDeps = buildSessionActionsDeps(runnerDb, eventBus, (sessionId) =>
 		activityBuffer.getActivity(sessionId),
 	);
 	const { app, actionTools } = createAgentOrchestrationApp({
-		db,
+		runnerDb,
 		eventBus,
 		sessionActionsDeps,
 		inheritedReach,

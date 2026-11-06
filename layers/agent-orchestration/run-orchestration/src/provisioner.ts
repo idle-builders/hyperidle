@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { type AgentSessionRequest, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type {
 	AgentSessionSourceCorrelation,
@@ -240,7 +240,7 @@ interface SessionLifecycleMcpBridgeRegistry {
 }
 
 interface SessionLifecycleToolContext {
-	readonly db: HyperIdleDb;
+	readonly db: RunnerDb;
 	readonly eventBus: EventBus;
 	readonly agentId: string;
 	readonly sessionId: string;
@@ -371,19 +371,19 @@ interface SessionLifecycleContextAssembly {
 interface SessionLifecyclePorts {
 	readonly sessionRequests: {
 		findSessionRequest(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			query: { by: "id"; requestId: string },
 		): Promise<AgentSessionRequest | undefined>;
 		findSessionRequest(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			query: { by: "terminationReason"; requestId: string },
 		): Promise<string | null | undefined>;
 		listSessionRequests(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			filter: { status: "running" },
 		): Promise<AgentSessionRequest[]>;
 		transitionSessionRequest(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			transition:
 				| { requestId: string; to: "termination-requested"; reason: string; requestedBy?: string }
 				| {
@@ -477,7 +477,7 @@ function requiresReturnStatusReturn(params: ProvisionSessionParams): boolean {
 }
 
 function assembleTaskFreePrompt(
-	_db: HyperIdleDb,
+	_db: RunnerDb,
 	params: ProvisionSessionParams,
 	systemPromptText: string,
 	toolSummaries: readonly SessionLifecycleToolSummary[],
@@ -691,7 +691,7 @@ export interface PluginMcpContributionsPort {
 }
 
 interface ProvisionSessionDeps {
-	readonly db: HyperIdleDb;
+	readonly db: RunnerDb;
 	readonly eventBus: EventBus;
 	readonly adapterPool: SessionLifecycleAdapterPool;
 	/** MCP bridge registry. When present, a bridge is created per session. */

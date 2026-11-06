@@ -9,8 +9,9 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { agentRunConfig, type HyperIdleDb, sessions, users } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, users } from "@hyperidle/db";
+import { agentRunConfig, sessions, type RunnerDb } from "@hyperidle/runner-db";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import {
@@ -56,7 +57,7 @@ function makeCursorAdapter(): FakeHarnessAdapter & {
 	};
 }
 
-async function seedAgent(db: HyperIdleDb, agentId: string): Promise<void> {
+async function seedAgent(db: HyperIdleDb, runnerDb: RunnerDb, agentId: string): Promise<void> {
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
@@ -65,19 +66,19 @@ async function seedAgent(db: HyperIdleDb, agentId: string): Promise<void> {
 		status: "active",
 		createdAt: new Date().toISOString(),
 	});
-	await db.insert(agentRunConfig).values({
+	await runnerDb.insert(agentRunConfig).values({
 		agentUserId: agentId,
 		harnessType: "cursor-agent",
 	});
 }
 
 function makeDeps(
-	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	adapter: FakeHarnessAdapter,
 	adapterType = "cursor-agent",
 ): ProvisionSessionDeps {
 	return {
-		db,
+		db: runnerDb,
 		eventBus: new EventBus(),
 		adapterPool: {
 			select: () => ({
@@ -112,15 +113,16 @@ describe("cursor-agent hold-and-handover", () => {
 
 	test("adopts the prior sandbox and calls resumeSession with the held user message", async ({
 		db,
+		runnerDb,
 	}) => {
 		const agentId = "cursor-handover-agent-1";
 		const threadId = "cursor-handover-thread-1";
 		const prevSandbox = fs.mkdtempSync(path.join(os.tmpdir(), "cursor-prev-"));
 		sandboxDirs.push(prevSandbox);
 
-		await seedAgent(db as HyperIdleDb, agentId);
+		await seedAgent(db, runnerDb, agentId);
 
-		await (db as HyperIdleDb).insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "cursor-prev-session-1",
 			agentId,
 			modelTier: "fast",
@@ -139,7 +141,7 @@ describe("cursor-agent hold-and-handover", () => {
 		});
 
 		const adapter = makeCursorAdapter();
-		const deps = makeDeps(db as HyperIdleDb, adapter);
+		const deps = makeDeps(runnerDb, adapter);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
@@ -168,15 +170,16 @@ describe("cursor-agent hold-and-handover", () => {
 
 	test("spawns a fresh sandbox when no prior cursor session exists for the thread", async ({
 		db,
+		runnerDb,
 	}) => {
 		const agentId = "cursor-handover-agent-2";
 		const threadId = "cursor-handover-thread-2";
 
-		await seedAgent(db as HyperIdleDb, agentId);
+		await seedAgent(db, runnerDb, agentId);
 		// No prior session for this thread.
 
 		const adapter = makeCursorAdapter();
-		const deps = makeDeps(db as HyperIdleDb, adapter);
+		const deps = makeDeps(runnerDb, adapter);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,

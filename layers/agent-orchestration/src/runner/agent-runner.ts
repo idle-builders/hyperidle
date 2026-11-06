@@ -1,7 +1,7 @@
-import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { InboxRowView, UserRow, UserView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { type CoreDoor, DoorError } from "./core-door.js";
 import { actOnInboxRow, NotYet, postFailureNotice } from "./inbox-work.js";
 import { cleanupFinishedTaskWorktrees } from "./task-cleanup.js";
@@ -15,7 +15,7 @@ const RUNNABLE_STATUSES: ReadonlySet<string> = new Set(["active", "idle"]);
 const INBOX_PAGE = 50;
 
 export interface AgentRunnerDeps {
-	readonly db: HyperIdleDb;
+	readonly db: RunnerDb;
 	readonly eventBus: EventBus;
 	readonly door: CoreDoor;
 	/** The key of the person this computer belongs to; undefined until there is one. */

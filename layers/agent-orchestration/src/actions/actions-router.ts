@@ -1,12 +1,12 @@
-import type { HyperIdleDb } from "@hyperidle/db";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import { Hono } from "hono";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import type { Action } from "./action.js";
 
 export function createActionsRouter(
 	actions: readonly Action[],
-	deps: { readonly db: HyperIdleDb; readonly eventBus: EventBus },
+	deps: { readonly db: RunnerDb; readonly eventBus: EventBus },
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 

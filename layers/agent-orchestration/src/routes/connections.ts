@@ -10,7 +10,7 @@ import {
 	listWithholds,
 	setWithhold,
 } from "@hyperidle/connections";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/domain-model";
 import { z } from "zod";
 import { isPrivateHostLiteral } from "../ssrf.js";
@@ -116,7 +116,7 @@ function deriveServiceFromUrl(serverUrl: string): string {
 
 // `connections.list` — held rows union inherited projections; two arrays so the caller can tell them apart.
 export async function listConnectionsForUser(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	userId: string,
 	inheritedReach?: InheritedReach,
 ): Promise<{
@@ -136,7 +136,7 @@ export async function listConnectionsForUser(
 
 // `connections.withhold` — keep one of the user's own connections from one agent, or let it back.
 export async function withholdConnectionForUser(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	userId: string,
 	id: string,
 	agentUserId: string,
@@ -155,7 +155,7 @@ export type CreateConnectionResult =
 
 // `connections.add` — body already validated; encrypts token, derives mcp service name.
 export async function createConnectionForUser(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	userId: string,
 	body: CreateConnectionInput,
 	encrypt: (plaintext: string) => string,
@@ -219,7 +219,7 @@ export type RemoveConnectionResult =
 
 // `connections.remove` — cross-user, non-existent, and inherited: ids all resolve NOT_FOUND, never leak existence.
 export async function removeConnectionForUser(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	userId: string,
 	id: string,
 ): Promise<RemoveConnectionResult> {

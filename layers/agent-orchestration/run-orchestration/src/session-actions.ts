@@ -1,6 +1,6 @@
 /** Session actions: search_sessions, watch_session, stop_session. */
 
-import type { HyperIdleDb, Session } from "@hyperidle/db";
+import type { RunnerDb, Session } from "@hyperidle/runner-db";
 import {
 	type ActionDeclaration,
 	type ActionResult,
@@ -24,7 +24,7 @@ import type { SessionSearchFilter } from "./session-store.js";
 /** Local structural mirror of the layer's ActionContext/Action — nested Service may not import the layer's own package. */
 export interface ActionContext {
 	readonly actor: string;
-	readonly db: HyperIdleDb;
+	readonly db: RunnerDb;
 	readonly eventBus: EventBus;
 	readonly now: string;
 	readonly caller?: {
@@ -43,12 +43,12 @@ export interface Action<I = unknown, O = unknown> {
 /** Deps for session actions. `stop` and `activity` are cross-package — bound at the layer composition root, never imported here. */
 export interface SessionActionsDeps {
 	readonly sessions: {
-		list(db: HyperIdleDb, filter: SessionSearchFilter): Promise<readonly Session[]>;
-		getById(db: HyperIdleDb, id: string): Promise<Session | undefined>;
+		list(db: RunnerDb, filter: SessionSearchFilter): Promise<readonly Session[]>;
+		getById(db: RunnerDb, id: string): Promise<Session | undefined>;
 	};
 	/** Pending/claimed requests by stream — bound at the layer composition root. */
 	readonly pendingRequests: {
-		listForStream(db: HyperIdleDb, streamId: string): Promise<readonly { agentId: string }[]>;
+		listForStream(db: RunnerDb, streamId: string): Promise<readonly { agentId: string }[]>;
 	};
 	/** `stopSessionRun`, already bound to `abort`/the layer's own `eventBus`. */
 	readonly stop: (sessionId: string) => Promise<"aborted" | "marked" | "already_ended">;

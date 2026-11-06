@@ -6,10 +6,8 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
-	agentSessionRequests,
 	changes,
 	type HyperIdleDb,
-	sessions,
 	taskDispatchAttempts,
 	tasks,
 	teams,
@@ -20,27 +18,10 @@ import {
 import type { EventBus, ObjectChangeEvent } from "@hyperidle/event-bus";
 import { listInboxRows } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
-import { describe, expect, vi } from "vitest";
+import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import type { ActionContext } from "../actions/action.js";
 import { buildCoreActions } from "../actions/compose.js";
-import { registerWorkSessionStartedReactions } from "../services/work-session-started-reactions.js";
-
-/**
- * `edit_task`'s own bound `run`, for registering the started reaction
- * inline — the only way this seam test can drive a real `session_started`
- * event through `markRunning` instead of hand-seeding
- * `taskDispatchAttempts.sessionId`.
- */
-function editTaskFrom(
-	agentOrchestration: AgentOrchestrationPort,
-): Parameters<typeof registerWorkSessionStartedReactions>[2] {
-	const editTaskAction = buildCoreActions({
-		agentOrchestration,
-	}).find((a) => a.declaration.name === "edit_task");
-	if (!editTaskAction) throw new Error("edit_task action not found");
-	return editTaskAction.run as Parameters<typeof registerWorkSessionStartedReactions>[2];
-}
 
 const TEST_API_KEY = "test-key-task-actions";
 
@@ -744,8 +725,6 @@ describe("dispatch", () => {
 		db,
 		app,
 		asPerson,
-		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedTeam(db, "ta-team-10", asPerson);
 		await seedAgent(db, "ta-agent-10a", "ta-team-10");
@@ -763,32 +742,6 @@ describe("dispatch", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
-		await db.insert(sessions).values({
-			id: "ta-handoff-session",
-			taskId: "ta-handoff-task",
-			agentId: "ta-agent-10a",
-			modelTier: "workhorse",
-			startedAt: now,
-			state: "active",
-		});
-		await db.insert(agentSessionRequests).values({
-			id: "ta-handoff-req",
-			sourceKind: "task",
-			sourceId: "ta-handoff-task",
-			streamId: "task:ta-handoff-task",
-			taskId: "ta-handoff-task",
-			agentId: "ta-agent-10a",
-			promptMode: "task",
-			sourceCorrelationJson: "{}",
-			idempotencyKey: "ta-handoff-req",
-			status: "pending",
-			createdAt: now,
-			updatedAt: now,
-		});
-		// The predecessor's live dispatch attempt, seeded the way `insertAttempt`
-		// really leaves it — no `requestId`/`sessionId` yet. Those fields are
-		// filled by a REAL `session_started` event through `markRunning`, never
-		// hand-seeded.
 		await db.insert(taskDispatchAttempts).values({
 			id: "ta-handoff-attempt-1",
 			taskId: "ta-handoff-task",
@@ -798,24 +751,6 @@ describe("dispatch", () => {
 			status: "requested",
 			createdAt: now,
 			updatedAt: now,
-		});
-		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
-		eventBus.emit({
-			type: "session_started",
-			streamId: "ta-handoff-session",
-			sessionId: "ta-handoff-session",
-			agentId: "ta-agent-10a",
-			taskId: "ta-handoff-task",
-			requestId: "ta-handoff-req",
-			timestamp: Date.now(),
-		});
-		await vi.waitFor(async () => {
-			const [row] = await db
-				.select()
-				.from(taskDispatchAttempts)
-				.where(eq(taskDispatchAttempts.id, "ta-handoff-attempt-1"));
-			expect(row?.status).toBe("running");
-			expect(row?.sessionId).toBe("ta-handoff-session");
 		});
 
 		const res = await call<TaskViewBody>(app, "edit_task", {
@@ -831,7 +766,6 @@ describe("dispatch", () => {
 		expect(attempts).toHaveLength(2);
 		const handoffAttempt = attempts.find((a) => a.occasion === "owner_handoff");
 		expect(handoffAttempt).toBeDefined();
-		expect(handoffAttempt?.predecessorSessionId).toBe("ta-handoff-session");
 		expect(handoffAttempt?.agentId).toBe("ta-agent-10b");
 
 		const inboxRows = await listInboxRows(db, { userId: "ta-agent-10b" });
@@ -875,15 +809,6 @@ describe("dispatch", () => {
 				updatedAt: now,
 			},
 		]);
-		await db.insert(sessions).values({
-			id: "ta-kill-session",
-			taskId: "ta-kill-live-child",
-			agentId: "ta-agent-11",
-			modelTier: "workhorse",
-			startedAt: now,
-			state: "active",
-		});
-
 		const res = await call<TaskViewBody>(app, "edit_task", {
 			id: "ta-kill-done-root",
 			state: "killed",

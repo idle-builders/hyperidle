@@ -20,6 +20,7 @@
 		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/core-api": "*",
 		"@hyperidle/db": "*",
+		"@hyperidle/runner-db": "*",
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/event-bus": "*",
 		"hono": "^4.12.27",

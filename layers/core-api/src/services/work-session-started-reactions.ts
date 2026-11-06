@@ -2,7 +2,6 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ActionResult, EditTaskInput, TaskView } from "@hyperidle/domain-model";
 import type { EventBus, SessionStartedEvent } from "@hyperidle/event-bus";
-import { taskDispatchAttemptStore } from "@hyperidle/task";
 import type { ActionContext } from "../actions/action.js";
 
 const logger = createLogger({ pkg: "core-api.work-session-started-reactions" });
@@ -19,15 +18,6 @@ async function reactToSessionStarted(
 ): Promise<void> {
 	if (!event.taskId) return;
 	const now = new Date().toISOString();
-	// A `session_started` with no `requestId` marks nothing and is not an error.
-	if (event.requestId && event.sessionId) {
-		await taskDispatchAttemptStore.markRunning(db, {
-			taskId: event.taskId,
-			requestId: event.requestId,
-			sessionId: event.sessionId,
-			now,
-		});
-	}
 	const result = await editTask(
 		{ actor: event.agentId, db, eventBus, now },
 		{ id: event.taskId, state: "in_progress" },

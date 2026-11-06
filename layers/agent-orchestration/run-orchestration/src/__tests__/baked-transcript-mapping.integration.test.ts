@@ -5,15 +5,9 @@
  * `provisionParams.transcript` — a JSON.parse + pure mapping of the
  * already-drained payload, zero orchestration -> core read.
  */
-import {
-	agentSessionRequests,
-	type HyperIdleDb,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { agentSessionRequests, type RunnerDb } from "@hyperidle/runner-db";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import { describe, vi } from "vitest";
 import { runSession } from "../runtime.js";
@@ -73,11 +67,11 @@ async function seedTaskFixture(db: HyperIdleDb): Promise<void> {
 }
 
 async function createRequestForTest(
-	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	opts: { idempotencyKey: string; payloadJson?: string },
 ) {
 	const now = new Date().toISOString();
-	const [row] = await db
+	const [row] = await runnerDb
 		.insert(agentSessionRequests)
 		.values({
 			id: `test-request-${opts.idempotencyKey}`,
@@ -103,6 +97,7 @@ async function createRequestForTest(
 describe("consumeAgentSessionRequest — baked transcript mapping", () => {
 	test("maps baked raw transcript rows to generic chat messages, keyed on the running agent's own id", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedTaskFixture(db);
 
@@ -127,13 +122,13 @@ describe("consumeAgentSessionRequest — baked transcript mapping", () => {
 			{ senderId: "user-1", payload: JSON.stringify({ text: "verdict" }), type: "verdict" },
 		];
 
-		const request = await createRequestForTest(db, {
+		const request = await createRequestForTest(runnerDb, {
 			idempotencyKey: "task:task-1:transcript",
 			payloadJson: JSON.stringify({ transcript: rawTranscript }),
 		});
 
 		await runSession(
-			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+			{ db: runnerDb, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
 			{ mode: "durable", request },
 		);
 
@@ -148,7 +143,7 @@ describe("consumeAgentSessionRequest — baked transcript mapping", () => {
 		);
 	});
 
-	test("omits transcript when the drained payload carries none", async ({ db }) => {
+	test("omits transcript when the drained payload carries none", async ({ db, runnerDb }) => {
 		await seedTaskFixture(db);
 
 		const ports = buildTestPorts();
@@ -163,12 +158,12 @@ describe("consumeAgentSessionRequest — baked transcript mapping", () => {
 			forceReturnCount: 0,
 		}));
 
-		const request = await createRequestForTest(db, {
+		const request = await createRequestForTest(runnerDb, {
 			idempotencyKey: "task:task-1:no-transcript",
 		});
 
 		await runSession(
-			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+			{ db: runnerDb, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
 			{ mode: "durable", request },
 		);
 

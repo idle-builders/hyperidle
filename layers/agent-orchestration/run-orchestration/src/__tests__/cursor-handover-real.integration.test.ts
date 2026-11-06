@@ -24,8 +24,9 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { agentRunConfig, type HyperIdleDb, sessions, users } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, users } from "@hyperidle/db";
+import { agentRunConfig, sessions } from "@hyperidle/runner-db";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import { createLocalAdapterPool } from "@hyperidle/harness-registry";
 import { requireHarnessAuthed } from "@hyperidle/harness-registry/test-fixtures";
@@ -57,6 +58,7 @@ describe("cursor-agent handover — real binary", () => {
 
 	test("turn 2 resumes the same cursor chat with the held message, not 'proceed'", async ({
 		db,
+		runnerDb,
 	}) => {
 		await requireHarnessAuthed("cursor-agent");
 
@@ -72,7 +74,7 @@ describe("cursor-agent handover — real binary", () => {
 			status: "active",
 			createdAt: new Date().toISOString(),
 		});
-		await (db as HyperIdleDb).insert(agentRunConfig).values({
+		await runnerDb.insert(agentRunConfig).values({
 			agentUserId: agentId,
 			harnessType: "cursor-agent",
 			modelId: model,
@@ -84,7 +86,7 @@ describe("cursor-agent handover — real binary", () => {
 
 		try {
 			const deps: ProvisionSessionDeps = {
-				db: db as HyperIdleDb,
+				db: runnerDb,
 				eventBus: new EventBus(),
 				adapterPool: pool,
 			};
@@ -127,7 +129,7 @@ describe("cursor-agent handover — real binary", () => {
 			await provisioner.run(deps, turn1Params, admitted1);
 
 			// Read session 1 row from DB.
-			const [sess1] = await (db as HyperIdleDb)
+			const [sess1] = await runnerDb
 				.select({
 					harnessSessionId: sessions.harnessSessionId,
 					state: sessions.state,
@@ -178,7 +180,7 @@ describe("cursor-agent handover — real binary", () => {
 
 			// After Phase 10 drain, the native id written back is chatId1
 			// (resumeSession carries the same id through; cli-harness-adapter.ts line 1240).
-			const [sess2] = await (db as HyperIdleDb)
+			const [sess2] = await runnerDb
 				.select({ harnessSessionId: sessions.harnessSessionId })
 				.from(sessions)
 				.where(eq(sessions.agentId, agentId))

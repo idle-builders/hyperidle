@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import type { ActionResult, DocumentRow, DocumentView } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -59,7 +59,7 @@ describe("registerCaptureWriteback (filesystems ⚠ capture-writeback EventBus i
 		const notePath = path.join(tmpDir, "knowledge", "note2.md");
 		fs.writeFileSync(notePath, "goodbye writeback");
 
-		const dispose = writeback.subscribe({ db: {} as HyperIdleDb, eventBus: bus, document });
+		const dispose = writeback.subscribe({ db: {} as RunnerDb, eventBus: bus, document });
 		dispose();
 
 		bus.emit({
@@ -108,7 +108,7 @@ describe("registerCaptureWriteback (filesystems ⚠ capture-writeback EventBus i
 
 		const result = await writeback.process(
 			{
-				db: {} as HyperIdleDb,
+				db: {} as RunnerDb,
 				sandboxPath: tmpDir,
 				sessionId: "sess-1",
 				manifestPath,
@@ -159,7 +159,7 @@ describe("registerCaptureWriteback (filesystems ⚠ capture-writeback EventBus i
 
 		const result = await writeback.process(
 			{
-				db: {} as HyperIdleDb,
+				db: {} as RunnerDb,
 				sandboxPath: tmpDir,
 				sessionId: "sess-1",
 				manifestPath,
@@ -204,7 +204,7 @@ describe("registerCaptureWriteback (filesystems ⚠ capture-writeback EventBus i
 
 		const result = await writeback.process(
 			{
-				db: {} as HyperIdleDb,
+				db: {} as RunnerDb,
 				sandboxPath: tmpDir,
 				sessionId: "sess-1",
 				manifestPath,

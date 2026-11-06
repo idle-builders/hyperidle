@@ -3,7 +3,7 @@
  * @lore: per-user isolation — query enforces AND(id, userId); cross-user lookup returns null (never throws, never leaks existence)
  */
 
-import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";
+import { type RunnerDb, serviceConnections } from "@hyperidle/runner-db";
 import { and, eq } from "drizzle-orm";
 
 /**
@@ -19,7 +19,7 @@ import { and, eq } from "drizzle-orm";
  * Never throws.
  */
 export async function resolveHeldToken(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	userId: string,
 	connectionId: string,
 	decrypt: (ciphertext: string) => string | null,

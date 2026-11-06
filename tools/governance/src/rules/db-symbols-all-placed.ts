@@ -20,32 +20,41 @@
 import type { Finding, Rule } from "../lib/governance-rules.js";
 import type { Census } from "../lib/repo-census.js";
 
-export interface DbSymbolsAllPlacedInput {
-	/** Symbol → why it could not be placed. Mutated live by `db.resolve()` during crossing detection. */
-	readonly unplacedDbSymbols: ReadonlyMap<string, string>;
+export interface DbPackageEntry {
 	/** The database package's source root, for scoping — e.g. `framework/db/src`. */
 	readonly dbSourceRoot: string;
 	/** The database package's barrel, where every finding is reported. */
 	readonly dbBarrel: string;
+	/** Symbol → why it could not be placed. Mutated live by `db.resolve()` during crossing detection. */
+	readonly unplacedDbSymbols: ReadonlyMap<string, string>;
+}
+
+export interface DbSymbolsAllPlacedInput {
+	/** One entry per registered database package. */
+	readonly packages: readonly DbPackageEntry[];
 }
 
 export function dbSymbolsAllPlaced(input: DbSymbolsAllPlacedInput): Rule {
-	const { unplacedDbSymbols, dbSourceRoot, dbBarrel } = input;
-	const prefix = `${dbSourceRoot}/`;
+	const { packages } = input;
+	const prefixes = packages.map((p) => `${p.dbSourceRoot}/`);
 
 	return {
 		id: "db-symbols-all-placed",
 		description: "every symbol reachable through the database package resolves to a named surface",
 		scope: (census: Census): readonly string[] =>
-			census.files.filter((f) => f.path.startsWith(prefix)).map((f) => f.path),
+			census.files
+				.filter((f) => prefixes.some((prefix) => f.path.startsWith(prefix)))
+				.map((f) => f.path),
 		minScope: 1,
 		evaluate: (): readonly Finding[] =>
-			[...unplacedDbSymbols].map(([symbol, why]) => ({
-				ruleId: "db-symbols-all-placed",
-				severity: "error" as const,
-				message: `${symbol} — ${why}`,
-				path: dbBarrel,
-				world: "production" as const,
-			})),
+			packages.flatMap(({ unplacedDbSymbols, dbBarrel }) =>
+				[...unplacedDbSymbols].map(([symbol, why]) => ({
+					ruleId: "db-symbols-all-placed",
+					severity: "error" as const,
+					message: `${symbol} — ${why}`,
+					path: dbBarrel,
+					world: "production" as const,
+				})),
+			),
 	};
 }

@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { readAgentRunConfig, writeAgentRunConfig } from "./agent-run-config-store.js";
 
 /**
@@ -73,7 +73,7 @@ function collisionFreeDir(root: string, base: string, agentId: string): string {
  * `HYPERIDLE_SPACES_DIR` — useful for tooling that manages its own paths.
  */
 export async function ensureAgentSpace(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	agentId: string,
 	agentName: string,
 	currentSpacePath?: string | null,

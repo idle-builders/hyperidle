@@ -2,10 +2,33 @@
  * Shared `admitSession`/`provisionSession` test fixture — the
  * `SessionLifecyclePorts` shape and two fake harness adapters were copied
  * near-verbatim into every provisioner test file; this is their one home.
+ *
+ * Also exports the vitest `test` fixture extended with `runnerDb: RunnerDb`
+ * alongside the base `db: HyperIdleDb` from `@hyperidle/db/test-fixtures`.
  */
 
+import { test as dbTest } from "@hyperidle/db/test-fixtures";
+import type { RunnerDb } from "@hyperidle/runner-db";
+import { checkin, checkout } from "@hyperidle/runner-db/test-fixtures";
 import { vi } from "vitest";
 import type { createProvisioner } from "../provisioner.js";
+
+export interface RunOrchestrationFixtures {
+	runnerDb: RunnerDb;
+}
+
+export const test = dbTest.extend<RunOrchestrationFixtures>({
+	runnerDb: async ({}, use) => {
+		const instance = await checkout();
+		try {
+			await use(instance.db);
+		} finally {
+			checkin(instance);
+		}
+	},
+});
+
+export { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 type CreateProvisioner = typeof createProvisioner;
 export type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
