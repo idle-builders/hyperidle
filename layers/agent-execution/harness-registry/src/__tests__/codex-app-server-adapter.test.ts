@@ -429,3 +429,60 @@ describe("CodexAppServerAdapter return gate", () => {
 		expect(adapter.getForceReturnCount("never-started")).toBe(0);
 	});
 });
+
+describe("buildArgs agent-run overrides", () => {
+	test("notify=[] and approvals_reviewer overrides are always present", async () => {
+		let capturedArgs: string[] = [];
+		const fakeStdout = new PassThrough();
+		const fakeStdin = new PassThrough();
+
+		fakeStdin.on("data", (chunk: Buffer) => {
+			const raw = chunk.toString();
+			for (const line of raw.split("\n")) {
+				if (!line.trim()) continue;
+				let parsed: { method: string; id: number };
+				try {
+					parsed = JSON.parse(line) as { method: string; id: number };
+				} catch {
+					continue;
+				}
+				let result: unknown;
+				if (parsed.method === "initialize") result = { userAgent: "codex/fake" };
+				else if (parsed.method === "thread/start") result = { thread: { id: "t1" } };
+				else if (parsed.method === "turn/start") result = { turn: { id: "turn1" } };
+				if (result !== undefined) fakeStdout.push(`${JSON.stringify({ id: parsed.id, result })}\n`);
+			}
+		});
+
+		const fakeChild = {
+			pid: 1,
+			stdin: fakeStdin,
+			stdout: fakeStdout,
+			stderr: new PassThrough(),
+			on(event: string, handler: unknown) {
+				void event;
+				void handler;
+				return fakeChild;
+			},
+			kill() {},
+		} as unknown as import("node:child_process").ChildProcess;
+
+		const adapter = new CodexAppServerAdapter({
+			spawnFn: ((_cmd: string, args: string[]) => {
+				capturedArgs = args;
+				return fakeChild;
+			}) as unknown as typeof import("node:child_process").spawn,
+			killFn: () => {},
+		});
+
+		await adapter.startSession(BASE_CONFIG);
+
+		const cPairs: string[] = [];
+		for (let i = 0; i < capturedArgs.length - 1; i++) {
+			if (capturedArgs[i] === "-c") cPairs.push(capturedArgs[i + 1] ?? "");
+		}
+
+		expect(cPairs).toContain("notify=[]");
+		expect(cPairs.some((p) => p.startsWith("approvals_reviewer="))).toBe(true);
+	});
+});

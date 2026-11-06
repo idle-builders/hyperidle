@@ -122,8 +122,15 @@ class GitWorktreeAdapter implements MountAdapter {
 		fs.mkdirSync(mountAt, { recursive: true });
 		const branch = ctx.workBranch ?? sanitizeBranch(`agent/${path.basename(ctx.sandboxPath)}`);
 		try {
+			// Case 1: mountAt is already a registered worktree for this repo — reuse it.
+			if (isExistingWorktree(mountAt, repo)) {
+				return { success: true };
+			}
+			// Case 2: branch exists but its worktree was removed — re-attach without -b.
+			// Case 3: neither exists — create a new branch and worktree.
+			const branchExists = branchExistsInRepo(repo, branch);
 			await this.deps.gitRunnerFactory(repo).worktreeAdd(mountAt, branch, {
-				createBranch: true,
+				createBranch: !branchExists,
 			});
 			const pointer = fs
 				.readFileSync(path.join(mountAt, ".git"), "utf8")
@@ -150,6 +157,42 @@ function resolveCommonGitDir(repoPath: string): string {
 		encoding: "utf8",
 	}).trim();
 	return fs.realpathSync(path.resolve(repoPath, raw));
+}
+
+/**
+ * Returns true when mountAt is already a live git worktree that belongs to
+ * the given sourceRepo. Detects the `.git` file pointer and verifies the
+ * gitdir falls under sourceRepo's own worktrees directory.
+ */
+function isExistingWorktree(mountAt: string, sourceRepo: string): boolean {
+	const gitFile = path.join(mountAt, ".git");
+	if (!fs.existsSync(gitFile) || fs.statSync(gitFile).isDirectory()) return false;
+	const content = fs.readFileSync(gitFile, "utf8").trim();
+	const match = content.match(/^gitdir:\s*(.+)$/);
+	if (!match?.[1]) return false;
+	try {
+		const gitDir = fs.realpathSync(path.resolve(mountAt, match[1]));
+		const common = resolveCommonGitDir(sourceRepo);
+		return gitDir.startsWith(`${path.join(common, "worktrees")}${path.sep}`);
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Returns true when a local branch with the given name exists in the repo.
+ * Used to decide whether to pass `-b` (create) or not (reattach) to `git worktree add`.
+ */
+function branchExistsInRepo(repo: string, branch: string): boolean {
+	try {
+		execFileSync("git", ["-C", repo, "show-ref", "--verify", `refs/heads/${branch}`], {
+			encoding: "utf8",
+			stdio: "pipe",
+		});
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 function isLocalRepoPath(

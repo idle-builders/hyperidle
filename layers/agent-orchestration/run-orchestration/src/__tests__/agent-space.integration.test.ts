@@ -102,6 +102,67 @@ describe("agent spaces", () => {
 	});
 });
 
+describe("working folder isolation", () => {
+	let tmpdir: string;
+
+	beforeEach(() => {
+		tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "hi-spaces-isolation-"));
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", tmpdir);
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		fs.rmSync(tmpdir, { recursive: true, force: true });
+	});
+
+	test("task run and conversation run for the same agent get separate folders, both persist", async ({
+		db,
+	}) => {
+		await insertAgent(db, "agent-iso", "Isolator");
+		const spacePath = await ensureAgentSpace(db, "agent-iso", "Isolator");
+
+		const taskFolder = deriveWorkingFolder(spacePath, { taskId: "task-iso-1" });
+		const convFolder = deriveWorkingFolder(spacePath, { callingThreadId: "thread-iso-1" });
+
+		expect(taskFolder).not.toBe(convFolder);
+		expect(taskFolder).toBe(path.join(spacePath, "tasks", "task-iso-1"));
+		expect(convFolder).toBe(path.join(spacePath, "conversations", "thread-iso-1"));
+
+		// Simulate what the provisioner does: create the working folders.
+		mkdirSync(taskFolder, { recursive: true });
+		mkdirSync(convFolder, { recursive: true });
+
+		// Both persist after creation; the space root persists too.
+		expect(fs.existsSync(spacePath)).toBe(true);
+		expect(fs.existsSync(taskFolder)).toBe(true);
+		expect(fs.existsSync(convFolder)).toBe(true);
+	});
+
+	test("second run of same conversation returns the same folder", async ({ db }) => {
+		await insertAgent(db, "agent-reuse-conv", "Reuser");
+		const spacePath = await ensureAgentSpace(db, "agent-reuse-conv", "Reuser");
+
+		const first = deriveWorkingFolder(spacePath, { callingThreadId: "thread-reuse-1" });
+		mkdirSync(first, { recursive: true });
+
+		// Calling again with the same threadId — same path, folder still there.
+		const second = deriveWorkingFolder(spacePath, { callingThreadId: "thread-reuse-1" });
+
+		expect(second).toBe(first);
+		expect(fs.existsSync(second)).toBe(true);
+	});
+
+	test("spaces root stays outside the repo (HYPERIDLE_SPACES_DIR isolates to temp dir)", async ({
+		db,
+	}) => {
+		await insertAgent(db, "agent-safety", "SafetyAgent");
+		const spacePath = await ensureAgentSpace(db, "agent-safety", "SafetyAgent");
+
+		// The space is under our temp dir, never the repo root.
+		expect(spacePath.startsWith(tmpdir)).toBe(true);
+	});
+});
+
 describe("deriveWorkingFolder", () => {
 	test("resume path wins over all other params", () => {
 		const result = deriveWorkingFolder("/space", {
@@ -127,9 +188,8 @@ describe("deriveWorkingFolder", () => {
 		expect(result).toBe("/space/conversations/thread-42");
 	});
 
-	test("fallback → misc/<uuid>", () => {
-		const result = deriveWorkingFolder("/space", {});
-		expect(result).toMatch(/^\/space\/misc\/.{36}$/);
+	test("throws when no routing key is supplied", () => {
+		expect(() => deriveWorkingFolder("/space", {})).toThrow("deriveWorkingFolder");
 	});
 
 	test("taskId takes priority over callingThreadId", () => {

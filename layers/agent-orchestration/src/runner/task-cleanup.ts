@@ -2,36 +2,73 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import { deriveWorkingFolder, ensureAgentSpace } from "@hyperidle/run-orchestration";
+import type { TaskView } from "@hyperidle/domain-model";
+import { readAgentRunConfig } from "@hyperidle/run-orchestration";
 import { createGitRunner } from "../git-runner.js";
+import type { CoreDoor } from "./core-door.js";
 
 const logger = createLogger({ pkg: "agent-orchestration.runner" });
 
+/** Task states that mean no run will ever start for the task again. */
+const TERMINAL_TASK_STATES = new Set(["done", "killed"]);
+
 /**
- * Remove git worktrees that were mounted into an agent's working folder for a task.
+ * Scan every task directory inside the agent's space and remove git worktrees
+ * for any task core says is done or killed.
  *
- * Best-effort: each removal failure is logged and skipped rather than aborting
- * the cleanup of the remaining worktrees. Called when a task moves to "done" so
- * the source repos don't accumulate stale worktree entries under their `.git/worktrees/`.
+ * Best-effort: each per-task failure is logged and skipped. Called at runner
+ * start and after each inbox pass so stale worktrees are reclaimed promptly
+ * without depending on any single code path closing the task.
+ *
+ * Uses `readAgentRunConfig` (never creates the space) so a fresh agent whose
+ * space was never written is a no-op.
  */
-export async function cleanupTaskWorktrees(
+export async function cleanupFinishedTaskWorktrees(
 	db: HyperIdleDb,
 	agentId: string,
-	agentName: string,
-	taskId: string,
+	door: CoreDoor,
+	key: string,
 ): Promise<void> {
-	let spacePath: string;
+	const config = await readAgentRunConfig(db, agentId);
+	if (!config.spacePath) return;
+
+	const tasksDir = path.join(config.spacePath, "tasks");
+	if (!fs.existsSync(tasksDir)) return;
+
+	let taskDirs: fs.Dirent[];
 	try {
-		spacePath = await ensureAgentSpace(db, agentId, agentName);
-	} catch (err) {
-		logger.warn("cleanupTaskWorktrees: could not resolve agent space", {
-			agentId,
-			error: err instanceof Error ? err.message : String(err),
-		});
+		taskDirs = fs.readdirSync(tasksDir, { withFileTypes: true }).filter((e) => e.isDirectory());
+	} catch {
 		return;
 	}
 
-	const workingFolder = deriveWorkingFolder(spacePath, { taskId });
+	for (const taskDir of taskDirs) {
+		const taskId = taskDir.name;
+		try {
+			const opened = await door.call<TaskView>(key, "open_task", { id: taskId });
+			if (!opened.ok) continue;
+			if (!TERMINAL_TASK_STATES.has(opened.data.task.state)) continue;
+
+			await removeWorktreesInFolder(agentId, taskId, path.join(tasksDir, taskId));
+		} catch (err) {
+			logger.warn("cleanupFinishedTaskWorktrees: cleanup for task failed", {
+				agentId,
+				taskId,
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+	}
+}
+
+/**
+ * Remove every git worktree found directly inside `workingFolder`.
+ * Non-force: if a worktree has uncommitted changes the removal is skipped (logged).
+ */
+async function removeWorktreesInFolder(
+	agentId: string,
+	taskId: string,
+	workingFolder: string,
+): Promise<void> {
 	if (!fs.existsSync(workingFolder)) return;
 
 	let entries: fs.Dirent[];
@@ -49,7 +86,6 @@ export async function cleanupTaskWorktrees(
 		let dotGitContent: string;
 		try {
 			const stat = fs.statSync(dotGit);
-			// A `.git` directory is a plain repo, not a worktree — skip it.
 			if (!stat.isFile()) continue;
 			dotGitContent = fs.readFileSync(dotGit, "utf8").trim();
 		} catch {
@@ -60,17 +96,15 @@ export async function cleanupTaskWorktrees(
 		if (!match?.[1]) continue;
 		const gitDir = path.resolve(subdir, match[1].trim());
 
-		// A real worktree gitdir lives under <mainRepo>/.git/worktrees/<name>/.
 		const sep = path.sep;
 		if (!gitDir.includes(`${sep}worktrees${sep}`)) continue;
 
-		// Three levels up from the worktree gitdir is the main repo root.
 		const mainRepo = path.resolve(gitDir, "../../..");
 
 		try {
-			await createGitRunner(mainRepo).worktreeRemove(subdir, { force: true });
+			await createGitRunner(mainRepo).worktreeRemove(subdir);
 		} catch (err) {
-			logger.warn("cleanupTaskWorktrees: worktree remove failed", {
+			logger.warn("cleanupFinishedTaskWorktrees: worktree remove failed", {
 				agentId,
 				taskId,
 				subdir,

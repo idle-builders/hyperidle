@@ -27,6 +27,9 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { serve } from "@hono/node-server";
 import {
 	bootAgentOrchestration,
@@ -239,7 +242,6 @@ const evalReturnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter = {
 export interface EvalProvisionDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	readonly sandboxBasePath: string;
 }
 
 /**
@@ -285,8 +287,11 @@ export async function runEvalSession(
 	const evalApiKey = `eval-${randomUUID()}`;
 	const prevApiKey = process.env.HYPERIDLE_API_KEY;
 	process.env.HYPERIDLE_API_KEY = evalApiKey;
+	// Create a private temp root for HYPERIDLE_SPACES_DIR so each eval run
+	// gets its own isolated space and never touches ~/HyperIdle.
+	const evalSpacesDir = mkdtempSync(path.join(os.tmpdir(), "eval-spaces-"));
 	const prevSpacesDir = process.env.HYPERIDLE_SPACES_DIR;
-	process.env.HYPERIDLE_SPACES_DIR = deps.sandboxBasePath;
+	process.env.HYPERIDLE_SPACES_DIR = evalSpacesDir;
 
 	const liveServer = await startEvalLiveServer(deps.db, deps.eventBus);
 
@@ -420,5 +425,6 @@ export async function runEvalSession(
 		} else {
 			process.env.HYPERIDLE_SPACES_DIR = prevSpacesDir;
 		}
+		rmSync(evalSpacesDir, { recursive: true, force: true });
 	}
 }

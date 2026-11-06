@@ -41,9 +41,9 @@ Auth: `native_cli_login` → `codex login`. Discovery: `codex --version`; `codex
 
 **Headless invocation:** `codex exec --sandbox workspace-write --model {{model}} {{prompt}} --json`. `--sandbox workspace-write` is required — codex defaults to read-only.
 
-**MCP delivery:** `writeCliMcpConfig({ dialect: "codex-toml" })` appends `[mcp_servers.hyperidle]` to `<sandbox>/.codex-home/config.toml`. The token is delivered via `HYPERIDLE_MCP_TOKEN` (bearer_token_env_var in the TOML — never inline).
+**MCP delivery:** MCP server config is passed as `-c` flags at spawn (`mcp_servers.hyperidle.url`, `bearer_token_env_var`, `default_tools_approval_mode`). The token is delivered via `HYPERIDLE_MCP_TOKEN` env var (never inline).
 
-**Return enforcement:** `settings-codex` — a per-session `CODEX_HOME` is provisioned at `<sandbox>/.codex-home/` with `hooks.json` using the nested codex format. `CODEX_HOME` is injected into the spawn env; `--dangerously-bypass-hook-trust` bypasses the hook hash check.
+**Return enforcement:** `settings-codex` — in-process gate. The adapter calls the return-status bridge after each `turn/completed` event. `CODEX_HOME` is set to `<agentSpace>/.codex` when the agent's login mode is `"own"`, scoping codex history to the agent's persistent space.
 
 ### `claude-code` (Claude Code CLI)
 

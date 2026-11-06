@@ -9,7 +9,9 @@
  * rides the request.
  */
 
+import { mkdtempSync, rmSync } from "node:fs";
 import * as os from "node:os";
+import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
@@ -70,11 +72,14 @@ function buildDeps(
 }
 
 describe("admitSession mounts what the live injection record says", () => {
+	let spacesDir: string;
 	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_SPACES_DIR", os.tmpdir());
+		spacesDir = mkdtempSync(path.join(os.tmpdir(), "admit-session-fs-"));
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", spacesDir);
 	});
 	afterEach(() => {
 		vi.unstubAllEnvs();
+		rmSync(spacesDir, { recursive: true, force: true });
 	});
 
 	test("asks the in-layer reader for THIS agent and mounts what it returns", async ({ db }) => {
@@ -115,6 +120,7 @@ describe("admitSession mounts what the live injection record says", () => {
 			taskId: null,
 			agentId: "agent-baked-fs-1",
 			productId: "task-free",
+			callingThreadId: "test-thread-fs",
 			agentConfig: {
 				kind: "ai",
 				status: "active",

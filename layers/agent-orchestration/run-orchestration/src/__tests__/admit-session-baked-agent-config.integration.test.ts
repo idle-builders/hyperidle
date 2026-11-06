@@ -8,7 +8,9 @@
  * good bake still admits even when the live row was deactivated after emit.
  */
 
+import { mkdtempSync, rmSync } from "node:fs";
 import * as os from "node:os";
+import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
@@ -45,11 +47,14 @@ function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
 }
 
 describe("admitSession — baked agent-runnability config", () => {
+	let spacesDir: string;
 	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_SPACES_DIR", os.tmpdir());
+		spacesDir = mkdtempSync(path.join(os.tmpdir(), "admit-session-baked-"));
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", spacesDir);
 	});
 	afterEach(() => {
 		vi.unstubAllEnvs();
+		rmSync(spacesDir, { recursive: true, force: true });
 	});
 
 	test("a bad bake still throws TargetAgentNotRunnableError, even when the live row is runnable", async ({
@@ -138,6 +143,7 @@ describe("admitSession — baked agent-runnability config", () => {
 			taskId: null,
 			agentId: "deactivated-live-agent",
 			productId: "task-free",
+			callingThreadId: "test-thread-deactivated",
 			agentConfig: {
 				kind: "ai",
 				status: "active",
@@ -169,6 +175,7 @@ describe("admitSession — baked agent-runnability config", () => {
 			taskId: null,
 			agentId: "ba9f-agent",
 			productId: "team-1",
+			callingThreadId: "test-thread-persona",
 			agentConfig: {
 				kind: "ai",
 				status: "active",
@@ -216,6 +223,7 @@ describe("admitSession — baked agent-runnability config", () => {
 			taskId: null,
 			agentId: "ba9f-agent-none",
 			productId: "team-1",
+			callingThreadId: "test-thread-no-identity",
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: "team-1" },
 			contextBundle: {
 				kind: "subscription",

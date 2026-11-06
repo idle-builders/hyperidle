@@ -122,7 +122,6 @@ describe("registerCoreDomainServices + registerAgentLayerServices", () => {
 			dispatcherDeps: {
 				adapterPool: {},
 				workspace: {},
-				sandboxBasePath: "/tmp/bootstrap-ownership",
 			},
 		}) as OwnedDisposer[];
 		// Dispatch startup is asynchronous. Let all four constituents install

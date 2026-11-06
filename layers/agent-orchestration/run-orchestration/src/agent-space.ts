@@ -5,7 +5,6 @@
  * rather than spinning up a fresh temp directory each time.
  */
 
-import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -99,7 +98,8 @@ export async function ensureAgentSpace(
  *   2. `taskId`             — `<space>/tasks/<taskId>/`
  *   3. `subscriptionId`     — `<space>/subscriptions/<subscriptionId>/`
  *   4. `callingThreadId`    — `<space>/conversations/<callingThreadId>/`
- *   5. fallback             — `<space>/misc/<randomId>/` (import randomUUID lazily)
+ *
+ * Every real run carries one of these; a session with none is a caller bug.
  */
 export function deriveWorkingFolder(
 	spacePath: string,
@@ -114,6 +114,7 @@ export function deriveWorkingFolder(
 	if (params.taskId) return path.join(spacePath, "tasks", params.taskId);
 	if (params.subscriptionId) return path.join(spacePath, "subscriptions", params.subscriptionId);
 	if (params.callingThreadId) return path.join(spacePath, "conversations", params.callingThreadId);
-	// Fallback: misc/<uuid>
-	return path.join(spacePath, "misc", randomUUID());
+	throw new Error(
+		"deriveWorkingFolder: session has no taskId, subscriptionId, callingThreadId, or resumeSandboxPath",
+	);
 }

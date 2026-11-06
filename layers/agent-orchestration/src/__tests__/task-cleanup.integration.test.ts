@@ -1,5 +1,6 @@
 /**
- * cleanupTaskWorktrees removes git worktrees mounted inside a task's working folder.
+ * cleanupFinishedTaskWorktrees scans the agent's space for task directories
+ * and removes git worktrees for tasks core says are done or killed.
  */
 
 import { execSync } from "node:child_process";
@@ -11,13 +12,14 @@ import { test } from "@hyperidle/db/test-fixtures";
 import { writeAgentRunConfig } from "@hyperidle/run-orchestration";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createGitRunner } from "../git-runner.js";
-import { cleanupTaskWorktrees } from "../runner/task-cleanup.js";
+import type { CoreDoor } from "../runner/core-door.js";
+import { cleanupFinishedTaskWorktrees } from "../runner/task-cleanup.js";
 
-async function seedAgent(db: HyperIdleDb, id: string, name: string): Promise<void> {
+async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 	await db.insert(users).values({
 		id,
 		kind: "ai",
-		name,
+		name: id,
 		role: "builder",
 		status: "active",
 		createdAt: new Date().toISOString(),
@@ -37,7 +39,25 @@ async function makeSourceRepo(parent: string): Promise<string> {
 	return repoDir;
 }
 
-describe("cleanupTaskWorktrees", () => {
+/** A minimal fake door that returns a fixed task state for each task id. */
+function makeFakeDoor(taskStates: Record<string, string>): CoreDoor {
+	return {
+		call: vi.fn(async (_key: string, action: string, args: unknown) => {
+			if (action === "open_task") {
+				const id = (args as { id?: string }).id ?? "";
+				const state = taskStates[id];
+				if (!state) return { ok: false as const, problems: [{ message: "not found" }] };
+				return {
+					ok: true as const,
+					data: { task: { id, state }, ancestors: [] },
+				};
+			}
+			return { ok: false as const, problems: [{ message: "unknown action" }] };
+		}),
+	} as unknown as CoreDoor;
+}
+
+describe("cleanupFinishedTaskWorktrees", () => {
 	let tmpDir: string;
 
 	beforeEach(() => {
@@ -49,48 +69,67 @@ describe("cleanupTaskWorktrees", () => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
-	test("removes a git worktree mounted inside the task working folder", async ({ db }) => {
-		const agentId = "agent-cleanup-1";
-		const agentName = "Cleaner";
-		const taskId = "task-wt-1";
+	test("removes worktrees for done and killed tasks; leaves in-progress alone", async ({ db }) => {
+		const agentId = "agent-cleanup-scan";
 
-		// Seed the agent and its run config with a known space path.
-		await seedAgent(db, agentId, agentName);
+		await seedAgent(db, agentId);
 		const spacePath = path.join(tmpDir, "space");
 		fs.mkdirSync(spacePath, { recursive: true });
 		await writeAgentRunConfig(db, agentId, { spacePath });
 
-		// Create the working folder and mount a git worktree inside it.
-		const workingFolder = path.join(spacePath, "tasks", taskId);
-		fs.mkdirSync(workingFolder, { recursive: true });
-
 		const repoPath = await makeSourceRepo(tmpDir);
-		const mountAt = path.join(workingFolder, path.basename(repoPath));
-		fs.mkdirSync(mountAt, { recursive: true });
-		execSync(`git worktree add "${mountAt}" -b agent-task-wt-1`, { cwd: repoPath });
 
-		// Confirm the worktree was added.
-		const worktreeList = execSync("git worktree list", { cwd: repoPath, encoding: "utf8" });
-		expect(worktreeList).toContain(mountAt);
+		// Set up three task directories with worktrees.
+		const tasks: Array<{ id: string; state: string; branch: string }> = [
+			{ id: "task-done", state: "done", branch: "agent/task-done" },
+			{ id: "task-killed", state: "killed", branch: "agent/task-killed" },
+			{ id: "task-active", state: "in_progress", branch: "agent/task-active" },
+		];
 
-		await cleanupTaskWorktrees(db, agentId, agentName, taskId);
+		const mountPaths: Record<string, string> = {};
+		for (const task of tasks) {
+			const workingFolder = path.join(spacePath, "tasks", task.id);
+			fs.mkdirSync(workingFolder, { recursive: true });
+			const mountAt = path.join(workingFolder, path.basename(repoPath));
+			fs.mkdirSync(mountAt, { recursive: true });
+			execSync(`git worktree add "${mountAt}" -b "${task.branch}"`, { cwd: repoPath });
+			mountPaths[task.id] = mountAt;
+		}
 
-		// The worktree should be removed from the source repo.
+		const door = makeFakeDoor({
+			"task-done": "done",
+			"task-killed": "killed",
+			"task-active": "in_progress",
+		});
+
+		await cleanupFinishedTaskWorktrees(db, agentId, door, "agent-key");
+
+		// Worktrees for done + killed are removed from the source repo.
 		const afterList = execSync("git worktree list", { cwd: repoPath, encoding: "utf8" });
-		expect(afterList).not.toContain(mountAt);
+		expect(afterList).not.toContain(mountPaths["task-done"]);
+		expect(afterList).not.toContain(mountPaths["task-killed"]);
+		// In-progress task worktree stays.
+		expect(afterList).toContain(mountPaths["task-active"]);
 	});
 
-	test("does nothing when the task working folder does not exist", async ({ db }) => {
-		const agentId = "agent-cleanup-2";
-		const agentName = "Cleaner";
-		const taskId = "task-wt-nonexistent";
+	test("does nothing when the agent has no space configured", async ({ db }) => {
+		const agentId = "agent-cleanup-nospace";
+		await seedAgent(db, agentId);
+		// No writeAgentRunConfig — spacePath is null.
 
-		await seedAgent(db, agentId, agentName);
-		const spacePath = path.join(tmpDir, "space2");
+		const door = makeFakeDoor({});
+		await expect(cleanupFinishedTaskWorktrees(db, agentId, door, "key")).resolves.toBeUndefined();
+	});
+
+	test("does nothing when the tasks directory does not exist", async ({ db }) => {
+		const agentId = "agent-cleanup-notasks";
+		await seedAgent(db, agentId);
+		const spacePath = path.join(tmpDir, "space-notasks");
 		fs.mkdirSync(spacePath, { recursive: true });
+		// No tasks/ directory created.
 		await writeAgentRunConfig(db, agentId, { spacePath });
 
-		// Should not throw even when there's no working folder.
-		await expect(cleanupTaskWorktrees(db, agentId, agentName, taskId)).resolves.toBeUndefined();
+		const door = makeFakeDoor({});
+		await expect(cleanupFinishedTaskWorktrees(db, agentId, door, "key")).resolves.toBeUndefined();
 	});
 });
