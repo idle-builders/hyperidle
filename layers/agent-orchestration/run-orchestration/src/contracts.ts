@@ -26,7 +26,6 @@ export interface RunContextBundle {
 	readonly taskId: string | null;
 	readonly agentId: string;
 	readonly productId: string;
-	readonly sandboxBasePath: string;
 	readonly modelTier?: ModelTier;
 	readonly requestContext?: {
 		readonly requestId: string;
@@ -198,7 +197,6 @@ export type RunOptions =
 			readonly request: AgentSessionRequest;
 			readonly completion?: "admit" | "await";
 			readonly input?: never;
-			readonly sandboxBasePath: string;
 			readonly workerId?: string;
 			readonly claim?: { readonly now: Date; readonly leaseMs: number };
 			readonly modelTier?: RunContextBundle["modelTier"];
@@ -223,7 +221,6 @@ export interface RuntimeDeps {
 	readonly runtime?: Parameters<
 		ReturnType<typeof import("./provisioner.js").createProvisioner>["admit"]
 	>[0];
-	readonly sandboxBasePath?: string;
 	/**
 	 * An optional per-agent model override
 	 * (baked onto every kind's `agentConfig.modelId`/`modelProvider`, uniform,
@@ -242,11 +239,6 @@ export interface RuntimeDeps {
 			>[0],
 			"eventBus"
 		>;
-		readonly reapers?: {
-			readonly sandboxes?: Parameters<
-				ReturnType<typeof import("./runtime-reapers.js").createRuntimeReapers>["startSandboxes"]
-			>[0];
-		};
 	};
 }
 export interface RuntimeHandle {

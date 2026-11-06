@@ -76,6 +76,7 @@ import {
 	type UserWithTeams,
 	updateUser,
 } from "./user-store.js";
+import { validateAgentLogin } from "./validate-agent-config.js";
 
 // ---------------------------------------------------------------------------
 // The deps bag — everything this module reaches outside its own tables.
@@ -91,6 +92,8 @@ export interface UserActionsRunConfigView {
 	readonly modelProvider: string | null;
 	readonly maxConcurrentSessions: number;
 	readonly modelOptions: Readonly<Record<string, string | number | boolean>>;
+	readonly login: "own" | "owner";
+	readonly spacePath: string | null;
 }
 
 export type UserActionsRunConfigPatch = {
@@ -1182,6 +1185,16 @@ async function editExistingUserRun(
 				"subscriptions",
 			);
 		}
+	}
+
+	if (input.runConfig?.login !== undefined && existing.kind === "ai") {
+		let effectiveHarnessType: string | null = input.runConfig.harnessType ?? null;
+		if (effectiveHarnessType === null) {
+			const existingRC = await deps.runConfig.read(id);
+			effectiveHarnessType = existingRC.harnessType;
+		}
+		const loginErr = validateAgentLogin(input.runConfig.login, effectiveHarnessType);
+		if (loginErr) return problem(loginErr.code, loginErr.error, "runConfig");
 	}
 
 	const touchesTeams = input.teams !== undefined;

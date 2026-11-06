@@ -11,7 +11,7 @@ import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import { afterEach, describe } from "vitest";
+import { afterEach, describe, vi } from "vitest";
 import {
 	buildRunningHarnessPorts,
 	completingHarnessAdapter,
@@ -30,7 +30,7 @@ function buildHarnessPorts(captured: { toolContext?: { readonly threadId?: strin
 	});
 }
 
-function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
+function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
 	return {
 		db,
 		eventBus: new EventBus(),
@@ -48,21 +48,13 @@ function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
 			release: () => undefined,
 			describeSelectFailure: () => "test pool selected nothing",
 		},
-		workspace: {
-			spawn: async () => ({
-				sandboxId: "sbx-1",
-				path: sandboxPath,
-			}),
-			exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-			adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
-			destroy: async () => undefined,
-		},
 	};
 }
 
 describe("provisioner.run — ToolContext.threadId forwarded from params.callingThreadId", () => {
 	const sandboxDirs: string[] = [];
 	afterEach(() => {
+		vi.unstubAllEnvs();
 		for (const dir of sandboxDirs.splice(0)) {
 			fs.rmSync(dir, { recursive: true, force: true });
 		}
@@ -85,12 +77,12 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 		const provisioner = createProvisioner(ports);
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-provisioner-thread-id-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
 			agentId: "agent-thread-ctx-1",
 			productId: "task-free",
-			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
 				status: "active",
@@ -100,7 +92,7 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 			callingThreadId: "thread-provisioner-ctx-1",
 		} as ProvisionSessionParams;
 
-		const deps = buildDeps(db as HyperIdleDb, sandboxPath);
+		const deps = buildDeps(db as HyperIdleDb);
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
 
@@ -125,12 +117,12 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 		const provisioner = createProvisioner(ports);
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-provisioner-thread-id-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
 			agentId: "agent-thread-ctx-2",
 			productId: "task-free",
-			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
 				status: "active",
@@ -139,7 +131,7 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 			},
 		} as ProvisionSessionParams;
 
-		const deps = buildDeps(db as HyperIdleDb, sandboxPath);
+		const deps = buildDeps(db as HyperIdleDb);
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
 

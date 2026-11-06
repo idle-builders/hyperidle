@@ -240,7 +240,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 // ── applyProvisioningPlan — pure fs, unchanged behavior, only the address moves ──
 
 describe("applyProvisioningPlan (relocated to agent-orchestration, unchanged behavior)", () => {
-	test("codex-toml: writes N server entries to .codex-home/config.toml", async () => {
+	test("codex-toml: returns cliConfigArgs with server entries, no file written", async () => {
 		const plan = buildTestPlan([
 			{ name: "github", url: "https://mcp.github.com", bearerToken: "tok1" },
 			{ name: "figma", url: "https://mcp.figma.com" },
@@ -253,12 +253,15 @@ describe("applyProvisioningPlan (relocated to agent-orchestration, unchanged beh
 			claudeNative: false,
 		});
 
-		const tomlContent = fs.readFileSync(
-			path.join(sandboxPath, ".codex-home", "config.toml"),
-			"utf-8",
+		// Bridge config passed as -c flags, not written to .codex-home/config.toml.
+		expect(fs.existsSync(path.join(sandboxPath, ".codex-home"))).toBe(false);
+		expect(result.cliConfigArgs).toEqual(
+			expect.arrayContaining([
+				'mcp_servers.github.url="https://mcp.github.com"',
+				'mcp_servers.github.bearer_token_env_var="GITHUB_MCP_TOKEN"',
+				'mcp_servers.figma.url="https://mcp.figma.com"',
+			]),
 		);
-		expect(tomlContent).toContain("[mcp_servers.github]");
-		expect(tomlContent).toContain('bearer_token_env_var = "GITHUB_MCP_TOKEN"');
 		expect(result.mcpTokenEnv).toMatchObject({ GITHUB_MCP_TOKEN: "tok1" });
 	});
 

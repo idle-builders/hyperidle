@@ -30,6 +30,7 @@ import {
 	sessionRunRegistry,
 } from "@hyperidle/session-requests";
 import type { CoreDoor } from "./core-door.js";
+import { cleanupTaskWorktrees } from "./task-cleanup.js";
 
 const logger = createLogger({ pkg: "agent-orchestration.runner" });
 
@@ -80,7 +81,13 @@ async function agentConfigOf(
 	});
 	const persona = identity.ok ? (identity.data[0]?.body ?? null) : null;
 	return bakeAgentRunnableConfig(
-		{ kind: me.kind, status: me.status, role: me.role, teamId: me.teams[0]?.id ?? null },
+		{
+			kind: me.kind,
+			status: me.status,
+			role: me.role,
+			teamId: me.teams[0]?.id ?? null,
+			name: me.name,
+		},
 		persona,
 	);
 }
@@ -265,6 +272,15 @@ async function actOnReviewAnswered(
 			});
 			if (!closed.ok) {
 				logger.info("approved task left open", { taskId: askedTaskId, problems: closed.problems });
+			} else {
+				const me = selfRow(agent);
+				await cleanupTaskWorktrees(deps.db, me.id, me.name, askedTaskId).catch((err: unknown) => {
+					logger.warn("worktree cleanup failed for task", {
+						agentId: me.id,
+						taskId: askedTaskId,
+						error: err instanceof Error ? err.message : String(err),
+					});
+				});
 			}
 		}
 	}

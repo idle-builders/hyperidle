@@ -485,23 +485,24 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		// @lore: no API key injection — harness authenticates itself; an injected key can shadow the person's existing login
 
-		// ── Per-session CODEX_HOME injection.
+		// ── Login-based config dir injection.
 		//
-		// If the sandbox contains a .codex-home/ directory (written by provisionCodexHome),
-		// set CODEX_HOME to point at it. This makes codex load hooks.json from the
-		// per-session dir instead of ~/.codex/hooks.json.
+		// "own" login: agent's isolated dir inside its space (CODEX_HOME for codex, CLAUDE_CONFIG_DIR for claude).
+		// "owner" login (or no agentSpace): default dir unchanged — no env var injected.
 		//
-		// Also append --dangerously-bypass-hook-trust to args when CODEX_HOME is set
-		// so codex runs the hook without prompting for user confirmation.
-		//
-		// @lore: CODEX_HOME — injected here, not in envAllowlist; per-session .codex-home/ contains auth.json + config.toml + hooks.json (no SQLite)
-		const codexHomeDir = path.join(config.sandboxPath, ".codex-home");
+		// @lore: CODEX_HOME — injected here, not in envAllowlist; per-login dir holds auth (no copy made)
+		// @lore: CLAUDE_CONFIG_DIR — isolates claude's config for "own" login; owner login uses default ~/.claude
 		let extraArgs: string[] = [];
-		if (this.config.binary === "codex" && fs.existsSync(codexHomeDir)) {
-			resolvedEnvMap.CODEX_HOME = codexHomeDir;
-			// --dangerously-bypass-hook-trust: bypass hash-check so hook runs without
-			// requiring the user to have pre-approved the hook command.
-			extraArgs = ["--dangerously-bypass-hook-trust"];
+		if (config.agentSpace?.login === "own") {
+			if (this.config.binary === "codex") {
+				const ownCodexDir = path.join(config.agentSpace.path, ".codex");
+				fs.mkdirSync(ownCodexDir, { recursive: true });
+				resolvedEnvMap.CODEX_HOME = ownCodexDir;
+			} else if (this.config.binary === "claude") {
+				const ownClaudeDir = path.join(config.agentSpace.path, ".claude");
+				fs.mkdirSync(ownClaudeDir, { recursive: true });
+				resolvedEnvMap.CLAUDE_CONFIG_DIR = ownClaudeDir;
+			}
 		}
 
 		// ── Per-session opencode gate env injection.
@@ -881,7 +882,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		let args: string[];
 		const extraEnv: Record<string, string> = {};
-		let extraArgs: string[] = [];
+		const extraArgs: string[] = [];
 
 		switch (this.config.binary) {
 			case "claude": {
@@ -904,11 +905,20 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					"--settings",
 					".claude/settings.json",
 				];
+				if (config.agentSpace?.login === "own") {
+					const ownClaudeDir = path.join(config.agentSpace.path, ".claude");
+					try {
+						fs.mkdirSync(ownClaudeDir, { recursive: true });
+					} catch {
+						/* sandbox may not exist */
+					}
+					extraEnv.CLAUDE_CONFIG_DIR = ownClaudeDir;
+				}
 				break;
 			}
 			case "codex": {
 				// codex exec resume <thread-id> <msg> --json [--model <m>]
-				// @lore: codex-resume — exec resume is a first-class subcommand; thread-id from thread.started; CODEX_HOME must point to per-session .codex-home/ for hooks+state
+				// @lore: codex-resume — exec resume is a first-class subcommand; thread-id from thread.started; CODEX_HOME set per login (own → agent space, owner → default)
 				// @lore: codex-sandbox-inherit — exec resume has no --sandbox flag; workspace-write inherited from original thread; flag is thread-scoped, not config-scoped
 				args = [
 					"exec",
@@ -918,10 +928,14 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					"--json",
 					...(model ? ["--model", model] : []),
 				];
-				const codexHomeDir = path.join(sandboxPath, ".codex-home");
-				if (fs.existsSync(codexHomeDir)) {
-					extraEnv.CODEX_HOME = codexHomeDir;
-					extraArgs = ["--dangerously-bypass-hook-trust"];
+				if (config.agentSpace?.login === "own") {
+					const ownCodexDir = path.join(config.agentSpace.path, ".codex");
+					try {
+						fs.mkdirSync(ownCodexDir, { recursive: true });
+					} catch {
+						/* sandbox may not exist */
+					}
+					extraEnv.CODEX_HOME = ownCodexDir;
 				}
 				break;
 			}

@@ -7,6 +7,7 @@ import {
 	cronOf,
 	cronWords,
 	folderTrouble,
+	loginWords,
 	personStand,
 	startedJobs,
 	waitingJobs,
@@ -264,5 +265,19 @@ describe("folderTrouble", () => {
 		},
 	])("a $f.state folder says $says", ({ f, says }) => {
 		expect(folderTrouble(folder(f))).toBe(says);
+	});
+});
+
+describe("loginWords — login setting in words", () => {
+	it.each([
+		{ login: "owner" as const, harness: "claude-code", says: "your login" },
+		{ login: "owner" as const, harness: "codex", says: "your login" },
+		{ login: "owner" as const, harness: null, says: "your login" },
+		{ login: "own" as const, harness: "claude-code", says: "its own login" },
+		{ login: "own" as const, harness: "codex", says: "its own login" },
+		{ login: "own" as const, harness: "opencode", says: expect.stringContaining("not supported") },
+		{ login: "own" as const, harness: null, says: "its own login" },
+	])("login=$login harness=$harness → $says", ({ login, harness, says }) => {
+		expect(loginWords(login, harness)).toEqual(says);
 	});
 });

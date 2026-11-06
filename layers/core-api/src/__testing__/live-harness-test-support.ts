@@ -109,7 +109,7 @@ export async function setUpLiveHarnessRun(
 ): Promise<LiveHarnessRun> {
 	vi.stubEnv("HYPERIDLE_API_KEY", LIVE_HARNESS_TEAM_KEY);
 	const sandbox = createHarnessSandbox(sandboxPrefix);
-	const sandboxBasePath = sandbox.path;
+	vi.stubEnv("HYPERIDLE_SPACES_DIR", sandbox.path);
 	const eventBus = new EventBus();
 
 	// Deferred transport so the door and agent-orchestration port resolve to the composed app after it is built.
@@ -173,12 +173,10 @@ export async function setUpLiveHarnessRun(
 			actionTools: () => [...coreTools, ...orchestrationBoot.actionTools],
 			editDocument: coreApi.editDocument,
 			searchDocuments: coreApi.searchDocuments,
-			sandboxBasePath,
 			session: {
 				db,
 				eventBus,
 				adapterPool: execution.adapters.pool,
-				workspace: execution.adapters.sandbox,
 				pluginMcpContributions: coreApi.pluginMcpContributions,
 			},
 		},

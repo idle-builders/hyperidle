@@ -7,14 +7,11 @@
  * to resume and the agent can never be brought back.
  *
  */
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
 import { type HyperIdleDb, sessions, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import { afterEach, describe } from "vitest";
+import { describe } from "vitest";
 import {
 	buildRunningHarnessPorts,
 	type FakeHarnessAdapter,
@@ -54,11 +51,7 @@ function buildHarnessPorts() {
 	return buildRunningHarnessPorts();
 }
 
-function buildDeps(
-	db: HyperIdleDb,
-	sandboxPath: string,
-	nativeId: string | undefined,
-): ProvisionSessionDeps {
+function buildDeps(db: HyperIdleDb, nativeId: string | undefined): ProvisionSessionDeps {
 	return {
 		db,
 		eventBus: new EventBus(),
@@ -76,19 +69,12 @@ function buildDeps(
 			release: () => undefined,
 			describeSelectFailure: () => "test pool selected nothing",
 		},
-		workspace: {
-			spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),
-			exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-			adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
-			destroy: async () => undefined,
-		},
 	};
 }
 
 async function runOnce(
 	db: HyperIdleDb,
 	agentId: string,
-	sandboxPath: string,
 	nativeId: string | undefined,
 ): Promise<string> {
 	await db.insert(users).values({
@@ -104,35 +90,19 @@ async function runOnce(
 		taskId: null,
 		agentId,
 		productId: "task-free",
-		sandboxBasePath: sandboxPath,
 		agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
 	} as ProvisionSessionParams;
-	const deps = buildDeps(db, sandboxPath, nativeId);
+	const deps = buildDeps(db, nativeId);
 	const admitted = await provisioner.admit(deps, params);
 	await provisioner.run(deps, params, admitted);
 	return admitted.sessionId;
 }
 
 describe("provisioner.run — the harness session id is written down", () => {
-	const sandboxDirs: string[] = [];
-	afterEach(() => {
-		for (const dir of sandboxDirs.splice(0)) {
-			fs.rmSync(dir, { recursive: true, force: true });
-		}
-	});
-
 	test("the id the harness reported is persisted, so the session can be resumed", async ({
 		db,
 	}) => {
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-native-id-"));
-		sandboxDirs.push(sandboxPath);
-
-		const sessionId = await runOnce(
-			db as HyperIdleDb,
-			"agent-native-id-1",
-			sandboxPath,
-			"claude-uuid-abc",
-		);
+		const sessionId = await runOnce(db as HyperIdleDb, "agent-native-id-1", "claude-uuid-abc");
 
 		const [row] = await (db as HyperIdleDb)
 			.select()
@@ -142,10 +112,7 @@ describe("provisioner.run — the harness session id is written down", () => {
 	});
 
 	test("a harness that reported no id leaves it null rather than inventing one", async ({ db }) => {
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-native-id-"));
-		sandboxDirs.push(sandboxPath);
-
-		const sessionId = await runOnce(db as HyperIdleDb, "agent-native-id-2", sandboxPath, undefined);
+		const sessionId = await runOnce(db as HyperIdleDb, "agent-native-id-2", undefined);
 
 		const [row] = await (db as HyperIdleDb)
 			.select()

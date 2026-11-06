@@ -55,7 +55,6 @@ async function boot(db: HyperIdleDb): Promise<Booted> {
 	const server = await createServer(0, {
 		db,
 		topology: "disabled",
-		sandboxBasePath: path.join(os.tmpdir(), `session-platform-seam-${Date.now()}-${Math.random()}`),
 	});
 	const addr = server.httpServer.address();
 	if (typeof addr !== "object" || addr === null) {

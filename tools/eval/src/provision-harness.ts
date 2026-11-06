@@ -56,7 +56,6 @@ import type { EventBus } from "@hyperidle/event-bus";
 import {
 	createLocalAdapterPool,
 	createReturnEnforcement,
-	createSandboxAdapter,
 	provisionHarnessEnvironment,
 	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
@@ -217,7 +216,10 @@ function buildEvalHarnessRuntimeAdapter(
 			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 		},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
-		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
+		writePluginStdioMcpEntries: (params) => {
+			writePluginStdioMcpEntries(params);
+			return [];
+		},
 		openMcpBridge: async (session) => {
 			const { token } = await mcpBridgeRegistry.open({
 				sessionId: session.sessionId,
@@ -283,11 +285,12 @@ export async function runEvalSession(
 	const evalApiKey = `eval-${randomUUID()}`;
 	const prevApiKey = process.env.HYPERIDLE_API_KEY;
 	process.env.HYPERIDLE_API_KEY = evalApiKey;
+	const prevSpacesDir = process.env.HYPERIDLE_SPACES_DIR;
+	process.env.HYPERIDLE_SPACES_DIR = deps.sandboxBasePath;
 
 	const liveServer = await startEvalLiveServer(deps.db, deps.eventBus);
 
 	try {
-		const workspace = createSandboxAdapter("local");
 		const pool = await createLocalAdapterPool();
 
 		const startMs = Date.now();
@@ -353,7 +356,6 @@ export async function runEvalSession(
 				db: deps.db,
 				eventBus: deps.eventBus,
 				adapterPool: pool,
-				workspace,
 			},
 			{
 				mode: "one-shot",
@@ -365,7 +367,6 @@ export async function runEvalSession(
 					// ProvisionSessionParams.productId is the field name (kept for backward
 					// compat) but the value is always a teams.id (which IS the teamId).
 					productId: params.teamId,
-					sandboxBasePath: deps.sandboxBasePath,
 					// @lore No `resolvedModel`. It carried a gateway credential into the
 					// session, and a CLI adapter forwards that key to its subprocess under
 					// its own provider's variable name — handing codex an OpenRouter key as
@@ -408,11 +409,16 @@ export async function runEvalSession(
 		};
 	} finally {
 		await liveServer.close();
-		// Restore env var.
+		// Restore env vars.
 		if (prevApiKey === undefined) {
 			delete process.env.HYPERIDLE_API_KEY;
 		} else {
 			process.env.HYPERIDLE_API_KEY = prevApiKey;
+		}
+		if (prevSpacesDir === undefined) {
+			delete process.env.HYPERIDLE_SPACES_DIR;
+		} else {
+			process.env.HYPERIDLE_SPACES_DIR = prevSpacesDir;
 		}
 	}
 }

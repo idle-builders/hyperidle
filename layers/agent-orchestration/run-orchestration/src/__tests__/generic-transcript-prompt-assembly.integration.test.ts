@@ -45,6 +45,7 @@ function buildHarnessPorts(opts: { readonly allowContextAssembly?: boolean } = {
 describe("generic transcript delivery", () => {
 	const sandboxDirs: string[] = [];
 	afterEach(() => {
+		vi.unstubAllEnvs();
 		for (const dir of sandboxDirs.splice(0)) {
 			fs.rmSync(dir, { recursive: true, force: true });
 		}
@@ -159,7 +160,6 @@ describe("generic transcript delivery", () => {
 
 	function buildDeps(
 		db: HyperIdleDb,
-		sandboxPath: string,
 		captured: { sessionConfig?: SessionConfig },
 	): ProvisionSessionDeps {
 		return {
@@ -179,12 +179,6 @@ describe("generic transcript delivery", () => {
 				release: () => undefined,
 				describeSelectFailure: () => "test pool selected nothing",
 			},
-			workspace: {
-				spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),
-				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-				adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
-				destroy: async () => undefined,
-			},
 			onBeforeHarnessStart: (ctx) => {
 				captured.sessionConfig = ctx.sessionConfig;
 				return "abort";
@@ -192,12 +186,11 @@ describe("generic transcript delivery", () => {
 		};
 	}
 
-	function baseParams(agentId: string, sandboxPath: string): ProvisionSessionParams {
+	function baseParams(agentId: string): ProvisionSessionParams {
 		return {
 			taskId: null,
 			agentId,
 			productId: "task-free",
-			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
 				status: "active",
@@ -214,14 +207,15 @@ describe("generic transcript delivery", () => {
 		await seedAgent(db, "agent-transcript-1");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-transcript-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const ports = buildHarnessPorts();
 		const provisioner = createProvisioner(ports);
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
+		const deps = buildDeps(db as HyperIdleDb, captured);
 
 		const params: ProvisionSessionParams = {
-			...baseParams("agent-transcript-1", sandboxPath),
+			...baseParams("agent-transcript-1"),
 			callingThreadId: "thread-transcript-1",
 			transcript: [
 				{ role: "user", content: "What's the status of the launch?" },
@@ -250,14 +244,15 @@ describe("generic transcript delivery", () => {
 		await seedTask(db, "task-transcript-2");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-transcript-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const ports = buildHarnessPorts({ allowContextAssembly: true });
 		const provisioner = createProvisioner(ports);
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
+		const deps = buildDeps(db as HyperIdleDb, captured);
 
 		const params: ProvisionSessionParams = {
-			...baseParams("agent-transcript-2", sandboxPath),
+			...baseParams("agent-transcript-2"),
 			taskId: "task-transcript-2",
 			callingThreadId: "thread-transcript-2",
 			transcript: [{ role: "user", content: "Any updates?" }],
@@ -275,6 +270,7 @@ describe("generic transcript delivery", () => {
 		await seedAgent(db, "agent-subscription-wake-1");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-subscription-wake-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		// A `requestContext` with no `taskId` runs Phase 6's task-free
 		// `assembleAgentContext` call (same branch the "no transcript"
@@ -282,13 +278,13 @@ describe("generic transcript delivery", () => {
 		const ports = buildHarnessPorts({ allowContextAssembly: true });
 		const provisioner = createProvisioner(ports);
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
+		const deps = buildDeps(db as HyperIdleDb, captured);
 
 		// The real shape a subscription's wake bakes: task-free, no calling
 		// thread at all (subscription-wake.ts never sets one — there is no
 		// thread to reply into), sourceKind "subscription".
 		const params = {
-			...baseParams("agent-subscription-wake-1", sandboxPath),
+			...baseParams("agent-subscription-wake-1"),
 			requestContext: {
 				requestId: "req-subscription-wake-1",
 				sourceKind: "subscription",
@@ -316,13 +312,14 @@ describe("generic transcript delivery", () => {
 		await seedAgent(db, "agent-subscription-wake-2");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-subscription-wake-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const provisioner = createProvisioner(buildSubscriptionHarnessPorts());
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
+		const deps = buildDeps(db as HyperIdleDb, captured);
 
 		const params = {
-			...baseParams("agent-subscription-wake-2", sandboxPath),
+			...baseParams("agent-subscription-wake-2"),
 			contextBundle: {
 				kind: "subscription",
 				subscription: { id: "sub-2", event: "task.changed", schedule: null },
@@ -353,14 +350,15 @@ describe("generic transcript delivery", () => {
 		await seedAgent(db, "agent-transcript-3");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-transcript-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const ports = buildHarnessPorts({ allowContextAssembly: true });
 		const provisioner = createProvisioner(ports);
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
+		const deps = buildDeps(db as HyperIdleDb, captured);
 
 		const params: ProvisionSessionParams = {
-			...baseParams("agent-transcript-3", sandboxPath),
+			...baseParams("agent-transcript-3"),
 			requestContext: {
 				requestId: "req-transcript-3",
 				sourceKind: "task",
@@ -387,11 +385,12 @@ describe("generic transcript delivery", () => {
 		await seedAgent(db, "agent-gated-1");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-gate-prompt-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const provisioner = createProvisioner(buildHarnessPorts());
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
-		const params = baseParams("agent-gated-1", sandboxPath);
+		const deps = buildDeps(db as HyperIdleDb, captured);
+		const params = baseParams("agent-gated-1");
 
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
@@ -419,15 +418,16 @@ describe("generic transcript delivery", () => {
 		await seedTask(db as HyperIdleDb, "task-instruction-1");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba10-instruction-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const provisioner = createProvisioner(buildTaskHarnessPorts());
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
+		const deps = buildDeps(db as HyperIdleDb, captured);
 
 		// The durable shape: a requestContext IS present, which is the production
 		// path and precisely the case that used to fall through to a task-free prompt.
 		const params = {
-			...baseParams("agent-instruction-1", sandboxPath),
+			...baseParams("agent-instruction-1"),
 			taskId: "task-instruction-1",
 			contextBundle: {
 				kind: "task",
@@ -472,14 +472,15 @@ describe("generic transcript delivery", () => {
 		await seedTask(db as HyperIdleDb, "task-instruction-2");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba10-instruction-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const longDescription = `Step one: ${"x".repeat(400)}. Step two: finish.`;
 
 		const provisioner = createProvisioner(buildTaskHarnessPorts());
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
+		const deps = buildDeps(db as HyperIdleDb, captured);
 		const params = {
-			...baseParams("agent-instruction-2", sandboxPath),
+			...baseParams("agent-instruction-2"),
 			taskId: "task-instruction-2",
 			contextBundle: {
 				kind: "task",

@@ -10,7 +10,6 @@
 import type { HarnessAdapter, SessionConfig } from "@hyperidle/harness-protocol";
 import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
-import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import {
 	createHarnessSandbox,
 	provisionCodexHome,
@@ -74,9 +73,7 @@ describe("codex app-server adapter (real binary) — per-session CODEX_HOME hide
 		);
 
 		const baseSandbox = createHarnessSandbox("idle-isolation-codex-base");
-		const sandboxAdapter = new LocalSandboxAdapter();
-		const sandboxHandle = await sandboxAdapter.spawn(baseSandbox.path);
-		const sandboxPath = sandboxHandle.path;
+		const sandboxPath = baseSandbox.path;
 
 		try {
 			ensureSandboxGitRepo(sandboxPath);

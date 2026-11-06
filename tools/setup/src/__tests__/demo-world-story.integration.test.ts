@@ -74,6 +74,8 @@ function openUserDeps(db: HyperIdleDb): UserActionsDeps {
 				modelProvider: null,
 				maxConcurrentSessions: 1,
 				modelOptions: {},
+				login: "owner" as const,
+				spacePath: null,
 			}),
 			write: async () => undefined,
 		},

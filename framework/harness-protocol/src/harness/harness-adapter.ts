@@ -94,12 +94,19 @@ export interface SessionConfig {
 	 * token via an environment variable rather than inline in the config file.
 	 *
 	 * codex: { HYPERIDLE_MCP_TOKEN: "<token>" } — injected OUTSIDE the envAllowlist
-	 * (per-session-generated, not forwarded from process.env; mirrors CODEX_HOME).
+	 * (per-session-generated, not forwarded from process.env).
 	 * opencode: undefined (token is inline in opencode.json headers.Authorization).
 	 *
 	 * @lore: must inject outside envAllowlist — MCP token is per-session-generated and NOT in process.env; forwarding from process.env silently misses it
 	 */
 	readonly mcpTokenEnv?: Readonly<Record<string, string>>;
+	/**
+	 * Per-run codex -c flag overrides for connection and plugin MCP server entries.
+	 * Each element is a raw -c arg value (e.g. `mcp_servers.foo.url="http://..."`).
+	 * Absent or empty: no extra -c flags. Populated by run-orchestration's
+	 * applyProvisioningPlan and writePluginStdioMcpEntries for the codex-toml path.
+	 */
+	readonly cliConfigArgs?: readonly string[];
 	/**
 	 * The session's required return subset, computed by `run-orchestration`.
 	 * e.g. `["reply"]` for a session whose output belongs in a calling thread.
@@ -176,7 +183,7 @@ export interface HarnessCapabilities {
 	 * config file written into the sandbox for the binary to discover the bridge.
 	 * Absent for a harness that discovers the bridge some other way.
 	 *
-	 * "codex-toml"    — appends [mcp_servers.hyperidle] to .codex-home/config.toml.
+	 * "codex-toml"    — bridge + trust passed as -c flags at spawn; tokenEnv carries HYPERIDLE_MCP_TOKEN.
 	 * "opencode-json" — writes opencode.json to sandbox cwd.
 	 */
 	readonly cliMcpDialect?: "codex-toml" | "opencode-json" | "cursor-json";
@@ -205,6 +212,11 @@ export interface SessionResumeConfig {
 	readonly selectedModel?: string;
 	/** Per-session MCP token env vars; same shape as SessionConfig.mcpTokenEnv. */
 	readonly mcpTokenEnv?: Readonly<Record<string, string>>;
+	/** The agent's space and login; same shape as SessionConfig.agentSpace. */
+	readonly agentSpace?: {
+		readonly path: string;
+		readonly login: "own" | "owner";
+	};
 }
 
 export interface HarnessAdapter {

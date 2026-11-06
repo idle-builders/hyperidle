@@ -17,6 +17,8 @@ export interface BakedAgentRunnableConfig {
 	readonly status: string;
 	readonly role: string;
 	readonly teamId: string | null;
+	/** The agent's display name, used to name its space directory on first run. */
+	readonly name?: string | null;
 	/**
 	 * The agent's identity — the body of the `agent_file` document
 	 * bound to it, which becomes the "## Identity" section of the AGENTS.md its
@@ -48,6 +50,7 @@ export function bakeAgentRunnableConfig(
 		status: agent.status,
 		role: agent.role,
 		teamId: agent.teamId,
+		...(agent.name ? { name: agent.name } : {}),
 		...(persona ? { persona } : {}),
 	};
 }

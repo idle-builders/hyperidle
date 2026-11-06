@@ -23,9 +23,18 @@ Thread turns and resumed sessions do not assemble a `knowledge/` tree — they g
 
 Each agent has `maxConcurrentSessions` (default 1) from its run config. When a run request is refused because the agent is at its limit, the request is released back to `pending` and retried at the next scheduler tick (every ~1 second). No reassignment.
 
-## Sandbox zones
+## Working folder
 
-Every task run and subscription run gets a sandbox directory with four zones:
+Every task run and subscription run gets a working folder inside the agent's space directory (`~/HyperIdle/<agentName>/` on disk, overridable via `HYPERIDLE_SPACES_DIR`). The path depends on what the session is working on:
+
+- Task run: `<space>/tasks/<taskId>/`
+- Subscription run: `<space>/subscriptions/<subscriptionId>/`
+- Thread turn: `<space>/conversations/<callingThreadId>/`
+- Fallback (no task, subscription, or thread): `<space>/misc/<uuid>/`
+
+The working folder persists after the session ends. All sessions on the same task share the same working folder. When a task is marked done, `cleanupTaskWorktrees` removes any git worktrees inside it; the folder itself is left in place.
+
+The working folder contains four zones:
 
 - `context/` — read-only. Contains `session.toon`: a flat key-value file with task, ancestors, agent, team data.
 - `knowledge/` — documents the agent may read, edit, and reorganize. Changes sync back automatically.

@@ -11,7 +11,11 @@
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { describe, expect, it } from "vitest";
-import { type HarnessCapabilityProbe, validateAgentConfig } from "../validate-agent-config.js";
+import {
+	type HarnessCapabilityProbe,
+	validateAgentConfig,
+	validateAgentLogin,
+} from "../validate-agent-config.js";
 
 function descriptorWith(
 	harnessType: string,
@@ -119,5 +123,37 @@ describe("provider compatibility comes from registration metadata, not live capa
 		expect(result?.code).toBe("INCOMPATIBLE_HARNESS_MODEL");
 		expect(result?.error).toContain("openrouter");
 		expect(result?.error).not.toMatch(/Supported:\s*\./);
+	});
+});
+
+describe("validateAgentLogin — own-login harness gate", () => {
+	it("passes for 'owner' on any harness type", () => {
+		for (const harnessType of ["opencode", "cursor-agent", "claude-code", "codex", null]) {
+			expect(validateAgentLogin("owner", harnessType)).toBeNull();
+		}
+	});
+
+	it("passes for 'own' on claude-code", () => {
+		expect(validateAgentLogin("own", "claude-code")).toBeNull();
+	});
+
+	it("passes for 'own' on codex", () => {
+		expect(validateAgentLogin("own", "codex")).toBeNull();
+	});
+
+	it("passes for 'own' when harnessType is null (not yet assigned)", () => {
+		expect(validateAgentLogin("own", null)).toBeNull();
+	});
+
+	it("rejects 'own' for opencode with own_login_unsupported code", () => {
+		const result = validateAgentLogin("own", "opencode");
+		expect(result?.code).toBe("own_login_unsupported");
+		expect(result?.error).toContain("opencode");
+	});
+
+	it("rejects 'own' for cursor-agent with own_login_unsupported code", () => {
+		const result = validateAgentLogin("own", "cursor-agent");
+		expect(result?.code).toBe("own_login_unsupported");
+		expect(result?.error).toContain("cursor-agent");
 	});
 });

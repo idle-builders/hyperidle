@@ -134,7 +134,10 @@ export function buildTestHarnessRuntimeAdapter(): RunOrchestrationHarnessRuntime
 			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 		},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
-		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
+		writePluginStdioMcpEntries: (params) => {
+			writePluginStdioMcpEntries(params);
+			return [];
+		},
 		openMcpBridge: () => {
 			throw new Error(
 				"startTestRuntime never supplies an MCP bridge — this should be unreachable.",

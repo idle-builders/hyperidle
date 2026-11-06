@@ -14,6 +14,10 @@ export interface AgentOrchestrationRunConfigView {
 	 * an absent key means "whatever the harness does".
 	 */
 	readonly modelOptions: Readonly<Record<string, string | number | boolean>>;
+	/** Whose program login the agent runs with. */
+	readonly login: "own" | "owner";
+	/** The agent's space path on this computer; null until its first run. */
+	readonly spacePath: string | null;
 }
 
 /** Mirrors `AgentRunConfigPatch` — a present key is written (incl. explicit `null`); an absent key is left alone. */

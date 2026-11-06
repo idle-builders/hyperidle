@@ -84,6 +84,8 @@ export function createAgentOrchestrationIntakeRoutes(
 				modelOptions: z
 					.record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
 					.optional(),
+				login: z.enum(["own", "owner"]).optional(),
+				spacePath: z.string().nullable().optional(),
 			}) satisfies z.ZodType<AgentOrchestrationRunConfigPatch>,
 		),
 		async (c) => {

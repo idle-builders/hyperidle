@@ -290,6 +290,8 @@ const RunConfigViewSchema = z.object({
 	modelProvider: z.enum(MODEL_PROVIDERS).nullable(),
 	maxConcurrentSessions: z.number().int(),
 	modelOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).nullable(),
+	login: z.enum(["own", "owner"]),
+	spacePath: z.string().nullable(),
 });
 
 export const UserViewSchema = z.object({
@@ -337,6 +339,7 @@ const EditUserRunConfigSchema = z
 		modelProvider: z.enum(MODEL_PROVIDERS).optional(),
 		modelOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 		maxConcurrentSessions: z.number().int().min(1).optional(),
+		login: z.enum(["own", "owner"]).optional(),
 	})
 	.strict();
 

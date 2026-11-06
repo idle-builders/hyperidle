@@ -103,6 +103,8 @@ function buildDeps(
 				modelProvider: null,
 				maxConcurrentSessions: 1,
 				modelOptions: {},
+				login: "owner" as const,
+				spacePath: null,
 				...runConfigStore.get(agentId),
 			}),
 			write: async (agentId, patch) => {

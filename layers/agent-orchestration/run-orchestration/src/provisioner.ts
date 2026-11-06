@@ -30,6 +30,7 @@ import {
 } from "@hyperidle/harness-protocol";
 import { and, desc, eq, isNotNull, isNull, like, ne, or, sql } from "drizzle-orm";
 import { readAgentRunConfig } from "./agent-run-config-store.js";
+import { deriveWorkingFolder, ensureAgentSpace } from "./agent-space.js";
 import {
 	applyProvisioningPlan,
 	buildProvisioningPlan,
@@ -51,8 +52,12 @@ import {
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
 // Filesystem: local to this package — sibling service boundary.
-import { ensureSandboxGitRepo, type Filesystem, localTrustedPath } from "./mounter.js";
-import { sessionAwaitsVerdict } from "./review-sessions.js";
+import {
+	ensureSandboxGitRepo,
+	type Filesystem,
+	localTrustedPath,
+	sanitizeBranch,
+} from "./mounter.js";
 import { fetchPreviousSessionNotes } from "./session-store.js";
 import { transitionRun } from "./transition-run.js";
 import { buildVerdictMessage } from "./verdict-message.js";
@@ -180,22 +185,6 @@ interface SessionLifecycleReturnGate {
 	readonly returned: boolean;
 }
 
-interface SessionLifecycleSandboxHandle {
-	readonly sandboxId: string;
-	readonly path: string;
-}
-
-interface SessionLifecycleSandboxAdapter {
-	spawn(baseDir: string): Promise<SessionLifecycleSandboxHandle>;
-	/** Take ownership of a directory that already exists — see the Phase 4 lore. */
-	adopt(path: string): Promise<SessionLifecycleSandboxHandle>;
-	exec(
-		handle: SessionLifecycleSandboxHandle,
-		command: string,
-	): Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }>;
-	destroy(handle: SessionLifecycleSandboxHandle): Promise<void>;
-}
-
 interface SessionLifecycleHarnessRuntime {
 	enforcementRegistry: SessionLifecycleEnforcementRegistry;
 	/**
@@ -233,7 +222,7 @@ interface SessionLifecycleHarnessRuntime {
 			readonly key: string;
 			readonly config: Record<string, unknown>;
 		}>;
-	}): void;
+	}): readonly string[];
 	/**
 	 * The session-scoped MCP dial — bridge-open; folded into `harness-registry`'s
 	 * own session provisioning (`openMcpBridgeSession`). `registry`/`baseUrl` are
@@ -636,13 +625,13 @@ export async function mergePluginMcpContributions(
 			readonly key: string;
 			readonly config: Record<string, unknown>;
 		}>;
-	}) => void,
-): Promise<void> {
-	if (!port) return;
+	}) => readonly string[],
+): Promise<readonly string[]> {
+	if (!port) return [];
 
 	const rows = await port.getContributions(teamId);
 
-	if (rows.length === 0) return;
+	if (rows.length === 0) return [];
 
 	// Build the list of expanded server configs. Rows with no installPath or
 	// invalid JSON are skipped; the file is still written (rows were present).
@@ -687,8 +676,9 @@ export async function mergePluginMcpContributions(
 	} else if (writeStdioEntries && servers.length > 0) {
 		// CLI dialects: delegate to the canonical dialect writer (cli-mcp-config.ts).
 		// Dialect knowledge lives there — no per-dialect code here.
-		writeStdioEntries({ dialect, sandboxPath, servers });
+		return writeStdioEntries({ dialect, sandboxPath, servers });
 	}
+	return [];
 }
 
 const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
@@ -716,7 +706,6 @@ interface ProvisionSessionDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	readonly adapterPool: SessionLifecycleAdapterPool;
-	readonly workspace: SessionLifecycleSandboxAdapter;
 	/** MCP bridge registry. When present, a bridge is created per session. */
 	readonly mcpBridgeRegistry?: SessionLifecycleMcpBridgeRegistry;
 	/** Base URL for MCP bridge (e.g., "http://localhost:3001"). */
@@ -784,7 +773,6 @@ interface ProvisionSessionParams {
 	readonly taskId: string | null;
 	readonly agentId: string;
 	readonly productId: string;
-	readonly sandboxBasePath: string;
 	readonly factoryCap?: number;
 	readonly factorySpend?: number;
 	readonly reviewThreadId?: string;
@@ -922,7 +910,6 @@ interface AdmittedSession {
 	 * its own default. No credential is resolved to produce this.
 	 */
 	readonly selectedModel: string | null;
-	readonly sandboxHandle: SessionLifecycleSandboxHandle;
 	readonly sandboxPath: string;
 	readonly ingestion: IngestionHandle;
 	readonly selectedAdapter: SessionLifecycleSelectedEntry;
@@ -959,7 +946,7 @@ async function admitSession(
 	params: ProvisionSessionParams,
 	ports: SessionLifecyclePorts,
 ): Promise<AdmittedSession> {
-	const { db, eventBus, adapterPool, workspace } = deps;
+	const { db, eventBus, adapterPool } = deps;
 
 	// ── Phase 1: consume the baked agent-CONFIG snapshot. NO live re-check.
 	const agentConfig = params.agentConfig;
@@ -1091,15 +1078,28 @@ async function admitSession(
 	let sessionId: string;
 	let sandboxPath: string;
 	let mountedFilesystems: Filesystem[] = [];
-	// ── Phase 4: spawn sandbox via adapter.
+	// ── Phase 4: ensure agent space and derive working folder.
 	//
-	// @lore: resumed session directory — adopts the original; cursor-agent keys its chat on md5(cwd); a different dir loses all context and exits 0 silently
-	const sandboxHandle: SessionLifecycleSandboxHandle = params.resume?.sandboxPath
-		? await workspace.adopt(params.resume.sandboxPath)
-		: resolvedHandover?.sandboxPath
-			? await workspace.adopt(resolvedHandover.sandboxPath)
-			: await workspace.spawn(params.sandboxBasePath);
-	sandboxPath = sandboxHandle.path;
+	// @lore: resumed session directory — reuses original working folder; cursor-agent keys chat on md5(cwd); different dir loses all context and exits 0 silently
+	const spacePath = await ensureAgentSpace(
+		db,
+		params.agentId,
+		agentConfig.name ?? "agent",
+		runConfig.spacePath,
+	);
+	// Extract subscriptionId from sourceCorrelation when present.
+	const subscriptionId =
+		params.requestContext?.sourceCorrelation &&
+		"subscriptionId" in params.requestContext.sourceCorrelation
+			? (params.requestContext.sourceCorrelation as { subscriptionId: string }).subscriptionId
+			: null;
+	sandboxPath = deriveWorkingFolder(spacePath, {
+		taskId: params.taskId,
+		callingThreadId: params.callingThreadId,
+		subscriptionId,
+		resumeSandboxPath: params.resume?.sandboxPath ?? resolvedHandover?.sandboxPath,
+	});
+	fs.mkdirSync(sandboxPath, { recursive: true });
 
 	// ── Phase 5: insert session row.
 	const [reservedSession] = params.requestContext
@@ -1140,11 +1140,14 @@ async function admitSession(
 	// ── Phase 4.5: mount injected filesystems. Reads the
 	// injection record LIVE, in-layer, at spawn — no seam, no stale bake.
 	if (deps.mounter) {
+		const workBranch = sanitizeBranch(`agent/${path.relative(spacePath, sandboxPath)}`);
 		mountedFilesystems = await mountFilesystemsForAgent({
 			agentId: params.agentId,
 			...(deps.injectedFilesystems ? { filesystems: deps.injectedFilesystems } : {}),
 			sandboxPath,
 			mounter: deps.mounter,
+			spacePath,
+			workBranch,
 		});
 	}
 
@@ -1235,7 +1238,6 @@ async function admitSession(
 		// config. No credential, no provider union, no tier — see
 		// `SessionConfig.selectedModel`.
 		selectedModel: runConfig.modelId,
-		sandboxHandle,
 		sandboxPath,
 		ingestion,
 		selectedAdapter,
@@ -1307,7 +1309,6 @@ async function runSession(
 		db,
 		eventBus,
 		adapterPool,
-		workspace,
 		mcpBridgeRegistry,
 		mcpBaseUrl,
 		serviceConnectionResolver,
@@ -1321,7 +1322,6 @@ async function runSession(
 		modelTier,
 		modelOptions,
 		selectedModel,
-		sandboxHandle,
 		sandboxPath,
 		ingestion,
 		selectedAdapter,
@@ -1482,6 +1482,8 @@ async function runSession(
 	let mcpUrl: string | undefined;
 	/** Per-session MCP token env for CLI harnesses (codex: HYPERIDLE_MCP_TOKEN). */
 	let mcpTokenEnv: Record<string, string> | undefined;
+	/** Raw -c key=value args for codex-toml sessions (service connections + plugins). */
+	let cliConfigArgs: string[] = [];
 	try {
 		const bridge = await ports.harnessRuntime.openMcpBridge({
 			registry: mcpBridgeRegistry,
@@ -1571,20 +1573,24 @@ async function runSession(
 				...(heldConnections ? { connections: heldConnections } : {}),
 				resolver: serviceConnectionResolver,
 			});
-			const { mcpTokenEnv: connEnv } = await applyProvisioningPlan({
-				plan,
-				sandboxPath,
-				cliMcpDialect: adapterCapabilities.cliMcpDialect,
-				claudeNative:
-					adapterCapabilities.cliMcpDialect === undefined &&
-					selectedAdapter.meta.type === "claude-code",
-			});
+			const { mcpTokenEnv: connEnv, cliConfigArgs: connCliConfigArgs } =
+				await applyProvisioningPlan({
+					plan,
+					sandboxPath,
+					cliMcpDialect: adapterCapabilities.cliMcpDialect,
+					claudeNative:
+						adapterCapabilities.cliMcpDialect === undefined &&
+						selectedAdapter.meta.type === "claude-code",
+				});
 			const mergedConnEnv: Record<string, string> = {
 				...plan.envInjections,
 				...connEnv,
 			};
 			if (Object.keys(mergedConnEnv).length > 0) {
 				mcpTokenEnv = { ...(mcpTokenEnv ?? {}), ...mergedConnEnv };
+			}
+			if (connCliConfigArgs && connCliConfigArgs.length > 0) {
+				cliConfigArgs = [...cliConfigArgs, ...connCliConfigArgs];
 			}
 		} catch (connErr) {
 			// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge
@@ -1595,7 +1601,7 @@ async function runSession(
 		}
 	}
 	try {
-		await mergePluginMcpContributions(
+		const pluginCliConfigArgs = await mergePluginMcpContributions(
 			deps.pluginMcpContributions,
 			sandboxPath,
 			teamId ?? null,
@@ -1604,6 +1610,9 @@ async function runSession(
 				? (params) => ports.harnessRuntime.writePluginStdioMcpEntries(params)
 				: undefined,
 		);
+		if (pluginCliConfigArgs.length > 0) {
+			cliConfigArgs = [...cliConfigArgs, ...pluginCliConfigArgs];
+		}
 	} catch (mcpMergeErr) {
 		// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge
 		console.warn(
@@ -1667,6 +1676,7 @@ async function runSession(
 			mcpBridgeToken && mcpUrl ? { url: mcpUrl, token: mcpBridgeToken } : undefined,
 		returnHook: returnHookConfig,
 		...(mcpTokenEnv ? { mcpTokenEnv } : {}),
+		...(cliConfigArgs.length > 0 ? { cliConfigArgs } : {}),
 		...(requiredReturnActions ? { requiredReturnActions } : {}),
 	};
 
@@ -1946,7 +1956,6 @@ async function runSession(
 				...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 			},
 		);
-		await workspace.destroy(sandboxHandle);
 		const notReturnedForceCount = computeForceReturnCount();
 		ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
 		return {
@@ -1970,10 +1979,6 @@ async function runSession(
 			...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 		},
 	);
-	// @lore: teardown dir guard — filesystem belongs to the work; reviewed session is waiting; resume hangs if cwd is gone; question is on the review_sessions row
-	if (!(await sessionAwaitsVerdict(db, sessionId))) {
-		await workspace.destroy(sandboxHandle);
-	}
 	ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
 
 	if (beforeHarnessStartError) {

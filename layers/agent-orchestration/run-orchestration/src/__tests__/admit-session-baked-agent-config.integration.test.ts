@@ -8,14 +8,12 @@
  * good bake still admits even when the live row was deactivated after emit.
  */
 
-import * as fs from "node:fs";
 import * as os from "node:os";
-import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import { afterEach, describe } from "vitest";
+import { afterEach, beforeEach, describe, vi } from "vitest";
 import {
 	buildNeverCalledPorts,
 	type ProvisionSessionDeps,
@@ -25,7 +23,7 @@ import {
 import { TargetAgentNotRunnableError } from "../errors.js";
 import { createProvisioner } from "../provisioner.js";
 
-function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
+function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
 	return {
 		db,
 		eventBus: new EventBus(),
@@ -43,34 +41,16 @@ function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
 			release: () => undefined,
 			describeSelectFailure: () => "test pool selected nothing",
 		},
-		workspace: {
-			// A real workspace adapter always materializes the directory it hands
-			// back (LocalSandboxAdapter.spawn) — admitSession's post-mount
-			// `ensureSandboxGitRepo` step depends on that, so this fake must honor it too.
-			spawn: async () => {
-				fs.mkdirSync(sandboxPath, { recursive: true });
-				return { sandboxId: "sbx-1", path: sandboxPath };
-			},
-			exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-			adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
-			destroy: async () => undefined,
-		},
 	};
 }
 
 describe("admitSession — baked agent-runnability config", () => {
-	const sandboxDirs: string[] = [];
-	afterEach(() => {
-		for (const dir of sandboxDirs.splice(0)) {
-			fs.rmSync(dir, { recursive: true, force: true });
-		}
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", os.tmpdir());
 	});
-
-	function freshSandbox(): string {
-		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "admit-session-baked-config-"));
-		sandboxDirs.push(dir);
-		return dir;
-	}
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
 
 	test("a bad bake still throws TargetAgentNotRunnableError, even when the live row is runnable", async ({
 		db,
@@ -90,7 +70,6 @@ describe("admitSession — baked agent-runnability config", () => {
 		const [liveRunnableAgent] = await db.select().from(users).where(eq(users.id, "runnable-agent"));
 		if (!liveRunnableAgent) throw new Error("fixture insert failed");
 
-		const sandboxPath = freshSandbox();
 		const ports = buildNeverCalledPorts();
 		const provisioner = createProvisioner(ports);
 
@@ -98,7 +77,6 @@ describe("admitSession — baked agent-runnability config", () => {
 			taskId: null,
 			agentId: "runnable-agent",
 			productId: "task-free",
-			sandboxBasePath: sandboxPath,
 			// The BAKED snapshot (what the emit-time resolver produced) says this
 			// agent is NOT runnable — deliberately mismatched from the live row
 			// above to isolate which source of truth Phase 1 consults.
@@ -110,15 +88,14 @@ describe("admitSession — baked agent-runnability config", () => {
 			},
 		};
 
-		await expect(
-			provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), params),
-		).rejects.toBeInstanceOf(TargetAgentNotRunnableError);
+		await expect(provisioner.admit(buildDeps(db as HyperIdleDb), params)).rejects.toBeInstanceOf(
+			TargetAgentNotRunnableError,
+		);
 	});
 
 	test("a missing bake (agentConfig absent entirely) is a hard provisioning failure, never a silent allow", async ({
 		db,
 	}) => {
-		const sandboxPath = freshSandbox();
 		const ports = buildNeverCalledPorts();
 		const provisioner = createProvisioner(ports);
 
@@ -126,13 +103,12 @@ describe("admitSession — baked agent-runnability config", () => {
 			taskId: null,
 			agentId: "no-such-agent",
 			productId: "task-free",
-			sandboxBasePath: sandboxPath,
 			// No `agentConfig` at all — every real durable path bakes one.
 		};
 
-		await expect(
-			provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), params),
-		).rejects.toBeInstanceOf(TargetAgentNotRunnableError);
+		await expect(provisioner.admit(buildDeps(db as HyperIdleDb), params)).rejects.toBeInstanceOf(
+			TargetAgentNotRunnableError,
+		);
 	});
 
 	test("a well-formed baked snapshot admits successfully with zero live read — an agent deactivated in the live row after emit still admits, by design", async ({
@@ -155,7 +131,6 @@ describe("admitSession — baked agent-runnability config", () => {
 			.set({ status: "archived" })
 			.where(eq(users.id, "deactivated-live-agent"));
 
-		const sandboxPath = freshSandbox();
 		const ports = buildNeverCalledPorts();
 		const provisioner = createProvisioner(ports);
 
@@ -163,7 +138,6 @@ describe("admitSession — baked agent-runnability config", () => {
 			taskId: null,
 			agentId: "deactivated-live-agent",
 			productId: "task-free",
-			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
 				status: "active",
@@ -172,13 +146,9 @@ describe("admitSession — baked agent-runnability config", () => {
 			},
 		};
 
-		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), params);
+		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), params);
 		expect(admitted).toBeDefined();
 		expect(admitted.sessionId).toEqual(expect.any(String));
-		// `ensureSandboxGitRepo`'s only production call site (provisioner.ts's
-		// admit, post-mount) — a fresh `mkdtempSync` directory makes this a real,
-		// fixable-red check rather than one a reused fixed path would pass anyway.
-		expect(fs.existsSync(path.join(sandboxPath, ".git"))).toBe(true);
 	});
 
 	test("the baked persona becomes the session's systemPromptText", async ({ db }) => {
@@ -192,7 +162,6 @@ describe("admitSession — baked agent-runnability config", () => {
 			createdAt: now,
 		});
 
-		const sandboxPath = freshSandbox();
 		const ports = buildNeverCalledPorts();
 		const provisioner = createProvisioner(ports);
 
@@ -200,7 +169,6 @@ describe("admitSession — baked agent-runnability config", () => {
 			taskId: null,
 			agentId: "ba9f-agent",
 			productId: "team-1",
-			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
 				status: "active",
@@ -219,7 +187,7 @@ describe("admitSession — baked agent-runnability config", () => {
 			},
 		};
 
-		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), params);
+		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), params);
 
 		// Every session's context also carries the standing instruction to ask
 		// for a review when work deserves a person's agreement, so the persona is
@@ -241,15 +209,13 @@ describe("admitSession — baked agent-runnability config", () => {
 			createdAt: now,
 		});
 
-		const sandboxPath = freshSandbox();
 		const ports = buildNeverCalledPorts();
 		const provisioner = createProvisioner(ports);
 
-		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), {
+		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), {
 			taskId: null,
 			agentId: "ba9f-agent-none",
 			productId: "team-1",
-			sandboxBasePath: sandboxPath,
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: "team-1" },
 			contextBundle: {
 				kind: "subscription",

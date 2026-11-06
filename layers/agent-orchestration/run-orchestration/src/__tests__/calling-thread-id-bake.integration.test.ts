@@ -126,7 +126,7 @@ describe("consumeAgentSessionRequest — callingThreadId bake", () => {
 
 		await runSession(
 			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
-			{ mode: "durable", request, sandboxBasePath: "/tmp/au27-calling-thread-runtime" },
+			{ mode: "durable", request },
 		);
 
 		expect(ports.sessionProvisioner!.admitSession).toHaveBeenCalledWith(
@@ -158,7 +158,7 @@ describe("consumeAgentSessionRequest — callingThreadId bake", () => {
 
 		await runSession(
 			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
-			{ mode: "durable", request, sandboxBasePath: "/tmp/au27-calling-thread-runtime" },
+			{ mode: "durable", request },
 		);
 
 		const [, params] = vi.mocked(ports.sessionProvisioner!.admitSession).mock.calls[0] ?? [];

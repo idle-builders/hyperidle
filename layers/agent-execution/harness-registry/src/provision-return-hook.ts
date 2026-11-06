@@ -28,8 +28,7 @@ function installReturnHook(opts: ReturnHookOptions): void {
 			break;
 
 		case "settings-codex":
-			// @lore: settings-codex gate — no file hook; CodexAppServerAdapter checks bridge in-process after each turn (hooks.json Stop requires opaque pre-computed hash)
-			provisionCodexHome(sandboxPath);
+			// @lore: settings-codex — no file artifact; CodexAppServerAdapter checks bridge in-process; auth comes from CODEX_HOME (login-based, set at spawn)
 			break;
 
 		case "process-reengage":
@@ -83,41 +82,6 @@ function provisionClaudeSettings(sandboxPath: string, bridgeToken: string, mcpUr
 		JSON.stringify(settings, null, 2),
 		"utf-8",
 	);
-}
-
-/**
- * settings-codex: Create per-session CODEX_HOME (auth.json + config.toml only).
- * No hook files — enforcement is in-process in CodexAppServerAdapter.
- * @lore: codex copy — copy auth.json; skip config.toml if writeCodexToml already wrote it; strip approvals_reviewer (interactive hang in non-TTY)
- */
-function provisionCodexHome(sandboxPath: string): void {
-	const codexHomeDir = path.join(sandboxPath, ".codex-home");
-	fs.mkdirSync(codexHomeDir, { recursive: true });
-
-	const userCodexDir = path.join(process.env.HOME ?? process.env.USERPROFILE ?? "/root", ".codex");
-	for (const file of ["auth.json", "config.toml"]) {
-		const src = path.join(userCodexDir, file);
-		const dst = path.join(codexHomeDir, file);
-		try {
-			// Don't overwrite config.toml — may already have the per-session [mcp_servers.hyperidle] block.
-			if (file === "config.toml" && fs.existsSync(dst)) continue;
-			fs.copyFileSync(src, dst);
-		} catch {
-			// File absent — fine; codex will use env-based auth.
-		}
-	}
-
-	const perSessionConfigPath = path.join(codexHomeDir, "config.toml");
-	try {
-		let tomlContent = fs.readFileSync(perSessionConfigPath, "utf-8");
-		// Strip approvals_reviewer — let codex use its built-in headless default.
-		tomlContent = tomlContent.replace(/^approvals_reviewer\s*=\s*"[^"]*"\n?/gm, "");
-		// Strip notify — user's notify binary is irrelevant in the per-session sandbox.
-		tomlContent = tomlContent.replace(/^notify\s*=\s*\[.*\]\n?/gm, "");
-		fs.writeFileSync(perSessionConfigPath, tomlContent, "utf-8");
-	} catch {
-		// config.toml absent — nothing to strip.
-	}
 }
 
 /**

@@ -30,13 +30,13 @@ Cloud sources (gdrive, dropbox, s3) are not implemented — mount attempts for t
 
 ## Mounting
 
-At session start, each folder given to the agent is mounted into the sandbox:
+At session start, each folder given to the agent is mounted into the working folder:
 
-- **Local `code` folder** → git worktree (a branch named `agent/<sessionId>` is created in the repo).
-- **Remote `code` folder** (has `connectionId`) → shallow clone (`depth: 1`).
-- **Local `doc_set`** → symlink into the sandbox (`ref.folder` symlinked under the sandbox path).
+- **Local `code` folder** → git worktree at `<workingFolder>/<repoBasename>/`. The branch is named `agent/tasks/<taskId>` (or the relative path of the working folder within the space for other run types).
+- **Remote `code` folder** (has `connectionId`) → shallow clone (`depth: 1`) at `<workingFolder>/<repoBasename>/`.
+- **Local `doc_set`** → symlink at `<workingFolder>/<folderBasename>`.
 
-The `knowledge/` tree inside the sandbox is not a folder. Folders are separate mounts alongside it.
+The working folder persists across sessions. Git worktrees inside it are removed when the task is marked done. The `knowledge/` tree is not a folder — it is a separate zone within the working folder.
 
 ## Writeback
 

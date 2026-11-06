@@ -137,7 +137,6 @@ async function bootOwnedServer(db: HyperIdleDb): Promise<AsyncServerHandle> {
 	shutdown.state.nextOwnedDb = db;
 	return createServer(0, {
 		topology: "disabled",
-		sandboxBasePath: "/tmp/server-disposal",
 	}) as Promise<AsyncServerHandle>;
 }
 
@@ -204,7 +203,6 @@ describe("ordered asynchronous server disposal", () => {
 		const server = (await createServer(0, {
 			db,
 			topology: "disabled",
-			sandboxBasePath: "/tmp/server-disposal-injected",
 		})) as AsyncServerHandle;
 
 		await server.dispose();

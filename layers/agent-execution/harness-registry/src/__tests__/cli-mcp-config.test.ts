@@ -23,7 +23,11 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { writeHarnessMcpConfig, writePluginStdioMcpEntries } from "../cli-mcp-config.js";
+import {
+	buildCodexPluginConfigArgs,
+	writeHarnessMcpConfig,
+	writePluginStdioMcpEntries,
+} from "../cli-mcp-config.js";
 
 const writeCliMcpConfig = writeHarnessMcpConfig;
 
@@ -44,47 +48,11 @@ describe("writeCliMcpConfig", () => {
 	});
 
 	// ── codex-toml dialect ────────────────────────────────────────────────────
+	// Bridge config and trust declarations are passed as -c flags at spawn.
+	// writeHarnessMcpConfig returns only tokenEnv; no file is written to disk.
 
 	describe("codex-toml dialect", () => {
-		test("writes [mcp_servers.hyperidle] block to .codex-home/config.toml", () => {
-			// Arrange: pre-create .codex-home dir (mirrors provisionCodexHome behavior).
-			const codexHomeDir = path.join(sandboxPath, ".codex-home");
-			fs.mkdirSync(codexHomeDir, { recursive: true });
-
-			// Act
-			writeCliMcpConfig({
-				dialect: "codex-toml",
-				sandboxPath,
-				mcpUrl: TEST_MCP_URL,
-				token: TEST_TOKEN,
-			});
-
-			// Assert: the file was written.
-			const configTomlPath = path.join(codexHomeDir, "config.toml");
-			expect(fs.existsSync(configTomlPath)).toBe(true);
-
-			const content = fs.readFileSync(configTomlPath, "utf-8");
-
-			// Must contain the section header.
-			expect(content).toContain("[mcp_servers.hyperidle]");
-
-			// Must contain the url key pointing to the mcpUrl.
-			expect(content).toContain(`url = "${TEST_MCP_URL}"`);
-
-			// Must contain the bearer_token_env_var key (not the token inline).
-			expect(content).toContain(`bearer_token_env_var = "HYPERIDLE_MCP_TOKEN"`);
-
-			// Must NOT embed the token inline in the toml.
-			// The token travels via the env var, not the config file.
-			expect(content).not.toContain(TEST_TOKEN);
-		});
-
 		test("returns tokenEnv with HYPERIDLE_MCP_TOKEN = token", () => {
-			// Arrange
-			const codexHomeDir = path.join(sandboxPath, ".codex-home");
-			fs.mkdirSync(codexHomeDir, { recursive: true });
-
-			// Act + Assert
 			const { tokenEnv } = writeCliMcpConfig({
 				dialect: "codex-toml",
 				sandboxPath,
@@ -92,186 +60,19 @@ describe("writeCliMcpConfig", () => {
 				token: TEST_TOKEN,
 			});
 
-			// The return value carries the env var for the spawn.
-			expect(tokenEnv).toBeDefined();
 			expect(tokenEnv?.HYPERIDLE_MCP_TOKEN).toBe(TEST_TOKEN);
 		});
 
-		test("creates .codex-home/config.toml if it does not exist yet", () => {
-			// Arrange: do NOT pre-create .codex-home dir.
-			// The writer must create it + the file if absent.
-
-			// Act
+		test("does not write any file — bridge and trust passed as -c flags at spawn", () => {
 			writeCliMcpConfig({
 				dialect: "codex-toml",
 				sandboxPath,
 				mcpUrl: TEST_MCP_URL,
 				token: TEST_TOKEN,
+				trustedPaths: ["/some/trusted/path"],
 			});
 
-			// Assert: .codex-home/config.toml was created.
-			const configTomlPath = path.join(sandboxPath, ".codex-home", "config.toml");
-			expect(fs.existsSync(configTomlPath)).toBe(true);
-			const content = fs.readFileSync(configTomlPath, "utf-8");
-			expect(content).toContain("[mcp_servers.hyperidle]");
-		});
-
-		test("appends to existing config.toml without destroying existing content", () => {
-			// Arrange: codex already has other config in config.toml (e.g. from return-enforcement provisioning).
-			const codexHomeDir = path.join(sandboxPath, ".codex-home");
-			fs.mkdirSync(codexHomeDir, { recursive: true });
-			const configTomlPath = path.join(codexHomeDir, "config.toml");
-			const existingContent = `# Existing codex config\n[model]\ndefault = "o4-mini"\n`;
-			fs.writeFileSync(configTomlPath, existingContent, "utf-8");
-
-			// Act
-			writeCliMcpConfig({
-				dialect: "codex-toml",
-				sandboxPath,
-				mcpUrl: TEST_MCP_URL,
-				token: TEST_TOKEN,
-			});
-
-			// Assert: existing content is preserved.
-			const after = fs.readFileSync(configTomlPath, "utf-8");
-			expect(after).toContain('default = "o4-mini"');
-			// And the new block is also present.
-			expect(after).toContain("[mcp_servers.hyperidle]");
-		});
-
-		// ── BA2 ruling 18 — trust is declared, not bypassed ───────────────────────
-		//
-		// codex 0.150.1 refuses to run outside a directory it trusts ("Not inside
-		// a trusted directory"). The fix is NOT a bypass flag — it is codex's own
-		// declaration mechanism: `[projects."<path>"] trust_level = "trusted"` in
-		// config.toml. This writer already authors that file for the MCP entry, so
-		// the trust declaration belongs beside it.
-
-		test('declares the sandbox path trusted via [projects."<path>"] trust_level', () => {
-			const codexHomeDir = path.join(sandboxPath, ".codex-home");
-			fs.mkdirSync(codexHomeDir, { recursive: true });
-
-			writeCliMcpConfig({
-				dialect: "codex-toml",
-				sandboxPath,
-				mcpUrl: TEST_MCP_URL,
-				token: TEST_TOKEN,
-			});
-
-			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
-			expect(content).toContain(`[projects."${sandboxPath}"]`);
-			expect(content).toContain('trust_level = "trusted"');
-		});
-
-		test("declares each mounted filesystem's real path trusted alongside the sandbox", () => {
-			const codexHomeDir = path.join(sandboxPath, ".codex-home");
-			fs.mkdirSync(codexHomeDir, { recursive: true });
-			const mountedRepoPath = fs.mkdtempSync(path.join(os.tmpdir(), "t1-mounted-repo-"));
-
-			try {
-				writeCliMcpConfig({
-					dialect: "codex-toml",
-					sandboxPath,
-					mcpUrl: TEST_MCP_URL,
-					token: TEST_TOKEN,
-					trustedPaths: [mountedRepoPath],
-				});
-
-				const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
-				expect(content).toContain(`[projects."${sandboxPath}"]`);
-				expect(content).toContain(`[projects."${mountedRepoPath}"]`);
-				// Both entries declare trust_level = "trusted" (count, not just contains).
-				expect(content.match(/trust_level = "trusted"/g)?.length).toBe(2);
-			} finally {
-				fs.rmSync(mountedRepoPath, { recursive: true, force: true });
-			}
-		});
-
-		test("does not duplicate the trust entry when a trustedPaths entry equals the sandbox", () => {
-			const codexHomeDir = path.join(sandboxPath, ".codex-home");
-			fs.mkdirSync(codexHomeDir, { recursive: true });
-
-			writeCliMcpConfig({
-				dialect: "codex-toml",
-				sandboxPath,
-				mcpUrl: TEST_MCP_URL,
-				token: TEST_TOKEN,
-				trustedPaths: [sandboxPath],
-			});
-
-			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
-			expect(content.match(/trust_level = "trusted"/g)?.length).toBe(1);
-		});
-
-		test("escapes a quote in a trustedPaths entry instead of breaking the TOML string", () => {
-			// A doc_set folder name is user-influenced (BA2 ruling 18: the filesystem
-			// primitive supplies the trusted path). An unescaped `"` in that path would
-			// close the TOML string early, corrupting the file or letting the remainder
-			// of the path be read as arbitrary config keys.
-			const codexHomeDir = path.join(sandboxPath, ".codex-home");
-			fs.mkdirSync(codexHomeDir, { recursive: true });
-			const maliciousPath = '/tmp/docs"]\n[bogus_key]\ninjected = true\n#';
-
-			writeCliMcpConfig({
-				dialect: "codex-toml",
-				sandboxPath,
-				mcpUrl: TEST_MCP_URL,
-				token: TEST_TOKEN,
-				trustedPaths: [maliciousPath],
-			});
-
-			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
-			// The quote and newlines must be escaped, not written raw — the entry
-			// stays a single `[projects."..."]` table header on one line, and the
-			// injected content lives inside the quoted string, not as its own table.
-			expect(content).toContain(
-				`[projects."${maliciousPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"]`,
-			);
-			const lines = content.split("\n");
-			expect(lines).not.toContain("[bogus_key]");
-			expect(lines).not.toContain("injected = true");
-			expect(lines.filter((line) => line.startsWith("[projects."))).toHaveLength(2);
-		});
-
-		test("escapes a non-newline/tab C0 control character in a trustedPaths entry instead of emitting it raw", () => {
-			// `escapeTomlString` used to handle only `\ " \n \r \t` — any other C0
-			// control character (e.g. a vertical tab from a pasted path) was
-			// emitted raw, which codex's own TOML parser rejects with "invalid
-			// basic string" (verified against the real binary), killing the
-			// session. `\x0b` (vertical tab) stands in for that whole class here.
-			const codexHomeDir = path.join(sandboxPath, ".codex-home");
-			fs.mkdirSync(codexHomeDir, { recursive: true });
-			const controlCharPath = "/tmp/docs\x0bnotes";
-
-			writeCliMcpConfig({
-				dialect: "codex-toml",
-				sandboxPath,
-				mcpUrl: TEST_MCP_URL,
-				token: TEST_TOKEN,
-				trustedPaths: [controlCharPath],
-			});
-
-			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
-			expect(content).toContain('[projects."/tmp/docs\\u000bnotes"]');
-			expect(content).not.toContain("\x0b");
-		});
-
-		test("leaves the [mcp_servers.hyperidle] block undisturbed by the trust declaration", () => {
-			const codexHomeDir = path.join(sandboxPath, ".codex-home");
-			fs.mkdirSync(codexHomeDir, { recursive: true });
-
-			writeCliMcpConfig({
-				dialect: "codex-toml",
-				sandboxPath,
-				mcpUrl: TEST_MCP_URL,
-				token: TEST_TOKEN,
-				trustedPaths: ["/some/other/mounted/path"],
-			});
-
-			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
-			expect(content).toContain("[mcp_servers.hyperidle]");
-			expect(content).toContain(`url = "${TEST_MCP_URL}"`);
-			expect(content).toContain('bearer_token_env_var = "HYPERIDLE_MCP_TOKEN"');
+			expect(fs.readdirSync(sandboxPath)).toHaveLength(0);
 		});
 	});
 
@@ -410,7 +211,10 @@ describe("writePluginStdioMcpEntries — plugin stdio MCP entries", () => {
 	});
 
 	describe("codex-toml dialect", () => {
-		test("writes [mcp_servers.<key>] block with separate command/args TOML fields", () => {
+		// Plugin entries for codex-toml are passed as -c flags via buildCodexPluginConfigArgs.
+		// writePluginStdioMcpEntries is a no-op for this dialect.
+
+		test("is a no-op — no file written, plugin args via buildCodexPluginConfigArgs", () => {
 			writePluginStdioMcpEntries({
 				dialect: "codex-toml",
 				sandboxPath,
@@ -422,43 +226,12 @@ describe("writePluginStdioMcpEntries — plugin stdio MCP entries", () => {
 				],
 			});
 
-			const tomlPath = path.join(sandboxPath, ".codex-home", "config.toml");
-			expect(fs.existsSync(tomlPath)).toBe(true);
-			const content = fs.readFileSync(tomlPath, "utf-8");
-			expect(content).toContain("[mcp_servers.my-plugin]");
-			expect(content).toContain('command = "/usr/bin/node"');
-			expect(content).toContain('args = ["/opt/plugin/server.js"]');
-		});
-
-		test("writes env as TOML inline table and cwd as string", () => {
-			writePluginStdioMcpEntries({
-				dialect: "codex-toml",
-				sandboxPath,
-				servers: [
-					{
-						key: "my-plugin",
-						config: {
-							command: "/usr/bin/node",
-							args: [],
-							env: { MY_VAR: "my-value" },
-							cwd: "/opt/plugin",
-						},
-					},
-				],
-			});
-
-			const content = fs.readFileSync(
-				path.join(sandboxPath, ".codex-home", "config.toml"),
-				"utf-8",
-			);
-			expect(content).toContain('cwd = "/opt/plugin"');
-			expect(content).toContain("MY_VAR");
-			expect(content).toContain("my-value");
+			expect(fs.readdirSync(sandboxPath)).toHaveLength(0);
 		});
 
 		test("no-op when servers list is empty", () => {
 			writePluginStdioMcpEntries({ dialect: "codex-toml", sandboxPath, servers: [] });
-			expect(fs.existsSync(path.join(sandboxPath, ".codex-home", "config.toml"))).toBe(false);
+			expect(fs.readdirSync(sandboxPath)).toHaveLength(0);
 		});
 	});
 
@@ -601,5 +374,77 @@ describe("writePluginStdioMcpEntries — plugin stdio MCP entries", () => {
 			writePluginStdioMcpEntries({ dialect: "cursor-json", sandboxPath, servers: [] });
 			expect(fs.existsSync(path.join(sandboxPath, ".cursor", "mcp.json"))).toBe(false);
 		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// buildCodexPluginConfigArgs — -c flag args for plugin MCP servers
+// ---------------------------------------------------------------------------
+
+describe("buildCodexPluginConfigArgs", () => {
+	test("returns empty array for empty servers list", () => {
+		expect(buildCodexPluginConfigArgs([])).toEqual([]);
+	});
+
+	test("returns mcp_servers.<key>.command arg for a server with command", () => {
+		const args = buildCodexPluginConfigArgs([
+			{ key: "my-plugin", config: { command: "/usr/bin/node" } },
+		]);
+
+		expect(args).toContain('mcp_servers.my-plugin.command="/usr/bin/node"');
+	});
+
+	test("returns mcp_servers.<key>.args TOML array arg for a server with args", () => {
+		const args = buildCodexPluginConfigArgs([
+			{
+				key: "my-plugin",
+				config: { command: "/usr/bin/node", args: ["/opt/plugin/server.js", "--port", "3000"] },
+			},
+		]);
+
+		expect(args).toContain(
+			'mcp_servers.my-plugin.args=["/opt/plugin/server.js", "--port", "3000"]',
+		);
+	});
+
+	test("returns mcp_servers.<key>.cwd arg when cwd is provided", () => {
+		const args = buildCodexPluginConfigArgs([
+			{ key: "my-plugin", config: { command: "/usr/bin/node", args: [], cwd: "/opt/plugin" } },
+		]);
+
+		expect(args).toContain('mcp_servers.my-plugin.cwd="/opt/plugin"');
+	});
+
+	test("carries a server's env as one inline table", () => {
+		const args = buildCodexPluginConfigArgs([
+			{
+				key: "my-plugin",
+				config: { command: "/usr/bin/node", env: { API_URL: "https://x", MODE: 'a"b' } },
+			},
+		]);
+
+		expect(args).toContain('mcp_servers.my-plugin.env={API_URL="https://x", MODE="a\\"b"}');
+	});
+
+	test("returns args for multiple servers in order", () => {
+		const args = buildCodexPluginConfigArgs([
+			{ key: "plugin-a", config: { command: "/bin/a" } },
+			{ key: "plugin-b", config: { command: "/bin/b" } },
+		]);
+
+		const aIdx = args.findIndex((a) => a.includes("plugin-a"));
+		const bIdx = args.findIndex((a) => a.includes("plugin-b"));
+		expect(aIdx).toBeGreaterThanOrEqual(0);
+		expect(bIdx).toBeGreaterThanOrEqual(0);
+		expect(aIdx).toBeLessThan(bIdx);
+	});
+
+	test("escapes double quotes in command value", () => {
+		const args = buildCodexPluginConfigArgs([
+			{ key: "p", config: { command: '/path/with"quote/bin' } },
+		]);
+
+		expect(args[0]).toContain('\\"');
+		expect(args[0]).not.toContain('path/with"quote');
 	});
 });

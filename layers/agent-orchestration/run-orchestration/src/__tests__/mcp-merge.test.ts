@@ -252,12 +252,16 @@ type WriteStdioCall = {
 	}>;
 };
 
-function makeWriteSpy(): { calls: WriteStdioCall[]; spy: (params: WriteStdioCall) => void } {
+function makeWriteSpy(): {
+	calls: WriteStdioCall[];
+	spy: (params: WriteStdioCall) => readonly string[];
+} {
 	const calls: WriteStdioCall[] = [];
 	return {
 		calls,
 		spy: (params) => {
 			calls.push(params);
+			return [];
 		},
 	};
 }

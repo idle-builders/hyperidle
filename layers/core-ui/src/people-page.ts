@@ -352,6 +352,17 @@ export function personStand(waiting: readonly Job[], you: boolean): string {
 	return `${what.charAt(0).toUpperCase()}${what.slice(1)} ${wait} for ${you ? "you" : "them"}.`;
 }
 
+const OWN_LOGIN_HARNESSES = new Set(["claude-code", "codex"]);
+
+/** What an agent's login setting says about itself. */
+export function loginWords(login: "own" | "owner", harnessType: string | null): string {
+	if (login === "own") {
+		if (harnessType === null || OWN_LOGIN_HARNESSES.has(harnessType)) return "its own login";
+		return "its own login (not supported by this program)";
+	}
+	return "your login";
+}
+
 /** What an agent program on this computer says about itself. */
 export function programWords(h: HarnessDescriptor): string {
 	if (h.discovery.disabled) return "switched off";

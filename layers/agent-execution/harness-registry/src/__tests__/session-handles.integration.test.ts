@@ -19,7 +19,6 @@ import type {
 import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import {
 	createHarnessSandbox,
 	provisionClaudeSandbox,
@@ -202,9 +201,7 @@ describe("session handles — codex", () => {
 		await requireHarnessAuthed("codex");
 
 		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "sh-codex-base-"));
-		const sandboxAdapter = new LocalSandboxAdapter();
-		const sandboxHandle = await sandboxAdapter.spawn(baseDir);
-		const sandboxPath = sandboxHandle.path;
+		const sandboxPath = baseDir;
 
 		try {
 			ensureSandboxGitRepo(sandboxPath);
@@ -250,7 +247,6 @@ describe("session handles — codex", () => {
 				"codex: getNativeSessionId must return a thread id from the thread/start JSON-RPC response",
 			).toMatch(/^[0-9a-f-]{8,}$/i);
 		} finally {
-			await sandboxAdapter.destroy(sandboxHandle);
 			await rmSandbox(baseDir);
 		}
 	}, 120_000);
@@ -259,9 +255,7 @@ describe("session handles — codex", () => {
 		await requireHarnessAuthed("codex");
 
 		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-sbox-"));
-		const sandboxAdapter = new LocalSandboxAdapter();
-		const sandboxHandle = await sandboxAdapter.spawn(baseDir);
-		const sandboxPath = sandboxHandle.path;
+		const sandboxPath = baseDir;
 
 		try {
 			ensureSandboxGitRepo(sandboxPath);
@@ -303,7 +297,6 @@ describe("session handles — codex", () => {
 				"codex session must write files to its sandboxPath",
 			).toBe(true);
 		} finally {
-			await sandboxAdapter.destroy(sandboxHandle);
 			await rmSandbox(baseDir);
 		}
 	}, 180_000);

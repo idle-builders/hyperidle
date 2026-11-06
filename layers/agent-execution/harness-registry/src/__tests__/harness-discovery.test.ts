@@ -1,7 +1,7 @@
 import type { HarnessAdapter, HarnessCapabilities } from "@hyperidle/harness-protocol";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import { AdapterPool } from "../adapter-pool.js";
-import { discoverLocalHarnesses } from "../harness-discovery.js";
+import { discoverLocalHarnesses, probeLoginForHarness } from "../harness-discovery.js";
 import {
 	CLAUDE_MODEL_COMMAND_CAPTURE,
 	CLAUDE_MODEL_COMMAND_NO_LIST_CAPTURE,
@@ -397,5 +397,123 @@ describe("what each harness declares its models can be configured with", () => {
 		]);
 		// A model with no variants declares nothing, so the editor shows nothing.
 		expect(plain?.options).toEqual([]);
+	});
+});
+
+// ── probeLoginForHarness — per-login auth detection ──────────────────────────
+
+const probeRunner =
+	(overrides: Readonly<Record<string, ReturnType<typeof response>>> = {}) =>
+	async (args: readonly string[]) => {
+		const key = args.join(" ");
+		return overrides[key] ?? response("", 1);
+	};
+
+describe("probeLoginForHarness — per-login auth detection", () => {
+	test("claude-code: returns ready when claude auth status reports loggedIn:true", async () => {
+		const result = await probeLoginForHarness("claude-code", "/spaces/my-agent", {
+			run: probeRunner({
+				"claude --version": response("2.0.0"),
+				"claude auth status": response('{"loggedIn":true}'),
+			}),
+			env: {},
+		});
+
+		expect(result.state).toBe("ready");
+	});
+
+	test("claude-code: returns unauthenticated when loggedIn:false", async () => {
+		const result = await probeLoginForHarness("claude-code", "/spaces/my-agent", {
+			run: probeRunner({
+				"claude --version": response("2.0.0"),
+				"claude auth status": response('{"loggedIn":false}'),
+			}),
+			env: {},
+		});
+
+		expect(result.state).toBe("unauthenticated");
+		expect(result.reason).toContain("CLAUDE_CONFIG_DIR");
+	});
+
+	test("claude-code: returns missing when binary not found", async () => {
+		const result = await probeLoginForHarness("claude-code", "/spaces/my-agent", {
+			run: probeRunner({}),
+			env: {},
+		});
+
+		expect(result.state).toBe("missing");
+	});
+
+	test("codex: returns ready when codex login status reports Logged in", async () => {
+		const result = await probeLoginForHarness("codex", "/spaces/my-agent", {
+			run: probeRunner({
+				"codex --version": response("codex-cli 1.0.0"),
+				"codex login status": response("Logged in using ChatGPT"),
+			}),
+			env: {},
+		});
+
+		expect(result.state).toBe("ready");
+	});
+
+	test("codex: returns unauthenticated when Not logged in", async () => {
+		const result = await probeLoginForHarness("codex", "/spaces/my-agent", {
+			run: probeRunner({
+				"codex --version": response("codex-cli 1.0.0"),
+				"codex login status": response("Not logged in"),
+			}),
+			env: {},
+		});
+
+		expect(result.state).toBe("unauthenticated");
+		expect(result.reason).toContain("CODEX_HOME");
+	});
+
+	test("codex: returns missing when binary not found", async () => {
+		const result = await probeLoginForHarness("codex", "/spaces/my-agent", {
+			run: probeRunner({}),
+			env: {},
+		});
+
+		expect(result.state).toBe("missing");
+	});
+
+	test("sets CLAUDE_CONFIG_DIR env to <spacePath>/.claude for claude-code probe", async () => {
+		const capturedEnvs: NodeJS.ProcessEnv[] = [];
+		const result = await probeLoginForHarness("claude-code", "/spaces/my-agent", {
+			run: async (args, ctx) => {
+				if (ctx?.env) capturedEnvs.push(ctx.env);
+				if (args.join(" ") === "claude --version") return response("2.0.0");
+				if (args.join(" ") === "claude auth status") return response('{"loggedIn":true}');
+				return response("", 1);
+			},
+			env: { HOME: "/home/user" },
+		});
+
+		expect(result.state).toBe("ready");
+		// Every command should have CLAUDE_CONFIG_DIR set to the agent's login folder.
+		for (const env of capturedEnvs) {
+			expect(env.CLAUDE_CONFIG_DIR).toBe("/spaces/my-agent/.claude");
+			expect(env.HOME).toBe("/home/user");
+		}
+	});
+
+	test("sets CODEX_HOME env to <spacePath>/.codex for codex probe", async () => {
+		const capturedEnvs: NodeJS.ProcessEnv[] = [];
+		const result = await probeLoginForHarness("codex", "/spaces/my-agent", {
+			run: async (args, ctx) => {
+				if (ctx?.env) capturedEnvs.push(ctx.env);
+				if (args.join(" ") === "codex --version") return response("codex-cli 1.0.0");
+				if (args.join(" ") === "codex login status") return response("Logged in using ChatGPT");
+				return response("", 1);
+			},
+			env: { HOME: "/home/user" },
+		});
+
+		expect(result.state).toBe("ready");
+		for (const env of capturedEnvs) {
+			expect(env.CODEX_HOME).toBe("/spaces/my-agent/.codex");
+			expect(env.HOME).toBe("/home/user");
+		}
 	});
 });

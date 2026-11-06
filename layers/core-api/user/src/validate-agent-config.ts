@@ -117,3 +117,28 @@ export function validateAgentConfig(
 
 	return null;
 }
+
+/** Harnesses that support "own" login (isolated per-agent config dir). */
+const OWN_LOGIN_HARNESSES = new Set(["claude-code", "codex"]);
+
+/**
+ * Validate that the requested login is supported by the given harness.
+ * "own" login is only valid for claude-code and codex; opencode and cursor-agent
+ * always use the owner's login.
+ */
+export function validateAgentLogin(
+	login: "own" | "owner",
+	effectiveHarnessType: string | null,
+): AgentConfigValidationError | null {
+	if (
+		login === "own" &&
+		effectiveHarnessType !== null &&
+		!OWN_LOGIN_HARNESSES.has(effectiveHarnessType)
+	) {
+		return {
+			error: `Harness '${effectiveHarnessType}' does not support its own login. Only claude-code and codex can run with an isolated login.`,
+			code: "own_login_unsupported",
+		};
+	}
+	return null;
+}

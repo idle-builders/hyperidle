@@ -52,7 +52,6 @@ type RuntimeInput = NonNullable<RuntimeDeps["runtime"]>;
 type TransitionContext = Extract<RunTransitionSpec, { target: "session" }>["context"];
 export type ProvisionSessionDeps = Pick<RuntimeInput, "db" | "eventBus" | "onHarnessStarted"> & {
 	readonly adapterPool?: unknown;
-	readonly workspace?: unknown;
 	readonly pluginMcpContributions?: PluginMcpContributionsPort;
 };
 type SessionLifecycleToolContext = Parameters<typeof buildToolRegistryFromDefinitions>[1];

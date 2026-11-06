@@ -30,6 +30,7 @@ import {
 	givenTo,
 	type Job,
 	joinWords,
+	loginWords,
 	type Pair,
 	personStand,
 	pluginName,
@@ -682,12 +683,14 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 	const program = view.runsOn.find((h) => h.type === view.runConfig?.harnessType);
 	const model = program?.models.find((m) => m.id === view.runConfig?.modelId);
 	const sessions = view.runConfig?.maxConcurrentSessions ?? 1;
+	const login = view.runConfig?.login ?? "owner";
 	const runsOn: Pair[] = agent
 		? [
 				program
 					? { what: program.name, why: `on this computer · ${programWords(program)}` }
 					: { what: "No agent program set", why: "pick one in Edit" },
 				{ what: "Model", why: model?.label ?? view.runConfig?.modelId ?? "the default" },
+				{ what: "Login", why: loginWords(login, view.runConfig?.harnessType ?? null) },
 				{ what: `${sessions} ${sessions === 1 ? "session" : "sessions"} at a time`, why: "" },
 			]
 		: [];
@@ -1244,6 +1247,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 						discipline: u.discipline ?? "",
 						harness: view.runConfig?.harnessType ?? null,
 						model: view.runConfig?.modelId ?? null,
+						login,
 						sessions,
 						worksFor: owner
 							? owner.id === you
@@ -1281,6 +1285,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 													}
 												: {}),
 											...(v.model ? { modelId: v.model } : {}),
+											login: v.login,
 											maxConcurrentSessions: v.sessions,
 										},
 									}

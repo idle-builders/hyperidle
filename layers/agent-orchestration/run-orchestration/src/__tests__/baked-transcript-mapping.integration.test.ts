@@ -134,7 +134,7 @@ describe("consumeAgentSessionRequest — baked transcript mapping", () => {
 
 		await runSession(
 			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
-			{ mode: "durable", request, sandboxBasePath: "/tmp/au27-transcript-runtime" },
+			{ mode: "durable", request },
 		);
 
 		expect(ports.sessionProvisioner!.admitSession).toHaveBeenCalledWith(
@@ -169,7 +169,7 @@ describe("consumeAgentSessionRequest — baked transcript mapping", () => {
 
 		await runSession(
 			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
-			{ mode: "durable", request, sandboxBasePath: "/tmp/au27-transcript-runtime" },
+			{ mode: "durable", request },
 		);
 
 		const [, params] = vi.mocked(ports.sessionProvisioner!.admitSession).mock.calls[0] ?? [];

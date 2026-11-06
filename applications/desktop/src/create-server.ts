@@ -1,6 +1,5 @@
 import * as fs from "node:fs";
 import * as net from "node:net";
-import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import { bootAgentExecution } from "@hyperidle/agent-execution";
@@ -32,7 +31,6 @@ import { WebSocketServer } from "ws";
 export interface CreateServerDeps {
 	readonly db?: HyperIdleDb;
 	readonly topology: "local" | "disabled";
-	readonly sandboxBasePath?: string;
 	readonly hostname?: string;
 	/**
 	 * The plugins that ship inside the app, one folder each. Omitted →
@@ -137,10 +135,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		);
 	}
 
-	const sandboxBasePath =
-		deps.sandboxBasePath ??
-		process.env.HYPERIDLE_WORKSPACES_DIR ??
-		path.join(os.tmpdir(), "hyperidle-workspaces");
 	// `mcpBaseUrl` must carry the REAL listening port: CLI harnesses dial
 	// `${mcpBaseUrl}/api/mcp/:token` for their tool bridge. `serve()` binds
 	// further below, so when the caller asks for an OS-assigned port (0) we
@@ -200,7 +194,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		db,
 		eventBus,
 		adapterPool: agentExecution.adapters.pool,
-		workspace: agentExecution.adapters.sandbox,
 		pluginMcpContributions: coreApi.pluginMcpContributions,
 	} satisfies ApplicationProvisionSessionDeps;
 
@@ -236,10 +229,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			editDocument: coreApi.editDocument,
 			searchDocuments: coreApi.searchDocuments,
 			session: runtimeSessionDeps,
-			sandboxBasePath,
-			reapers: {
-				sandboxes: { sandboxBasePath },
-			},
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
 	});
