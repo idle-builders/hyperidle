@@ -1,4 +1,4 @@
-import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
+import type { AgentSessionRequest, RunnerDb } from "@hyperidle/runner-db";
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
@@ -77,16 +77,16 @@ interface RunOrchestrationSessionContext {
 
 interface RunOrchestrationSessionLifecycleRuntime {
 	requestAgentTermination(
-		db: HyperIdleDb,
+		db: RunnerDb,
 		input: {
 			requestId: string;
 			reason: RunOrchestrationTerminationReason;
 			requestedBy?: string;
 		},
 	): Promise<"accepted" | "idempotent" | "conflict" | "terminal">;
-	recoverRequestedTerminations(db: HyperIdleDb, eventBus: EventBus): Promise<number>;
+	recoverRequestedTerminations(db: RunnerDb, eventBus: EventBus): Promise<number>;
 	transitionAgentRunLifecycle(
-		db: HyperIdleDb,
+		db: RunnerDb,
 		eventBus: EventBus,
 		input: {
 			readonly requestId: string;
@@ -98,13 +98,13 @@ interface RunOrchestrationSessionLifecycleRuntime {
 		},
 	): Promise<void>;
 	crashSession(
-		db: HyperIdleDb,
+		db: RunnerDb,
 		eventBus: EventBus,
 		context: RunOrchestrationSessionContext,
 	): Promise<void>;
 }
 
-type RunOrchestrationSessionProvisioner = HarnessPort<HyperIdleDb>;
+type RunOrchestrationSessionProvisioner = HarnessPort<RunnerDb>;
 
 // ---------------------------------------------------------------------------
 // Aggregate deps bundle (per registration entry point)
@@ -113,35 +113,35 @@ type RunOrchestrationSessionProvisioner = HarnessPort<HyperIdleDb>;
 export interface RuntimePorts {
 	readonly sessionRequests: {
 		claimSessionRequest(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			selector: { next: true; skipAgentIds?: readonly string[] } | { id: string },
 			options: { workerId: string; now: Date; leaseMs: number },
 		): Promise<AgentSessionRequest | null>;
 		findSessionRequest(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			query: { by: "id"; requestId: string },
 		): Promise<AgentSessionRequest | undefined>;
 		findSessionRequest(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			query: { by: "sessionId"; sessionId: string },
 		): Promise<Pick<AgentSessionRequest, "id"> | undefined>;
 		findSessionRequest(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			query: { by: "claimActive"; requestId: string; claimToken: string; now: Date },
 		): Promise<boolean>;
 		listSessionRequests(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			filter: { source: { kind: AgentSessionSourceKind; id: string } } | { status: "running" },
 		): Promise<AgentSessionRequest[]>;
-		releaseClaim(exec: HyperIdleDb, requestId: string, claimToken: string): Promise<boolean>;
+		releaseClaim(exec: RunnerDb, requestId: string, claimToken: string): Promise<boolean>;
 		renewClaim(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			requestId: string,
 			claimToken: string,
 			options: { now: Date; leaseMs: number },
 		): Promise<boolean>;
 		transitionSessionRequest(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			transition:
 				| { requestId: string; to: "running"; sessionId: string; claimToken: string }
 				| {
@@ -216,7 +216,7 @@ export type RunOptions =
 
 export type RunTransitionSpec = Parameters<typeof import("./transition-run.js").transitionRun>[1];
 export interface RuntimeDeps {
-	readonly db: HyperIdleDb;
+	readonly db: RunnerDb;
 	readonly eventBus?: EventBus;
 	readonly runtime?: Parameters<
 		ReturnType<typeof import("./provisioner.js").createProvisioner>["admit"]

@@ -8,7 +8,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { type HyperIdleDb, type ReviewSessionRow, reviewSessions, sessions } from "@hyperidle/db";
+import { type RunnerDb, type ReviewSessionRow, reviewSessions, sessions } from "@hyperidle/runner-db";
 import type {
 	BakedAgentRunnableConfig,
 	BakedSessionResumeRequest,
@@ -38,7 +38,7 @@ export interface ReviewSessionLink {
  * answered by one verdict that resumes one session.
  */
 export async function recordReviewSession(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	link: ReviewSessionLink,
 	now: string,
 ): Promise<void> {
@@ -55,7 +55,7 @@ export async function recordReviewSession(
 
 /** The session that filed this review, or undefined if no session did. */
 export async function findReviewSession(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	reviewMessageId: string,
 ): Promise<ReviewSessionRow | undefined> {
 	const [row] = await db
@@ -96,7 +96,7 @@ export type LiveSessionDeliverer = (
 ) => Promise<"delivered" | "unsupported" | "not_found">;
 
 export async function recordReviewVerdict(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	input: SessionResumeReply & {
 		readonly reviewMessageId: string;
 		readonly threadId: string;

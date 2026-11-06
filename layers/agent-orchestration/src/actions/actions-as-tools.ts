@@ -1,8 +1,8 @@
-import type { HyperIdleDb } from "@hyperidle/db";
 import { err, ok, type RegisteredTool, type ToolResult } from "@hyperidle/harness-protocol";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import type { Action } from "./action.js";
 
-export function actionsAsTools(actions: readonly Action[]): readonly RegisteredTool<HyperIdleDb>[] {
+export function actionsAsTools(actions: readonly Action[]): readonly RegisteredTool<RunnerDb>[] {
 	return actions.map((action) => ({
 		name: action.declaration.name,
 		description: action.declaration.sentence,

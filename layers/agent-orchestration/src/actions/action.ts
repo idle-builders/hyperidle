@@ -1,11 +1,11 @@
-import type { HyperIdleDb } from "@hyperidle/db";
 import type { ActionDeclaration, ActionResult } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
+import type { RunnerDb } from "@hyperidle/runner-db";
 
 /** Deliberate mirror of core-api's ActionContext/Action — this layer may not import core-api; structural typing keeps them in sync. */
 export interface ActionContext {
 	readonly actor: string;
-	readonly db: HyperIdleDb;
+	readonly db: RunnerDb;
 	readonly eventBus: EventBus;
 	readonly now: string;
 	readonly caller?: {

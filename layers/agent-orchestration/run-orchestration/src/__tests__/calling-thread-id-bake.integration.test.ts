@@ -6,15 +6,9 @@
  * `provisionParams.callingThreadId` — a JSON.parse of the already-drained
  * payload, zero orchestration -> core read.
  */
-import {
-	agentSessionRequests,
-	type HyperIdleDb,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { agentSessionRequests, type RunnerDb } from "@hyperidle/runner-db";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import { describe, vi } from "vitest";
 import { runSession } from "../runtime.js";
@@ -74,11 +68,11 @@ async function seedTaskFixture(db: HyperIdleDb): Promise<void> {
 }
 
 async function createRequestForTest(
-	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	opts: { idempotencyKey: string; payloadJson?: string },
 ) {
 	const now = new Date().toISOString();
-	const [row] = await db
+	const [row] = await runnerDb
 		.insert(agentSessionRequests)
 		.values({
 			id: `test-request-${opts.idempotencyKey}`,
@@ -104,6 +98,7 @@ async function createRequestForTest(
 describe("consumeAgentSessionRequest — callingThreadId bake", () => {
 	test("parses callingThreadId off the drained request's payloadJson onto provisionParams", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedTaskFixture(db);
 
@@ -119,13 +114,13 @@ describe("consumeAgentSessionRequest — callingThreadId bake", () => {
 			forceReturnCount: 0,
 		}));
 
-		const request = await createRequestForTest(db, {
+		const request = await createRequestForTest(runnerDb, {
 			idempotencyKey: "task:task-1:calling-thread",
 			payloadJson: JSON.stringify({ callingThreadId: "thread-calling-1" }),
 		});
 
 		await runSession(
-			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+			{ db: runnerDb, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
 			{ mode: "durable", request },
 		);
 
@@ -137,6 +132,7 @@ describe("consumeAgentSessionRequest — callingThreadId bake", () => {
 
 	test("omits callingThreadId when the drained payload carries none (e.g. subscription_run)", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedTaskFixture(db);
 
@@ -152,12 +148,12 @@ describe("consumeAgentSessionRequest — callingThreadId bake", () => {
 			forceReturnCount: 0,
 		}));
 
-		const request = await createRequestForTest(db, {
+		const request = await createRequestForTest(runnerDb, {
 			idempotencyKey: "task:task-1:no-calling-thread",
 		});
 
 		await runSession(
-			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+			{ db: runnerDb, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
 			{ mode: "durable", request },
 		);
 

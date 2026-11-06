@@ -7,10 +7,10 @@
 
 import {
 	agentRunConfig,
-	type HyperIdleDb,
 	type NewAgentRunConfigRow,
-	type WriteExecutor,
-} from "@hyperidle/db";
+	type RunnerDb,
+	type RunnerWriteExecutor,
+} from "@hyperidle/runner-db";
 import { eq, inArray } from "drizzle-orm";
 
 /**
@@ -132,7 +132,7 @@ function rowToConfig(row: {
 
 /** Read one agent's effective run config. Never `undefined` — absent row is treated as all-null. */
 export async function readAgentRunConfig(
-	exec: HyperIdleDb,
+	exec: RunnerDb,
 	agentUserId: string,
 ): Promise<AgentRunConfig> {
 	const [row] = await exec
@@ -151,7 +151,7 @@ export async function readAgentRunConfig(
  * empty `agentUserIds` returns an empty map without querying.
  */
 export async function readAgentRunConfigs(
-	exec: HyperIdleDb,
+	exec: RunnerDb,
 	agentUserIds: readonly string[],
 ): Promise<Map<string, AgentRunConfig>> {
 	const result = new Map<string, AgentRunConfig>();
@@ -178,7 +178,7 @@ export async function readAgentRunConfigs(
  * `PATCH /api/agents/:id` has always had.
  */
 export async function writeAgentRunConfig(
-	exec: WriteExecutor,
+	exec: RunnerWriteExecutor,
 	agentUserId: string,
 	patch: AgentRunConfigPatch,
 ): Promise<void> {

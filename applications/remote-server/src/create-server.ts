@@ -23,6 +23,7 @@ import {
 import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
 import { bootCoreApi, type CoreApiBoot, type SignIn } from "@hyperidle/core-api/boot";
 import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
+import { createPgliteRunnerDb, type RunnerDb, type RunnerDbHandle } from "@hyperidle/runner-db";
 import { EventBus } from "@hyperidle/event-bus";
 import { WebSocketServer } from "ws";
 import { resolveProfile } from "./profiles.js";
@@ -35,6 +36,7 @@ import { resolveProfile } from "./profiles.js";
  */
 export interface CreateServerDeps {
 	readonly db?: HyperIdleDb;
+	readonly runnerDb?: RunnerDb;
 	readonly topology: "local" | "disabled";
 	/**
 	 * Interface to bind the listening socket to. Omitted → `@hono/node-server`
@@ -129,7 +131,9 @@ function resolveBundledPluginsDir(deps: CreateServerDeps): string {
 
 export async function createServer(port: number, deps: CreateServerDeps): Promise<ServerHandle> {
 	let dbHandle: DbHandle | null = null;
+	let runnerDbHandle: RunnerDbHandle | null = null;
 	let db: HyperIdleDb;
+	let runnerDb: RunnerDb;
 	let pluginsBaseDir: string | undefined;
 	if (deps.db) {
 		db = deps.db;
@@ -144,6 +148,15 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		}
 		db = dbHandle.db;
 		pluginsBaseDir = installedPluginsDir(dbUrl);
+	}
+	if (deps.runnerDb) {
+		runnerDb = deps.runnerDb;
+	} else {
+		const profile = resolveProfile(process.env);
+		const rawDbUrl = process.env.DATABASE_URL ?? profile.dbUrlDefault;
+		const dbUrl = profile.dbDriver === "pglite" ? resolvePglitePath(rawDbUrl) : rawDbUrl;
+		runnerDbHandle = await createPgliteRunnerDb(`${dbUrl}-runner`);
+		runnerDb = runnerDbHandle.db;
 	}
 
 	// @lore: factory bootstrap — applyFactoryCoreState inserts system:propagation actor; idempotent; must run before any write
@@ -208,7 +221,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	};
 
 	const runtimeSessionDeps = {
-		db,
+		db: runnerDb,
 		eventBus,
 		adapterPool: agentExecution.adapters.pool,
 		pluginMcpContributions: coreApi.pluginMcpContributions,
@@ -216,6 +229,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
+		runnerDb,
 		eventBus,
 		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
 		probeInheritedReach: deps.topology === "local",
@@ -328,6 +342,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			);
 			if (dbHandle) {
 				await runPhase("owned-db", () => dbHandle.close());
+			}
+			if (runnerDbHandle) {
+				await runPhase("owned-runner-db", () => runnerDbHandle.close());
 			}
 
 			if (failures.length > 0) {

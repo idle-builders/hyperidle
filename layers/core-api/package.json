@@ -17,6 +17,7 @@
 		"@hyperidle/api-contract": "*",
 		"@hyperidle/changes": "*",
 		"@hyperidle/db": "*",
+		"@hyperidle/runner-db": "*",
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/document": "*",
 		"@hyperidle/domain-model": "*",

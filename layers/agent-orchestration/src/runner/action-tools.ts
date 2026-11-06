@@ -1,10 +1,10 @@
-import type { HyperIdleDb } from "@hyperidle/db";
 import { err, ok, type RegisteredTool } from "@hyperidle/harness-protocol";
 import { recordReviewSession } from "@hyperidle/run-orchestration";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import type { CoreDoor } from "./core-door.js";
 
 /** One action as an agent's tool: its name, sentence and shape. */
-export type ActionToolDeclaration = Omit<RegisteredTool<HyperIdleDb>, "handler">;
+export type ActionToolDeclaration = Omit<RegisteredTool<RunnerDb>, "handler">;
 
 /** A send that asks a person something ends the session; the answer brings that session back. */
 function asksAPerson(args: unknown): boolean {
@@ -21,7 +21,7 @@ export function actionToolsThroughDoor(
 	catalog: readonly ActionToolDeclaration[],
 	door: CoreDoor,
 	keyFor: (agentId: string) => string | undefined,
-): readonly RegisteredTool<HyperIdleDb>[] {
+): readonly RegisteredTool<RunnerDb>[] {
 	return catalog.map((declaration) => ({
 		...declaration,
 		handler: async (args, ctx) => {

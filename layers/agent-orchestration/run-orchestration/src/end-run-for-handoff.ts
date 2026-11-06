@@ -1,11 +1,11 @@
 // @lore: handoff run-end — no CAS on active, no session_ended, no outcome; CAS no-op silences live run; event creates spurious review; outcome re-enters loop
 // @lore: handoff run-end — no safety net; no stale-session sweep; failed call leaves session active; must share caller's tx: run terminal at same commit as claim
 
-import { sessions, type WriteExecutor } from "@hyperidle/db";
+import { sessions, type RunnerWriteExecutor } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 
 export async function endRunForHandoff(
-	exec: WriteExecutor,
+	exec: RunnerWriteExecutor,
 	sessionId: string,
 	endedAt: string,
 ): Promise<void> {

@@ -1,4 +1,3 @@
-import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import {
 	type BakedAgentRunnableConfig,
@@ -29,6 +28,7 @@ import {
 	queueRun,
 	sessionRunRegistry,
 } from "@hyperidle/session-requests";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import type { CoreDoor } from "./core-door.js";
 
 const logger = createLogger({ pkg: "agent-orchestration.runner" });
@@ -37,7 +37,7 @@ const logger = createLogger({ pkg: "agent-orchestration.runner" });
 const WORKABLE_TASK_STATES: ReadonlySet<string> = new Set(["ready", "accepted", "in_progress"]);
 
 export interface InboxWorkDeps {
-	readonly db: HyperIdleDb;
+	readonly db: RunnerDb;
 	readonly eventBus: EventBus;
 	readonly door: CoreDoor;
 }

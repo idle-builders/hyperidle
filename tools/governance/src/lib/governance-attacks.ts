@@ -39,7 +39,7 @@ import { frameworkSurfacesDeclared } from "../rules/framework-surfaces-declared.
 import { noPerFileAllowances } from "../rules/no-per-file-allowances.js";
 import { noStaleBuildArtifacts } from "../rules/no-stale-build-artifacts.js";
 import { type CrossingsResult, type DetectorKind, detectCrossings } from "./crossings.js";
-import { buildDbSurfaceIndex, type DatabasePackageConfig } from "./db-surfaces.js";
+import { buildMergedDbSurfaceIndex, type DatabasePackageConfig } from "./db-surfaces.js";
 import { type Architecture, decide, type World } from "./governance-model.js";
 import type { TableOwners } from "./governance-registry.js";
 import type { Finding, Rule } from "./governance-rules.js";
@@ -1241,7 +1241,7 @@ export interface AttackTree {
 	readonly readFile: (path: string) => string;
 	readonly architecture: Architecture & {
 		readonly roles: { readonly byWorkspacePattern: readonly WorkspaceRoleRule[] };
-		readonly databasePackage: DatabasePackageConfig;
+		readonly databasePackages: readonly DatabasePackageConfig[];
 	};
 	readonly tableOwners: TableOwners;
 	readonly kinds: readonly DetectorKind[];
@@ -1398,9 +1398,10 @@ function runOnePass(tree: AttackTree, attacks: readonly Attack[]): PassOutcome {
 				readFile: overlaid.readFile,
 				mcpRouterHost: tree.architecture.endpoints.mcpRouter.host,
 				eventTypesModule: tree.architecture.eventBus.typesModule,
-				db: buildDbSurfaceIndex(tree.architecture.databasePackage, overlaid.readFile),
+				db: buildMergedDbSurfaceIndex(tree.architecture.databasePackages, overlaid.readFile),
 				tableOwners: tree.tableOwners,
 				frameworkSurfaces: frameworkSurfacesOf(census),
+				dbPackageNames: new Set(tree.architecture.databasePackages.map((c) => c.packageName)),
 			},
 			tree.kinds,
 		);

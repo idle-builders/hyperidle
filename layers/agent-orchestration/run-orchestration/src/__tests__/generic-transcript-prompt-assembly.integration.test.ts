@@ -14,7 +14,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { type RunnerDb } from "@hyperidle/runner-db";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
 import { afterEach, describe, vi } from "vitest";
@@ -159,11 +160,11 @@ describe("generic transcript delivery", () => {
 	}
 
 	function buildDeps(
-		db: HyperIdleDb,
+		runnerDb: RunnerDb,
 		captured: { sessionConfig?: SessionConfig },
 	): ProvisionSessionDeps {
 		return {
-			db,
+			db: runnerDb,
 			eventBus: new EventBus(),
 			adapterPool: {
 				select: () => ({
@@ -203,6 +204,7 @@ describe("generic transcript delivery", () => {
 	// @lore: the `## Conversation` prompt section is the transcript's only delivery — a CLI harness never reads `SessionConfig.messages`.
 	test("a session with a baked transcript + calling thread + no task gets ## Conversation and requiredReturnActions:['send_message']", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedAgent(db, "agent-transcript-1");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-transcript-"));
@@ -212,7 +214,7 @@ describe("generic transcript delivery", () => {
 		const ports = buildHarnessPorts();
 		const provisioner = createProvisioner(ports);
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, captured);
+		const deps = buildDeps(runnerDb, captured);
 
 		const params: ProvisionSessionParams = {
 			...baseParams("agent-transcript-1"),
@@ -239,6 +241,7 @@ describe("generic transcript delivery", () => {
 
 	test("a task_run session (has a taskId) with a transcript does NOT get requiredReturnActions:['send_message'] — the full set still satisfies", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedAgent(db, "agent-transcript-2");
 		await seedTask(db, "task-transcript-2");
@@ -249,7 +252,7 @@ describe("generic transcript delivery", () => {
 		const ports = buildHarnessPorts({ allowContextAssembly: true });
 		const provisioner = createProvisioner(ports);
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, captured);
+		const deps = buildDeps(runnerDb, captured);
 
 		const params: ProvisionSessionParams = {
 			...baseParams("agent-transcript-2"),
@@ -266,6 +269,7 @@ describe("generic transcript delivery", () => {
 
 	test("a subscription wake (task-free, no calling thread) gets requiredReturnActions:['return_status'], never send_message", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedAgent(db, "agent-subscription-wake-1");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-subscription-wake-"));
@@ -278,7 +282,7 @@ describe("generic transcript delivery", () => {
 		const ports = buildHarnessPorts({ allowContextAssembly: true });
 		const provisioner = createProvisioner(ports);
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, captured);
+		const deps = buildDeps(runnerDb, captured);
 
 		// The real shape a subscription's wake bakes: task-free, no calling
 		// thread at all (subscription-wake.ts never sets one — there is no
@@ -308,6 +312,7 @@ describe("generic transcript delivery", () => {
 
 	test("a subscription wake WITH the real contextBundle also gets the return_status orientation (assembleSubscriptionPrompt, not the task-free fallback)", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedAgent(db, "agent-subscription-wake-2");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-subscription-wake-"));
@@ -316,7 +321,7 @@ describe("generic transcript delivery", () => {
 
 		const provisioner = createProvisioner(buildSubscriptionHarnessPorts());
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, captured);
+		const deps = buildDeps(runnerDb, captured);
 
 		const params = {
 			...baseParams("agent-subscription-wake-2"),
@@ -346,6 +351,7 @@ describe("generic transcript delivery", () => {
 
 	test("a session with no transcript renders the original Correlation line, unchanged (no regression)", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedAgent(db, "agent-transcript-3");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-transcript-"));
@@ -355,7 +361,7 @@ describe("generic transcript delivery", () => {
 		const ports = buildHarnessPorts({ allowContextAssembly: true });
 		const provisioner = createProvisioner(ports);
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, captured);
+		const deps = buildDeps(runnerDb, captured);
 
 		const params: ProvisionSessionParams = {
 			...baseParams("agent-transcript-3"),
@@ -382,7 +388,7 @@ describe("generic transcript delivery", () => {
 	 *
 	 * @lore: a gate's deny message states only that a rule blocked the call — an imperative there reads as a suspected injection.
 	 */
-	test("every session is told in its prompt that some work needs a person", async ({ db }) => {
+	test("every session is told in its prompt that some work needs a person", async ({ db, runnerDb }) => {
 		await seedAgent(db, "agent-gated-1");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-gate-prompt-"));
 		sandboxDirs.push(sandboxPath);
@@ -390,7 +396,7 @@ describe("generic transcript delivery", () => {
 
 		const provisioner = createProvisioner(buildHarnessPorts());
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, captured);
+		const deps = buildDeps(runnerDb, captured);
 		const params: ProvisionSessionParams = {
 			...baseParams("agent-gated-1"),
 			callingThreadId: "thread-gated-1",
@@ -417,16 +423,16 @@ describe("generic transcript delivery", () => {
 	 * A task session's instruction is the task.
 	 *
 	 */
-	test("a task session is instructed with the task itself", async ({ db }) => {
+	test("a task session is instructed with the task itself", async ({ db, runnerDb }) => {
 		await seedAgent(db, "agent-instruction-1");
-		await seedTask(db as HyperIdleDb, "task-instruction-1");
+		await seedTask(db, "task-instruction-1");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba10-instruction-"));
 		sandboxDirs.push(sandboxPath);
 		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const provisioner = createProvisioner(buildTaskHarnessPorts());
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, captured);
+		const deps = buildDeps(runnerDb, captured);
 
 		// The durable shape: a requestContext IS present, which is the production
 		// path and precisely the case that used to fall through to a task-free prompt.
@@ -471,9 +477,9 @@ describe("generic transcript delivery", () => {
 		);
 	});
 
-	test("the instruction is delivered whole, not truncated", async ({ db }) => {
+	test("the instruction is delivered whole, not truncated", async ({ db, runnerDb }) => {
 		await seedAgent(db, "agent-instruction-2");
-		await seedTask(db as HyperIdleDb, "task-instruction-2");
+		await seedTask(db, "task-instruction-2");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba10-instruction-"));
 		sandboxDirs.push(sandboxPath);
 		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
@@ -482,7 +488,7 @@ describe("generic transcript delivery", () => {
 
 		const provisioner = createProvisioner(buildTaskHarnessPorts());
 		const captured: { sessionConfig?: SessionConfig } = {};
-		const deps = buildDeps(db as HyperIdleDb, captured);
+		const deps = buildDeps(runnerDb, captured);
 		const params = {
 			...baseParams("agent-instruction-2"),
 			taskId: "task-instruction-2",

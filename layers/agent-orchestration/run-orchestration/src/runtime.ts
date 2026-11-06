@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { type AgentSessionRequest, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type {
 	BakedAgentRunnableConfig,
@@ -28,13 +28,13 @@ import { createProvisioner } from "./provisioner.js";
 
 const logger = createLogger({ pkg: "run-orchestration.runtime" });
 
-type RuntimeProvisionDeps = HarnessPortDeps<HyperIdleDb>;
+type RuntimeProvisionDeps = HarnessPortDeps<RunnerDb>;
 type ExecutionPorts = Omit<RuntimePorts, "sessionProvisioner"> & {
 	readonly sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]>;
 };
 
 function admitOnlyWithRequestLease(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	input: { requestId: string; claimToken: string; now?: Date },
 	ports: ExecutionPorts,
 ): Promise<boolean> {
@@ -47,7 +47,7 @@ function admitOnlyWithRequestLease(
 }
 
 async function reserveOrAdoptSession(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	input: { requestId: string; claimToken: string },
 	ports: ExecutionPorts,
 ): Promise<{ adopted: boolean; sessionId: string }> {
@@ -98,7 +98,7 @@ async function reserveOrAdoptSession(
  * and this becomes a no-op rather than clobbering it.
  */
 async function endReservedSessionAfterFailedAdmission(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	requestId: string,
 ): Promise<void> {
 	await db
@@ -206,7 +206,7 @@ function mapTranscriptToMessages(
 }
 
 async function ensureClaimedRequest(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	request: AgentSessionRequest,
 	options: Extract<RunOptions, { mode: "durable" }>,
 	ports: ExecutionPorts,

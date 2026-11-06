@@ -17,7 +17,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { type RunnerDb } from "@hyperidle/runner-db";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import { isRequiredReturnAction } from "@hyperidle/harness-protocol";
 import { afterEach, describe, vi } from "vitest";
@@ -190,12 +191,12 @@ describe("a subscription wake's forced return is return_status, never send_messa
 	}
 
 	function buildDeps(
-		db: HyperIdleDb,
+		runnerDb: RunnerDb,
 		events: readonly FakeHarnessEvent[],
 		adapterType?: string,
 	): ProvisionSessionDeps {
 		return {
-			db,
+			db: runnerDb,
 			eventBus: new EventBus(),
 			adapterPool: {
 				select: () => ({
@@ -240,9 +241,10 @@ describe("a subscription wake's forced return is return_status, never send_messa
 
 	test("a wake whose prompt says stop calls only return_status — no message in any thread, session ends completed", async ({
 		db,
+		runnerDb,
 	}) => {
 		const agentId = "agent-sub-return-1";
-		await seedAgent(db as HyperIdleDb, agentId);
+		await seedAgent(db, agentId);
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "subscription-return-"));
 		sandboxDirs.push(sandboxPath);
 		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
@@ -251,7 +253,7 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		const events: FakeHarnessEvent[] = [{ type: "tool_call", toolName: "return_status", args: {} }];
 		const ports = buildPorts(invokedTools);
 		const provisioner = createProvisioner(ports);
-		const deps = buildDeps(db as HyperIdleDb, events);
+		const deps = buildDeps(runnerDb, events);
 		const params = subscriptionParams(
 			agentId,
 			"If this change did not move the task to done, stop. Do not message anyone.",
@@ -268,9 +270,10 @@ describe("a subscription wake's forced return is return_status, never send_messa
 
 	test("a wake that never returns at all ends not_returned — the gate genuinely enforces, it is not a rubber stamp", async ({
 		db,
+		runnerDb,
 	}) => {
 		const agentId = "agent-sub-return-2";
-		await seedAgent(db as HyperIdleDb, agentId);
+		await seedAgent(db, agentId);
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "subscription-return-"));
 		sandboxDirs.push(sandboxPath);
 		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
@@ -279,7 +282,7 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		const events: FakeHarnessEvent[] = [];
 		const ports = buildPorts(invokedTools);
 		const provisioner = createProvisioner(ports);
-		const deps = buildDeps(db as HyperIdleDb, events);
+		const deps = buildDeps(runnerDb, events);
 		const params = subscriptionParams(agentId, "Edit the named document.");
 
 		const admitted = await provisioner.admit(deps, params);
@@ -294,9 +297,10 @@ describe("a subscription wake's forced return is return_status, never send_messa
 
 	test("the assembled prompt orients the agent to return_status, never to send_message", async ({
 		db,
+		runnerDb,
 	}) => {
 		const agentId = "agent-sub-return-3";
-		await seedAgent(db as HyperIdleDb, agentId);
+		await seedAgent(db, agentId);
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "subscription-return-"));
 		sandboxDirs.push(sandboxPath);
 		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
@@ -309,7 +313,7 @@ describe("a subscription wake's forced return is return_status, never send_messa
 			sessionConfig?: { assembledPrompt?: string; requiredReturnActions?: readonly string[] };
 		} = {};
 		const deps: ProvisionSessionDeps = {
-			...buildDeps(db as HyperIdleDb, events),
+			...buildDeps(runnerDb, events),
 			onBeforeHarnessStart: (ctx) => {
 				captured.sessionConfig = ctx.sessionConfig;
 				return "abort";
@@ -329,6 +333,7 @@ describe("a subscription wake's forced return is return_status, never send_messa
 	/** Runs admit + run up to the harness start and returns the prompt the session would get. */
 	async function composedPrompt(
 		db: HyperIdleDb,
+		runnerDb: RunnerDb,
 		agentId: string,
 		prompt: string | null,
 		adapterType: string,
@@ -340,7 +345,7 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		const provisioner = createProvisioner(buildPorts([], "real"));
 		const captured: { assembledPrompt?: string } = {};
 		const deps: ProvisionSessionDeps = {
-			...buildDeps(db, [], adapterType),
+			...buildDeps(runnerDb, [], adapterType),
 			onBeforeHarnessStart: (ctx) => {
 				captured.assembledPrompt = ctx.sessionConfig.assembledPrompt;
 				return "abort";
@@ -354,8 +359,9 @@ describe("a subscription wake's forced return is return_status, never send_messa
 
 	test("with no instruction written, the session is told so and left to decide — never told to stay silent", async ({
 		db,
+		runnerDb,
 	}) => {
-		const prompt = await composedPrompt(db as HyperIdleDb, "agent-sub-empty", null, "claude-code");
+		const prompt = await composedPrompt(db, runnerDb, "agent-sub-empty", null, "claude-code");
 
 		expect(prompt).toContain("### What happened");
 		expect(prompt).not.toContain("### Instruction");
@@ -366,9 +372,10 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		expect(prompt).not.toContain("Speak only if");
 	});
 
-	test("with an instruction written, the session speaks only if it asks", async ({ db }) => {
+	test("with an instruction written, the session speaks only if it asks", async ({ db, runnerDb }) => {
 		const prompt = await composedPrompt(
-			db as HyperIdleDb,
+			db,
+			runnerDb,
 			"agent-sub-written",
 			"Tell me when a task is done.",
 			"claude-code",
@@ -381,15 +388,18 @@ describe("a subscription wake's forced return is return_status, never send_messa
 
 	test("the review paragraph names the harness's literal send_message tool and the review's fields", async ({
 		db,
+		runnerDb,
 	}) => {
 		const claude = await composedPrompt(
-			db as HyperIdleDb,
+			db,
+			runnerDb,
 			"agent-sub-review-1",
 			null,
 			"claude-code",
 		);
 		const opencode = await composedPrompt(
-			db as HyperIdleDb,
+			db,
+			runnerDb,
 			"agent-sub-review-2",
 			null,
 			"opencode",

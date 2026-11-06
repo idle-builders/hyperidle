@@ -1,12 +1,8 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ActionResult, EditTaskInput, TaskView } from "@hyperidle/domain-model";
-import type {
-	AgentRunLifecycleChangedEvent,
-	EventBus,
-	SessionEndedEvent,
-} from "@hyperidle/event-bus";
-import { get, taskDispatchAttemptStore } from "@hyperidle/task";
+import type { EventBus, SessionEndedEvent } from "@hyperidle/event-bus";
+import { get } from "@hyperidle/task";
 import type { ActionContext } from "../actions/action.js";
 
 const logger = createLogger({ pkg: "core-api.work-session-end-reactions" });
@@ -15,17 +11,6 @@ const processedTokenSessions = new WeakMap<EventBus, Set<string>>();
 
 /** `edit_task`'s own bound `run` function. */
 type EditTask = (ctx: ActionContext, input: EditTaskInput) => Promise<ActionResult<TaskView>>;
-
-function reactToLifecycleChanged(
-	db: HyperIdleDb,
-	event: AgentRunLifecycleChangedEvent,
-): Promise<void> | undefined {
-	if (event.sourceKind !== "task") return undefined;
-	return taskDispatchAttemptStore.updateIfActive(db, event.requestId, {
-		status: event.state,
-		sessionId: event.sessionId ?? null,
-	});
-}
 
 /**
  * Merge `tokensByTier` into the worked task's own `tokensActualJson` and
@@ -117,15 +102,6 @@ export function registerWorkSessionEndReactions(
 	}
 	registeredBuses.add(eventBus);
 
-	const unsubscribeLifecycle = eventBus.on("agent_run_lifecycle_changed", (event) => {
-		void reactToLifecycleChanged(db, event)?.catch((error: unknown) => {
-			logger.error("agent_run_lifecycle_changed task dispatch-attempt finalize reaction failed", {
-				sourceId: event.sourceId,
-				requestId: event.requestId,
-				error: error instanceof Error ? error.message : String(error),
-			});
-		});
-	});
 	const unsubscribeTokens = eventBus.on("session_ended", (event) => {
 		void reactToSessionEndedTokens(db, eventBus, event, editTask)?.catch((error: unknown) => {
 			logger.error("session_ended task token-writeback reaction failed", {
@@ -137,7 +113,6 @@ export function registerWorkSessionEndReactions(
 	});
 
 	return () => {
-		unsubscribeLifecycle();
 		unsubscribeTokens();
 		registeredBuses.delete(eventBus);
 	};

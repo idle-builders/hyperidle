@@ -2,8 +2,9 @@
  * `fetchPreviousSessionNotes` — most recent done session for the same task,
  * ordered by endedAt descending with nulls excluded.
  */
-import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { sessions } from "@hyperidle/runner-db";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { fetchPreviousSessionNotes } from "../session-store.js";
 
 const AGENT_ID = "agent-prev-notes";
@@ -46,15 +47,15 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 }
 
 describe("fetchPreviousSessionNotes", () => {
-	test("returns null when no done sessions exist for the task", async ({ db }) => {
+	test("returns null when no done sessions exist for the task", async ({ db, runnerDb }) => {
 		await seedWorld(db);
-		const result = await fetchPreviousSessionNotes(db, TASK_A);
+		const result = await fetchPreviousSessionNotes(runnerDb, TASK_A);
 		expect(result).toBeNull();
 	});
 
-	test("returns the notes from the most recent done session of the same task", async ({ db }) => {
+	test("returns the notes from the most recent done session of the same task", async ({ db, runnerDb }) => {
 		await seedWorld(db);
-		await db.insert(sessions).values([
+		await runnerDb.insert(sessions).values([
 			{
 				id: "s-older",
 				taskId: TASK_A,
@@ -78,13 +79,13 @@ describe("fetchPreviousSessionNotes", () => {
 				notes: "newer notes",
 			},
 		]);
-		const result = await fetchPreviousSessionNotes(db, TASK_A);
+		const result = await fetchPreviousSessionNotes(runnerDb, TASK_A);
 		expect(result).toBe("newer notes");
 	});
 
-	test("ignores done sessions for a different task", async ({ db }) => {
+	test("ignores done sessions for a different task", async ({ db, runnerDb }) => {
 		await seedWorld(db);
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "s-other-task",
 			taskId: TASK_B,
 			agentId: AGENT_ID,
@@ -95,13 +96,13 @@ describe("fetchPreviousSessionNotes", () => {
 			outcome: "completed",
 			notes: "other task notes",
 		});
-		const result = await fetchPreviousSessionNotes(db, TASK_A);
+		const result = await fetchPreviousSessionNotes(runnerDb, TASK_A);
 		expect(result).toBeNull();
 	});
 
-	test("ignores non-done sessions for the same task", async ({ db }) => {
+	test("ignores non-done sessions for the same task", async ({ db, runnerDb }) => {
 		await seedWorld(db);
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "s-active",
 			taskId: TASK_A,
 			agentId: AGENT_ID,
@@ -110,13 +111,13 @@ describe("fetchPreviousSessionNotes", () => {
 			state: "active",
 			notes: "active notes",
 		});
-		const result = await fetchPreviousSessionNotes(db, TASK_A);
+		const result = await fetchPreviousSessionNotes(runnerDb, TASK_A);
 		expect(result).toBeNull();
 	});
 
-	test("ignores a done session with null endedAt", async ({ db }) => {
+	test("ignores a done session with null endedAt", async ({ db, runnerDb }) => {
 		await seedWorld(db);
-		await db.insert(sessions).values([
+		await runnerDb.insert(sessions).values([
 			{
 				id: "s-null-ended",
 				taskId: TASK_A,
@@ -140,7 +141,7 @@ describe("fetchPreviousSessionNotes", () => {
 				notes: "real ended notes",
 			},
 		]);
-		const result = await fetchPreviousSessionNotes(db, TASK_A);
+		const result = await fetchPreviousSessionNotes(runnerDb, TASK_A);
 		expect(result).toBe("real ended notes");
 	});
 });

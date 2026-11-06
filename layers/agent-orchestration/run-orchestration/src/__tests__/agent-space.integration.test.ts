@@ -17,8 +17,9 @@ import { mkdirSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { agentRunConfig, tasks, teams, threads, users } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { tasks, teams, threads, users } from "@hyperidle/db";
+import { agentRunConfig, type RunnerDb } from "@hyperidle/runner-db";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
 import { afterEach, beforeEach, vi } from "vitest";
@@ -36,7 +37,7 @@ import { addSpaceFolder } from "../space-folders.js";
 const NOW = "2026-11-06T00:00:00.000Z";
 
 async function insertAgent(
-	db: Parameters<typeof readAgentRunConfig>[0],
+	db: HyperIdleDb,
 	id: string,
 	name = id,
 ): Promise<void> {
@@ -109,36 +110,36 @@ describe("agent spaces", () => {
 		fs.rmSync(tmpdir, { recursive: true, force: true });
 	});
 
-	test("creates the agent space and persists its path in run config", async ({ db }) => {
+	test("creates the agent space and persists its path in run config", async ({ db, runnerDb }) => {
 		await insertAgent(db, "agent-new", "Alice");
 
-		const spacePath = await ensureAgentSpace(db, "agent-new", "Alice");
+		const spacePath = await ensureAgentSpace(runnerDb, "agent-new", "Alice");
 
 		expect(spacePath).toBe(path.join(tmpdir, "Alice"));
 		expect(fs.existsSync(spacePath)).toBe(true);
-		const config = await readAgentRunConfig(db, "agent-new");
+		const config = await readAgentRunConfig(runnerDb, "agent-new");
 		expect(config.spacePath).toBe(spacePath);
 	});
 
-	test("reuses an existing space on subsequent calls", async ({ db }) => {
+	test("reuses an existing space on subsequent calls", async ({ db, runnerDb }) => {
 		await insertAgent(db, "agent-reuse", "Bob");
 
-		const first = await ensureAgentSpace(db, "agent-reuse", "Bob");
-		const second = await ensureAgentSpace(db, "agent-reuse", "Bob");
+		const first = await ensureAgentSpace(runnerDb, "agent-reuse", "Bob");
+		const second = await ensureAgentSpace(runnerDb, "agent-reuse", "Bob");
 
 		expect(second).toBe(first);
 		// Config row written exactly once: second call reads and returns.
-		const config = await readAgentRunConfig(db, "agent-reuse");
+		const config = await readAgentRunConfig(runnerDb, "agent-reuse");
 		expect(config.spacePath).toBe(first);
 	});
 
-	test("two agents with the same name get distinct directories", async ({ db }) => {
+	test("two agents with the same name get distinct directories", async ({ db, runnerDb }) => {
 		await insertAgent(db, "agent-coll-1", "Eve");
 		await insertAgent(db, "agent-coll-2", "Eve");
 
 		// Create the first agent's space so the name 'Eve' is taken.
-		const first = await ensureAgentSpace(db, "agent-coll-1", "Eve");
-		const second = await ensureAgentSpace(db, "agent-coll-2", "Eve");
+		const first = await ensureAgentSpace(runnerDb, "agent-coll-1", "Eve");
+		const second = await ensureAgentSpace(runnerDb, "agent-coll-2", "Eve");
 
 		expect(first).not.toBe(second);
 		expect(fs.existsSync(first)).toBe(true);
@@ -147,18 +148,18 @@ describe("agent spaces", () => {
 		expect(path.basename(second)).toMatch(/^Eve-[0-9a-f]{6}$/);
 	});
 
-	test("currentSpacePath shortcut skips the DB read", async ({ db }) => {
+	test("currentSpacePath shortcut skips the DB read", async ({ db, runnerDb }) => {
 		await insertAgent(db, "agent-shortcut", "Carol");
 
 		// Supply spacePath directly (as if already read by the provisioner).
 		const existing = path.join(tmpdir, "Carol");
 		mkdirSync(existing, { recursive: true });
 		// Insert a row so we can verify it is NOT overwritten.
-		await db
+		await runnerDb
 			.insert(agentRunConfig)
 			.values({ agentUserId: "agent-shortcut", spacePath: existing, maxConcurrentSessions: 1 });
 
-		const returned = await ensureAgentSpace(db, "agent-shortcut", "Carol", existing);
+		const returned = await ensureAgentSpace(runnerDb, "agent-shortcut", "Carol", existing);
 
 		expect(returned).toBe(existing);
 	});
@@ -179,9 +180,10 @@ describe("working folder isolation", () => {
 
 	test("task run and conversation run for the same agent get separate folders, both persist", async ({
 		db,
+		runnerDb,
 	}) => {
 		await insertAgent(db, "agent-iso", "Isolator");
-		const spacePath = await ensureAgentSpace(db, "agent-iso", "Isolator");
+		const spacePath = await ensureAgentSpace(runnerDb, "agent-iso", "Isolator");
 
 		const taskFolder = deriveWorkingFolder(spacePath, { taskId: "task-iso-1" });
 		const convFolder = deriveWorkingFolder(spacePath, { callingThreadId: "thread-iso-1" });
@@ -200,9 +202,9 @@ describe("working folder isolation", () => {
 		expect(fs.existsSync(convFolder)).toBe(true);
 	});
 
-	test("second run of same conversation returns the same folder", async ({ db }) => {
+	test("second run of same conversation returns the same folder", async ({ db, runnerDb }) => {
 		await insertAgent(db, "agent-reuse-conv", "Reuser");
-		const spacePath = await ensureAgentSpace(db, "agent-reuse-conv", "Reuser");
+		const spacePath = await ensureAgentSpace(runnerDb, "agent-reuse-conv", "Reuser");
 
 		const first = deriveWorkingFolder(spacePath, { callingThreadId: "thread-reuse-1" });
 		mkdirSync(first, { recursive: true });
@@ -216,9 +218,10 @@ describe("working folder isolation", () => {
 
 	test("spaces root stays outside the repo (HYPERIDLE_SPACES_DIR isolates to temp dir)", async ({
 		db,
+		runnerDb,
 	}) => {
 		await insertAgent(db, "agent-safety", "SafetyAgent");
-		const spacePath = await ensureAgentSpace(db, "agent-safety", "SafetyAgent");
+		const spacePath = await ensureAgentSpace(runnerDb, "agent-safety", "SafetyAgent");
 
 		// The space is under our temp dir, never the repo root.
 		expect(spacePath.startsWith(tmpdir)).toBe(true);
@@ -298,9 +301,9 @@ describe("real provisioner runs: working folder isolation", () => {
 		fs.rmSync(spacesDir, { recursive: true, force: true });
 	});
 
-	function buildDeps(db: HyperIdleDb, capturedPaths: Map<string, string>): ProvisionSessionDeps {
+	function buildDeps(runnerDb: RunnerDb, capturedPaths: Map<string, string>): ProvisionSessionDeps {
 		return {
-			db,
+			db: runnerDb,
 			eventBus: new EventBus(),
 			adapterPool: {
 				select: () => ({
@@ -343,6 +346,7 @@ describe("real provisioner runs: working folder isolation", () => {
 
 	test("concurrent task and conversation runs of the same agent get different working folders; files don't cross", async ({
 		db,
+		runnerDb,
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
@@ -353,7 +357,7 @@ describe("real provisioner runs: working folder isolation", () => {
 			status: "active",
 			createdAt: now,
 		});
-		await seedTask(db as HyperIdleDb, "task-real-iso-1");
+		await seedTask(db, "task-real-iso-1");
 
 		const capturedPaths = new Map<string, string>();
 		const ports = buildRunningHarnessPorts({
@@ -376,7 +380,7 @@ describe("real provisioner runs: working folder isolation", () => {
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null, name: "RealIso" },
 		} as ProvisionSessionParams;
 
-		const depsForRun = buildDeps(db as HyperIdleDb, capturedPaths);
+		const depsForRun = buildDeps(runnerDb, capturedPaths);
 
 		// Run both concurrently: they must each derive a different working folder.
 		const [taskAdmitted, convAdmitted] = await Promise.all([
@@ -410,7 +414,7 @@ describe("real provisioner runs: working folder isolation", () => {
 		expect(fs.existsSync(path.join(spacesDir, "RealIso"))).toBe(true);
 	});
 
-	test("second conversation run of the same agent uses the same working folder", async ({ db }) => {
+	test("second conversation run of the same agent uses the same working folder", async ({ db, runnerDb }) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
 			id: "agent-real-reuse",
@@ -439,7 +443,7 @@ describe("real provisioner runs: working folder isolation", () => {
 			},
 		} as ProvisionSessionParams;
 
-		const depsForRun = buildDeps(db as HyperIdleDb, capturedPaths);
+		const depsForRun = buildDeps(runnerDb, capturedPaths);
 
 		const admitted1 = await provisioner.admit(depsForRun, params);
 		await provisioner.run(depsForRun, params, admitted1);
@@ -463,6 +467,7 @@ describe("real provisioner runs: working folder isolation", () => {
 
 	test("space-linked git repo mounted as worktree: CLAUDE.md byte-identical, instruction file in root", async ({
 		db,
+		runnerDb,
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
@@ -488,7 +493,7 @@ describe("real provisioner runs: working folder isolation", () => {
 			// Pre-create the agent's space (provisioner will reuse it) and add the
 			// git repo as a space-folder symlink before the session starts.
 			const spacePath = await ensureAgentSpace(
-				db as HyperIdleDb,
+				runnerDb,
 				"agent-real-mount",
 				"RealMount",
 				null,
@@ -521,7 +526,7 @@ describe("real provisioner runs: working folder isolation", () => {
 			} as ProvisionSessionParams;
 
 			const deps: ProvisionSessionDeps = {
-				...buildDeps(db as HyperIdleDb, capturedPaths),
+				...buildDeps(runnerDb, capturedPaths),
 				gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
 			};
 

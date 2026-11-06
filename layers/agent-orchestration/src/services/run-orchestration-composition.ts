@@ -1,7 +1,7 @@
 // Composition root for the `run-orchestration` Service.
 // Execution content (harness adapters) arrives as opaque typed values from `bootAgentExecution`.
 
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { summarizeToolArgs } from "@hyperidle/diagnostics";
 import type {
 	ActionResult,
@@ -105,8 +105,8 @@ function buildHarnessRuntime(
 	};
 }
 
-function widenToToolContext(ctx: SessionLifecycleToolContext): ToolContext<HyperIdleDb> {
-	return ctx as ToolContext<HyperIdleDb>;
+function widenToToolContext(ctx: SessionLifecycleToolContext): ToolContext<RunnerDb> {
+	return ctx as ToolContext<RunnerDb>;
 }
 
 /**
@@ -151,7 +151,7 @@ function buildDocumentWritebackPort(
 // @lore: actionTools is a thunk — injected before own session actions exist; called at USE time so create-server.ts reassigns the list after both boots complete
 function buildToolProvider(
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
-	actionTools: () => readonly RegisteredTool<HyperIdleDb>[],
+	actionTools: () => readonly RegisteredTool<RunnerDb>[],
 ): SessionLifecyclePorts["toolProvider"] {
 	return {
 		buildToolRegistry(ctx, options) {
@@ -186,7 +186,7 @@ const sessionRequestsPort: SessionLifecyclePorts["sessionRequests"] = {
 function buildSessionLifecyclePorts(
 	harnessRuntimeAdapter: RunOrchestrationHarnessRuntimeAdapter,
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
-	actionTools: () => readonly RegisteredTool<HyperIdleDb>[],
+	actionTools: () => readonly RegisteredTool<RunnerDb>[],
 ): SessionLifecyclePorts {
 	return {
 		sessionRequests: sessionRequestsPort,
@@ -234,7 +234,7 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 			},
 		);
 	},
-	async crashSession(db: HyperIdleDb, eventBus: EventBus, context: SessionContextPort) {
+	async crashSession(db: RunnerDb, eventBus: EventBus, context: SessionContextPort) {
 		await transitionRunInternal(
 			{ db, eventBus, ports: transitionPorts },
 			{
@@ -262,7 +262,7 @@ const runOrchestrationPorts: RuntimePorts = {
 // One composition: runtimeDeps/runSession/startRuntime bound to execution adapters.
 export interface RunOrchestrationComposition {
 	readonly runtimeDeps: (
-		db: HyperIdleDb,
+		db: RunnerDb,
 		eventBus: EventBus,
 		overrides?: Omit<Partial<RuntimeDeps>, "runtime"> & {
 			readonly runtime?: ProvisionSessionDeps;
@@ -276,7 +276,7 @@ export function buildRunOrchestrationComposition(config: {
 	readonly harnessRuntime: RunOrchestrationHarnessRuntimeAdapter;
 	readonly returnStatusTool: RunOrchestrationReturnStatusToolAdapter;
 	// Action list as a thunk; reassigned by create-server.ts after both boots complete.
-	readonly actionTools?: () => readonly RegisteredTool<HyperIdleDb>[];
+	readonly actionTools?: () => readonly RegisteredTool<RunnerDb>[];
 	// Document runners for writeback; absent → no writeback port (bare-app fixture / eval).
 	readonly editDocument?: RunOrchestrationEditDocument;
 	readonly searchDocuments?: RunOrchestrationSearchDocuments;
@@ -293,7 +293,7 @@ export function buildRunOrchestrationComposition(config: {
 			: undefined;
 
 	function runtimeDeps(
-		db: HyperIdleDb,
+		db: RunnerDb,
 		eventBus: EventBus,
 		overrides: Omit<Partial<RuntimeDeps>, "runtime"> & {
 			readonly runtime?: ProvisionSessionDeps;
@@ -331,7 +331,7 @@ export function buildRunOrchestrationComposition(config: {
 
 // Build session action deps — sessions/stop bound to this boot's db/eventBus.
 export function buildSessionActionsDeps(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	eventBus: EventBus,
 	getRecentActivity: (sessionId: string) => ReadonlyArray<ActivityEntry>,
 ): SessionActionsDeps {

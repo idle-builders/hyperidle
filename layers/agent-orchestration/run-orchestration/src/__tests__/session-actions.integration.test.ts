@@ -10,8 +10,9 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, sessions, users } from "@hyperidle/db";
-import { afterEach, describe, expect, test, vi } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, users } from "@hyperidle/db";
+import { sessions, type RunnerDb } from "@hyperidle/runner-db";
+import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import type {
 	ActivityEntry,
 	SearchSessionsInput,
@@ -44,7 +45,7 @@ async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 }
 
 async function seedSession(
-	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	options: {
 		readonly id: string;
 		readonly agentId: string;
@@ -53,7 +54,7 @@ async function seedSession(
 		readonly outcome?: string;
 	},
 ): Promise<void> {
-	await db.insert(sessions).values({
+	await runnerDb.insert(sessions).values({
 		id: options.id,
 		agentId: options.agentId,
 		modelTier: "workhorse",
@@ -91,15 +92,15 @@ function typedActions(deps: SessionActionsDeps): {
 
 describe("createSessionActions", () => {
 	describe("search_sessions", () => {
-		test("no filter lists every session, newest first, capped at 100", async ({ db }) => {
+		test("no filter lists every session, newest first, capped at 100", async ({ db, runnerDb }) => {
 			await seedAgent(db, "agent-search");
-			await seedSession(db, {
+			await seedSession(runnerDb, {
 				id: "s-old",
 				agentId: "agent-search",
 				state: "done",
 				startedAt: "2026-01-01T00:00:00.000Z",
 			});
-			await seedSession(db, {
+			await seedSession(runnerDb, {
 				id: "s-new",
 				agentId: "agent-search",
 				state: "active",
@@ -107,15 +108,15 @@ describe("createSessionActions", () => {
 			});
 			const { search } = typedActions(buildDeps());
 
-			const result = await search.run({ actor: "u1", db, eventBus: new EventBus(), now: NOW }, {});
+			const result = await search.run({ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW }, {});
 
 			if (!result.ok) throw new Error("expected ok");
 			expect(result.data.map((r) => r.id)).toEqual(["s-new", "s-old"]);
 		});
 
-		test("a session that answered in a conversation says which one", async ({ db }) => {
+		test("a session that answered in a conversation says which one", async ({ db, runnerDb }) => {
 			await seedAgent(db, "agent-thread");
-			await db.insert(sessions).values({
+			await runnerDb.insert(sessions).values({
 				id: "s-thread",
 				agentId: "agent-thread",
 				modelTier: "workhorse",
@@ -124,7 +125,7 @@ describe("createSessionActions", () => {
 				sourceKind: "assistant",
 				sourceCorrelationJson: JSON.stringify({ threadId: "th-1", messageId: "m-1" }),
 			});
-			await seedSession(db, {
+			await seedSession(runnerDb, {
 				id: "s-plain",
 				agentId: "agent-thread",
 				state: "done",
@@ -132,7 +133,7 @@ describe("createSessionActions", () => {
 			});
 			const { search } = typedActions(buildDeps());
 
-			const result = await search.run({ actor: "u1", db, eventBus: new EventBus(), now: NOW }, {});
+			const result = await search.run({ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW }, {});
 
 			if (!result.ok) throw new Error("expected ok");
 			expect(result.data.map((r) => [r.id, r.threadId])).toEqual([
@@ -141,14 +142,14 @@ describe("createSessionActions", () => {
 			]);
 		});
 
-		test("filters by state", async ({ db }) => {
+		test("filters by state", async ({ db, runnerDb }) => {
 			await seedAgent(db, "agent-search-2");
-			await seedSession(db, { id: "s-active", agentId: "agent-search-2", state: "active" });
-			await seedSession(db, { id: "s-done", agentId: "agent-search-2", state: "done" });
+			await seedSession(runnerDb, { id: "s-active", agentId: "agent-search-2", state: "active" });
+			await seedSession(runnerDb, { id: "s-done", agentId: "agent-search-2", state: "done" });
 			const { search } = typedActions(buildDeps());
 
 			const result = await search.run(
-				{ actor: "u1", db, eventBus: new EventBus(), now: NOW },
+				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
 				{ state: "active" },
 			);
 
@@ -158,9 +159,9 @@ describe("createSessionActions", () => {
 	});
 
 	describe("watch_session", () => {
-		test("returns the row and the activity buffer", async ({ db }) => {
+		test("returns the row and the activity buffer", async ({ db, runnerDb }) => {
 			await seedAgent(db, "agent-watch");
-			await seedSession(db, { id: "s-watch", agentId: "agent-watch", state: "active" });
+			await seedSession(runnerDb, { id: "s-watch", agentId: "agent-watch", state: "active" });
 			const entry: ActivityEntry = {
 				type: "tool_call",
 				timestamp: 1,
@@ -169,7 +170,7 @@ describe("createSessionActions", () => {
 			const { watch } = typedActions(buildDeps({ activity: () => [entry] }));
 
 			const result = await watch.run(
-				{ actor: "u1", db, eventBus: new EventBus(), now: NOW },
+				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
 				{ id: "s-watch" },
 			);
 
@@ -178,11 +179,11 @@ describe("createSessionActions", () => {
 			expect(result.data.activity).toEqual([entry]);
 		});
 
-		test("an unknown id is not_found", async ({ db }) => {
+		test("an unknown id is not_found", async ({ runnerDb }) => {
 			const { watch } = typedActions(buildDeps());
 
 			const result = await watch.run(
-				{ actor: "u1", db, eventBus: new EventBus(), now: NOW },
+				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
 				{ id: "nope" },
 			);
 
@@ -195,13 +196,14 @@ describe("createSessionActions", () => {
 	describe("stop_session", () => {
 		test("no live entry: stopped true, the row the answer carries is the pre-stop row", async ({
 			db,
+			runnerDb,
 		}) => {
 			await seedAgent(db, "agent-stop-marked");
-			await seedSession(db, { id: "s-marked", agentId: "agent-stop-marked", state: "active" });
+			await seedSession(runnerDb, { id: "s-marked", agentId: "agent-stop-marked", state: "active" });
 			const { stop } = typedActions(buildDeps({ stop: async () => "marked" }));
 
 			const result = await stop.run(
-				{ actor: "u1", db, eventBus: new EventBus(), now: NOW },
+				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
 				{ id: "s-marked" },
 			);
 
@@ -212,9 +214,9 @@ describe("createSessionActions", () => {
 			expect(result.data.session.state).toBe("active");
 		});
 
-		test("a terminal row answers stopped: false", async ({ db }) => {
+		test("a terminal row answers stopped: false", async ({ db, runnerDb }) => {
 			await seedAgent(db, "agent-stop-terminal");
-			await seedSession(db, {
+			await seedSession(runnerDb, {
 				id: "s-terminal",
 				agentId: "agent-stop-terminal",
 				state: "done",
@@ -223,7 +225,7 @@ describe("createSessionActions", () => {
 			const { stop } = typedActions(buildDeps({ stop: async () => "already_ended" }));
 
 			const result = await stop.run(
-				{ actor: "u1", db, eventBus: new EventBus(), now: NOW },
+				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
 				{ id: "s-terminal" },
 			);
 
@@ -231,11 +233,11 @@ describe("createSessionActions", () => {
 			expect(result.data.stopped).toBe(false);
 		});
 
-		test("an unknown id is not_found", async ({ db }) => {
+		test("an unknown id is not_found", async ({ runnerDb }) => {
 			const { stop } = typedActions(buildDeps());
 
 			const result = await stop.run(
-				{ actor: "u1", db, eventBus: new EventBus(), now: NOW },
+				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
 				{ id: "nope" },
 			);
 
@@ -247,27 +249,27 @@ describe("createSessionActions", () => {
 });
 
 describe("stopSessionRun — no live runtime entry", () => {
-	test("CAS-marks stopped/stopped and emits session_ended once", async ({ db }) => {
+	test("CAS-marks stopped/stopped and emits session_ended once", async ({ db, runnerDb }) => {
 		await seedAgent(db, "agent-cas");
-		await seedSession(db, { id: "s-cas", agentId: "agent-cas", state: "active" });
+		await seedSession(runnerDb, { id: "s-cas", agentId: "agent-cas", state: "active" });
 		const eventBus = new EventBus();
 		const emitted: SessionEndedEvent[] = [];
 		eventBus.on("session_ended", (event) => emitted.push(event));
 		const neverLive = async (): Promise<boolean> => false;
 
-		const result = await stopSessionRun(db, eventBus, "s-cas", neverLive);
+		const result = await stopSessionRun(runnerDb, eventBus, "s-cas", neverLive);
 
 		expect(result).toBe("marked");
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, "s-cas"));
+		const [row] = await runnerDb.select().from(sessions).where(eq(sessions.id, "s-cas"));
 		expect(row?.state).toBe("stopped");
 		expect(row?.outcome).toBe("stopped");
 		expect(emitted).toHaveLength(1);
 		expect(emitted[0]).toMatchObject({ sessionId: "s-cas", outcome: "stopped" });
 	});
 
-	test("a terminal row answers already_ended, no write, no emit", async ({ db }) => {
+	test("a terminal row answers already_ended, no write, no emit", async ({ db, runnerDb }) => {
 		await seedAgent(db, "agent-cas-2");
-		await seedSession(db, {
+		await seedSession(runnerDb, {
 			id: "s-cas-2",
 			agentId: "agent-cas-2",
 			state: "done",
@@ -277,7 +279,7 @@ describe("stopSessionRun — no live runtime entry", () => {
 		const emitted: SessionEndedEvent[] = [];
 		eventBus.on("session_ended", (event) => emitted.push(event));
 
-		const result = await stopSessionRun(db, eventBus, "s-cas-2", async () => false);
+		const result = await stopSessionRun(runnerDb, eventBus, "s-cas-2", async () => false);
 
 		expect(result).toBe("already_ended");
 		expect(emitted).toHaveLength(0);
@@ -391,10 +393,11 @@ describe("stopSessionRun — a live runtime entry (the abort path)", () => {
 
 	test("abort reaches adapter.stopSession, stopSessionRun writes nothing, teardown leaves stopped/stopped and emits session_ended once", async ({
 		db,
+		runnerDb,
 	}) => {
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "session-actions-live-"));
 		sandboxDirs.push(sandboxPath);
-		await seedAgent(db as HyperIdleDb, "agent-live");
+		await seedAgent(db, "agent-live");
 
 		const stopSessionCalls: number[] = [];
 		const eventBus = new EventBus();
@@ -410,7 +413,7 @@ describe("stopSessionRun — a live runtime entry (the abort path)", () => {
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
 		} as ProvisionSessionParams;
 		const deps = {
-			db: db as HyperIdleDb,
+			db: runnerDb,
 			eventBus,
 			adapterPool: {
 				select: () => ({
@@ -446,7 +449,7 @@ describe("stopSessionRun — a live runtime entry (the abort path)", () => {
 		// `onHarnessStarted` fires) — safe to stop now.
 		await started;
 		const stopResult = await stopSessionRun(
-			db as HyperIdleDb,
+			runnerDb,
 			eventBus,
 			admitted.sessionId,
 			(sessionId) => sessionRunRegistry.abort(sessionId, "stop"),
@@ -456,7 +459,7 @@ describe("stopSessionRun — a live runtime entry (the abort path)", () => {
 		// `stopSessionRun` on the abort path writes nothing and emits nothing —
 		// the row is still whatever `admitSession` wrote (active), and no
 		// `session_ended` exists yet.
-		const [duringRow] = await (db as HyperIdleDb)
+		const [duringRow] = await runnerDb
 			.select()
 			.from(sessions)
 			.where(eq(sessions.id, admitted.sessionId));
@@ -469,7 +472,7 @@ describe("stopSessionRun — a live runtime entry (the abort path)", () => {
 		// the provisioner's own post-drain teardown).
 		expect(stopSessionCalls.length).toBe(2);
 
-		const [finalRow] = await (db as HyperIdleDb)
+		const [finalRow] = await runnerDb
 			.select()
 			.from(sessions)
 			.where(eq(sessions.id, admitted.sessionId));
@@ -509,10 +512,11 @@ describe("provisioner — an adapter's own return action is not a user stop", ()
 	 */
 	test("an opencode adapter's own return action ends the row done/completed, not stopped", async ({
 		db,
+		runnerDb,
 	}) => {
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "session-actions-opencode-"));
 		sandboxDirs.push(sandboxPath);
-		await seedAgent(db as HyperIdleDb, "agent-opencode");
+		await seedAgent(db, "agent-opencode");
 
 		const eventBus = new EventBus();
 		const emitted: SessionEndedEvent[] = [];
@@ -548,7 +552,7 @@ describe("provisioner — an adapter's own return action is not a user stop", ()
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
 		} as ProvisionSessionParams;
 		const deps = {
-			db: db as HyperIdleDb,
+			db: runnerDb,
 			eventBus,
 			adapterPool: {
 				select: () => ({
@@ -625,7 +629,7 @@ describe("provisioner — an adapter's own return action is not a user stop", ()
 		sessionIdBox.current = admitted.sessionId;
 		await provisioner.run(deps, params, admitted);
 
-		const [row] = await (db as HyperIdleDb)
+		const [row] = await runnerDb
 			.select()
 			.from(sessions)
 			.where(eq(sessions.id, admitted.sessionId));

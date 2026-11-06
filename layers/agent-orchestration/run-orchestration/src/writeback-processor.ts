@@ -1,7 +1,7 @@
 /** Consolidated private capture/writeback stage. */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { createLogger } from "@hyperidle/diagnostics";
 import {
 	type ActionResult,
@@ -54,7 +54,7 @@ interface CaptureWritebackDocumentPort {
 
 // ---- writeback ----
 interface WritebackConfig {
-	db: HyperIdleDb;
+	db: RunnerDb;
 	sandboxPath: string;
 	sessionId: string;
 	manifestPath: string;

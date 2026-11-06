@@ -11,8 +11,9 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, users } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { users } from "@hyperidle/db";
+import type { RunnerDb } from "@hyperidle/runner-db";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
@@ -25,9 +26,9 @@ import {
 import { TargetAgentNotRunnableError } from "../errors.js";
 import { createProvisioner } from "../provisioner.js";
 
-function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
+function buildDeps(runnerDb: RunnerDb): ProvisionSessionDeps {
 	return {
-		db,
+		db: runnerDb,
 		eventBus: new EventBus(),
 		adapterPool: {
 			select: () => ({
@@ -59,6 +60,7 @@ describe("admitSession — baked agent-runnability config", () => {
 
 	test("a bad bake still throws TargetAgentNotRunnableError, even when the live row is runnable", async ({
 		db,
+		runnerDb,
 	}) => {
 		const now = new Date().toISOString();
 		// The LIVE row is runnable — proving Phase 1 does not (and structurally
@@ -93,13 +95,13 @@ describe("admitSession — baked agent-runnability config", () => {
 			},
 		};
 
-		await expect(provisioner.admit(buildDeps(db as HyperIdleDb), params)).rejects.toBeInstanceOf(
+		await expect(provisioner.admit(buildDeps(runnerDb), params)).rejects.toBeInstanceOf(
 			TargetAgentNotRunnableError,
 		);
 	});
 
 	test("a missing bake (agentConfig absent entirely) is a hard provisioning failure, never a silent allow", async ({
-		db,
+		runnerDb,
 	}) => {
 		const ports = buildNeverCalledPorts();
 		const provisioner = createProvisioner(ports);
@@ -111,13 +113,14 @@ describe("admitSession — baked agent-runnability config", () => {
 			// No `agentConfig` at all — every real durable path bakes one.
 		};
 
-		await expect(provisioner.admit(buildDeps(db as HyperIdleDb), params)).rejects.toBeInstanceOf(
+		await expect(provisioner.admit(buildDeps(runnerDb), params)).rejects.toBeInstanceOf(
 			TargetAgentNotRunnableError,
 		);
 	});
 
 	test("a well-formed baked snapshot admits successfully with zero live read — an agent deactivated in the live row after emit still admits, by design", async ({
 		db,
+		runnerDb,
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
@@ -152,12 +155,12 @@ describe("admitSession — baked agent-runnability config", () => {
 			},
 		};
 
-		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), params);
+		const admitted = await provisioner.admit(buildDeps(runnerDb), params);
 		expect(admitted).toBeDefined();
 		expect(admitted.sessionId).toEqual(expect.any(String));
 	});
 
-	test("the baked persona becomes the session's systemPromptText", async ({ db }) => {
+	test("the baked persona becomes the session's systemPromptText", async ({ db, runnerDb }) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
 			id: "ba9f-agent",
@@ -194,7 +197,7 @@ describe("admitSession — baked agent-runnability config", () => {
 			},
 		};
 
-		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), params);
+		const admitted = await provisioner.admit(buildDeps(runnerDb), params);
 
 		// Every session's context also carries the standing instruction to ask
 		// for a review when work deserves a person's agreement, so the persona is
@@ -205,6 +208,7 @@ describe("admitSession — baked agent-runnability config", () => {
 
 	test("an agent with no identity document runs with no persona, not a broken one", async ({
 		db,
+		runnerDb,
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
@@ -219,7 +223,7 @@ describe("admitSession — baked agent-runnability config", () => {
 		const ports = buildNeverCalledPorts();
 		const provisioner = createProvisioner(ports);
 
-		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), {
+		const admitted = await provisioner.admit(buildDeps(runnerDb), {
 			taskId: null,
 			agentId: "ba9f-agent-none",
 			productId: "team-1",

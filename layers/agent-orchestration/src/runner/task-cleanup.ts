@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { TaskView } from "@hyperidle/domain-model";
 import { readAgentRunConfig } from "@hyperidle/run-orchestration";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { createGitRunner } from "../git-runner.js";
 import type { CoreDoor } from "./core-door.js";
 
@@ -24,7 +24,7 @@ const TERMINAL_TASK_STATES = new Set(["done", "killed"]);
  * space was never written is a no-op.
  */
 export async function cleanupFinishedTaskWorktrees(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	agentId: string,
 	door: CoreDoor,
 	key: string,

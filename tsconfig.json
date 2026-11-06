@@ -20,6 +20,9 @@
 			"path": "framework/db"
 		},
 		{
+			"path": "framework/runner-db"
+		},
+		{
 			"path": "tools/eslint-plugin-design"
 		},
 		{

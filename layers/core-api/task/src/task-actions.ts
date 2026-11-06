@@ -871,20 +871,11 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					occasion: "accepted" | "retry" | "owner_handoff";
 			  }
 			| undefined;
-		let predecessorSessionId: string | undefined;
 		const pauseMoved = prev !== null && input.paused !== undefined && input.paused !== prev.paused;
 		let pausedParts: readonly Change[] = [];
 
 		await ctx.db.transaction(async (tx) => {
 			const taskId = prev?.id ?? next.id;
-
-			if (input.ownerAgentId !== undefined && input.ownerAgentId !== prev?.ownerAgentId && prev) {
-				const prevOwnerWasAgent = Boolean(prev.ownerAgentId);
-				const stillLive = prev.state === "accepted" || prev.state === "in_progress";
-				if (prevOwnerWasAgent && stillLive && input.ownerAgentId) {
-					predecessorSessionId = await taskDispatchAttemptStore.findLiveSessionId(tx, prev.id);
-				}
-			}
 
 			const patch: Record<string, unknown> = {
 				parentTaskId: next.parentTaskId,
@@ -1006,7 +997,6 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					taskId,
 					occasion: "owner_handoff",
 					agentId: input.ownerAgentId,
-					predecessorSessionId: predecessorSessionId ?? null,
 					now,
 				});
 				// A swallowed conflict means no row — no dispatch.

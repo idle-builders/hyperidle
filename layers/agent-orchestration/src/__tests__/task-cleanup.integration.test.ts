@@ -8,12 +8,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import { test } from "@hyperidle/db/test-fixtures";
 import { writeAgentRunConfig } from "@hyperidle/run-orchestration";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createGitRunner } from "../git-runner.js";
 import type { CoreDoor } from "../runner/core-door.js";
 import { cleanupFinishedTaskWorktrees } from "../runner/task-cleanup.js";
+import { test } from "../__testing__/test-fixtures.js";
 
 async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 	await db.insert(users).values({
@@ -69,13 +69,13 @@ describe("cleanupFinishedTaskWorktrees", () => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
-	test("removes worktrees for done and killed tasks; leaves in-progress alone", async ({ db }) => {
+	test("removes worktrees for done and killed tasks; leaves in-progress alone", async ({ db, runnerDb }) => {
 		const agentId = "agent-cleanup-scan";
 
 		await seedAgent(db, agentId);
 		const spacePath = path.join(tmpDir, "space");
 		fs.mkdirSync(spacePath, { recursive: true });
-		await writeAgentRunConfig(db, agentId, { spacePath });
+		await writeAgentRunConfig(runnerDb, agentId, { spacePath });
 
 		const repoPath = await makeSourceRepo(tmpDir);
 
@@ -121,13 +121,13 @@ describe("cleanupFinishedTaskWorktrees", () => {
 		await expect(cleanupFinishedTaskWorktrees(db, agentId, door, "key")).resolves.toBeUndefined();
 	});
 
-	test("does nothing when the tasks directory does not exist", async ({ db }) => {
+	test("does nothing when the tasks directory does not exist", async ({ db, runnerDb }) => {
 		const agentId = "agent-cleanup-notasks";
 		await seedAgent(db, agentId);
 		const spacePath = path.join(tmpDir, "space-notasks");
 		fs.mkdirSync(spacePath, { recursive: true });
 		// No tasks/ directory created.
-		await writeAgentRunConfig(db, agentId, { spacePath });
+		await writeAgentRunConfig(runnerDb, agentId, { spacePath });
 
 		const door = makeFakeDoor({});
 		await expect(cleanupFinishedTaskWorktrees(db, agentId, door, "key")).resolves.toBeUndefined();

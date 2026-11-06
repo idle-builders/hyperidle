@@ -11,8 +11,9 @@
  * caller WHICH runs were actually affected.
  */
 
-import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { sessions, type RunnerDb } from "@hyperidle/runner-db";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { requestRunStopForTasks } from "../request-run-stop-for-tasks.js";
@@ -70,8 +71,8 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	}
 }
 
-async function seedRun(db: HyperIdleDb, id: string, taskId: string, state: string): Promise<void> {
-	await db.insert(sessions).values({
+async function seedRun(runnerDb: RunnerDb, id: string, taskId: string, state: string): Promise<void> {
+	await runnerDb.insert(sessions).values({
 		id,
 		taskId,
 		agentId: "agent-1",
@@ -85,13 +86,13 @@ describe("requestRunStopForTasks", () => {
 	// The CAS-mark/emit mechanics of a single stop are `stopSessionRun`'s own
 	// rule, proven directly in session-actions.integration.test.ts — this file
 	// only proves the wiring: which sessions get selected across multiple tasks.
-	test("stops the active runs of the named tasks and returns them", async ({ db }) => {
+	test("stops the active runs of the named tasks and returns them", async ({ db, runnerDb }) => {
 		await seed(db);
-		await seedRun(db, "run-a", "task-a", "active");
-		await seedRun(db, "run-b", "task-b", "active");
+		await seedRun(runnerDb, "run-a", "task-a", "active");
+		await seedRun(runnerDb, "run-b", "task-b", "active");
 		const eventBus = new EventBus();
 
-		const stopped = await requestRunStopForTasks(db, eventBus, ["task-a", "task-b"], noLiveEntry);
+		const stopped = await requestRunStopForTasks(runnerDb, eventBus, ["task-a", "task-b"], noLiveEntry);
 
 		expect([...stopped].sort((x, y) => x.sessionId.localeCompare(y.sessionId))).toEqual([
 			{ taskId: "task-a", sessionId: "run-a" },
@@ -99,14 +100,14 @@ describe("requestRunStopForTasks", () => {
 		]);
 	});
 
-	test("emits session_ended per stopped run on the no-live-entry path", async ({ db }) => {
+	test("emits session_ended per stopped run on the no-live-entry path", async ({ db, runnerDb }) => {
 		await seed(db);
-		await seedRun(db, "run-a", "task-a", "active");
+		await seedRun(runnerDb, "run-a", "task-a", "active");
 		const eventBus = new EventBus();
 		const emitted: unknown[] = [];
 		eventBus.on("session_ended", (event) => emitted.push(event));
 
-		await requestRunStopForTasks(db, eventBus, ["task-a"], noLiveEntry);
+		await requestRunStopForTasks(runnerDb, eventBus, ["task-a"], noLiveEntry);
 
 		expect(emitted).toHaveLength(1);
 		expect(emitted[0]).toMatchObject({
@@ -117,57 +118,58 @@ describe("requestRunStopForTasks", () => {
 		});
 	});
 
-	test("leaves runs on tasks outside the list alone", async ({ db }) => {
+	test("leaves runs on tasks outside the list alone", async ({ db, runnerDb }) => {
 		await seed(db);
-		await seedRun(db, "run-a", "task-a", "active");
-		await seedRun(db, "run-other", "task-untouched", "active");
+		await seedRun(runnerDb, "run-a", "task-a", "active");
+		await seedRun(runnerDb, "run-other", "task-untouched", "active");
 		const eventBus = new EventBus();
 
-		const stopped = await requestRunStopForTasks(db, eventBus, ["task-a"], noLiveEntry);
+		const stopped = await requestRunStopForTasks(runnerDb, eventBus, ["task-a"], noLiveEntry);
 
 		expect(stopped).toEqual([{ taskId: "task-a", sessionId: "run-a" }]);
-		const [other] = await db.select().from(sessions).where(eq(sessions.id, "run-other"));
+		const [other] = await runnerDb.select().from(sessions).where(eq(sessions.id, "run-other"));
 		expect(other?.state).toBe("active");
 	});
 
-	test("is idempotent — an already-stopped run is not in the returned set", async ({ db }) => {
+	test("is idempotent — an already-stopped run is not in the returned set", async ({ db, runnerDb }) => {
 		await seed(db);
-		await seedRun(db, "run-a", "task-a", "active");
+		await seedRun(runnerDb, "run-a", "task-a", "active");
 		const eventBus = new EventBus();
 
-		const first = await requestRunStopForTasks(db, eventBus, ["task-a"], noLiveEntry);
+		const first = await requestRunStopForTasks(runnerDb, eventBus, ["task-a"], noLiveEntry);
 		expect(first).toHaveLength(1);
 
 		// The 0-row CAS: a re-kill of an already-stopped run returns empty.
-		const second = await requestRunStopForTasks(db, eventBus, ["task-a"], noLiveEntry);
+		const second = await requestRunStopForTasks(runnerDb, eventBus, ["task-a"], noLiveEntry);
 		expect(second).toHaveLength(0);
 	});
 
-	test("returns an empty set for an empty task list", async ({ db }) => {
+	test("returns an empty set for an empty task list", async ({ db, runnerDb }) => {
 		await seed(db);
-		await seedRun(db, "run-a", "task-a", "active");
+		await seedRun(runnerDb, "run-a", "task-a", "active");
 		const eventBus = new EventBus();
 
-		expect(await requestRunStopForTasks(db, eventBus, [], noLiveEntry)).toEqual([]);
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, "run-a"));
+		expect(await requestRunStopForTasks(runnerDb, eventBus, [], noLiveEntry)).toEqual([]);
+		const [row] = await runnerDb.select().from(sessions).where(eq(sessions.id, "run-a"));
 		expect(row?.state).toBe("active");
 	});
 
 	test("the abort path stops nothing itself and emits nothing — teardown owns both", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seed(db);
-		await seedRun(db, "run-a", "task-a", "active");
+		await seedRun(runnerDb, "run-a", "task-a", "active");
 		const eventBus = new EventBus();
 		const emitted: unknown[] = [];
 		eventBus.on("session_ended", (event) => emitted.push(event));
 		const liveEntry = async (): Promise<boolean> => true;
 
-		const stopped = await requestRunStopForTasks(db, eventBus, ["task-a"], liveEntry);
+		const stopped = await requestRunStopForTasks(runnerDb, eventBus, ["task-a"], liveEntry);
 
 		expect(stopped).toEqual([{ taskId: "task-a", sessionId: "run-a" }]);
 		expect(emitted).toHaveLength(0);
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, "run-a"));
+		const [row] = await runnerDb.select().from(sessions).where(eq(sessions.id, "run-a"));
 		expect(row?.state).toBe("active");
 	});
 });
