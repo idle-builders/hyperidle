@@ -5,6 +5,7 @@
  * rather than spinning up a fresh temp directory each time.
  */
 
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -39,17 +40,22 @@ function sanitizeName(name: string): string {
 	);
 }
 
+/** Six-character hex suffix derived deterministically from an agent id. */
+function agentIdSuffix(agentId: string): string {
+	return createHash("sha1").update(agentId).digest("hex").slice(0, 6);
+}
+
 /**
  * Find a directory name that does not collide with any existing path under
- * `root`. Appends `-2`, `-3`, … until a free name is found.
+ * `root`. On collision appends a short id derived from the agent id
+ * (e.g. `Eve-3f9a2c`) rather than a numeric counter.
  */
-function collisionFreeDir(root: string, base: string): string {
+function collisionFreeDir(root: string, base: string, agentId: string): string {
 	const candidate = path.join(root, base);
 	if (!existsSync(candidate)) return candidate;
-	for (let n = 2; n <= 999; n++) {
-		const c = path.join(root, `${base}-${n}`);
-		if (!existsSync(c)) return c;
-	}
+	const suffix = agentIdSuffix(agentId);
+	const withSuffix = path.join(root, `${base}-${suffix}`);
+	if (!existsSync(withSuffix)) return withSuffix;
 	throw new Error(`No free directory for '${base}' under '${root}'`);
 }
 
@@ -83,11 +89,20 @@ export async function ensureAgentSpace(
 
 	const root = spacesRoot();
 	mkdirSync(root, { recursive: true });
-	const newPath = collisionFreeDir(root, sanitizeName(agentName));
+	const newPath = collisionFreeDir(root, sanitizeName(agentName), agentId);
 	mkdirSync(newPath, { recursive: true });
 
 	await writeAgentRunConfig(db, agentId, { spacePath: newPath });
 	return newPath;
+}
+
+/** Reject an id that would escape or misname a directory component. */
+function validateDirId(id: string, label: string): void {
+	if (!id) throw new Error(`deriveWorkingFolder: ${label} must not be empty`);
+	if (id === "." || id === "..")
+		throw new Error(`deriveWorkingFolder: ${label} must not be '.' or '..'`);
+	if (id.includes("/") || id.includes("\\"))
+		throw new Error(`deriveWorkingFolder: ${label} must not contain path separators`);
 }
 
 /**
@@ -100,6 +115,8 @@ export async function ensureAgentSpace(
  *   4. `callingThreadId`    — `<space>/conversations/<callingThreadId>/`
  *
  * Every real run carries one of these; a session with none is a caller bug.
+ * taskId, subscriptionId, and callingThreadId must be non-empty and must not
+ * contain path separators or be '.' / '..'.
  */
 export function deriveWorkingFolder(
 	spacePath: string,
@@ -111,9 +128,18 @@ export function deriveWorkingFolder(
 	},
 ): string {
 	if (params.resumeSandboxPath) return params.resumeSandboxPath;
-	if (params.taskId) return path.join(spacePath, "tasks", params.taskId);
-	if (params.subscriptionId) return path.join(spacePath, "subscriptions", params.subscriptionId);
-	if (params.callingThreadId) return path.join(spacePath, "conversations", params.callingThreadId);
+	if (params.taskId) {
+		validateDirId(params.taskId, "taskId");
+		return path.join(spacePath, "tasks", params.taskId);
+	}
+	if (params.subscriptionId) {
+		validateDirId(params.subscriptionId, "subscriptionId");
+		return path.join(spacePath, "subscriptions", params.subscriptionId);
+	}
+	if (params.callingThreadId) {
+		validateDirId(params.callingThreadId, "callingThreadId");
+		return path.join(spacePath, "conversations", params.callingThreadId);
+	}
 	throw new Error(
 		"deriveWorkingFolder: session has no taskId, subscriptionId, callingThreadId, or resumeSandboxPath",
 	);

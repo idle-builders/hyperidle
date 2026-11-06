@@ -294,13 +294,9 @@ function registerExitHandlerOnce(): void {
 
 /**
  * Derive the return-enforcement channel from the CLI binary name.
- * codex → settings-codex (writes .codex/hooks.json Stop hook before startSession)
  * unknown → none (drain-gate floor backstop only)
- *
- * @lore: codex hooks.json — Stop hook requires a trust marker or silently skipped; per-session prompt is the {{prompt}} slot in codex.args, a separate concern
  */
 function deriveCliChannel(binary: string): ReturnEnforcementChannel {
-	if (binary === "codex") return "settings-codex";
 	if (binary === "claude") return "settings-claude";
 	return "none";
 }
@@ -487,22 +483,15 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		// ── Login-based config dir injection.
 		//
-		// "own" login: agent's isolated dir inside its space (CODEX_HOME for codex, CLAUDE_CONFIG_DIR for claude).
+		// "own" login: agent's isolated dir inside its space (CLAUDE_CONFIG_DIR for claude).
 		// "owner" login (or no agentSpace): default dir unchanged — no env var injected.
 		//
-		// @lore: CODEX_HOME — injected here, not in envAllowlist; per-login dir holds auth (no copy made)
 		// @lore: CLAUDE_CONFIG_DIR — isolates claude's config for "own" login; owner login uses default ~/.claude
 		let extraArgs: string[] = [];
-		if (config.agentSpace?.login === "own") {
-			if (this.config.binary === "codex") {
-				const ownCodexDir = path.join(config.agentSpace.path, ".codex");
-				fs.mkdirSync(ownCodexDir, { recursive: true });
-				resolvedEnvMap.CODEX_HOME = ownCodexDir;
-			} else if (this.config.binary === "claude") {
-				const ownClaudeDir = path.join(config.agentSpace.path, ".claude");
-				fs.mkdirSync(ownClaudeDir, { recursive: true });
-				resolvedEnvMap.CLAUDE_CONFIG_DIR = ownClaudeDir;
-			}
+		if (config.agentSpace?.login === "own" && this.config.binary === "claude") {
+			const ownClaudeDir = path.join(config.agentSpace.path, ".claude");
+			fs.mkdirSync(ownClaudeDir, { recursive: true });
+			resolvedEnvMap.CLAUDE_CONFIG_DIR = ownClaudeDir;
 		}
 
 		// ── Per-session opencode gate env injection.
@@ -526,10 +515,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		// ── Per-session MCP token env var injection.
 		//
-		// For codex, the MCP token is delivered via HYPERIDLE_MCP_TOKEN env var
-		// (codex's bearer_token_env_var mechanism). It is injected OUTSIDE the
-		// envAllowlist — the token is per-session-generated and NOT in process.env.
-		// This mirrors the CODEX_HOME injection pattern above.
+		// The MCP token is per-session-generated and NOT in process.env.
 		//
 		// @lore: inject-outside-allowlist — envAllowlist forwards from process.env; MCP token not there; mcpTokenEnv injects without polluting the allowlisted env
 		if (config.mcpTokenEnv) {
@@ -913,29 +899,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 						/* sandbox may not exist */
 					}
 					extraEnv.CLAUDE_CONFIG_DIR = ownClaudeDir;
-				}
-				break;
-			}
-			case "codex": {
-				// codex exec resume <thread-id> <msg> --json [--model <m>]
-				// @lore: codex-resume — exec resume is a first-class subcommand; thread-id from thread.started; CODEX_HOME set per login (own → agent space, owner → default)
-				// @lore: codex-sandbox-inherit — exec resume has no --sandbox flag; workspace-write inherited from original thread; flag is thread-scoped, not config-scoped
-				args = [
-					"exec",
-					"resume",
-					nativeSessionId,
-					message,
-					"--json",
-					...(model ? ["--model", model] : []),
-				];
-				if (config.agentSpace?.login === "own") {
-					const ownCodexDir = path.join(config.agentSpace.path, ".codex");
-					try {
-						fs.mkdirSync(ownCodexDir, { recursive: true });
-					} catch {
-						/* sandbox may not exist */
-					}
-					extraEnv.CODEX_HOME = ownCodexDir;
 				}
 				break;
 			}

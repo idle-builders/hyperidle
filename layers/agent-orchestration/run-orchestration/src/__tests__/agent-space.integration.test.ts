@@ -143,6 +143,8 @@ describe("agent spaces", () => {
 		expect(first).not.toBe(second);
 		expect(fs.existsSync(first)).toBe(true);
 		expect(fs.existsSync(second)).toBe(true);
+		// Second dir gets a 6-char hex suffix from the agent id, not a numeric counter.
+		expect(path.basename(second)).toMatch(/^Eve-[0-9a-f]{6}$/);
 	});
 
 	test("currentSpacePath shortcut skips the DB read", async ({ db }) => {
@@ -258,6 +260,22 @@ describe("deriveWorkingFolder", () => {
 			callingThreadId: "thread-999",
 		});
 		expect(result).toBe("/space/tasks/t-123");
+	});
+
+	test.each([
+		{ label: "empty taskId", params: { taskId: "" } },
+		{ label: "taskId with forward slash", params: { taskId: "task/bad" } },
+		{ label: "taskId with backslash", params: { taskId: "task\\bad" } },
+		{ label: "taskId is dot", params: { taskId: "." } },
+		{ label: "taskId is dot-dot", params: { taskId: ".." } },
+		{ label: "empty subscriptionId", params: { subscriptionId: "" } },
+		{ label: "subscriptionId with slash", params: { subscriptionId: "sub/bad" } },
+		{ label: "subscriptionId is dot-dot", params: { subscriptionId: ".." } },
+		{ label: "empty callingThreadId", params: { callingThreadId: "" } },
+		{ label: "callingThreadId with slash", params: { callingThreadId: "thread/bad" } },
+		{ label: "callingThreadId is dot", params: { callingThreadId: "." } },
+	])("$label throws", ({ params }) => {
+		expect(() => deriveWorkingFolder("/space", params)).toThrow("deriveWorkingFolder");
 	});
 });
 

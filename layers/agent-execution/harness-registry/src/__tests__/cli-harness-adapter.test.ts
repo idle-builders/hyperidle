@@ -1162,23 +1162,6 @@ describe("CliHarnessAdapter agentSpace login", () => {
 		expect(spawnEnv.CODEX_HOME).toBeUndefined();
 	});
 
-	it('login "own" on codex binary sets CODEX_HOME to <space>/.codex', async () => {
-		const spawnSpy = vi.fn();
-		const fakeChild = makeFakeChild();
-		spawnSpy.mockReturnValue(fakeChild.proc);
-
-		const adapter = new CliHarnessAdapter(
-			makeConfig({ binary: "codex", args: [], envMap: {}, envAllowlist: [] }),
-			{ spawnFn: spawnSpy, killFn: vi.fn() },
-		);
-
-		await adapter.startSession(makeSessionConfig({ agentSpace: { path: spaceDir, login: "own" } }));
-
-		const spawnEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
-		expect(spawnEnv.CODEX_HOME).toBe(path.join(spaceDir, ".codex"));
-		expect(spawnEnv.CLAUDE_CONFIG_DIR).toBeUndefined();
-	});
-
 	it('login "owner" sets neither CLAUDE_CONFIG_DIR nor CODEX_HOME', async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
@@ -1198,26 +1181,4 @@ describe("CliHarnessAdapter agentSpace login", () => {
 		expect(spawnEnv.CODEX_HOME).toBeUndefined();
 	});
 
-	it('login "own" on resume sets CODEX_HOME for codex', async () => {
-		const spawnSpy = vi.fn();
-		const fakeChild1 = makeFakeChild();
-		const fakeChild2 = makeFakeChild();
-		spawnSpy.mockReturnValueOnce(fakeChild1.proc).mockReturnValueOnce(fakeChild2.proc);
-
-		const adapter = new CliHarnessAdapter(
-			makeConfig({ binary: "codex", args: [], envMap: {}, envAllowlist: [] }),
-			{ spawnFn: spawnSpy, killFn: vi.fn() },
-		);
-
-		// Start first to init adapter, then resume.
-		await adapter.startSession(makeSessionConfig());
-		await adapter.resumeSession("fake-session-id", "continue", {
-			sandboxPath: "/fake/sandbox",
-			modelTier: "workhorse",
-			agentSpace: { path: spaceDir, login: "own" },
-		});
-
-		const resumeEnv = spawnSpy.mock.calls[1]![2]?.env as Record<string, string>;
-		expect(resumeEnv.CODEX_HOME).toBe(path.join(spaceDir, ".codex"));
-	});
 });
