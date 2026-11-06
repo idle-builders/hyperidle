@@ -398,7 +398,7 @@ function buildUserActionsDeps(
 			listByIds: (db, ids) => listChanges(db, { ids }),
 		},
 		runConfig: agentOrchestration.runConfig,
-		folders: agentOrchestration.folders,
+		spaceFolders: agentOrchestration.spaceFolders,
 		connections: agentOrchestration.connections,
 		...(adapterPool
 			? {

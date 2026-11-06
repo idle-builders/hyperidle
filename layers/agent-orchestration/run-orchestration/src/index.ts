@@ -34,11 +34,11 @@ export type {
 export { endRunForHandoff } from "./end-run-for-handoff.js";
 export { startWatcher } from "./file-watcher.js";
 export {
-	type FilesystemForProvisioning,
-	type InjectedFilesystemsReaderPort,
-	mountFilesystemsForAgent,
-} from "./filesystem-provisioning.js";
-export { ensureSandboxGitRepo, RegistryFilesystemMounter } from "./mounter.js";
+	ensureSandboxGitRepo,
+	mountGitWorktree,
+	normalizeLocalPath,
+	sanitizeBranch,
+} from "./mounter.js";
 export type { MountingGitRunnerFactory } from "./mounter-ports.js";
 export type { PluginMcpContributionsPort } from "./provisioner.js";
 export {
@@ -69,6 +69,14 @@ export {
 	stopSessionRun,
 	writeSessionNotes,
 } from "./session-store.js";
+export type { SpaceFolderMountDeps, SpaceFolderView } from "./space-folders.js";
+export {
+	addSpaceFolder,
+	listSpaceFolders,
+	mountSpaceFolders,
+	RESERVED_SPACE_NAMES,
+	removeSpaceFolder,
+} from "./space-folders.js";
 export { startRuntime } from "./start-runtime.js";
 export { transitionRun } from "./transition-run.js";
 export { buildVerdictMessage } from "./verdict-message.js";

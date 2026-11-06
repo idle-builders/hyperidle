@@ -606,7 +606,11 @@ export function ThreadPage({ id }: { id: string }) {
 		<div className="hint">
 			<span>Point {agent.name} at your code, and it can do more</span>
 			<span className="hint-acts">
-				<button type="button" className="btn" onClick={() => navigate("/people/me?open=folder")}>
+				<button
+					type="button"
+					className="btn"
+					onClick={() => navigate(`/people/${agent.id}?open=folder`)}
+				>
 					Connect a folder
 				</button>
 				<button type="button" className="btn" onClick={() => navigate("/people/me?open=service")}>

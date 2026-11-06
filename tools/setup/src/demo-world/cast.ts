@@ -13,8 +13,6 @@ import { installPluginOutsideServer } from "@hyperidle/core-api";
 import {
 	agentRunConfig,
 	documents,
-	filesystemInjections,
-	filesystems,
 	type HyperIdleDb,
 	orgEdges,
 	pluginContributions,
@@ -134,18 +132,14 @@ const AGENTS: readonly AgentSpec[] = [
 	},
 ];
 
-/** Folders each team registered, and the agent given each one. */
+/** Folders symlinked into each agent's space. */
 const FOLDERS = [
 	{
-		id: "demo-folder-northwind",
-		team: PRODUCT_TEAM_ID,
 		name: "northwind",
 		readme: "# Northwind\n\nThe app: sign-up, trials, billing.\n",
 		agent: BUILDER_ID,
 	},
 	{
-		id: "demo-folder-northwind-site",
-		team: SUPPORT_TEAM_ID,
 		name: "northwind-site",
 		readme: "# Northwind site\n\nThe marketing site and pricing page.\n",
 		agent: DESIGNER_ID,
@@ -157,10 +151,15 @@ export interface DemoWorldPlaces {
 	/** Where the server keeps installed plugins, so the demo's plugin can put its own version back. */
 	readonly pluginsBaseDir?: string;
 	/**
-	 * Where the teams' code folders are made. Without it the demo has no folders: a folder that is
+	 * Where the agents' code repos are made. Without it the demo has no folders: a folder that is
 	 * not on this computer only fails every session that mounts it.
 	 */
 	readonly foldersDir?: string;
+	/**
+	 * The spaces base directory. Required alongside `foldersDir` to symlink repos into each agent's
+	 * space. Without it, folder seeding is skipped.
+	 */
+	readonly spacesDir?: string;
 }
 
 /**
@@ -188,27 +187,37 @@ function makeRepo(dir: string, readme: string): void {
 	);
 }
 
-async function seedFolders(db: HyperIdleDb, clock: DemoClock, foldersDir: string): Promise<void> {
+/**
+ * Seed each demo agent's space folders by symlinking repos into the agent's space.
+ * Creates a space directory for each agent under `spacesDir/<agentId>` and symlinks
+ * the repo there using `addSpaceFolder` from run-orchestration.
+ */
+async function seedFolders(db: HyperIdleDb, foldersDir: string, spacesDir: string): Promise<void> {
+	const { addSpaceFolder, ensureAgentSpace } = await import("@hyperidle/run-orchestration");
+	const agentNames: Readonly<Record<string, string>> = {
+		[BUILDER_ID]: "Builder",
+		[GROWTH_ID]: "Growth",
+		[DESIGNER_ID]: "Designer",
+	};
 	for (const folder of FOLDERS) {
 		const repo = path.join(foldersDir, folder.name);
 		makeRepo(repo, folder.readme);
-		await db
-			.insert(filesystems)
-			.values({
-				id: folder.id,
-				teamId: folder.team,
-				source: "local",
-				kind: "code",
-				resourceRef: JSON.stringify({ kind: "code", repo, branch: "main" }),
-				writeback: "git",
-				state: "attached",
-				createdAt: clock.daysAgo(90),
-			})
-			.onConflictDoNothing();
-		await db
-			.insert(filesystemInjections)
-			.values({ agentUserId: folder.agent, filesystemId: folder.id, createdAt: clock.daysAgo(90) })
-			.onConflictDoNothing();
+		const agentName = agentNames[folder.agent];
+		if (!agentName) continue;
+		const prevDir = process.env.HYPERIDLE_SPACES_DIR;
+		process.env.HYPERIDLE_SPACES_DIR = spacesDir;
+		try {
+			const spacePath = await ensureAgentSpace(db, folder.agent, agentName);
+			addSpaceFolder(spacePath, repo, folder.name);
+		} catch {
+			// Not fatal for demo seed — folder already linked or dir already exists.
+		} finally {
+			if (prevDir === undefined) {
+				delete process.env.HYPERIDLE_SPACES_DIR;
+			} else {
+				process.env.HYPERIDLE_SPACES_DIR = prevDir;
+			}
+		}
 	}
 }
 
@@ -374,7 +383,7 @@ export async function seedCast(
 		await setRunConfig(db, agent.id, agent.harness, agent.sessions);
 	}
 
-	if (opts.foldersDir) await seedFolders(db, clock, opts.foldersDir);
+	if (opts.foldersDir && opts.spacesDir) await seedFolders(db, opts.foldersDir, opts.spacesDir);
 
 	for (const service of SERVICES)
 		for (const agentUserId of service.keptFrom)

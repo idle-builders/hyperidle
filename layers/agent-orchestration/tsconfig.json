@@ -24,9 +24,6 @@
 			"path": "../../framework/harness-protocol"
 		},
 		{
-			"path": "filesystems"
-		},
-		{
 			"path": "tool-handlers"
 		}
 	]

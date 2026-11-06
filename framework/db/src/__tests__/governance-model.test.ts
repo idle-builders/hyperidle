@@ -601,8 +601,8 @@ describe("the registries are honest", () => {
 		// registry honest. The pass that dropped five unused tables took this from 44 to 39.
 		// The document module fold (five knowledge tables into one `documents` table) took this
 		// from 33 to 29. Dropping the plugin configuration defaults and overrides took it from 27
-		// to 25.
-		expect(liveTables.size).toBeGreaterThan(20);
+		// to 25. Dropping filesystem_injections and filesystems took it from 22 to 20.
+		expect(liveTables.size).toBeGreaterThan(18);
 		expect(() => validateTableOwners(tableOwners, liveTables, packageNames)).not.toThrow();
 		expect(tableOwners.totals.tables).toBe(liveTables.size);
 	});

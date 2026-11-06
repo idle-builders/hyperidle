@@ -31,7 +31,6 @@ const PROJECTS = [
 	"layers/agent-orchestration/session-requests",
 	"layers/agent-orchestration/connections",
 	"layers/agent-orchestration/run-orchestration",
-	"layers/agent-orchestration/filesystems",
 	"layers/agent-orchestration/tool-handlers",
 	"layers/agent-execution",
 	"layers/agent-execution/harness-registry",

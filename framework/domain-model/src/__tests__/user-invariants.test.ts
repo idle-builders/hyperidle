@@ -388,17 +388,11 @@ describe("EditUserInputSchema", () => {
 		expect(result.success).toBe(false);
 	});
 
-	it("parses folders.add with a code resourceRef", () => {
+	it("parses folders.add with a path", () => {
 		const result = EditUserInputSchema.safeParse({
 			id: "u1",
 			folders: {
-				add: [
-					{
-						kind: "code",
-						resourceRef: { kind: "code", repo: "org/repo", branch: "main" },
-						writeback: "git",
-					},
-				],
+				add: [{ path: "~/code/org-repo" }],
 			},
 		});
 		expect(result.success).toBe(true);
@@ -417,13 +411,7 @@ describe("EditUserInputSchema", () => {
 			name: "Ada",
 			teams: ["Core"],
 			folders: {
-				add: [
-					{
-						kind: "doc_set",
-						resourceRef: { kind: "doc_set", folder: "/home/ada" },
-						writeback: "none",
-					},
-				],
+				add: [{ path: "/home/ada" }],
 			},
 			connections: { add: [{ authSource: "mcp", serverUrl: "https://example.com/mcp" }] },
 		});
@@ -436,13 +424,7 @@ describe("EditUserInputSchema", () => {
 			name: "Ada",
 			teams: ["Core"],
 			folders: {
-				add: [
-					{
-						kind: "doc_set",
-						resourceRef: { kind: "doc_set", folder: "/home/ada" },
-						writeback: "none",
-					},
-				],
+				add: [{ path: "/home/ada" }],
 			},
 			connections: { add: [{ authSource: "mcp", serverUrl: "https://example.com/mcp" }] },
 		});

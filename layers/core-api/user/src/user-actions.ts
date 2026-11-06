@@ -100,19 +100,12 @@ export type UserActionsRunConfigPatch = {
 	-readonly [K in keyof UserActionsRunConfigView]?: UserActionsRunConfigView[K];
 };
 
-/** Mirrors `AgentOrchestrationFolderView`. */
+/** Mirrors `SpaceFolderView` (`@hyperidle/run-orchestration`). */
 export interface UserActionsFolderView {
-	readonly id: string;
-	readonly teamId: string;
-	readonly source: string;
-	readonly kind: "code" | "doc_set";
-	readonly connectionId: string | null;
-	readonly resourceRef:
-		| { readonly kind: "code"; readonly repo: string; readonly branch: string }
-		| { readonly kind: "doc_set"; readonly folder: string };
-	readonly writeback: "git" | "file" | "none";
-	readonly state: "attached" | "reachable" | "needs_attention";
-	readonly createdAt: string;
+	readonly name: string;
+	readonly path: string;
+	readonly isGit: boolean;
+	readonly isMissing: boolean;
 }
 
 /** Mirrors `AgentOrchestrationConnectionView`. */
@@ -149,30 +142,17 @@ export interface UserActionsDeps {
 		 * Called when login is set to "own" so the probe can run before the first session. */
 		ensureSpace(agentId: string, agentName: string): Promise<string>;
 	};
-	readonly folders: {
-		list(
-			query: { readonly teamId: string } | { readonly agentUserId: string },
-		): Promise<readonly UserActionsFolderView[]>;
+	readonly spaceFolders: {
+		list(agentId: string): Promise<readonly UserActionsFolderView[]>;
 		add(
-			teamId: string,
-			body: {
-				readonly kind: "code" | "doc_set";
-				readonly connectionId?: string | null;
-				readonly resourceRef: UserActionsFolderView["resourceRef"];
-				readonly writeback: "git" | "file" | "none";
-			},
-		): Promise<
-			| { readonly ok: true; readonly folder: UserActionsFolderView }
-			| { readonly ok: false; readonly code: "TEAM_NOT_FOUND" }
-		>;
-		remove(id: string): Promise<UserActionsRemoveResult>;
-		give(
-			id: string,
-			agentUserId: string,
-		): Promise<
-			{ readonly ok: true } | { readonly ok: false; readonly code: "NOT_FOUND" | "CONFLICT" }
-		>;
-		take(id: string, agentUserId: string): Promise<UserActionsRemoveResult>;
+			agentId: string,
+			path: string,
+			name?: string,
+		): Promise<{ readonly ok: true } | { readonly ok: false; readonly code: string }>;
+		remove(
+			agentId: string,
+			name: string,
+		): Promise<{ readonly ok: true } | { readonly ok: false; readonly code: string }>;
 	};
 	readonly connections: {
 		list(userId: string): Promise<{
@@ -439,10 +419,7 @@ async function buildUserView(
 			.map((d) => ({ slot: d.slot, id: d.id }));
 	}
 
-	const folders =
-		userRow.kind === "ai"
-			? await deps.folders.list({ agentUserId: userRow.id })
-			: (await Promise.all(userRow.teamIds.map((teamId) => deps.folders.list({ teamId })))).flat();
+	const folders = userRow.kind === "ai" ? await deps.spaceFolders.list(userRow.id) : [];
 
 	const subscriptionRows = await listSubscriptions(ctx.db, { userId: userRow.id });
 	const promptDocByParent = new Map<string, string>();
@@ -503,13 +480,12 @@ async function buildUserView(
 		agentLoginStatus = await deps.probeAgentLogin(runConfig.harnessType, runConfig.spacePath);
 	}
 
-	// Cast: `runConfig`/`folders`/`connections` come straight off
-	// `AgentOrchestrationPort` (`AgentOrchestrationRunConfigView`/
-	// `AgentOrchestrationFolderView`/`AgentOrchestrationConnectionView`) —
-	// structural mirrors of the wire shape `UserView` names, which the domain-model action file may
-	// not import (zero-runtime-deps). `readonly` arrays don't structurally
-	// satisfy a mutable wire array either. The real values are always one of
-	// the wire enum's members; the cast is the same trust boundary
+	// Cast: `runConfig`/`spaceFolders`/`connections` come straight off
+	// `AgentOrchestrationPort` — structural mirrors of the wire shape
+	// `UserView` names, which the domain-model action file may not import
+	// (zero-runtime-deps). `readonly` arrays don't structurally satisfy a
+	// mutable wire array either. The real values are always one of the wire
+	// enum's members; the cast is the same trust boundary
 	// `agent-orchestration-port-composition.ts` already carries the other
 	// direction.
 	return {
@@ -675,120 +651,57 @@ async function archiveSubscriptionPrompt(
 //
 // ---------------------------------------------------------------------------
 
-/** A folder is added to one of the user's teams — the one named, or their only
- * one. `give`'s team-consistency gate checks the folder is one of those teams'
- * with `folders.list({teamId})`. A folder already given to this
- * agent is CONFLICT from the port — its own code, `folder_already_given`,
- * distinct from a team mismatch.
+/**
+ * Apply a `folders` edit to an agent's space.
  *
- * Port calls throw on non-2xx; each is wrapped to convert thrown failure into
- * the same problem as a returned !ok — thrown and returned failures are indistinguishable to the caller. */
+ * Persons are refused — folders only belong to agents (space symlinks).
+ * Agents: `add` creates a symlink, `remove` deletes one. The port returns a
+ * typed code for each expected failure; a thrown error is treated as an
+ * unexpected I/O failure.
+ */
 async function applyUserFolders(
 	deps: UserActionsDeps,
 	id: string,
-	teams: readonly { readonly id: string; readonly name: string }[],
+	kind: string,
 	folders: NonNullable<EditUserInput["folders"]>,
-	recipients: (teamId: string) => Promise<readonly string[]>,
 ): Promise<Problem | null> {
-	for (const { team: teamName, ...body } of folders.add ?? []) {
-		const team =
-			teamName !== undefined
-				? teams.find((t) => t.name === teamName)
-				: teams.length === 1
-					? teams[0]
-					: undefined;
-		if (!team) {
-			return {
-				code: "folder_team_required",
-				message:
-					teamName !== undefined
-						? `'${teamName}' is not one of this user's teams.`
-						: "Name which of this user's teams the folder belongs to.",
-				path: "folders",
-			};
-		}
-		let result: Awaited<ReturnType<typeof deps.folders.add>>;
+	if (kind !== "ai") {
+		return {
+			code: "folders_not_supported",
+			message: "Persons don't have folders — only agents do.",
+			path: "folders",
+		};
+	}
+	for (const { path, name } of folders.add ?? []) {
+		let result: Awaited<ReturnType<typeof deps.spaceFolders.add>>;
 		try {
-			result = await deps.folders.add(team.id, body);
+			result = await deps.spaceFolders.add(id, path, name);
 		} catch {
-			return { code: "unknown_folder", message: "That team does not exist.", path: "folders" };
+			return { code: "unknown_folder", message: "Could not add that folder.", path: "folders" };
 		}
 		if (!result.ok) {
-			return { code: "unknown_folder", message: "That team does not exist.", path: "folders" };
-		}
-		for (const agentId of await recipients(team.id)) {
-			await deps.folders.give(result.folder.id, agentId);
-		}
-	}
-	for (const folderId of folders.remove ?? []) {
-		let result: Awaited<ReturnType<typeof deps.folders.remove>>;
-		try {
-			result = await deps.folders.remove(folderId);
-		} catch {
-			return { code: "unknown_folder", message: `No folder '${folderId}'.`, path: "folders" };
-		}
-		if (!result.ok) {
-			return { code: "unknown_folder", message: `No folder '${folderId}'.`, path: "folders" };
-		}
-	}
-	for (const folderId of folders.give ?? []) {
-		if (teams.length === 0) {
 			return {
-				code: "folder_other_team",
-				message: "This agent has no team to receive a folder.",
+				code: "unknown_folder",
+				message: `Could not add folder '${name ?? path}': ${result.code}.`,
 				path: "folders",
 			};
 		}
-		let teamFolders: readonly UserActionsFolderView[];
-		try {
-			teamFolders = (
-				await Promise.all(teams.map((team) => deps.folders.list({ teamId: team.id })))
-			).flat();
-		} catch {
-			return {
-				code: "folder_other_team",
-				message: `Folder '${folderId}' does not belong to this agent's team.`,
-				path: "folders",
-			};
-		}
-		if (!teamFolders.some((f) => f.id === folderId)) {
-			return {
-				code: "folder_other_team",
-				message: `Folder '${folderId}' does not belong to this agent's team.`,
-				path: "folders",
-			};
-		}
-		let result: Awaited<ReturnType<typeof deps.folders.give>>;
-		try {
-			result = await deps.folders.give(folderId, id);
-		} catch {
-			return { code: "unknown_folder", message: `No folder '${folderId}'.`, path: "folders" };
-		}
-		if (!result.ok) {
-			return result.code === "CONFLICT"
-				? {
-						code: "folder_already_given",
-						message: `Folder '${folderId}' is already given to this agent.`,
-						path: "folders",
-					}
-				: { code: "unknown_folder", message: `No folder '${folderId}'.`, path: "folders" };
-		}
 	}
-	for (const folderId of folders.take ?? []) {
-		let result: Awaited<ReturnType<typeof deps.folders.take>>;
+	for (const name of folders.remove ?? []) {
+		let result: Awaited<ReturnType<typeof deps.spaceFolders.remove>>;
 		try {
-			result = await deps.folders.take(folderId, id);
+			result = await deps.spaceFolders.remove(id, name);
 		} catch {
 			return {
 				code: "unknown_folder",
-				message: `No folder '${folderId}' given to this agent.`,
+				message: `No folder '${name}' in this agent's space.`,
 				path: "folders",
 			};
 		}
 		if (!result.ok) {
 			return {
 				code: "unknown_folder",
-				message: `No folder '${folderId}' given to this agent.`,
+				message: `No folder '${name}' in this agent's space.`,
 				path: "folders",
 			};
 		}
@@ -863,23 +776,6 @@ async function applyUserConnections(
 		}
 	}
 	return null;
-}
-
-/**
- * Who a new folder goes to: every agent of its owner in that team — a person's own agents, or an
- * agent's owner's. An agent no one owns keeps it to itself.
- */
-async function folderRecipients(
-	db: HyperIdleDb,
-	user: { readonly id: string; readonly kind: string; readonly ownerUserId: string | null },
-	teamId: string,
-): Promise<string[]> {
-	const owner = user.kind === "human" ? user.id : user.ownerUserId;
-	if (!owner) return [user.id];
-	const agents = await listUsers(db, { ownerUserId: owner, kind: "ai" });
-	return agents
-		.filter((a) => a.status !== "retired" && a.teamIds.includes(teamId))
-		.map((a) => a.id);
 }
 
 /** An agent's `agent_file` says who it is; a person's says what agents should know about them. */
@@ -1045,9 +941,7 @@ async function createUserRun(
 
 	let stepProblem: Problem | null = null;
 	if (input.folders) {
-		stepProblem = await applyUserFolders(deps, id, teams, input.folders, (teamId) =>
-			folderRecipients(ctx.db, { id, kind, ownerUserId: values.ownerUserId ?? null }, teamId),
-		);
+		stepProblem = await applyUserFolders(deps, id, kind, input.folders);
 	}
 	if (!stepProblem && input.connections) {
 		stepProblem = await applyUserConnections(ctx.db, deps, id, input.connections);
@@ -1379,12 +1273,7 @@ async function editExistingUserRun(
 
 	let stepProblem: Problem | null = null;
 	if (input.folders) {
-		const folderTeams =
-			teams ??
-			(await listTeams(ctx.db, { ids: existing.teamIds })).map((t) => ({ id: t.id, name: t.name }));
-		stepProblem = await applyUserFolders(deps, id, folderTeams, input.folders, (teamId) =>
-			folderRecipients(ctx.db, existing, teamId),
-		);
+		stepProblem = await applyUserFolders(deps, id, existing.kind, input.folders);
 	}
 	if (!stepProblem && input.connections) {
 		stepProblem = await applyUserConnections(ctx.db, deps, id, input.connections);

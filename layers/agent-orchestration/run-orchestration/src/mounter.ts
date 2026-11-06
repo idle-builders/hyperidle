@@ -4,19 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { MountingGitRunnerFactory } from "./mounter-ports.js";
-
-/** Structural mirror of @hyperidle/filesystems' Filesystem — run-orchestration may not import filesystems directly; Application composes them. */
-export interface Filesystem {
-	id: string;
-	teamId: string;
-	source: string;
-	kind: string;
-	connectionId: string | null;
-	resourceRef: { kind: "code"; repo: string; branch: string } | { kind: "doc_set"; folder: string };
-	writeback: "git" | "file" | "none";
-	state: string;
-	createdAt: string;
-}
+import { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";
 
 /** Outcome of a mount call. */
 export interface MountResult {
@@ -24,65 +12,11 @@ export interface MountResult {
 	error?: string;
 }
 
-import { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";
-
-const CLOUD_SOURCES = new Set(["gdrive", "dropbox", "s3"]);
-
-export interface AdapterDeps {
-	readonly gitRunnerFactory: MountingGitRunnerFactory;
+export function sanitizeBranch(name: string): string {
+	return name.replace(/^-+/, "").replace(/[^a-zA-Z0-9/_.-]/g, "-");
 }
 
-interface MountContext {
-	readonly filesystem: Filesystem;
-	readonly sandboxPath: string;
-	readonly spacePath?: string;
-	readonly workBranch?: string;
-}
-
-interface MountAdapter {
-	mount(ctx: MountContext): Promise<MountResult>;
-}
-
-class CloudNotBuiltAdapter implements MountAdapter {
-	constructor(private readonly source: string) {}
-	mount(_ctx: MountContext): Promise<MountResult> {
-		return Promise.resolve({
-			success: false,
-			error: `mount adapter not built for source '${this.source}'`,
-		});
-	}
-}
-
-class LocalFolderAdapter implements MountAdapter {
-	mount(ctx: MountContext): Promise<MountResult> {
-		const ref = ctx.filesystem.resourceRef;
-		if (ref.kind !== "doc_set")
-			return Promise.resolve({
-				success: false,
-				error: "Expected doc_set resourceRef",
-			});
-		try {
-			const folder = normalizeLocalPath(ref.folder);
-			const link = path.join(ctx.sandboxPath, path.basename(folder));
-			if (!fs.existsSync(folder)) throw new Error(`folder does not exist: '${ref.folder}'`);
-			if (fs.existsSync(link)) {
-				if (
-					!fs.lstatSync(link).isSymbolicLink() ||
-					fs.realpathSync(link) !== fs.realpathSync(folder)
-				)
-					throw new Error(`mount path already exists: '${link}'`);
-			} else fs.symlinkSync(folder, link);
-			return Promise.resolve({ success: true });
-		} catch (error) {
-			return Promise.resolve({
-				success: false,
-				error: String(error),
-			});
-		}
-	}
-}
-
-function writeExclude(gitDir: string): void {
+export function writeExclude(gitDir: string): void {
 	const destination = path.join(gitDir, "info", "exclude");
 	fs.mkdirSync(path.dirname(destination), { recursive: true });
 	const marker = "# HyperIdle scaffolding exclusion";
@@ -92,64 +26,6 @@ function writeExclude(gitDir: string): void {
 			destination,
 			`${existing}\n${marker}\n${SANDBOX_SCAFFOLDING_PATHS.map((p) => `/${p}`).join("\n")}\n`,
 		);
-}
-
-class GitCloneAdapter implements MountAdapter {
-	constructor(private readonly deps: AdapterDeps) {}
-	async mount(ctx: MountContext): Promise<MountResult> {
-		const ref = ctx.filesystem.resourceRef;
-		if (ref.kind !== "code") return { success: false, error: "Expected code resourceRef" };
-		try {
-			await this.deps.gitRunnerFactory(ctx.sandboxPath).clone(ref.repo, ref.branch, { depth: 1 });
-			writeExclude(path.join(ctx.sandboxPath, ".git"));
-			return { success: true };
-		} catch (error) {
-			return { success: false, error: String(error) };
-		}
-	}
-}
-
-class GitWorktreeAdapter implements MountAdapter {
-	constructor(private readonly deps: AdapterDeps) {}
-	async mount(ctx: MountContext): Promise<MountResult> {
-		const ref = ctx.filesystem.resourceRef;
-		if (ref.kind !== "code") return { success: false, error: "Expected code resourceRef" };
-		// A folder is written the way people type it (`~/code/x`); git needs the real path.
-		const repo = normalizeLocalPath(ref.repo);
-		// Mount inside the sandbox at a named subdirectory so the sandbox root stays
-		// available for scaffolding, context files, and other mounted filesystems.
-		const mountAt = path.join(ctx.sandboxPath, path.basename(repo));
-		fs.mkdirSync(mountAt, { recursive: true });
-		const branch = ctx.workBranch ?? sanitizeBranch(`agent/${path.basename(ctx.sandboxPath)}`);
-		try {
-			// Case 1: mountAt is already a registered worktree for this repo — reuse it.
-			if (isExistingWorktree(mountAt, repo)) {
-				return { success: true };
-			}
-			// Case 2: branch exists but its worktree was removed — re-attach without -b.
-			// Case 3: neither exists — create a new branch and worktree.
-			const branchExists = branchExistsInRepo(repo, branch);
-			await this.deps.gitRunnerFactory(repo).worktreeAdd(mountAt, branch, {
-				createBranch: !branchExists,
-			});
-			const pointer = fs
-				.readFileSync(path.join(mountAt, ".git"), "utf8")
-				.trim()
-				.match(/^gitdir:\s*(.+)$/)?.[1];
-			if (pointer) {
-				const gitDir = fs.realpathSync(path.resolve(mountAt, pointer));
-				const common = resolveCommonGitDir(repo);
-				if (gitDir.startsWith(`${path.join(common, "worktrees")}${path.sep}`)) writeExclude(gitDir);
-			}
-			return { success: true };
-		} catch (error) {
-			return { success: false, error: String(error) };
-		}
-	}
-}
-
-export function sanitizeBranch(name: string): string {
-	return name.replace(/^-+/, "").replace(/[^a-zA-Z0-9/_.-]/g, "-");
 }
 
 function resolveCommonGitDir(repoPath: string): string {
@@ -195,45 +71,6 @@ function branchExistsInRepo(repo: string, branch: string): boolean {
 	}
 }
 
-function isLocalRepoPath(
-	ref: { kind: "code"; repo: string } | { kind: string; folder?: string },
-): boolean {
-	if (ref.kind !== "code") return false;
-	const r = (ref as { kind: "code"; repo: string }).repo;
-	return (
-		r.startsWith("/") ||
-		r.startsWith("./") ||
-		r.startsWith("../") ||
-		r.startsWith("~/") ||
-		r.startsWith("file://")
-	);
-}
-
-/**
- * The real local path a mounted filesystem stands on, if any.
- *
- * `LocalFolderAdapter` symlinks `resourceRef.folder` (an absolute path
- * elsewhere on disk) INTO the sandbox rather than copying it, and
- * `GitWorktreeAdapter` backs its worktree with a local `resourceRef.repo` —
- * both are real filesystem paths outside the sandbox root that a harness with
- * a trust precondition (codex) needs told about, not just the sandbox itself.
- * A cloned repo (`GitCloneAdapter`, `connectionId != null`) has no such path —
- * it is written directly into the sandbox, already covered by the sandbox's
- * own trust declaration. Returns `undefined` when the filesystem has no local
- * path distinct from the sandbox (a remote clone, or a cloud source not yet
- * built).
- *
- * @lore: localTrustedPath — both doc_set.folder and code.repo are user-configured; both must run through normalizeLocalPath or codex trust config mismatches
- */
-export function localTrustedPath(filesystem: Filesystem): string | undefined {
-	const ref = filesystem.resourceRef;
-	if (ref.kind === "doc_set") return normalizeLocalPath(ref.folder);
-	if (ref.kind === "code" && filesystem.connectionId == null && isLocalRepoPath(ref)) {
-		return normalizeLocalPath(ref.repo);
-	}
-	return undefined;
-}
-
 /**
  * `isLocalRepoPath` accepts `~/`, `./`, `../` and
  * `file://` spellings (a repo ref is user-configured, not machine-generated),
@@ -246,7 +83,7 @@ export function localTrustedPath(filesystem: Filesystem): string | undefined {
  * by the time this runs the mount phase has already created it, but a defensive
  * fallback beats throwing out of a trust-declaration helper.
  */
-function normalizeLocalPath(raw: string): string {
+export function normalizeLocalPath(raw: string): string {
 	let resolved = raw;
 	if (resolved.startsWith("file://")) {
 		resolved = fileURLToPath(resolved);
@@ -261,58 +98,47 @@ function normalizeLocalPath(raw: string): string {
 	}
 }
 
-class MalformedFilesystemError extends Error {
-	readonly filesystem: Filesystem;
-
-	constructor(filesystem: Filesystem, reason: string) {
-		super(`MalformedFilesystem [${filesystem.id}]: ${reason}`);
-		this.name = "MalformedFilesystemError";
-		this.filesystem = filesystem;
-	}
-}
-
-function selectMountAdapter(fs: Filesystem, deps: AdapterDeps): MountAdapter {
-	if (fs.kind === "code") {
-		if (fs.connectionId != null) {
-			return new GitCloneAdapter(deps);
+/**
+ * Mount a local git repo into a working folder as a git worktree.
+ *
+ * - Case 1: mountAt is already a registered worktree — reuse it.
+ * - Case 2: branch exists but its worktree was removed — re-attach without -b.
+ * - Case 3: neither exists — create a new branch and worktree.
+ *
+ * @lore: mountGitWorktree — reuse-then-reattach-then-create; createBranch=false re-attaches detached branch without duplicating it
+ */
+export async function mountGitWorktree(
+	repoPath: string,
+	mountAt: string,
+	workBranch: string,
+	deps: { gitRunnerFactory: MountingGitRunnerFactory },
+): Promise<MountResult> {
+	const repo = normalizeLocalPath(repoPath);
+	fs.mkdirSync(mountAt, { recursive: true });
+	const branch = sanitizeBranch(workBranch);
+	try {
+		// Case 1: mountAt is already a registered worktree for this repo — reuse it.
+		if (isExistingWorktree(mountAt, repo)) {
+			return { success: true };
 		}
-		if (isLocalRepoPath(fs.resourceRef)) {
-			return new GitWorktreeAdapter(deps);
+		// Case 2: branch exists but its worktree was removed — re-attach without -b.
+		// Case 3: neither exists — create a new branch and worktree.
+		const branchExists = branchExistsInRepo(repo, branch);
+		await deps.gitRunnerFactory(repo).worktreeAdd(mountAt, branch, {
+			createBranch: !branchExists,
+		});
+		const pointer = fs
+			.readFileSync(path.join(mountAt, ".git"), "utf8")
+			.trim()
+			.match(/^gitdir:\s*(.+)$/)?.[1];
+		if (pointer) {
+			const gitDir = fs.realpathSync(path.resolve(mountAt, pointer));
+			const common = resolveCommonGitDir(repo);
+			if (gitDir.startsWith(`${path.join(common, "worktrees")}${path.sep}`)) writeExclude(gitDir);
 		}
-		throw new MalformedFilesystemError(
-			fs,
-			`code fs with no connectionId must have a local-path repo for the worktree adapter (got: '${(fs.resourceRef as { repo?: string }).repo ?? "?"}')`,
-		);
-	}
-
-	if (fs.kind === "doc_set") {
-		if (CLOUD_SOURCES.has(fs.source)) {
-			return new CloudNotBuiltAdapter(fs.source);
-		}
-		return new LocalFolderAdapter();
-	}
-
-	return new CloudNotBuiltAdapter(`${fs.kind}:${fs.source}`);
-}
-
-export class RegistryFilesystemMounter {
-	constructor(private readonly deps: AdapterDeps) {}
-
-	// biome-ignore lint/suspicious/useAwait: selectMountAdapter throws synchronously on a malformed filesystem; async is what turns that throw into a rejected promise for callers.
-	async mount(input: {
-		filesystem: Filesystem;
-		sandboxPath: string;
-		spacePath?: string;
-		workBranch?: string;
-	}): Promise<MountResult> {
-		const adapter = selectMountAdapter(input.filesystem, this.deps);
-		const ctx: MountContext = {
-			filesystem: input.filesystem,
-			sandboxPath: input.sandboxPath,
-			spacePath: input.spacePath,
-			workBranch: input.workBranch,
-		};
-		return adapter.mount(ctx);
+		return { success: true };
+	} catch (error) {
+		return { success: false, error: String(error) };
 	}
 }
 
@@ -325,13 +151,11 @@ export class RegistryFilesystemMounter {
  * own work). A bare `git init` with no commits is sufficient for codex's
  * check — verified against codex-cli 0.150.1; no initial commit is required.
  *
- * Called AFTER Phase 4.5 filesystem mounting, never before: `GitCloneAdapter`
- * and `GitWorktreeAdapter` both write straight into `sandboxPath`, and both
- * `git clone` and `git worktree add` refuse a target directory that already
- * contains a `.git` (verified empirically — "already exists" / "not an empty
- * directory"). Mounting a code filesystem already makes the sandbox a git
- * repo as a side effect, so this only inits when `.git` is still absent —
- * the no-filesystem and doc_set-only cases.
+ * Called AFTER Phase 4.5 filesystem mounting, never before: `git worktree add`
+ * refuses a target directory that already contains a `.git` (verified
+ * empirically — "already exists" / "not an empty directory"). Mounting a
+ * code folder already makes the sandbox a git repo as a side effect, so this
+ * only inits when `.git` is still absent — the no-folder and plain-folder cases.
  */
 export function ensureSandboxGitRepo(sandboxPath: string): void {
 	if (fs.existsSync(path.join(sandboxPath, ".git"))) return;

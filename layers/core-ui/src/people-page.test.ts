@@ -252,26 +252,16 @@ describe("what an agent is doing now", () => {
 
 describe("folderTrouble", () => {
 	const folder = (f: Partial<FolderView>): FolderView => ({
-		id: "f",
-		teamId: "t",
-		source: "local",
-		kind: "code",
-		connectionId: null,
-		resourceRef: { kind: "code", repo: "~/code/northwind", branch: "main" },
-		writeback: "git",
-		state: "reachable",
-		createdAt: at(1),
+		name: "northwind",
+		path: "~/code/northwind",
+		isGit: true,
+		isMissing: false,
 		...f,
 	});
 	it.each([
-		{ f: { state: "reachable" as const }, says: null },
-		{ f: { state: "attached" as const }, says: null },
-		{ f: { state: "needs_attention" as const }, says: "Not found on this computer" },
-		{
-			f: { state: "needs_attention" as const, connectionId: "c" },
-			says: "Cannot be reached with its service",
-		},
-	])("a $f.state folder says $says", ({ f, says }) => {
+		{ f: { isMissing: false }, says: null },
+		{ f: { isMissing: true }, says: "Not found on this computer" },
+	])("isMissing=$f.isMissing says $says", ({ f, says }) => {
 		expect(folderTrouble(folder(f))).toBe(says);
 	});
 });

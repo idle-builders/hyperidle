@@ -1,18 +1,11 @@
 /**
- * Review fix B1 — `edit_user` without an id used to never read `input.folders`
- * (nor `input.connections`) at all: the welcome screen's first call created
- * the person and the team but silently dropped the picked folder
- * (`SetupFlow.tsx` sends `edit_user({kind:"human", name, teams, folders:{add:
- * [...]}})` — the same body origin/main's
- * `SetupFlow.tsx:350` POSTed to `/api/filesystems`). This file proves create
- * now honours `folders`/`connections` the same way an edit does: a server
- * test creates a user with a folder and finds it via `open_user`.
+ * Proves that `edit_user` without an id (create) honours `folders` and
+ * `connections` the same way an edit does.
  *
  * Real PGlite via `{ db }`; `searchDocuments`/`editDocument` are the real
- * `@hyperidle/document` actions, same idiom `user-actions.integration.test.ts`
- * uses; `folders`/`connections` are a working in-memory fake (the default
- * fixture in the sibling file always refuses — this one actually stores
- * state, since B1 needs to prove a folder that was added is later found).
+ * `@hyperidle/document` actions; `spaceFolders`/`connections` are working
+ * in-memory fakes that actually store state, so a folder added on create
+ * is really found again by `open_user`.
  */
 import { changes, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
@@ -33,59 +26,31 @@ import {
 } from "../user-actions.js";
 import { NOW, realDocumentActions, runnerFor, seedFounder } from "./_helpers.js";
 
-/** A working in-memory folders fake — unlike the sibling file's fixture
- * (which always refuses), this one actually stores what it is given, so a
- * folder added on create is really found again by `open_user`. */
-function buildFoldersFake(): UserActionsDeps["folders"] {
-	const store = new Map<string, UserActionsFolderView>();
-	const givenTo = new Map<string, Set<string>>();
-	let nextId = 1;
+/** A working in-memory spaceFolders fake that actually stores what it is given. */
+function buildSpaceFoldersFake(): UserActionsDeps["spaceFolders"] {
+	const store = new Map<string, UserActionsFolderView[]>();
 	return {
-		list: async (query) => {
-			if ("teamId" in query) {
-				return [...store.values()].filter((f) => f.teamId === query.teamId);
-			}
-			const ids = [...givenTo.entries()]
-				.filter(([, agents]) => agents.has(query.agentUserId))
-				.map(([id]) => id);
-			return ids.flatMap((id) => {
-				const f = store.get(id);
-				return f ? [f] : [];
-			});
-		},
-		add: async (teamId, body) => {
-			const id = `folder-${nextId++}`;
+		list: async (agentId) => store.get(agentId) ?? [],
+		add: async (agentId, path, name?) => {
+			const folderName = name ?? path.split("/").pop() ?? path;
+			const existing = store.get(agentId) ?? [];
 			const folder: UserActionsFolderView = {
-				id,
-				teamId,
-				source: "test",
-				kind: body.kind,
-				connectionId: body.connectionId ?? null,
-				resourceRef: body.resourceRef,
-				writeback: body.writeback,
-				state: "attached",
-				createdAt: NOW,
+				name: folderName,
+				path,
+				isGit: false,
+				isMissing: false,
 			};
-			store.set(id, folder);
-			return { ok: true, folder };
-		},
-		remove: async (id) => {
-			if (!store.has(id)) return { ok: false, code: "NOT_FOUND" };
-			store.delete(id);
+			store.set(agentId, [...existing, folder]);
 			return { ok: true };
 		},
-		give: async (id, agentUserId) => {
-			if (!store.has(id)) return { ok: false, code: "NOT_FOUND" };
-			const set = givenTo.get(id) ?? new Set<string>();
-			if (set.has(agentUserId)) return { ok: false, code: "CONFLICT" };
-			set.add(agentUserId);
-			givenTo.set(id, set);
-			return { ok: true };
-		},
-		take: async (id, agentUserId) => {
-			const set = givenTo.get(id);
-			if (!set?.has(agentUserId)) return { ok: false, code: "NOT_FOUND" };
-			set.delete(agentUserId);
+		remove: async (agentId, name) => {
+			const existing = store.get(agentId) ?? [];
+			const idx = existing.findIndex((f) => f.name === name);
+			if (idx === -1) return { ok: false, code: "NOT_FOUND" };
+			store.set(
+				agentId,
+				existing.filter((_, i) => i !== idx),
+			);
 			return { ok: true };
 		},
 	};
@@ -158,7 +123,7 @@ function buildDeps(): UserActionsDeps {
 				return spacePath;
 			},
 		},
-		folders: buildFoldersFake(),
+		spaceFolders: buildSpaceFoldersFake(),
 		connections: buildConnectionsFake(),
 		searchDocuments: runnerFor(documentActions, "search_documents"),
 		editDocument: runnerFor(documentActions, "edit_document"),
@@ -179,44 +144,45 @@ function actionsFor(deps: UserActionsDeps) {
 	};
 }
 
-describe("edit_user — create honours folders and connections (B1)", () => {
-	test("a person created with a picked folder — open_user finds it", async ({ db }) => {
+describe("edit_user — create honours folders and connections", () => {
+	test("an agent created with a folder — open_user finds it", async ({ db }) => {
 		await seedFounder(db);
 		const deps = buildDeps();
 		const { editUser, openUser } = actionsFor(deps);
 
-		const result = await editUser(ctxFor(db, "u-founder"), {
+		const owner = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
-			name: "Ada",
-			teams: ["Welcome Team"],
+			name: "Owner",
+			teams: ["Folder Team"],
+		});
+		expect(owner.ok).toBe(true);
+		if (!owner.ok) return;
+		const ownerId = owner.data.user?.id as string;
+
+		const result = await editUser(ctxFor(db, ownerId), {
+			kind: "ai",
+			name: "FolderAgent",
+			ownerUserId: ownerId,
+			teams: ["Folder Team"],
+			identity: "I work with files.",
 			folders: {
-				add: [
-					{
-						kind: "doc_set",
-						resourceRef: { kind: "doc_set", folder: "/Users/ada/notes" },
-						writeback: "none",
-					},
-				],
+				add: [{ path: "/Users/owner/projects" }],
 			},
 		});
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-		const personId = result.data.user?.id as string;
-		const teamId = result.data.user?.teams[0]?.id as string;
+		const agentId = result.data.user?.id as string;
 
-		// The create's own response already carries the folder — no dropped field.
+		// The create's own response already carries the folder.
 		expect(result.data.folders).toHaveLength(1);
-		expect(result.data.folders[0]?.teamId).toBe(teamId);
+		expect(result.data.folders[0]?.path).toBe("/Users/owner/projects");
 
-		// And it is durably there — a fresh `open_user` finds it too.
-		const reopened = await openUser(ctxFor(db, personId), {});
+		// A fresh open_user finds it too.
+		const reopened = await openUser(ctxFor(db, agentId), {});
 		expect(reopened.ok).toBe(true);
 		if (!reopened.ok) return;
 		expect(reopened.data.folders).toHaveLength(1);
-		expect(reopened.data.folders[0]?.resourceRef).toEqual({
-			kind: "doc_set",
-			folder: "/Users/ada/notes",
-		});
+		expect(reopened.data.folders[0]?.path).toBe("/Users/owner/projects");
 	});
 
 	test("an owned agent created with a connection — open_user finds it", async ({ db }) => {
@@ -252,36 +218,25 @@ describe("edit_user — create honours folders and connections (B1)", () => {
 	});
 });
 
-describe("edit_user — a failed folder step on create never leaves a half-made person (N8)", () => {
-	test("the folder step fails, but the person and team WERE created — the caller gets the row, not a bare refusal", async ({
+describe("edit_user — a failed folder step on create never leaves a half-made person", () => {
+	test("folders are not supported for persons — create still returns ok:true with empty folders", async ({
 		db,
 	}) => {
 		await seedFounder(db);
-		const refusingFolders: UserActionsDeps["folders"] = {
-			...buildFoldersFake(),
-			add: async () => ({ ok: false, code: "TEAM_NOT_FOUND" }) as const,
-		};
 		const deps = buildDeps();
-		const { editUser, openUser } = actionsFor({ ...deps, folders: refusingFolders });
+		const { editUser, openUser } = actionsFor(deps);
 
+		// Person with a folder input — folders_not_supported is logged but create still returns ok:true.
 		const result = await editUser(ctxFor(db, "u-founder"), {
 			kind: "human",
 			name: "Grace",
 			teams: ["Grace's Team"],
 			folders: {
-				add: [
-					{
-						kind: "doc_set",
-						resourceRef: { kind: "doc_set", folder: "/Users/grace/notes" },
-						writeback: "none",
-					},
-				],
+				add: [{ path: "/Users/grace/notes" }],
 			},
 		});
 
-		// The person and team really were created — the caller must be told so
-		// (a bare `ok:false` here is what drove the welcome screen to retry and
-		// create a second person, N8). The folder itself did not attach.
+		// Person and team really were created — the caller gets the row, not a bare refusal.
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 		expect(result.data.user?.name).toBe("Grace");
@@ -301,9 +256,7 @@ describe("edit_user — the welcome screen's first person is the founder", () =>
 		const deps = buildDeps();
 		const { editUser } = actionsFor(deps);
 
-		// No seedFounder: this is a genuinely empty database, and the caller
-		// (the welcome screen, pre-auth) has no user row of its own — exactly
-		// what `SetupFlow.tsx`'s first `edit_user` call sends.
+		// No seedFounder: this is a genuinely empty database.
 		const result = await editUser(ctxFor(db, "u-nobody"), {
 			kind: "human",
 			name: "Ada",
