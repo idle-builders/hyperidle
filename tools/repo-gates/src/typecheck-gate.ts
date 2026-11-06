@@ -414,22 +414,9 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 	// services/policy-bindings.ts, server-factory.ts now import
 	// `@hyperidle/policy`.
 	//
-	// @lore AU19 Increment 2b: `core-api/filesystems` added — same TS6305
-	// cascade; routes/filesystems.ts, routes/knowledge.ts, app.ts,
-	// server-factory.ts, services/session-provisioning.ts,
-	// services/agent-context/assemble-context.ts,
-	// filesystem/__tests__/scaffolding-drift-guard.test.ts now import
-	// `@hyperidle/filesystems`.
-	//
 	// @lore AU26 C1: `core-api/git-export` REMOVED — the exporter is deleted by
 	// founder verdict and the package with it. The live half, `createGitRunner`,
-	// moved to `@hyperidle/host-process` in A2, so `filesystems`' Increment-2b
-	// `FilesystemsGitRunner` forward-reference is still closed, just from
-	// `shared` rather than from a core-api Service.
-	// @lore AU26 F2: `agent-orchestration/filesystems` REMOVED — the whole
-	// filesystem-injection model replaced by space-folder symlinks; the package
-	// (relocated from core-api/filesystems by AU26 F2) is deleted and no
-	// longer appears in this list.
+	// moved to `@hyperidle/host-process` in A2.
 	//
 	// @lore AU26 C2: `core-api/observability` REMOVED — the package dissolved
 	// (translator + adapter → `@hyperidle/diagnostics`, config pair →

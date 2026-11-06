@@ -231,8 +231,8 @@ export function ReachDialog({
 			: "What you and your agents can reach";
 	const sub = folder
 		? agent
-			? `Tick the folders ${who.name} works in. Untick one to remove it from this agent.`
-			: "Connect a service once. Every agent of yours gets it; untick it on an agent's page to keep it away from that one."
+			? `${who.name} works in the folders ticked here. Untick one to take it out of ${who.name}'s space; the real folder stays.`
+			: "Pick a folder on this computer and which of your agents get it. Each one gets a link to it in its space."
 		: agent
 			? `${who.name} reaches only the services ticked here. A service is connected once; every agent of yours gets it unless you untick it.`
 			: "Connect a service once. Every agent of yours gets it; untick it on an agent's page to keep it away from that one.";
