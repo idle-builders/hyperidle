@@ -22,6 +22,7 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
 import { afterEach, beforeEach, vi } from "vitest";
+import { createGitRunner } from "../../../src/git-runner.js";
 import {
 	buildRunningHarnessPorts,
 	type ProvisionSessionDeps,
@@ -29,7 +30,7 @@ import {
 } from "../__testing__/test-fixtures.js";
 import { readAgentRunConfig } from "../agent-run-config-store.js";
 import { deriveWorkingFolder, ensureAgentSpace } from "../agent-space.js";
-import type { FilesystemMounterPort } from "../filesystem-provisioning.js";
+import { RegistryFilesystemMounter } from "../index.js";
 import { createProvisioner } from "../provisioner.js";
 
 const NOW = "2026-11-06T00:00:00.000Z";
@@ -466,21 +467,10 @@ describe("real provisioner runs: working folder isolation", () => {
 			execFileSync("git", ["add", "CLAUDE.md"], { cwd: repoDir });
 			execFileSync("git", ["commit", "--quiet", "-m", "init"], { cwd: repoDir });
 
-			// A simple worktree mounter: creates a worktree at <sandboxPath>/<repoName>.
-			const mounter: FilesystemMounterPort = {
-				mount: async ({ filesystem, sandboxPath: sbPath }) => {
-					const ref = filesystem.resourceRef as { kind: "code"; repo: string; branch: string };
-					const repoName = path.basename(ref.repo);
-					const mountAt = path.join(sbPath, repoName);
-					fs.mkdirSync(mountAt, { recursive: true });
-					const branch = `agent-space-inject-${Date.now()}`;
-					execFileSync("git", ["worktree", "add", "-b", branch, mountAt], {
-						cwd: ref.repo,
-						stdio: "pipe",
-					});
-					return { success: true };
-				},
-			};
+			// Real RegistryFilesystemMounter with the production git runner factory.
+			const mounter = new RegistryFilesystemMounter({
+				gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
+			});
 
 			let capturedSandboxPath: string | undefined;
 			const capturedPaths = new Map<string, string>();
@@ -498,7 +488,13 @@ describe("real provisioner runs: working folder isolation", () => {
 				agentId: "agent-real-mount",
 				productId: "task-free",
 				callingThreadId: "thread-real-mount-1",
-				agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
+				agentConfig: {
+					kind: "ai",
+					status: "active",
+					role: "builder",
+					teamId: null,
+					name: "RealMount",
+				},
 			} as ProvisionSessionParams;
 
 			const deps: ProvisionSessionDeps = {

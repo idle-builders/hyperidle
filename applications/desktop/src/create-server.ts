@@ -174,6 +174,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		upgradeWebSocket,
 		adapterPool: agentExecution.adapters.pool,
 		onHarnessRedetect,
+		probeAgentLogin: agentExecution.probeAgentLoginStatus,
 		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
 		...(bundledPluginsDir ? { bundledPluginsDir } : {}),
 		serviceBootstrap: (ctx) => {

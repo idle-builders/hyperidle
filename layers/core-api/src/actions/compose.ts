@@ -390,6 +390,7 @@ function buildUserActionsDeps(
 	agentOrchestration: AgentOrchestrationPort,
 	adapterPool?: HarnessCapabilityReader,
 	onHarnessRedetect?: () => Promise<void>,
+	probeAgentLogin?: UserActionsDeps["probeAgentLogin"],
 ): UserActionsDeps {
 	return {
 		changes: {
@@ -409,6 +410,7 @@ function buildUserActionsDeps(
 					},
 				}
 			: {}),
+		...(probeAgentLogin ? { probeAgentLogin } : {}),
 		editDocument: runnerFor<EditDocumentInput, DocumentView>(documentActions, "edit_document"),
 		searchDocuments: runnerFor<SearchDocumentsInput, DocumentRow[]>(
 			documentActions,
@@ -439,6 +441,7 @@ export function buildCoreActions(bindings: {
 	readonly bundledPluginsDir?: string;
 	readonly adapterPool?: HarnessCapabilityReader;
 	readonly onHarnessRedetect?: () => Promise<void>;
+	readonly probeAgentLogin?: UserActionsDeps["probeAgentLogin"];
 }): readonly Action[] {
 	let documentActions: readonly Action[] = [];
 	let taskActionsForThread: readonly Action[] = [];
@@ -471,6 +474,7 @@ export function buildCoreActions(bindings: {
 			bindings.agentOrchestration,
 			bindings.adapterPool,
 			bindings.onHarnessRedetect,
+			bindings.probeAgentLogin,
 		),
 	) as readonly Action[];
 	return [...taskActions, ...threadActions, ...documentActions, ...platformActions, ...userActions];

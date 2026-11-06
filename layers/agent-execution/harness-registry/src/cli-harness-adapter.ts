@@ -108,8 +108,8 @@ interface CliAdapterConfig {
 	 * Per-session MCP config file the binary reads to reach the HyperIdle bridge.
 	 * Mirrors claude's .mcp.json. Absent ⇒ binary gets no MCP wiring (builtin/SDK paths).
 	 *
-	 * "codex-toml"   — appends [mcp_servers.hyperidle] to .codex-home/config.toml;
-	 *                  token delivered via HYPERIDLE_MCP_TOKEN env var (outside allowlist).
+	 * "codex-toml"   — passes -c flags for [mcp_servers.hyperidle]; token delivered via
+	 *                  HYPERIDLE_MCP_TOKEN env var (outside allowlist).
 	 * "opencode-json" — writes opencode.json to sandbox cwd; token inline in headers.
 	 */
 	readonly mcpConfig?:

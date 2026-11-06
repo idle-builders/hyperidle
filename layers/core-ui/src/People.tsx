@@ -30,6 +30,7 @@ import {
 	givenTo,
 	type Job,
 	joinWords,
+	loginStatusLine,
 	loginWords,
 	type Pair,
 	personStand,
@@ -684,6 +685,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 	const model = program?.models.find((m) => m.id === view.runConfig?.modelId);
 	const sessions = view.runConfig?.maxConcurrentSessions ?? 1;
 	const login = view.runConfig?.login ?? "owner";
+	const loginStatus = loginStatusLine(view.agentLoginStatus, view.runConfig ?? null);
 	const runsOn: Pair[] = agent
 		? [
 				program
@@ -691,6 +693,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 					: { what: "No agent program set", why: "pick one in Edit" },
 				{ what: "Model", why: model?.label ?? view.runConfig?.modelId ?? "the default" },
 				{ what: "Login", why: loginWords(login, view.runConfig?.harnessType ?? null) },
+				...(loginStatus !== null ? [{ what: "Login status", why: loginStatus }] : []),
 				{ what: `${sessions} ${sessions === 1 ? "session" : "sessions"} at a time`, why: "" },
 			]
 		: [];

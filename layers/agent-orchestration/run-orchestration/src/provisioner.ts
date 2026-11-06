@@ -130,6 +130,10 @@ interface SessionLifecycleHarnessAdapter {
 			readonly modelTier: ModelTier;
 			readonly selectedModel?: string;
 			readonly mcpTokenEnv?: Readonly<Record<string, string>>;
+			readonly agentSpace?: {
+				readonly path: string;
+				readonly login: "own" | "owner";
+			};
 		},
 	): Promise<SessionHandle>;
 	/** Deliver a user message into an already-running session via stdin. Optional. */
@@ -911,6 +915,8 @@ interface AdmittedSession {
 	 */
 	readonly selectedModel: string | null;
 	readonly sandboxPath: string;
+	/** The agent's persistent space and login setting, carried from admitSession. */
+	readonly agentSpace: { readonly path: string; readonly login: "own" | "owner" };
 	readonly ingestion: IngestionHandle;
 	readonly selectedAdapter: SessionLifecycleSelectedEntry;
 	readonly harness: SessionLifecycleHarnessAdapter;
@@ -1239,6 +1245,7 @@ async function admitSession(
 		// `SessionConfig.selectedModel`.
 		selectedModel: runConfig.modelId,
 		sandboxPath,
+		agentSpace: { path: spacePath, login: runConfig.login },
 		ingestion,
 		selectedAdapter,
 		harness,
@@ -1323,6 +1330,7 @@ async function runSession(
 		modelOptions,
 		selectedModel,
 		sandboxPath,
+		agentSpace,
 		ingestion,
 		selectedAdapter,
 		harness,
@@ -1661,6 +1669,7 @@ async function runSession(
 	const sessionStartConfig = {
 		sessionId,
 		sandboxPath,
+		agentSpace,
 		assembledPrompt,
 		// The ask, whole and separate from the context above.
 		...(taskInstruction ? { instruction: taskInstruction } : {}),
@@ -1722,6 +1731,7 @@ async function runSession(
 					{
 						// Phase 4 adopted the original session's directory, so this IS it.
 						sandboxPath,
+						agentSpace,
 						modelTier,
 						...(selectedModel ? { selectedModel } : {}),
 						...(mcpTokenEnv ? { mcpTokenEnv } : {}),
@@ -1734,6 +1744,7 @@ async function runSession(
 					admitted.harnessHandover.message,
 					{
 						sandboxPath,
+						agentSpace,
 						modelTier,
 						...(selectedModel ? { selectedModel } : {}),
 						...(mcpTokenEnv ? { mcpTokenEnv } : {}),

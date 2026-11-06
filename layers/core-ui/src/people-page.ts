@@ -8,6 +8,7 @@ import type {
 	Task,
 	ThreadListRow,
 	UserRow,
+	UserView,
 } from "@hyperidle/domain-model";
 import { NEED_WORDS, PAUSE_WORDS } from "./sidebar-lists";
 
@@ -361,6 +362,35 @@ export function loginWords(login: "own" | "owner", harnessType: string | null): 
 		return "its own login (not supported by this program)";
 	}
 	return "your login";
+}
+
+/**
+ * Whether the agent's isolated login is authenticated, and what to run to log in.
+ * Returns null when status is absent or login is "owner".
+ */
+export function loginStatusLine(
+	agentLoginStatus: UserView["agentLoginStatus"],
+	runConfig: {
+		harnessType: string | null;
+		spacePath: string | null;
+		login: "own" | "owner";
+	} | null,
+): string | null {
+	if (!(agentLoginStatus && runConfig) || runConfig.login !== "own") return null;
+	const { state } = agentLoginStatus;
+	if (state === "ready") return "signed in";
+	const spacePath = runConfig.spacePath;
+	const harnessType = runConfig.harnessType;
+	let command: string | null = null;
+	if (spacePath !== null) {
+		if (harnessType === "codex") {
+			command = `CODEX_HOME=${spacePath}/.codex codex login`;
+		} else if (harnessType === "claude-code") {
+			command = `CLAUDE_CONFIG_DIR=${spacePath}/.claude claude  then /login`;
+		}
+	}
+	const base = state === "missing" ? "program not installed" : "not logged in";
+	return command !== null ? `${base} · run: ${command}` : base;
 }
 
 /** What an agent program on this computer says about itself. */

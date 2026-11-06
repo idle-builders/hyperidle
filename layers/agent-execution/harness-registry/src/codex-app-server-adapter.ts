@@ -396,7 +396,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			}
 		}
 
-		// @lore: wait for real exit — codex keeps writing .codex-home after turn/completed; resolving early races sandbox cleanup
+		// @lore: wait for real exit — codex keeps writing its state after turn/completed; resolving early races sandbox cleanup
 		session.stopping = new Promise<SessionResult>((resolve) => {
 			// Escalate to SIGKILL if SIGTERM is ignored (unref so the timer does not keep Node alive).
 			const sigkillTimer = setTimeout(() => {

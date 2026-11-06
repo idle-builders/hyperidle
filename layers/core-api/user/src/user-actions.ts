@@ -197,6 +197,17 @@ export interface UserActionsDeps {
 		describe(): readonly HarnessDescriptor[];
 		redetect(): Promise<void>;
 	};
+	/**
+	 * Probe the per-agent login dir for an agent running with login: "own".
+	 * Absent when no probe is wired (e.g. remote server without CLI tools).
+	 */
+	readonly probeAgentLogin?: (
+		harnessType: "claude-code" | "codex",
+		agentSpacePath: string,
+	) => Promise<{
+		readonly state: "missing" | "installed" | "unauthenticated" | "ready" | "unavailable";
+		readonly reason?: string;
+	}>;
 	readonly searchDocuments: SearchDocumentsRunFn;
 	readonly editDocument: EditDocumentRunFn;
 	/**
@@ -478,6 +489,17 @@ async function buildUserView(
 		}));
 	}
 
+	// Probe per-agent login when the agent runs with login: "own" and has a space.
+	let agentLoginStatus: UserView["agentLoginStatus"];
+	if (
+		deps.probeAgentLogin &&
+		runConfig?.login === "own" &&
+		runConfig.spacePath !== null &&
+		(runConfig.harnessType === "claude-code" || runConfig.harnessType === "codex")
+	) {
+		agentLoginStatus = await deps.probeAgentLogin(runConfig.harnessType, runConfig.spacePath);
+	}
+
 	// Cast: `runConfig`/`folders`/`connections` come straight off
 	// `AgentOrchestrationPort` (`AgentOrchestrationRunConfigView`/
 	// `AgentOrchestrationFolderView`/`AgentOrchestrationConnectionView`) —
@@ -491,6 +513,7 @@ async function buildUserView(
 		user: row,
 		runsOn,
 		runConfig,
+		...(agentLoginStatus !== undefined ? { agentLoginStatus } : {}),
 		documentIds,
 		folders,
 		subscriptions,

@@ -30,9 +30,8 @@ Every task run and subscription run gets a working folder inside the agent's spa
 - Task run: `<space>/tasks/<taskId>/`
 - Subscription run: `<space>/subscriptions/<subscriptionId>/`
 - Thread turn: `<space>/conversations/<callingThreadId>/`
-- Fallback (no task, subscription, or thread): `<space>/misc/<uuid>/`
 
-The working folder persists after the session ends. All sessions on the same task share the same working folder. When a task is marked done, `cleanupTaskWorktrees` removes any git worktrees inside it; the folder itself is left in place.
+The working folder persists after the session ends. All sessions on the same task share the same working folder.
 
 The working folder contains four zones:
 

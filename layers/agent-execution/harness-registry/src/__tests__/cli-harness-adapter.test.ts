@@ -13,6 +13,9 @@
 
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import type { HarnessEvent, SessionConfig, SessionResumeConfig } from "@hyperidle/harness-protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliAdapterConfig } from "../cli-harness-adapter.js";
@@ -1126,5 +1129,95 @@ describe("CliHarnessAdapter getCapabilities", () => {
 		expect(caps.preCompactionTrigger).toBe(false);
 		expect(caps.subAgents).toBe(false);
 		expect(caps.modelProviders).toEqual([]);
+	});
+});
+
+// ── agentSpace login env injection ───────────────────────────────────────────
+
+describe("CliHarnessAdapter agentSpace login", () => {
+	let spaceDir: string;
+
+	beforeEach(() => {
+		spaceDir = fs.mkdtempSync(path.join(os.tmpdir(), "hi-space-test-"));
+	});
+
+	afterEach(() => {
+		fs.rmSync(spaceDir, { recursive: true, force: true });
+	});
+
+	it('login "own" on claude binary sets CLAUDE_CONFIG_DIR to <space>/.claude', async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(
+			makeConfig({ binary: "claude", args: [], envMap: {}, envAllowlist: [] }),
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
+		);
+
+		await adapter.startSession(makeSessionConfig({ agentSpace: { path: spaceDir, login: "own" } }));
+
+		const spawnEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
+		expect(spawnEnv.CLAUDE_CONFIG_DIR).toBe(path.join(spaceDir, ".claude"));
+		expect(spawnEnv.CODEX_HOME).toBeUndefined();
+	});
+
+	it('login "own" on codex binary sets CODEX_HOME to <space>/.codex', async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(
+			makeConfig({ binary: "codex", args: [], envMap: {}, envAllowlist: [] }),
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
+		);
+
+		await adapter.startSession(makeSessionConfig({ agentSpace: { path: spaceDir, login: "own" } }));
+
+		const spawnEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
+		expect(spawnEnv.CODEX_HOME).toBe(path.join(spaceDir, ".codex"));
+		expect(spawnEnv.CLAUDE_CONFIG_DIR).toBeUndefined();
+	});
+
+	it('login "owner" sets neither CLAUDE_CONFIG_DIR nor CODEX_HOME', async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(
+			makeConfig({ binary: "claude", args: [], envMap: {}, envAllowlist: [] }),
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
+		);
+
+		await adapter.startSession(
+			makeSessionConfig({ agentSpace: { path: spaceDir, login: "owner" } }),
+		);
+
+		const spawnEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
+		expect(spawnEnv.CLAUDE_CONFIG_DIR).toBeUndefined();
+		expect(spawnEnv.CODEX_HOME).toBeUndefined();
+	});
+
+	it('login "own" on resume sets CODEX_HOME for codex', async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild1 = makeFakeChild();
+		const fakeChild2 = makeFakeChild();
+		spawnSpy.mockReturnValueOnce(fakeChild1.proc).mockReturnValueOnce(fakeChild2.proc);
+
+		const adapter = new CliHarnessAdapter(
+			makeConfig({ binary: "codex", args: [], envMap: {}, envAllowlist: [] }),
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
+		);
+
+		// Start first to init adapter, then resume.
+		await adapter.startSession(makeSessionConfig());
+		await adapter.resumeSession("fake-session-id", "continue", {
+			sandboxPath: "/fake/sandbox",
+			modelTier: "workhorse",
+			agentSpace: { path: spaceDir, login: "own" },
+		});
+
+		const resumeEnv = spawnSpy.mock.calls[1]![2]?.env as Record<string, string>;
+		expect(resumeEnv.CODEX_HOME).toBe(path.join(spaceDir, ".codex"));
 	});
 });

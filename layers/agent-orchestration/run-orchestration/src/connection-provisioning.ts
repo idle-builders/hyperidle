@@ -15,6 +15,37 @@ import * as path from "node:path";
 import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/domain-model";
 import { resolveUrlForSSRF } from "./ssrf.js";
 
+// ── TOML escape ───────────────────────────────────────────────────────────────
+
+/**
+ * Escape a value for a TOML basic string (used for -c flag values passed to codex).
+ * Local copy — cannot import from harness-registry (service → other-layer service: forbidden in production).
+ * @lore: escapeTomlString — single-pass regex; replace chain misses control chars → "invalid string"; TOML requires full escape; one pass avoids double-escape
+ */
+function escapeTomlString(value: string): string {
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: matching control characters IS the point of this escape function.
+	return value.replace(/[\\"\n\r\t\x00-\x1f\x7f]/g, (ch) => {
+		switch (ch) {
+			case "\\":
+				return "\\\\";
+			case '"':
+				return '\\"';
+			case "\n":
+				return "\\n";
+			case "\r":
+				return "\\r";
+			case "\t":
+				return "\\t";
+			case "\b":
+				return "\\b";
+			case "\f":
+				return "\\f";
+			default:
+				return `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`;
+		}
+	});
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -269,7 +300,7 @@ function buildCodexTomlEntries(params: { mcpServers: ProvisioningPlan["mcpServer
 
 	for (const server of mcpServers) {
 		const envKey = `${server.name.toUpperCase().replace(/-/g, "_")}_MCP_TOKEN`;
-		cliConfigArgs.push(`mcp_servers.${server.name}.url="${server.url}"`);
+		cliConfigArgs.push(`mcp_servers.${server.name}.url="${escapeTomlString(server.url)}"`);
 
 		if (server.bearerToken !== undefined) {
 			cliConfigArgs.push(`mcp_servers.${server.name}.bearer_token_env_var="${envKey}"`);

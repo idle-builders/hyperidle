@@ -14,6 +14,7 @@ import {
 	createLocalAdapterPool,
 	createReturnEnforcement,
 	type HarnessProbeDeps,
+	probeLoginForHarness,
 	provisionHarnessEnvironment,
 	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
@@ -108,6 +109,14 @@ export interface AgentExecutionBoot {
 	readonly mountMcpRouter: (api: Hono) => void;
 	readonly adapters: AgentExecutionAdapters;
 	readonly dispose: () => void;
+	/** Probe whether an agent's isolated login folder is authenticated. */
+	readonly probeAgentLoginStatus: (
+		harnessType: "claude-code" | "codex",
+		agentSpacePath: string,
+	) => Promise<{
+		readonly state: "missing" | "installed" | "unauthenticated" | "ready" | "unavailable";
+		readonly reason?: string;
+	}>;
 }
 
 export async function bootAgentExecution(
@@ -165,5 +174,7 @@ export async function bootAgentExecution(
 		dispose: () => {
 			// No state to release — dispose exists so every boot in the composition chain is disposable.
 		},
+		probeAgentLoginStatus: (harnessType, agentSpacePath) =>
+			probeLoginForHarness(harnessType, agentSpacePath),
 	};
 }
