@@ -78,6 +78,7 @@ function openUserDeps(db: HyperIdleDb): UserActionsDeps {
 				spacePath: null,
 			}),
 			write: async () => undefined,
+			ensureSpace: async (_agentId, agentName) => `/spaces/${agentName}`,
 		},
 		folders: {
 			list: async () => [],

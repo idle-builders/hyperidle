@@ -1,4 +1,11 @@
-import type { FolderView, HarnessDescriptor, SessionRow, Task, ThreadListRow, UserRow } from "@hyperidle/domain-model";
+import type {
+	FolderView,
+	HarnessDescriptor,
+	SessionRow,
+	Task,
+	ThreadListRow,
+	UserRow,
+} from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import {
 	agentJobs,
@@ -8,8 +15,6 @@ import {
 	cronWords,
 	folderTrouble,
 	loginRowWhy,
-	loginStatusLine,
-	loginWords,
 	personStand,
 	programLineWhy,
 	startedJobs,
@@ -271,78 +276,13 @@ describe("folderTrouble", () => {
 	});
 });
 
-describe("loginWords — login setting in words", () => {
-	it.each([
-		{ login: "owner" as const, harness: "claude-code", says: "your login" },
-		{ login: "owner" as const, harness: "codex", says: "your login" },
-		{ login: "owner" as const, harness: null, says: "your login" },
-		{ login: "own" as const, harness: "claude-code", says: "its own login" },
-		{ login: "own" as const, harness: "codex", says: "its own login" },
-		{ login: "own" as const, harness: "opencode", says: expect.stringContaining("not supported") },
-		{ login: "own" as const, harness: null, says: "its own login" },
-	])("login=$login harness=$harness → $says", ({ login, harness, says }) => {
-		expect(loginWords(login, harness)).toEqual(says);
-	});
-});
-
-describe("loginStatusLine — agent login status and command", () => {
-	const codexConfig = {
-		harnessType: "codex" as const,
-		spacePath: "/spaces/bot",
-		login: "own" as const,
-	};
-	const claudeConfig = {
-		harnessType: "claude-code" as const,
-		spacePath: "/spaces/bot",
-		login: "own" as const,
-	};
-	const ownerConfig = {
-		harnessType: "codex" as const,
-		spacePath: "/spaces/bot",
-		login: "owner" as const,
-	};
-
-	it("returns null when status absent", () => {
-		expect(loginStatusLine(undefined, codexConfig)).toBeNull();
-	});
-	it("returns null when login is owner", () => {
-		expect(loginStatusLine({ state: "unauthenticated" }, ownerConfig)).toBeNull();
-	});
-	it("returns null when runConfig is null", () => {
-		expect(loginStatusLine({ state: "unauthenticated" }, null)).toBeNull();
-	});
-	it("ready → signed in", () => {
-		expect(loginStatusLine({ state: "ready" }, codexConfig)).toBe("signed in");
-	});
-	it("unauthenticated on codex → not logged in with CODEX_HOME command", () => {
-		const result = loginStatusLine({ state: "unauthenticated" }, codexConfig);
-		expect(result).toContain("not logged in");
-		expect(result).toContain("CODEX_HOME=/spaces/bot/.codex codex login");
-	});
-	it("unauthenticated on claude-code → not logged in with CLAUDE_CONFIG_DIR command", () => {
-		const result = loginStatusLine({ state: "unauthenticated" }, claudeConfig);
-		expect(result).toContain("not logged in");
-		expect(result).toContain("CLAUDE_CONFIG_DIR=/spaces/bot/.claude claude");
-	});
-	it("missing → program not installed", () => {
-		const result = loginStatusLine({ state: "missing" }, codexConfig);
-		expect(result).toContain("program not installed");
-	});
-	it("spacePath null → no command shown", () => {
-		const noSpaceConfig = { harnessType: "codex" as const, spacePath: null, login: "own" as const };
-		const result = loginStatusLine({ state: "unauthenticated" }, noSpaceConfig);
-		expect(result).toContain("not logged in");
-		expect(result).not.toContain("run:");
-	});
-});
-
 const harness = (
 	state: HarnessDescriptor["discovery"]["state"],
 	extra: Partial<HarnessDescriptor["discovery"]> = {},
 ): HarnessDescriptor => ({
 	type: "claude-code",
 	name: "Claude Code",
-	authAction: { kind: "in-app" },
+	authAction: { kind: "native_cli_login", label: "Sign in" },
 	discovery: { state, ...extra },
 	models: [],
 	modelProviders: [],
@@ -410,6 +350,15 @@ describe("loginRowWhy — Login row for Runs on", () => {
 		expect(result).toContain("its own login");
 		expect(result).toContain("not logged in");
 		expect(result).not.toContain("run:");
+	});
+
+	it("own + unauthenticated + claude-code space → includes the claude command", () => {
+		const result = loginRowWhy("own", "claude-code", { state: "unauthenticated" }, spaceConfig);
+		expect(result).toContain("CLAUDE_CONFIG_DIR=/spaces/bot/.claude claude, then /login");
+	});
+
+	it("own on a program without its own login → says it is not supported", () => {
+		expect(loginRowWhy("own", "opencode", undefined, spaceConfig)).toContain("not supported");
 	});
 
 	it("own + missing → 'its own login · program not installed'", () => {

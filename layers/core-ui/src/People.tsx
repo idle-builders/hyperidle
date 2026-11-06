@@ -31,7 +31,6 @@ import {
 	type Job,
 	joinWords,
 	loginRowWhy,
-	loginWords,
 	type Pair,
 	personStand,
 	pluginName,

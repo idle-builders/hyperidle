@@ -356,7 +356,7 @@ export function personStand(waiting: readonly Job[], you: boolean): string {
 const OWN_LOGIN_HARNESSES = new Set(["claude-code", "codex"]);
 
 /** What an agent's login setting says about itself. */
-export function loginWords(login: "own" | "owner", harnessType: string | null): string {
+function loginWords(login: "own" | "owner", harnessType: string | null): string {
 	if (login === "own") {
 		if (harnessType === null || OWN_LOGIN_HARNESSES.has(harnessType)) return "its own login";
 		return "its own login (not supported by this program)";
@@ -368,7 +368,7 @@ export function loginWords(login: "own" | "owner", harnessType: string | null): 
  * Whether the agent's isolated login is authenticated, and what to run to log in.
  * Returns null when status is absent or login is "owner".
  */
-export function loginStatusLine(
+function loginStatusLine(
 	agentLoginStatus: UserView["agentLoginStatus"],
 	runConfig: {
 		harnessType: string | null;
@@ -386,7 +386,7 @@ export function loginStatusLine(
 		if (harnessType === "codex") {
 			command = `CODEX_HOME=${spacePath}/.codex codex login`;
 		} else if (harnessType === "claude-code") {
-			command = `CLAUDE_CONFIG_DIR=${spacePath}/.claude claude  then /login`;
+			command = `CLAUDE_CONFIG_DIR=${spacePath}/.claude claude, then /login`;
 		}
 	}
 	const base = state === "missing" ? "program not installed" : "not logged in";
