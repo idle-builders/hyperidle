@@ -82,22 +82,27 @@ let nextSessionId = 1;
 /**
  * Owner login: a codex home holding only a link to the owner's auth.json, so a run
  * signs in as the owner without loading the owner's plugins, tool servers or settings.
- * @lore: owner codex home — never point CODEX_HOME at ~/.codex; the owner's idle plugin reached an agent run that way on 2026-09-26
+ * @lore: owner codex home — never point CODEX_HOME at ~/.codex; codex then loads the owner's plugins, tool servers and settings into agent runs
  */
 function linkOwnerLogin(codexHome: string): void {
 	fs.mkdirSync(codexHome, { recursive: true });
 	const ownerHome = process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex");
 	const ownerAuth = path.join(ownerHome, "auth.json");
 	const link = path.join(codexHome, "auth.json");
-	let current: string | null = null;
+	if (readLinkOrNull(link) === ownerAuth) return;
+	// Link under a temp name, then rename over: two processes on one space never see a missing link.
+	const temp = `${link}.${process.pid}.tmp`;
+	fs.rmSync(temp, { force: true });
+	fs.symlinkSync(ownerAuth, temp);
+	fs.renameSync(temp, link);
+}
+
+function readLinkOrNull(p: string): string | null {
 	try {
-		current = fs.readlinkSync(link);
+		return fs.readlinkSync(p);
 	} catch {
-		current = null;
+		return null;
 	}
-	if (current === ownerAuth) return;
-	fs.rmSync(link, { force: true });
-	fs.symlinkSync(ownerAuth, link);
 }
 
 function buildEnv(config: SessionConfig): Record<string, string> {

@@ -10,13 +10,23 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { PassThrough } from "node:stream";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, test, vi } from "vitest";
 import { CodexAppServerAdapter } from "../codex-app-server-adapter.js";
+
+const tempDirs: string[] = [];
+function tempDir(prefix: string): string {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+	tempDirs.push(dir);
+	return dir;
+}
+afterAll(() => {
+	for (const dir of tempDirs) fs.rmSync(dir, { recursive: true, force: true });
+});
 
 // Minimal SessionConfig for unit tests (no real sandbox, no real model)
 const BASE_CONFIG: SessionConfig = {
 	sessionId: "unit-test-session",
-	sandboxPath: fs.mkdtempSync(path.join(os.tmpdir(), "codex-unit-")),
+	sandboxPath: tempDir("codex-unit-"),
 	assembledPrompt: "You are a test agent.",
 	instruction: "Reply with exactly: TEST_OK",
 	modelTier: "workhorse",
@@ -506,10 +516,10 @@ describe("codex home per login", () => {
 		{ login: "owner" as const, dir: ".codex-owner", linksOwnerAuth: true },
 		{ login: "own" as const, dir: ".codex", linksOwnerAuth: false },
 	])("$login login runs codex from <space>/$dir", async ({ login, dir, linksOwnerAuth }) => {
-		const ownerHome = fs.mkdtempSync(path.join(os.tmpdir(), "codex-owner-home-"));
+		const ownerHome = tempDir("codex-owner-home-");
 		fs.writeFileSync(path.join(ownerHome, "auth.json"), "{}");
 		vi.stubEnv("CODEX_HOME", ownerHome);
-		const space = fs.mkdtempSync(path.join(os.tmpdir(), "codex-space-"));
+		const space = tempDir("codex-space-");
 
 		const { env } = await spawnedWith({ ...BASE_CONFIG, agentSpace: { path: space, login } });
 
@@ -523,10 +533,10 @@ describe("codex home per login", () => {
 	});
 
 	test("an owner home whose auth.json was replaced is linked to the owner's login again", async () => {
-		const ownerHome = fs.mkdtempSync(path.join(os.tmpdir(), "codex-owner-home-"));
+		const ownerHome = tempDir("codex-owner-home-");
 		fs.writeFileSync(path.join(ownerHome, "auth.json"), "{}");
 		vi.stubEnv("CODEX_HOME", ownerHome);
-		const space = fs.mkdtempSync(path.join(os.tmpdir(), "codex-space-"));
+		const space = tempDir("codex-space-");
 		fs.mkdirSync(path.join(space, ".codex-owner"));
 		fs.writeFileSync(path.join(space, ".codex-owner", "auth.json"), "stale");
 
