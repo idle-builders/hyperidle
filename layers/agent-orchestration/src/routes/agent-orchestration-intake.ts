@@ -10,6 +10,7 @@ import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
 import {
 	type DEFAULT_AGENT_RUN_CONFIG,
+	ensureAgentSpace,
 	readAgentRunConfig,
 	readAgentRunConfigs,
 	writeAgentRunConfig,
@@ -92,6 +93,18 @@ export function createAgentOrchestrationIntakeRoutes(
 			const patch = c.req.valid("json");
 			await writeAgentRunConfig(db, c.req.param("agentId"), patch);
 			return c.json({ ok: true });
+		},
+	);
+
+	// ── runConfig.ensureSpace — POST /agent-orchestration/run-config/:agentId/ensure-space ─────────
+	router.post(
+		"/run-config/:agentId/ensure-space",
+		validateBody(z.object({ agentName: z.string().min(1) })),
+		async (c) => {
+			const agentId = c.req.param("agentId");
+			const { agentName } = c.req.valid("json");
+			const spacePath = await ensureAgentSpace(db, agentId, agentName);
+			return c.json({ spacePath });
 		},
 	);
 

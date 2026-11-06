@@ -32,6 +32,9 @@ export interface AgentOrchestrationRunConfigPort {
 		agentIds: readonly string[],
 	): Promise<ReadonlyMap<string, AgentOrchestrationRunConfigView>>;
 	write(agentId: string, patch: AgentOrchestrationRunConfigPatch): Promise<void>;
+	/** Ensure a space directory exists for the agent, creating one if none is recorded.
+	 * Returns the space path. Idempotent: returns the existing path if one is already set. */
+	ensureSpace(agentId: string, agentName: string): Promise<string>;
 }
 
 /** Mirrors `filesystem_injections`' wire-relevant columns. */

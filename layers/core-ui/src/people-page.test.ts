@@ -1,4 +1,4 @@
-import type { FolderView, SessionRow, Task, ThreadListRow, UserRow } from "@hyperidle/domain-model";
+import type { FolderView, HarnessDescriptor, SessionRow, Task, ThreadListRow, UserRow } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import {
 	agentJobs,
@@ -7,9 +7,11 @@ import {
 	cronOf,
 	cronWords,
 	folderTrouble,
+	loginRowWhy,
 	loginStatusLine,
 	loginWords,
 	personStand,
+	programLineWhy,
 	startedJobs,
 	waitingJobs,
 } from "./people-page";
@@ -331,5 +333,88 @@ describe("loginStatusLine — agent login status and command", () => {
 		const result = loginStatusLine({ state: "unauthenticated" }, noSpaceConfig);
 		expect(result).toContain("not logged in");
 		expect(result).not.toContain("run:");
+	});
+});
+
+const harness = (
+	state: HarnessDescriptor["discovery"]["state"],
+	extra: Partial<HarnessDescriptor["discovery"]> = {},
+): HarnessDescriptor => ({
+	type: "claude-code",
+	name: "Claude Code",
+	authAction: { kind: "in-app" },
+	discovery: { state, ...extra },
+	models: [],
+	modelProviders: [],
+});
+
+describe("programLineWhy — program row for Runs on", () => {
+	it.each([
+		{ state: "ready" as const, login: "owner" as const, says: "on this computer · signed in" },
+		{
+			state: "unauthenticated" as const,
+			login: "owner" as const,
+			says: "on this computer · installed, not signed in",
+		},
+		{
+			state: "missing" as const,
+			login: "owner" as const,
+			says: "on this computer · not installed",
+		},
+		{ state: "ready" as const, login: "own" as const, says: "on this computer · installed" },
+		{
+			state: "unauthenticated" as const,
+			login: "own" as const,
+			says: "on this computer · installed",
+		},
+		{ state: "installed" as const, login: "own" as const, says: "on this computer · installed" },
+		{ state: "missing" as const, login: "own" as const, says: "on this computer · not installed" },
+	])("state=$state login=$login → $says", ({ state, login, says }) => {
+		expect(programLineWhy(harness(state), login)).toBe(says);
+	});
+
+	it("disabled harness + own → switched off", () => {
+		expect(programLineWhy(harness("ready", { disabled: true }), "own")).toBe(
+			"on this computer · switched off",
+		);
+	});
+});
+
+describe("loginRowWhy — Login row for Runs on", () => {
+	const spaceConfig = { spacePath: "/spaces/bot" };
+	const noSpaceConfig = { spacePath: null };
+
+	it("owner → 'your login'", () => {
+		expect(loginRowWhy("owner", "codex", undefined, spaceConfig)).toBe("your login");
+	});
+
+	it("own + no agentLoginStatus → 'its own login' (no space yet)", () => {
+		expect(loginRowWhy("own", "codex", undefined, noSpaceConfig)).toBe("its own login");
+	});
+
+	it("own + ready → 'its own login · signed in'", () => {
+		expect(loginRowWhy("own", "codex", { state: "ready" }, spaceConfig)).toBe(
+			"its own login · signed in",
+		);
+	});
+
+	it("own + unauthenticated + codex space → includes command", () => {
+		const result = loginRowWhy("own", "codex", { state: "unauthenticated" }, spaceConfig);
+		expect(result).toContain("its own login");
+		expect(result).toContain("not logged in");
+		expect(result).toContain("CODEX_HOME=/spaces/bot/.codex codex login");
+	});
+
+	it("own + unauthenticated + no space → 'its own login · not logged in' no command", () => {
+		const result = loginRowWhy("own", "codex", { state: "unauthenticated" }, noSpaceConfig);
+		expect(result).toContain("its own login");
+		expect(result).toContain("not logged in");
+		expect(result).not.toContain("run:");
+	});
+
+	it("own + missing → 'its own login · program not installed'", () => {
+		const result = loginRowWhy("own", "codex", { state: "missing" }, spaceConfig);
+		expect(result).toContain("its own login");
+		expect(result).toContain("program not installed");
 	});
 });

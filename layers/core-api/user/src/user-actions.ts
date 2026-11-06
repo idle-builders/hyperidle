@@ -145,6 +145,9 @@ export interface UserActionsDeps {
 	readonly runConfig: {
 		read(agentId: string): Promise<UserActionsRunConfigView>;
 		write(agentId: string, patch: UserActionsRunConfigPatch): Promise<void>;
+		/** Ensure a space directory exists for the agent.
+		 * Called when login is set to "own" so the probe can run before the first session. */
+		ensureSpace(agentId: string, agentName: string): Promise<string>;
 	};
 	readonly folders: {
 		list(
@@ -1033,6 +1036,13 @@ async function createUserRun(
 	// `user.created` still reaches every subscriber in reach. --
 	if (input.runConfig) await deps.runConfig.write(id, input.runConfig);
 
+	// When login is explicitly set to "own" on an AI agent, ensure the space
+	// directory exists now — before the first session runs — so open_user can
+	// probe login status and show the sign-in command right away.
+	if (input.runConfig?.login === "own" && kind === "ai") {
+		await deps.runConfig.ensureSpace(id, name);
+	}
+
 	let stepProblem: Problem | null = null;
 	if (input.folders) {
 		stepProblem = await applyUserFolders(deps, id, teams, input.folders, (teamId) =>
@@ -1359,6 +1369,13 @@ async function editExistingUserRun(
 	// folder/connection problem is held, not returned, so the rest of this
 	// sequence — including the `user.changed` emit below — still runs. --
 	if (input.runConfig) await deps.runConfig.write(id, input.runConfig);
+
+	// When login is explicitly set to "own" on an AI agent, ensure the space
+	// directory exists now — before the first session runs — so open_user can
+	// probe login status and show the sign-in command right away.
+	if (input.runConfig?.login === "own" && existing.kind === "ai") {
+		await deps.runConfig.ensureSpace(id, existing.name);
+	}
 
 	let stepProblem: Problem | null = null;
 	if (input.folders) {

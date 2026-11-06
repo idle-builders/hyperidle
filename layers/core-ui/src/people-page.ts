@@ -410,6 +410,51 @@ export function programWords(h: HarnessDescriptor): string {
 	}
 }
 
+/**
+ * "on this computer · <state>" for the program row in Runs on.
+ *
+ * When login="own", the owner's sign-in state is irrelevant to the agent's
+ * per-agent login — only whether the program is installed matters here.
+ * The separate Login row carries the actual per-agent sign-in status.
+ */
+export function programLineWhy(h: HarnessDescriptor, login: "own" | "owner"): string {
+	if (login === "owner") return `on this computer · ${programWords(h)}`;
+	if (h.discovery.disabled) return "on this computer · switched off";
+	switch (h.discovery.state) {
+		case "ready":
+		case "unauthenticated":
+		case "installed":
+			return "on this computer · installed";
+		case "missing":
+			return "on this computer · not installed";
+		default:
+			return `on this computer · ${h.discovery.reason ?? "not available"}`;
+	}
+}
+
+/**
+ * The "why" text for the Login row in Runs on.
+ *
+ * - "owner": "your login" (no status — the program row already shows sign-in state)
+ * - "own" + status known: "its own login · signed in" or "its own login · not logged in · run: …"
+ * - "own" + no status yet (no space exists): "its own login"
+ */
+export function loginRowWhy(
+	login: "own" | "owner",
+	harnessType: string | null,
+	agentLoginStatus: UserView["agentLoginStatus"],
+	runConfig: { spacePath: string | null } | null,
+): string {
+	const base = loginWords(login, harnessType);
+	if (login !== "own") return base;
+	const status = loginStatusLine(agentLoginStatus, {
+		harnessType,
+		spacePath: runConfig?.spacePath ?? null,
+		login: "own",
+	});
+	return status !== null ? `${base} · ${status}` : base;
+}
+
 /** A folder's path, whether it is a repository or a folder of documents. */
 export function folderPath(f: FolderView): string {
 	return f.resourceRef.kind === "code" ? f.resourceRef.repo : f.resourceRef.folder;
