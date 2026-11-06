@@ -18,6 +18,8 @@ const FRESH_SERVER_PORT = 3103;
 const FRESH_WEB_PORT = 5183;
 const dbPath = join(mkdtempSync(join(tmpdir(), "hyperidle-e2e-")), "db");
 const freshDbPath = join(mkdtempSync(join(tmpdir(), "hyperidle-e2e-fresh-")), "db");
+const spacesDir = mkdtempSync(join(tmpdir(), "hyperidle-e2e-spaces-"));
+const freshSpacesDir = mkdtempSync(join(tmpdir(), "hyperidle-e2e-fresh-spaces-"));
 const repoRoot = join(import.meta.dirname, "../..");
 const browser = {
 	...devices["Desktop Chrome"],
@@ -64,7 +66,12 @@ export default defineConfig({
 			reuseExistingServer: false,
 			timeout: 180_000,
 			// No agent ever runs: a dispatch waits in the queue, so starting a task again starts nothing real.
-			env: { DATABASE_URL: dbPath, PORT: String(SERVER_PORT), HYPERIDLE_LOCAL_MAX_CONCURRENT: "0" },
+			env: {
+				DATABASE_URL: dbPath,
+				PORT: String(SERVER_PORT),
+				HYPERIDLE_LOCAL_MAX_CONCURRENT: "0",
+				HYPERIDLE_SPACES_DIR: spacesDir,
+			},
 		},
 		{
 			command: `npm run setup -- --profile laptop --db-path ${freshDbPath} && node --import tsx --input-type=module -e "await (await import('@hyperidle/remote-server/create-server')).createServer(${FRESH_SERVER_PORT}, { topology: 'local' })"`,
@@ -76,6 +83,7 @@ export default defineConfig({
 				DATABASE_URL: freshDbPath,
 				HYPERIDLE_API_KEY: "hyperidle-dev-local",
 				HYPERIDLE_LOCAL_MAX_CONCURRENT: "0",
+				HYPERIDLE_SPACES_DIR: freshSpacesDir,
 			},
 		},
 		{

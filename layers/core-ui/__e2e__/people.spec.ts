@@ -1,5 +1,12 @@
 /** A team's page, a user's page and the set-up dialogs on the demo world: everything saved is read back. */
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { expect, type Page, test } from "@playwright/test";
+
+// Real temp directories used as folder targets — never /tmp directly, so the server's
+// HYPERIDLE_SPACES_DIR (a temp dir too) keeps all agent spaces isolated from ~/HyperIdle.
+const agentFolderPath = mkdtempSync(`${tmpdir()}/e2e-agent-folder-`);
+const myPageFolderPath = mkdtempSync(`${tmpdir()}/e2e-mepage-folder-`);
 
 const BUILDER = "/people/demo-agent-builder";
 const GROWTH = "/people/demo-agent-growth";
@@ -52,12 +59,12 @@ test("a folder added on an agent's page stays on that agent only", async ({ page
 	await page.goto(BUILDER);
 	await box(page, "Builder").getByRole("button", { name: "Add a folder" }).click();
 	const where = dialog(page, "Where Builder works");
-	await where.getByLabel("Where").fill("/tmp");
+	await where.getByLabel("Where").fill(agentFolderPath);
 	await where.getByRole("button", { name: "Save" }).click();
 	await expect(where).toHaveCount(0);
-	await expect(box(page, "Builder")).toContainText("/tmp");
+	await expect(box(page, "Builder")).toContainText(agentFolderPath);
 	await page.goto(GROWTH);
-	await expect(box(page, "Growth")).not.toContainText("/tmp");
+	await expect(box(page, "Growth")).not.toContainText(agentFolderPath);
 });
 
 test("a service unticked for Growth no longer reaches it, and still reaches Builder", async ({
@@ -146,19 +153,19 @@ test("your page: 'Add a folder' with Growth unticked only adds to Builder, not G
 	await page.goto("/people/me");
 	await page.getByRole("button", { name: "Add a folder" }).click();
 	const dlg = dialog(page, "Where you and your agents work");
-	await dlg.getByLabel("Where").fill("/tmp");
+	await dlg.getByLabel("Where").fill(myPageFolderPath);
 	// Untick Growth (keep from Growth)
 	await dlg.getByRole("checkbox", { name: "Growth" }).uncheck();
 	await dlg.getByRole("button", { name: "Save" }).click();
 	await expect(dlg).toHaveCount(0);
 
-	// Builder should have /tmp
+	// Builder should have the folder
 	await page.goto(BUILDER);
-	await expect(box(page, "Builder")).toContainText("/tmp");
+	await expect(box(page, "Builder")).toContainText(myPageFolderPath);
 
-	// Growth should not have /tmp
+	// Growth should not have the folder
 	await page.goto(GROWTH);
-	await expect(box(page, "Growth")).not.toContainText("/tmp");
+	await expect(box(page, "Growth")).not.toContainText(myPageFolderPath);
 });
 
 test("the bell's 'Change what you are told about' opens the dialog on your page", async ({
