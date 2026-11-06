@@ -65,12 +65,10 @@ function buildDeps(): UserActionsDeps {
 				return newPath;
 			},
 		},
-		folders: {
+		spaceFolders: {
 			list: async () => [],
-			add: async () => ({ ok: false, code: "TEAM_NOT_FOUND" }) as const,
+			add: async () => ({ ok: true }) as const,
 			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
-			give: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
-			take: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
 		},
 		connections: {
 			list: async () => ({ connections: [], inherited: [] }),
@@ -897,5 +895,30 @@ describe("edit_user — login 'own' creates space so open_user can probe login s
 		expect(opened.data.agentLoginStatus?.state).toBe("unauthenticated");
 		expect(opened.data.runConfig?.spacePath).toBe(spacePath);
 		// The runConfig is exposed via loginRowWhy in the UI; here we confirm the data is present
+	});
+});
+
+describe("edit_user — folder remove traversal names leave other agents' links alone", () => {
+	test("removing '../other-agent' does not reach the port", async ({ db }) => {
+		await seedFounder(db);
+		let removeCalled = false;
+		const deps = buildDeps();
+		deps.spaceFolders.remove = async () => {
+			removeCalled = true;
+			return { ok: false, code: "NOT_FOUND" } as const;
+		};
+		const { editUser } = actionsFor(deps);
+
+		// Traversal name: validateName in removeSpaceFolder refuses it before any fs call.
+		const result = await editUser(ctxFor(db, "u-founder"), {
+			id: "u-founder",
+			folders: { remove: ["../other-agent"] },
+		});
+
+		// The action either refuses at schema validation or passes to the port which refuses it.
+		// Either way the final outcome is not ok, and removeCalled proves port was reached (or not).
+		expect(result.ok).toBe(false);
+		// Schema validation (Zod refine on folders.remove) blocks before the port.
+		expect(removeCalled).toBe(false);
 	});
 });

@@ -79,11 +79,6 @@ function scanDeclaredActionNames(
  * what this list means; neither is an action, since core may not call an
  * orchestration action.
  *
- * @lore BC5 §6 (T4): `folders`/`connections` added seven new rows for eight
- * new doors — `folders.give` reuses the existing
- * `POST .../filesystems/:id/injections/persist` row under a second
- * capability name, one row realising two doors, same idiom the two moved
- * rows above already established.
  */
 const PLUMBING_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/auth.ts|POST /ws-token",
@@ -94,16 +89,10 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /run-config/batch",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|PATCH /run-config/:agentId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /run-config/:agentId/ensure-space",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /filesystems/:id/team",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /filesystems/:id/injections/persist",
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|POST /mcp/:token/return-status",
-	// `folders`/`connections` cross the port the way `runConfig`
-	// already does. `folders.give` is `POST .../filesystems/:id/injections/persist`
-	// above under a second capability name — no new row for it.
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /folders/list",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /folders",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /folders/:id/remove",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /folders/:id/take",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /space-folders/:agentId",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /space-folders/:agentId",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /space-folders/:agentId/remove",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /connections/:userId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId/:id/remove",

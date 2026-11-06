@@ -1,51 +1,36 @@
 # Folders
 
-A folder is a team-registered file source given to zero or more agents. It is not a document and not a connection — it is a real directory or repository mounted into the agent's sandbox.
+A folder is any top-level entry in an agent's space directory, except the reserved names the agent uses for its own working folders (`conversations`, `tasks`, `subscriptions`, `.claude`, `.codex`, `.codex-owner`). An entry is either a symlink to a real directory on this computer, or a real directory placed straight in the space.
 
-Source: `layers/agent-orchestration/filesystems/src/filesystem-shape.ts`, `layers/agent-orchestration/run-orchestration/src/mounter.ts`.
+Source: `layers/agent-orchestration/run-orchestration/src/space-folders.ts`.
 
 ## Fields
 
-From `FolderViewSchema` (`actions/user.ts`):
+From `SpaceFolderView` (`@hyperidle/run-orchestration`):
 
-- `id`, `teamId`, `source` (open text: "local", "github", …), `kind` (`code | doc_set`).
-- `connectionId` — optional; a remote clone uses this to authenticate.
-- `resourceRef` — `{ kind: "code", repo, branch }` or `{ kind: "doc_set", folder }`.
-- `writeback` — `git | file | none`.
-- `state` — `attached | reachable | needs_attention`.
-- `createdAt`.
-
-## Kinds
-
-- `code` — a git repository. Mounted as a git worktree (local repo) or a shallow clone (remote via connection).
-- `doc_set` — a local folder. Mounted as a symlink into the sandbox.
-
-Cloud sources (gdrive, dropbox, s3) are not implemented — mount attempts for those return an error. Kind is a closed enum for writes (`code | doc_set`).
-
-## States
-
-- `attached` — registered but not yet confirmed reachable.
-- `reachable` — accessible.
-- `needs_attention` — mount failed or the source is unreachable. Each session's mount sets `reachable` or `needs_attention` from what it found, and the folder's row on a user's page says "Not found on this computer" (or "Cannot be reached with its service").
+- `name` — the entry's name inside the agent's space.
+- `path` — the real target directory the entry resolves to.
+- `isGit` — true when the target contains a `.git` directory (a git repository).
+- `isMissing` — true when a symlink's target no longer exists on this computer.
 
 ## Mounting
 
-At session start, each folder given to the agent is mounted into the working folder:
+At session start, `mountSpaceFolders` reads every non-reserved entry in the agent's space and mounts it into the working folder:
 
-- **Local `code` folder** → git worktree at `<workingFolder>/<repoBasename>/`. The branch is named `agent/tasks/<taskId>` (or the relative path of the working folder within the space for other run types).
-- **Remote `code` folder** (has `connectionId`) → shallow clone (`depth: 1`) at `<workingFolder>/<repoBasename>/`.
-- **Local `doc_set`** → symlink at `<workingFolder>/<folderBasename>`.
+- **Git repository** (`isGit: true`) → git worktree at `<workingFolder>/<name>/`. The branch is `agent/<spaceBasename>/<taskOrConversationId>` — unique per agent so two agents mounting the same repo for the same task each get their own branch. Reuses an existing worktree on a second mount; re-attaches after `git worktree remove`.
+- **Plain directory** (`isGit: false`) → symlink at `<workingFolder>/<name>` pointing at the real path.
+- **Dangling symlink** (`isMissing: true`) → skipped; other folders still mount.
 
-The working folder persists across sessions. Git worktrees inside it are removed when the task is marked done. The `knowledge/` tree is not a folder — it is a separate zone within the working folder.
+Returns `{ trustedPaths: string[] }` — the real paths of every successfully mounted folder.
 
-## Writeback
+Git worktrees in a task's working folder are removed when the task is done or killed; a worktree with uncommitted changes is left as-is. The branch itself always stays in the repository.
 
-`writeback` is a per-folder setting. `git` commits changes; `file` writes them directly; `none` leaves them. The watcher that backs this lives in `run-orchestration`; it does not share the `knowledge/` writeback path.
+## Add and remove
 
-## Giving and taking
+`edit_user({ folders: { add: [{ path, name? }] } })` adds a symlink for the given path in the agent's space. `name` defaults to the path's basename. The agent's space is created on first add if it does not exist yet.
 
-`edit_user({ folders: { give: [id], take: [id] } })` assigns or removes a folder from an agent; a folder can only be given to an agent of the folder's team. `add` creates a new folder in the team registry — the user's only team, or the one named by `team` when they are in several; `remove` deletes it from the registry.
+`edit_user({ folders: { remove: [name] } })` removes the named symlink. Only symlinks may be removed — a directory placed straight in the space refuses with `NOT_A_SYMLINK`; nothing real is ever deleted.
 
-## Difference from tools and documents
+## Difference from connections and documents
 
-A folder is not a tool (connection) and not a document. Connections are service integrations (token or MCP server). Documents are rows in the `documents` table. A folder is a filesystem path the agent can read and write.
+A folder is not a connection (service integration) and not a document. Connections are service integrations (token or MCP server). Documents are rows in the `documents` table. A folder is a filesystem path the agent reads and writes through its working folder.

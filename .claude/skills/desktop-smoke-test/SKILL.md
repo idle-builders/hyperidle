@@ -91,7 +91,7 @@ Expect: `migrations complete` → `factory bootstrap complete` → `static dir �
 | Review | From "Trial-end confusion, three tickets", "Look at it" → parts, flags as pins, the questions list, round 1 link; add a comment pin (write path); Approve / Reject needs a reason. |
 | Work (task) | Open "Trials that convert without a call": parts graph, click a part and "‹ The whole task", decisions and assumptions, Done when, summary, conversation; the box (Follow, Put on hold / Take off hold, Stop / Start again, Ask for a review). |
 | Knowledge | The tree with team spaces → open a document: Edit / Done, format bar, a comment in the margin, Publish, Follow; + adds a document; change an icon. |
-| Your page | "You" → Waiting for you / Started by you; the box: Works in, Can reach, Notifications switches (toggle one and restore it — write path), About, This app, Agent programs (Look again), Looks (switch Light / Dark and restore). There is no settings screen. |
+| Your page | "You" → Waiting for you / Started by you; the box: Folders (Add a folder), Can reach, Notifications switches (toggle one and restore it — write path), About, This app, Agent programs (Look again), Looks (switch Light / Dark and restore). There is no settings screen. |
 | Agent page | Open Builder from a list or the team page: open tasks, Edit (dialog), Pause / Let it work (restore), Starts working when. |
 | Team + plugins | "The team ›" → people with their agents, agents of every team, the team's plugins → open Team habits: how it stands, what it added, Switch off / on (restore). |
 | First start | Only on a wiped DB (above). |

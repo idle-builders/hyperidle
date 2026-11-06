@@ -8,7 +8,7 @@
  *  - deriveWorkingFolder routes by taskId, subscriptionId, callingThreadId, and resume
  *  - real provisioner runs: task and conversation runs get isolated working folders
  *  - real provisioner runs: second conversation run reuses the same folder
- *  - real provisioner runs: injected code folder mounted; CLAUDE.md byte-identical
+ *  - real provisioner runs: space-linked git repo mounted as worktree; CLAUDE.md byte-identical
  */
 
 import { execFileSync } from "node:child_process";
@@ -30,8 +30,8 @@ import {
 } from "../__testing__/test-fixtures.js";
 import { readAgentRunConfig } from "../agent-run-config-store.js";
 import { deriveWorkingFolder, ensureAgentSpace } from "../agent-space.js";
-import { RegistryFilesystemMounter } from "../index.js";
 import { createProvisioner } from "../provisioner.js";
+import { addSpaceFolder } from "../space-folders.js";
 
 const NOW = "2026-11-06T00:00:00.000Z";
 
@@ -461,7 +461,7 @@ describe("real provisioner runs: working folder isolation", () => {
 		expect(folders).toHaveLength(1);
 	});
 
-	test("code folder mounted into working folder: CLAUDE.md byte-identical, instruction file in root", async ({
+	test("space-linked git repo mounted as worktree: CLAUDE.md byte-identical, instruction file in root", async ({
 		db,
 	}) => {
 		const now = new Date().toISOString();
@@ -485,16 +485,21 @@ describe("real provisioner runs: working folder isolation", () => {
 			execFileSync("git", ["add", "CLAUDE.md"], { cwd: repoDir });
 			execFileSync("git", ["commit", "--quiet", "-m", "init"], { cwd: repoDir });
 
-			// Real RegistryFilesystemMounter with the production git runner factory.
-			const mounter = new RegistryFilesystemMounter({
-				gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
-			});
+			// Pre-create the agent's space (provisioner will reuse it) and add the
+			// git repo as a space-folder symlink before the session starts.
+			const spacePath = await ensureAgentSpace(
+				db as HyperIdleDb,
+				"agent-real-mount",
+				"RealMount",
+				null,
+			);
+			const addResult = addSpaceFolder(spacePath, repoDir);
+			expect(addResult.ok).toBe(true);
 
 			let capturedSandboxPath: string | undefined;
 			const capturedPaths = new Map<string, string>();
 			const ports = buildRunningHarnessPorts({
 				writeSandboxAgentsMd: (sbPath: string, prompt: string) => {
-					// Write the instruction file to the working folder root (like production does).
 					fs.writeFileSync(path.join(sbPath, "AGENTS.md"), prompt);
 					capturedSandboxPath = sbPath;
 				},
@@ -517,23 +522,7 @@ describe("real provisioner runs: working folder isolation", () => {
 
 			const deps: ProvisionSessionDeps = {
 				...buildDeps(db as HyperIdleDb, capturedPaths),
-				mounter,
-				injectedFilesystems: {
-					listInjectedForProvisioning: async () => [
-						{
-							id: "fs-inject-1",
-							teamId: "team-inject",
-							source: "local",
-							kind: "code",
-							connectionId: null,
-							resourceRef: { kind: "code", repo: repoDir, branch: "main" },
-							writeback: "none",
-							state: "attached",
-							createdAt: now,
-						},
-					],
-					markState: async () => undefined,
-				},
+				gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
 			};
 
 			const admitted = await provisioner.admit(deps, params);
@@ -542,7 +531,7 @@ describe("real provisioner runs: working folder isolation", () => {
 			expect(capturedSandboxPath).toBeDefined();
 			const sbPath = capturedSandboxPath!;
 
-			// (c) The repo's CLAUDE.md is byte-identical to the original.
+			// The repo's CLAUDE.md is byte-identical to the original.
 			const repoName = path.basename(repoDir);
 			const mountedClaudeMd = path.join(sbPath, repoName, "CLAUDE.md");
 			expect(fs.existsSync(mountedClaudeMd)).toBe(true);
@@ -550,7 +539,7 @@ describe("real provisioner runs: working folder isolation", () => {
 				"# Known CLAUDE.md content for injection test\n",
 			);
 
-			// (c) The instruction file (AGENTS.md) is in the working folder root.
+			// The instruction file (AGENTS.md) is in the working folder root.
 			expect(fs.existsSync(path.join(sbPath, "AGENTS.md"))).toBe(true);
 		} finally {
 			// Clean up the worktree and temp repo.

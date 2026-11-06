@@ -26,7 +26,7 @@ There is one organisation, and nothing names it. A team is a group inside it —
 
 **Everyone reads every team's knowledge.** Conversations and documents are shown across all teams. A team-scoped document sits in that team's space, and goes into the context of that team's agents; it never limits who can read it.
 
-Team scope applies to documents (their space), folders registered per team, and task assignment.
+Team scope applies to documents (their space) and task assignment.
 
 ## Subscriptions
 
@@ -67,7 +67,7 @@ Per agent: `harnessType`, `modelId`, `modelProvider`, `modelOptions`, `maxConcur
 
 ## Folders
 
-Each user's `open_user` response includes folders: for agents, the folders given to them; for people, the folders of every team they are in. Given/taken via `edit_user({ folders: { give, take } })`; a folder added by someone in several teams names which one (`folders.add[].team`).
+Each agent's `open_user` response includes its space folders — symlinks in the agent's space directory. Added via `edit_user({ folders: { add: [{ path, name? }] } })`, removed via `edit_user({ folders: { remove: [name] } })`. Persons do not have folders; the response always returns an empty array for person users. See [folders](../objects/folders.md) for the full model.
 
 ## Connections
 

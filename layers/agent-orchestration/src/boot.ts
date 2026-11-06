@@ -17,20 +17,15 @@ import {
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
-import {
-	listInjectedFilesystemsForProvisioning,
-	updateFilesystemState,
-} from "@hyperidle/filesystems";
 import type { RegisteredTool } from "@hyperidle/harness-protocol";
 import type {
 	HeldConnectionsReaderPort,
-	InjectedFilesystemsReaderPort,
+	MountingGitRunnerFactory,
 	RunOptions,
 	RunResult,
 	RuntimeDeps,
 	RuntimeHandle,
 } from "@hyperidle/run-orchestration";
-import { RegistryFilesystemMounter } from "@hyperidle/run-orchestration";
 import type { Hono } from "hono";
 import { createAgentOrchestrationApp } from "./app.js";
 import { createGitRunner } from "./git-runner.js";
@@ -49,7 +44,7 @@ import { SessionActivityBuffer } from "./session-activity-buffer.js";
 
 export type ApplicationProvisionSessionDeps = Omit<
 	ProvisionSessionDeps,
-	"mounter" | "heldConnections" | "injectedFilesystems" | "serviceConnectionResolver"
+	"gitRunnerFactory" | "heldConnections" | "serviceConnectionResolver"
 >;
 
 export interface AgentOrchestrationRuntimeOptions {
@@ -127,9 +122,8 @@ function buildRuntimeComposition(
 
 /** Builds provisioning reads. heldConnections needs resolveProvisioningOwnerUserId — absent means no held connections. */
 interface OrchestrationProvisioningReads {
-	readonly mounter: RegistryFilesystemMounter;
+	readonly gitRunnerFactory: MountingGitRunnerFactory;
 	readonly heldConnections?: HeldConnectionsReaderPort;
-	readonly injectedFilesystems: InjectedFilesystemsReaderPort;
 	readonly serviceConnectionResolver: {
 		resolve(userId: string, connectionId: string): Promise<string | null>;
 	};
@@ -141,9 +135,7 @@ function buildProvisioningReads(
 	decrypt: (ciphertext: string) => string | null,
 ): OrchestrationProvisioningReads {
 	return {
-		mounter: new RegistryFilesystemMounter({
-			gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
-		}),
+		gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
 		...(resolveProvisioningOwnerUserId
 			? {
 					heldConnections: {
@@ -169,11 +161,6 @@ function buildProvisioningReads(
 					},
 				}
 			: {}),
-		injectedFilesystems: {
-			listInjectedForProvisioning: (agentId: string) =>
-				listInjectedFilesystemsForProvisioning(db, agentId),
-			markState: (id, state) => updateFilesystemState(db, id, state),
-		},
 		serviceConnectionResolver: {
 			resolve: (userId: string, connectionId: string) =>
 				resolveHeldToken(db, userId, connectionId, decrypt),

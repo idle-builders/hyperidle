@@ -1,10 +1,13 @@
 /**
  * Setting someone up through `edit_user` and reading it back through `open_user`, over the real
- * orchestration port: a folder or service you add goes to every agent of yours until you take it
- * from one; a new person is told about the four reasons; a person's About and an agent's reasons
- * are documents.
+ * orchestration port: a folder added to an agent stays on that agent only; a service reaches every
+ * agent of an owner until taken; a new person is told about the four reasons; a person's About and
+ * an agent's reasons are documents.
  */
 
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { documents, type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { type EditUserInput, PERSON_REASONS, type UserView } from "@hyperidle/domain-model";
@@ -86,38 +89,70 @@ describe("setting someone up", () => {
 	beforeEach(() => vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "test-credential-encryption-key"));
 	afterEach(() => vi.unstubAllEnvs());
 
-	test("a folder a person adds goes to every agent of theirs, and to nobody else's", async ({
+	test("adding a folder to an agent that has no space yet auto-creates the space", async ({
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedPeople(db);
-		const { edit, open } = actionsOf(agentOrchestration);
-		const added = await edit(
-			"finn",
-			{
-				id: "finn",
-				folders: {
-					add: [
-						{
-							kind: "code",
-							resourceRef: { kind: "code", repo: "~/code/billing", branch: "main" },
-							writeback: "git",
-						},
-					],
-				},
-			},
-			db,
-			eventBus,
-		);
-		expect(added.ok).toBe(true);
-		const repos = async (id: string) =>
-			(await open("finn", id, db, eventBus)).folders.map((f) =>
-				f.resourceRef.kind === "code" ? f.resourceRef.repo : f.resourceRef.folder,
+		const spacesRoot = mkdtempSync(join(tmpdir(), "spaces-test-fresh-"));
+		const folderSource = realpathSync(mkdtempSync(join(tmpdir(), "fresh-src-")));
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", spacesRoot);
+		try {
+			const { edit, open } = actionsOf(agentOrchestration);
+
+			// No ensureSpace call — space_path is null; route must auto-create it.
+			const added = await edit(
+				"finn",
+				{ id: "builder", folders: { add: [{ path: folderSource }] } },
+				db,
+				eventBus,
 			);
-		expect(await repos("builder")).toEqual(["~/code/billing"]);
-		expect(await repos("growth")).toEqual(["~/code/billing"]);
-		expect(await repos("designer")).toEqual([]);
+			expect(added.ok).toBe(true);
+
+			const folders = (await open("finn", "builder", db, eventBus)).folders;
+			expect(folders.map((f) => f.path)).toEqual([folderSource]);
+		} finally {
+			vi.unstubAllEnvs();
+			rmSync(spacesRoot, { recursive: true, force: true });
+			rmSync(folderSource, { recursive: true, force: true });
+		}
+	});
+
+	test("a folder added to an agent stays on that agent only", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedPeople(db);
+		const spacesRoot = mkdtempSync(join(tmpdir(), "spaces-test-"));
+		const folderSource = realpathSync(mkdtempSync(join(tmpdir(), "billing-src-")));
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", spacesRoot);
+		try {
+			const { edit, open } = actionsOf(agentOrchestration);
+
+			// Give the agent a space directory first so spaceFolders.add can proceed.
+			await agentOrchestration.runConfig.ensureSpace("builder", "builder");
+
+			const added = await edit(
+				"finn",
+				{ id: "builder", folders: { add: [{ path: folderSource }] } },
+				db,
+				eventBus,
+			);
+			expect(added.ok).toBe(true);
+
+			const foldersOf = async (id: string) =>
+				(await open("finn", id, db, eventBus)).folders.map((f) => f.path);
+
+			expect(await foldersOf("builder")).toEqual([folderSource]);
+			expect(await foldersOf("growth")).toEqual([]);
+			expect(await foldersOf("designer")).toEqual([]);
+		} finally {
+			vi.unstubAllEnvs();
+			rmSync(spacesRoot, { recursive: true, force: true });
+			rmSync(folderSource, { recursive: true, force: true });
+		}
 	});
 
 	test("a service reaches every agent of its owner until it is taken from one", async ({

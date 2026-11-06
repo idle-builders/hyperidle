@@ -69,12 +69,15 @@ function collisionFreeDir(root: string, base: string, agentId: string): string {
  *
  * Uses `currentSpacePath` (already-read from the run config) to avoid a
  * second DB round-trip in callers that have read the config themselves.
+ * Pass `overrideRoot` to use a specific spaces base directory instead of
+ * `HYPERIDLE_SPACES_DIR` — useful for tooling that manages its own paths.
  */
 export async function ensureAgentSpace(
 	db: HyperIdleDb,
 	agentId: string,
 	agentName: string,
 	currentSpacePath?: string | null,
+	overrideRoot?: string,
 ): Promise<string> {
 	// Use the passed-in value if available; otherwise read from DB.
 	const spacePath =
@@ -87,7 +90,7 @@ export async function ensureAgentSpace(
 		return spacePath;
 	}
 
-	const root = spacesRoot();
+	const root = overrideRoot ?? spacesRoot();
 	mkdirSync(root, { recursive: true });
 	const newPath = collisionFreeDir(root, sanitizeName(agentName), agentId);
 	mkdirSync(newPath, { recursive: true });

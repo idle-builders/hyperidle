@@ -37,28 +37,8 @@ export interface AgentOrchestrationRunConfigPort {
 	ensureSpace(agentId: string, agentName: string): Promise<string>;
 }
 
-/** Mirrors `filesystem_injections`' wire-relevant columns. */
-export interface AgentOrchestrationFilesystemInjectionView {
-	readonly agentUserId: string;
-	readonly filesystemId: string;
-	readonly createdAt: string;
-}
-
-export type AgentOrchestrationPersistInjectionResult =
-	| { readonly ok: true; readonly injection: AgentOrchestrationFilesystemInjectionView }
-	| { readonly ok: false; readonly code: "NOT_FOUND" | "CONFLICT" };
-
-export interface AgentOrchestrationFilesystemsPort {
-	/** Read BEFORE `persistInjection` — the team-consistency gate must reject a mismatch without writing; persistInjection's existence check runs too late for that ordering. */
-	getTeamId(filesystemId: string): Promise<string | null>;
-	persistInjection(
-		filesystemId: string,
-		agentUserId: string,
-	): Promise<AgentOrchestrationPersistInjectionResult>;
-}
-
 /**
- * A remove-style write's outcome — shared by every `folders`/`connections`
+ * A remove-style write's outcome — shared by every `connections`
  * operation that either succeeds or reports the row was never there.
  */
 export type AgentOrchestrationRemoveResult =
@@ -110,54 +90,48 @@ export interface AgentOrchestrationConnectionsPort {
 	): Promise<AgentOrchestrationRemoveResult>;
 }
 
-/** Mirrors `Filesystem` (`@hyperidle/filesystems`). */
-export interface AgentOrchestrationFolderView {
-	readonly id: string;
-	readonly teamId: string;
-	readonly source: string;
-	readonly kind: "code" | "doc_set";
-	readonly connectionId: string | null;
-	readonly resourceRef:
-		| { readonly kind: "code"; readonly repo: string; readonly branch: string }
-		| { readonly kind: "doc_set"; readonly folder: string };
-	readonly writeback: "git" | "file" | "none";
-	readonly state: "attached" | "reachable" | "needs_attention";
-	readonly createdAt: string;
+/** Mirrors `SpaceFolderView` (`@hyperidle/run-orchestration`). */
+export interface AgentOrchestrationSpaceFolderView {
+	readonly name: string;
+	readonly path: string;
+	readonly isGit: boolean;
+	readonly isMissing: boolean;
 }
 
-export type AgentOrchestrationFolderListQuery =
-	| { readonly teamId: string }
-	| { readonly agentUserId: string };
+export type AgentOrchestrationSpaceFolderAddCode =
+	| "RESERVED_NAME"
+	| "INVALID_NAME"
+	| "CONFLICT"
+	| "SOURCE_NOT_FOUND"
+	| "SOURCE_NOT_DIRECTORY"
+	| "SPACE_NOT_SET";
 
-/** Mirrors `POST /filesystems` body, minus the `teamId` that `folders.add` takes separately. */
-export interface AgentOrchestrationFolderCreateInput {
-	readonly kind: "code" | "doc_set";
-	readonly connectionId?: string | null;
-	readonly resourceRef: AgentOrchestrationFolderView["resourceRef"];
-	readonly writeback: "git" | "file" | "none";
-}
+export type AgentOrchestrationSpaceFolderAddResult =
+	| { readonly ok: true }
+	| { readonly ok: false; readonly code: AgentOrchestrationSpaceFolderAddCode };
 
-export type AgentOrchestrationAddFolderResult =
-	| { readonly ok: true; readonly folder: AgentOrchestrationFolderView }
-	| { readonly ok: false; readonly code: "TEAM_NOT_FOUND" };
+export type AgentOrchestrationSpaceFolderRemoveCode = "NOT_FOUND" | "NOT_A_SYMLINK";
 
-/** `give` is `filesystems.persistInjection` under a second name — same route, same write — so edit_user's folder verbs read as one family. */
-export interface AgentOrchestrationFoldersPort {
-	list(query: AgentOrchestrationFolderListQuery): Promise<readonly AgentOrchestrationFolderView[]>;
+export type AgentOrchestrationSpaceFolderRemoveResult =
+	| { readonly ok: true }
+	| { readonly ok: false; readonly code: AgentOrchestrationSpaceFolderRemoveCode };
+
+/** An agent's space folders — the symlinks in `<space>/` that point at real directories. */
+export interface AgentOrchestrationSpaceFoldersPort {
+	list(agentId: string): Promise<readonly AgentOrchestrationSpaceFolderView[]>;
 	add(
-		teamId: string,
-		body: AgentOrchestrationFolderCreateInput,
-	): Promise<AgentOrchestrationAddFolderResult>;
-	remove(id: string): Promise<AgentOrchestrationRemoveResult>;
-	give(id: string, agentUserId: string): Promise<AgentOrchestrationPersistInjectionResult>;
-	take(id: string, agentUserId: string): Promise<AgentOrchestrationRemoveResult>;
+		agentId: string,
+		path: string,
+		name: string | undefined,
+		agentName: string,
+	): Promise<AgentOrchestrationSpaceFolderAddResult>;
+	remove(agentId: string, name: string): Promise<AgentOrchestrationSpaceFolderRemoveResult>;
 }
 
 export interface AgentOrchestrationPort {
 	readonly runConfig: AgentOrchestrationRunConfigPort;
-	readonly filesystems: AgentOrchestrationFilesystemsPort;
-	/** A team's folders, given to and taken from an agent. */
-	readonly folders: AgentOrchestrationFoldersPort;
+	/** An agent's space folders — symlinks in its space directory. */
+	readonly spaceFolders: AgentOrchestrationSpaceFoldersPort;
 	/** One user's held connections plus the machine's inherited reach. */
 	readonly connections: AgentOrchestrationConnectionsPort;
 }

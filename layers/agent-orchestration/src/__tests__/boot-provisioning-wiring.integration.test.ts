@@ -1,7 +1,7 @@
 /**
  * The composition root actually wires session provisioning:
  * `bootAgentOrchestration` constructs `serviceConnectionResolver`/
- * `heldConnections`/`injectedFilesystems` itself and exposes them on its own
+ * `heldConnections`/`gitRunnerFactory` itself and exposes them on its own
  * `provisioning` field — this is the Layer that owns the wiring, so this is
  * the Layer whose test proves it.
  *
@@ -10,8 +10,6 @@
 import { bootAgentExecution } from "@hyperidle/agent-execution";
 import { encryptCredentialValue } from "@hyperidle/connections";
 import {
-	filesystemInjections,
-	filesystems,
 	type HyperIdleDb,
 	serviceConnections,
 	serviceConnectionWithholds,
@@ -103,22 +101,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			updatedAt: OTHER_CREATED_AT,
 		},
 	]);
-	await db.insert(filesystems).values({
-		id: "fs-provisioning-wiring",
-		teamId: TEAM_ID,
-		source: "local",
-		kind: "doc_set",
-		connectionId: null,
-		resourceRef: JSON.stringify({ kind: "doc_set", folder: "/tmp/provisioning-wiring-vault" }),
-		writeback: "file",
-		state: "attached",
-		createdAt: OWNER_CREATED_AT,
-	});
-	await db.insert(filesystemInjections).values({
-		agentUserId: AGENT_ID,
-		filesystemId: "fs-provisioning-wiring",
-		createdAt: OWNER_CREATED_AT,
-	});
 }
 
 async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
@@ -248,22 +230,15 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 		}
 	}, 20_000);
 
-	test("the wired injected-filesystem reader reads filesystem_injections live", async ({ db }) => {
+	test("the wired gitRunnerFactory creates a runner with worktreeAdd", async ({ db }) => {
 		await seed(db);
 		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(db);
 		try {
-			const injected =
-				(await agentOrchestration.provisioning?.injectedFilesystems.listInjectedForProvisioning(
-					AGENT_ID,
-				)) ?? [];
-			expect(injected.map((row) => row.id)).toEqual(["fs-provisioning-wiring"]);
-
-			// A different agent has none — the reader really filters on the id.
-			expect(
-				await agentOrchestration.provisioning?.injectedFilesystems.listInjectedForProvisioning(
-					OWNER_ID,
-				),
-			).toEqual([]);
+			const factory = agentOrchestration.provisioning?.gitRunnerFactory;
+			// Not just defined: the factory must produce a git runner with the
+			// worktreeAdd method that space-folder mounting calls at session time.
+			const runner = factory?.("/tmp");
+			expect(typeof runner?.worktreeAdd).toBe("function");
 		} finally {
 			await agentOrchestration.disposeRuntime?.();
 			agentOrchestration.dispose();

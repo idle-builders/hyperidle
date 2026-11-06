@@ -414,18 +414,9 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 	// services/policy-bindings.ts, server-factory.ts now import
 	// `@hyperidle/policy`.
 	//
-	// @lore AU19 Increment 2b: `core-api/filesystems` added — same TS6305
-	// cascade; routes/filesystems.ts, routes/knowledge.ts, app.ts,
-	// server-factory.ts, services/session-provisioning.ts,
-	// services/agent-context/assemble-context.ts,
-	// filesystem/__tests__/scaffolding-drift-guard.test.ts now import
-	// `@hyperidle/filesystems`.
-	//
 	// @lore AU26 C1: `core-api/git-export` REMOVED — the exporter is deleted by
 	// founder verdict and the package with it. The live half, `createGitRunner`,
-	// moved to `@hyperidle/host-process` in A2, so `filesystems`' Increment-2b
-	// `FilesystemsGitRunner` forward-reference is still closed, just from
-	// `shared` rather than from a core-api Service.
+	// moved to `@hyperidle/host-process` in A2.
 	//
 	// @lore AU26 C2: `core-api/observability` REMOVED — the package dissolved
 	// (translator + adapter → `@hyperidle/diagnostics`, config pair →
@@ -532,10 +523,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		// (users/knowledge/notifications) + propagation_log reaper co-located at composition root.
 		// @lore AU20 B1b: agent-orchestration/trigger-resolution folded into session-requests.
 		"layers/agent-orchestration/connections",
-		// @lore AU26 F2 (§D-I, founder ruling): `core-api/filesystems` relocated
-		// here whole — record, injections and reachability probe follow F1's mount
-		// engine into the agent-orchestration Layer.
-		"layers/agent-orchestration/filesystems",
 		"layers/agent-orchestration/session-requests",
 		"layers/agent-orchestration/run-orchestration",
 		// @lore AU21 §6 Decision F1 (Increment 8): agent-orchestration/agent-selection

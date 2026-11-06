@@ -53,11 +53,11 @@ Start talking opens a conversation called "Getting started". Builder says hello:
 
 Under the hello you can point Builder at your code:
 
-- **Connect a folder** — opens the folder dialog on [your page](./your-page.md).
+- **Connect a folder** — opens the folder dialog on [Builder's page](./agents.md).
 - **Connect GitHub** — opens the service dialog on your page.
 - **Not now** — hides the offer.
 
-More on both: [Folders and services](./connections.md).
+More on folders and services: [Folders and services](./connections.md).
 
 Now just reply. To give Builder a piece of work, mention it with `@` — see [Conversations](./conversations.md).
 

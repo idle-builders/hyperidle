@@ -15,14 +15,14 @@ The website (`applications/website`) is an Astro static site that publishes the 
 
 ```
 core-api          — task · thread · document · user · policy · changes · settings
-agent-orchestration — runner · run-orchestration · session-requests · connections · filesystems · tool-handlers
+agent-orchestration — runner · run-orchestration · session-requests · connections · tool-handlers
 agent-execution   — harness-registry (adapter pool, MCP bridge, return gate)
 core-ui           — React + Vite front end, plain CSS
 ```
 
 **`core-api`** owns the domain objects and the one database. Its modules are `task`, `thread`, `document`, `user`, `changes` (the event log), `policy` (lifecycle propagation, approval rate), and `settings` (server config, bundled plugins, plugin installer).
 
-**`agent-orchestration`** runs sessions. It never reads a core-api table directly: its runner reads each agent's inbox and everything else through the action door, with that agent's key (see [How an agent gets work](#how-an-agent-gets-work)), and it signals back via bus events. Its modules are `runner`, `run-orchestration`, `session-requests`, `connections`, `filesystems`, and `tool-handlers`.
+**`agent-orchestration`** runs sessions. It never reads a core-api table directly: its runner reads each agent's inbox and everything else through the action door, with that agent's key (see [How an agent gets work](#how-an-agent-gets-work)), and it signals back via bus events. Its modules are `runner`, `run-orchestration`, `session-requests`, `connections`, and `tool-handlers`.
 
 **`agent-execution`** is the harness adapter layer: `harness-registry` holds the adapter pool, the MCP bridge, return-gate enforcement, and event normalization. It runs inside the same process as agent-orchestration and is the only code that spawns a harness subprocess.
 
@@ -60,7 +60,7 @@ The routes that fall outside the action loop remain as explicit Hono route files
 - **Cross-object search** — `GET /api/search` (hand-written; queries task, thread, document, user in one response)
 - **First start** — `POST /api/start/look` (look for the agent programs on this computer again), `POST /api/start` (make the first person, team, agent and conversation)
 - **MCP bridge** — `POST /api/mcp/:token` (stateful MCP bridge), `POST /api/mcp/:token/return-status` (return-gate adjudication)
-- **Agent-orchestration intake** — `/api/agent-orchestration/*` routes: run config, filesystems, folders, connections
+- **Agent-orchestration intake** — `/api/agent-orchestration/*` routes: run config, space-folders, connections
 
 ## Events
 
@@ -133,7 +133,7 @@ What each reason does (`inbox-work.ts`):
 
 `core-api` never calls agent-orchestration to start work; work reaches the runner only through inboxes.
 
-**Calling orchestration** — when a core-api handler must read or change something agent-orchestration owns (run config, filesystems, folders, connections), it goes through `AgentOrchestrationPort` (`layers/core-api/src/services/agent-orchestration-port-composition.ts`), an in-process HTTP client (`hc<AppType>`) built over the `/api/agent-orchestration/*` plumbing routes.
+**Calling orchestration** — when a core-api handler must read or change something agent-orchestration owns (run config, space-folders, connections), it goes through `AgentOrchestrationPort` (`layers/core-api/src/services/agent-orchestration-port-composition.ts`), an in-process HTTP client (`hc<AppType>`) built over the `/api/agent-orchestration/*` plumbing routes.
 
 **Signalling back** — agent-orchestration emits bus events (`session_started`, `session_ended`, `propagation_applied`, etc.) that core-api subscribers react to. Session lifecycle changes reach task state through these reactions, not through a direct database write.
 
@@ -143,7 +143,7 @@ What each reason does (`inbox-work.ts`):
 2. The run provisioner builds a working directory in `HYPERIDLE_WORKSPACES_DIR` (default: OS temp), writes `AGENTS.md` / `CLAUDE.md`, `.mcp.json`, held connection files, and a return-enforcement hook.
 3. The harness adapter (for example `CliHarnessAdapter`) spawns the process.
 4. The MCP bridge (`/api/mcp/:token`) serves the agent's tools: the 18 actions, core's called through the door as the agent.
-5. On turn end, the return gate evaluates whether the agent returned. Writeback (`filesystem_injections`) syncs any file changes.
+5. On turn end, the return gate evaluates whether the agent returned. The `knowledge/` watcher syncs any file changes back to documents.
 6. The session ends; a bus event signals core-api.
 
 See [agent-layer/harnesses.md](../agent-layer/harnesses.md) and [agent-layer/return-gate.md](../agent-layer/return-gate.md) for step 3 and 5.
@@ -157,7 +157,7 @@ HyperIdle is not a git host, a CI runner, or a deployment platform. It does not:
 - Own OAuth apps for any service (agents use connection tokens or harness-inherited auth)
 - Deploy or release software
 
-Agents can reach these things through [connections](./connections.md) and [filesystems](../objects/folders.md) (a code filesystem mounts a git working directory the agent writes back to). HyperIdle wires the agent to the work; it does not replace the tools the work needs.
+Agents can reach these things through [connections](./connections.md) and [folders](../objects/folders.md). HyperIdle wires the agent to the work; it does not replace the tools the work needs.
 
 ## One Node process
 

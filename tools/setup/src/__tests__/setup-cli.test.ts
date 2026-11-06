@@ -241,25 +241,28 @@ describe("--demo flag behavior", () => {
 			expect(founderResult.rows.length).toBe(1);
 			expect(founderResult.rows[0]?.kind).toBe("human");
 
-			// An agent's code folder is a git repo on this computer, so its session can mount it.
-			const folders = await client.query<{ agent: string; ref: string }>(
-				`SELECT i.agent_user_id AS agent, f.resource_ref AS ref FROM filesystem_injections i
-				 JOIN filesystems f ON f.id = i.filesystem_id ORDER BY i.agent_user_id`,
+			// Each agent's space directory holds a git-repo symlink created by the demo seeder.
+			const spaceCfgs = await client.query<{ agent_user_id: string; space_path: string }>(
+				`SELECT agent_user_id, space_path FROM agent_run_config
+				 WHERE agent_user_id IN ('demo-agent-builder', 'demo-agent-designer')
+				   AND space_path IS NOT NULL
+				 ORDER BY agent_user_id`,
 			);
-			const repos = folders.rows.map((row) => ({
-				agent: row.agent,
-				main: execFileSync(
-					"git",
-					[
-						"-C",
-						(JSON.parse(row.ref) as { repo: string }).repo,
-						"rev-parse",
-						"--abbrev-ref",
-						"HEAD",
-					],
-					{ encoding: "utf8" },
-				).trim(),
-			}));
+			expect(spaceCfgs.rows.length).toBe(2);
+			const repos = spaceCfgs.rows.flatMap((row) => {
+				const entries = fs.readdirSync(row.space_path, { withFileTypes: true });
+				return entries
+					.filter((e) => e.isSymbolicLink())
+					.map((e) => {
+						const target = fs.realpathSync(path.join(row.space_path, e.name));
+						return {
+							agent: row.agent_user_id,
+							main: execFileSync("git", ["-C", target, "rev-parse", "--abbrev-ref", "HEAD"], {
+								encoding: "utf8",
+							}).trim(),
+						};
+					});
+			});
 			expect(repos).toEqual([
 				{ agent: "demo-agent-builder", main: "main" },
 				{ agent: "demo-agent-designer", main: "main" },

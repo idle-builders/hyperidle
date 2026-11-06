@@ -1,18 +1,18 @@
 import type {
 	AgentOrchestrationConnectionCreateInput,
-	AgentOrchestrationFolderCreateInput,
-	AgentOrchestrationFolderListQuery,
 	AgentOrchestrationRunConfigPatch,
 } from "@hyperidle/api-contract";
 import type { InheritedReach } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
-import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
 import {
+	addSpaceFolder,
 	type DEFAULT_AGENT_RUN_CONFIG,
 	ensureAgentSpace,
+	listSpaceFolders,
 	readAgentRunConfig,
 	readAgentRunConfigs,
+	removeSpaceFolder,
 	writeAgentRunConfig,
 } from "@hyperidle/run-orchestration";
 import { Hono } from "hono";
@@ -24,7 +24,6 @@ import {
 	removeConnectionForUser,
 	withholdConnectionForUser,
 } from "./connections.js";
-import { listFolders, registerFolder, removeFolder, takeFolder } from "./filesystems.js";
 
 export function createAgentOrchestrationIntakeRoutes(
 	db: HyperIdleDb,
@@ -108,115 +107,50 @@ export function createAgentOrchestrationIntakeRoutes(
 		},
 	);
 
-	// ── filesystems.getTeamId — GET /agent-orchestration/filesystems/:id/team ──
-	// The team-consistency gate's pre-write read — see the port's own doc.
-	router.get("/filesystems/:id/team", async (c) => {
-		const filesystemId = c.req.param("id");
-		const fs = await getFilesystem(db, filesystemId);
-		return c.json({ teamId: fs?.teamId ?? null });
+	// ── spaceFolders.list — GET /agent-orchestration/space-folders/:agentId ───
+	router.get("/space-folders/:agentId", async (c) => {
+		const agentId = c.req.param("agentId");
+		const config = await readAgentRunConfig(db, agentId);
+		if (!config.spacePath) return c.json({ folders: [] });
+		const folders = listSpaceFolders(config.spacePath);
+		return c.json({ folders });
 	});
 
-	// ── filesystems.persistInjection — POST /agent-orchestration/filesystems/:id/injections/persist ──
-	// Existence check + insert — the team-consistency gate (users + team_members) stays core-side;
-	// only the persist crosses the seam.
+	// ── spaceFolders.add — POST /agent-orchestration/space-folders/:agentId ──
 	router.post(
-		"/filesystems/:id/injections/persist",
-		validateBody(z.object({ agentUserId: z.string().min(1) })),
+		"/space-folders/:agentId",
+		validateBody(
+			z
+				.object({
+					path: z.string().min(1),
+					name: z.string().min(1).optional(),
+					agentName: z.string().min(1),
+				})
+				.strict(),
+		),
 		async (c) => {
-			const filesystemId = c.req.param("id");
-			const { agentUserId } = c.req.valid("json");
-			const fs = await getFilesystem(db, filesystemId);
-			if (fs == null) return c.json({ ok: false, code: "NOT_FOUND" }, 200);
-			const now = new Date().toISOString();
-			try {
-				await saveFilesystemInjection(db, { agentUserId, filesystemId, createdAt: now });
-			} catch (err) {
-				const constraintMsg = (e: unknown): string => {
-					if (!(e instanceof Error)) return String(e);
-					const own = e.message.toLowerCase();
-					if (
-						e.message.includes("filesystem_injections_agent_user_id_filesystem_id_pk") ||
-						own.includes("duplicate key") ||
-						own.includes("unique constraint")
-					)
-						return e.message;
-					return e.cause !== undefined ? constraintMsg(e.cause) : e.message;
-				};
-				const msg = constraintMsg(err);
-				if (
-					msg.includes("filesystem_injections_agent_user_id_filesystem_id_pk") ||
-					msg.toLowerCase().includes("duplicate key") ||
-					msg.toLowerCase().includes("unique constraint")
-				) {
-					return c.json({ ok: false, code: "CONFLICT" }, 200);
-				}
-				throw err;
+			const agentId = c.req.param("agentId");
+			const { path, name, agentName } = c.req.valid("json");
+			const config = await readAgentRunConfig(db, agentId);
+			let spacePath = config.spacePath;
+			if (!spacePath) {
+				spacePath = await ensureAgentSpace(db, agentId, agentName ?? "");
 			}
-			return c.json({
-				ok: true,
-				injection: { agentUserId, filesystemId, createdAt: now },
-			});
-		},
-	);
-
-	// ── folders.list — POST /agent-orchestration/folders/list ────────────────
-	// (POST, not GET+query: the query is a discriminated union — a team's own
-	// folders or the folders given to one agent — same "structured input, not
-	// a query string" reasoning `run-config.batch` already uses.)
-	router.post(
-		"/folders/list",
-		validateBody(
-			z.union([
-				z.object({ teamId: z.string().min(1) }),
-				z.object({ agentUserId: z.string().min(1) }),
-			]) satisfies z.ZodType<AgentOrchestrationFolderListQuery>,
-		),
-		async (c) => {
-			const query = c.req.valid("json");
-			const folders = await listFolders(db, query);
-			return c.json({ folders });
-		},
-	);
-
-	const folderResourceRefSchema = z.discriminatedUnion("kind", [
-		z.object({ kind: z.literal("code"), repo: z.string().min(1), branch: z.string().min(1) }),
-		z.object({ kind: z.literal("doc_set"), folder: z.string().min(1) }),
-	]);
-
-	// ── folders.add — POST /agent-orchestration/folders ──────────────────────
-	router.post(
-		"/folders",
-		validateBody(
-			z.object({
-				teamId: z.string().min(1),
-				kind: z.enum(["code", "doc_set"]),
-				connectionId: z.string().nullable().optional(),
-				resourceRef: folderResourceRefSchema,
-				writeback: z.enum(["git", "file", "none"]),
-			}) satisfies z.ZodType<{ readonly teamId: string } & AgentOrchestrationFolderCreateInput>,
-		),
-		async (c) => {
-			const { teamId, ...body } = c.req.valid("json");
-			const result = await registerFolder(db, teamId, body);
+			const result = addSpaceFolder(spacePath, path, name);
 			return c.json(result);
 		},
 	);
 
-	// ── folders.remove — POST /agent-orchestration/folders/:id/remove ────────
-	router.post("/folders/:id/remove", async (c) => {
-		const result = await removeFolder(db, c.req.param("id"));
-		return c.json(result);
-	});
-
-	// ── folders.take — POST /agent-orchestration/folders/:id/take ────────────
-	// `give` is the SAME write as `filesystems.persistInjection` above, exposed
-	// under the `folders` family too — no second route.
+	// ── spaceFolders.remove — POST /agent-orchestration/space-folders/:agentId/remove ──
 	router.post(
-		"/folders/:id/take",
-		validateBody(z.object({ agentUserId: z.string().min(1) })),
+		"/space-folders/:agentId/remove",
+		validateBody(z.object({ name: z.string().min(1) }).strict()),
 		async (c) => {
-			const { agentUserId } = c.req.valid("json");
-			const result = await takeFolder(db, c.req.param("id"), agentUserId);
+			const agentId = c.req.param("agentId");
+			const { name } = c.req.valid("json");
+			const config = await readAgentRunConfig(db, agentId);
+			if (!config.spacePath) return c.json({ ok: false, code: "NOT_FOUND" });
+			const result = removeSpaceFolder(config.spacePath, name);
 			return c.json(result);
 		},
 	);

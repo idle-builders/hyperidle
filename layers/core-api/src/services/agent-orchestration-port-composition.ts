@@ -1,16 +1,14 @@
 import type {
-	AgentOrchestrationAddFolderResult,
 	AgentOrchestrationConnectionCreateInput,
 	AgentOrchestrationConnectionsListView,
 	AgentOrchestrationCreateConnectionResult,
-	AgentOrchestrationFolderCreateInput,
-	AgentOrchestrationFolderListQuery,
-	AgentOrchestrationFolderView,
-	AgentOrchestrationPersistInjectionResult,
 	AgentOrchestrationPort,
 	AgentOrchestrationRemoveResult,
 	AgentOrchestrationRunConfigPatch,
 	AgentOrchestrationRunConfigView,
+	AgentOrchestrationSpaceFolderAddResult,
+	AgentOrchestrationSpaceFolderRemoveResult,
+	AgentOrchestrationSpaceFolderView,
 	AgentOrchestrationTransport,
 } from "@hyperidle/api-contract";
 import type { Hono } from "hono";
@@ -42,36 +40,21 @@ interface AgentOrchestrationHcClient {
 				$post(args: { readonly json: { readonly agentIds: readonly string[] } }): Promise<Response>;
 			};
 		};
-		readonly filesystems: {
-			readonly ":id": {
-				readonly team: {
-					$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
-				};
-				readonly injections: {
-					readonly persist: {
-						$post(args: {
-							readonly param: { readonly id: string };
-							readonly json: { readonly agentUserId: string };
-						}): Promise<Response>;
+		readonly "space-folders": {
+			readonly ":agentId": {
+				$get(args: { readonly param: { readonly agentId: string } }): Promise<Response>;
+				$post(args: {
+					readonly param: { readonly agentId: string };
+					readonly json: {
+						readonly path: string;
+						readonly name?: string;
+						readonly agentName: string;
 					};
-				};
-			};
-		};
-		readonly folders: {
-			readonly list: {
-				$post(args: { readonly json: AgentOrchestrationFolderListQuery }): Promise<Response>;
-			};
-			$post(args: {
-				readonly json: { readonly teamId: string } & AgentOrchestrationFolderCreateInput;
-			}): Promise<Response>;
-			readonly ":id": {
+				}): Promise<Response>;
 				readonly remove: {
-					$post(args: { readonly param: { readonly id: string } }): Promise<Response>;
-				};
-				readonly take: {
 					$post(args: {
-						readonly param: { readonly id: string };
-						readonly json: { readonly agentUserId: string };
+						readonly param: { readonly agentId: string };
+						readonly json: { readonly name: string };
 					}): Promise<Response>;
 				};
 			};
@@ -187,78 +170,40 @@ export function buildAgentOrchestrationPort(
 				return body.spacePath;
 			},
 		},
-		filesystems: {
-			async getTeamId(filesystemId: string): Promise<string | null> {
-				const res = await client["agent-orchestration"].filesystems[":id"].team.$get({
-					param: { id: filesystemId },
+		spaceFolders: {
+			async list(agentId: string): Promise<AgentOrchestrationSpaceFolderView[]> {
+				const res = await client["agent-orchestration"]["space-folders"][":agentId"].$get({
+					param: { agentId },
 				});
-				if (!res.ok) return throwSeamError("filesystems.getTeamId", res);
-				const body = (await res.json()) as { readonly teamId: string | null };
-				return body.teamId;
-			},
-			async persistInjection(filesystemId: string, agentUserId: string) {
-				const res = await client["agent-orchestration"].filesystems[":id"].injections.persist.$post(
-					{
-						param: { id: filesystemId },
-						json: { agentUserId },
-					},
-				);
-				if (!res.ok) return throwSeamError("filesystems.persistInjection", res);
-				return (await res.json()) as
-					| {
-							readonly ok: true;
-							readonly injection: {
-								readonly agentUserId: string;
-								readonly filesystemId: string;
-								readonly createdAt: string;
-							};
-					  }
-					| { readonly ok: false; readonly code: "NOT_FOUND" | "CONFLICT" };
-			},
-		},
-		folders: {
-			async list(
-				query: AgentOrchestrationFolderListQuery,
-			): Promise<AgentOrchestrationFolderView[]> {
-				const res = await client["agent-orchestration"].folders.list.$post({ json: query });
-				if (!res.ok) return throwSeamError("folders.list", res);
-				const body = (await res.json()) as { readonly folders: AgentOrchestrationFolderView[] };
+				if (!res.ok) return throwSeamError("spaceFolders.list", res);
+				const body = (await res.json()) as {
+					readonly folders: AgentOrchestrationSpaceFolderView[];
+				};
 				return body.folders;
 			},
 			async add(
-				teamId: string,
-				body: AgentOrchestrationFolderCreateInput,
-			): Promise<AgentOrchestrationAddFolderResult> {
-				const res = await client["agent-orchestration"].folders.$post({
-					json: { teamId, ...body },
+				agentId: string,
+				path: string,
+				name: string | undefined,
+				agentName: string,
+			): Promise<AgentOrchestrationSpaceFolderAddResult> {
+				const res = await client["agent-orchestration"]["space-folders"][":agentId"].$post({
+					param: { agentId },
+					json: name !== undefined ? { path, name, agentName } : { path, agentName },
 				});
-				if (!res.ok) return throwSeamError("folders.add", res);
-				return (await res.json()) as AgentOrchestrationAddFolderResult;
+				if (!res.ok) return throwSeamError("spaceFolders.add", res);
+				return (await res.json()) as AgentOrchestrationSpaceFolderAddResult;
 			},
-			async remove(id: string): Promise<AgentOrchestrationRemoveResult> {
-				const res = await client["agent-orchestration"].folders[":id"].remove.$post({
-					param: { id },
+			async remove(
+				agentId: string,
+				name: string,
+			): Promise<AgentOrchestrationSpaceFolderRemoveResult> {
+				const res = await client["agent-orchestration"]["space-folders"][":agentId"].remove.$post({
+					param: { agentId },
+					json: { name },
 				});
-				if (!res.ok) return throwSeamError("folders.remove", res);
-				return (await res.json()) as AgentOrchestrationRemoveResult;
-			},
-			async give(
-				id: string,
-				agentUserId: string,
-			): Promise<AgentOrchestrationPersistInjectionResult> {
-				const res = await client["agent-orchestration"].filesystems[":id"].injections.persist.$post(
-					{ param: { id }, json: { agentUserId } },
-				);
-				if (!res.ok) return throwSeamError("folders.give", res);
-				return (await res.json()) as AgentOrchestrationPersistInjectionResult;
-			},
-			async take(id: string, agentUserId: string): Promise<AgentOrchestrationRemoveResult> {
-				const res = await client["agent-orchestration"].folders[":id"].take.$post({
-					param: { id },
-					json: { agentUserId },
-				});
-				if (!res.ok) return throwSeamError("folders.take", res);
-				return (await res.json()) as AgentOrchestrationRemoveResult;
+				if (!res.ok) return throwSeamError("spaceFolders.remove", res);
+				return (await res.json()) as AgentOrchestrationSpaceFolderRemoveResult;
 			},
 		},
 		connections: {

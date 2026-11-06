@@ -225,22 +225,12 @@ export const ConnectionViewSchema = z.object({
 });
 export type ConnectionView = z.infer<typeof ConnectionViewSchema>;
 
-const FolderResourceRefSchema = z.discriminatedUnion("kind", [
-	z.object({ kind: z.literal("code"), repo: z.string().min(1), branch: z.string().min(1) }),
-	z.object({ kind: z.literal("doc_set"), folder: z.string().min(1) }),
-]);
-
-/** Mirrors `Filesystem` (`agent-orchestration/filesystems`'s wire shape). */
+/** Mirrors `SpaceFolderView` (`@hyperidle/run-orchestration`). */
 export const FolderViewSchema = z.object({
-	id: z.string(),
-	teamId: z.string(),
-	source: z.string(),
-	kind: z.enum(["code", "doc_set"]),
-	connectionId: z.string().nullable(),
-	resourceRef: FolderResourceRefSchema,
-	writeback: z.enum(["git", "file", "none"]),
-	state: z.enum(["attached", "reachable", "needs_attention"]),
-	createdAt: z.string(),
+	name: z.string(),
+	path: z.string(),
+	isGit: z.boolean(),
+	isMissing: z.boolean(),
 });
 export type FolderView = z.infer<typeof FolderViewSchema>;
 
@@ -313,7 +303,7 @@ export const UserViewSchema = z.object({
 		.optional(),
 	/** An agent's identity, skill and rule documents; a person's About (their `agent_file`). */
 	documentIds: z.array(z.object({ slot: z.enum(DOCUMENT_SLOTS), id: z.string() })),
-	/** Agent: folders given to it. Person: the folders of every team they are in. */
+	/** Agent: folders in its space. Person: always empty. */
 	folders: z.array(FolderViewSchema),
 	subscriptions: z.array(SubscriptionViewSchema),
 	/** Yourself, or an agent: the services its sessions get — its owner's, or the first person's for an agent no one owns. */
@@ -367,24 +357,28 @@ const EditUserEdgesSchema = z
 
 const EditUserFoldersSchema = z
 	.object({
-		/** `POST /filesystems` body, with the team named rather than given by id. */
+		/** Symlink a local directory into the agent's space. Persons are refused. */
 		add: z
 			.array(
 				z
 					.object({
-						/** One of this user's teams, by name — needed only when they are in several. */
-						team: z.string().min(1).optional(),
-						kind: z.enum(["code", "doc_set"]),
-						resourceRef: FolderResourceRefSchema,
-						writeback: z.enum(["git", "file", "none"]),
-						connectionId: z.string().nullable().optional(),
+						path: z.string().min(1),
+						name: z.string().min(1).optional(),
 					})
 					.strict(),
 			)
 			.optional(),
-		remove: z.array(z.string().min(1)).optional(),
-		give: z.array(z.string().min(1)).optional(),
-		take: z.array(z.string().min(1)).optional(),
+		/** Remove a symlink by name. Persons are refused. */
+		remove: z
+			.array(
+				z
+					.string()
+					.min(1)
+					.refine((n) => !(n.includes("/") || n.includes("\\")), {
+						message: "Folder name must not contain path separators.",
+					}),
+			)
+			.optional(),
 	})
 	.strict();
 

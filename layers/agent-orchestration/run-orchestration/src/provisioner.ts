@@ -46,19 +46,10 @@ import {
 	NoEligibleHarnessError,
 	TargetAgentNotRunnableError,
 } from "./errors.js";
-import {
-	type FilesystemMounterPort,
-	type InjectedFilesystemsReaderPort,
-	mountFilesystemsForAgent,
-} from "./filesystem-provisioning.js";
-// Filesystem: local to this package — sibling service boundary.
-import {
-	ensureSandboxGitRepo,
-	type Filesystem,
-	localTrustedPath,
-	sanitizeBranch,
-} from "./mounter.js";
+import { ensureSandboxGitRepo, sanitizeBranch } from "./mounter.js";
+import type { MountingGitRunnerFactory } from "./mounter-ports.js";
 import { fetchPreviousSessionNotes } from "./session-store.js";
+import { mountSpaceFolders } from "./space-folders.js";
 import { transitionRun } from "./transition-run.js";
 import { buildVerdictMessage } from "./verdict-message.js";
 
@@ -82,13 +73,6 @@ const logger = createLogger({ pkg: "run-orchestration.session-provisioner" });
 interface SessionLifecycleObservability {
 	summarizeToolArgs(args: Record<string, unknown>): string;
 }
-
-// ---------------------------------------------------------------------------
-// filesystems: `filesystems` and `filesystem_injections` are
-// `agent-orchestration`'s OWN tables; spawn reads them LIVE — no seam, no stale
-// bake. `deps.injectedFilesystems` (`InjectedFilesystemsReaderPort`) is a port
-// (not a direct import) — service boundary.
-// ---------------------------------------------------------------------------
 
 interface SessionLifecycleServiceConnectionResolver {
 	resolve(userId: string, connectionId: string): Promise<string | null>;
@@ -728,11 +712,11 @@ interface ProvisionSessionDeps {
 	 */
 	readonly heldConnections?: HeldConnectionsReaderPort;
 	/**
-	 * The live, in-layer injected-filesystem read one spawn performs.
-	 * Application-composed from `@hyperidle/filesystems`. Absent → nothing is
-	 * mounted, the same graceful no-op an absent `mounter` already gives.
+	 * Git runner factory for space-folder mounting.
+	 * When present, space symlinks are mounted into the working folder in Phase 4.5.
+	 * When absent, sessions run without folder mounting.
 	 */
-	readonly injectedFilesystems?: InjectedFilesystemsReaderPort;
+	readonly gitRunnerFactory?: MountingGitRunnerFactory;
 	/**
 	 * Optional observation hook, fired once after the agent's turn fully
 	 * drains and the sandbox is completely written, BEFORE teardown deletes it.
@@ -759,12 +743,6 @@ interface ProvisionSessionDeps {
 	 * before the external harness session started.
 	 */
 	readonly onHarnessStarted?: () => void;
-	/**
-	 * Optional mounter for filesystem placement.
-	 * When absent, sessions run without any filesystem mount (degrade to today's behavior).
-	 * When present, mount runs after sandbox spawn (Phase 4.5).
-	 */
-	readonly mounter?: FilesystemMounterPort;
 	/**
 	 * Plugin MCP server contributions for this session's team scope.
 	 * When absent, no plugin MCP servers are merged into the session config.
@@ -922,9 +900,9 @@ interface AdmittedSession {
 	readonly harness: SessionLifecycleHarnessAdapter;
 	readonly adapterId: string;
 	/**
-	 * Filesystems that were successfully mounted in Phase 4.5 for this session.
+	 * Trusted paths from space-folder mounts in Phase 4.5.
 	 */
-	readonly mountedFilesystems: Filesystem[];
+	readonly trustedPaths: string[];
 	/**
 	 * When set, the session must resume the cursor-agent chat instead of starting
 	 * fresh. The sandbox was already adopted in Phase 4 for the matching cwd.
@@ -1083,7 +1061,7 @@ async function admitSession(
 	// `accepted`/`blocked` in the first place.
 	let sessionId: string;
 	let sandboxPath: string;
-	let mountedFilesystems: Filesystem[] = [];
+	let trustedPaths: string[] = [];
 	// ── Phase 4: ensure agent space and derive working folder.
 	//
 	// @lore: resumed session directory — reuses original working folder; cursor-agent keys chat on md5(cwd); different dir loses all context and exits 0 silently
@@ -1143,21 +1121,21 @@ async function admitSession(
 		await db.insert(sessions).values(sessionValues);
 	}
 
-	// ── Phase 4.5: mount injected filesystems. Reads the
-	// injection record LIVE, in-layer, at spawn — no seam, no stale bake.
-	if (deps.mounter) {
-		const workBranch = sanitizeBranch(`agent/${path.relative(spacePath, sandboxPath)}`);
-		mountedFilesystems = await mountFilesystemsForAgent({
-			agentId: params.agentId,
-			...(deps.injectedFilesystems ? { filesystems: deps.injectedFilesystems } : {}),
-			sandboxPath,
-			mounter: deps.mounter,
-			spacePath,
+	// ── Phase 4.5: mount space-folder symlinks into the working folder.
+	// Walks <space>/ for symlinks; git repos get a worktree at <sandbox>/<name>/;
+	// plain folders get a symlink; dangling links are skipped.
+	if (deps.gitRunnerFactory) {
+		const workBranch = sanitizeBranch(
+			`agent/${path.basename(spacePath)}/${path.relative(spacePath, sandboxPath)}`,
+		);
+		const mounted = await mountSpaceFolders(spacePath, sandboxPath, {
+			gitRunnerFactory: deps.gitRunnerFactory,
 			workBranch,
 		});
+		trustedPaths = mounted.trustedPaths;
 	}
 
-	// @lore: sandbox git init — after mounting only; git clone refuses an existing .git; unconditional; every session needs it (codex trust, agent diff/revert)
+	// @lore: sandbox git init — after mounting only; unconditional; every session needs it (codex trust, agent diff/revert)
 	ensureSandboxGitRepo(sandboxPath);
 
 	// ── Phase 6: assemble context into the sandbox through the agent layer.
@@ -1250,7 +1228,7 @@ async function admitSession(
 		selectedAdapter,
 		harness,
 		adapterId,
-		mountedFilesystems,
+		trustedPaths,
 		...(resolvedHandover
 			? {
 					harnessHandover: {
@@ -1335,7 +1313,7 @@ async function runSession(
 		selectedAdapter,
 		harness,
 		adapterId,
-		mountedFilesystems,
+		trustedPaths,
 	} = admitted;
 
 	// Cooperative abort flag — the provisioning event loop checks it each
@@ -1546,12 +1524,7 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
 
 		if (adapterCapabilities.cliMcpDialect) {
-			// The session's mounted filesystems (phase 4.5
-			// above) are the trusted directories — tell the harness what the
-			// filesystem primitive already declared, alongside the sandbox.
-			const trustedPaths = mountedFilesystems
-				.map((filesystem) => localTrustedPath(filesystem))
-				.filter((p): p is string => p !== undefined);
+			// Space-folder mount paths (phase 4.5) are the trusted directories — tell the harness about them.
 			const result = await ports.harnessRuntime.writeCliMcpConfig({
 				dialect: adapterCapabilities.cliMcpDialect,
 				sandboxPath,
@@ -2095,17 +2068,6 @@ interface Provisioner {
 		deps: ProvisionSessionDeps,
 		params: ProvisionSessionParams,
 	): ReturnType<typeof startSessionProvision>;
-	/**
-	 * Takes the agent id plus the live, in-layer injected-filesystem
-	 * reader — `mountFilesystemsForAgent` reads the record itself at spawn
-	 * rather than consuming a list frozen onto the request.
-	 */
-	mount(
-		agentId: string,
-		filesystems: InjectedFilesystemsReaderPort | undefined,
-		sandboxPath: string,
-		mounter: FilesystemMounterPort,
-	): Promise<Filesystem[]>;
 }
 
 export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
@@ -2116,12 +2078,5 @@ export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
 			runSession(deps, params, admitted, ports, onHarnessStarted),
 		provision: (deps, params) => provisionSession(deps, params, ports),
 		start: (deps, params) => startSessionProvision(deps, params, ports),
-		mount: (agentId, filesystems, sandboxPath, mounter) =>
-			mountFilesystemsForAgent({
-				agentId,
-				...(filesystems ? { filesystems } : {}),
-				sandboxPath,
-				mounter,
-			}),
 	};
 }

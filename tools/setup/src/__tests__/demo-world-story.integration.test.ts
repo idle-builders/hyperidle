@@ -80,12 +80,10 @@ function openUserDeps(db: HyperIdleDb): UserActionsDeps {
 			write: async () => undefined,
 			ensureSpace: async (_agentId, agentName) => `/spaces/${agentName}`,
 		},
-		folders: {
+		spaceFolders: {
 			list: async () => [],
-			add: async () => ({ ok: false, code: "TEAM_NOT_FOUND" }) as const,
+			add: async () => ({ ok: true }) as const,
 			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
-			give: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
-			take: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
 		},
 		connections: {
 			list: async () => ({ connections: [], inherited: [] }),

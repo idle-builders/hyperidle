@@ -455,22 +455,14 @@ export function loginRowWhy(
 	return status !== null ? `${base} · ${status}` : base;
 }
 
-/** A folder's path, whether it is a repository or a folder of documents. */
+/** A folder's path. */
 export function folderPath(f: FolderView): string {
-	return f.resourceRef.kind === "code" ? f.resourceRef.repo : f.resourceRef.folder;
+	return f.path;
 }
 
-/** What went wrong the last time an agent opened a folder, or null when nothing did. */
+/** What went wrong when the agent last accessed this folder, or null when nothing did. */
 export function folderTrouble(f: FolderView): string | null {
-	if (f.state !== "needs_attention") return null;
-	return f.connectionId === null
-		? "Not found on this computer"
-		: "Cannot be reached with its service";
-}
-
-/** What may be done in a folder. */
-export function folderMay(f: FolderView): string {
-	return f.writeback === "none" ? "only reads" : "reads and changes";
+	return f.isMissing ? "Not found on this computer" : null;
 }
 
 /** How a service is reached: a key, a server, or signed in on this computer. */

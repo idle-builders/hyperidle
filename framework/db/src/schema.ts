@@ -608,69 +608,6 @@ export const documents = pgTable(
 // Produced content ("artifacts") is a document whose parent is the task or the
 // conversation that produced it — no separate artifact table.
 
-// --- Filesystem registry + per-bot injection ---
-
-/**
- * Registered, team-scoped file source. NOT owned by a single agent.
- * Per-bot wiring lives in the filesystemInjections mapping below.
- *
- */
-export const filesystems = pgTable(
-	"filesystems",
-	{
-		id: text("id").primaryKey(),
-		// Registry scope. Always present. The Team that owns this registered filesystem.
-		// NOT single-owner — per-bot wiring is the separate filesystemInjections table.
-		teamId: text("team_id")
-			.notNull()
-			.references(() => teams.id, { onDelete: "restrict" }),
-		// The SOURCE TYPE — 'local' | 'github' | 'gdrive' | … OPEN vocabulary; derived from the
-		// Connection at register-time (or 'local'). Stored (queryable in the registry without
-		// resolving a possibly-absent Connection). Surfaced prominently in the UI.
-		source: text("source").notNull(),
-		// OPEN vocabulary. 'code' | 'doc_set' initially. SoRs excluded at the app layer (Zod).
-		kind: text("kind").notNull(),
-		// NOT a DB FK — plain text by design; connection service is separate and may add the FK in its own migration; an unresolvable id → needs_attention
-		connectionId: text("connection_id"),
-		// JSON-encoded ResourceRef, discriminated by kind.
-		resourceRef: text("resource_ref").notNull(),
-		// Capability axis: how authored changes leave the sandbox.
-		writeback: text("writeback").notNull(),
-		// Reachability lifecycle. Stored; the inspect/list route may transition + persist it.
-		state: text("state").notNull().default("attached"),
-		createdAt: text("created_at").notNull(),
-	},
-	(table) => [index("filesystems_team_idx").on(table.teamId)],
-);
-
-/**
- * Per-bot INJECTION: which registered filesystems are injected into a given bot's sessions.
- *
- * @lore: filesystemInjections — agent FK is users.id (runtime = sessions.agentId); mount resolves sessions.agentId → filesystem_injections → filesystems
- */
-export const filesystemInjections = pgTable(
-	"filesystem_injections",
-	{
-		agentUserId: text("agent_user_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "cascade" }),
-		filesystemId: text("filesystem_id")
-			.notNull()
-			.references(() => filesystems.id, { onDelete: "cascade" }),
-		createdAt: text("created_at").notNull(),
-	},
-	(table) => [
-		primaryKey({ columns: [table.agentUserId, table.filesystemId] }), // UNIQUE (agentUserId, filesystemId)
-		index("filesystem_injections_agent_user_idx").on(table.agentUserId),
-		index("filesystem_injections_filesystem_idx").on(table.filesystemId),
-	],
-);
-
-export type FilesystemRow = typeof filesystems.$inferSelect; // DB row (resourceRef: string). NOT named `Filesystem`.
-export type NewFilesystem = typeof filesystems.$inferInsert;
-export type NewFilesystemInjection = typeof filesystemInjections.$inferInsert;
-// The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/domain-model.
-
 // --- Server config ---
 
 // --- Plugins: one row per install, and what each install contributed ---

@@ -48,16 +48,16 @@ test("editing an agent saves what it does and its discipline; pausing it says so
 	await expect(box(page, "Builder").getByRole("button", { name: "Pause" })).toBeVisible();
 });
 
-test("a folder added on one agent's page goes to every agent of yours", async ({ page }) => {
+test("a folder added on an agent's page stays on that agent only", async ({ page }) => {
 	await page.goto(BUILDER);
 	await box(page, "Builder").getByRole("button", { name: "Add a folder" }).click();
 	const where = dialog(page, "Where Builder works");
-	await where.getByLabel("Where").fill("~/code/northwind-billing");
+	await where.getByLabel("Where").fill("/tmp");
 	await where.getByRole("button", { name: "Save" }).click();
 	await expect(where).toHaveCount(0);
-	await expect(box(page, "Builder")).toContainText("~/code/northwind-billing");
+	await expect(box(page, "Builder")).toContainText("/tmp");
 	await page.goto(GROWTH);
-	await expect(box(page, "Growth")).toContainText("~/code/northwind-billing");
+	await expect(box(page, "Growth")).not.toContainText("/tmp");
 });
 
 test("a service unticked for Growth no longer reaches it, and still reaches Builder", async ({
@@ -138,6 +138,27 @@ test("your page: a reason switched off stays off; Dark changes the looks; Look a
 
 	await you.getByRole("button", { name: "Look again" }).click();
 	await expect(you.getByRole("button", { name: /^Looked just now/ })).toBeVisible();
+});
+
+test("your page: 'Add a folder' with Growth unticked only adds to Builder, not Growth", async ({
+	page,
+}) => {
+	await page.goto("/people/me");
+	await page.getByRole("button", { name: "Add a folder" }).click();
+	const dlg = dialog(page, "Where you and your agents work");
+	await dlg.getByLabel("Where").fill("/tmp");
+	// Untick Growth (keep from Growth)
+	await dlg.getByRole("checkbox", { name: "Growth" }).uncheck();
+	await dlg.getByRole("button", { name: "Save" }).click();
+	await expect(dlg).toHaveCount(0);
+
+	// Builder should have /tmp
+	await page.goto(BUILDER);
+	await expect(box(page, "Builder")).toContainText("/tmp");
+
+	// Growth should not have /tmp
+	await page.goto(GROWTH);
+	await expect(box(page, "Growth")).not.toContainText("/tmp");
 });
 
 test("the bell's 'Change what you are told about' opens the dialog on your page", async ({
