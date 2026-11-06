@@ -1180,5 +1180,4 @@ describe("CliHarnessAdapter agentSpace login", () => {
 		expect(spawnEnv.CLAUDE_CONFIG_DIR).toBeUndefined();
 		expect(spawnEnv.CODEX_HOME).toBeUndefined();
 	});
-
 });
