@@ -359,6 +359,7 @@ describe("generic transcript delivery", () => {
 
 		const params: ProvisionSessionParams = {
 			...baseParams("agent-transcript-3"),
+			callingThreadId: "thread-no-transcript",
 			requestContext: {
 				requestId: "req-transcript-3",
 				sourceKind: "task",
@@ -390,7 +391,10 @@ describe("generic transcript delivery", () => {
 		const provisioner = createProvisioner(buildHarnessPorts());
 		const captured: { sessionConfig?: SessionConfig } = {};
 		const deps = buildDeps(db as HyperIdleDb, captured);
-		const params = baseParams("agent-gated-1");
+		const params: ProvisionSessionParams = {
+			...baseParams("agent-gated-1"),
+			callingThreadId: "thread-gated-1",
+		} as ProvisionSessionParams;
 
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);

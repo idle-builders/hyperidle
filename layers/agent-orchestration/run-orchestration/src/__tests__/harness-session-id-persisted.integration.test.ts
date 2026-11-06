@@ -7,11 +7,14 @@
  * to resume and the agent can never be brought back.
  *
  */
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { type HyperIdleDb, sessions, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import { describe } from "vitest";
+import { afterEach, beforeEach, describe, vi } from "vitest";
 import {
 	buildRunningHarnessPorts,
 	type FakeHarnessAdapter,
@@ -91,6 +94,7 @@ async function runOnce(
 		agentId,
 		productId: "task-free",
 		agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
+		callingThreadId: `thread-harness-sid-${agentId}`,
 	} as ProvisionSessionParams;
 	const deps = buildDeps(db, nativeId);
 	const admitted = await provisioner.admit(deps, params);
@@ -99,6 +103,16 @@ async function runOnce(
 }
 
 describe("provisioner.run — the harness session id is written down", () => {
+	let spacesDir: string;
+	beforeEach(() => {
+		spacesDir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-sid-spaces-"));
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", spacesDir);
+	});
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		fs.rmSync(spacesDir, { recursive: true, force: true });
+	});
+
 	test("the id the harness reported is persisted, so the session can be resumed", async ({
 		db,
 	}) => {

@@ -483,6 +483,6 @@ describe("buildArgs agent-run overrides", () => {
 		}
 
 		expect(cPairs).toContain("notify=[]");
-		expect(cPairs.some((p) => p.startsWith("approvals_reviewer="))).toBe(true);
+		expect(cPairs).toContain('approvals_reviewer="user"');
 	});
 });

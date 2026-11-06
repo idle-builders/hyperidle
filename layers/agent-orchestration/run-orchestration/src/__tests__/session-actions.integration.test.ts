@@ -406,7 +406,7 @@ describe("stopSessionRun — a live runtime entry (the abort path)", () => {
 			taskId: null,
 			agentId: "agent-live",
 			productId: "task-free",
-			sandboxBasePath: sandboxPath,
+			callingThreadId: "thread-live-action-1",
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
 		} as ProvisionSessionParams;
 		const deps = {
@@ -544,7 +544,7 @@ describe("provisioner — an adapter's own return action is not a user stop", ()
 			taskId: null,
 			agentId: "agent-opencode",
 			productId: "task-free",
-			sandboxBasePath: sandboxPath,
+			callingThreadId: "thread-opencode-1",
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
 		} as ProvisionSessionParams;
 		const deps = {

@@ -222,6 +222,20 @@ describe("agent session request sources", () => {
 				maxConcurrentSessions: 1,
 			},
 		});
+		// The assistant source is a conversation run; callingThreadId provides the working folder.
+		const bakedAssistantPayload = JSON.stringify({
+			agentConfig: {
+				kind: "ai",
+				status: "active",
+				role: "builder",
+				teamId: "team-src",
+				systemPrompt: null,
+				harnessType: "recording",
+				modelProvider: "test",
+				maxConcurrentSessions: 1,
+			},
+			callingThreadId: "thread-src",
+		});
 
 		const sources: AgentSessionRequestInput[] = [
 			{
@@ -267,7 +281,7 @@ describe("agent session request sources", () => {
 					userId: "u-src",
 					agentId: "ast-u-src",
 				},
-				payloadJson: bakedAgentConfigPayload,
+				payloadJson: bakedAssistantPayload,
 			},
 		];
 

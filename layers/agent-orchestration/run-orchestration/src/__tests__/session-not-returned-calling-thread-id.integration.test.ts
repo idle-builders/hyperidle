@@ -118,7 +118,13 @@ describe("session_not_returned carries callingThreadId", () => {
 			captured.push(event);
 		});
 
-		const ports = buildHarnessPorts();
+		// Subscription routing: no callingThreadId (proving callingThreadId is absent from the
+		// event), subscriptionId provides the working folder. Phase 6 fires for requestContext so
+		// assembleAgentContext must be mocked rather than neverCalled.
+		const ports = buildRunningHarnessPorts({
+			evaluateReturn: () => "not_returned" as const,
+			assembleAgentContext: vi.fn(async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" })),
+		});
 		const provisioner = createProvisioner(ports);
 		const deps: ProvisionSessionDeps = {
 			db: db as HyperIdleDb,
@@ -148,6 +154,12 @@ describe("session_not_returned carries callingThreadId", () => {
 				status: "active",
 				role: "builder",
 				teamId: null,
+			},
+			requestContext: {
+				requestId: "req-sub-not-returned-2",
+				sourceKind: "subscription",
+				sourceId: "sub:not-returned-2",
+				sourceCorrelation: { subscriptionId: "sub-not-returned-2" },
 			},
 		} as ProvisionSessionParams;
 

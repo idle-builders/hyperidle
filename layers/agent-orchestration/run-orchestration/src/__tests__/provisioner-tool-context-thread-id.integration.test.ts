@@ -113,7 +113,14 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 		});
 
 		const captured: { toolContext?: { readonly threadId?: string } } = {};
-		const ports = buildHarnessPorts(captured);
+		// Subscription routing requires assembleAgentContext (Phase 6 fires when requestContext is set).
+		const ports = buildRunningHarnessPorts({
+			buildToolRegistry: (ctx) => {
+				captured.toolContext = ctx;
+				return { invoke: async () => ({ success: true, data: undefined }) };
+			},
+			assembleAgentContext: vi.fn(async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" })),
+		});
 		const provisioner = createProvisioner(ports);
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-provisioner-thread-id-"));
 		sandboxDirs.push(sandboxPath);
@@ -128,6 +135,13 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 				status: "active",
 				role: "builder",
 				teamId: null,
+			},
+			// Subscription routing: no callingThreadId (proving threadId is absent), subscriptionId provides the working folder.
+			requestContext: {
+				requestId: "req-sub-thread-ctx-2",
+				sourceKind: "subscription",
+				sourceId: "sub:thread-ctx-2",
+				sourceCorrelation: { subscriptionId: "sub-thread-ctx-2" },
 			},
 		} as ProvisionSessionParams;
 

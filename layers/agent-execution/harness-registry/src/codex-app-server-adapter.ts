@@ -122,8 +122,8 @@ function buildArgs(config: SessionConfig): string[] {
 
 	// Prevent the owner's notify program from running after each agent turn.
 	cArgs.push("-c", "notify=[]");
-	// @lore: approvals_reviewer — "auto_review" is codex's built-in default; "user" hangs in non-TTY; ⚠️ UNVERIFIED: from binary strings
-	cArgs.push("-c", 'approvals_reviewer="auto_review"');
+	// @lore: approvals_reviewer — pinned to codex's default "user" so an owner's "auto_review" never sends agent runs through codex's reviewer agent
+	cArgs.push("-c", 'approvals_reviewer="user"');
 
 	return [...cArgs, "app-server", "--stdio", ...modelOptionArgv("codex", config.modelOptions)];
 }
