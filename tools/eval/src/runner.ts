@@ -262,7 +262,6 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 			seedResult = await scenario.seed({ db });
 
 			// Step 2: Trigger
-			process.stderr.write(`[eval]   sandbox=${seedResult.sandboxBasePath}\n`);
 			const eventBus = new EventBus();
 			const triggerCtx = {
 				db,

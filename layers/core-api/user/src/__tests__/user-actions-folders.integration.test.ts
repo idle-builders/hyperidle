@@ -103,10 +103,17 @@ function buildDeps(
 				modelProvider: null,
 				maxConcurrentSessions: 1,
 				modelOptions: {},
+				login: "owner" as const,
+				spacePath: null,
 				...runConfigStore.get(agentId),
 			}),
 			write: async (agentId, patch) => {
 				runConfigStore.set(agentId, { ...runConfigStore.get(agentId), ...patch });
+			},
+			ensureSpace: async (agentId, agentName) => {
+				const spacePath = `/spaces/${agentName}`;
+				runConfigStore.set(agentId, { ...runConfigStore.get(agentId), spacePath });
+				return spacePath;
 			},
 		},
 		folders: foldersPort,

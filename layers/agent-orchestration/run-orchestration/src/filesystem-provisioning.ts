@@ -2,7 +2,12 @@ import type { Filesystem, MountResult } from "./mounter.js";
 
 /** Structural mounter port — run-orchestration declares the shape it needs. */
 export interface FilesystemMounterPort {
-	mount(input: { filesystem: Filesystem; sandboxPath: string }): Promise<MountResult>;
+	mount(input: {
+		filesystem: Filesystem;
+		sandboxPath: string;
+		spacePath?: string;
+		workBranch?: string;
+	}): Promise<MountResult>;
 }
 
 /** Structural mirror of @hyperidle/filesystems' InjectedFilesystemForProvisioning; Application wires them. */
@@ -43,8 +48,10 @@ export async function mountFilesystemsForAgent(params: {
 	readonly filesystems?: InjectedFilesystemsReaderPort;
 	readonly sandboxPath: string;
 	readonly mounter: FilesystemMounterPort;
+	readonly spacePath?: string;
+	readonly workBranch?: string;
 }): Promise<Filesystem[]> {
-	const { agentId, filesystems, sandboxPath, mounter } = params;
+	const { agentId, filesystems, sandboxPath, mounter, spacePath, workBranch } = params;
 
 	if (!filesystems) return [];
 	const rows = await filesystems.listInjectedForProvisioning(agentId);
@@ -68,7 +75,7 @@ export async function mountFilesystemsForAgent(params: {
 	const mounted: Filesystem[] = [];
 	for (const filesystem of fsList) {
 		try {
-			const result = await mounter.mount({ filesystem, sandboxPath });
+			const result = await mounter.mount({ filesystem, sandboxPath, spacePath, workBranch });
 			const found = result.success ? "reachable" : "needs_attention";
 			if (filesystem.state !== found) await filesystems.markState(filesystem.id, found);
 			if (result.success) {

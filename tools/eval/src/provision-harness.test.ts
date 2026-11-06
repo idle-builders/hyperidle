@@ -147,7 +147,6 @@ describe("eval harness provisioning", () => {
 			{
 				db: {} as HyperIdleDb,
 				eventBus: {} as EventBus,
-				sandboxBasePath: "/tmp/eval",
 			},
 			{ taskId: "task", agentId: "agent", teamId: "team" },
 		);
@@ -179,7 +178,7 @@ describe("eval harness provisioning", () => {
 		});
 
 		await runEvalSession(
-			{ db: {} as HyperIdleDb, eventBus: {} as EventBus, sandboxBasePath: "/tmp/eval" },
+			{ db: {} as HyperIdleDb, eventBus: {} as EventBus },
 			{ taskId: "task", agentId: "agent", teamId: "team" },
 		);
 

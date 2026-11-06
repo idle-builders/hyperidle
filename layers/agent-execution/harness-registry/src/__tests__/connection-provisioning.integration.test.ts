@@ -386,49 +386,41 @@ describe("codex: real CLI connects to the provisioned MCP server via config.toml
 				claudeNative: false,
 			});
 
-			// Verify config.toml was written correctly.
-			const toml = fs.readFileSync(path.join(sandboxPath, ".codex-home", "config.toml"), "utf-8");
-			expect(toml).toContain("[mcp_servers.conn-test]");
-			expect(toml).toContain(`url = "${mcpServer.url}"`);
-			expect(toml).toContain('bearer_token_env_var = "CONN_TEST_MCP_TOKEN"');
+			// Verify -c args cover the MCP server entry (no file written for codex-toml).
+			expect(result.cliConfigArgs).toBeDefined();
+			expect(result.cliConfigArgs?.some((a) => a.startsWith("mcp_servers.conn-test.url="))).toBe(
+				true,
+			);
+			expect(
+				result.cliConfigArgs?.some((a) =>
+					a.startsWith("mcp_servers.conn-test.bearer_token_env_var="),
+				),
+			).toBe(true);
 			expect(result.mcpTokenEnv).toMatchObject({
 				CONN_TEST_MCP_TOKEN: mcpServer.bearerToken,
 			});
 
-			// Set up .codex-home with auth from real ~/.codex.
+			// Set up .codex-home with auth from real ~/.codex (auth.json only; config.toml no longer written).
 			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			fs.mkdirSync(codexHomeDir, { recursive: true });
 			const homeCodexDir = path.join(os.homedir(), ".codex");
-			for (const fname of ["auth.json", "config.toml"]) {
-				const src = path.join(homeCodexDir, fname);
-				if (fs.existsSync(src)) {
-					fs.copyFileSync(src, path.join(codexHomeDir, fname));
-				}
+			const authSrc = path.join(homeCodexDir, "auth.json");
+			if (fs.existsSync(authSrc)) {
+				fs.copyFileSync(authSrc, path.join(codexHomeDir, "auth.json"));
 			}
-
-			// Re-provision after copying base config (codex-toml appends to existing).
-			const plan2 = {
-				mcpServers: [
-					{
-						name: "conn-test",
-						url: mcpServer.url,
-						bearerToken: mcpServer.bearerToken,
-					},
-				],
-				envInjections: {},
-			};
-			const result2 = await applyProvisioningPlan({
-				plan: plan2,
-				sandboxPath,
-				cliMcpDialect: "codex-toml",
-				claudeNative: false,
-			});
 
 			// Build clean env with CODEX_HOME + bearer token env var.
 			const cleanEnv = buildCleanEnv();
 			cleanEnv.CODEX_HOME = codexHomeDir;
 			// Inject the per-server token env var that codex reads via bearer_token_env_var.
-			for (const [k, v] of Object.entries(result2.mcpTokenEnv)) {
+			for (const [k, v] of Object.entries(result.mcpTokenEnv)) {
 				cleanEnv[k] = v;
+			}
+
+			// Build -c flags from cliConfigArgs.
+			const cliFlags: string[] = [];
+			for (const arg of result.cliConfigArgs ?? []) {
+				cliFlags.push("-c", arg);
 			}
 
 			process.stdout.write(
@@ -441,7 +433,7 @@ describe("codex: real CLI connects to the provisioned MCP server via config.toml
 
 			const spawnResult = await spawnDetached(
 				"codex",
-				["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
+				[...cliFlags, "exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
 				{
 					cwd: sandboxPath,
 					env: cleanEnv,
@@ -456,12 +448,12 @@ describe("codex: real CLI connects to the provisioned MCP server via config.toml
 			if (!allOutput.includes("CONN_PROBE_OK")) {
 				throw new Error(
 					`[codex FULL BINARY PROOF FAILED]: CONN_PROBE_OK not found. ` +
-						`The provisioned config.toml bearer MCP entry was NOT authenticated or tool was NOT called. ` +
+						`The provisioned -c flag bearer MCP entry was NOT authenticated or tool was NOT called. ` +
 						`stdout: "${spawnResult.stdout.slice(0, 400)}" ` +
 						`stderr: "${spawnResult.stderr.slice(0, 200)}" ` +
 						`exitCode: ${spawnResult.exitCode}. ` +
 						`MCP URL: ${mcpServer?.url}. ` +
-						`Check: CODEX_HOME set, CONN_TEST_MCP_TOKEN injected, config.toml has [mcp_servers.conn-test].`,
+						`Check: CODEX_HOME set, CONN_TEST_MCP_TOKEN injected, -c flags include mcp_servers.conn-test.url.`,
 				);
 			}
 			expect(allOutput).toContain("CONN_PROBE_OK");
@@ -469,7 +461,7 @@ describe("codex: real CLI connects to the provisioned MCP server via config.toml
 
 			process.stdout.write(
 				"[real-harness codex] LIVE PROOF: CONN_PROBE_OK found in codex output — " +
-					"config.toml bearer MCP connection succeeded.\n",
+					"-c flag bearer MCP connection succeeded.\n",
 			);
 		} finally {
 			await mcpServer?.close();

@@ -290,6 +290,8 @@ const RunConfigViewSchema = z.object({
 	modelProvider: z.enum(MODEL_PROVIDERS).nullable(),
 	maxConcurrentSessions: z.number().int(),
 	modelOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).nullable(),
+	login: z.enum(["own", "owner"]),
+	spacePath: z.string().nullable(),
 });
 
 export const UserViewSchema = z.object({
@@ -298,6 +300,17 @@ export const UserViewSchema = z.object({
 	/** Install-wide: this machine's harnesses, `discovery.disabled` stamped. */
 	runsOn: z.array(HarnessDescriptorSchema),
 	runConfig: RunConfigViewSchema.nullable(),
+	/**
+	 * Agent with `login: "own"` only: whether the agent's isolated login folder
+	 * is authenticated. Absent when login is "owner", harness does not support
+	 * own-login, space is not set, or the probe was not wired.
+	 */
+	agentLoginStatus: z
+		.object({
+			state: z.enum(["missing", "installed", "unauthenticated", "ready", "unavailable"]),
+			reason: z.string().optional(),
+		})
+		.optional(),
 	/** An agent's identity, skill and rule documents; a person's About (their `agent_file`). */
 	documentIds: z.array(z.object({ slot: z.enum(DOCUMENT_SLOTS), id: z.string() })),
 	/** Agent: folders given to it. Person: the folders of every team they are in. */
@@ -337,6 +350,7 @@ const EditUserRunConfigSchema = z
 		modelProvider: z.enum(MODEL_PROVIDERS).optional(),
 		modelOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 		maxConcurrentSessions: z.number().int().min(1).optional(),
+		login: z.enum(["own", "owner"]).optional(),
 	})
 	.strict();
 

@@ -11,7 +11,7 @@ import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import type { SessionNotReturnedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
-import { afterEach, describe } from "vitest";
+import { afterEach, describe, vi } from "vitest";
 import {
 	buildRunningHarnessPorts,
 	completingHarnessAdapter,
@@ -28,6 +28,7 @@ function buildHarnessPorts() {
 describe("session_not_returned carries callingThreadId", () => {
 	const sandboxDirs: string[] = [];
 	afterEach(() => {
+		vi.unstubAllEnvs();
 		for (const dir of sandboxDirs.splice(0)) {
 			fs.rmSync(dir, { recursive: true, force: true });
 		}
@@ -46,6 +47,7 @@ describe("session_not_returned carries callingThreadId", () => {
 		});
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-not-returned-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const eventBus = new EventBus();
 		const captured: SessionNotReturnedEvent[] = [];
@@ -72,19 +74,12 @@ describe("session_not_returned carries callingThreadId", () => {
 				release: () => undefined,
 				describeSelectFailure: () => "test pool selected nothing",
 			},
-			workspace: {
-				spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),
-				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-				adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
-				destroy: async () => undefined,
-			},
 		};
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
 			agentId: "agent-not-returned-1",
 			productId: "task-free",
-			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
 				status: "active",
@@ -115,6 +110,7 @@ describe("session_not_returned carries callingThreadId", () => {
 		});
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-not-returned-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const eventBus = new EventBus();
 		const captured: SessionNotReturnedEvent[] = [];
@@ -122,7 +118,13 @@ describe("session_not_returned carries callingThreadId", () => {
 			captured.push(event);
 		});
 
-		const ports = buildHarnessPorts();
+		// Subscription routing: no callingThreadId (proving callingThreadId is absent from the
+		// event), subscriptionId provides the working folder. Phase 6 fires for requestContext so
+		// assembleAgentContext must be mocked rather than neverCalled.
+		const ports = buildRunningHarnessPorts({
+			evaluateReturn: () => "not_returned" as const,
+			assembleAgentContext: vi.fn(async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" })),
+		});
 		const provisioner = createProvisioner(ports);
 		const deps: ProvisionSessionDeps = {
 			db: db as HyperIdleDb,
@@ -141,24 +143,23 @@ describe("session_not_returned carries callingThreadId", () => {
 				release: () => undefined,
 				describeSelectFailure: () => "test pool selected nothing",
 			},
-			workspace: {
-				spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),
-				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-				adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
-				destroy: async () => undefined,
-			},
 		};
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
 			agentId: "agent-not-returned-2",
 			productId: "task-free",
-			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
 				status: "active",
 				role: "builder",
 				teamId: null,
+			},
+			requestContext: {
+				requestId: "req-sub-not-returned-2",
+				sourceKind: "subscription",
+				sourceId: "sub:not-returned-2",
+				sourceCorrelation: { subscriptionId: "sub-not-returned-2" },
 			},
 		} as ProvisionSessionParams;
 

@@ -68,7 +68,6 @@ Use edit_task with:
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -174,7 +173,6 @@ Hand off to the team product manager for stakeholder communication using edit_ta
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -260,7 +258,6 @@ This creates a review message a human compliance expert can see and respond to.`
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -374,7 +371,6 @@ Use edit_task with:
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -483,7 +479,6 @@ Hand off using edit_task:
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -579,7 +574,6 @@ Hand off to the builder using edit_task:
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

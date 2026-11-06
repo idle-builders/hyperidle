@@ -48,7 +48,6 @@ import { discoverLocalHarnesses } from "../harness-discovery.js";
 import {
 	createHarnessSandbox,
 	provisionClaudeSandbox,
-	provisionCodexHome,
 	requireHarnessAuthed,
 } from "./harness-sandbox.js";
 import {
@@ -305,7 +304,6 @@ describe("[harness:codex] the model asked for is the model codex runs", () => {
 		const sandboxPath = sandbox.path;
 		try {
 			provisionCodexRepo(sandboxPath);
-			expect(provisionCodexHome(sandboxPath)).toBe(true);
 
 			// CodexAppServerAdapter — production adapter (codex app-server --stdio).
 			// Model is read from the session JSONL turn_context entry (ephemeral: false
@@ -323,7 +321,7 @@ describe("[harness:codex] the model asked for is the model codex runs", () => {
 				tools: [],
 			});
 
-			const ctx = codexTurnContext(nativeSessionId, path.join(sandboxPath, ".codex-home"));
+			const ctx = codexTurnContext(nativeSessionId, path.join(sandboxPath, ".codex-owner"));
 			expect(ctx, "codex recorded no turn context in session JSONL").toBeDefined();
 			expect(ctx?.model).toBe(model);
 		} finally {

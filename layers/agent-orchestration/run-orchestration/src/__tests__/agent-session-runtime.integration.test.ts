@@ -264,7 +264,7 @@ describe("agent session runtime consumer", () => {
 
 		await runSession(
 			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
-			{ mode: "durable", request, sandboxBasePath: "/tmp/au1-runtime-test" },
+			{ mode: "durable", request },
 		);
 
 		expect(ports.sessionProvisioner!.admitSession).toHaveBeenCalledWith(
@@ -372,7 +372,7 @@ describe("agent session runtime consumer", () => {
 
 		await runSession(
 			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
-			{ mode: "durable", request, sandboxBasePath: "/tmp/au1-runtime-test" },
+			{ mode: "durable", request },
 		);
 	});
 
@@ -423,7 +423,7 @@ describe("agent session runtime consumer", () => {
 		await expect(
 			runSession(
 				{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
-				{ mode: "durable", request, sandboxBasePath: "/tmp/au20-runtime-failure" },
+				{ mode: "durable", request },
 			),
 		).rejects.toThrow("harness crashed");
 
@@ -522,7 +522,6 @@ describe("agent session runtime consumer", () => {
 			runSession({ db, eventBus, ports } as unknown as import("../contracts.js").RuntimeDeps, {
 				mode: "durable",
 				request,
-				sandboxBasePath: "/tmp/au21-race-test",
 			}),
 		).rejects.toThrow();
 
@@ -591,7 +590,6 @@ describe("agent session runtime consumer", () => {
 				{
 					mode: "durable",
 					request,
-					sandboxBasePath: "/tmp/conc-test",
 				},
 			),
 		).rejects.toThrow("concurrency limit reached");
@@ -632,7 +630,7 @@ describe("agent session runtime consumer", () => {
 			const request = await createRequestForTest(db, boundarySourceInput(sourceKind, "boundary"));
 			await runSession(
 				{ db, eventBus, ports } as unknown as import("../contracts.js").RuntimeDeps,
-				{ mode: "durable", request, sandboxBasePath: "/tmp/boundary-boundary" },
+				{ mode: "durable", request },
 			);
 			const [row] = await db
 				.select()

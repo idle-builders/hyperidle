@@ -46,6 +46,7 @@ function buildHarnessPorts() {
 describe("the model an agent is configured with reaches its session", () => {
 	const sandboxDirs: string[] = [];
 	afterEach(() => {
+		vi.unstubAllEnvs();
 		for (const dir of sandboxDirs.splice(0)) {
 			fs.rmSync(dir, { recursive: true, force: true });
 		}
@@ -110,7 +111,6 @@ describe("the model an agent is configured with reaches its session", () => {
 
 	function buildDeps(
 		db: HyperIdleDb,
-		sandboxPath: string,
 		captured: { sessionConfig?: SessionConfig },
 	): ProvisionSessionDeps {
 		return {
@@ -130,12 +130,6 @@ describe("the model an agent is configured with reaches its session", () => {
 				release: () => undefined,
 				describeSelectFailure: () => "test pool selected nothing",
 			},
-			workspace: {
-				spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),
-				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-				adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
-				destroy: async () => undefined,
-			},
 			onBeforeHarnessStart: (ctx) => {
 				captured.sessionConfig = ctx.sessionConfig;
 				return "abort";
@@ -143,16 +137,11 @@ describe("the model an agent is configured with reaches its session", () => {
 		};
 	}
 
-	function baseParams(
-		agentId: string,
-		taskId: string,
-		sandboxPath: string,
-	): ProvisionSessionParams {
+	function baseParams(agentId: string, taskId: string): ProvisionSessionParams {
 		return {
 			taskId,
 			agentId,
 			productId: `${taskId}-bet`,
-			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
 				status: "active",
@@ -165,6 +154,7 @@ describe("the model an agent is configured with reaches its session", () => {
 	test("the configured model reaches the session with no credential resolved", async ({ db }) => {
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "model-selection-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 		const agentId = "agent-model-choice";
 		const taskId = "task-model-choice";
 		await seedAgent(db, agentId);
@@ -175,8 +165,8 @@ describe("the model an agent is configured with reaches its session", () => {
 
 		const captured: { sessionConfig?: SessionConfig } = {};
 		const provisioner = createProvisioner(buildHarnessPorts());
-		const deps = buildDeps(db, sandboxPath, captured);
-		const params = baseParams(agentId, taskId, sandboxPath);
+		const deps = buildDeps(db, captured);
+		const params = baseParams(agentId, taskId);
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
 
@@ -188,6 +178,7 @@ describe("the model an agent is configured with reaches its session", () => {
 	}) => {
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "model-selection-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 		const agentId = "agent-no-model-choice";
 		const taskId = "task-no-model-choice";
 		await seedAgent(db, agentId);
@@ -195,8 +186,8 @@ describe("the model an agent is configured with reaches its session", () => {
 
 		const captured: { sessionConfig?: SessionConfig } = {};
 		const provisioner = createProvisioner(buildHarnessPorts());
-		const deps = buildDeps(db, sandboxPath, captured);
-		const params = baseParams(agentId, taskId, sandboxPath);
+		const deps = buildDeps(db, captured);
+		const params = baseParams(agentId, taskId);
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
 
@@ -210,6 +201,7 @@ describe("the model an agent is configured with reaches its session", () => {
 	}) => {
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "model-selection-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 		const agentId = "agent-foreign-provider";
 		const taskId = "task-foreign-provider";
 		await seedAgent(db, agentId);
@@ -223,8 +215,8 @@ describe("the model an agent is configured with reaches its session", () => {
 
 		const captured: { sessionConfig?: SessionConfig } = {};
 		const provisioner = createProvisioner(buildHarnessPorts());
-		const deps = buildDeps(db, sandboxPath, captured);
-		const params = baseParams(agentId, taskId, sandboxPath);
+		const deps = buildDeps(db, captured);
+		const params = baseParams(agentId, taskId);
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
 

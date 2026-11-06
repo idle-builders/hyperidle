@@ -1,7 +1,6 @@
 // @lore: Hono notFound — two layers mount on same /api router; parent notFound fires, not sub-app's; composeApiApplication builds the canonical 404 on root app
 
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import { bootAgentExecution } from "@hyperidle/agent-execution";
@@ -37,7 +36,6 @@ import { resolveProfile } from "./profiles.js";
 export interface CreateServerDeps {
 	readonly db?: HyperIdleDb;
 	readonly topology: "local" | "disabled";
-	readonly sandboxBasePath?: string;
 	/**
 	 * Interface to bind the listening socket to. Omitted → `@hono/node-server`
 	 * binds EVERY interface, which is what the hosted deployment needs (the
@@ -161,10 +159,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		);
 	}
 
-	const sandboxBasePath =
-		deps.sandboxBasePath ??
-		process.env.HYPERIDLE_WORKSPACES_DIR ??
-		path.join(os.tmpdir(), "hyperidle-workspaces");
 	const mcpBaseUrl = `http://localhost:${port}`;
 
 	const agentExecution =
@@ -217,7 +211,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		db,
 		eventBus,
 		adapterPool: agentExecution.adapters.pool,
-		workspace: agentExecution.adapters.sandbox,
 		pluginMcpContributions: coreApi.pluginMcpContributions,
 	} satisfies ApplicationProvisionSessionDeps;
 
@@ -235,10 +228,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			editDocument: coreApi.editDocument,
 			searchDocuments: coreApi.searchDocuments,
 			session: runtimeSessionDeps,
-			sandboxBasePath,
-			reapers: {
-				sandboxes: { sandboxBasePath },
-			},
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
 	});

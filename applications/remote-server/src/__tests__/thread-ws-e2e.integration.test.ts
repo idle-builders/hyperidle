@@ -18,8 +18,6 @@
  *
  */
 
-import * as os from "node:os";
-import * as path from "node:path";
 import { type HyperIdleDb, teams, threads, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { afterEach, vi } from "vitest";
@@ -40,7 +38,6 @@ async function boot(db: HyperIdleDb): Promise<Booted> {
 	const server = await createServer(0, {
 		db,
 		topology: "disabled",
-		sandboxBasePath: path.join(os.tmpdir(), `thread-ws-e2e-${Date.now()}-${Math.random()}`),
 	});
 	const addr = server.httpServer.address();
 	if (typeof addr !== "object" || addr === null) {

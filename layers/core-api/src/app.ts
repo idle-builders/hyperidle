@@ -129,6 +129,11 @@ interface AppOptions {
 	 */
 	adapterPool?: HarnessCapabilityReader;
 	/**
+	 * Probe function for per-agent login status (login: "own" only).
+	 * Absent → open_user does not populate agentLoginStatus (graceful degradation).
+	 */
+	probeAgentLogin?: import("@hyperidle/user").UserActionsDeps["probeAgentLogin"];
+	/**
 	 * Base directory where plugin files are persisted on install.
 	 * When provided, `installPlugin` copies the plugin source to
 	 * `{pluginsBaseDir}/{pluginId}/` and stores the path in `plugins.install_path`.
@@ -223,6 +228,7 @@ function buildCoreActionsBindings(
 			: {}),
 		...(options.adapterPool ? { adapterPool: options.adapterPool } : {}),
 		...(options.onHarnessRedetect ? { onHarnessRedetect: options.onHarnessRedetect } : {}),
+		...(options.probeAgentLogin ? { probeAgentLogin: options.probeAgentLogin } : {}),
 	};
 }
 

@@ -15,6 +15,37 @@ import * as path from "node:path";
 import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/domain-model";
 import { resolveUrlForSSRF } from "./ssrf.js";
 
+// ── TOML escape ───────────────────────────────────────────────────────────────
+
+/**
+ * Escape a value for a TOML basic string (used for -c flag values passed to codex).
+ * Local copy — cannot import from harness-registry (service → other-layer service: forbidden in production).
+ * @lore: escapeTomlString — single-pass regex; replace chain misses control chars → "invalid string"; TOML requires full escape; one pass avoids double-escape
+ */
+function escapeTomlString(value: string): string {
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: matching control characters IS the point of this escape function.
+	return value.replace(/[\\"\n\r\t\x00-\x1f\x7f]/g, (ch) => {
+		switch (ch) {
+			case "\\":
+				return "\\\\";
+			case '"':
+				return '\\"';
+			case "\n":
+				return "\\n";
+			case "\r":
+				return "\\r";
+			case "\t":
+				return "\\t";
+			case "\b":
+				return "\\b";
+			case "\f":
+				return "\\f";
+			default:
+				return `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`;
+		}
+	});
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -206,12 +237,13 @@ function deriveMcpServerName(
  * Apply the provisioning plan to a session's sandbox.
  *
  * Writes the per-harness carrier into sandboxPath:
- *   - codex-toml: appends server entries to .codex-home/config.toml
+ *   - codex-toml: returns -c flag args (no file write); mcpTokenEnv carries per-server bearer vars
  *   - opencode-json: writes/merges opencode.json with server entries + inline headers
  *   - claude-native: writes/merges .mcp.json with server entries + inline headers
  *   - no carrier: returns empty mcpTokenEnv (no write)
  *
- * Returns the env vars to merge into SessionConfig.mcpTokenEnv.
+ * Returns the env vars to merge into SessionConfig.mcpTokenEnv and optional -c args
+ * for the codex-toml path (provisioner.ts wires cliConfigArgs into SessionConfig).
  * Pure filesystem + return; no DB, no network.
  *
  * @lore: applyProvisioningPlan claude — merges into existing .mcp.json; the merge must preserve existing entries (additive only)
@@ -221,7 +253,10 @@ export function applyProvisioningPlan(args: {
 	readonly sandboxPath: string;
 	readonly cliMcpDialect?: "codex-toml" | "opencode-json" | "cursor-json";
 	readonly claudeNative: boolean;
-}): Promise<{ readonly mcpTokenEnv: Record<string, string> }> {
+}): Promise<{
+	readonly mcpTokenEnv: Record<string, string>;
+	readonly cliConfigArgs?: readonly string[];
+}> {
 	const { plan, sandboxPath, cliMcpDialect, claudeNative } = args;
 
 	if (plan.mcpServers.length === 0) {
@@ -231,7 +266,7 @@ export function applyProvisioningPlan(args: {
 	}
 
 	if (cliMcpDialect === "codex-toml") {
-		return Promise.resolve(writeCodexTomlEntries({ sandboxPath, mcpServers: plan.mcpServers }));
+		return Promise.resolve(buildCodexTomlEntries({ mcpServers: plan.mcpServers }));
 	}
 
 	if (cliMcpDialect === "opencode-json") {
@@ -251,37 +286,29 @@ export function applyProvisioningPlan(args: {
 // ── Per-harness writers ───────────────────────────────────────────────────────
 
 /**
- * Write N MCP server entries to .codex-home/config.toml.
- *
- * Returns tokenEnv for each bearer server (caller injects outside allowlist).
- * This is the generalized 1→N extension of writeCodexToml in cli-mcp-config.ts.
- *
+ * Build -c flag args for N connection MCP server entries (codex-toml dialect).
+ * Returns cliConfigArgs (raw -c arg values) and mcpTokenEnv (bearer token env vars).
+ * No file write — entries are passed as -c flags at spawn.
  */
-function writeCodexTomlEntries(params: {
-	sandboxPath: string;
-	mcpServers: ProvisioningPlan["mcpServers"];
-}): { mcpTokenEnv: Record<string, string> } {
-	const { sandboxPath, mcpServers } = params;
-	const codexHomeDir = path.join(sandboxPath, ".codex-home");
-	const configTomlPath = path.join(codexHomeDir, "config.toml");
-
-	fs.mkdirSync(codexHomeDir, { recursive: true });
-
+function buildCodexTomlEntries(params: { mcpServers: ProvisioningPlan["mcpServers"] }): {
+	mcpTokenEnv: Record<string, string>;
+	cliConfigArgs: readonly string[];
+} {
+	const { mcpServers } = params;
 	const tokenEnv: Record<string, string> = {};
+	const cliConfigArgs: string[] = [];
 
 	for (const server of mcpServers) {
 		const envKey = `${server.name.toUpperCase().replace(/-/g, "_")}_MCP_TOKEN`;
-		let block = `\n[mcp_servers.${server.name}]\n` + `url = "${server.url}"\n`;
+		cliConfigArgs.push(`mcp_servers.${server.name}.url="${escapeTomlString(server.url)}"`);
 
 		if (server.bearerToken !== undefined) {
-			block += `bearer_token_env_var = "${envKey}"\n`;
+			cliConfigArgs.push(`mcp_servers.${server.name}.bearer_token_env_var="${envKey}"`);
 			tokenEnv[envKey] = server.bearerToken;
 		}
-
-		fs.appendFileSync(configTomlPath, block, "utf-8");
 	}
 
-	return { mcpTokenEnv: tokenEnv };
+	return { mcpTokenEnv: tokenEnv, cliConfigArgs };
 }
 
 /**

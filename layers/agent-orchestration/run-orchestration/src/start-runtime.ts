@@ -5,7 +5,6 @@ import { createContextAssembler } from "./context.js";
 import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "./contracts.js";
 import { createProvisioner } from "./provisioner.js";
 import { runSession } from "./runtime.js";
-import { createRuntimeReapers } from "./runtime-reapers.js";
 import { createWritebackProcessor } from "./writeback-processor.js";
 
 async function recoverRunningRequests(
@@ -81,7 +80,6 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			await runSession(deps, {
 				mode: "durable",
 				request,
-				sandboxBasePath: deps.sandboxBasePath ?? "/tmp/hyperidle-workspaces",
 				modelTier: "workhorse",
 				completion: "admit",
 			});
@@ -251,10 +249,6 @@ export async function startRuntime(deps: RuntimeDeps): Promise<RuntimeHandle> {
 		disposers.push(
 			createWritebackProcessor().subscribe({ ...deps.composition.writeback, eventBus }),
 		);
-		const reapers = createRuntimeReapers(deps.db);
-		if (deps.composition.reapers?.sandboxes) {
-			disposers.push(reapers.startSandboxes(deps.composition.reapers.sandboxes));
-		}
 	} catch (error) {
 		disposeAll(disposers);
 		await joinAgentLayer?.().catch(() => undefined);

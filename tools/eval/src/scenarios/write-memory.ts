@@ -63,7 +63,6 @@ the root cause, and the fix.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -125,7 +124,6 @@ This reflection will help the team maintain brand consistency going forward.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

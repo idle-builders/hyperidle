@@ -11,11 +11,7 @@ import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
 import { CodexAppServerAdapter } from "../codex-app-server-adapter.js";
-import {
-	createHarnessSandbox,
-	provisionCodexHome,
-	requireHarnessAuthed,
-} from "./harness-sandbox.js";
+import { createHarnessSandbox, requireHarnessAuthed } from "./harness-sandbox.js";
 import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
@@ -28,10 +24,6 @@ describe("CodexAppServerAdapter deliver (real binary)", () => {
 		await requireHarnessAuthed("codex");
 
 		const sandbox = createHarnessSandbox("codex-appserver-deliver");
-		const authFound = provisionCodexHome(sandbox.path);
-		if (!authFound) {
-			throw new Error("codex auth.json not found — requireHarnessAuthed should have caught this");
-		}
 
 		try {
 			await ensureSandboxGitRepo(sandbox.path);

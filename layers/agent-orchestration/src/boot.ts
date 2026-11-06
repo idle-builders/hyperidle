@@ -56,10 +56,8 @@ export interface AgentOrchestrationRuntimeOptions {
 	readonly harnessRuntime: RunOrchestrationHarnessRuntimeAdapter;
 	readonly returnStatusTool: RunOrchestrationReturnStatusToolAdapter;
 	readonly session: ApplicationProvisionSessionDeps;
-	readonly sandboxBasePath?: string;
 	/** Test override only — intercepts writeback without a real seam. */
 	readonly writeback?: RuntimeDeps["composition"]["writeback"];
-	readonly reapers?: RuntimeDeps["composition"]["reapers"];
 	/** This layer owns no user state; absent means no held connections are provisioned. */
 	/** Whose held connections an agent's sessions get. */
 	readonly resolveProvisioningOwnerUserId?: (agentId: string) => Promise<string | null>;
@@ -117,22 +115,19 @@ export interface AgentOrchestrationBoot {
 	readonly provisioning?: OrchestrationProvisioningReads;
 }
 
-/** Builds `runtimeDeps`'s `composition` override from the Application-supplied writeback/reaper wiring. */
+/** Builds `runtimeDeps`'s `composition` override from the Application-supplied writeback wiring. */
 function buildRuntimeComposition(
 	runtime: AgentOrchestrationRuntimeOptions,
 ): RuntimeDeps["composition"] {
-	const { writeback, reapers } = runtime;
+	const { writeback } = runtime;
 	return {
 		...(writeback ? { writeback } : {}),
-		...(reapers ? { reapers } : {}),
 	} as RuntimeDeps["composition"];
 }
 
-/**
- * Builds provisioning reads. mounter needs sandboxBasePath; heldConnections needs resolveProvisioningOwnerUserId — absent means no held connections.
- */
+/** Builds provisioning reads. heldConnections needs resolveProvisioningOwnerUserId — absent means no held connections. */
 interface OrchestrationProvisioningReads {
-	readonly mounter?: RegistryFilesystemMounter;
+	readonly mounter: RegistryFilesystemMounter;
 	readonly heldConnections?: HeldConnectionsReaderPort;
 	readonly injectedFilesystems: InjectedFilesystemsReaderPort;
 	readonly serviceConnectionResolver: {
@@ -142,18 +137,13 @@ interface OrchestrationProvisioningReads {
 
 function buildProvisioningReads(
 	db: HyperIdleDb,
-	sandboxBasePath: string | undefined,
 	resolveProvisioningOwnerUserId: ((agentId: string) => Promise<string | null>) | undefined,
 	decrypt: (ciphertext: string) => string | null,
 ): OrchestrationProvisioningReads {
 	return {
-		...(sandboxBasePath
-			? {
-					mounter: new RegistryFilesystemMounter({
-						gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
-					}),
-				}
-			: {}),
+		mounter: new RegistryFilesystemMounter({
+			gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
+		}),
 		...(resolveProvisioningOwnerUserId
 			? {
 					heldConnections: {
@@ -227,16 +217,10 @@ export async function bootAgentOrchestration(
 			searchDocuments: runtime.searchDocuments,
 		});
 		runSession = composition.runSession;
-		provisioningReads = buildProvisioningReads(
-			db,
-			runtime.sandboxBasePath,
-			runtime.resolveProvisioningOwnerUserId,
-			decrypt,
-		);
+		provisioningReads = buildProvisioningReads(db, runtime.resolveProvisioningOwnerUserId, decrypt);
 		runRuntime = await composition.startRuntime(
 			composition.runtimeDeps(db, eventBus, {
 				runtime: { ...provisioningReads, ...runtime.session } as ProvisionSessionDeps,
-				sandboxBasePath: runtime.sandboxBasePath,
 				composition: buildRuntimeComposition(runtime),
 			}),
 		);

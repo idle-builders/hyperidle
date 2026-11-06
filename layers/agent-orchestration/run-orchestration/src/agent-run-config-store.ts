@@ -66,7 +66,14 @@ export interface AgentRunConfig {
 	readonly modelProvider: string | null;
 	readonly maxConcurrentSessions: number;
 	readonly modelOptions: ModelOptions;
+	/** The agent's space on this computer; null until the first run makes it. */
+	readonly spacePath: string | null;
+	/** Whose program login the agent runs with. */
+	readonly login: AgentLogin;
 }
+
+/** The agent's own login, kept in its space, or the computer owner's. */
+export type AgentLogin = "own" | "owner";
 
 /**
  * The effective config of an agent with no `agent_run_config` row — identical
@@ -79,6 +86,8 @@ export const DEFAULT_AGENT_RUN_CONFIG: AgentRunConfig = {
 	modelProvider: null,
 	maxConcurrentSessions: 1,
 	modelOptions: {},
+	spacePath: null,
+	login: "owner",
 };
 
 /**
@@ -99,6 +108,8 @@ const CONFIG_COLUMNS = {
 	modelProvider: agentRunConfig.modelProvider,
 	maxConcurrentSessions: agentRunConfig.maxConcurrentSessions,
 	modelOptionsJson: agentRunConfig.modelOptionsJson,
+	spacePath: agentRunConfig.spacePath,
+	login: agentRunConfig.login,
 } as const;
 
 /** Map a selected row's columns onto the config shape. */
@@ -108,9 +119,15 @@ function rowToConfig(row: {
 	modelProvider: string | null;
 	maxConcurrentSessions: number;
 	modelOptionsJson: string | null;
+	spacePath: string | null;
+	login: string;
 }): AgentRunConfig {
-	const { modelOptionsJson, ...rest } = row;
-	return { ...rest, modelOptions: parseModelOptions(modelOptionsJson) };
+	const { modelOptionsJson, login, ...rest } = row;
+	return {
+		...rest,
+		modelOptions: parseModelOptions(modelOptionsJson),
+		login: login === "own" ? "own" : "owner",
+	};
 }
 
 /** Read one agent's effective run config. Never `undefined` — absent row is treated as all-null. */
@@ -175,6 +192,8 @@ export async function writeAgentRunConfig(
 		modelOptionsJson: serializeModelOptions(
 			patch.modelOptions ?? DEFAULT_AGENT_RUN_CONFIG.modelOptions,
 		),
+		spacePath: patch.spacePath ?? DEFAULT_AGENT_RUN_CONFIG.spacePath,
+		login: patch.login ?? DEFAULT_AGENT_RUN_CONFIG.login,
 	};
 
 	const updateSet: Partial<NewAgentRunConfigRow> = {};
@@ -185,6 +204,8 @@ export async function writeAgentRunConfig(
 		updateSet.maxConcurrentSessions = patch.maxConcurrentSessions;
 	if ("modelOptions" in patch)
 		updateSet.modelOptionsJson = serializeModelOptions(patch.modelOptions ?? {});
+	if ("spacePath" in patch) updateSet.spacePath = patch.spacePath ?? null;
+	if (patch.login !== undefined) updateSet.login = patch.login;
 
 	const insert = exec.insert(agentRunConfig).values(insertValues);
 	if (Object.keys(updateSet).length === 0) {

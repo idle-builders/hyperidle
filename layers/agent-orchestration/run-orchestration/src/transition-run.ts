@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import type {
 	AgentSessionSourceKind,
@@ -8,7 +7,6 @@ import type {
 import type { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import type { createProvisioner } from "./provisioner.js";
-import { sessionAwaitsVerdict } from "./review-sessions.js";
 
 interface IngestionHandle {
 	dispose(): void;
@@ -188,14 +186,6 @@ async function endSession(
 			outcome: terminalOutcome,
 			...(tokensByTier && Object.keys(tokensByTier).length > 0 ? { tokensByTier } : {}),
 		});
-	}
-
-	// @lore: workspace cleanup — async rm avoids blocking event loop; skip if session awaits verdict (resume needs this dir; harness hangs if dir is gone)
-	if (await sessionAwaitsVerdict(db, context.sessionId)) return;
-	try {
-		await fs.promises.rm(context.sandboxPath, { recursive: true, force: true });
-	} catch {
-		// Directory may already be gone — safe to ignore.
 	}
 }
 

@@ -33,8 +33,6 @@ export interface ScenarioSeedResult {
 	readonly taskId: string;
 	/** @lore BB1: formerly betId — root tasks replace bets. */
 	readonly rootTaskId: string;
-	/** Sandbox base path for LocalSandboxAdapter. */
-	readonly sandboxBasePath: string;
 }
 
 /**

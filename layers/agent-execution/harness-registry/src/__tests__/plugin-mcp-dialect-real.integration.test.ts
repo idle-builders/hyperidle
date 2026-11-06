@@ -39,7 +39,10 @@
 import { execFileSync, execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { writePluginStdioMcpEntries } from "@hyperidle/harness-registry";
+import {
+	buildCodexPluginConfigArgs,
+	writePluginStdioMcpEntries,
+} from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createHarnessSandbox, type HarnessSandbox } from "./harness-sandbox.js";
 import { requireHarness } from "./require-harness.js";
@@ -103,66 +106,68 @@ afterEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe("codex-toml dialect", () => {
-	it("writePluginStdioMcpEntries writes .codex-home/config.toml that codex mcp list accepts", () => {
+	it("buildCodexPluginConfigArgs produces -c args that codex mcp list accepts", () => {
 		requireHarness("codex");
 
-		writePluginStdioMcpEntries({
-			dialect: "codex-toml",
-			sandboxPath,
-			servers: [
-				{
-					key: "dialect-key",
-					config: { command: NODE_BIN, args: [probeServerScript] },
-				},
-			],
-		});
+		const servers = [
+			{
+				key: "dialect-key",
+				config: { command: NODE_BIN, args: [probeServerScript] },
+			},
+		];
 
-		// Verify config file was written.
-		const tomlPath = path.join(sandboxPath, ".codex-home", "config.toml");
-		expect(fs.existsSync(tomlPath), `config.toml must exist at ${tomlPath}`).toBe(true);
-		const tomlContent = fs.readFileSync(tomlPath, "utf-8");
-		expect(tomlContent).toContain("[mcp_servers.dialect-key]");
-		expect(tomlContent).toContain(NODE_BIN);
+		// writePluginStdioMcpEntries is a no-op for codex-toml; use buildCodexPluginConfigArgs.
+		writePluginStdioMcpEntries({ dialect: "codex-toml", sandboxPath, servers });
+		const cArgs = buildCodexPluginConfigArgs(servers);
+		expect(cArgs.length).toBeGreaterThan(0);
 
-		// Run `codex mcp list` with CODEX_HOME pointing at .codex-home/.
-		const codexHomeDir = path.join(sandboxPath, ".codex-home");
-		const result = execFileSync("codex", ["mcp", "list"], {
-			env: { ...process.env, CODEX_HOME: codexHomeDir },
+		// Build interleaved -c flags.
+		const cliFlags: string[] = [];
+		for (const arg of cArgs) {
+			cliFlags.push("-c", arg);
+		}
+
+		// Run `codex -c <each> mcp list` — the server must appear in output.
+		const result = execFileSync("codex", [...cliFlags, "mcp", "list"], {
+			env: { ...process.env },
 			timeout: 15_000,
 			encoding: "utf-8",
 		});
-		// The server name must appear in the list output.
 		expect(result).toContain("dialect-key");
 	});
 
-	it("env and cwd fields are written to TOML and read by codex", () => {
+	it("env and cwd fields in -c args are accepted by codex mcp list", () => {
 		requireHarness("codex");
 
-		writePluginStdioMcpEntries({
-			dialect: "codex-toml",
-			sandboxPath,
-			servers: [
-				{
-					key: "dialect-key-env",
-					config: {
-						command: NODE_BIN,
-						args: [probeServerScript],
-						env: { XPROBE_ENV_KEY: "xprobe-env-value" },
-						cwd: sandboxPath,
-					},
+		const servers = [
+			{
+				key: "dialect-key-env",
+				config: {
+					command: NODE_BIN,
+					args: [probeServerScript],
+					env: { XPROBE_ENV_KEY: "xprobe-env-value" },
+					cwd: sandboxPath,
 				},
-			],
-		});
+			},
+		];
 
-		const tomlPath = path.join(sandboxPath, ".codex-home", "config.toml");
-		const tomlContent = fs.readFileSync(tomlPath, "utf-8");
-		expect(tomlContent).toContain("XPROBE_ENV_KEY");
-		expect(tomlContent).toContain("xprobe-env-value");
-		expect(tomlContent).toContain(`cwd = "${sandboxPath}"`);
+		writePluginStdioMcpEntries({ dialect: "codex-toml", sandboxPath, servers });
+		const cArgs = buildCodexPluginConfigArgs(servers);
 
-		const codexHomeDir = path.join(sandboxPath, ".codex-home");
-		const result = execFileSync("codex", ["mcp", "list"], {
-			env: { ...process.env, CODEX_HOME: codexHomeDir },
+		// -c args must encode env and cwd fields.
+		expect(cArgs.some((a) => a.includes("XPROBE_ENV_KEY"))).toBe(true);
+		expect(cArgs.some((a) => a.includes("xprobe-env-value"))).toBe(true);
+		expect(cArgs.some((a) => a.includes("cwd="))).toBe(true);
+
+		// Build interleaved -c flags.
+		const cliFlags: string[] = [];
+		for (const arg of cArgs) {
+			cliFlags.push("-c", arg);
+		}
+
+		// Run `codex -c <each> mcp list` — the server must appear.
+		const result = execFileSync("codex", [...cliFlags, "mcp", "list"], {
+			env: { ...process.env },
 			timeout: 15_000,
 			encoding: "utf-8",
 		});

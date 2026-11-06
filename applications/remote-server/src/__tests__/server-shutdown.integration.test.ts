@@ -1,6 +1,4 @@
 /** Quitting closes the server even while the app's live connection is still open. */
-import * as os from "node:os";
-import * as path from "node:path";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { vi } from "vitest";
 import { createServer } from "../create-server.js";
@@ -13,7 +11,6 @@ describe("server shutdown", () => {
 		const server = await createServer(0, {
 			db,
 			topology: "disabled",
-			sandboxBasePath: path.join(os.tmpdir(), `server-shutdown-${Date.now()}`),
 		});
 		const addr = server.httpServer.address();
 		const port = typeof addr === "object" && addr !== null ? addr.port : 0;

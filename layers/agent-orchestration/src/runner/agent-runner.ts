@@ -4,6 +4,7 @@ import type { InboxRowView, UserRow, UserView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { type CoreDoor, DoorError } from "./core-door.js";
 import { actOnInboxRow, NotYet, postFailureNotice } from "./inbox-work.js";
+import { cleanupFinishedTaskWorktrees } from "./task-cleanup.js";
 
 const logger = createLogger({ pkg: "agent-orchestration.runner" });
 
@@ -186,6 +187,16 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 						error: error instanceof Error ? error.message : String(error),
 					});
 					return;
+				}
+				// Best-effort cleanup: remove worktrees for tasks core says are finished.
+				const key = keys.get(agentId);
+				if (key) {
+					cleanupFinishedTaskWorktrees(deps.db, agentId, deps.door, key).catch((err: unknown) => {
+						logger.warn("cleanupFinishedTaskWorktrees failed", {
+							agentId,
+							error: err instanceof Error ? err.message : String(err),
+						});
+					});
 				}
 			} while (again.has(agentId) && !stopped);
 		})().finally(() => draining.delete(agentId));

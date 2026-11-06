@@ -9,7 +9,6 @@ export const SANDBOX_SCAFFOLDING_PATHS = [
 	".claude",
 	".agents",
 	".codex",
-	".codex-home",
 	".opencode",
 	"opencode.json",
 ] as const;

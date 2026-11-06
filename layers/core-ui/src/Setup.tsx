@@ -619,6 +619,8 @@ export interface Editing {
 	/** The agent program it runs on, and its model; null is the program's default. */
 	harness: string | null;
 	model: string | null;
+	/** Whose login folder the agent uses. Only supported for claude-code and codex. */
+	login: "own" | "owner";
 	sessions: number;
 	/** Who it works for, in words. */
 	worksFor: string;
@@ -632,6 +634,8 @@ export interface UserSave {
 	discipline: string;
 	harness: string | null;
 	model: string | null;
+	/** Whose login folder the agent uses. */
+	login: "own" | "owner";
 	sessions: number;
 	/** Adding: "You", or the name of a team it works for. */
 	worksFor: string;
@@ -683,6 +687,7 @@ export function UserDialog({
 	const owner = picked !== null && owners.includes(picked) ? picked : (owners[0] ?? "You");
 	const [harness, setHarness] = useState<string | null>(user ? user.harness : ready);
 	const [model, setModel] = useState<string | null>(user?.model ?? null);
+	const [login, setLogin] = useState<"own" | "owner">(user?.login ?? "owner");
 	const [sessions, setSessions] = useState(user?.sessions ?? 1);
 	const [problem, setProblem] = useState<string | null>(null);
 	const models = (programs.find((p) => p.type === harness)?.models ?? []).filter(
@@ -700,6 +705,7 @@ export function UserDialog({
 			discipline: discipline.trim(),
 			harness,
 			model,
+			login,
 			sessions,
 			worksFor: owner,
 		});
@@ -789,6 +795,23 @@ export function UserDialog({
 							/>
 						)}
 					</Field>
+					{user && (harness === "claude-code" || harness === "codex") && (
+						<Field
+							label="Login"
+							hint={
+								login === "own"
+									? `Uses its own login folder inside its space. Set it up with: ${harness === "codex" ? `CODEX_HOME="<space>/.codex" codex login` : `CLAUDE_CONFIG_DIR="<space>/.claude" claude auth login`}`
+									: "Uses your login — the same account the program is signed in to on this computer."
+							}
+						>
+							<Seg
+								label="Login"
+								options={["Your login", "Its own login"]}
+								value={login === "own" ? "Its own login" : "Your login"}
+								onChange={(v) => setLogin(v === "Its own login" ? "own" : "owner")}
+							/>
+						</Field>
+					)}
 					<Field label="Model">
 						<select
 							className="in"

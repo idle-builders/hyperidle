@@ -35,7 +35,7 @@ import {
 	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
 import { desc, eq } from "drizzle-orm";
-import { afterEach, describe } from "vitest";
+import { afterEach, describe, vi } from "vitest";
 import {
 	buildRunningHarnessPorts,
 	type ProvisionSessionDeps,
@@ -80,14 +80,13 @@ describe("cursor-agent handover — real binary", () => {
 
 		const pool = await createLocalAdapterPool();
 		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "handover-base-"));
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", baseDir);
 
 		try {
-			const workspace = makeWorkspace();
 			const deps: ProvisionSessionDeps = {
 				db: db as HyperIdleDb,
 				eventBus: new EventBus(),
 				adapterPool: pool,
-				workspace,
 			};
 			// @lore: cursor-agent with an empty sandbox and only "proceed" explores for minutes; a one-line AGENTS.md keeps each turn under 60s
 			const minimal =
@@ -107,7 +106,6 @@ describe("cursor-agent handover — real binary", () => {
 				taskId: null,
 				agentId,
 				productId: "task-free",
-				sandboxBasePath: baseDir,
 				agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
 				callingThreadId: threadId,
 				transcript: [{ role: "user", content: PHASE1_PROMPT }],
@@ -154,7 +152,6 @@ describe("cursor-agent handover — real binary", () => {
 				taskId: null,
 				agentId,
 				productId: "task-free",
-				sandboxBasePath: baseDir,
 				agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
 				callingThreadId: threadId,
 				// Transcript has the held message as the last user turn.
@@ -193,6 +190,7 @@ describe("cursor-agent handover — real binary", () => {
 				"turn 2 session row must carry the same cursor chat id as turn 1",
 			).toBe(chatId1);
 		} finally {
+			vi.unstubAllEnvs();
 			try {
 				fs.rmSync(baseDir, { recursive: true, force: true });
 			} catch {
@@ -201,24 +199,3 @@ describe("cursor-agent handover — real binary", () => {
 		}
 	}, 240_000);
 });
-
-/** Inline workspace — spawn creates subdirs under the base it receives; adopt recreates paths; destroy is no-op (cleaned up by finally). */
-function makeWorkspace(): ProvisionSessionDeps["workspace"] {
-	let counter = 0;
-	return {
-		spawn: async (base: string) => {
-			counter += 1;
-			const id = `sb-${counter}-${Date.now()}`;
-			const p = path.join(base, id);
-			fs.mkdirSync(p, { recursive: true });
-			return { sandboxId: id, path: p };
-		},
-		adopt: async (p: string) => {
-			counter += 1;
-			fs.mkdirSync(p, { recursive: true });
-			return { sandboxId: `adopted-${counter}`, path: p };
-		},
-		exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-		destroy: async () => undefined,
-	};
-}

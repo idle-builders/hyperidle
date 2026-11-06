@@ -61,7 +61,6 @@ Also document what you wrote in session notes.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -181,7 +180,6 @@ Document your edit in session notes.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -272,7 +270,6 @@ Document what you created in session notes.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

@@ -87,4 +87,4 @@ export type {
 	AgentConfigValidationError,
 	HarnessCapabilityProbe,
 } from "./validate-agent-config.js";
-export { validateAgentConfig } from "./validate-agent-config.js";
+export { validateAgentConfig, validateAgentLogin } from "./validate-agent-config.js";

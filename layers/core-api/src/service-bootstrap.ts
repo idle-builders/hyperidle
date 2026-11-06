@@ -18,7 +18,6 @@ interface TaskDispatcherDeps {
 	readonly eventBus: EventBus;
 	readonly adapterPool: unknown;
 	readonly workspace: unknown;
-	readonly sandboxBasePath: string;
 	readonly mcpBridgeRegistry?: unknown;
 	readonly mcpBaseUrl?: string;
 	readonly mounter?: unknown;

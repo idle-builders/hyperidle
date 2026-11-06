@@ -69,7 +69,6 @@ Use the tools available to you.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -145,7 +144,6 @@ After triaging the document, record your curation decision in session notes.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -228,7 +226,6 @@ Use the tools available to you. Complete the task without attempting facilitator
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

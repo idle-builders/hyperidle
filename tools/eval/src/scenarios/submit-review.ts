@@ -84,7 +84,6 @@ Your reasoning should mention: what was changed and what the reviewer should che
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -198,7 +197,6 @@ The review will be posted as a plain message (the fallback path).`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -289,7 +287,6 @@ Use send_message with type "review" and:
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -400,7 +397,6 @@ No artifactRef needed for this review.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -513,7 +509,6 @@ Use send_message with type "review" and:
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

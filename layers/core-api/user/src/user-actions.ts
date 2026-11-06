@@ -76,6 +76,7 @@ import {
 	type UserWithTeams,
 	updateUser,
 } from "./user-store.js";
+import { validateAgentLogin } from "./validate-agent-config.js";
 
 // ---------------------------------------------------------------------------
 // The deps bag — everything this module reaches outside its own tables.
@@ -91,6 +92,8 @@ export interface UserActionsRunConfigView {
 	readonly modelProvider: string | null;
 	readonly maxConcurrentSessions: number;
 	readonly modelOptions: Readonly<Record<string, string | number | boolean>>;
+	readonly login: "own" | "owner";
+	readonly spacePath: string | null;
 }
 
 export type UserActionsRunConfigPatch = {
@@ -142,6 +145,9 @@ export interface UserActionsDeps {
 	readonly runConfig: {
 		read(agentId: string): Promise<UserActionsRunConfigView>;
 		write(agentId: string, patch: UserActionsRunConfigPatch): Promise<void>;
+		/** Ensure a space directory exists for the agent.
+		 * Called when login is set to "own" so the probe can run before the first session. */
+		ensureSpace(agentId: string, agentName: string): Promise<string>;
 	};
 	readonly folders: {
 		list(
@@ -194,6 +200,17 @@ export interface UserActionsDeps {
 		describe(): readonly HarnessDescriptor[];
 		redetect(): Promise<void>;
 	};
+	/**
+	 * Probe the per-agent login dir for an agent running with login: "own".
+	 * Absent when no probe is wired (e.g. remote server without CLI tools).
+	 */
+	readonly probeAgentLogin?: (
+		harnessType: "claude-code" | "codex",
+		agentSpacePath: string,
+	) => Promise<{
+		readonly state: "missing" | "installed" | "unauthenticated" | "ready" | "unavailable";
+		readonly reason?: string;
+	}>;
 	readonly searchDocuments: SearchDocumentsRunFn;
 	readonly editDocument: EditDocumentRunFn;
 	/**
@@ -475,6 +492,17 @@ async function buildUserView(
 		}));
 	}
 
+	// Probe per-agent login when the agent runs with login: "own" and has a space.
+	let agentLoginStatus: UserView["agentLoginStatus"];
+	if (
+		deps.probeAgentLogin &&
+		runConfig?.login === "own" &&
+		runConfig.spacePath !== null &&
+		(runConfig.harnessType === "claude-code" || runConfig.harnessType === "codex")
+	) {
+		agentLoginStatus = await deps.probeAgentLogin(runConfig.harnessType, runConfig.spacePath);
+	}
+
 	// Cast: `runConfig`/`folders`/`connections` come straight off
 	// `AgentOrchestrationPort` (`AgentOrchestrationRunConfigView`/
 	// `AgentOrchestrationFolderView`/`AgentOrchestrationConnectionView`) —
@@ -488,6 +516,7 @@ async function buildUserView(
 		user: row,
 		runsOn,
 		runConfig,
+		...(agentLoginStatus !== undefined ? { agentLoginStatus } : {}),
 		documentIds,
 		folders,
 		subscriptions,
@@ -1007,6 +1036,13 @@ async function createUserRun(
 	// `user.created` still reaches every subscriber in reach. --
 	if (input.runConfig) await deps.runConfig.write(id, input.runConfig);
 
+	// When login is explicitly set to "own" on an AI agent, ensure the space
+	// directory exists now — before the first session runs — so open_user can
+	// probe login status and show the sign-in command right away.
+	if (input.runConfig?.login === "own" && kind === "ai") {
+		await deps.runConfig.ensureSpace(id, name);
+	}
+
 	let stepProblem: Problem | null = null;
 	if (input.folders) {
 		stepProblem = await applyUserFolders(deps, id, teams, input.folders, (teamId) =>
@@ -1184,6 +1220,16 @@ async function editExistingUserRun(
 		}
 	}
 
+	if (input.runConfig?.login !== undefined && existing.kind === "ai") {
+		let effectiveHarnessType: string | null = input.runConfig.harnessType ?? null;
+		if (effectiveHarnessType === null) {
+			const existingRC = await deps.runConfig.read(id);
+			effectiveHarnessType = existingRC.harnessType;
+		}
+		const loginErr = validateAgentLogin(input.runConfig.login, effectiveHarnessType);
+		if (loginErr) return problem(loginErr.code, loginErr.error, "runConfig");
+	}
+
 	const touchesTeams = input.teams !== undefined;
 	const touchesEdges =
 		(input.edges?.add?.length ?? 0) > 0 || (input.edges?.remove?.length ?? 0) > 0;
@@ -1323,6 +1369,13 @@ async function editExistingUserRun(
 	// folder/connection problem is held, not returned, so the rest of this
 	// sequence — including the `user.changed` emit below — still runs. --
 	if (input.runConfig) await deps.runConfig.write(id, input.runConfig);
+
+	// When login is explicitly set to "own" on an AI agent, ensure the space
+	// directory exists now — before the first session runs — so open_user can
+	// probe login status and show the sign-in command right away.
+	if (input.runConfig?.login === "own" && existing.kind === "ai") {
+		await deps.runConfig.ensureSpace(id, existing.name);
+	}
 
 	let stepProblem: Problem | null = null;
 	if (input.folders) {

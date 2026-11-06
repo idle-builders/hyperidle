@@ -49,10 +49,20 @@ function buildDeps(): UserActionsDeps {
 				modelProvider: null,
 				maxConcurrentSessions: 1,
 				modelOptions: {},
+				login: "owner" as const,
+				spacePath: null,
 				...runConfigStore.get(agentId),
 			}),
 			write: async (agentId, patch) => {
 				runConfigStore.set(agentId, { ...runConfigStore.get(agentId), ...patch });
+			},
+			ensureSpace: async (agentId) => {
+				const existing = runConfigStore.get(agentId);
+				const currentSpacePath = (existing?.spacePath as string | null | undefined) ?? null;
+				if (currentSpacePath) return currentSpacePath;
+				const newPath = `/fake-spaces/${agentId}`;
+				runConfigStore.set(agentId, { ...existing, spacePath: newPath });
+				return newPath;
 			},
 		},
 		folders: {
@@ -841,5 +851,51 @@ describe("edit_user — key minting security rules", () => {
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.problems[0]?.code).toBe("key_alone");
+	});
+});
+
+describe("edit_user — login 'own' creates space so open_user can probe login status", () => {
+	test("setting login to 'own' on agent with no space → space set → open_user shows not-logged-in with command", async ({
+		db,
+	}) => {
+		await seedFounder(db);
+		const depsBase = buildDeps();
+		// probeAgentLogin wired to return "unauthenticated"
+		const deps: UserActionsDeps = {
+			...depsBase,
+			probeAgentLogin: async (_harnessType, _spacePath) => ({ state: "unauthenticated" }),
+		};
+		const { editUser, openUser } = actionsFor(deps);
+
+		// Create the agent first (no run config)
+		const created = await editUser(ctxFor(db, "u-founder"), {
+			kind: "ai",
+			name: "Scout",
+			teams: ["Alpha"],
+		});
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+		const agentId = created.data.user?.id as string;
+
+		// Set login to "own" with claude-code — no space exists yet
+		const edited = await editUser(ctxFor(db, "u-founder"), {
+			id: agentId,
+			runConfig: { harnessType: "claude-code", login: "own" },
+		});
+		expect(edited.ok).toBe(true);
+		if (!edited.ok) return;
+
+		// Space must now be set
+		expect(edited.data.runConfig?.spacePath).toBeTruthy();
+		const spacePath = edited.data.runConfig?.spacePath as string;
+
+		// open_user probes and returns the not-logged-in status with command
+		const opened = await openUser(ctxFor(db, "u-founder"), { id: agentId });
+		expect(opened.ok).toBe(true);
+		if (!opened.ok) return;
+
+		expect(opened.data.agentLoginStatus?.state).toBe("unauthenticated");
+		expect(opened.data.runConfig?.spacePath).toBe(spacePath);
+		// The runConfig is exposed via loginRowWhy in the UI; here we confirm the data is present
 	});
 });

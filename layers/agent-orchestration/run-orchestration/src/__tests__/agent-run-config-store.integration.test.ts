@@ -50,6 +50,8 @@ describe("agent run config store", () => {
 			modelProvider: null,
 			maxConcurrentSessions: 1,
 			modelOptions: {},
+			spacePath: null,
+			login: "owner",
 		});
 		expect(config).toEqual(DEFAULT_AGENT_RUN_CONFIG);
 	});
@@ -71,6 +73,8 @@ describe("agent run config store", () => {
 			modelProvider: "anthropic",
 			maxConcurrentSessions: 7,
 			modelOptions: { effort: "high" },
+			spacePath: null,
+			login: "owner",
 		});
 	});
 
@@ -92,6 +96,8 @@ describe("agent run config store", () => {
 			modelProvider: "anthropic",
 			maxConcurrentSessions: 3,
 			modelOptions: {},
+			spacePath: null,
+			login: "owner",
 		});
 	});
 
@@ -122,7 +128,25 @@ describe("agent run config store", () => {
 			modelProvider: null,
 			maxConcurrentSessions: 1,
 			modelOptions: {},
+			spacePath: null,
+			login: "owner",
 		});
+	});
+
+	test("spacePath round-trips verbatim after a write", async ({ db }) => {
+		await insertAgent(db, "a-spacepath");
+
+		await writeAgentRunConfig(db, "a-spacepath", { spacePath: "/spaces/MyAgent" });
+
+		expect((await readAgentRunConfig(db, "a-spacepath")).spacePath).toBe("/spaces/MyAgent");
+	});
+
+	test("login round-trips verbatim after a write", async ({ db }) => {
+		await insertAgent(db, "a-login");
+
+		await writeAgentRunConfig(db, "a-login", { login: "own" });
+
+		expect((await readAgentRunConfig(db, "a-login")).login).toBe("own");
 	});
 
 	test("readAgentRunConfigs returns one entry per requested agent, defaulting the missing", async ({

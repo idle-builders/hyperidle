@@ -149,7 +149,6 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 				throw new Error("searchDocuments should not be dialled by this provisioning-only test");
 			},
 			session: { db, eventBus, adapterPool: agentExecution.adapters.pool },
-			sandboxBasePath: "/tmp/provisioning-wiring-provisioning-wiring",
 			// This test proves ONE owning human's wiring — the resolver itself,
 			// not cross-layer owner resolution (that is
 			// `bootCoreApi.resolveProvisioningOwnerUserId`'s own concern).

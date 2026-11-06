@@ -5,15 +5,28 @@
  */
 
 import type { ChildProcess } from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { PassThrough } from "node:stream";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
-import { describe, expect, test } from "vitest";
+import { afterAll, afterEach, describe, expect, test, vi } from "vitest";
 import { CodexAppServerAdapter } from "../codex-app-server-adapter.js";
+
+const tempDirs: string[] = [];
+function tempDir(prefix: string): string {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+	tempDirs.push(dir);
+	return dir;
+}
+afterAll(() => {
+	for (const dir of tempDirs) fs.rmSync(dir, { recursive: true, force: true });
+});
 
 // Minimal SessionConfig for unit tests (no real sandbox, no real model)
 const BASE_CONFIG: SessionConfig = {
 	sessionId: "unit-test-session",
-	sandboxPath: "/tmp/fake-sandbox",
+	sandboxPath: tempDir("codex-unit-"),
 	assembledPrompt: "You are a test agent.",
 	instruction: "Reply with exactly: TEST_OK",
 	modelTier: "workhorse",
@@ -427,5 +440,110 @@ describe("CodexAppServerAdapter return gate", () => {
 	test("getForceReturnCount returns count for unknown session id (zero)", () => {
 		const { adapter } = makeFakeServer();
 		expect(adapter.getForceReturnCount("never-started")).toBe(0);
+	});
+});
+
+/** Starts a session against a fake codex and returns the argv and env it was spawned with. */
+async function spawnedWith(
+	config: SessionConfig,
+): Promise<{ args: string[]; env: Record<string, string> }> {
+	let captured: { args: string[]; env: Record<string, string> } = { args: [], env: {} };
+	const fakeStdout = new PassThrough();
+	const fakeStdin = new PassThrough();
+
+	fakeStdin.on("data", (chunk: Buffer) => {
+		for (const line of chunk.toString().split("\n")) {
+			if (!line.trim()) continue;
+			let parsed: { method: string; id: number };
+			try {
+				parsed = JSON.parse(line) as { method: string; id: number };
+			} catch {
+				continue;
+			}
+			let result: unknown;
+			if (parsed.method === "initialize") result = { userAgent: "codex/fake" };
+			else if (parsed.method === "thread/start") result = { thread: { id: "t1" } };
+			else if (parsed.method === "turn/start") result = { turn: { id: "turn1" } };
+			if (result !== undefined) fakeStdout.push(`${JSON.stringify({ id: parsed.id, result })}\n`);
+		}
+	});
+
+	const fakeChild = {
+		pid: 1,
+		stdin: fakeStdin,
+		stdout: fakeStdout,
+		stderr: new PassThrough(),
+		on(event: string, handler: unknown) {
+			void event;
+			void handler;
+			return fakeChild;
+		},
+		kill() {},
+	} as unknown as ChildProcess;
+
+	const adapter = new CodexAppServerAdapter({
+		spawnFn: ((_cmd: string, args: string[], opts: { env: Record<string, string> }) => {
+			captured = { args, env: opts.env };
+			return fakeChild;
+		}) as unknown as typeof import("node:child_process").spawn,
+		killFn: () => {},
+	});
+
+	await adapter.startSession(config);
+	return captured;
+}
+
+describe("buildArgs agent-run overrides", () => {
+	test("notify=[] and approvals_reviewer overrides are always present", async () => {
+		const { args } = await spawnedWith(BASE_CONFIG);
+
+		const cPairs: string[] = [];
+		for (let i = 0; i < args.length - 1; i++) {
+			if (args[i] === "-c") cPairs.push(args[i + 1] ?? "");
+		}
+
+		expect(cPairs).toContain("notify=[]");
+		expect(cPairs).toContain('approvals_reviewer="user"');
+	});
+});
+
+describe("codex home per login", () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test.each([
+		{ login: "owner" as const, dir: ".codex-owner", linksOwnerAuth: true },
+		{ login: "own" as const, dir: ".codex", linksOwnerAuth: false },
+	])("$login login runs codex from <space>/$dir", async ({ login, dir, linksOwnerAuth }) => {
+		const ownerHome = tempDir("codex-owner-home-");
+		fs.writeFileSync(path.join(ownerHome, "auth.json"), "{}");
+		vi.stubEnv("CODEX_HOME", ownerHome);
+		const space = tempDir("codex-space-");
+
+		const { env } = await spawnedWith({ ...BASE_CONFIG, agentSpace: { path: space, login } });
+
+		expect(env.CODEX_HOME).toBe(path.join(space, dir));
+		const authPath = path.join(space, dir, "auth.json");
+		const linked = fs.existsSync(authPath) && fs.lstatSync(authPath).isSymbolicLink();
+		expect(linked).toBe(linksOwnerAuth);
+		expect(linked ? fs.readlinkSync(authPath) : null).toBe(
+			linksOwnerAuth ? path.join(ownerHome, "auth.json") : null,
+		);
+	});
+
+	test("an owner home whose auth.json was replaced is linked to the owner's login again", async () => {
+		const ownerHome = tempDir("codex-owner-home-");
+		fs.writeFileSync(path.join(ownerHome, "auth.json"), "{}");
+		vi.stubEnv("CODEX_HOME", ownerHome);
+		const space = tempDir("codex-space-");
+		fs.mkdirSync(path.join(space, ".codex-owner"));
+		fs.writeFileSync(path.join(space, ".codex-owner", "auth.json"), "stale");
+
+		await spawnedWith({ ...BASE_CONFIG, agentSpace: { path: space, login: "owner" } });
+
+		expect(fs.readlinkSync(path.join(space, ".codex-owner", "auth.json"))).toBe(
+			path.join(ownerHome, "auth.json"),
+		);
 	});
 });

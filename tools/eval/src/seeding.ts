@@ -10,9 +10,7 @@
  * the scenario needs.
  */
 
-import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
 import {
 	agentRunConfig,
 	documents,
@@ -332,13 +330,6 @@ export async function seedMinimalWorld(
 		teamId: string;
 	}
 > {
-	const sandboxBasePath = `/tmp/eval-workspace-${randomUUID()}`;
-	// Harness CLIs (especially codex) require the sandbox cwd to be a git repo.
-	// Create the directory and git-init it, mirroring what the harness
-	// integration test does in beforeEach.
-	mkdirSync(sandboxBasePath, { recursive: true });
-	execFileSync("git", ["init"], { cwd: sandboxBasePath, stdio: "ignore" });
-
 	const { teamId } = await seedTeam(db);
 	const { founderId } = await seedFounder(db);
 	const agentRole = opts?.agentRole ?? "builder";
@@ -384,7 +375,6 @@ export async function seedMinimalWorld(
 		agentId,
 		rootTaskId,
 		taskId,
-		sandboxBasePath,
 	};
 }
 

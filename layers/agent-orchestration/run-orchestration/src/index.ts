@@ -1,4 +1,5 @@
 export type {
+	AgentLogin,
 	AgentRunConfig,
 	AgentRunConfigPatch,
 } from "./agent-run-config-store.js";
@@ -8,6 +9,7 @@ export {
 	readAgentRunConfigs,
 	writeAgentRunConfig,
 } from "./agent-run-config-store.js";
+export { deriveWorkingFolder, ensureAgentSpace, spacesRoot } from "./agent-space.js";
 export {
 	applyProvisioningPlan,
 	buildProvisioningPlan,

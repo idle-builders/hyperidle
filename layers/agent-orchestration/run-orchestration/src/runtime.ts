@@ -430,7 +430,6 @@ async function consumeAgentSessionRequest(
 		taskId: claimedRequest.taskId,
 		agentId: claimedRequest.agentId,
 		productId: claimedRequest.teamId ?? "task-free",
-		sandboxBasePath: options.sandboxBasePath,
 		...(options.modelTier ? { modelTier: options.modelTier } : {}),
 		...(options.sessionWorkflow ? { sessionWorkflow: options.sessionWorkflow } : {}),
 		...(contextBundle ? { contextBundle } : {}),

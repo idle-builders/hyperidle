@@ -13,6 +13,7 @@
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import type {
 	HarnessAdapter,
@@ -22,6 +23,7 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/harness-protocol";
+import { escapeTomlString } from "./cli-mcp-config.js";
 import { modelOptionArgv } from "./model-options.js";
 
 interface PendingRequest {
@@ -77,6 +79,32 @@ interface CodexAppServerAdapterDeps {
 
 let nextSessionId = 1;
 
+/**
+ * Owner login: a codex home holding only a link to the owner's auth.json, so a run
+ * signs in as the owner without loading the owner's plugins, tool servers or settings.
+ * @lore: owner codex home — never point CODEX_HOME at ~/.codex; codex then loads the owner's plugins, tool servers and settings into agent runs
+ */
+function linkOwnerLogin(codexHome: string): void {
+	fs.mkdirSync(codexHome, { recursive: true });
+	const ownerHome = process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex");
+	const ownerAuth = path.join(ownerHome, "auth.json");
+	const link = path.join(codexHome, "auth.json");
+	if (readLinkOrNull(link) === ownerAuth) return;
+	// Link under a temp name, then rename over: two processes on one space never see a missing link.
+	const temp = `${link}.${process.pid}.tmp`;
+	fs.rmSync(temp, { force: true });
+	fs.symlinkSync(ownerAuth, temp);
+	fs.renameSync(temp, link);
+}
+
+function readLinkOrNull(p: string): string | null {
+	try {
+		return fs.readlinkSync(p);
+	} catch {
+		return null;
+	}
+}
+
 function buildEnv(config: SessionConfig): Record<string, string> {
 	const allowlist = ["PATH", "HOME", "LANG"];
 	const env: Record<string, string> = {};
@@ -84,10 +112,15 @@ function buildEnv(config: SessionConfig): Record<string, string> {
 		const val = process.env[key];
 		if (val !== undefined) env[key] = val;
 	}
-	// Per-session CODEX_HOME: same pattern as CliHarnessAdapter
-	const codexHomeDir = path.join(config.sandboxPath, ".codex-home");
-	if (fs.existsSync(codexHomeDir)) {
-		env.CODEX_HOME = codexHomeDir;
+	const space = config.agentSpace?.path ?? config.sandboxPath;
+	if (config.agentSpace?.login === "own") {
+		const ownCodexDir = path.join(space, ".codex");
+		fs.mkdirSync(ownCodexDir, { recursive: true });
+		env.CODEX_HOME = ownCodexDir;
+	} else {
+		const ownerLoginDir = path.join(space, ".codex-owner");
+		linkOwnerLogin(ownerLoginDir);
+		env.CODEX_HOME = ownerLoginDir;
 	}
 	// MCP token env var (codex bearer_token_env_var mechanism)
 	if (config.mcpTokenEnv) {
@@ -100,7 +133,30 @@ function buildEnv(config: SessionConfig): Record<string, string> {
 
 function buildArgs(config: SessionConfig): string[] {
 	// @lore: no --dangerously-bypass-hook-trust — app-server rejects it (only exec accepts it); return gate is in-process (checkReturnGate after turn/completed)
-	return ["app-server", "--stdio", ...modelOptionArgv("codex", config.modelOptions)];
+	const cArgs: string[] = [];
+
+	// Bridge MCP as -c flags (instead of writing to config.toml)
+	if (config.mcpConnectionInfo) {
+		const { url } = config.mcpConnectionInfo;
+		cArgs.push("-c", `mcp_servers.hyperidle.url="${escapeTomlString(url)}"`);
+		cArgs.push("-c", 'mcp_servers.hyperidle.bearer_token_env_var="HYPERIDLE_MCP_TOKEN"');
+		cArgs.push("-c", 'mcp_servers.hyperidle.default_tools_approval_mode="approve"');
+	}
+
+	// Trust -c flag for sandbox path
+	cArgs.push("-c", `projects."${escapeTomlString(config.sandboxPath)}".trust_level="trusted"`);
+
+	// Additional -c args from connection provisioning (held connection MCP servers)
+	for (const arg of config.cliConfigArgs ?? []) {
+		cArgs.push("-c", arg);
+	}
+
+	// Prevent the owner's notify program from running after each agent turn.
+	cArgs.push("-c", "notify=[]");
+	// @lore: approvals_reviewer — pinned to codex's default "user" so an owner's "auto_review" never sends agent runs through codex's reviewer agent
+	cArgs.push("-c", 'approvals_reviewer="user"');
+
+	return [...cArgs, "app-server", "--stdio", ...modelOptionArgv("codex", config.modelOptions)];
 }
 
 function parseNotificationToEvent(line: string): HarnessEvent | null {
@@ -271,7 +327,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			sandbox: "workspace-write",
 			// @lore: approvalPolicy never — prevents server-initiated approval requests during tests and production sessions
 			approvalPolicy: "never",
-			// @lore: ephemeral false is safe — CODEX_HOME is the sandbox's .codex-home, so history never lands in the user's ~/.codex
+			// @lore: ephemeral false is safe — CODEX_HOME is always a folder in the agent's space, so history never lands in the owner's ~/.codex
 			ephemeral: false,
 		})) as {
 			thread: { id: string };
@@ -371,7 +427,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			}
 		}
 
-		// @lore: wait for real exit — codex keeps writing .codex-home after turn/completed; resolving early races sandbox cleanup
+		// @lore: wait for real exit — codex keeps writing its state after turn/completed; resolving early races sandbox cleanup
 		session.stopping = new Promise<SessionResult>((resolve) => {
 			// Escalate to SIGKILL if SIGTERM is ignored (unref so the timer does not keep Node alive).
 			const sigkillTimer = setTimeout(() => {
@@ -424,7 +480,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			mcpSupport: true,
 			// @lore: settings-codex — in-process gate; adapter POSTs to bridge after turn/completed; hooks.json Stop requires opaque pre-computed hash (not feasible)
 			returnEnforcement: "settings-codex",
-			// @lore: codex-toml — MCP server appended to .codex-home/config.toml; token via HYPERIDLE_MCP_TOKEN
+			// @lore: codex-toml — bridge + trust passed as -c flags at spawn (buildArgs); token via HYPERIDLE_MCP_TOKEN env var
 			cliMcpDialect: "codex-toml",
 		};
 	}

@@ -9,11 +9,13 @@
  * rides the request.
  */
 
-import * as fs from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import { describe } from "vitest";
+import { afterEach, beforeEach, describe, vi } from "vitest";
 import {
 	buildNeverCalledPorts,
 	type ProvisionSessionDeps,
@@ -64,24 +66,22 @@ function buildDeps(
 			release: () => undefined,
 			describeSelectFailure: () => "test pool selected nothing",
 		},
-		workspace: {
-			// A real workspace adapter always materializes the directory it hands
-			// back (LocalSandboxAdapter.spawn) — admitSession's post-mount
-			// `ensureSandboxGitRepo` step depends on that, so this fake must honor it too.
-			spawn: async () => {
-				fs.mkdirSync("/tmp/au21-admit-session-baked-fs", { recursive: true });
-				return { sandboxId: "sbx-1", path: "/tmp/au21-admit-session-baked-fs" };
-			},
-			exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-			adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
-			destroy: async () => undefined,
-		},
 		// Phase 4.5 only runs mount when a mounter is present.
 		mounter,
 	};
 }
 
 describe("admitSession mounts what the live injection record says", () => {
+	let spacesDir: string;
+	beforeEach(() => {
+		spacesDir = mkdtempSync(path.join(os.tmpdir(), "admit-session-fs-"));
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", spacesDir);
+	});
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		rmSync(spacesDir, { recursive: true, force: true });
+	});
+
 	test("asks the in-layer reader for THIS agent and mounts what it returns", async ({ db }) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
@@ -120,14 +120,14 @@ describe("admitSession mounts what the live injection record says", () => {
 			taskId: null,
 			agentId: "agent-baked-fs-1",
 			productId: "task-free",
-			sandboxBasePath: "/tmp/au21-admit-session-baked-fs",
+			callingThreadId: "test-thread-fs",
 			agentConfig: {
 				kind: "ai",
 				status: "active",
 				role: "builder",
 				teamId: null,
 			},
-		} as ProvisionSessionParams;
+		};
 
 		const asked: string[] = [];
 		const admitted = await provisioner.admit(

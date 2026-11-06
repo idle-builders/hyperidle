@@ -81,7 +81,8 @@ export async function bootRunnerWorld(
 ): Promise<RunnerWorld> {
 	// The server's own seam calls carry the deployment key, read from the environment.
 	vi.stubEnv("HYPERIDLE_API_KEY", TEAM_KEY);
-	const sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "agent-runner-world-"));
+	const tempSpacesDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-runner-spaces-"));
+	vi.stubEnv("HYPERIDLE_SPACES_DIR", tempSpacesDir);
 	const registries = new Map<string, ToolRegistryLike>();
 	const runs: string[] = [];
 
@@ -197,18 +198,8 @@ export async function bootRunnerWorld(
 					release: vi.fn(),
 					describeSelectFailure: () => "nothing selected",
 				},
-				workspace: {
-					spawn: () => {
-						const dir = fs.mkdtempSync(path.join(sandboxBasePath, "run-"));
-						return Promise.resolve({ sandboxId: path.basename(dir), path: dir });
-					},
-					exec: () => Promise.resolve({ stdout: "", stderr: "", exitCode: 0 }),
-					adopt: (dir: string) => Promise.resolve({ sandboxId: path.basename(dir), path: dir }),
-					destroy: vi.fn(async () => undefined),
-				},
 				pluginMcpContributions: coreApi.pluginMcpContributions,
 			} as never,
-			sandboxBasePath,
 		},
 	});
 
@@ -242,7 +233,7 @@ export async function bootRunnerWorld(
 			await orchestration.joinLifecycleDrain();
 			disposeApp(app);
 			for (const dispose of coreApi.disposers) dispose();
-			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
+			fs.rmSync(tempSpacesDir, { recursive: true, force: true });
 			vi.unstubAllEnvs();
 		},
 	};

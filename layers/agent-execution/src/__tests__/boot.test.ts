@@ -41,15 +41,6 @@ describe("bootAgentExecution", () => {
 			expect(boot.adapters.pool.size).toBe(0);
 		});
 
-		it("disabled topology: the sandbox adapter refuses to spawn", async () => {
-			const boot = await bootAgentExecution({
-				topology: "disabled",
-				mcpBaseUrl: "http://localhost:9999",
-			});
-
-			await expect(boot.adapters.sandbox.spawn("/tmp/anything")).rejects.toThrow();
-		});
-
 		it("local topology: registers only real CLI harnesses, nothing always-present", async () => {
 			const boot = await bootAgentExecution({
 				topology: "local",

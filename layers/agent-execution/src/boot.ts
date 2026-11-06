@@ -9,13 +9,13 @@ import type { RegisteredTool, ToolRegistry } from "@hyperidle/harness-protocol";
 import type { EnforcementRegistry as BaseEnforcementRegistry } from "@hyperidle/harness-registry";
 import {
 	AdapterPool,
+	buildCodexPluginConfigArgs,
 	type CliAvailabilityDeps,
 	createLocalAdapterPool,
 	createReturnEnforcement,
-	createSandboxAdapter,
 	type HarnessProbeDeps,
+	probeLoginForHarness,
 	provisionHarnessEnvironment,
-	type SandboxAdapter,
 	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
 import { createMcpToolBridge, returnStatusTool } from "@hyperidle/harness-registry/mcp";
@@ -75,7 +75,7 @@ export interface AgentExecutionHarnessRuntime {
 			readonly key: string;
 			readonly config: Record<string, unknown>;
 		}>;
-	}): void;
+	}): readonly string[];
 	/**
 	 * The session-scoped MCP dial — this boot already owns one bridge
 	 * instance and one `mcpBaseUrl`, closed over here, so the caller supplies
@@ -92,7 +92,6 @@ export interface AgentExecutionHarnessRuntime {
 /** Runtime-adapter bundle an Application hands into bootAgentOrchestration's options; agent-orchestration never imports it directly. */
 export interface AgentExecutionAdapters {
 	readonly pool: AdapterPool;
-	readonly sandbox: SandboxAdapter;
 	readonly harnessRuntime: AgentExecutionHarnessRuntime;
 	/**
 	 * returnStatusTool rides this bundle rather than being imported by agent-orchestration (it reads this boot's enforcement registry).
@@ -110,12 +109,19 @@ export interface AgentExecutionBoot {
 	readonly mountMcpRouter: (api: Hono) => void;
 	readonly adapters: AgentExecutionAdapters;
 	readonly dispose: () => void;
+	/** Probe whether an agent's isolated login folder is authenticated. */
+	readonly probeAgentLoginStatus: (
+		harnessType: "claude-code" | "codex",
+		agentSpacePath: string,
+	) => Promise<{
+		readonly state: "missing" | "installed" | "unauthenticated" | "ready" | "unavailable";
+		readonly reason?: string;
+	}>;
 }
 
 export async function bootAgentExecution(
 	options: AgentExecutionBootOptions,
 ): Promise<AgentExecutionBoot> {
-	const sandbox = createSandboxAdapter(options.topology);
 	const enforcementRegistry = createReturnEnforcement();
 	const pool =
 		options.topology === "local"
@@ -139,7 +145,14 @@ export async function bootAgentExecution(
 			await provisionHarnessEnvironment({ ...hookOptions, token: hookOptions.bridgeToken });
 		},
 		writeCliMcpConfig: (configOptions) => provisionHarnessEnvironment(configOptions),
-		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
+		writePluginStdioMcpEntries: (params) => {
+			if (params.dialect === "codex-toml") {
+				// @lore: codex-toml no-file — plugin MCP entries passed as -c flags; writePluginStdioMcpEntries is a no-op for codex; use buildCodexPluginConfigArgs instead
+				return buildCodexPluginConfigArgs(params.servers);
+			}
+			writePluginStdioMcpEntries(params);
+			return [];
+		},
 		openMcpBridge: (session) =>
 			bridge.open({
 				sessionId: session.sessionId,
@@ -155,12 +168,13 @@ export async function bootAgentExecution(
 		},
 		adapters: {
 			pool,
-			sandbox,
 			harnessRuntime,
 			returnStatusTool,
 		},
 		dispose: () => {
 			// No state to release — dispose exists so every boot in the composition chain is disposable.
 		},
+		probeAgentLoginStatus: (harnessType, agentSpacePath) =>
+			probeLoginForHarness(harnessType, agentSpacePath),
 	};
 }

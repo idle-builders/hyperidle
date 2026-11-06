@@ -693,3 +693,76 @@ export async function discoverLocalHarnesses(
 		"cursor-agent": cursorAgent,
 	};
 }
+
+/**
+ * Probe whether a specific per-login folder is authenticated for one harness.
+ *
+ * For an agent running with login: "own", the harness reads credentials from the
+ * agent's own login folder inside its space (CLAUDE_CONFIG_DIR or CODEX_HOME).
+ * This probe checks whether that isolated login is authenticated — without
+ * touching the owner's credentials.
+ *
+ * Returns the state of that login: ready, unauthenticated (needs `claude auth login`
+ * / `codex login` with the env override), installed, or missing (binary not on PATH).
+ *
+ * @lore: probeLoginForHarness — per-login probe sets the binary's config env override before the auth check; never reads the owner's credentials
+ */
+export async function probeLoginForHarness(
+	harnessType: "claude-code" | "codex",
+	agentSpacePath: string,
+	d?: HarnessProbeDeps,
+): Promise<{ readonly state: HarnessReadinessState; readonly reason?: string }> {
+	const baseEnv = d?.env ?? process.env;
+	const loginDir =
+		harnessType === "claude-code"
+			? resolve(agentSpacePath, ".claude")
+			: resolve(agentSpacePath, ".codex");
+	const envKey = harnessType === "claude-code" ? "CLAUDE_CONFIG_DIR" : "CODEX_HOME";
+	const loginDeps: HarnessProbeDeps = { ...d, env: { ...baseEnv, [envKey]: loginDir } };
+
+	if (harnessType === "claude-code") {
+		const versionResult = await runCommand(["claude", "--version"], loginDeps);
+		if (versionResult.exitCode !== 0) {
+			return { state: "missing", reason: "claude CLI is not installed or not on PATH." };
+		}
+		const authResult = await runCommand(["claude", "auth", "status"], loginDeps);
+		if (authResult.exitCode !== 0) {
+			return {
+				state: "installed",
+				reason: "claude CLI is installed but auth status check failed.",
+			};
+		}
+		try {
+			const parsed = JSON.parse(authResult.stdout) as { loggedIn?: boolean };
+			if (parsed.loggedIn === true) return { state: "ready" };
+			if (parsed.loggedIn === false) {
+				return {
+					state: "unauthenticated",
+					reason: `Not logged in. Run: CLAUDE_CONFIG_DIR="${loginDir}" claude auth login`,
+				};
+			}
+		} catch {
+			// fall through
+		}
+		return { state: "installed", reason: "claude auth status returned unparsable output." };
+	}
+
+	// codex
+	const versionResult = await runCommand(["codex", "--version"], loginDeps);
+	if (versionResult.exitCode !== 0) {
+		return { state: "missing", reason: "codex CLI is not installed or not on PATH." };
+	}
+	const authResult = await runCommand(["codex", "login", "status"], loginDeps);
+	const authText = authResult.stdout.trim() || authResult.stderr.trim();
+	if (authText.startsWith("Logged in using")) return { state: "ready" };
+	if (authText.startsWith("Not logged in") || authResult.exitCode !== 0) {
+		return {
+			state: "unauthenticated",
+			reason: `Not logged in. Run: CODEX_HOME="${loginDir}" codex login`,
+		};
+	}
+	return {
+		state: "installed",
+		reason: `codex auth state could not be parsed. Observed: ${authText.slice(0, 120)}`,
+	};
+}

@@ -13,7 +13,6 @@ async function boot(db: HyperIdleDb): Promise<{ handle: ServerHandle; baseUrl: s
 	const handle = await createServer(0, {
 		db,
 		topology: "disabled",
-		sandboxBasePath: "/tmp/app-runtime-boot-workspaces",
 	});
 	const address = handle.httpServer.address();
 	if (!address || typeof address === "string") {

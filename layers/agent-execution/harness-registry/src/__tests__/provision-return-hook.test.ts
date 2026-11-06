@@ -162,9 +162,8 @@ describe("provisionReturnHook", () => {
 
 	// ── settings-codex channel ─────────────────────────────────────────────
 	// No hook files for settings-codex: enforcement is in-process in CodexAppServerAdapter.
-	// The only artifact is .codex-home/ (auth.json + config.toml), no hooks.json or return-check.sh.
 
-	describe("settings-codex: creates .codex-home/ but no hook files", () => {
+	describe("settings-codex: writes no hook files", () => {
 		it("codex trust is per-invocation — no .codex/hooks.json or return-check.sh written", async () => {
 			// @lore: settings-codex gate — no file hook; CodexAppServerAdapter checks bridge in-process after each turn (hooks.json Stop requires opaque pre-computed hash)
 			await provisionReturnHook({

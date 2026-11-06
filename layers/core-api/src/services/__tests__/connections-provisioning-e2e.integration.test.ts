@@ -163,7 +163,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		expect(result.mcpTokenEnv).toEqual({});
 	});
 
-	test("respawn idempotent: same codex-toml entries in a fresh sandbox after destroying the first", async ({
+	test("respawn idempotent: same cliConfigArgs on a fresh sandbox after destroying the first", async ({
 		db,
 	}) => {
 		await seedHumanUser(db);
@@ -179,27 +179,27 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 
 		const plan1 = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "respawn-a-"));
-		await applyProvisioningPlan({
+		const resultA = await applyProvisioningPlan({
 			plan: plan1,
 			sandboxPath: sandboxA,
 			cliMcpDialect: "codex-toml",
 			claudeNative: false,
 		});
-		const tomlA = fs.readFileSync(path.join(sandboxA, ".codex-home", "config.toml"), "utf-8");
 		fs.rmSync(sandboxA, { recursive: true, force: true });
 
 		const plan2 = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "respawn-b-"));
-		await applyProvisioningPlan({
+		const resultB = await applyProvisioningPlan({
 			plan: plan2,
 			sandboxPath: sandboxB,
 			cliMcpDialect: "codex-toml",
 			claudeNative: false,
 		});
-		const tomlB = fs.readFileSync(path.join(sandboxB, ".codex-home", "config.toml"), "utf-8");
 		fs.rmSync(sandboxB, { recursive: true, force: true });
 
-		expect(tomlB).toBe(tomlA);
+		// The same connection produces identical -c args on both spawns.
+		expect(resultB.cliConfigArgs).toEqual(resultA.cliConfigArgs);
+		expect(resultB.cliConfigArgs).not.toHaveLength(0);
 	});
 
 	test("two services (stripe token + figma mcp) both provisioned from one generic path", async ({
@@ -293,7 +293,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		fs.rmSync(sandbox2, { recursive: true, force: true });
 	});
 
-	test("secret never written into the codex-toml config; envInjections + mcpTokenEnv carry the CLI-key AND MCP-bearer tokens", async ({
+	test("secret never written into cliConfigArgs; envInjections + mcpTokenEnv carry the CLI-key AND MCP-bearer tokens", async ({
 		db,
 	}) => {
 		await seedHumanUser(db);
@@ -328,13 +328,12 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 			claudeNative: false,
 		});
 
-		// Config file is under sandboxPath, and the secret is never inlined
-		// into the written config — only referenced by env-var name.
-		const configPath = path.join(sandboxPath, ".codex-home", "config.toml");
-		expect(configPath.startsWith(sandboxPath)).toBe(true);
-		const toml = fs.readFileSync(configPath, "utf-8");
-		expect(toml).not.toContain("sk_test_e2e_secret");
-		expect(toml).not.toContain("ghs_e2e_github_pat");
+		// The secret is never inlined into any -c arg value — only the env-var name appears there.
+		const cliArgs = result.cliConfigArgs ?? [];
+		for (const arg of cliArgs) {
+			expect(arg).not.toContain("sk_test_e2e_secret");
+			expect(arg).not.toContain("ghs_e2e_github_pat");
+		}
 
 		// applyProvisioningPlan returns the MCP-bearer token in mcpTokenEnv (the
 		// CLI-key token flows only via plan.envInjections, never mcpTokenEnv).

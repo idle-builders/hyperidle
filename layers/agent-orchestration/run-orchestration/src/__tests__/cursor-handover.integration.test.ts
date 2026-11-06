@@ -12,7 +12,7 @@ import * as path from "node:path";
 import { agentRunConfig, type HyperIdleDb, sessions, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import { afterEach, describe, vi } from "vitest";
+import { afterEach, beforeEach, describe, vi } from "vitest";
 import {
 	buildRunningHarnessPorts,
 	type FakeHarnessAdapter,
@@ -20,8 +20,6 @@ import {
 	type ProvisionSessionParams,
 } from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
-
-type WorkspaceAdapterType = ProvisionSessionDeps["workspace"];
 
 function makeCursorAdapter(): FakeHarnessAdapter & {
 	resumeSession: ReturnType<typeof vi.fn>;
@@ -58,28 +56,6 @@ function makeCursorAdapter(): FakeHarnessAdapter & {
 	};
 }
 
-function makeSpyWorkspace(newSandboxPath: string): {
-	workspace: WorkspaceAdapterType;
-	adoptedPaths: string[];
-	spawnedPaths: string[];
-} {
-	const adoptedPaths: string[] = [];
-	const spawnedPaths: string[] = [];
-	const workspace: WorkspaceAdapterType = {
-		spawn: async (baseDir: string) => {
-			spawnedPaths.push(baseDir);
-			return { sandboxId: "sb-new", path: newSandboxPath };
-		},
-		exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-		adopt: async (p: string) => {
-			adoptedPaths.push(p);
-			return { sandboxId: "sb-adopted", path: p };
-		},
-		destroy: async () => undefined,
-	};
-	return { workspace, adoptedPaths, spawnedPaths };
-}
-
 async function seedAgent(db: HyperIdleDb, agentId: string): Promise<void> {
 	await db.insert(users).values({
 		id: agentId,
@@ -98,7 +74,6 @@ async function seedAgent(db: HyperIdleDb, agentId: string): Promise<void> {
 function makeDeps(
 	db: HyperIdleDb,
 	adapter: FakeHarnessAdapter,
-	workspace: WorkspaceAdapterType,
 	adapterType = "cursor-agent",
 ): ProvisionSessionDeps {
 	return {
@@ -118,13 +93,18 @@ function makeDeps(
 			release: () => undefined,
 			describeSelectFailure: () => "no adapter",
 		},
-		workspace,
 	};
 }
 
 describe("cursor-agent hold-and-handover", () => {
 	const sandboxDirs: string[] = [];
+	beforeEach(() => {
+		const spacesDir = fs.mkdtempSync(path.join(os.tmpdir(), "cursor-spaces-"));
+		sandboxDirs.push(spacesDir);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", spacesDir);
+	});
 	afterEach(() => {
+		vi.unstubAllEnvs();
 		for (const dir of sandboxDirs.splice(0)) {
 			fs.rmSync(dir, { recursive: true, force: true });
 		}
@@ -136,8 +116,7 @@ describe("cursor-agent hold-and-handover", () => {
 		const agentId = "cursor-handover-agent-1";
 		const threadId = "cursor-handover-thread-1";
 		const prevSandbox = fs.mkdtempSync(path.join(os.tmpdir(), "cursor-prev-"));
-		const newSandbox = fs.mkdtempSync(path.join(os.tmpdir(), "cursor-new-"));
-		sandboxDirs.push(prevSandbox, newSandbox);
+		sandboxDirs.push(prevSandbox);
 
 		await seedAgent(db as HyperIdleDb, agentId);
 
@@ -160,14 +139,12 @@ describe("cursor-agent hold-and-handover", () => {
 		});
 
 		const adapter = makeCursorAdapter();
-		const { workspace, adoptedPaths, spawnedPaths } = makeSpyWorkspace(newSandbox);
-		const deps = makeDeps(db as HyperIdleDb, adapter, workspace);
+		const deps = makeDeps(db as HyperIdleDb, adapter);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
 			agentId,
 			productId: "task-free",
-			sandboxBasePath: "/base",
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
 			callingThreadId: threadId,
 			transcript: [
@@ -179,10 +156,6 @@ describe("cursor-agent hold-and-handover", () => {
 		const provisioner = createProvisioner(buildRunningHarnessPorts());
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
-
-		// The prior sandbox must be adopted, not a fresh one spawned.
-		expect(adoptedPaths).toContain(prevSandbox);
-		expect(spawnedPaths).toHaveLength(0);
 
 		// resumeSession must receive the held user message (last user turn in transcript).
 		expect(adapter.resumeSession).toHaveBeenCalledWith(
@@ -198,21 +171,17 @@ describe("cursor-agent hold-and-handover", () => {
 	}) => {
 		const agentId = "cursor-handover-agent-2";
 		const threadId = "cursor-handover-thread-2";
-		const newSandbox = fs.mkdtempSync(path.join(os.tmpdir(), "cursor-fresh-"));
-		sandboxDirs.push(newSandbox);
 
 		await seedAgent(db as HyperIdleDb, agentId);
 		// No prior session for this thread.
 
 		const adapter = makeCursorAdapter();
-		const { workspace, adoptedPaths, spawnedPaths } = makeSpyWorkspace(newSandbox);
-		const deps = makeDeps(db as HyperIdleDb, adapter, workspace);
+		const deps = makeDeps(db as HyperIdleDb, adapter);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
 			agentId,
 			productId: "task-free",
-			sandboxBasePath: "/base",
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
 			callingThreadId: threadId,
 			transcript: [{ role: "user", content: "first message" }],
@@ -222,8 +191,6 @@ describe("cursor-agent hold-and-handover", () => {
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
 
-		expect(spawnedPaths.length).toBeGreaterThan(0);
-		expect(adoptedPaths).toHaveLength(0);
 		expect(adapter.startSession).toHaveBeenCalled();
 		expect(adapter.resumeSession).not.toHaveBeenCalled();
 	});

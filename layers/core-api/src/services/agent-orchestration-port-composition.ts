@@ -31,6 +31,12 @@ interface AgentOrchestrationHcClient {
 					readonly param: { readonly agentId: string };
 					readonly json: AgentOrchestrationRunConfigPatch;
 				}): Promise<Response>;
+				readonly "ensure-space": {
+					$post(args: {
+						readonly param: { readonly agentId: string };
+						readonly json: { readonly agentName: string };
+					}): Promise<Response>;
+				};
 			};
 			readonly batch: {
 				$post(args: { readonly json: { readonly agentIds: readonly string[] } }): Promise<Response>;
@@ -171,6 +177,14 @@ export function buildAgentOrchestrationPort(
 					json: patch,
 				});
 				if (!res.ok) return throwSeamError("runConfig.write", res);
+			},
+			async ensureSpace(agentId: string, agentName: string): Promise<string> {
+				const res = await client["agent-orchestration"]["run-config"][":agentId"][
+					"ensure-space"
+				].$post({ param: { agentId }, json: { agentName } });
+				if (!res.ok) return throwSeamError("runConfig.ensureSpace", res);
+				const body = (await res.json()) as { readonly spacePath: string };
+				return body.spacePath;
 			},
 		},
 		filesystems: {

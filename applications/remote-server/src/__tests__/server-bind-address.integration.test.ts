@@ -15,8 +15,6 @@
  * report of what the socket is bound to — not a proxy for it.
  */
 
-import * as os from "node:os";
-import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, vi } from "vitest";
@@ -45,7 +43,6 @@ describe("createServer bind address", () => {
 	const deps = (db: HyperIdleDb, hostname?: string) => ({
 		db,
 		topology: "disabled" as const,
-		sandboxBasePath: path.join(os.tmpdir(), "bind-address-invariant"),
 		...(hostname === undefined ? {} : { hostname }),
 	});
 

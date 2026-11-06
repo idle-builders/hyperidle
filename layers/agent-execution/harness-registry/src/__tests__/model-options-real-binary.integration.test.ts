@@ -38,11 +38,7 @@ import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import {
-	createHarnessSandbox,
-	provisionClaudeSandbox,
-	provisionCodexHome,
-} from "./harness-sandbox.js";
+import { createHarnessSandbox, provisionClaudeSandbox } from "./harness-sandbox.js";
 import {
 	codexTurnContext,
 	productionCliConfig,
@@ -171,22 +167,19 @@ describe("[harness:codex] the configured reasoning effort is the effort codex ru
 
 	test("two different efforts each come back recorded by codex for the turn it ran", async () => {
 		// NEITHER value may be the one already in play, or a broken carrier passes
-		// by coincidence. `provisionCodexHome` copies the machine's own
-		// `config.toml` into the session CODEX_HOME, and that file may set
-		// `model_reasoning_effort` — asking for the same value would prove nothing.
-		// Two asks, both different from each other, is what makes a dropped option
-		// impossible to miss.
+		// by coincidence: codex's own default effort may equal either one, so
+		// asking for the same value would prove nothing. Two asks, both different
+		// from each other, is what makes a dropped option impossible to miss.
 		//
 		// effort is delivered via -c model_reasoning_effort=<v> (modelOptionArgv).
 		// Model and effort are verified from the JSONL turn_context entry (ephemeral: false
-		// is the production default; CODEX_HOME is per-sandbox so history stays in the sandbox).
+		// is the production default; with no agent space the owner-login CODEX_HOME is <sandbox>/.codex-owner).
 		const seen: string[] = [];
 		for (const effort of ["low", "xhigh"]) {
 			const sandbox = createHarnessSandbox("model-opt-codex");
 			const sandboxPath = sandbox.path;
 			try {
 				provisionCodexRepo(sandboxPath);
-				expect(provisionCodexHome(sandboxPath)).toBe(true);
 				const adapter = productionHarnessAdapter("codex");
 				const handle = track(
 					adapter,
@@ -208,7 +201,7 @@ describe("[harness:codex] the configured reasoning effort is the effort codex ru
 				// getNativeSessionId BEFORE stopSession — stopSession removes the session entry
 				const nativeSessionId = adapter.getNativeSessionId?.(handle);
 				await adapter.stopSession(handle);
-				const ctx = codexTurnContext(nativeSessionId, path.join(sandboxPath, ".codex-home"));
+				const ctx = codexTurnContext(nativeSessionId, path.join(sandboxPath, ".codex-owner"));
 				expect(ctx, "codex recorded no turn context").toBeDefined();
 				expect(ctx?.model).toBe("gpt-5.6-luna");
 				expect(ctx?.effort, `codex ran at ${ctx?.effort}, not the requested ${effort}`).toBe(

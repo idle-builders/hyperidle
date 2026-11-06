@@ -8,6 +8,7 @@ import type {
 	Task,
 	ThreadListRow,
 	UserRow,
+	UserView,
 } from "@hyperidle/domain-model";
 import { NEED_WORDS, PAUSE_WORDS } from "./sidebar-lists";
 
@@ -352,6 +353,46 @@ export function personStand(waiting: readonly Job[], you: boolean): string {
 	return `${what.charAt(0).toUpperCase()}${what.slice(1)} ${wait} for ${you ? "you" : "them"}.`;
 }
 
+const OWN_LOGIN_HARNESSES = new Set(["claude-code", "codex"]);
+
+/** What an agent's login setting says about itself. */
+function loginWords(login: "own" | "owner", harnessType: string | null): string {
+	if (login === "own") {
+		if (harnessType === null || OWN_LOGIN_HARNESSES.has(harnessType)) return "its own login";
+		return "its own login (not supported by this program)";
+	}
+	return "your login";
+}
+
+/**
+ * Whether the agent's isolated login is authenticated, and what to run to log in.
+ * Returns null when status is absent or login is "owner".
+ */
+function loginStatusLine(
+	agentLoginStatus: UserView["agentLoginStatus"],
+	runConfig: {
+		harnessType: string | null;
+		spacePath: string | null;
+		login: "own" | "owner";
+	} | null,
+): string | null {
+	if (!(agentLoginStatus && runConfig) || runConfig.login !== "own") return null;
+	const { state } = agentLoginStatus;
+	if (state === "ready") return "signed in";
+	const spacePath = runConfig.spacePath;
+	const harnessType = runConfig.harnessType;
+	let command: string | null = null;
+	if (spacePath !== null) {
+		if (harnessType === "codex") {
+			command = `CODEX_HOME=${spacePath}/.codex codex login`;
+		} else if (harnessType === "claude-code") {
+			command = `CLAUDE_CONFIG_DIR=${spacePath}/.claude claude, then /login`;
+		}
+	}
+	const base = state === "missing" ? "program not installed" : "not logged in";
+	return command !== null ? `${base} · run: ${command}` : base;
+}
+
 /** What an agent program on this computer says about itself. */
 export function programWords(h: HarnessDescriptor): string {
 	if (h.discovery.disabled) return "switched off";
@@ -367,6 +408,51 @@ export function programWords(h: HarnessDescriptor): string {
 		default:
 			return h.discovery.reason ?? "not available";
 	}
+}
+
+/**
+ * "on this computer · <state>" for the program row in Runs on.
+ *
+ * When login="own", the owner's sign-in state is irrelevant to the agent's
+ * per-agent login — only whether the program is installed matters here.
+ * The separate Login row carries the actual per-agent sign-in status.
+ */
+export function programLineWhy(h: HarnessDescriptor, login: "own" | "owner"): string {
+	if (login === "owner") return `on this computer · ${programWords(h)}`;
+	if (h.discovery.disabled) return "on this computer · switched off";
+	switch (h.discovery.state) {
+		case "ready":
+		case "unauthenticated":
+		case "installed":
+			return "on this computer · installed";
+		case "missing":
+			return "on this computer · not installed";
+		default:
+			return `on this computer · ${h.discovery.reason ?? "not available"}`;
+	}
+}
+
+/**
+ * The "why" text for the Login row in Runs on.
+ *
+ * - "owner": "your login" (no status — the program row already shows sign-in state)
+ * - "own" + status known: "its own login · signed in" or "its own login · not logged in · run: …"
+ * - "own" + no status yet (no space exists): "its own login"
+ */
+export function loginRowWhy(
+	login: "own" | "owner",
+	harnessType: string | null,
+	agentLoginStatus: UserView["agentLoginStatus"],
+	runConfig: { spacePath: string | null } | null,
+): string {
+	const base = loginWords(login, harnessType);
+	if (login !== "own") return base;
+	const status = loginStatusLine(agentLoginStatus, {
+		harnessType,
+		spacePath: runConfig?.spacePath ?? null,
+		login: "own",
+	});
+	return status !== null ? `${base} · ${status}` : base;
 }
 
 /** A folder's path, whether it is a repository or a folder of documents. */

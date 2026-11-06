@@ -27,6 +27,9 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { serve } from "@hono/node-server";
 import {
 	bootAgentOrchestration,
@@ -56,7 +59,6 @@ import type { EventBus } from "@hyperidle/event-bus";
 import {
 	createLocalAdapterPool,
 	createReturnEnforcement,
-	createSandboxAdapter,
 	provisionHarnessEnvironment,
 	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
@@ -217,7 +219,10 @@ function buildEvalHarnessRuntimeAdapter(
 			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 		},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
-		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
+		writePluginStdioMcpEntries: (params) => {
+			writePluginStdioMcpEntries(params);
+			return [];
+		},
 		openMcpBridge: async (session) => {
 			const { token } = await mcpBridgeRegistry.open({
 				sessionId: session.sessionId,
@@ -237,7 +242,6 @@ const evalReturnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter = {
 export interface EvalProvisionDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	readonly sandboxBasePath: string;
 }
 
 /**
@@ -283,11 +287,15 @@ export async function runEvalSession(
 	const evalApiKey = `eval-${randomUUID()}`;
 	const prevApiKey = process.env.HYPERIDLE_API_KEY;
 	process.env.HYPERIDLE_API_KEY = evalApiKey;
+	// Create a private temp root for HYPERIDLE_SPACES_DIR so each eval run
+	// gets its own isolated space and never touches ~/HyperIdle.
+	const evalSpacesDir = mkdtempSync(path.join(os.tmpdir(), "eval-spaces-"));
+	const prevSpacesDir = process.env.HYPERIDLE_SPACES_DIR;
+	process.env.HYPERIDLE_SPACES_DIR = evalSpacesDir;
 
 	const liveServer = await startEvalLiveServer(deps.db, deps.eventBus);
 
 	try {
-		const workspace = createSandboxAdapter("local");
 		const pool = await createLocalAdapterPool();
 
 		const startMs = Date.now();
@@ -353,7 +361,6 @@ export async function runEvalSession(
 				db: deps.db,
 				eventBus: deps.eventBus,
 				adapterPool: pool,
-				workspace,
 			},
 			{
 				mode: "one-shot",
@@ -365,7 +372,6 @@ export async function runEvalSession(
 					// ProvisionSessionParams.productId is the field name (kept for backward
 					// compat) but the value is always a teams.id (which IS the teamId).
 					productId: params.teamId,
-					sandboxBasePath: deps.sandboxBasePath,
 					// @lore No `resolvedModel`. It carried a gateway credential into the
 					// session, and a CLI adapter forwards that key to its subprocess under
 					// its own provider's variable name — handing codex an OpenRouter key as
@@ -408,11 +414,17 @@ export async function runEvalSession(
 		};
 	} finally {
 		await liveServer.close();
-		// Restore env var.
+		// Restore env vars.
 		if (prevApiKey === undefined) {
 			delete process.env.HYPERIDLE_API_KEY;
 		} else {
 			process.env.HYPERIDLE_API_KEY = prevApiKey;
 		}
+		if (prevSpacesDir === undefined) {
+			delete process.env.HYPERIDLE_SPACES_DIR;
+		} else {
+			process.env.HYPERIDLE_SPACES_DIR = prevSpacesDir;
+		}
+		rmSync(evalSpacesDir, { recursive: true, force: true });
 	}
 }

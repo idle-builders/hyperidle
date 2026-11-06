@@ -93,6 +93,7 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /run-config/:agentId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /run-config/batch",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|PATCH /run-config/:agentId",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /run-config/:agentId/ensure-space",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /filesystems/:id/team",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /filesystems/:id/injections/persist",
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|POST /mcp/:token/return-status",

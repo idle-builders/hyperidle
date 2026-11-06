@@ -5,9 +5,8 @@ import type { RuntimeDeps, RuntimePorts } from "../contracts.js";
 import { ConcurrencyLimitError } from "../errors.js";
 
 const state = vi.hoisted(() => ({
-	failSandboxReaperStart: false,
+	failWritebackStart: false,
 	writebackDispose: vi.fn(),
-	sandboxDispose: vi.fn(),
 	runSessionThrows: null as (() => Error) | null,
 }));
 
@@ -23,14 +22,9 @@ vi.mock("../provisioner.js", () => ({
 }));
 vi.mock("../writeback-processor.js", () => ({
 	createWritebackProcessor: vi.fn(() => ({
-		subscribe: vi.fn(() => state.writebackDispose),
-	})),
-}));
-vi.mock("../runtime-reapers.js", () => ({
-	createRuntimeReapers: vi.fn(() => ({
-		startSandboxes: vi.fn(() => {
-			if (state.failSandboxReaperStart) throw new Error("reaper failed");
-			return state.sandboxDispose;
+		subscribe: vi.fn(() => {
+			if (state.failWritebackStart) throw new Error("writeback failed");
+			return state.writebackDispose;
 		}),
 	})),
 }));
@@ -63,18 +57,13 @@ function deps(): RuntimeDeps {
 			context: {} as RuntimeDeps["composition"]["context"],
 			provisioner: {} as NonNullable<RuntimeDeps["composition"]["provisioner"]>,
 			writeback: {} as NonNullable<RuntimeDeps["composition"]["writeback"]>,
-			reapers: {
-				sandboxes: {} as NonNullable<
-					NonNullable<RuntimeDeps["composition"]["reapers"]>["sandboxes"]
-				>,
-			},
 		},
 	};
 }
 
 describe("startRuntime resource ownership", () => {
 	afterEach(() => {
-		state.failSandboxReaperStart = false;
+		state.failWritebackStart = false;
 		state.runSessionThrows = null;
 		vi.clearAllMocks();
 		vi.useRealTimers();
@@ -86,7 +75,6 @@ describe("startRuntime resource ownership", () => {
 		await runtime.dispose();
 		await runtime.dispose();
 
-		expect(state.sandboxDispose).toHaveBeenCalledOnce();
 		expect(state.writebackDispose).toHaveBeenCalledOnce();
 	});
 
@@ -154,12 +142,23 @@ describe("startRuntime resource ownership", () => {
 		expect(abortSessionRun).toHaveBeenCalledWith("session-1", "stop");
 	});
 
-	it("rolls back resources when a later startup stage fails", async () => {
+	it("stops the claim loop when a later startup stage fails", async () => {
 		vi.useFakeTimers();
-		state.failSandboxReaperStart = true;
-		await expect(startRuntime(deps())).rejects.toThrow("reaper failed");
-		expect(state.writebackDispose).toHaveBeenCalledOnce();
-		expect(state.sandboxDispose).not.toHaveBeenCalled();
+		state.failWritebackStart = true;
+		const runtimeDeps: RuntimeDeps = {
+			...deps(),
+			runtime: {} as NonNullable<RuntimeDeps["runtime"]>,
+		};
+		let claimCalls = 0;
+		if (!runtimeDeps.ports) throw new Error("test runtime ports missing");
+		runtimeDeps.ports.sessionRequests.claimSessionRequest = vi.fn(async () => {
+			claimCalls += 1;
+			return null;
+		});
+		await expect(startRuntime(runtimeDeps)).rejects.toThrow("writeback failed");
+		const callsAtFailure = claimCalls;
+		await vi.advanceTimersByTimeAsync(5_000);
+		expect(claimCalls).toBe(callsAtFailure);
 	});
 
 	it("continues disposal after a disposer throws and retains the first error", async () => {
@@ -170,18 +169,6 @@ describe("startRuntime resource ownership", () => {
 		});
 
 		await expect(runtime.dispose()).rejects.toThrow("writeback dispose failed");
-		expect(state.sandboxDispose).toHaveBeenCalledOnce();
-		expect(state.writebackDispose).toHaveBeenCalledOnce();
-	});
-
-	it("preserves the startup failure when rollback disposal also throws", async () => {
-		vi.useFakeTimers();
-		state.failSandboxReaperStart = true;
-		state.writebackDispose.mockImplementationOnce(() => {
-			throw new Error("rollback dispose failed");
-		});
-
-		await expect(startRuntime(deps())).rejects.toThrow("reaper failed");
 		expect(state.writebackDispose).toHaveBeenCalledOnce();
 	});
 

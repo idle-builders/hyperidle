@@ -1,4 +1,11 @@
-import type { FolderView, SessionRow, Task, ThreadListRow, UserRow } from "@hyperidle/domain-model";
+import type {
+	FolderView,
+	HarnessDescriptor,
+	SessionRow,
+	Task,
+	ThreadListRow,
+	UserRow,
+} from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import {
 	agentJobs,
@@ -7,7 +14,9 @@ import {
 	cronOf,
 	cronWords,
 	folderTrouble,
+	loginRowWhy,
 	personStand,
+	programLineWhy,
 	startedJobs,
 	waitingJobs,
 } from "./people-page";
@@ -264,5 +273,97 @@ describe("folderTrouble", () => {
 		},
 	])("a $f.state folder says $says", ({ f, says }) => {
 		expect(folderTrouble(folder(f))).toBe(says);
+	});
+});
+
+const harness = (
+	state: HarnessDescriptor["discovery"]["state"],
+	extra: Partial<HarnessDescriptor["discovery"]> = {},
+): HarnessDescriptor => ({
+	type: "claude-code",
+	name: "Claude Code",
+	authAction: { kind: "native_cli_login", label: "Sign in" },
+	discovery: { state, ...extra },
+	models: [],
+	modelProviders: [],
+});
+
+describe("programLineWhy — program row for Runs on", () => {
+	it.each([
+		{ state: "ready" as const, login: "owner" as const, says: "on this computer · signed in" },
+		{
+			state: "unauthenticated" as const,
+			login: "owner" as const,
+			says: "on this computer · installed, not signed in",
+		},
+		{
+			state: "missing" as const,
+			login: "owner" as const,
+			says: "on this computer · not installed",
+		},
+		{ state: "ready" as const, login: "own" as const, says: "on this computer · installed" },
+		{
+			state: "unauthenticated" as const,
+			login: "own" as const,
+			says: "on this computer · installed",
+		},
+		{ state: "installed" as const, login: "own" as const, says: "on this computer · installed" },
+		{ state: "missing" as const, login: "own" as const, says: "on this computer · not installed" },
+	])("state=$state login=$login → $says", ({ state, login, says }) => {
+		expect(programLineWhy(harness(state), login)).toBe(says);
+	});
+
+	it("disabled harness + own → switched off", () => {
+		expect(programLineWhy(harness("ready", { disabled: true }), "own")).toBe(
+			"on this computer · switched off",
+		);
+	});
+});
+
+describe("loginRowWhy — Login row for Runs on", () => {
+	const spaceConfig = { spacePath: "/spaces/bot" };
+	const noSpaceConfig = { spacePath: null };
+
+	it("owner → 'your login'", () => {
+		expect(loginRowWhy("owner", "codex", undefined, spaceConfig)).toBe("your login");
+	});
+
+	it("own + no agentLoginStatus → 'its own login' (no space yet)", () => {
+		expect(loginRowWhy("own", "codex", undefined, noSpaceConfig)).toBe("its own login");
+	});
+
+	it("own + ready → 'its own login · signed in'", () => {
+		expect(loginRowWhy("own", "codex", { state: "ready" }, spaceConfig)).toBe(
+			"its own login · signed in",
+		);
+	});
+
+	it("own + unauthenticated + codex space → includes command", () => {
+		const result = loginRowWhy("own", "codex", { state: "unauthenticated" }, spaceConfig);
+		expect(result).toContain("its own login");
+		expect(result).toContain("not logged in");
+		expect(result).toContain("CODEX_HOME=/spaces/bot/.codex codex login");
+	});
+
+	it("own + unauthenticated + no space → 'its own login · not logged in' no command", () => {
+		const result = loginRowWhy("own", "codex", { state: "unauthenticated" }, noSpaceConfig);
+		expect(result).toContain("its own login");
+		expect(result).toContain("not logged in");
+		expect(result).not.toContain("run:");
+	});
+
+	it("own + unauthenticated + claude-code space → includes the claude command", () => {
+		const result = loginRowWhy("own", "claude-code", { state: "unauthenticated" }, spaceConfig);
+		expect(result).toContain("CLAUDE_CONFIG_DIR=/spaces/bot/.claude claude, then /login");
+	});
+
+	it("own on a program without its own login → says it is not supported", () => {
+		expect(loginRowWhy("own", "opencode", undefined, spaceConfig)).toContain("not supported");
+	});
+
+	it("own + missing → 'its own login · program not installed'", () => {
+		const result = loginRowWhy("own", "codex", { state: "missing" }, spaceConfig);
+		expect(result).toContain("its own login");
+		expect(result).toContain("program not installed");
 	});
 });

@@ -65,9 +65,10 @@ describe("RegistryFilesystemMounter dispatch", () => {
 		const maliciousDeps = {
 			...deps,
 			gitRunnerFactory: () => ({
-				worktreeAdd: async () => {
-					fs.mkdirSync(sandbox, { recursive: true });
-					fs.writeFileSync(path.join(sandbox, ".git"), `gitdir: ${external}\n`);
+				worktreeAdd: async (target: string) => {
+					// target is sandbox/<repoBasename>/; write the malicious pointer there.
+					fs.mkdirSync(target, { recursive: true });
+					fs.writeFileSync(path.join(target, ".git"), `gitdir: ${external}\n`);
 				},
 			}),
 		} as unknown as AdapterDeps;
@@ -265,19 +266,22 @@ describe("ensureSandboxGitRepo", () => {
 		try {
 			const mountingDeps: AdapterDeps = {
 				gitRunnerFactory: () => ({
-					worktreeAdd: async () => {
-						fs.mkdirSync(sandbox, { recursive: true });
-						// mirrors what a real `git worktree add` leaves behind: a `.git`
-						// file. Deliberately not a `gitdir:` pointer — that path
-						// resolves against a real common gitdir the mounter reads back
-						// (covered by the "malicious worktree gitdir pointer" test
-						// above); this test is only about ensureSandboxGitRepo seeing
-						// the file and leaving it alone.
-						fs.writeFileSync(path.join(sandbox, ".git"), "not-a-gitdir-pointer\n");
+					worktreeAdd: async (target: string) => {
+						// target is sandbox/repo/ (sandbox/<repoBasename>); mirrors what
+						// a real `git worktree add` leaves behind: a `.git` file inside
+						// the mount target. Deliberately not a `gitdir:` pointer — that
+						// path resolves against a real common gitdir the mounter reads
+						// back (covered by the "malicious worktree gitdir pointer" test
+						// above); this test is only about ensureSandboxGitRepo leaving
+						// the subdirectory's .git file alone.
+						fs.mkdirSync(target, { recursive: true });
+						fs.writeFileSync(path.join(target, ".git"), "not-a-gitdir-pointer\n");
 					},
 				}),
 			} as unknown as AdapterDeps;
 
+			// repo basename is "repo"; mountAt = sandbox/repo/
+			const mountTarget = path.join(sandbox, "repo");
 			const result = await new RegistryFilesystemMounter(mountingDeps).mount({
 				filesystem: filesystem({
 					kind: "code",
@@ -287,12 +291,13 @@ describe("ensureSandboxGitRepo", () => {
 				sandboxPath: sandbox,
 			});
 			expect(result.success).toBe(true);
-			const gitEntryAfterMount = fs.readFileSync(path.join(sandbox, ".git"), "utf-8");
+			const gitEntryAfterMount = fs.readFileSync(path.join(mountTarget, ".git"), "utf-8");
 
-			// Mounting already made it a git repo — ensureSandboxGitRepo, called
-			// afterwards, must be a no-op rather than overwriting the real worktree pointer.
+			// Mounting wrote .git inside the subdirectory. ensureSandboxGitRepo
+			// initializes the sandbox root (no .git there), which must not touch
+			// the subdirectory's already-mounted worktree pointer.
 			ensureSandboxGitRepo(sandbox);
-			expect(fs.readFileSync(path.join(sandbox, ".git"), "utf-8")).toBe(gitEntryAfterMount);
+			expect(fs.readFileSync(path.join(mountTarget, ".git"), "utf-8")).toBe(gitEntryAfterMount);
 		} finally {
 			fs.rmSync(root, { recursive: true, force: true });
 		}

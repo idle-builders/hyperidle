@@ -113,7 +113,7 @@ function buildFakeHarnessRuntime(): SessionLifecyclePorts["harnessRuntime"] {
 			endReason !== "completed" || gate.returned ? "returned" : "not_returned",
 		provisionReturnHook: async () => undefined,
 		writeCliMcpConfig: async () => ({}),
-		writePluginStdioMcpEntries: () => undefined,
+		writePluginStdioMcpEntries: () => [],
 		openMcpBridge: async () => {
 			throw new Error("no mcp bridge wired in this scripted-harness test");
 		},
@@ -124,6 +124,7 @@ function buildFakeHarnessRuntime(): SessionLifecyclePorts["harnessRuntime"] {
 describe("a subscription wake's forced return is return_status, never send_message", () => {
 	const sandboxDirs: string[] = [];
 	afterEach(() => {
+		vi.unstubAllEnvs();
 		for (const dir of sandboxDirs.splice(0)) {
 			fs.rmSync(dir, { recursive: true, force: true });
 		}
@@ -190,7 +191,6 @@ describe("a subscription wake's forced return is return_status, never send_messa
 
 	function buildDeps(
 		db: HyperIdleDb,
-		sandboxPath: string,
 		events: readonly FakeHarnessEvent[],
 		adapterType?: string,
 	): ProvisionSessionDeps {
@@ -211,25 +211,14 @@ describe("a subscription wake's forced return is return_status, never send_messa
 				release: () => undefined,
 				describeSelectFailure: () => "test pool selected nothing",
 			},
-			workspace: {
-				spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),
-				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-				adopt: (p: string) => Promise.resolve({ sandboxId: "sb-adopted", path: p }),
-				destroy: async () => undefined,
-			},
 		};
 	}
 
-	function subscriptionParams(
-		agentId: string,
-		sandboxPath: string,
-		prompt: string | null,
-	): ProvisionSessionParams {
+	function subscriptionParams(agentId: string, prompt: string | null): ProvisionSessionParams {
 		return {
 			taskId: null,
 			agentId,
 			productId: "no-team",
-			sandboxBasePath: sandboxPath,
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
 			contextBundle: {
 				kind: "subscription",
@@ -256,15 +245,15 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		await seedAgent(db as HyperIdleDb, agentId);
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "subscription-return-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const invokedTools: string[] = [];
 		const events: FakeHarnessEvent[] = [{ type: "tool_call", toolName: "return_status", args: {} }];
 		const ports = buildPorts(invokedTools);
 		const provisioner = createProvisioner(ports);
-		const deps = buildDeps(db as HyperIdleDb, sandboxPath, events);
+		const deps = buildDeps(db as HyperIdleDb, events);
 		const params = subscriptionParams(
 			agentId,
-			sandboxPath,
 			"If this change did not move the task to done, stop. Do not message anyone.",
 		);
 
@@ -284,13 +273,14 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		await seedAgent(db as HyperIdleDb, agentId);
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "subscription-return-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const invokedTools: string[] = [];
 		const events: FakeHarnessEvent[] = [];
 		const ports = buildPorts(invokedTools);
 		const provisioner = createProvisioner(ports);
-		const deps = buildDeps(db as HyperIdleDb, sandboxPath, events);
-		const params = subscriptionParams(agentId, sandboxPath, "Edit the named document.");
+		const deps = buildDeps(db as HyperIdleDb, events);
+		const params = subscriptionParams(agentId, "Edit the named document.");
 
 		const admitted = await provisioner.admit(deps, params);
 		const result = await provisioner.run(deps, params, admitted);
@@ -309,6 +299,7 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		await seedAgent(db as HyperIdleDb, agentId);
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "subscription-return-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 
 		const invokedTools: string[] = [];
 		const events: FakeHarnessEvent[] = [{ type: "tool_call", toolName: "return_status", args: {} }];
@@ -318,13 +309,13 @@ describe("a subscription wake's forced return is return_status, never send_messa
 			sessionConfig?: { assembledPrompt?: string; requiredReturnActions?: readonly string[] };
 		} = {};
 		const deps: ProvisionSessionDeps = {
-			...buildDeps(db as HyperIdleDb, sandboxPath, events),
+			...buildDeps(db as HyperIdleDb, events),
 			onBeforeHarnessStart: (ctx) => {
 				captured.sessionConfig = ctx.sessionConfig;
 				return "abort";
 			},
 		};
-		const params = subscriptionParams(agentId, sandboxPath, "Edit the named document.");
+		const params = subscriptionParams(agentId, "Edit the named document.");
 
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
@@ -345,16 +336,17 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		await seedAgent(db, agentId);
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "subscription-return-"));
 		sandboxDirs.push(sandboxPath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
 		const provisioner = createProvisioner(buildPorts([], "real"));
 		const captured: { assembledPrompt?: string } = {};
 		const deps: ProvisionSessionDeps = {
-			...buildDeps(db, sandboxPath, [], adapterType),
+			...buildDeps(db, [], adapterType),
 			onBeforeHarnessStart: (ctx) => {
 				captured.assembledPrompt = ctx.sessionConfig.assembledPrompt;
 				return "abort";
 			},
 		};
-		const params = subscriptionParams(agentId, sandboxPath, prompt);
+		const params = subscriptionParams(agentId, prompt);
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
 		return captured.assembledPrompt ?? "";

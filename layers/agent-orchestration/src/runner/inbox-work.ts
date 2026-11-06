@@ -80,7 +80,13 @@ async function agentConfigOf(
 	});
 	const persona = identity.ok ? (identity.data[0]?.body ?? null) : null;
 	return bakeAgentRunnableConfig(
-		{ kind: me.kind, status: me.status, role: me.role, teamId: me.teams[0]?.id ?? null },
+		{
+			kind: me.kind,
+			status: me.status,
+			role: me.role,
+			teamId: me.teams[0]?.id ?? null,
+			name: me.name,
+		},
 		persona,
 	);
 }

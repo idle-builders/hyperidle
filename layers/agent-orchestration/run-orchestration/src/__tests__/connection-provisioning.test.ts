@@ -12,8 +12,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { applyProvisioningPlan, buildProvisioningPlan } from "../connection-provisioning.js";
+import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
+import {
+	applyProvisioningPlan,
+	buildProvisioningPlan,
+	type ProvisioningPlan,
+} from "../connection-provisioning.js";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -240,7 +244,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 // ── applyProvisioningPlan — pure fs, unchanged behavior, only the address moves ──
 
 describe("applyProvisioningPlan (relocated to agent-orchestration, unchanged behavior)", () => {
-	test("codex-toml: writes N server entries to .codex-home/config.toml", async () => {
+	test("codex-toml: N server entries in cliConfigArgs, no config.toml written", async () => {
 		const plan = buildTestPlan([
 			{ name: "github", url: "https://mcp.github.com", bearerToken: "tok1" },
 			{ name: "figma", url: "https://mcp.figma.com" },
@@ -253,13 +257,14 @@ describe("applyProvisioningPlan (relocated to agent-orchestration, unchanged beh
 			claudeNative: false,
 		});
 
-		const tomlContent = fs.readFileSync(
-			path.join(sandboxPath, ".codex-home", "config.toml"),
-			"utf-8",
-		);
-		expect(tomlContent).toContain("[mcp_servers.github]");
-		expect(tomlContent).toContain('bearer_token_env_var = "GITHUB_MCP_TOKEN"');
+		// Two servers → two url args + one bearer_token_env_var arg for the token server
+		const urlArgs = (result.cliConfigArgs ?? []).filter((a) => a.includes(".url="));
+		expect(urlArgs).toHaveLength(2);
+		expect(urlArgs.some((a) => a.startsWith("mcp_servers.github.url="))).toBe(true);
+		expect(urlArgs.some((a) => a.startsWith("mcp_servers.figma.url="))).toBe(true);
 		expect(result.mcpTokenEnv).toMatchObject({ GITHUB_MCP_TOKEN: "tok1" });
+		// No config.toml written — args carry the config instead
+		expect(fs.existsSync(path.join(sandboxPath, ".codex-home", "config.toml"))).toBe(false);
 	});
 
 	test("opencode-json: inline Bearer header, no separate tokenEnv", async () => {
@@ -323,5 +328,58 @@ describe("applyProvisioningPlan (relocated to agent-orchestration, unchanged beh
 		});
 
 		expect(result.mcpTokenEnv).toEqual({});
+	});
+});
+
+// ── URL escaping for codex-toml -c args ──────────────────────────────────────
+
+describe("applyProvisioningPlan codex-toml URL escaping", () => {
+	it("escapes special chars in URL for -c args", async () => {
+		// URL containing a double-quote, backslash, and newline
+		const url = `http://host/path?a="value"&b=\\path\nend`;
+		const plan: ProvisioningPlan = {
+			mcpServers: [{ name: "conn-test", url, bearerToken: "tok" }],
+			envInjections: {},
+		};
+
+		const result = await applyProvisioningPlan({
+			plan,
+			sandboxPath,
+			cliMcpDialect: "codex-toml",
+			claudeNative: false,
+		});
+
+		expect(result.cliConfigArgs).toBeDefined();
+		const urlArg = result.cliConfigArgs?.find((a) => a.startsWith("mcp_servers.conn-test.url="));
+		expect(urlArg).toBeDefined();
+		// Must NOT contain raw quote, raw backslash (unescaped), or raw newline
+		expect(urlArg).not.toContain('="value"');
+		// Escaped quote must be present
+		expect(urlArg).toContain('\\"');
+		// Escaped backslash must be present
+		expect(urlArg).toContain("\\\\");
+		// Escaped newline must be present
+		expect(urlArg).toContain("\\n");
+		// No raw newline
+		expect(urlArg).not.toMatch(/[^\n]?\n/);
+	});
+
+	it("passes bearer_token_env_var arg through unescaped", async () => {
+		const plan: ProvisioningPlan = {
+			mcpServers: [{ name: "my-svc", url: "http://host/mcp", bearerToken: "tok" }],
+			envInjections: {},
+		};
+
+		const result = await applyProvisioningPlan({
+			plan,
+			sandboxPath,
+			cliMcpDialect: "codex-toml",
+			claudeNative: false,
+		});
+
+		expect(
+			result.cliConfigArgs?.some((a) => a.startsWith("mcp_servers.my-svc.bearer_token_env_var=")),
+		).toBe(true);
+		expect(result.mcpTokenEnv).toMatchObject({ MY_SVC_MCP_TOKEN: "tok" });
 	});
 });

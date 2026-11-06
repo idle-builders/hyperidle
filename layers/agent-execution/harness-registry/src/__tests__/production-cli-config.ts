@@ -60,8 +60,8 @@ function jsonLines(text: string): Record<string, unknown>[] {
 /**
  * Reads the codex session JSONL to find the turn_context entry for a given thread id.
  * Requires ephemeral: false (the default in CodexAppServerAdapter) so the JSONL is written.
- * CODEX_HOME is per-sandbox (CodexAppServerAdapter.buildEnv sets it to sandboxPath/.codex-home),
- * so the history stays in the session sandbox and never writes to the user's ~/.codex.
+ * CODEX_HOME is a folder in the agent's space (CodexAppServerAdapter.buildEnv), so the
+ * history never lands in the owner's ~/.codex.
  */
 export function codexTurnContext(
 	threadId: string | undefined,

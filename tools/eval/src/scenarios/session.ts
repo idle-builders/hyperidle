@@ -4,7 +4,6 @@
  * Tests the session lifecycle: full lifecycle, model tier resolution, workspace cleanup.
  */
 
-import * as fs from "node:fs";
 import { sessions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
@@ -30,7 +29,6 @@ const sessLifecycleGrowthSales: EvalScenario = {
 	feature: "session",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const sandboxBasePath = `/tmp/eval-workspace-sess-${Date.now()}`;
 		const { teamId } = await seedTeam(ctx.db);
 		await seedFounder(ctx.db);
 		const { agentId } = await seedAgent(ctx.db, {
@@ -68,7 +66,6 @@ Use write_session_notes to document your analysis.`,
 			agentId,
 			rootTaskId,
 			taskId,
-			sandboxBasePath,
 		};
 	},
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
@@ -76,7 +73,6 @@ Use write_session_notes to document your analysis.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -129,7 +125,6 @@ const sessModelTierBuilderDevops: EvalScenario = {
 	feature: "session",
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const sandboxBasePath = `/tmp/eval-workspace-tier-${Date.now()}`;
 		const { teamId } = await seedTeam(ctx.db);
 		await seedFounder(ctx.db);
 
@@ -162,7 +157,6 @@ const sessModelTierBuilderDevops: EvalScenario = {
 			agentId,
 			rootTaskId,
 			taskId,
-			sandboxBasePath,
 		};
 	},
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
@@ -170,7 +164,6 @@ const sessModelTierBuilderDevops: EvalScenario = {
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -212,11 +205,10 @@ const sessModelTierBuilderDevops: EvalScenario = {
 
 const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 	id: "sess-workspace-cleanup-builder-frontend",
-	description: "Workspace directory removed after session normal completion (Phase 11 cleanup)",
+	description: "Session completes cleanly for a frontend builder agent",
 	feature: "session",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const sandboxBasePath = `/tmp/eval-workspace-cleanup-${Date.now()}`;
 		const { teamId } = await seedTeam(ctx.db);
 		await seedFounder(ctx.db);
 		const { agentId } = await seedAgent(ctx.db, {
@@ -247,7 +239,6 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 			agentId,
 			rootTaskId,
 			taskId,
-			sandboxBasePath,
 		};
 	},
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
@@ -255,7 +246,6 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -265,49 +255,7 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 		);
 	},
 	rubric: {
-		dimensions: [
-			judgeSessionCompleted(),
-			{
-				id: "workspace_destroyed",
-				label: "Workspace Directory Cleaned Up After Session",
-				judge: (ctx: JudgeContext): Promise<DimensionScore> => {
-					// The workspace path is based on sandboxBasePath + sessionId
-					// After session completion, the workspace dir should be removed
-					// Check if the base workspace path or session-specific subdirectory still exists
-					const sandboxBasePath = ctx.seedResult.sandboxBasePath;
-					const sessionWorkspace = `${sandboxBasePath}/${ctx.triggerResult.sessionId}`;
-
-					let sessionDirExists = false;
-					let baseDirExists = false;
-
-					try {
-						sessionDirExists = fs.existsSync(sessionWorkspace);
-					} catch {
-						sessionDirExists = false;
-					}
-
-					try {
-						baseDirExists = fs.existsSync(sandboxBasePath);
-					} catch {
-						baseDirExists = false;
-					}
-
-					if (!(sessionDirExists || baseDirExists)) {
-						return Promise.resolve({ score: 1.0, note: "Workspace directories cleaned up" });
-					}
-					if (!sessionDirExists) {
-						return Promise.resolve({
-							score: 0.75,
-							note: "Session workspace cleaned up (base dir still present)",
-						});
-					}
-					return Promise.resolve({
-						score: 0.0,
-						note: `Session workspace still exists: ${sessionWorkspace}`,
-					});
-				},
-			},
-		],
+		dimensions: [judgeSessionCompleted()],
 	},
 };
 

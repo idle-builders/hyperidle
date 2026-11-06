@@ -19,11 +19,9 @@ import type {
 import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import {
 	createHarnessSandbox,
 	provisionClaudeSandbox,
-	provisionCodexHome,
 	requireHarnessAuthed,
 } from "./harness-sandbox.js";
 import { productionCliConfig, productionHarnessAdapter } from "./production-cli-config.js";
@@ -202,19 +200,10 @@ describe("session handles — codex", () => {
 		await requireHarnessAuthed("codex");
 
 		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "sh-codex-base-"));
-		const sandboxAdapter = new LocalSandboxAdapter();
-		const sandboxHandle = await sandboxAdapter.spawn(baseDir);
-		const sandboxPath = sandboxHandle.path;
+		const sandboxPath = baseDir;
 
 		try {
 			ensureSandboxGitRepo(sandboxPath);
-
-			const authFound = provisionCodexHome(sandboxPath);
-			if (!authFound) {
-				throw new Error(
-					"codex: no ~/.codex/auth.json to copy into the per-session sandbox — run `codex login`. Never skip to green.",
-				);
-			}
 
 			const config: SessionConfig = {
 				sessionId: `sh-codex-p1-${Math.random().toString(36).slice(2, 8)}`,
@@ -250,7 +239,6 @@ describe("session handles — codex", () => {
 				"codex: getNativeSessionId must return a thread id from the thread/start JSON-RPC response",
 			).toMatch(/^[0-9a-f-]{8,}$/i);
 		} finally {
-			await sandboxAdapter.destroy(sandboxHandle);
 			await rmSandbox(baseDir);
 		}
 	}, 120_000);
@@ -259,18 +247,10 @@ describe("session handles — codex", () => {
 		await requireHarnessAuthed("codex");
 
 		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-sbox-"));
-		const sandboxAdapter = new LocalSandboxAdapter();
-		const sandboxHandle = await sandboxAdapter.spawn(baseDir);
-		const sandboxPath = sandboxHandle.path;
+		const sandboxPath = baseDir;
 
 		try {
 			ensureSandboxGitRepo(sandboxPath);
-			const authFound = provisionCodexHome(sandboxPath);
-			if (!authFound) {
-				throw new Error(
-					"codex: no ~/.codex/auth.json to copy into the per-session sandbox — run `codex login`. Never skip to green.",
-				);
-			}
 
 			const writeInstruction =
 				"Write the text 'phase1' to a new file called codex-write-test.txt. " +
@@ -303,7 +283,6 @@ describe("session handles — codex", () => {
 				"codex session must write files to its sandboxPath",
 			).toBe(true);
 		} finally {
-			await sandboxAdapter.destroy(sandboxHandle);
 			await rmSandbox(baseDir);
 		}
 	}, 180_000);

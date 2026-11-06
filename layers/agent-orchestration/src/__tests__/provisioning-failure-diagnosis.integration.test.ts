@@ -90,11 +90,6 @@ function buildDeps(db: HyperIdleDb, eventBus: EventBus): ProvisionSessionDeps {
 			describeSelectFailure: () =>
 				"no harness adapters are registered — no local harness was discovered on this host, or this server runs no agents",
 		},
-		workspace: {
-			spawn: () => {
-				throw new Error("workspace.spawn must not be reached before admission");
-			},
-		},
 	} as unknown as ProvisionSessionDeps;
 }
 
@@ -124,7 +119,6 @@ async function runUntilProvisioningFails(db: HyperIdleDb, eventBus: EventBus): P
 		buildComposition().runSession(buildDeps(db, eventBus), {
 			mode: "durable",
 			request,
-			sandboxBasePath: "/tmp/provdiag",
 		}),
 	).rejects.toThrow(POOL_EMPTY);
 }

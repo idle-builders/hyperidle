@@ -61,7 +61,7 @@ describe("GitWorktreeAdapter integration", () => {
 		};
 	}
 
-	it("mount: creates a worktree with source files at sandboxPath", async () => {
+	it("mount: creates a worktree at sandboxPath/<repoBasename> with source files", async () => {
 		const repoPath = await createSourceRepo(tmpDir);
 		const sandboxPath = path.join(tmpDir, `sandbox-${randomUUID()}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
@@ -73,9 +73,11 @@ describe("GitWorktreeAdapter integration", () => {
 		});
 
 		expect(result.success).toBe(true);
-		expect(fs.existsSync(path.join(sandboxPath, "README.md"))).toBe(true);
-		// Git worktree is a real git repo.
-		const wtRunner = createGitRunner(sandboxPath);
+		// Worktree is now inside the sandbox, not the sandbox itself.
+		const mountedAt = path.join(sandboxPath, path.basename(repoPath));
+		expect(fs.existsSync(path.join(mountedAt, "README.md"))).toBe(true);
+		// The mounted subdirectory is a real git repo.
+		const wtRunner = createGitRunner(mountedAt);
 		expect(await wtRunner.revParseIsInsideWorkTree()).toBe(true);
 	});
 
@@ -87,12 +89,14 @@ describe("GitWorktreeAdapter integration", () => {
 		const adapter = new RegistryFilesystemMounter(makeDeps());
 		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
 
+		// Worktree is now at sandboxPath/<repoBasename>.
+		const mountedAt = path.join(sandboxPath, path.basename(repoPath));
 		// In a worktree, .git is a file pointing to the real gitdir.
 		// Resolve the real gitdir to find info/exclude.
-		const dotGit = path.join(sandboxPath, ".git");
+		const dotGit = path.join(mountedAt, ".git");
 		const dotGitContent = fs.readFileSync(dotGit, "utf-8").trim();
 		const match = dotGitContent.match(/^gitdir:\s*(.+)$/);
-		const gitDir = match?.[1]?.trim() ? path.resolve(sandboxPath, match[1].trim()) : null;
+		const gitDir = match?.[1]?.trim() ? path.resolve(mountedAt, match[1].trim()) : null;
 		expect(gitDir).not.toBeNull();
 
 		const excludeContent = fs.readFileSync(path.join(gitDir!, "info", "exclude"), "utf-8");

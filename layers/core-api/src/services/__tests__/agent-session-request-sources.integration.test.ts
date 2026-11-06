@@ -23,9 +23,9 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/harness-protocol";
-import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool } from "@hyperidle/harness-registry";
 import { eq } from "drizzle-orm";
-import { afterEach, describe, expect } from "vitest";
+import { afterEach, describe, expect, vi } from "vitest";
 import { test as fixtureTest } from "../../__testing__/test-fixtures.js";
 import { buildTestRunOrchestrationComposition } from "../../__tests__/run-orchestration-test-runtime.js";
 
@@ -156,6 +156,7 @@ describe("agent session request sources", () => {
 	const tmpDirs: string[] = [];
 
 	afterEach(() => {
+		vi.unstubAllEnvs();
 		for (const dir of tmpDirs.splice(0)) {
 			fs.rmSync(dir, { recursive: true, force: true });
 		}
@@ -183,11 +184,11 @@ describe("agent session request sources", () => {
 		});
 		const sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "src-layer-"));
 		tmpDirs.push(sandboxBasePath);
+		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxBasePath);
 		const deps = {
 			db,
 			eventBus,
 			adapterPool,
-			workspace: createSandboxAdapter("local"),
 			onBeforeTeardown: async ({
 				sessionId,
 				sandboxPath,
@@ -220,6 +221,20 @@ describe("agent session request sources", () => {
 				modelProvider: "test",
 				maxConcurrentSessions: 1,
 			},
+		});
+		// The assistant source is a conversation run; callingThreadId provides the working folder.
+		const bakedAssistantPayload = JSON.stringify({
+			agentConfig: {
+				kind: "ai",
+				status: "active",
+				role: "builder",
+				teamId: "team-src",
+				systemPrompt: null,
+				harnessType: "recording",
+				modelProvider: "test",
+				maxConcurrentSessions: 1,
+			},
+			callingThreadId: "thread-src",
 		});
 
 		const sources: AgentSessionRequestInput[] = [
@@ -266,7 +281,7 @@ describe("agent session request sources", () => {
 					userId: "u-src",
 					agentId: "ast-u-src",
 				},
-				payloadJson: bakedAgentConfigPayload,
+				payloadJson: bakedAssistantPayload,
 			},
 		];
 
@@ -298,7 +313,6 @@ describe("agent session request sources", () => {
 				mode: "durable",
 				request,
 				completion: "await",
-				sandboxBasePath,
 			});
 		}
 

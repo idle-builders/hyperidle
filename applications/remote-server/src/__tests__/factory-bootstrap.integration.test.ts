@@ -5,8 +5,6 @@
  * deploy gets the required `system:propagation` row without an out-of-band
  * bootstrap step.
  */
-import * as os from "node:os";
-import * as path from "node:path";
 import { users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { afterEach, vi } from "vitest";
@@ -25,7 +23,6 @@ describe("createServer factory bootstrap", () => {
 		const server = await createServer(0, {
 			db,
 			topology: "disabled",
-			sandboxBasePath: path.join(os.tmpdir(), "factory-bootstrap-test"),
 		});
 		try {
 			const rows = await db.select({ id: users.id, role: users.role }).from(users);

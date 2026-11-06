@@ -35,6 +35,8 @@ export interface AdapterDeps {
 interface MountContext {
 	readonly filesystem: Filesystem;
 	readonly sandboxPath: string;
+	readonly spacePath?: string;
+	readonly workBranch?: string;
 }
 
 interface MountAdapter {
@@ -114,18 +116,28 @@ class GitWorktreeAdapter implements MountAdapter {
 		if (ref.kind !== "code") return { success: false, error: "Expected code resourceRef" };
 		// A folder is written the way people type it (`~/code/x`); git needs the real path.
 		const repo = normalizeLocalPath(ref.repo);
+		// Mount inside the sandbox at a named subdirectory so the sandbox root stays
+		// available for scaffolding, context files, and other mounted filesystems.
+		const mountAt = path.join(ctx.sandboxPath, path.basename(repo));
+		fs.mkdirSync(mountAt, { recursive: true });
+		const branch = ctx.workBranch ?? sanitizeBranch(`agent/${path.basename(ctx.sandboxPath)}`);
 		try {
-			await this.deps
-				.gitRunnerFactory(repo)
-				.worktreeAdd(ctx.sandboxPath, sanitizeBranch(`agent/${path.basename(ctx.sandboxPath)}`), {
-					createBranch: true,
-				});
+			// Case 1: mountAt is already a registered worktree for this repo — reuse it.
+			if (isExistingWorktree(mountAt, repo)) {
+				return { success: true };
+			}
+			// Case 2: branch exists but its worktree was removed — re-attach without -b.
+			// Case 3: neither exists — create a new branch and worktree.
+			const branchExists = branchExistsInRepo(repo, branch);
+			await this.deps.gitRunnerFactory(repo).worktreeAdd(mountAt, branch, {
+				createBranch: !branchExists,
+			});
 			const pointer = fs
-				.readFileSync(path.join(ctx.sandboxPath, ".git"), "utf8")
+				.readFileSync(path.join(mountAt, ".git"), "utf8")
 				.trim()
 				.match(/^gitdir:\s*(.+)$/)?.[1];
 			if (pointer) {
-				const gitDir = fs.realpathSync(path.resolve(ctx.sandboxPath, pointer));
+				const gitDir = fs.realpathSync(path.resolve(mountAt, pointer));
 				const common = resolveCommonGitDir(repo);
 				if (gitDir.startsWith(`${path.join(common, "worktrees")}${path.sep}`)) writeExclude(gitDir);
 			}
@@ -136,7 +148,7 @@ class GitWorktreeAdapter implements MountAdapter {
 	}
 }
 
-function sanitizeBranch(name: string): string {
+export function sanitizeBranch(name: string): string {
 	return name.replace(/^-+/, "").replace(/[^a-zA-Z0-9/_.-]/g, "-");
 }
 
@@ -145,6 +157,42 @@ function resolveCommonGitDir(repoPath: string): string {
 		encoding: "utf8",
 	}).trim();
 	return fs.realpathSync(path.resolve(repoPath, raw));
+}
+
+/**
+ * Returns true when mountAt is already a live git worktree that belongs to
+ * the given sourceRepo. Detects the `.git` file pointer and verifies the
+ * gitdir falls under sourceRepo's own worktrees directory.
+ */
+function isExistingWorktree(mountAt: string, sourceRepo: string): boolean {
+	const gitFile = path.join(mountAt, ".git");
+	if (!fs.existsSync(gitFile) || fs.statSync(gitFile).isDirectory()) return false;
+	const content = fs.readFileSync(gitFile, "utf8").trim();
+	const match = content.match(/^gitdir:\s*(.+)$/);
+	if (!match?.[1]) return false;
+	try {
+		const gitDir = fs.realpathSync(path.resolve(mountAt, match[1]));
+		const common = resolveCommonGitDir(sourceRepo);
+		return gitDir.startsWith(`${path.join(common, "worktrees")}${path.sep}`);
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Returns true when a local branch with the given name exists in the repo.
+ * Used to decide whether to pass `-b` (create) or not (reattach) to `git worktree add`.
+ */
+function branchExistsInRepo(repo: string, branch: string): boolean {
+	try {
+		execFileSync("git", ["-C", repo, "show-ref", "--verify", `refs/heads/${branch}`], {
+			encoding: "utf8",
+			stdio: "pipe",
+		});
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 function isLocalRepoPath(
@@ -251,11 +299,18 @@ export class RegistryFilesystemMounter {
 	constructor(private readonly deps: AdapterDeps) {}
 
 	// biome-ignore lint/suspicious/useAwait: selectMountAdapter throws synchronously on a malformed filesystem; async is what turns that throw into a rejected promise for callers.
-	async mount(input: { filesystem: Filesystem; sandboxPath: string }): Promise<MountResult> {
+	async mount(input: {
+		filesystem: Filesystem;
+		sandboxPath: string;
+		spacePath?: string;
+		workBranch?: string;
+	}): Promise<MountResult> {
 		const adapter = selectMountAdapter(input.filesystem, this.deps);
 		const ctx: MountContext = {
 			filesystem: input.filesystem,
 			sandboxPath: input.sandboxPath,
+			spacePath: input.spacePath,
+			workBranch: input.workBranch,
 		};
 		return adapter.mount(ctx);
 	}

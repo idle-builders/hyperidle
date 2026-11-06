@@ -108,8 +108,8 @@ interface CliAdapterConfig {
 	 * Per-session MCP config file the binary reads to reach the HyperIdle bridge.
 	 * Mirrors claude's .mcp.json. Absent ⇒ binary gets no MCP wiring (builtin/SDK paths).
 	 *
-	 * "codex-toml"   — appends [mcp_servers.hyperidle] to .codex-home/config.toml;
-	 *                  token delivered via HYPERIDLE_MCP_TOKEN env var (outside allowlist).
+	 * "codex-toml"   — passes -c flags for [mcp_servers.hyperidle]; token delivered via
+	 *                  HYPERIDLE_MCP_TOKEN env var (outside allowlist).
 	 * "opencode-json" — writes opencode.json to sandbox cwd; token inline in headers.
 	 */
 	readonly mcpConfig?:
@@ -294,13 +294,9 @@ function registerExitHandlerOnce(): void {
 
 /**
  * Derive the return-enforcement channel from the CLI binary name.
- * codex → settings-codex (writes .codex/hooks.json Stop hook before startSession)
  * unknown → none (drain-gate floor backstop only)
- *
- * @lore: codex hooks.json — Stop hook requires a trust marker or silently skipped; per-session prompt is the {{prompt}} slot in codex.args, a separate concern
  */
 function deriveCliChannel(binary: string): ReturnEnforcementChannel {
-	if (binary === "codex") return "settings-codex";
 	if (binary === "claude") return "settings-claude";
 	return "none";
 }
@@ -485,23 +481,17 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		// @lore: no API key injection — harness authenticates itself; an injected key can shadow the person's existing login
 
-		// ── Per-session CODEX_HOME injection.
+		// ── Login-based config dir injection.
 		//
-		// If the sandbox contains a .codex-home/ directory (written by provisionCodexHome),
-		// set CODEX_HOME to point at it. This makes codex load hooks.json from the
-		// per-session dir instead of ~/.codex/hooks.json.
+		// "own" login: agent's isolated dir inside its space (CLAUDE_CONFIG_DIR for claude).
+		// "owner" login (or no agentSpace): default dir unchanged — no env var injected.
 		//
-		// Also append --dangerously-bypass-hook-trust to args when CODEX_HOME is set
-		// so codex runs the hook without prompting for user confirmation.
-		//
-		// @lore: CODEX_HOME — injected here, not in envAllowlist; per-session .codex-home/ contains auth.json + config.toml + hooks.json (no SQLite)
-		const codexHomeDir = path.join(config.sandboxPath, ".codex-home");
+		// @lore: CLAUDE_CONFIG_DIR — isolates claude's config for "own" login; owner login uses default ~/.claude
 		let extraArgs: string[] = [];
-		if (this.config.binary === "codex" && fs.existsSync(codexHomeDir)) {
-			resolvedEnvMap.CODEX_HOME = codexHomeDir;
-			// --dangerously-bypass-hook-trust: bypass hash-check so hook runs without
-			// requiring the user to have pre-approved the hook command.
-			extraArgs = ["--dangerously-bypass-hook-trust"];
+		if (config.agentSpace?.login === "own" && this.config.binary === "claude") {
+			const ownClaudeDir = path.join(config.agentSpace.path, ".claude");
+			fs.mkdirSync(ownClaudeDir, { recursive: true });
+			resolvedEnvMap.CLAUDE_CONFIG_DIR = ownClaudeDir;
 		}
 
 		// ── Per-session opencode gate env injection.
@@ -525,10 +515,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		// ── Per-session MCP token env var injection.
 		//
-		// For codex, the MCP token is delivered via HYPERIDLE_MCP_TOKEN env var
-		// (codex's bearer_token_env_var mechanism). It is injected OUTSIDE the
-		// envAllowlist — the token is per-session-generated and NOT in process.env.
-		// This mirrors the CODEX_HOME injection pattern above.
+		// The MCP token is per-session-generated and NOT in process.env.
 		//
 		// @lore: inject-outside-allowlist — envAllowlist forwards from process.env; MCP token not there; mcpTokenEnv injects without polluting the allowlisted env
 		if (config.mcpTokenEnv) {
@@ -881,7 +868,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		let args: string[];
 		const extraEnv: Record<string, string> = {};
-		let extraArgs: string[] = [];
+		const extraArgs: string[] = [];
 
 		switch (this.config.binary) {
 			case "claude": {
@@ -904,24 +891,14 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					"--settings",
 					".claude/settings.json",
 				];
-				break;
-			}
-			case "codex": {
-				// codex exec resume <thread-id> <msg> --json [--model <m>]
-				// @lore: codex-resume — exec resume is a first-class subcommand; thread-id from thread.started; CODEX_HOME must point to per-session .codex-home/ for hooks+state
-				// @lore: codex-sandbox-inherit — exec resume has no --sandbox flag; workspace-write inherited from original thread; flag is thread-scoped, not config-scoped
-				args = [
-					"exec",
-					"resume",
-					nativeSessionId,
-					message,
-					"--json",
-					...(model ? ["--model", model] : []),
-				];
-				const codexHomeDir = path.join(sandboxPath, ".codex-home");
-				if (fs.existsSync(codexHomeDir)) {
-					extraEnv.CODEX_HOME = codexHomeDir;
-					extraArgs = ["--dangerously-bypass-hook-trust"];
+				if (config.agentSpace?.login === "own") {
+					const ownClaudeDir = path.join(config.agentSpace.path, ".claude");
+					try {
+						fs.mkdirSync(ownClaudeDir, { recursive: true });
+					} catch {
+						/* sandbox may not exist */
+					}
+					extraEnv.CLAUDE_CONFIG_DIR = ownClaudeDir;
 				}
 				break;
 			}

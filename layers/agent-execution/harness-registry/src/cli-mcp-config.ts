@@ -64,51 +64,16 @@ function writeCodexToml(params: {
 	token: string;
 	trustedPaths?: readonly string[];
 }): HarnessMcpConfigResult {
-	const { sandboxPath, mcpUrl, token, trustedPaths } = params;
-
-	const codexHomeDir = path.join(sandboxPath, ".codex-home");
-	const configTomlPath = path.join(codexHomeDir, "config.toml");
-
-	// Ensure .codex-home/ exists (mirrors provisionCodexHome; idempotent).
-	fs.mkdirSync(codexHomeDir, { recursive: true });
-
-	// @lore: codex-toml token — token travels via env var, NOT inline in toml; `url` + `bearer_token_env_var` is the shape for `codex mcp add --bearer-token-env-var`
-	const mcpBlock =
-		"\n[mcp_servers.hyperidle]\n" +
-		`url = "${mcpUrl}"\n` +
-		`bearer_token_env_var = "HYPERIDLE_MCP_TOKEN"\n` +
-		'default_tools_approval_mode = "approve"\n';
-
-	// Append to existing config.toml (may already have model/auth blocks). Create the file if absent.
-	fs.appendFileSync(configTomlPath, mcpBlock, "utf-8");
-	fs.appendFileSync(configTomlPath, buildCodexTrustBlock(sandboxPath, trustedPaths), "utf-8");
-
+	// @lore: codex-toml no-file — bridge + trust passed as -c flags at spawn (buildArgs/startSession); token still travels via HYPERIDLE_MCP_TOKEN env var
+	const { token } = params;
 	return { tokenEnv: { HYPERIDLE_MCP_TOKEN: token } };
 }
 
 /**
- * Declares trusted directories through codex's own mechanism. Empirically, on codex-cli 0.150.1,
- * this block makes no observed difference to the "Not inside a trusted directory" refusal — that
- * refusal tracks git-repo-ness alone (see ensureSandboxGitRepo in run-orchestration/mounter.ts).
- * The session sandbox is always declared; extraPaths carries mounted filesystems.
- */
-function buildCodexTrustBlock(sandboxPath: string, extraPaths?: readonly string[]): string {
-	const paths = [...new Set([sandboxPath, ...(extraPaths ?? [])])];
-	return paths
-		.map((p) => `\n[projects."${escapeTomlString(p)}"]\ntrust_level = "trusted"\n`)
-		.join("");
-}
-
-/**
- * Escape a value for a TOML basic string. `extraPaths` (a mounted filesystem's
- * real path, e.g. a doc_set folder name) is user-influenced — an unescaped `"`
- * closes the string early and lets the rest of the value be parsed as TOML
- * (new keys/tables), and a literal newline is not valid inside a basic string
- * at all.
- *
+ * Escape a value for a TOML basic string (used for -c flag values and table keys).
  * @lore: escapeTomlString — single-pass regex; replace chain misses control chars → "invalid string"; TOML requires full escape; one pass avoids double-escape
  */
-function escapeTomlString(value: string): string {
+export function escapeTomlString(value: string): string {
 	// biome-ignore lint/suspicious/noControlCharactersInRegex: matching control characters IS the point of this escape function.
 	return value.replace(/[\\"\n\r\t\x00-\x1f\x7f]/g, (ch) => {
 		switch (ch) {
@@ -233,32 +198,41 @@ export function writePluginStdioMcpEntries(params: {
 	}
 }
 
-function writePluginEntriesCodexToml(params: {
+function writePluginEntriesCodexToml(_params: {
 	sandboxPath: string;
 	servers: ReadonlyArray<PluginStdioServer>;
 }): void {
-	const { sandboxPath, servers } = params;
-	const codexHomeDir = path.join(sandboxPath, ".codex-home");
-	fs.mkdirSync(codexHomeDir, { recursive: true });
-	const configTomlPath = path.join(codexHomeDir, "config.toml");
+	// @lore: codex-toml no-file — plugin MCP entries now passed as -c flags via buildCodexPluginConfigArgs; nothing written to disk here
+}
 
+/**
+ * Build -c flag args for plugin-contributed stdio MCP servers (codex-toml dialect).
+ * Each entry expands to one or more `key=value` strings to pass as `-c key=value` to codex.
+ * Returns raw -c arg values (without the leading "-c") — the caller interleaves them.
+ */
+export function buildCodexPluginConfigArgs(servers: ReadonlyArray<PluginStdioServer>): string[] {
+	const args: string[] = [];
 	for (const { key, config } of servers) {
-		let block = `\n[mcp_servers.${key}]\n`;
-		if (typeof config.command === "string") block += `command = "${config.command}"\n`;
+		if (typeof config.command === "string") {
+			args.push(`mcp_servers.${key}.command="${escapeTomlString(config.command)}"`);
+		}
 		if (Array.isArray(config.args)) {
-			const argsStr = (config.args as unknown[]).map((a) => `"${String(a)}"`).join(", ");
-			block += `args = [${argsStr}]\n`;
-		}
-		if (config.cwd !== undefined) block += `cwd = "${String(config.cwd)}"\n`;
-		if (config.env && typeof config.env === "object") {
-			const envEntries = Object.entries(config.env as Record<string, unknown>)
-				.map(([k, v]) => `${k} = "${String(v)}"`)
+			const argsToml = (config.args as unknown[])
+				.map((a) => `"${escapeTomlString(String(a))}"`)
 				.join(", ");
-			if (envEntries) block += `env = { ${envEntries} }\n`;
+			args.push(`mcp_servers.${key}.args=[${argsToml}]`);
 		}
-		// No bearer_token_env_var — stdio MCP servers communicate over stdin/stdout, not HTTP.
-		fs.appendFileSync(configTomlPath, block, "utf-8");
+		if (config.cwd !== undefined) {
+			args.push(`mcp_servers.${key}.cwd="${escapeTomlString(String(config.cwd))}"`);
+		}
+		if (config.env && typeof config.env === "object") {
+			const entries = Object.entries(config.env as Record<string, unknown>).map(
+				([k, v]) => `${k}="${escapeTomlString(String(v))}"`,
+			);
+			if (entries.length > 0) args.push(`mcp_servers.${key}.env={${entries.join(", ")}}`);
+		}
 	}
+	return args;
 }
 
 function writePluginEntriesOpencodeJson(params: {
