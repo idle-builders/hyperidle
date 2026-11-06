@@ -1,5 +1,5 @@
 -- Drop filesystem_injections first (FK → filesystems), then filesystems.
--- @lore: folders are now space symlinks — no DB rows for them, so the registry tables are dropped clean
+-- @lore: space folders are filesystem entries, not DB rows — the registry tables have no data to migrate
 DROP TABLE IF EXISTS "filesystem_injections";
 --> statement-breakpoint
 DROP TABLE IF EXISTS "filesystems";

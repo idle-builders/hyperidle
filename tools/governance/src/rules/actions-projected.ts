@@ -92,7 +92,7 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|POST /mcp/:token/return-status",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /space-folders/:agentId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /space-folders/:agentId",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /space-folders/:agentId/:name/remove",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /space-folders/:agentId/remove",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /connections/:userId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId/:id/remove",

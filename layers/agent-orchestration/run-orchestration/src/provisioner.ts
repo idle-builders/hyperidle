@@ -1125,7 +1125,9 @@ async function admitSession(
 	// Walks <space>/ for symlinks; git repos get a worktree at <sandbox>/<name>/;
 	// plain folders get a symlink; dangling links are skipped.
 	if (deps.gitRunnerFactory) {
-		const workBranch = sanitizeBranch(`agent/${path.relative(spacePath, sandboxPath)}`);
+		const workBranch = sanitizeBranch(
+			`agent/${path.basename(spacePath)}/${path.relative(spacePath, sandboxPath)}`,
+		);
 		const mounted = await mountSpaceFolders(spacePath, sandboxPath, {
 			gitRunnerFactory: deps.gitRunnerFactory,
 			workBranch,
@@ -1133,7 +1135,7 @@ async function admitSession(
 		trustedPaths = mounted.trustedPaths;
 	}
 
-	// @lore: sandbox git init — after mounting only; git clone refuses an existing .git; unconditional; every session needs it (codex trust, agent diff/revert)
+	// @lore: sandbox git init — after mounting only; unconditional; every session needs it (codex trust, agent diff/revert)
 	ensureSandboxGitRepo(sandboxPath);
 
 	// ── Phase 6: assemble context into the sandbox through the agent layer.

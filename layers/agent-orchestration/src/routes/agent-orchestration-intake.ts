@@ -124,7 +124,7 @@ export function createAgentOrchestrationIntakeRoutes(
 				.object({
 					path: z.string().min(1),
 					name: z.string().min(1).optional(),
-					agentName: z.string().min(1).optional(),
+					agentName: z.string().min(1),
 				})
 				.strict(),
 		),
@@ -134,23 +134,26 @@ export function createAgentOrchestrationIntakeRoutes(
 			const config = await readAgentRunConfig(db, agentId);
 			let spacePath = config.spacePath;
 			if (!spacePath) {
-				if (!agentName) return c.json({ ok: false, code: "SPACE_NOT_SET" });
-				spacePath = await ensureAgentSpace(db, agentId, agentName);
+				spacePath = await ensureAgentSpace(db, agentId, agentName ?? "");
 			}
 			const result = addSpaceFolder(spacePath, path, name);
 			return c.json(result);
 		},
 	);
 
-	// ── spaceFolders.remove — POST /agent-orchestration/space-folders/:agentId/:name/remove ──
-	router.post("/space-folders/:agentId/:name/remove", async (c) => {
-		const agentId = c.req.param("agentId");
-		const name = c.req.param("name");
-		const config = await readAgentRunConfig(db, agentId);
-		if (!config.spacePath) return c.json({ ok: false, code: "NOT_FOUND" });
-		const result = removeSpaceFolder(config.spacePath, name);
-		return c.json(result);
-	});
+	// ── spaceFolders.remove — POST /agent-orchestration/space-folders/:agentId/remove ──
+	router.post(
+		"/space-folders/:agentId/remove",
+		validateBody(z.object({ name: z.string().min(1) }).strict()),
+		async (c) => {
+			const agentId = c.req.param("agentId");
+			const { name } = c.req.valid("json");
+			const config = await readAgentRunConfig(db, agentId);
+			if (!config.spacePath) return c.json({ ok: false, code: "NOT_FOUND" });
+			const result = removeSpaceFolder(config.spacePath, name);
+			return c.json(result);
+		},
+	);
 
 	// ── connections.list — GET /agent-orchestration/connections/:userId ──────
 	router.get("/connections/:userId", async (c) => {

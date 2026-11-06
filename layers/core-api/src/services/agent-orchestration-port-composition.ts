@@ -51,12 +51,11 @@ interface AgentOrchestrationHcClient {
 						readonly agentName: string;
 					};
 				}): Promise<Response>;
-				readonly ":name": {
-					readonly remove: {
-						$post(args: {
-							readonly param: { readonly agentId: string; readonly name: string };
-						}): Promise<Response>;
-					};
+				readonly remove: {
+					$post(args: {
+						readonly param: { readonly agentId: string };
+						readonly json: { readonly name: string };
+					}): Promise<Response>;
 				};
 			};
 		};
@@ -199,9 +198,10 @@ export function buildAgentOrchestrationPort(
 				agentId: string,
 				name: string,
 			): Promise<AgentOrchestrationSpaceFolderRemoveResult> {
-				const res = await client["agent-orchestration"]["space-folders"][":agentId"][
-					":name"
-				].remove.$post({ param: { agentId, name } });
+				const res = await client["agent-orchestration"]["space-folders"][":agentId"].remove.$post({
+					param: { agentId },
+					json: { name },
+				});
 				if (!res.ok) return throwSeamError("spaceFolders.remove", res);
 				return (await res.json()) as AgentOrchestrationSpaceFolderRemoveResult;
 			},

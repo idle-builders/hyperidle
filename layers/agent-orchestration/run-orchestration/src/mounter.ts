@@ -16,7 +16,7 @@ export function sanitizeBranch(name: string): string {
 	return name.replace(/^-+/, "").replace(/[^a-zA-Z0-9/_.-]/g, "-");
 }
 
-export function writeExclude(gitDir: string): void {
+function writeExclude(gitDir: string): void {
 	const destination = path.join(gitDir, "info", "exclude");
 	fs.mkdirSync(path.dirname(destination), { recursive: true });
 	const marker = "# HyperIdle scaffolding exclusion";
@@ -151,11 +151,9 @@ export async function mountGitWorktree(
  * own work). A bare `git init` with no commits is sufficient for codex's
  * check — verified against codex-cli 0.150.1; no initial commit is required.
  *
- * Called AFTER Phase 4.5 filesystem mounting, never before: `git worktree add`
- * refuses a target directory that already contains a `.git` (verified
- * empirically — "already exists" / "not an empty directory"). Mounting a
- * code folder already makes the sandbox a git repo as a side effect, so this
- * only inits when `.git` is still absent — the no-folder and plain-folder cases.
+ * Called AFTER Phase 4.5 folder mounting: git folder mounts go into
+ * `<sandbox>/<name>/` subdirectories, never the sandbox root, so the init
+ * runs for every session — the no-folder, plain-folder, and git-folder cases.
  */
 export function ensureSandboxGitRepo(sandboxPath: string): void {
 	if (fs.existsSync(path.join(sandboxPath, ".git"))) return;

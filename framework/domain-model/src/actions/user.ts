@@ -369,7 +369,16 @@ const EditUserFoldersSchema = z
 			)
 			.optional(),
 		/** Remove a symlink by name. Persons are refused. */
-		remove: z.array(z.string().min(1)).optional(),
+		remove: z
+			.array(
+				z
+					.string()
+					.min(1)
+					.refine((n) => !(n.includes("/") || n.includes("\\")), {
+						message: "Folder name must not contain path separators.",
+					}),
+			)
+			.optional(),
 	})
 	.strict();
 

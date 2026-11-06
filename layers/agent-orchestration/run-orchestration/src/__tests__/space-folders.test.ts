@@ -44,6 +44,13 @@ describe("listSpaceFolders", () => {
 		expect(listSpaceFolders(spacePath)).toEqual([]);
 	});
 
+	test.each(["Tasks", ".Codex"])("excludes reserved name case-insensitively: %s", (name) => {
+		const target = path.join(tmpDir, "real-ci");
+		fs.mkdirSync(target);
+		fs.symlinkSync(target, path.join(spacePath, name));
+		expect(listSpaceFolders(spacePath).map((f) => f.name)).not.toContain(name);
+	});
+
 	test("excludes plain dot-entries that are not symlinks", () => {
 		fs.mkdirSync(path.join(spacePath, ".hidden"));
 		fs.writeFileSync(path.join(spacePath, ".file"), "");
@@ -141,10 +148,13 @@ describe("addSpaceFolder", () => {
 		});
 	});
 
-	test("refuses SPACE_NOT_SET when spacePath is empty string", () => {
-		const target = path.join(tmpDir, "real");
+	test.each(["Tasks", ".Codex"])("refuses reserved name case-insensitively: %s", (name) => {
+		const target = path.join(tmpDir, "real-ci");
 		fs.mkdirSync(target);
-		expect(addSpaceFolder("", target, "real")).toMatchObject({ ok: false, code: "SPACE_NOT_SET" });
+		expect(addSpaceFolder(spacePath, target, name)).toMatchObject({
+			ok: false,
+			code: "RESERVED_NAME",
+		});
 	});
 
 	test("refuses CONFLICT when name already exists in space", () => {

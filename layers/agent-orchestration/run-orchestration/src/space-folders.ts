@@ -44,8 +44,7 @@ export type SpaceFolderAddCode =
 	| "INVALID_NAME"
 	| "CONFLICT"
 	| "SOURCE_NOT_FOUND"
-	| "SOURCE_NOT_DIRECTORY"
-	| "SPACE_NOT_SET";
+	| "SOURCE_NOT_DIRECTORY";
 
 export type SpaceFolderRemoveCode = "NOT_FOUND" | "NOT_A_SYMLINK";
 
@@ -56,7 +55,7 @@ export type SpaceFolderRemoveResult = { ok: true } | { ok: false; code: SpaceFol
 function validateName(name: string): SpaceFolderAddCode | null {
 	if (!name || name === "." || name === "..") return "INVALID_NAME";
 	if (name.includes("/") || name.includes("\\")) return "INVALID_NAME";
-	if (RESERVED_SPACE_NAMES.has(name)) return "RESERVED_NAME";
+	if (RESERVED_SPACE_NAMES.has(name.toLowerCase())) return "RESERVED_NAME";
 	return null;
 }
 
@@ -72,7 +71,7 @@ export function listSpaceFolders(spacePath: string): SpaceFolderView[] {
 	const entries = fs.readdirSync(spacePath, { withFileTypes: true });
 	const result: SpaceFolderView[] = [];
 	for (const entry of entries) {
-		if (RESERVED_SPACE_NAMES.has(entry.name)) continue;
+		if (RESERVED_SPACE_NAMES.has(entry.name.toLowerCase())) continue;
 		// Hidden non-symlink entries (e.g. .DS_Store) are not folders.
 		if (entry.name.startsWith(".") && !entry.isSymbolicLink()) continue;
 		// Regular files are not folders — only symlinks and directories.
@@ -119,7 +118,6 @@ export function addSpaceFolder(
 	folderPath: string,
 	name?: string,
 ): SpaceFolderAddResult {
-	if (!spacePath) return { ok: false, code: "SPACE_NOT_SET" };
 	const realTarget = normalizeLocalPath(folderPath);
 	const entryName = name ?? path.basename(realTarget);
 	const nameError = validateName(entryName);
@@ -228,7 +226,20 @@ export async function mountSpaceFolders(
 		} else {
 			// Plain directory: create a symlink in the working folder.
 			try {
-				if (!fs.existsSync(mountAt)) {
+				let linkNeeded = true;
+				try {
+					const stat = fs.lstatSync(mountAt);
+					if (stat.isSymbolicLink()) {
+						// Stale link (possibly dangling) already occupies this path — replace it.
+						fs.unlinkSync(mountAt);
+					} else {
+						// Real directory or file already here — do not clobber.
+						linkNeeded = false;
+					}
+				} catch {
+					// lstatSync throws when mountAt doesn't exist — proceed to create.
+				}
+				if (linkNeeded) {
 					fs.symlinkSync(folder.path, mountAt);
 				}
 				trustedPaths.push(folder.path);

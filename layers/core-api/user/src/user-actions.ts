@@ -20,6 +20,7 @@
  * function seams.
  *
  */
+import { basename } from "node:path";
 import type { Change, HyperIdleDb, NewChange, NewUser, Team, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import {
@@ -662,7 +663,7 @@ function folderAddProblem(
 		case "RESERVED_NAME":
 			return {
 				code: "folder_name_reserved",
-				message: `'${label}' is one of the agent's own folders; pick another name.`,
+				message: `A folder named '${label}' can't be added: that name is kept for the agent's own work.`,
 			};
 		case "CONFLICT":
 			return {
@@ -672,20 +673,20 @@ function folderAddProblem(
 		case "SOURCE_NOT_FOUND":
 			return {
 				code: "folder_not_found",
-				message: `No folder at ${sourcePath} on this computer.`,
+				message: `No folder at '${sourcePath}' on this computer.`,
 			};
 		case "SOURCE_NOT_DIRECTORY":
 			return {
 				code: "folder_not_directory",
-				message: `${sourcePath} is a file, not a folder.`,
+				message: `'${sourcePath}' is a file, not a folder.`,
 			};
 		case "INVALID_NAME":
 			return {
 				code: "folder_invalid_name",
-				message: `'${label}' can't be a folder name.`,
+				message: `'${label}' can't be used as a folder name.`,
 			};
 		default:
-			return { code: "unknown_folder", message: `Could not add folder '${label}': ${code}.` };
+			return { code: "unknown_folder", message: `Could not add folder '${label}'.` };
 	}
 }
 
@@ -707,20 +708,20 @@ async function applyUserFolders(
 	if (kind !== "ai") {
 		return {
 			code: "folders_not_supported",
-			message: "Persons don't have folders — only agents do.",
+			message: "Folders belong to agents, not people.",
 			path: "folders",
 		};
 	}
-	for (const { path, name } of folders.add ?? []) {
+	for (const { path: folderPath, name } of folders.add ?? []) {
 		let result: Awaited<ReturnType<typeof deps.spaceFolders.add>>;
 		try {
-			result = await deps.spaceFolders.add(id, path, name, agentName);
+			result = await deps.spaceFolders.add(id, folderPath, name, agentName);
 		} catch {
 			return { code: "unknown_folder", message: "Could not add that folder.", path: "folders" };
 		}
 		if (!result.ok) {
-			const label = name ?? path;
-			const { code, message } = folderAddProblem(result.code, label, path);
+			const label = name ?? basename(folderPath);
+			const { code, message } = folderAddProblem(result.code, label, folderPath);
 			return { code, message, path: "folders" };
 		}
 	}

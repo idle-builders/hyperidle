@@ -37,6 +37,7 @@ framework/design-system/inspiration/
 installed-plugins/
 hyperidle-pg/
 demo-folders/
+demo-spaces/
 eval-results*.json
 docs/product/.vitepress/cache
 # Astro generated types + content sync cache (applications/website)

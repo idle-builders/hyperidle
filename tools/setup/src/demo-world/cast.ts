@@ -23,6 +23,7 @@ import {
 	userTeams,
 } from "@hyperidle/db";
 import { type HarnessType, PERSON_REASONS } from "@hyperidle/domain-model";
+import { addSpaceFolder, ensureAgentSpace } from "@hyperidle/run-orchestration";
 import { and, eq, isNotNull } from "drizzle-orm";
 import {
 	BUILDER_ID,
@@ -193,30 +194,18 @@ function makeRepo(dir: string, readme: string): void {
  * the repo there using `addSpaceFolder` from run-orchestration.
  */
 async function seedFolders(db: HyperIdleDb, foldersDir: string, spacesDir: string): Promise<void> {
-	const { addSpaceFolder, ensureAgentSpace } = await import("@hyperidle/run-orchestration");
-	const agentNames: Readonly<Record<string, string>> = {
-		[BUILDER_ID]: "Builder",
-		[GROWTH_ID]: "Growth",
-		[DESIGNER_ID]: "Designer",
-	};
+	const agentNameById = new Map(AGENTS.map((a) => [a.id, a.name]));
 	for (const folder of FOLDERS) {
 		const repo = path.join(foldersDir, folder.name);
 		makeRepo(repo, folder.readme);
-		const agentName = agentNames[folder.agent];
+		const agentName = agentNameById.get(folder.agent);
 		if (!agentName) continue;
-		const prevDir = process.env.HYPERIDLE_SPACES_DIR;
-		process.env.HYPERIDLE_SPACES_DIR = spacesDir;
-		try {
-			const spacePath = await ensureAgentSpace(db, folder.agent, agentName);
-			addSpaceFolder(spacePath, repo, folder.name);
-		} catch {
-			// Not fatal for demo seed — folder already linked or dir already exists.
-		} finally {
-			if (prevDir === undefined) {
-				delete process.env.HYPERIDLE_SPACES_DIR;
-			} else {
-				process.env.HYPERIDLE_SPACES_DIR = prevDir;
-			}
+		const spacePath = await ensureAgentSpace(db, folder.agent, agentName, undefined, spacesDir);
+		const result = addSpaceFolder(spacePath, repo, folder.name);
+		if (!result.ok && result.code !== "CONFLICT") {
+			throw new Error(
+				`seedFolders: could not add '${folder.name}' to ${folder.agent}: ${result.code}`,
+			);
 		}
 	}
 }

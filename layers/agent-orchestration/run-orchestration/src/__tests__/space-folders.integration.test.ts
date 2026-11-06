@@ -9,6 +9,9 @@
  *  - second mount call reuses the existing worktree (no error)
  *  - after `git worktree remove`, next mount re-attaches the branch without -b
  *  - info/exclude gets the scaffolding exclusion marker after a git mount
+ *  - reserved names are matched case-insensitively ('Tasks', '.Codex')
+ *  - plain-folder mount succeeds even when a stale dangling link already exists at mountAt
+ *  - two spaces linking the same repo for the same task id mount without branch collision
  */
 
 import { execFileSync } from "node:child_process";
@@ -17,7 +20,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createGitRunner } from "../../../src/git-runner.js";
-import { mountSpaceFolders } from "../space-folders.js";
+import { addSpaceFolder, listSpaceFolders, mountSpaceFolders } from "../space-folders.js";
 
 let tmpdir: string;
 let spacePath: string;
@@ -190,5 +193,85 @@ describe("mountSpaceFolders", () => {
 		const excludePath = path.join(gitDir, "info", "exclude");
 		expect(fs.existsSync(excludePath)).toBe(true);
 		expect(fs.readFileSync(excludePath, "utf8")).toContain("# HyperIdle scaffolding exclusion");
+	});
+
+	test.each([
+		{ name: "Tasks", desc: "mixed-case reserved" },
+		{ name: ".Codex", desc: "mixed-case dot reserved" },
+	])("$desc name '$name' is excluded from listSpaceFolders", ({ name }) => {
+		const target = path.join(tmpdir, "some-dir");
+		fs.mkdirSync(target);
+		fs.symlinkSync(target, path.join(spacePath, name));
+
+		const folders = listSpaceFolders(spacePath);
+		expect(folders.map((f) => f.name)).not.toContain(name);
+	});
+
+	test.each([
+		{ name: "Tasks", desc: "mixed-case reserved" },
+		{ name: ".Codex", desc: "mixed-case dot reserved" },
+	])("$desc name '$name' is refused by addSpaceFolder", ({ name }) => {
+		const target = path.join(tmpdir, "some-dir2");
+		fs.mkdirSync(target);
+
+		const result = addSpaceFolder(spacePath, target, name);
+		expect(result).toMatchObject({ ok: false, code: "RESERVED_NAME" });
+	});
+
+	test("plain-folder mount succeeds when a stale dangling link already occupies mountAt", async () => {
+		const plainDir = path.join(tmpdir, "real-plain");
+		fs.mkdirSync(plainDir);
+		fs.symlinkSync(plainDir, path.join(spacePath, "plain"));
+
+		// First mount — creates the symlink.
+		await mountSpaceFolders(spacePath, workingFolder, deps);
+		const mountAt = path.join(workingFolder, "plain");
+		expect(fs.lstatSync(mountAt).isSymbolicLink()).toBe(true);
+
+		// Replace the valid symlink with a dangling one (target never exists).
+		const staleTarget = path.join(tmpdir, "stale-target");
+		fs.unlinkSync(mountAt);
+		fs.symlinkSync(staleTarget, mountAt);
+		expect(fs.existsSync(mountAt)).toBe(false); // dangling
+
+		// Second mount — must replace the stale link without EEXIST.
+		const second = await mountSpaceFolders(spacePath, workingFolder, deps);
+		expect(second.trustedPaths).toContain(plainDir);
+		expect(fs.lstatSync(mountAt).isSymbolicLink()).toBe(true);
+		expect(fs.readlinkSync(mountAt)).toBe(plainDir);
+	});
+
+	test("two spaces linking the same repo for the same task mount without branch collision", async () => {
+		const repoDir = path.join(tmpdir, "shared-repo");
+		fs.mkdirSync(repoDir);
+		initRepo(repoDir);
+
+		// Space A: agentA's space
+		const spaceA = path.join(tmpdir, "space-agentA");
+		const workA = path.join(tmpdir, "work-agentA");
+		fs.mkdirSync(spaceA);
+		fs.mkdirSync(workA);
+		fs.symlinkSync(repoDir, path.join(spaceA, "myrepo"));
+
+		// Space B: agentB's space (different basename → different branch)
+		const spaceB = path.join(tmpdir, "space-agentB");
+		const workB = path.join(tmpdir, "work-agentB");
+		fs.mkdirSync(spaceB);
+		fs.mkdirSync(workB);
+		fs.symlinkSync(repoDir, path.join(spaceB, "myrepo"));
+
+		const branchA = `agent/space-agentA/tasks/T-test`;
+		const branchB = `agent/space-agentB/tasks/T-test`;
+		const depsA = { gitRunnerFactory: deps.gitRunnerFactory, workBranch: branchA };
+		const depsB = { gitRunnerFactory: deps.gitRunnerFactory, workBranch: branchB };
+
+		// Both agents mounting the same repo for the same task id — no collision.
+		const resultA = await mountSpaceFolders(spaceA, workA, depsA);
+		const resultB = await mountSpaceFolders(spaceB, workB, depsB);
+
+		expect(resultA.trustedPaths).toContain(repoDir);
+		expect(resultB.trustedPaths).toContain(repoDir);
+		expect(fs.existsSync(path.join(workA, "myrepo", ".git"))).toBe(true);
+		expect(fs.existsSync(path.join(workB, "myrepo", ".git"))).toBe(true);
 	});
 });

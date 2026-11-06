@@ -554,7 +554,9 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 	// the first conversation's "Connect a folder" and "Connect GitHub".
 	const asked = search.get("open");
 	const askedFor =
-		(asked === "start" && isMe) || (asked === "folder" && agent) || (asked === "service" && isMe)
+		(asked === "start" && isMe) ||
+		(asked === "folder" && agent && mine) ||
+		(asked === "service" && isMe)
 			? asked
 			: null;
 	useEffect(() => {
@@ -998,7 +1000,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 								title="Folders"
 								items={[]}
 								none="Folders live in your agents' spaces. Add one and pick which of your agents get it."
-								add="Add a folder"
+								add={myAgents.length > 0 ? "Add a folder" : undefined}
 								onAdd={() => setDialog("folder")}
 							/>
 						)}
@@ -1170,12 +1172,20 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 					onSave={async (save) => {
 						if (save.added?.kind === "folder") {
 							const toAdd = myAgents.filter((a) => !save.keepFrom.includes(a.id));
+							const failures: string[] = [];
 							for (const a of toAdd) {
 								const r = await call("edit_user", {
 									id: a.id,
 									folders: { add: [{ path: save.added.where }] },
 								});
-								if (!r.ok) return after(r);
+								if (!r.ok && r.problems?.[0]?.code !== "folder_exists") {
+									const msg = problemOf(r);
+									if (msg) failures.push(msg);
+								}
+							}
+							if (failures.length > 0) {
+								reload();
+								return failures[0] ?? "Some folders could not be added.";
 							}
 						}
 						reload();

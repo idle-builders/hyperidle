@@ -157,7 +157,7 @@ HyperIdle is not a git host, a CI runner, or a deployment platform. It does not:
 - Own OAuth apps for any service (agents use connection tokens or harness-inherited auth)
 - Deploy or release software
 
-Agents can reach these things through [connections](./connections.md) and [filesystems](../objects/folders.md) (a code filesystem mounts a git working directory the agent writes back to). HyperIdle wires the agent to the work; it does not replace the tools the work needs.
+Agents can reach these things through [connections](./connections.md) and [folders](../objects/folders.md). HyperIdle wires the agent to the work; it does not replace the tools the work needs.
 
 ## One Node process
 

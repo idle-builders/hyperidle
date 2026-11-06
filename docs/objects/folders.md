@@ -17,7 +17,7 @@ From `SpaceFolderView` (`@hyperidle/run-orchestration`):
 
 At session start, `mountSpaceFolders` reads every non-reserved entry in the agent's space and mounts it into the working folder:
 
-- **Git repository** (`isGit: true`) → git worktree at `<workingFolder>/<name>/`. The branch is `<workBranch>` (task-scoped). Reuses an existing worktree on a second mount; re-attaches after `git worktree remove`.
+- **Git repository** (`isGit: true`) → git worktree at `<workingFolder>/<name>/`. The branch is `agent/<spaceBasename>/<taskOrConversationId>` — unique per agent so two agents mounting the same repo for the same task each get their own branch. Reuses an existing worktree on a second mount; re-attaches after `git worktree remove`.
 - **Plain directory** (`isGit: false`) → symlink at `<workingFolder>/<name>` pointing at the real path.
 - **Dangling symlink** (`isMissing: true`) → skipped; other folders still mount.
 

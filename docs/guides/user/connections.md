@@ -19,7 +19,7 @@ On your page, press **Add a folder**.
 2. **Who works in it** — all of your agents are ticked; untick any that should not get it.
 3. Press **Save**.
 
-The first conversation's **Connect a folder** opens this same dialog.
+The agent's page also has an **Add a folder** button, which opens the folder dialog for that agent only.
 
 ---
 

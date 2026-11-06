@@ -140,6 +140,27 @@ test("your page: a reason switched off stays off; Dark changes the looks; Look a
 	await expect(you.getByRole("button", { name: /^Looked just now/ })).toBeVisible();
 });
 
+test("your page: 'Add a folder' with Growth unticked only adds to Builder, not Growth", async ({
+	page,
+}) => {
+	await page.goto("/people/me");
+	await page.getByRole("button", { name: "Add a folder" }).click();
+	const dlg = dialog(page, "Where you and your agents work");
+	await dlg.getByLabel("Where").fill("/tmp");
+	// Untick Growth (keep from Growth)
+	await dlg.getByRole("checkbox", { name: "Growth" }).uncheck();
+	await dlg.getByRole("button", { name: "Save" }).click();
+	await expect(dlg).toHaveCount(0);
+
+	// Builder should have /tmp
+	await page.goto(BUILDER);
+	await expect(box(page, "Builder")).toContainText("/tmp");
+
+	// Growth should not have /tmp
+	await page.goto(GROWTH);
+	await expect(box(page, "Growth")).not.toContainText("/tmp");
+});
+
 test("the bell's 'Change what you are told about' opens the dialog on your page", async ({
 	page,
 }) => {
