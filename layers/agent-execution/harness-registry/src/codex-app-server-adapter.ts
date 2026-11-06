@@ -13,6 +13,7 @@
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import type {
 	HarnessAdapter,
@@ -78,6 +79,27 @@ interface CodexAppServerAdapterDeps {
 
 let nextSessionId = 1;
 
+/**
+ * Owner login: a codex home holding only a link to the owner's auth.json, so a run
+ * signs in as the owner without loading the owner's plugins, tool servers or settings.
+ * @lore: owner codex home — never point CODEX_HOME at ~/.codex; the owner's idle plugin reached an agent run that way on 2026-09-26
+ */
+function linkOwnerLogin(codexHome: string): void {
+	fs.mkdirSync(codexHome, { recursive: true });
+	const ownerHome = process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex");
+	const ownerAuth = path.join(ownerHome, "auth.json");
+	const link = path.join(codexHome, "auth.json");
+	let current: string | null = null;
+	try {
+		current = fs.readlinkSync(link);
+	} catch {
+		current = null;
+	}
+	if (current === ownerAuth) return;
+	fs.rmSync(link, { force: true });
+	fs.symlinkSync(ownerAuth, link);
+}
+
 function buildEnv(config: SessionConfig): Record<string, string> {
 	const allowlist = ["PATH", "HOME", "LANG"];
 	const env: Record<string, string> = {};
@@ -85,11 +107,15 @@ function buildEnv(config: SessionConfig): Record<string, string> {
 		const val = process.env[key];
 		if (val !== undefined) env[key] = val;
 	}
-	// Login-based CODEX_HOME: "own" → agent's isolated .codex dir; "owner" → default ~/.codex (not set)
+	const space = config.agentSpace?.path ?? config.sandboxPath;
 	if (config.agentSpace?.login === "own") {
-		const ownCodexDir = path.join(config.agentSpace.path, ".codex");
+		const ownCodexDir = path.join(space, ".codex");
 		fs.mkdirSync(ownCodexDir, { recursive: true });
 		env.CODEX_HOME = ownCodexDir;
+	} else {
+		const ownerLoginDir = path.join(space, ".codex-owner");
+		linkOwnerLogin(ownerLoginDir);
+		env.CODEX_HOME = ownerLoginDir;
 	}
 	// MCP token env var (codex bearer_token_env_var mechanism)
 	if (config.mcpTokenEnv) {
@@ -296,7 +322,7 @@ export class CodexAppServerAdapter implements HarnessAdapter {
 			sandbox: "workspace-write",
 			// @lore: approvalPolicy never — prevents server-initiated approval requests during tests and production sessions
 			approvalPolicy: "never",
-			// @lore: ephemeral false is safe — CODEX_HOME is set per login; "own" uses agent space, "owner" uses ~/.codex; history is scoped to whichever dir codex writes to
+			// @lore: ephemeral false is safe — CODEX_HOME is always a folder in the agent's space, so history never lands in the owner's ~/.codex
 			ephemeral: false,
 		})) as {
 			thread: { id: string };

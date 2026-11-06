@@ -22,7 +22,6 @@ import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import {
 	createHarnessSandbox,
 	provisionClaudeSandbox,
-	provisionCodexHome,
 	requireHarnessAuthed,
 } from "./harness-sandbox.js";
 import { productionCliConfig, productionHarnessAdapter } from "./production-cli-config.js";
@@ -206,13 +205,6 @@ describe("session handles — codex", () => {
 		try {
 			ensureSandboxGitRepo(sandboxPath);
 
-			const authFound = provisionCodexHome(sandboxPath);
-			if (!authFound) {
-				throw new Error(
-					"codex: no ~/.codex/auth.json to copy into the per-session sandbox — run `codex login`. Never skip to green.",
-				);
-			}
-
 			const config: SessionConfig = {
 				sessionId: `sh-codex-p1-${Math.random().toString(36).slice(2, 8)}`,
 				sandboxPath,
@@ -259,12 +251,6 @@ describe("session handles — codex", () => {
 
 		try {
 			ensureSandboxGitRepo(sandboxPath);
-			const authFound = provisionCodexHome(sandboxPath);
-			if (!authFound) {
-				throw new Error(
-					"codex: no ~/.codex/auth.json to copy into the per-session sandbox — run `codex login`. Never skip to green.",
-				);
-			}
 
 			const writeInstruction =
 				"Write the text 'phase1' to a new file called codex-write-test.txt. " +

@@ -3,7 +3,7 @@
  *
  * Assert the per-session config writer produces the correct dialect for each binary:
  *
- *   codex:    .codex-home/config.toml contains [mcp_servers.hyperidle] with
+ *   codex:    -c flags carry [mcp_servers.hyperidle] with
  *             url = "<mcpUrl>" and bearer_token_env_var = "HYPERIDLE_MCP_TOKEN";
  *             return value has tokenEnv.HYPERIDLE_MCP_TOKEN === token.
  *

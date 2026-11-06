@@ -25,7 +25,7 @@ The set is closed: `isReturnAction(toolName, args, taskId)` is the single runtim
 | Harness | Channel | Mechanism |
 |---|---|---|
 | `claude-code` | `settings-claude` | `.claude/settings.json` Stop hook calling `.claude/return-check.sh` (curl → `/api/mcp/:token/return-status`); exit-2 + stderr blocks |
-| `codex` | `settings-codex` | Per-session `CODEX_HOME` with `hooks.json` in nested codex format; `{"decision":"block","reason":"…"}` on stdout blocks |
+| `codex` | `settings-codex` | No artifact written; `CodexAppServerAdapter` calls the return-status route after each `turn/completed` and starts a follow-up turn when it blocks |
 | `opencode` | `process-reengage` | No native hook; adapter re-invokes `opencode run <forceMessage>` after detecting `step_finish` on stdout |
 | `cursor-agent` | `none` | No artifact written; drain-gate floor only |
 

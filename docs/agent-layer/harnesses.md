@@ -43,7 +43,7 @@ Auth: `native_cli_login` → `codex login`. Discovery: `codex --version`; `codex
 
 **MCP delivery:** MCP server config is passed as `-c` flags at spawn (`mcp_servers.hyperidle.url`, `bearer_token_env_var`, `default_tools_approval_mode`). The token is delivered via `HYPERIDLE_MCP_TOKEN` env var (never inline).
 
-**Return enforcement:** `settings-codex` — in-process gate. The adapter calls the return-status bridge after each `turn/completed` event. `CODEX_HOME` is set to `<agentSpace>/.codex` when the agent's login mode is `"own"`, scoping codex history to the agent's persistent space.
+**Return enforcement:** `settings-codex` — in-process gate. The adapter calls the return-status bridge after each `turn/completed` event. `CODEX_HOME` is always a folder in the agent's space: `<agentSpace>/.codex` for its own login, or `<agentSpace>/.codex-owner` for the owner's login. That folder holds only a link to the owner's `auth.json`, so a run signs in as the owner but never loads the owner's plugins, tool servers or settings from `~/.codex`.
 
 ### `claude-code` (Claude Code CLI)
 

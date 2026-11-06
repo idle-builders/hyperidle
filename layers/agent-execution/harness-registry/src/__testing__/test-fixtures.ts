@@ -18,6 +18,5 @@ export {
 	isHarnessAuthed,
 	killOrphanedCursorAgentWorkers,
 	provisionClaudeSandbox,
-	provisionCodexHome,
 	requireHarnessAuthed,
 } from "../__tests__/harness-sandbox.js";

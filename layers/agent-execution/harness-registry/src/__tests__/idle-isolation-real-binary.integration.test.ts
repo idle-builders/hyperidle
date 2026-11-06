@@ -10,11 +10,7 @@
 import type { HarnessAdapter, SessionConfig } from "@hyperidle/harness-protocol";
 import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
-import {
-	createHarnessSandbox,
-	provisionCodexHome,
-	requireHarnessAuthed,
-} from "./harness-sandbox.js";
+import { createHarnessSandbox, requireHarnessAuthed } from "./harness-sandbox.js";
 import { productionHarnessAdapter } from "./production-cli-config.js";
 import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
@@ -64,12 +60,13 @@ async function drainCompletionTexts(
 	return texts;
 }
 
-describe("codex app-server adapter (real binary) — per-session CODEX_HOME hides the user's idle plugin", () => {
+describe("codex app-server adapter (real binary) — the owner-login codex home hides the owner's idle plugin", () => {
 	requireHarness("codex");
+	// Long limit: codex lists every tool of the owner's ChatGPT account apps, often hundreds.
 	test("a codex session sees no idle-tasks/idle-skills tool", async () => {
 		await requireHarnessAuthed(
 			"codex",
-			"idle-isolation cannot prove CODEX_HOME isolation without a real logged-in session",
+			"idle-isolation cannot prove the owner-login codex home hides plugins without a real logged-in session",
 		);
 
 		const baseSandbox = createHarnessSandbox("idle-isolation-codex-base");
@@ -77,18 +74,11 @@ describe("codex app-server adapter (real binary) — per-session CODEX_HOME hide
 
 		try {
 			ensureSandboxGitRepo(sandboxPath);
-			const authFound = provisionCodexHome(sandboxPath);
-			if (!authFound) {
-				throw new Error(
-					"codex has no ~/.codex/auth.json to copy into the per-session sandbox — idle-" +
-						"isolation cannot prove CODEX_HOME isolation without real credentials. Run " +
-						"`codex login`. (never skip to green.)",
-				);
-			}
 
 			const config: SessionConfig = {
 				sessionId: `idle-isolation-codex-${Math.random().toString(36).slice(2, 10)}`,
 				sandboxPath,
+				agentSpace: { path: sandboxPath, login: "owner" },
 				assembledPrompt: TOOL_AUDIT_INSTRUCTION,
 				instruction: TOOL_AUDIT_INSTRUCTION,
 				modelTier: "workhorse" as const,
@@ -115,12 +105,12 @@ describe("codex app-server adapter (real binary) — per-session CODEX_HOME hide
 			).toMatch(CODEX_LISTED_SOMETHING);
 			expect(
 				combined,
-				`codex must not see the idle plugin via its per-session CODEX_HOME. Got: ${combined}`,
+				`codex on the owner's login must not see the owner's idle plugin. Got: ${combined}`,
 			).not.toMatch(IDLE_LEAK_PATTERN);
 		} finally {
 			await baseSandbox.cleanup();
 		}
-	}, 120_000);
+	}, 300_000);
 });
 
 describe("opencode serve adapter (real binary) — XDG_CONFIG_HOME isolation hides the user's idle plugin", () => {
