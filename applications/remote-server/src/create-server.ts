@@ -42,6 +42,8 @@ export interface ServerHandle {
 	readonly callActionAs: NonNullable<CoreApiBoot["callActionAs"]>;
 	/** Mint a WebSocket upgrade token for a specific actor — for integration tests that connect as non-default users. */
 	readonly mintWsTokenFor: NonNullable<CoreApiBoot["mintWsTokenFor"]>;
+	/** WebSocket connection hub — exposes broadcast so tests can push nudges without going through the server's own clock. */
+	readonly wsHub: CoreApiBoot["wsHub"];
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -249,5 +251,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		dispose,
 		callActionAs: coreApi.callActionAs,
 		mintWsTokenFor: coreApi.mintWsTokenFor,
+		wsHub: coreApi.wsHub,
 	};
 }

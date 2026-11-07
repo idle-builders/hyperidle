@@ -236,10 +236,16 @@ export async function bootRunnerWorld(
 	return {
 		runner: runnerHandle,
 		door,
-		nudge() {
-			// No-op: the server pushes `user:<agentId>` WS nudges when inbox rows are written,
-			// so the runner's WS subscription handles inbox triggers without a sweep.
-			// This method exists for ported test code that called world.nudge(...).
+		nudge(topic: string, envelope: unknown): void {
+			// Push a real WS nudge so the runner's subscriber calls onNudge() immediately.
+			// Normalize to { type:"update", topic, ...envelope } — the runner only triggers
+			// on type:"update" messages.
+			const base =
+				typeof envelope === "object" && envelope !== null
+					? (envelope as Record<string, unknown>)
+					: {};
+			const msg = { type: "update", topic, ...base };
+			serverHandle.wsHub.broadcast(topic, JSON.stringify(msg));
 		},
 		runs,
 		async stop() {

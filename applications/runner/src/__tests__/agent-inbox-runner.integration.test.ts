@@ -198,7 +198,13 @@ describe("an agent acts on its inbox", () => {
 				.update(subscriptions)
 				.set({ nextRunAt: new Date(Date.now() - 1_000).toISOString() })
 				.where(eq(subscriptions.userId, BUILDER));
-			const clock = startSubscriptionClock(db, { wsPush: () => undefined }, { tickIntervalMs: 20 });
+			const clock = startSubscriptionClock(
+				db,
+				{
+					wsPush: (topic: string, envelope: unknown) => world.nudge(topic, envelope),
+				},
+				{ tickIntervalMs: 20 },
+			);
 			try {
 				await waitFor("Builder's reply to its schedule", async () => {
 					const found = await saidBy(db, BUILDER, "pong");
@@ -512,5 +518,4 @@ describe("an agent acts on its inbox", () => {
 			makeFailingBoot(),
 		);
 	}, 20_000);
-
 });
