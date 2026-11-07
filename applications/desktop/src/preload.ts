@@ -18,7 +18,8 @@ contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 	runner: {
 		state: (agentId: string): Promise<{ held: boolean; movedAway: boolean } | null> =>
 			ipcRenderer.invoke("runner:state", agentId),
-		moveHere: (agentId: string): Promise<void> => ipcRenderer.invoke("runner:move-here", agentId),
+		moveHere: (agentId: string): Promise<{ held: boolean; movedAway: boolean } | null> =>
+			ipcRenderer.invoke("runner:move-here", agentId),
 	},
 	/** Only when the speech helper shipped with this app; the page never sees the IPC event. */
 	speech: process.argv.includes("--speech")

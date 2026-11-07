@@ -47,8 +47,8 @@ declare global {
 			readonly runner?: {
 				/** Null when runner is not wired to this window. */
 				state(agentId: string): Promise<{ held: boolean; movedAway: boolean } | null>;
-				/** Trigger adoption of this agent to the local runner. */
-				moveHere(agentId: string): Promise<void>;
+				/** Adopt this agent to the local runner; resolves with the new state once the take completes. */
+				moveHere(agentId: string): Promise<{ held: boolean; movedAway: boolean } | null>;
 			};
 		};
 	}

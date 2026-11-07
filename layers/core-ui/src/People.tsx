@@ -796,10 +796,8 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 										type="button"
 										className="btn"
 										onClick={() => {
-											void window.__HYPERIDLE__?.runner?.moveHere(u.id).then(() => {
-												void window.__HYPERIDLE__?.runner
-													?.state(u.id)
-													.then((s) => setRunnerState(s));
+											void window.__HYPERIDLE__?.runner?.moveHere(u.id).then((s) => {
+												if (s !== undefined) setRunnerState(s);
 											});
 										}}
 									>

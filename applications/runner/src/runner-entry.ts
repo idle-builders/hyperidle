@@ -56,9 +56,31 @@ void (async () => {
 			const msg = event.data as { type?: string; agentId?: string; reqId?: string } | null;
 			if (!msg || typeof msg.type !== "string") return;
 			if (msg.type === "take" && typeof msg.agentId === "string") {
-				runner.takeAgent(msg.agentId).catch((err: unknown) => {
-					logger.error("runner.takeAgent failed", { agentId: msg.agentId, error: String(err) });
-				});
+				const takeAgentId = msg.agentId;
+				const takeReqId = msg.reqId;
+				runner
+					.takeAgent(takeAgentId)
+					.then(() => {
+						if (takeReqId && parentPort) {
+							parentPort.postMessage({
+								type: "state",
+								reqId: takeReqId,
+								held: runner.heldAgentIds().includes(takeAgentId),
+								movedAway: runner.movedAwayAgentIds().includes(takeAgentId),
+							});
+						}
+					})
+					.catch((err: unknown) => {
+						logger.error("runner.takeAgent failed", { agentId: takeAgentId, error: String(err) });
+						if (takeReqId && parentPort) {
+							parentPort.postMessage({
+								type: "state",
+								reqId: takeReqId,
+								held: runner.heldAgentIds().includes(takeAgentId),
+								movedAway: runner.movedAwayAgentIds().includes(takeAgentId),
+							});
+						}
+					});
 			} else if (
 				msg.type === "state" &&
 				typeof msg.agentId === "string" &&
