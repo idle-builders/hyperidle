@@ -138,7 +138,7 @@ export const searchUsers: ActionDeclaration<SearchUsersInput, UserRow[]> = {
 export const OpenUserInputSchema = z
 	.object({
 		id: z.string().min(1).optional(),
-		/** Your inbox as only the rows not yet read, oldest first — what an agent's runner works through. */
+		/** Your inbox as only the rows not yet read — task_stop rows first, then oldest — what an agent's runner works through. */
 		unread: z.boolean().optional(),
 	})
 	.strict();

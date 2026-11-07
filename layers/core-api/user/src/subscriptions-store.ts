@@ -108,11 +108,11 @@ export async function deleteSubscription(db: HyperIdleDb, id: string): Promise<v
 export interface InboxRowFilter {
 	readonly userId: string;
 	readonly limit?: number;
-	/** Only the rows not yet read, oldest first — what an agent's runner works through. */
+	/** Only the rows not yet read — task_stop rows first, then oldest — what an agent's runner works through. */
 	readonly unread?: boolean;
 }
 
-/** Newest first — `open_user`'s "newest 50" — or, `unread`, oldest unread first. */
+/** Newest first — `open_user`'s "newest 50" — or, `unread`, task_stop rows first then oldest. */
 export function listInboxRows(
 	db: HyperIdleDb,
 	filter: InboxRowFilter,
