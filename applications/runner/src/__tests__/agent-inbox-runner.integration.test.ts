@@ -469,7 +469,6 @@ describe("an agent acts on its inbox", () => {
 			expect([waiting?.readAt, world.runs]).toEqual([null, []]);
 
 			await asPerson(world, "edit_task", { id: created.task.id, paused: null });
-			world.nudge(`user:${BUILDER}`, {});
 
 			await waitFor("Builder's run on the task", async () => {
 				const found = await saidBy(db, BUILDER, "pong");
