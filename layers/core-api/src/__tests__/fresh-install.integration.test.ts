@@ -59,23 +59,6 @@ import { applyFactoryCoreState } from "../bootstrap/factory-state.js";
 
 const BUNDLED = fileURLToPath(new URL("../../../../plugins", import.meta.url));
 
-const READY: HarnessCapabilityDescriptor = {
-	type: "claude-code",
-	name: "Claude Code",
-	authAction: { kind: "none", label: "Ready" },
-	discovery: { state: "ready" },
-	models: [
-		{ id: "claude-sonnet", label: "Sonnet", provider: "anthropic", selectable: true, options: [] },
-	],
-	modelProviders: ["anthropic"],
-};
-
-const machineHarnesses: HarnessCapabilityReader = {
-	size: 1,
-	describe: () => [READY],
-	refresh: async () => {},
-};
-
 interface ActionEnvelope<T> {
 	readonly ok: boolean;
 	readonly data?: T;
@@ -107,10 +90,7 @@ interface PluginActions {
 	edit(actor: string, input: Record<string, unknown>): Promise<ActionResult<PluginView>>;
 }
 
-function pluginActions(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-): PluginActions {
+function pluginActions(db: HyperIdleDb, eventBus: EventBus): PluginActions {
 	const pluginsBaseDir = join(
 		tmpdir(),
 		`fresh-install-plugins-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -120,7 +100,6 @@ function pluginActions(
 	const actions = buildCoreActions({
 		pluginsBaseDir,
 		bundledPluginsDir: BUNDLED,
-		adapterPool: machineHarnesses,
 	});
 	const run = (name: string) => {
 		const found = actions.find((a) => a.declaration.name === name);
@@ -189,8 +168,7 @@ describe("a fresh install, end to end", () => {
 
 		// A person, and their own assistant.
 		// First start makes the person in-process as nobody (`routes/start.ts`); the HTTP door refuses nobody.
-		const bootstrapEditUser = buildCoreActions({
-			}).find((a) => a.declaration.name === "edit_user");
+		const bootstrapEditUser = buildCoreActions({}).find((a) => a.declaration.name === "edit_user");
 		if (!bootstrapEditUser) throw new Error("edit_user not found");
 		const adaResult = await bootstrapEditUser.run(
 			{ actor: "", db, eventBus, now: new Date().toISOString() },
@@ -211,7 +189,6 @@ describe("a fresh install, end to end", () => {
 			agentCategory: "individual",
 			ownerUserId: adaId,
 			teams: ["Ada's Team"],
-			runConfig: { harnessType: "claude-code" },
 			subscriptions: { add: OBJECT_EVENTS.map((event) => ({ event })) },
 		});
 
@@ -221,7 +198,6 @@ describe("a fresh install, end to end", () => {
 		const assistantId = agents[0]?.id ?? "";
 		expect(agents[0]?.ownerUserId).toBe(adaId);
 		const assistant = await call<UserView>(app, "open_user", { id: assistantId });
-		expect(assistant.runConfig?.harnessType).toBe("claude-code");
 		expect(assistant.subscriptions.map((s) => s.event).sort()).toEqual([...OBJECT_EVENTS].sort());
 		expect(assistant.subscriptions.every((s) => s.documentId === null && !s.paused)).toBe(true);
 		expect(assistant.documentIds).toEqual([]);
@@ -357,7 +333,7 @@ describe("a fresh install, end to end", () => {
 		expect(everyAgent.filter((a) => a.id !== assistantId)).toHaveLength(14);
 		for (const agent of [...onA, ...onB]) {
 			const opened = await call<UserView>(app, "open_user", { id: agent.id });
-			expect(opened.runConfig?.harnessType, agent.name).toBe("claude-code");
+			expect(opened.user?.id, agent.name).toBe(agent.id);
 		}
 
 		// Two rows, two install folders.
@@ -402,6 +378,6 @@ describe("a fresh install, end to end", () => {
 		expect(librarians[0]?.status).toBe("active");
 		expect(librarians[0]?.teams).toEqual([]);
 		const librarian = await call<UserView>(app, "open_user", { id: librarians[0]?.id });
-		expect(librarian.runConfig?.harnessType).toBe("claude-code");
+		expect(librarian.user?.id).toBe(librarians[0]?.id);
 	});
 });

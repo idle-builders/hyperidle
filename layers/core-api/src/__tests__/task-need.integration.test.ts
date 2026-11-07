@@ -28,8 +28,7 @@ function makeCtx(db: HyperIdleDb, eventBus: EventBus): ActionContext {
 }
 
 function makeRunners() {
-	const actions = buildCoreActions({
-		});
+	const actions = buildCoreActions({});
 	const editTask = actions.find((a) => a.declaration.name === "edit_task")!.run as (
 		ctx: ActionContext,
 		input: EditTaskInput,
@@ -88,10 +87,7 @@ async function insertMsg(
 }
 
 describe("task need computation — search_tasks and open_task", () => {
-	test("questionnaire message → need:input; resolving clears it", async ({
-		db,
-		eventBus,
-		}) => {
+	test("questionnaire message → need:input; resolving clears it", async ({ db, eventBus }) => {
 		await seedActor(db);
 		const ctx = makeCtx(db, eventBus);
 		const { editTask, searchTasks, openTask } = makeRunners();
@@ -138,7 +134,7 @@ describe("task need computation — search_tasks and open_task", () => {
 	test("an agent's question sent through send_message makes need:input; the person picking an option clears it", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedActor(db);
 		await db.insert(users).values({
 			id: AGENT,
@@ -181,7 +177,7 @@ describe("task need computation — search_tasks and open_task", () => {
 		expect(await needOf()).toBeNull();
 	});
 
-	test("review message → need:review", async ({ db, eventBus, agentOrchestration }) => {
+	test("review message → need:review", async ({ db, eventBus }) => {
 		await seedActor(db);
 		const ctx = makeCtx(db, eventBus);
 		const { editTask, searchTasks } = makeRunners();
@@ -200,7 +196,7 @@ describe("task need computation — search_tasks and open_task", () => {
 		expect(res.data[0]?.need).toBe("review");
 	});
 
-	test("state:blocked → need:stuck", async ({ db, eventBus, agentOrchestration }) => {
+	test("state:blocked → need:stuck", async ({ db, eventBus }) => {
 		await seedActor(db);
 		const ctx = makeCtx(db, eventBus);
 		const { editTask, searchTasks } = makeRunners();
@@ -223,10 +219,7 @@ describe("task need computation — search_tasks and open_task", () => {
 		expect(res.data[0]?.need).toBe("stuck");
 	});
 
-	test("child questionnaire → parent openBelow.input:1", async ({
-		db,
-		eventBus,
-		}) => {
+	test("child questionnaire → parent openBelow.input:1", async ({ db, eventBus }) => {
 		await seedActor(db);
 		const ctx = makeCtx(db, eventBus);
 		const { editTask, openTask } = makeRunners();
@@ -262,7 +255,7 @@ describe("task need computation — search_tasks and open_task", () => {
 	test("open_task keeps parts in their set order after one of them changes", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedActor(db);
 		const { editTask, openTask } = makeRunners();
 		const ctx = makeCtx(db, eventBus);

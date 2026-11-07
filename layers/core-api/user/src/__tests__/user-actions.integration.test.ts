@@ -2,33 +2,25 @@
  * `search_users` / `open_user` / `edit_user` — real PGlite via the `{ db }`
  * fixture. `searchDocuments`/`editDocument` are the REAL `@hyperidle/document`
  * actions (the one genuinely external crossing this module has, same idiom
- * `platform-actions.integration.test.ts` established); `runConfig`/
- * `folders`/`connections` are in-memory fakes — the real thing lives in
- * `agent-orchestration`, a different Layer this package's own tests do not
- * boot.
+ * `platform-actions.integration.test.ts` established).
  */
 import { changes, documents, type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import {
-	type EditUserInput,
-	type OpenUserInput,
-	type SearchUsersInput,
-	type UserView,
-	UserViewSchema,
+import type {
+	EditUserInput,
+	OpenUserInput,
+	SearchUsersInput,
+	UserView,
 } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
-import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { findUserByKey } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 import type { ActionContext } from "../action-types.js";
 import { createUserActions, type UserActionsDeps } from "../user-actions.js";
 import { NOW, realDocumentActions, runnerFor, seedFounder } from "./_helpers.js";
 
-/** In-memory fakes for the ports that genuinely live in agent-orchestration —
- * a different Layer, never booted by this package's own tests. */
 function buildDeps(): UserActionsDeps {
 	const documentActions = realDocumentActions();
-	const runConfigStore = new Map<string, Record<string, unknown>>();
 	return {
 		changes: {
 			appendChange: async (exec, row) => {
@@ -41,40 +33,6 @@ function buildDeps(): UserActionsDeps {
 				const rows = await db.select().from(changes);
 				return rows.filter((r) => ids.includes(r.id));
 			},
-		},
-		runConfig: {
-			read: async (agentId) => ({
-				harnessType: null,
-				modelId: null,
-				modelProvider: null,
-				maxConcurrentSessions: 1,
-				modelOptions: {},
-				login: "owner" as const,
-				spacePath: null,
-				...runConfigStore.get(agentId),
-			}),
-			write: async (agentId, patch) => {
-				runConfigStore.set(agentId, { ...runConfigStore.get(agentId), ...patch });
-			},
-			ensureSpace: async (agentId) => {
-				const existing = runConfigStore.get(agentId);
-				const currentSpacePath = (existing?.spacePath as string | null | undefined) ?? null;
-				if (currentSpacePath) return currentSpacePath;
-				const newPath = `/fake-spaces/${agentId}`;
-				runConfigStore.set(agentId, { ...existing, spacePath: newPath });
-				return newPath;
-			},
-		},
-		spaceFolders: {
-			list: async () => [],
-			add: async () => ({ ok: true }) as const,
-			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
-		},
-		connections: {
-			list: async () => ({ connections: [], inherited: [] }),
-			add: async () => ({ ok: false, code: "MISSING_ROOT_SECRET" }) as const,
-			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
-			withhold: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
 		},
 		searchDocuments: runnerFor(documentActions, "search_documents"),
 		editDocument: runnerFor(documentActions, "edit_document"),
@@ -111,7 +69,7 @@ describe("edit_user — the system actor", () => {
 		const { editUser } = actionsFor(buildDeps());
 		const result = await editUser(ctxFor(db, "u-founder"), {
 			id: "system:propagation",
-			runConfig: { harnessType: "claude-code" },
+			what: "Updated",
 		});
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
@@ -222,7 +180,7 @@ describe("edit_user — a person in several teams, an agent in one", () => {
 	});
 });
 
-describe("edit_user — an agent created with run config, identity and subscriptions in one call", () => {
+describe("edit_user — an agent created with identity and subscriptions in one call", () => {
 	test("the create succeeds and every piece lands", async ({ db }) => {
 		await seedFounder(db);
 		const deps = buildDeps();
@@ -243,13 +201,11 @@ describe("edit_user — an agent created with run config, identity and subscript
 			teams: ["Gamma"],
 			status: "active",
 			identity: "You catalogue things.",
-			runConfig: { harnessType: "claude-code", modelId: "sonnet" },
 			subscriptions: { add: [{ event: "task.changed" }] },
 		});
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 
-		expect(result.data.runConfig?.harnessType).toBe("claude-code");
 		expect(result.data.subscriptions).toHaveLength(1);
 		expect(result.data.subscriptions[0]?.event).toBe("task.changed");
 		expect(result.data.documentIds.some((d) => d.slot === "agent_file")).toBe(true);
@@ -642,66 +598,6 @@ describe("edit_user — every DB-dependent problem code", () => {
 	});
 });
 
-/** Typed as the pool's own descriptor, so a field the wire schema requires but the pool never sends fails the parse below. */
-const CLAUDE_CODE: HarnessCapabilityDescriptor = {
-	type: "claude-code",
-	name: "Claude Code",
-	authAction: { kind: "native_cli_login", label: "Sign in", command: ["claude", "login"] },
-	discovery: { state: "ready" },
-	models: [],
-	modelProviders: ["anthropic"],
-};
-
-/** The same widening `compose.ts` does: the two types differ only in array mutability. */
-function machinePrograms(
-	descriptors: readonly HarnessCapabilityDescriptor[],
-): ReturnType<NonNullable<UserActionsDeps["harnesses"]>["describe"]> {
-	const widened: unknown = descriptors;
-	return widened as ReturnType<NonNullable<UserActionsDeps["harnesses"]>["describe"]>;
-}
-
-describe("open_user — the declared output shape matches what the connections door returns", () => {
-	test("an install with inherited connections and a program on this computer parses against UserViewSchema", async ({
-		db,
-	}) => {
-		await seedFounder(db);
-		// The real connections door (`agent-orchestration/connections`'s
-		// `projectFacts`) projects inherited rows into the same
-		// `ServiceConnectionView` shape (id/service/via/authSource/health/
-		// removable) held connections use — see `listConnectionsForUser` and
-		// `SettingsConnections.test.tsx`'s fixture. This fake stands in for
-		// that door with a row shaped exactly like the real one.
-		const deps: UserActionsDeps = {
-			...buildDeps(),
-			connections: {
-				...buildDeps().connections,
-				list: async () => ({
-					connections: [],
-					inherited: [
-						{
-							id: "inherited:claude-code:github",
-							service: "github",
-							via: "claude-code · github",
-							authSource: "inherited",
-							health: "working",
-							removable: false,
-							withheldFrom: [],
-						},
-					],
-				}),
-			},
-			harnesses: { describe: () => machinePrograms([CLAUDE_CODE]), redetect: async () => {} },
-		};
-		const { openUser } = actionsFor(deps);
-		const result = await openUser(ctxFor(db, "u-founder"), {});
-		expect(result.ok).toBe(true);
-		if (!result.ok) return;
-
-		const parsed = UserViewSchema.safeParse(result.data);
-		expect(parsed.success).toBe(true);
-	});
-});
-
 describe("edit_user — a discipline edge resolves to the users holding it", () => {
 	test("resolvedUserIds names every user whose own discipline matches, case-insensitively, never one that doesn't", async ({
 		db,
@@ -849,76 +745,5 @@ describe("edit_user — key minting security rules", () => {
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.problems[0]?.code).toBe("key_alone");
-	});
-});
-
-describe("edit_user — login 'own' creates space so open_user can probe login status", () => {
-	test("setting login to 'own' on agent with no space → space set → open_user shows not-logged-in with command", async ({
-		db,
-	}) => {
-		await seedFounder(db);
-		const depsBase = buildDeps();
-		// probeAgentLogin wired to return "unauthenticated"
-		const deps: UserActionsDeps = {
-			...depsBase,
-			probeAgentLogin: async (_harnessType, _spacePath) => ({ state: "unauthenticated" }),
-		};
-		const { editUser, openUser } = actionsFor(deps);
-
-		// Create the agent first (no run config)
-		const created = await editUser(ctxFor(db, "u-founder"), {
-			kind: "ai",
-			name: "Scout",
-			teams: ["Alpha"],
-		});
-		expect(created.ok).toBe(true);
-		if (!created.ok) return;
-		const agentId = created.data.user?.id as string;
-
-		// Set login to "own" with claude-code — no space exists yet
-		const edited = await editUser(ctxFor(db, "u-founder"), {
-			id: agentId,
-			runConfig: { harnessType: "claude-code", login: "own" },
-		});
-		expect(edited.ok).toBe(true);
-		if (!edited.ok) return;
-
-		// Space must now be set
-		expect(edited.data.runConfig?.spacePath).toBeTruthy();
-		const spacePath = edited.data.runConfig?.spacePath as string;
-
-		// open_user probes and returns the not-logged-in status with command
-		const opened = await openUser(ctxFor(db, "u-founder"), { id: agentId });
-		expect(opened.ok).toBe(true);
-		if (!opened.ok) return;
-
-		expect(opened.data.agentLoginStatus?.state).toBe("unauthenticated");
-		expect(opened.data.runConfig?.spacePath).toBe(spacePath);
-		// The runConfig is exposed via loginRowWhy in the UI; here we confirm the data is present
-	});
-});
-
-describe("edit_user — folder remove traversal names leave other agents' links alone", () => {
-	test("removing '../other-agent' does not reach the port", async ({ db }) => {
-		await seedFounder(db);
-		let removeCalled = false;
-		const deps = buildDeps();
-		deps.spaceFolders.remove = async () => {
-			removeCalled = true;
-			return { ok: false, code: "NOT_FOUND" } as const;
-		};
-		const { editUser } = actionsFor(deps);
-
-		// Traversal name: validateName in removeSpaceFolder refuses it before any fs call.
-		const result = await editUser(ctxFor(db, "u-founder"), {
-			id: "u-founder",
-			folders: { remove: ["../other-agent"] },
-		});
-
-		// The action either refuses at schema validation or passes to the port which refuses it.
-		// Either way the final outcome is not ok, and removeCalled proves port was reached (or not).
-		expect(result.ok).toBe(false);
-		// Schema validation (Zod refine on folders.remove) blocks before the port.
-		expect(removeCalled).toBe(false);
 	});
 });

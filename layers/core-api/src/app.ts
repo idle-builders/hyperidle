@@ -1,4 +1,3 @@
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { SYSTEM_ACTOR_ID } from "@hyperidle/domain-model";
@@ -20,7 +19,6 @@ import { createAuthRoutes } from "./routes/auth.js";
 import { authHealth } from "./routes/health.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { createStartRoutes } from "./routes/start.js";
-import type { HarnessCapabilityReader } from "./services/harness-capability-reader.js";
 
 /**
  * The minimal shape a route needs to push data onto the WS connection hub —
@@ -35,21 +33,11 @@ export interface WsPushTarget {
 interface AppOptions {
 	db?: HyperIdleDb;
 	eventBus?: EventBus;
-	/**
-	 * The seam's ONE port for this composition, built by the caller
-	 * (`buildAgentOrchestrationPort(transport)`) and handed in as a value —
-	 * there is no ambient/module-level transport to fall back on. Required
-	 * whenever `db` is provided: every route and reaction routes through this door. `createCoreApiApp` throws a named error at
-	 * construction if `db` is present and this is not.
-	 */
-	agentOrchestration?: AgentOrchestrationPort;
 	serviceBootstrap?: (ctx: {
 		db: HyperIdleDb;
 		eventBus: EventBus;
-		agentOrchestration: AgentOrchestrationPort;
 		/**
-		 * `edit_task`'s own bound `run`, so a background writer
-		 * (`registerWorkSessionStartedReactions`) can call it in-process.
+		 * `edit_task`'s own bound `run`, so background reactions can call it in-process.
 		 */
 		editTask: (
 			ctx: import("./actions/action.js").ActionContext,
@@ -58,9 +46,8 @@ interface AppOptions {
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").TaskView>
 		>;
 		/**
-		 * `send_message`'s own bound `run`, so the relocated never-silent-net
-		 * reaction (`session-not-returned-notice.ts`) posts through the action
-		 * instead of a raw `insertMessage`.
+		 * `send_message`'s own bound `run`, so the lifecycle-propagation reaction
+		 * posts through the action instead of a raw `insertMessage`.
 		 */
 		sendMessage: (
 			ctx: import("./actions/action.js").ActionContext,
@@ -70,19 +57,7 @@ interface AppOptions {
 				import("@hyperidle/domain-model").SendMessageOutput
 			>
 		>;
-		/**
-		 * `edit_user`'s own bound `run` — the crashed-session
-		 * health reaction writes the agent's `health` through it instead of a
-		 * notification-queue row.
-		 */
-		editUser: (
-			ctx: import("./actions/action.js").ActionContext,
-			input: import("@hyperidle/domain-model").EditUserInput,
-		) => Promise<
-			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").UserView>
-		>;
 	}) => Array<() => void>;
-	/**
 	/**
 	 * Optional WebSocket registration hook. When provided,
 	 * `createApp` invokes it with the `/api` sub-router just after the
@@ -99,15 +74,6 @@ interface AppOptions {
 	 */
 	registerExtraRoutes?: (apiRouter: Hono) => void;
 	/**
-	 * Awaited inside POST /api/harnesses/redetect ALONGSIDE the
-	 * harness discovery refresh, BEFORE the response returns — the inherited
-	 * reach re-probe rides the same rate-limited moment (1 req/5s) with
-	 * identical observable effect. The Application
-	 * wires the orchestration Layer's `inheritedReach.refresh` here; absent
-	 * (kernel-only) the redetect refreshes harness discoveries only.
-	 */
-	onHarnessRedetect?: () => Promise<void>;
-	/**
 	 * The WS connection hub's
 	 * broadcast-only surface. `send_message`/`adjust_thread` push the
 	 * `changes` row itself, once per row, on both topics — `wsPush` on
@@ -122,17 +88,6 @@ interface AppOptions {
 	 * TTL; production wiring uses `createUpgradeTokenStore()`.
 	 */
 	upgradeTokenStore?: UpgradeTokenStore;
-	/**
-	 * Adapter pool for running agent sessions — read-only capability probe
-	 * (which harnesses are registered/discovered), used only to gate route
-	 * mounting and answer descriptor reads.
-	 */
-	adapterPool?: HarnessCapabilityReader;
-	/**
-	 * Probe function for per-agent login status (login: "own" only).
-	 * Absent → open_user does not populate agentLoginStatus (graceful degradation).
-	 */
-	probeAgentLogin?: import("@hyperidle/user").UserActionsDeps["probeAgentLogin"];
 	/**
 	 * Base directory where plugin files are persisted on install.
 	 * When provided, `installPlugin` copies the plugin source to
@@ -212,12 +167,8 @@ export function registerCoreApiPreAuthRoutes(
  * `bundledPluginsDir`, `wsHub`) are a flat, ungated read of `options`, nothing this function
  * needs any of `createCoreApiApp`'s own state to compute.
  */
-function buildCoreActionsBindings(
-	options: AppOptions,
-	agentOrchestration: AgentOrchestrationPort,
-): Parameters<typeof buildCoreActions>[0] {
+function buildCoreActionsBindings(options: AppOptions): Parameters<typeof buildCoreActions>[0] {
 	return {
-		agentOrchestration,
 		...(options.pluginsBaseDir ? { pluginsBaseDir: options.pluginsBaseDir } : {}),
 		...(options.bundledPluginsDir ? { bundledPluginsDir: options.bundledPluginsDir } : {}),
 		...(options.wsHub
@@ -226,9 +177,6 @@ function buildCoreActionsBindings(
 						options.wsHub?.broadcast(topic, JSON.stringify(envelope)),
 				}
 			: {}),
-		...(options.adapterPool ? { adapterPool: options.adapterPool } : {}),
-		...(options.onHarnessRedetect ? { onHarnessRedetect: options.onHarnessRedetect } : {}),
-		...(options.probeAgentLogin ? { probeAgentLogin: options.probeAgentLogin } : {}),
 	};
 }
 
@@ -294,21 +242,9 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	// Register work endpoints if db is provided
 	if (options?.db) {
 		const eventBus = options.eventBus ?? new EventBus();
-		// The seam's one port for this composition — a required
-		// value, never an ambient global. `createTestApp`/`create-server.ts`
-		// build it before calling `createCoreApiApp`.
-		const agentOrchestration = options.agentOrchestration;
-		if (!agentOrchestration) {
-			throw new Error(
-				"AppOptions.agentOrchestration is required when db is provided — build one with " +
-					"buildAgentOrchestrationPort(transport) and pass it explicitly (no ambient transport).",
-			);
-		}
 
 		// action list mounted at POST /api/actions/<name> — one loop, never a per-object route factory
-		const actions: readonly Action[] = buildCoreActions(
-			buildCoreActionsBindings(options, agentOrchestration),
-		);
+		const actions: readonly Action[] = buildCoreActions(buildCoreActionsBindings(options));
 		api.route("/actions", createActionsRouter(actions, { db: options.db, eventBus }));
 		APP_ACTIONS.set(api, actions);
 		const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
@@ -379,19 +315,9 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			editDocument: editDocumentRun,
 			searchDocuments: searchDocumentsRun,
 		});
-		// health reaction writes through edit_user action — lands as user.changed row, same as any edit
-		const editUserRun = runnerFor<
-			import("@hyperidle/domain-model").EditUserInput,
-			import("@hyperidle/domain-model").UserView
-		>(actions, "edit_user");
 		// user module: search_users/open_user/edit_user under /api/actions/<name>
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
-		api.route(
-			"/start",
-			createStartRoutes(options.db, eventBus, actions, async () => {
-				await Promise.all([options.adapterPool?.refresh(), options.onHarnessRedetect?.()]);
-			}),
-		);
+		api.route("/start", createStartRoutes(options.db, eventBus, actions));
 		// Plugin management: `search_plugins`/`edit_plugin`, mounted generically by
 		// `createActionsRouter` above (`compose.ts`'s fourth action group).
 
@@ -402,10 +328,8 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			options.serviceBootstrap?.({
 				db,
 				eventBus,
-				agentOrchestration,
 				editTask,
 				sendMessage,
-				editUser: editUserRun,
 			}) ?? [];
 		disposers.push(...serviceDisposers);
 

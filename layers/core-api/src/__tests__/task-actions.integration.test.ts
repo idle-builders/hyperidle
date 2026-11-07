@@ -33,8 +33,7 @@ function ctxFor(actor: string, db: HyperIdleDb, eventBus: EventBus): ActionConte
 }
 
 function buildTestActions() {
-	return buildCoreActions({
-		});
+	return buildCoreActions({});
 }
 
 interface ActionEnvelope<T> {
@@ -154,7 +153,7 @@ describe("edit_task — create, human and agent", () => {
 		app,
 		asPerson,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "ta-team-1", asPerson);
 		await seedAgent(db, "ta-agent-1", "ta-team-1");
 
@@ -383,7 +382,7 @@ describe("edit_task — thread membership on create-with-threadId", () => {
 		app,
 		asPerson,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "ta-thr-1", asPerson);
 		await seedAgent(db, "ta-thr1-agentA", "ta-thr-1");
 		await seedAgent(db, "ta-thr1-agentB", "ta-thr-1");
@@ -426,7 +425,7 @@ describe("edit_task — thread membership on create-with-threadId", () => {
 		app,
 		asPerson,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "ta-thr-2", asPerson);
 		await seedAgent(db, "ta-thr2-agentA", "ta-thr-2");
 
@@ -826,7 +825,7 @@ describe("edit_task — state:review guard", () => {
 	test("setting state:review via edit_task is refused for external callers (requires a review card)", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "ta-rv-team-1");
 		await seedAgent(db, "ta-rv-agent-1", "ta-rv-team-1");
 
@@ -861,7 +860,7 @@ describe("edit_task — state:review guard", () => {
 	test("setting state:review via edit_task is refused for an agent caller (requires a review card)", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "ta-rv-team-2");
 		await seedAgent(db, "ta-rv-agent-2", "ta-rv-team-2");
 

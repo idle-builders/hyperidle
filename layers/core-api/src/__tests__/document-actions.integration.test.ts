@@ -138,8 +138,7 @@ async function callInternal<T>(
 }
 
 function buildRealActions(): readonly Action[] {
-	return buildCoreActions({
-		});
+	return buildCoreActions({});
 }
 
 async function callHumanAs<T>(
@@ -395,7 +394,7 @@ describe("case 1 — create a document, read it back with open_document, every f
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c1", asPerson);
 		await seedAgent(db, "c1-agent");
 		const actions = buildRealActions();
@@ -466,7 +465,7 @@ describe('case 2 — create as:"memory"', () => {
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c2", asPerson);
 		await seedAgent(db, "c2-agent");
 		const actions = buildRealActions();
@@ -500,7 +499,7 @@ describe("case 2b — a user-scoped document IN the tree is a private document, 
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c2b", asPerson);
 		await seedAgent(db, "c2b-agent");
 		const actions = buildRealActions();
@@ -583,7 +582,7 @@ describe("case 2b — a user-scoped document IN the tree is a private document, 
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c2bs", asPerson);
 		await seedAgent(db, "c2bs-agent");
 		const actions = buildRealActions();
@@ -626,7 +625,7 @@ describe("case 2b — a user-scoped document IN the tree is a private document, 
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c2bm", asPerson);
 		await seedAgent(db, "c2bm-agent");
 		const actions = buildRealActions();
@@ -660,10 +659,7 @@ describe("case 2b — a user-scoped document IN the tree is a private document, 
 // ---------------------------------------------------------------------------
 
 describe("case 3 — an agent's memory is visible to its owner, not to a third person", () => {
-	test("owner opens it; a stranger gets not_found", async ({
-		db,
-		eventBus,
-		}) => {
+	test("owner opens it; a stranger gets not_found", async ({ db, eventBus }) => {
 		await seedTeam(db, "c3");
 		await seedHuman(db, "c3-owner");
 		await seedHuman(db, "c3-stranger");
@@ -713,7 +709,7 @@ describe('case 4 — create as:"artifact" with no explicit parent', () => {
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c4", asPerson);
 		await seedTaskWithThread(db, "c4-task-1", "c4");
 		await seedAgent(db, "c4-agent");
@@ -767,7 +763,7 @@ describe("case 5 — a tree: ancestors root-first, ordered children, siblings ex
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c5", asPerson);
 		await seedAgent(db, "c5-agent");
 		const actions = buildRealActions();
@@ -818,7 +814,7 @@ describe("case 5b — a person reads a document of a team they are not in", () =
 	test("open_document and search_documents both reach it, its team-B ancestor included", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c5b-a");
 		await seedTeam(db, "c5b-b");
 		await seedHuman(db, "c5b-b-owner", "c5b-b");
@@ -936,12 +932,7 @@ describe("case 6 — search_documents({inTree:true}) excludes artifacts and slot
 // ---------------------------------------------------------------------------
 
 describe('case 7 — search_documents({as:"memory"}) returns only the caller\'s own', () => {
-	test("both doors: never another actor's memory", async ({
-		app,
-		asPerson,
-		db,
-		eventBus,
-		}) => {
+	test("both doors: never another actor's memory", async ({ app, asPerson, db, eventBus }) => {
 		await seedTeam(db, "c7", asPerson);
 		await seedHuman(db, "c7-other-human");
 		await seedAgent(db, "c7-agent");
@@ -1004,7 +995,7 @@ describe("case 8 — a batched parent.ids search returns one row per subscriptio
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c8", asPerson);
 		await seedAgent(db, "c8-agent");
 		await seedSubscription(db, "c8-routine-a", "c8-agent");
@@ -1066,7 +1057,7 @@ describe("case 9 — an invariant refusal round-trips through both doors", () =>
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c9i1", asPerson);
 		await seedAgent(db, "c9i1-agent");
 		const actions = buildRealActions();
@@ -1086,7 +1077,7 @@ describe("case 9 — an invariant refusal round-trips through both doors", () =>
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c9d8", asPerson);
 		await seedHuman(db, "c9d8-owner");
 		await seedAgent(db, "c9d8-agent");
@@ -1132,7 +1123,7 @@ describe("case 9b — forbidden_parent_kind refuses client doors, not the intern
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c9b1", asPerson);
 		await seedAgent(db, "c9b1-agent");
 		const actions = buildRealActions();
@@ -1151,7 +1142,7 @@ describe("case 9b — forbidden_parent_kind refuses client doors, not the intern
 	test("the identity helper still creates an agent's identity document, unaffected by the client refusal", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c9b3");
 		await seedAgent(db, "c9b3-agent");
 		const actions = buildRealActions();
@@ -1198,7 +1189,7 @@ describe("case 10 — the combined cases", () => {
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c10c2", asPerson);
 		await seedAgent(db, "c10c2-agent");
 		await seedSubscription(db, "c10c2-routine", "c10c2-agent");
@@ -1230,7 +1221,7 @@ describe("case 10 — the combined cases", () => {
 	test('as:"artifact" + an explicit thread parent wins over the calling task\'s stamp', async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c10c3");
 		await seedTaskWithThread(db, "c10c3-task", "c10c3");
 		await seedThreadRow(db, "c10c3-thread", "c10c3");
@@ -1291,7 +1282,7 @@ describe("case 10 — the combined cases", () => {
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c10c5", asPerson);
 		await seedAgent(db, "c10c5-agent");
 		const actions = buildRealActions();
@@ -1311,7 +1302,7 @@ describe("case 10 — the combined cases", () => {
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c10c6", asPerson);
 		await seedAgent(db, "c10c6-agent");
 		const actions = buildRealActions();
@@ -1341,7 +1332,7 @@ describe("case 10 — the combined cases", () => {
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c10c7", asPerson);
 		await seedHuman(db, "c10c7-owner");
 		await seedAgent(db, "c10c7-agent");
@@ -1391,7 +1382,7 @@ describe("case 10 — the combined cases", () => {
 	test("a shared task's artifact is readable across teams (successful half)", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c10c8-a");
 		await seedTeam(db, "c10c8-b");
 		await seedTaskWithThread(db, "c10c8-task", "c10c8-a");
@@ -1452,7 +1443,7 @@ describe("graduation — a task-parented artifact moves into the document tree v
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "cgrad-1", asPerson);
 		await seedTaskWithThread(db, "cgrad-1-task", "cgrad-1");
 		await seedAgent(db, "cgrad-1-agent");
@@ -1491,7 +1482,7 @@ describe("graduation — a task-parented artifact moves into the document tree v
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "cgrad-2", asPerson);
 		await seedTaskWithThread(db, "cgrad-2-task", "cgrad-2");
 		await seedAgent(db, "cgrad-2-agent");
@@ -1523,7 +1514,7 @@ describe("graduation — a task-parented artifact moves into the document tree v
 	test('as:"artifact" + explicit parent:null from a task session is refused — null means the top of the tree, and an artifact cannot be there', async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "cgrad-3");
 		await seedTaskWithThread(db, "cgrad-3-task", "cgrad-3");
 		await seedAgent(db, "cgrad-3-agent");
@@ -1653,7 +1644,7 @@ describe("case 13 — default-scope derivation: actor's team, else the calling t
 	test("an agent with no team, called from a task session, gets the task's team", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c13-task-team");
 		await seedTaskWithThread(db, "c13-task", "c13-task-team");
 		await seedAgent(db, "c13-taskless-agent");
@@ -1672,10 +1663,7 @@ describe("case 13 — default-scope derivation: actor's team, else the calling t
 		expect(result.document.scopeId).toBe("c13-task-team");
 	});
 
-	test("an agent with neither a team nor a calling task gets factory", async ({
-		db,
-		eventBus,
-		}) => {
+	test("an agent with neither a team nor a calling task gets factory", async ({ db, eventBus }) => {
 		await seedTeam(db, "c13-none");
 		await seedAgent(db, "c13-bare-agent");
 		const actions = buildRealActions();
@@ -1765,7 +1753,7 @@ describe("case 14 — the scope cascade family", () => {
 	test("1b widening never cascades: exactly one change row, children untouched", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		// A team member throughout — creating a child under a team-scoped
 		// parent needs to SEE that parent, which is a separate concern from the
 		// widening-never-cascades property this case proves.
@@ -1934,7 +1922,7 @@ describe("case 15 — open_document raises the read count and nothing else", () 
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c15", asPerson);
 		await seedHuman(db, "c15-stranger");
 		await seedAgent(db, "c15-agent");
@@ -2072,7 +2060,7 @@ describe('case 17 — unusedSince and sort:"least_used"', () => {
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c17", asPerson);
 		await seedAgent(db, "c17-agent");
 		const actions = buildRealActions();
@@ -2112,7 +2100,7 @@ describe("cross-door proof — identical input yields deep-equal data, modulo id
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "cdp1", asPerson);
 		await seedAgent(db, "cdp1-agent");
 		const actions = buildRealActions();
@@ -2178,7 +2166,7 @@ describe("cross-door proof — onBodyChanged detaches a plugin contribution on a
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "cdp2", asPerson);
 		await seedAgent(db, "cdp2-agent");
 		const actions = buildRealActions();
@@ -2279,7 +2267,7 @@ describe("case 18 — search_documents({parent}) must name exactly one of id/ids
 		asPerson,
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "c18-a", asPerson);
 		await seedTeam(db, "c18-b", asPerson);
 		await seedTaskWithThread(db, "c18-task", "c18-a");

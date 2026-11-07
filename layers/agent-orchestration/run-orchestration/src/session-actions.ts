@@ -1,25 +1,15 @@
-/** Session actions: search_sessions, watch_session, stop_session. */
+/** Session actions: stop_session. */
 
 import {
 	type ActionDeclaration,
 	type ActionResult,
-	type ActivityEntry,
-	type ListWaitingRequestsInput,
-	listWaitingRequests as listWaitingRequestsDeclaration,
-	type SearchSessionsInput,
 	type SessionRow,
 	type StopSessionInput,
 	type StopSessionOutput,
-	searchSessions as searchSessionsDeclaration,
 	stopSession as stopSessionDeclaration,
-	type WaitingRequestRow,
-	type WatchSessionInput,
-	type WatchSessionOutput,
-	watchSession as watchSessionDeclaration,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { RunnerDb, Session } from "@hyperidle/runner-db";
-import type { SessionSearchFilter } from "./session-store.js";
 
 /** Local structural mirror of the layer's ActionContext/Action — nested Service may not import the layer's own package. */
 export interface ActionContext {
@@ -40,23 +30,14 @@ export interface Action<I = unknown, O = unknown> {
 	readonly run: (ctx: ActionContext, input: I) => Promise<ActionResult<O>>;
 }
 
-/** Deps for session actions. `stop` and `activity` are cross-package — bound at the layer composition root, never imported here. */
+/** Deps for session actions. `stop` is cross-package — bound at the layer composition root, never imported here. */
 export interface SessionActionsDeps {
 	readonly sessions: {
-		list(db: RunnerDb, filter: SessionSearchFilter): Promise<readonly Session[]>;
 		getById(db: RunnerDb, id: string): Promise<Session | undefined>;
-	};
-	/** Pending/claimed requests by stream — bound at the layer composition root. */
-	readonly pendingRequests: {
-		listForStream(db: RunnerDb, streamId: string): Promise<readonly { agentId: string }[]>;
 	};
 	/** `stopSessionRun`, already bound to `abort`/the layer's own `eventBus`. */
 	readonly stop: (sessionId: string) => Promise<"aborted" | "marked" | "already_ended">;
-	/** The in-memory ring buffer, verbatim (never persisted) — `session-activity-buffer.ts`'s own reader. */
-	readonly activity: (sessionId: string) => readonly ActivityEntry[];
 }
-
-const DEFAULT_SEARCH_LIMIT = 100;
 
 /** The thread named in a session's source, which every thread-started session records. */
 function threadOf(sourceCorrelationJson: string | null): string | null {
@@ -83,44 +64,6 @@ function toSessionRow(row: Session): SessionRow {
 
 export function createSessionActions(deps: SessionActionsDeps): readonly Action[] {
 	// -----------------------------------------------------------------------
-	// search_sessions
-	// -----------------------------------------------------------------------
-	async function searchSessionsRun(
-		ctx: ActionContext,
-		input: SearchSessionsInput,
-	): Promise<ActionResult<SessionRow[]>> {
-		const rows = await deps.sessions.list(ctx.db, {
-			...(input.ids ? { ids: input.ids } : {}),
-			...(input.taskId ? { taskId: input.taskId } : {}),
-			...(input.agentIds ? { agentIds: input.agentIds } : {}),
-			...(input.state ? { state: input.state } : {}),
-			limit: input.limit ?? DEFAULT_SEARCH_LIMIT,
-			...(input.offset !== undefined ? { offset: input.offset } : {}),
-		});
-		return { ok: true, data: rows.map(toSessionRow) };
-	}
-
-	// -----------------------------------------------------------------------
-	// watch_session
-	// -----------------------------------------------------------------------
-	async function watchSessionRun(
-		ctx: ActionContext,
-		input: WatchSessionInput,
-	): Promise<ActionResult<WatchSessionOutput>> {
-		const row = await deps.sessions.getById(ctx.db, input.id);
-		if (!row) {
-			return {
-				ok: false,
-				problems: [{ code: "not_found", message: `Session ${input.id} not found` }],
-			};
-		}
-		return {
-			ok: true,
-			data: { session: toSessionRow(row), activity: [...deps.activity(input.id)] },
-		};
-	}
-
-	// -----------------------------------------------------------------------
 	// stop_session — the row in the answer is the row as it stood the MOMENT
 	// asked (pre-stop, on the abort path) — the terminal state arrives
 	// later, by nudge, never in this response.
@@ -143,38 +86,5 @@ export function createSessionActions(deps: SessionActionsDeps): readonly Action[
 		};
 	}
 
-	// -----------------------------------------------------------------------
-	// list_waiting_requests
-	// -----------------------------------------------------------------------
-	async function listWaitingRequestsRun(
-		ctx: ActionContext,
-		input: ListWaitingRequestsInput,
-	): Promise<ActionResult<WaitingRequestRow[]>> {
-		const pending = await deps.pendingRequests.listForStream(ctx.db, `thread:${input.threadId}`);
-		if (pending.length === 0) return { ok: true, data: [] };
-		const agentIds = [...new Set(pending.map((r) => r.agentId))];
-		const activeSessions = await deps.sessions.list(ctx.db, {
-			agentIds,
-			state: "active",
-			limit: agentIds.length + 1,
-		});
-		const activeByAgent = new Map(activeSessions.map((s) => [s.agentId, s]));
-		return {
-			ok: true,
-			data: pending.map((req) => {
-				const blocking = activeByAgent.get(req.agentId);
-				return {
-					agentId: req.agentId,
-					activeSession: blocking ? toSessionRow(blocking) : null,
-				};
-			}),
-		};
-	}
-
-	return [
-		{ declaration: searchSessionsDeclaration, run: searchSessionsRun } as Action,
-		{ declaration: watchSessionDeclaration, run: watchSessionRun } as Action,
-		{ declaration: stopSessionDeclaration, run: stopSessionActionRun } as Action,
-		{ declaration: listWaitingRequestsDeclaration, run: listWaitingRequestsRun } as Action,
-	];
+	return [{ declaration: stopSessionDeclaration, run: stopSessionActionRun } as Action];
 }

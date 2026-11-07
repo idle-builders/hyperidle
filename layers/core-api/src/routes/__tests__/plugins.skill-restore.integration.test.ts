@@ -8,7 +8,6 @@
 import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import { skillItemId } from "@hyperidle/settings";
@@ -22,11 +21,8 @@ async function editDocumentAs(
 	body: Record<string, unknown>,
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	agentOrchestration: AgentOrchestrationPort,
 ): Promise<{ ok: boolean }> {
-	const actions = buildCoreActions({
-		agentOrchestration,
-	});
+	const actions = buildCoreActions({});
 	const editDocument = actions.find((a) => a.declaration.name === "edit_document");
 	if (!editDocument) throw new Error("edit_document action not found");
 	const ctx: ActionContext = { actor: actorId, db, eventBus, now: new Date().toISOString() };
@@ -92,7 +88,6 @@ describe("skill restore", () => {
 		db,
 		pluginsApp,
 		eventBus,
-		agentOrchestration,
 		asPerson,
 	}) => {
 		await seedFounder(db);
@@ -135,7 +130,6 @@ describe("skill restore", () => {
 			{ id: skillId, body: "USER EDITED CONTENT", version: skillItem.version },
 			db,
 			eventBus,
-			agentOrchestration,
 		);
 		expect(patchRes.ok).toBe(true);
 

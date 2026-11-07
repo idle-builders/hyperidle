@@ -1,7 +1,6 @@
 /**
- * The session action list. `createSessionActions`'s
- * three runs against a hand-built `SessionActionsDeps` for `search_sessions`/
- * `watch_session`/the no-live-entry and terminal-row halves of `stop_session`;
+ * The session action list. `createSessionActions` against a hand-built `SessionActionsDeps`
+ * for the no-live-entry and terminal-row halves of `stop_session`;
  * `stopSessionRun` against the REAL `sessionRunRegistry` and a real
  * `provisioner.run` for the live-entry half — the only way to prove the
  * teardown fix that makes a stopped session's row read state "stopped", not
@@ -11,15 +10,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import type {
-	ActivityEntry,
-	SearchSessionsInput,
-	SessionRow,
-	StopSessionInput,
-	StopSessionOutput,
-	WatchSessionInput,
-	WatchSessionOutput,
-} from "@hyperidle/domain-model";
+import type { SessionRow, StopSessionInput, StopSessionOutput } from "@hyperidle/domain-model";
 import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { type RunnerDb, sessions } from "@hyperidle/runner-db";
@@ -38,7 +29,7 @@ import {
 } from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 import { type Action, createSessionActions, type SessionActionsDeps } from "../session-actions.js";
-import { findSessionById, listSessions, stopSessionRun } from "../session-store.js";
+import { findSessionById, stopSessionRun } from "../session-store.js";
 
 const NOW = "2026-09-01T00:00:00.000Z";
 
@@ -68,141 +59,23 @@ async function seedSession(
 	});
 }
 
-/** A deps bag with `stop`/`activity` stubbed — `sessions.list`/`getById` are the real store accessors. */
+/** A deps bag with `stop` stubbed — `sessions.getById` is the real store accessor. */
 function buildDeps(overrides: Partial<SessionActionsDeps> = {}): SessionActionsDeps {
 	return {
-		sessions: { list: listSessions, getById: findSessionById },
-		pendingRequests: { listForStream: vi.fn(async () => []) },
+		sessions: { getById: findSessionById },
 		stop: vi.fn(async () => "already_ended" as const),
-		activity: () => [],
 		...overrides,
 	};
 }
 
-/** The three declared actions, typed against their real input/output shapes — `createSessionActions` returns the structural `unknown`-generic `Action[]` every consumer casts on lookup (`runnerFor`'s own idiom), never a labeled record. */
-function typedActions(deps: SessionActionsDeps): {
-	readonly search: Action<SearchSessionsInput, SessionRow[]>;
-	readonly watch: Action<WatchSessionInput, WatchSessionOutput>;
-	readonly stop: Action<StopSessionInput, StopSessionOutput>;
-} {
-	const [search, watch, stop] = createSessionActions(deps);
-	if (!(search && watch && stop)) throw new Error("createSessionActions: expected three actions");
-	return {
-		search: search as Action<SearchSessionsInput, SessionRow[]>,
-		watch: watch as Action<WatchSessionInput, WatchSessionOutput>,
-		stop: stop as Action<StopSessionInput, StopSessionOutput>,
-	};
+/** The declared action, typed against its real input/output shapes. */
+function typedStop(deps: SessionActionsDeps): Action<StopSessionInput, StopSessionOutput> {
+	const [stop] = createSessionActions(deps);
+	if (!stop) throw new Error("createSessionActions: expected stop action");
+	return stop as Action<StopSessionInput, StopSessionOutput>;
 }
 
 describe("createSessionActions", () => {
-	describe("search_sessions", () => {
-		test("no filter lists every session, newest first, capped at 100", async ({ db, runnerDb }) => {
-			await seedAgent(db, "agent-search");
-			await seedSession(runnerDb, {
-				id: "s-old",
-				agentId: "agent-search",
-				state: "done",
-				startedAt: "2026-01-01T00:00:00.000Z",
-			});
-			await seedSession(runnerDb, {
-				id: "s-new",
-				agentId: "agent-search",
-				state: "active",
-				startedAt: "2026-06-01T00:00:00.000Z",
-			});
-			const { search } = typedActions(buildDeps());
-
-			const result = await search.run(
-				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
-				{},
-			);
-
-			if (!result.ok) throw new Error("expected ok");
-			expect(result.data.map((r) => r.id)).toEqual(["s-new", "s-old"]);
-		});
-
-		test("a session that answered in a conversation says which one", async ({ db, runnerDb }) => {
-			await seedAgent(db, "agent-thread");
-			await runnerDb.insert(sessions).values({
-				id: "s-thread",
-				agentId: "agent-thread",
-				modelTier: "workhorse",
-				startedAt: NOW,
-				state: "active",
-				sourceKind: "assistant",
-				sourceCorrelationJson: JSON.stringify({ threadId: "th-1", messageId: "m-1" }),
-			});
-			await seedSession(runnerDb, {
-				id: "s-plain",
-				agentId: "agent-thread",
-				state: "done",
-				startedAt: "2026-01-01T00:00:00.000Z",
-			});
-			const { search } = typedActions(buildDeps());
-
-			const result = await search.run(
-				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
-				{},
-			);
-
-			if (!result.ok) throw new Error("expected ok");
-			expect(result.data.map((r) => [r.id, r.threadId])).toEqual([
-				["s-thread", "th-1"],
-				["s-plain", null],
-			]);
-		});
-
-		test("filters by state", async ({ db, runnerDb }) => {
-			await seedAgent(db, "agent-search-2");
-			await seedSession(runnerDb, { id: "s-active", agentId: "agent-search-2", state: "active" });
-			await seedSession(runnerDb, { id: "s-done", agentId: "agent-search-2", state: "done" });
-			const { search } = typedActions(buildDeps());
-
-			const result = await search.run(
-				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
-				{ state: "active" },
-			);
-
-			if (!result.ok) throw new Error("expected ok");
-			expect(result.data.map((r) => r.id)).toEqual(["s-active"]);
-		});
-	});
-
-	describe("watch_session", () => {
-		test("returns the row and the activity buffer", async ({ db, runnerDb }) => {
-			await seedAgent(db, "agent-watch");
-			await seedSession(runnerDb, { id: "s-watch", agentId: "agent-watch", state: "active" });
-			const entry: ActivityEntry = {
-				type: "tool_call",
-				timestamp: 1,
-				data: { toolName: "edit_task", argsSummary: "x" },
-			};
-			const { watch } = typedActions(buildDeps({ activity: () => [entry] }));
-
-			const result = await watch.run(
-				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
-				{ id: "s-watch" },
-			);
-
-			if (!result.ok) throw new Error("expected ok");
-			expect(result.data.session.id).toBe("s-watch");
-			expect(result.data.activity).toEqual([entry]);
-		});
-
-		test("an unknown id is not_found", async ({ runnerDb }) => {
-			const { watch } = typedActions(buildDeps());
-
-			const result = await watch.run(
-				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
-				{ id: "nope" },
-			);
-
-			expect(result.ok).toBe(false);
-			if (result.ok) throw new Error("expected refusal");
-			expect(result.problems[0]?.code).toBe("not_found");
-		});
-	});
-
 	describe("stop_session", () => {
 		test("no live entry: stopped true, the row the answer carries is the pre-stop row", async ({
 			db,
@@ -214,7 +87,7 @@ describe("createSessionActions", () => {
 				agentId: "agent-stop-marked",
 				state: "active",
 			});
-			const { stop } = typedActions(buildDeps({ stop: async () => "marked" }));
+			const stop = typedStop(buildDeps({ stop: async () => "marked" }));
 
 			const result = await stop.run(
 				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
@@ -236,7 +109,7 @@ describe("createSessionActions", () => {
 				state: "done",
 				outcome: "completed",
 			});
-			const { stop } = typedActions(buildDeps({ stop: async () => "already_ended" }));
+			const stop = typedStop(buildDeps({ stop: async () => "already_ended" }));
 
 			const result = await stop.run(
 				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
@@ -248,7 +121,7 @@ describe("createSessionActions", () => {
 		});
 
 		test("an unknown id is not_found", async ({ runnerDb }) => {
-			const { stop } = typedActions(buildDeps());
+			const stop = typedStop(buildDeps());
 
 			const result = await stop.run(
 				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },

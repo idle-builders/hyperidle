@@ -1,17 +1,15 @@
 import type {
 	DocumentRow,
 	PluginListing,
-	SessionRow,
 	SubscriptionEventName,
 	Task,
-	ThreadListRow,
 	UserRow,
 	UserView,
 } from "@hyperidle/domain-model";
 import { PERSON_REASONS } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
-import { call, type InputOf, programsAt } from "./api";
+import { call } from "./api";
 import { disciplinesOf } from "./doc-page";
 import { Failed } from "./Failed";
 import { LOOKS, useLooks } from "./looks";
@@ -23,27 +21,21 @@ import {
 	agentStand,
 	countWords,
 	crewOf,
-	folderPath,
-	folderTrouble,
 	forWords,
-	givenTo,
 	type Job,
 	joinWords,
-	loginRowWhy,
 	type Pair,
 	personStand,
 	pluginName,
-	programLineWhy,
-	programWords,
 	reasonWords,
-	serviceHow,
+	runnerButtonState,
 	sinceWords,
 	startedJobs,
 	startRows,
 	waitingJobs,
 } from "./people-page";
 import { pluginLine } from "./plugin-page";
-import { ReachDialog, type ReachRow, StartDialog, UserDialog } from "./Setup";
+import { StartDialog, UserDialog } from "./Setup";
 import { age, initials, teamsOf } from "./sidebar-lists";
 import { useNow } from "./Thread";
 import { useAction } from "./useAction";
@@ -62,9 +54,8 @@ import { useAction } from "./useAction";
  * reason for it to start, is made in a dialog, and its instructions are then written as a document.
  */
 
-type DialogId = "folder" | "service" | "start" | "edit";
+type DialogId = "start" | "edit";
 const NO_USERS: readonly UserRow[] = [];
-const NO_SESSIONS: readonly SessionRow[] = [];
 const problemOf = (r: { ok: boolean; problems?: readonly { message: string }[] }): string | null =>
 	r.ok ? null : (r.problems?.[0]?.message ?? "That did not work.");
 const docHref = (id: string, edit = false) =>
@@ -155,13 +146,6 @@ function Section({
 	);
 }
 
-/** Running sessions, for every stand on the page. */
-function useRunning(): readonly SessionRow[] {
-	return (
-		useAction("search_sessions", { state: "active", limit: 500 }, ["tasks"]).data ?? NO_SESSIONS
-	);
-}
-
 /* ---------- a team's page ---------- */
 
 /** One row on the team page: who, what they do, and what they are doing right now. */
@@ -186,46 +170,6 @@ function PersonRow({ u, you }: { u: UserRow; you: string }) {
 	return <Row u={u} stand={personStand(waitingJobs(threads.data ?? [], now), u.id === you)} />;
 }
 
-/** What a running session works on: its task, else the conversation that started it. */
-function workingOn(
-	s: SessionRow,
-	tasks: ReadonlyMap<string, string>,
-	threads: ReadonlyMap<string, string>,
-): string {
-	return tasks.get(s.taskId ?? "") ?? threads.get(s.threadId ?? "") ?? "a conversation";
-}
-
-const NO_THREADS: readonly ThreadListRow[] = [];
-/** Every conversation's title by id, to name what a running session answers. */
-function useThreadTitles(): ReadonlyMap<string, string> {
-	const threads = useAction("search_threads", {}, ["conversations"]).data ?? NO_THREADS;
-	return new Map(threads.map((t) => [t.id, t.computedTitle]));
-}
-
-function agentRowStand(
-	u: UserRow,
-	tasks: readonly Task[],
-	running: readonly SessionRow[],
-	threadTitles: ReadonlyMap<string, string>,
-	now: number,
-): string {
-	const titles = new Map(tasks.map((t) => [t.id, t.title]));
-	return agentStand({
-		paused: u.status === "inactive",
-		unwritten: false,
-		running: running
-			.filter((s) => s.agentId === u.id && s.endedAt === null)
-			.map((s) => ({
-				title: workingOn(s, titles, threadTitles),
-				startedAt: s.startedAt,
-			})),
-		asking: tasks.filter(
-			(t) => t.ownerAgentId === u.id && (t.need === "input" || t.need === "stuck"),
-		).length,
-		nextRun: null,
-		now,
-	});
-}
 const NO_TASKS: readonly Task[] = [];
 function useTasks(): readonly Task[] {
 	return useAction("search_tasks", {}, ["tasks"]).data ?? NO_TASKS;
@@ -241,8 +185,6 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 	const users = useAction("search_users", {}, ["users"]);
 	const plugins = useAction("search_plugins", {});
 	const tasks = useTasks();
-	const running = useRunning();
-	const threadTitles = useThreadTitles();
 	const [adding, setAdding] = useState(false);
 	const [addingPlugin, setAddingPlugin] = useState(false);
 	const location = useLocation();
@@ -268,7 +210,17 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 		);
 	const { crews, wholeTeam, everyTeam } = crewOf(everyone, team?.id ?? "", you);
 	const agents = crews.flatMap((c) => c.agents).length + wholeTeam.length;
-	const stand = (u: UserRow) => agentRowStand(u, tasks, running, threadTitles, now);
+	const stand = (u: UserRow) =>
+		agentStand({
+			paused: u.status === "inactive",
+			unwritten: false,
+			running: [],
+			asking: tasks.filter(
+				(t) => t.ownerAgentId === u.id && (t.need === "input" || t.need === "stuck"),
+			).length,
+			nextRun: null,
+			now,
+		});
 	const shown = (plugins.data ?? []).filter((p) => forTeam(p, team?.id ?? ""));
 	const yours = me.data?.user?.teams.some((t) => t.id === team?.id) ?? false;
 
@@ -395,7 +347,6 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 						you={you}
 						yours={yours}
 						users={everyone}
-						programs={me.data?.runsOn ?? []}
 						onClose={() => setAdding(false)}
 					/>
 				)}
@@ -420,7 +371,6 @@ function AddSomeone({
 	you,
 	yours,
 	users,
-	programs,
 	onClose,
 }: {
 	team: string;
@@ -428,14 +378,12 @@ function AddSomeone({
 	/** You are in this team, so an agent of yours can join it. */
 	yours: boolean;
 	users: readonly UserRow[];
-	programs: UserView["runsOn"];
 	onClose: () => void;
 }) {
 	const navigate = useNavigate();
 	const docs = useAction("search_documents", { inTree: true });
 	return (
 		<UserDialog
-			programs={programs}
 			disciplines={disciplinesOf(users, docs.data ?? [])}
 			owners={yours ? ["You", team] : [team]}
 			onClose={onClose}
@@ -447,16 +395,6 @@ function AddSomeone({
 					...(v.discipline ? { discipline: v.discipline } : {}),
 					teams: [team],
 					...(v.worksFor === "You" ? { ownerUserId: you } : {}),
-					...(v.harness
-						? {
-								runConfig: {
-									harnessType: v.harness as NonNullable<
-										InputOf<"edit_user">["runConfig"]
-									>["harnessType"],
-									...(v.model ? { modelId: v.model } : {}),
-								},
-							}
-						: {}),
 					identity: "",
 				});
 				if (!made.ok) return problemOf(made);
@@ -468,26 +406,6 @@ function AddSomeone({
 }
 
 /* ---------- a user's page ---------- */
-
-/** The open_user of each of these users, kept fresh with the people list. */
-function useViews(ids: readonly string[]): ReadonlyMap<string, UserView> {
-	const [views, setViews] = useState<ReadonlyMap<string, UserView>>(new Map());
-	const key = ids.join(" ");
-	const users = useAction("search_users", {}, ["users"]);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for `ids`; a new people list asks again
-	useEffect(() => {
-		let current = true;
-		const list = key ? key.split(" ") : [];
-		void Promise.all(list.map((id) => call("open_user", { id }))).then((all) => {
-			if (!current) return;
-			setViews(new Map(all.flatMap((r, i) => (r.ok ? [[list[i] ?? "", r.data] as const] : []))));
-		});
-		return () => {
-			current = false;
-		};
-	}, [key, users.data]);
-	return views;
-}
 
 export function UserScreen({ id }: { id: string }): React.ReactElement {
 	const me = useAction("open_user", {});
@@ -536,7 +454,6 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 
 	const users = useAction("search_users", {}, ["users"]).data ?? NO_USERS;
 	const tasks = useTasks();
-	const running = useRunning();
 	const threads = useAction("search_threads", { member: u.id }, ["conversations"]);
 	const myThreads = useAction("search_threads", {}, ["conversations"]);
 	const plugins = useAction("search_plugins", {});
@@ -545,27 +462,30 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 	const fileIds = [...view.documentIds.map((d) => d.id), ...promptIds];
 	const files = useAction("search_documents", { ids: fileIds }, ["documents"]);
 	const tree = useAction("search_documents", { inTree: true });
-	const myAgents = users.filter(
-		(a) => a.kind === "ai" && a.ownerUserId === you && a.status !== "retired",
-	);
-	const agentViews = useViews(isMe ? myAgents.map((a) => a.id) : []);
 	const [dialog, setDialog] = useState<DialogId | null>(null);
-	// A dialog asked for from elsewhere: the bell's "Change what you are told about" (start), and
-	// the first conversation's "Connect a folder" and "Connect GitHub".
+	// A dialog asked for from elsewhere: the bell's "Change what you are told about" (start).
 	const asked = search.get("open");
-	const askedFor =
-		(asked === "start" && isMe) ||
-		(asked === "folder" && agent && mine) ||
-		(asked === "service" && isMe)
-			? asked
-			: null;
+	const askedFor: DialogId | null = asked === "start" && isMe ? "start" : null;
 	useEffect(() => {
 		if (askedFor) setDialog(askedFor);
 	}, [askedFor]);
 	const [showDone, setShowDone] = useState(false);
-	const [looked, setLooked] = useState<string | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
 	const [looks, setLooks] = useLooks();
+
+	// Desktop only: query whether the local runner holds this agent.
+	const hasRunner = window.__HYPERIDLE__?.runner !== undefined;
+	const [runnerState, setRunnerState] = useState<{ held: boolean; movedAway: boolean } | null>(
+		null,
+	);
+	useEffect(() => {
+		if (!hasRunner || !agent) return;
+		void window.__HYPERIDLE__?.runner?.state(u.id).then((s) => setRunnerState(s));
+	}, [hasRunner, agent, u.id]);
+	const runnerBtn =
+		mine && agent && hasRunner && runnerState !== null
+			? runnerButtonState({ hasRunner: true, held: runnerState.held, movedAway: runnerState.movedAway })
+			: null;
 
 	const byId = new Map(users.map((x) => [x.id, x]));
 	const firstNames = new Map(users.map((x) => [x.id, x.name.split(" ")[0] ?? x.name]));
@@ -587,8 +507,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 	};
 
 	// What the page lists.
-	const mineRunning = running.filter((s) => s.agentId === u.id);
-	const jobs = agentJobs(tasks, u.id, running, initials(u.name), now);
+	const jobs = agentJobs(tasks, u.id, initials(u.name), now);
 	const done = tasks.filter(
 		(t) =>
 			t.ownerAgentId === u.id &&
@@ -602,11 +521,9 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 		u.id,
 		firstNames,
 		(x) => initials(byId.get(x)?.name ?? ""),
-		running,
 		now,
 		new Set((myThreads.data ?? []).filter((t) => t.initiatorId === u.id).map((t) => t.id)),
 	);
-	const titlesOfTasks = new Map(tasks.map((t) => [t.id, t.title]));
 	const next = view.subscriptions
 		.filter((s) => s.nextRunAt && !s.paused)
 		.sort((a, b) => (a.nextRunAt ?? "").localeCompare(b.nextRunAt ?? ""))[0];
@@ -614,14 +531,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 		? agentStand({
 				paused,
 				unwritten,
-				running: mineRunning.map((s) => ({
-					title: workingOn(
-						s,
-						titlesOfTasks,
-						new Map((myThreads.data ?? []).map((t) => [t.id, t.computedTitle])),
-					),
-					startedAt: s.startedAt,
-				})),
+				running: [],
 				asking: tasks.filter(
 					(t) => t.ownerAgentId === u.id && (t.need === "input" || t.need === "stuck"),
 				).length,
@@ -684,49 +594,6 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 	];
 
 	// The box's lists.
-	const program = view.runsOn.find((h) => h.type === view.runConfig?.harnessType);
-	const model = program?.models.find((m) => m.id === view.runConfig?.modelId);
-	const sessions = view.runConfig?.maxConcurrentSessions ?? 1;
-	const login = view.runConfig?.login ?? "owner";
-	const runsOn: Pair[] = agent
-		? [
-				program
-					? { what: program.name, why: programLineWhy(program, login) }
-					: { what: "No agent program set", why: "pick one in Edit" },
-				{ what: "Model", why: model?.label ?? view.runConfig?.modelId ?? "the default" },
-				{
-					what: "Login",
-					why: loginRowWhy(
-						login,
-						view.runConfig?.harnessType ?? null,
-						view.agentLoginStatus,
-						view.runConfig ?? null,
-					),
-				},
-				{ what: `${sessions} ${sessions === 1 ? "session" : "sessions"} at a time`, why: "" },
-			]
-		: [];
-	const worksIn: Pair[] = agent
-		? view.folders.map((f) => ({
-				what: folderPath(f),
-				why: folderTrouble(f) ?? "",
-			}))
-		: [];
-	const held = view.connections?.connections ?? [];
-	const inherited = view.connections?.inherited ?? [];
-	const servicesGivenTo = (keptFrom: readonly string[]) =>
-		givenTo(myAgents.filter((a) => !keptFrom.includes(a.id)).map((a) => a.name));
-	const reach: Pair[] = [
-		...held
-			.filter((c) => !(agent && c.withheldFrom.includes(u.id)))
-			.map((c) => ({
-				what: c.service,
-				why: isMe
-					? `${serviceHow(c)} · given to ${servicesGivenTo(c.withheldFrom)}`
-					: serviceHow(c),
-			})),
-		...inherited.map((c) => ({ what: c.service, why: serviceHow(c) })),
-	];
 	const reasons = startRows(u.name, view.subscriptions, titles);
 	const told = view.subscriptions.filter((s) => s.objectId === null && s.event !== null);
 	const toldRows = [...told].sort(
@@ -795,32 +662,6 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 			};
 
 	const subject = { name: u.name, agent, me: isMe };
-	const folderRows: ReachRow[] = view.folders.map((f) => ({
-		id: f.name,
-		name: folderPath(f),
-		how: f.isGit ? "A git repository" : "A folder",
-		given: true,
-		givenTo: "",
-	}));
-	const serviceRows: ReachRow[] = [
-		...held.map((c) => ({
-			id: c.id,
-			name: c.service,
-			how: serviceHow(c),
-			given: !c.withheldFrom.includes(u.id),
-			givenTo: servicesGivenTo(c.withheldFrom),
-		})),
-		...inherited.map((c) => ({
-			id: c.id,
-			name: c.service,
-			how: serviceHow(c),
-			given: true,
-			givenTo: "every agent",
-			locked: true,
-		})),
-	];
-	const ticked = (ticks: Map<string, boolean>, on: boolean) =>
-		[...ticks].filter(([, given]) => given === on).map(([x]) => x);
 
 	return (
 		<section className="detail">
@@ -926,15 +767,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 						<div className="tbox-head">
 							<span className="tbox-name">{u.name}</span>
 							<span className="tbox-state">
-								{agent
-									? paused
-										? "Paused"
-										: mineRunning.length > 0
-											? "Working"
-											: "Idle"
-									: isMe
-										? "You"
-										: "Person"}
+								{agent ? (paused ? "Paused" : "Idle") : isMe ? "You" : "Person"}
 							</span>
 						</div>
 						{(mine || !isMe) && (
@@ -954,7 +787,25 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 										{paused ? "Let it work" : "Pause"}
 									</button>
 								)}
+								{runnerBtn === "move-here" && (
+									<button
+										type="button"
+										className="btn"
+										onClick={() => {
+											void window.__HYPERIDLE__?.runner?.moveHere(u.id).then(() => {
+												void window.__HYPERIDLE__?.runner?.state(u.id).then((s) =>
+													setRunnerState(s),
+												);
+											});
+										}}
+									>
+										Move here
+									</button>
+								)}
 							</div>
+						)}
+						{runnerBtn === "moved-away" && (
+							<p className="tbox-none">{u.name} now lives on another computer.</p>
 						)}
 						{problem && <p className="composer-problem">{problem}</p>}
 						<ul className="tbox-facts">
@@ -985,35 +836,6 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 							{direct && <li>You last talked {age(direct.lastActiveAt, now)}</li>}
 						</ul>
 
-						{agent && <Section title="Runs on" items={runsOn} />}
-						{agent && (
-							<Section
-								title="Works in"
-								items={worksIn}
-								none="No folder. It works inside HyperIdle and with what it can reach."
-								add={mine ? "Add a folder" : undefined}
-								onAdd={() => setDialog("folder")}
-							/>
-						)}
-						{!agent && isMe && (
-							<Section
-								title="Folders"
-								items={[]}
-								none="Folders live in your agents' spaces. Add one and pick which of your agents get it."
-								add={myAgents.length > 0 ? "Add a folder" : undefined}
-								onAdd={() => setDialog("folder")}
-							/>
-						)}
-						{view.connections && (
-							<Section
-								title="Can reach"
-								items={reach}
-								first={5}
-								none="No service yet."
-								add={mine ? "Connect a service" : undefined}
-								onAdd={() => setDialog("service")}
-							/>
-						)}
 						{agent && (
 							<Section
 								title="Starts working when"
@@ -1067,53 +889,6 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 						{isMe && <Section title="This app" items={[app]} />}
 						{isMe && (
 							<section className="tbox-sec">
-								<h4>
-									Agent programs <span>{programsAt()}</span>
-								</h4>
-								{view.runsOn.length === 0 && <p className="tbox-none">None found.</p>}
-								{view.runsOn.map((h) => (
-									<div
-										key={h.type}
-										className={h.discovery.state === "ready" ? "pair" : "pair pair--off"}
-									>
-										<span className="pair-what">{h.name}</span>
-										<span className="pair-why">
-											{programWords(h)}
-											{h.discovery.version ? ` · ${h.discovery.version}` : ""}
-											{agentsOn(h.type, myAgents, agentViews)}
-										</span>
-									</div>
-								))}
-								<p className="pair-why">
-									{programsAt() === "on this computer"
-										? "Each one signs in on its own. Install or sign in to one, then look again."
-										: "Whoever runs the server installs them and signs them in."}
-								</p>
-								<button
-									type="button"
-									className="tbox-more"
-									onClick={() => {
-										setLooked("Looking…");
-										const before = view.runsOn.filter((h) => h.discovery.state === "ready").length;
-										void call("edit_user", { id: you, redetectHarnesses: true }).then((r) => {
-											const found = r.ok
-												? r.data.runsOn.filter((h) => h.discovery.state === "ready").length
-												: before;
-											setLooked(
-												found > before
-													? `Looked just now · ${found - before} more signed in`
-													: "Looked just now · nothing new",
-											);
-											reload();
-										});
-									}}
-								>
-									{looked ?? "Look again"}
-								</button>
-							</section>
-						)}
-						{isMe && (
-							<section className="tbox-sec">
 								<h4>Looks</h4>
 								<div className="chips">
 									{LOOKS.map((l) => (
@@ -1133,110 +908,6 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 				</article>
 			</div>
 
-			{dialog === "folder" && agent && (
-				<ReachDialog
-					who={subject}
-					kind="folder"
-					rows={folderRows}
-					yourAgents={[]}
-					onClose={close}
-					onSave={async (save) => {
-						const toRemove = [...save.ticks].filter(([, given]) => !given).map(([name]) => name);
-						if (toRemove.length > 0) {
-							const r = await call("edit_user", {
-								id: u.id,
-								folders: { remove: toRemove },
-							});
-							if (!r.ok) return after(r);
-						}
-						if (save.added?.kind === "folder") {
-							const r = await call("edit_user", {
-								id: u.id,
-								folders: { add: [{ path: save.added.where }] },
-							});
-							if (!r.ok) return after(r);
-						}
-						reload();
-						close();
-						return null;
-					}}
-				/>
-			)}
-			{dialog === "folder" && !agent && (
-				<ReachDialog
-					who={subject}
-					kind="folder"
-					rows={[]}
-					yourAgents={myAgents}
-					onClose={close}
-					onSave={async (save) => {
-						if (save.added?.kind === "folder") {
-							const toAdd = myAgents.filter((a) => !save.keepFrom.includes(a.id));
-							const failures: string[] = [];
-							for (const a of toAdd) {
-								const r = await call("edit_user", {
-									id: a.id,
-									folders: { add: [{ path: save.added.where }] },
-								});
-								if (!r.ok && r.problems?.[0]?.code !== "folder_exists") {
-									const msg = problemOf(r);
-									if (msg) failures.push(msg);
-								}
-							}
-							if (failures.length > 0) {
-								reload();
-								return failures[0] ?? "Some folders could not be added.";
-							}
-						}
-						reload();
-						close();
-						return null;
-					}}
-				/>
-			)}
-			{dialog === "service" && (
-				<ReachDialog
-					who={subject}
-					kind="service"
-					rows={serviceRows}
-					yourAgents={myAgents}
-					onClose={close}
-					onSave={async (save) => {
-						if (agent && save.ticks.size > 0) {
-							const r = await call("edit_user", {
-								id: u.id,
-								connections: { give: ticked(save.ticks, true), take: ticked(save.ticks, false) },
-							});
-							if (!r.ok) return after(r);
-						}
-						if (save.added?.kind === "service") {
-							const before = new Set((me.connections?.connections ?? []).map((c) => c.id));
-							const r = await call("edit_user", {
-								id: you,
-								connections: {
-									add: [
-										save.added.key
-											? { service: save.added.name, authSource: "token", token: save.added.key }
-											: {
-													...(save.added.name ? { service: save.added.name } : {}),
-													authSource: "mcp",
-													serverUrl: save.added.address ?? "",
-												},
-									],
-								},
-							});
-							if (!r.ok) return after(r);
-							const made = r.data.connections?.connections.find((c) => !before.has(c.id));
-							for (const agentId of save.keepFrom)
-								if (made)
-									await call("edit_user", { id: agentId, connections: { take: [made.id] } });
-						}
-						reload();
-						close();
-						return null;
-					}}
-				/>
-			)}
 			{dialog === "start" && (
 				<StartDialog
 					who={subject}
@@ -1273,10 +944,6 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 						me: isMe,
 						what: u.what ?? "",
 						discipline: u.discipline ?? "",
-						harness: view.runConfig?.harnessType ?? null,
-						model: view.runConfig?.modelId ?? null,
-						login,
-						sessions,
 						worksFor: owner
 							? owner.id === you
 								? "You"
@@ -1291,7 +958,6 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 								}
 							: null,
 					}}
-					programs={view.runsOn}
 					disciplines={disciplinesOf(users, tree.data ?? [])}
 					owners={[]}
 					onClose={close}
@@ -1302,22 +968,6 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 							...(v.name !== u.name ? { name: v.name } : {}),
 							what: v.what || null,
 							discipline: v.discipline || null,
-							...(agent
-								? {
-										runConfig: {
-											...(v.harness
-												? {
-														harnessType: v.harness as NonNullable<
-															InputOf<"edit_user">["runConfig"]
-														>["harnessType"],
-													}
-												: {}),
-											...(v.model ? { modelId: v.model } : {}),
-											login: v.login,
-											maxConcurrentSessions: v.sessions,
-										},
-									}
-								: {}),
 						});
 						if (!r.ok) return after(r);
 						reload();
@@ -1328,16 +978,4 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 			)}
 		</section>
 	);
-}
-
-/** Which of your agents run on a program, as the end of its line. */
-function agentsOn(
-	type: string,
-	agents: readonly UserRow[],
-	views: ReadonlyMap<string, UserView>,
-): string {
-	const on = agents
-		.filter((a) => views.get(a.id)?.runConfig?.harnessType === type)
-		.map((a) => a.name);
-	return on.length > 0 ? ` · ${joinWords(on)} ${on.length === 1 ? "runs" : "run"} on it` : "";
 }

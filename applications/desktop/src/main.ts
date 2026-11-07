@@ -31,6 +31,19 @@ import { cancelSignIn, type Provider, SignInCancelled, signIn } from "./sign-in.
 import { registerSpeechHandlers } from "./speech.js";
 import { guardContents } from "./window-guard.js";
 
+/** Minimal interface the runner hook must satisfy. */
+interface RunnerHook {
+	keyFor(agentId: string): string | undefined;
+}
+
+/** Set by the runner process when it starts; queried by IPC handlers. */
+let runnerHook: RunnerHook | undefined;
+
+/** Wire the runner to the IPC handlers. Called from outside main.ts once the runner starts. */
+export function setRunnerHook(runner: RunnerHook): void {
+	runnerHook = runner;
+}
+
 function log(message: string, data?: Record<string, unknown>): void {
 	const ts = new Date().toISOString();
 	const suffix = data ? ` ${JSON.stringify(data)}` : "";
@@ -360,6 +373,17 @@ function registerCommonIpcHandlers(ctx: BootContext): void {
 			return { ok: true };
 		},
 	);
+	ipcMain.handle(
+		"runner:state",
+		(_event: unknown, agentId: string): { held: boolean; movedAway: boolean } | null => {
+			if (!runnerHook) return null;
+			return { held: runnerHook.keyFor(agentId) !== undefined, movedAway: false };
+		},
+	);
+	ipcMain.handle("runner:move-here", (_event: unknown, _agentId: string): undefined => {
+		// No-op until the runner is wired; the runner's sweep will adopt the agent on its next pass.
+		return undefined;
+	});
 }
 
 function bindWindowStatePersistence(mainWindow: BrowserWindow, configPath: string): void {

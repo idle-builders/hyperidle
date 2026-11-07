@@ -10,7 +10,6 @@ describe("server shutdown", () => {
 		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "server-shutdown-test-secret-32-chars!");
 		const server = await createServer(0, {
 			db,
-			topology: "disabled",
 		});
 		const addr = server.httpServer.address();
 		const port = typeof addr === "object" && addr !== null ? addr.port : 0;

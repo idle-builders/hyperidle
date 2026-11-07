@@ -68,30 +68,6 @@ function openUserDeps(db: HyperIdleDb): UserActionsDeps {
 				return all.filter((r) => (ids as string[]).includes(r.id));
 			},
 		},
-		runConfig: {
-			read: async () => ({
-				harnessType: null,
-				modelId: null,
-				modelProvider: null,
-				maxConcurrentSessions: 1,
-				modelOptions: {},
-				login: "owner" as const,
-				spacePath: null,
-			}),
-			write: async () => undefined,
-			ensureSpace: async (_agentId, agentName) => `/spaces/${agentName}`,
-		},
-		spaceFolders: {
-			list: async () => [],
-			add: async () => ({ ok: true }) as const,
-			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
-		},
-		connections: {
-			list: async () => ({ connections: [], inherited: [] }),
-			add: async () => ({ ok: false, code: "MISSING_ROOT_SECRET" }) as const,
-			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
-			withhold: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
-		},
 		searchDocuments: async () => ({ ok: true, data: [] as never }) as const,
 		editDocument: async () => ({ ok: false, problems: [] as never }) as const,
 		onPluginPartEdited: async () => undefined,
