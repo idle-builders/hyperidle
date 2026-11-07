@@ -357,8 +357,6 @@ function registerCommonIpcHandlers(ctx: BootContext): void {
 			if (!keepPersonKey(ctx.credentialsPath, body.key))
 				return { ok: false, problem: "The keychain is unavailable, so your key cannot be kept." };
 			saveClientConfig(ctx.configPath, { backendMode: "shared", serverUrl });
-			// A joined Mac runs nothing locally, so it has no reason to open at login.
-			if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: false });
 			app.relaunch();
 			app.exit(0);
 			return { ok: true };
@@ -812,38 +810,46 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 
 async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void> {
 	const clientConfig = loadClientConfig(ctx.configPath);
-	const windowState = clientConfig.windowState;
 	const preloadPath = path.join(Dirname, "preload.js");
+	const startedAtLogin = app.isPackaged && app.getLoginItemSettings().wasOpenedAtLogin;
 
-	const mainWindow = new BrowserWindow({
-		x: windowState.x,
-		y: windowState.y,
-		width: windowState.width,
-		height: windowState.height,
-		titleBarStyle: "hiddenInset",
-		trafficLightPosition: { x: 12, y: 11 },
-		backgroundColor: paperCanvas(),
-		webPreferences: {
-			preload: preloadPath,
-			contextIsolation: true,
-			sandbox: true,
-			// The person's own key, handed back at joining: every request is them.
-			additionalArguments: windowArguments(readPersonKey(ctx.credentialsPath) ?? ""),
-		},
-		show: false,
-	});
+	const newWindow = (): BrowserWindow => {
+		const state = loadClientConfig(ctx.configPath).windowState;
+		const win = new BrowserWindow({
+			x: state.x,
+			y: state.y,
+			width: state.width,
+			height: state.height,
+			titleBarStyle: "hiddenInset",
+			trafficLightPosition: { x: 12, y: 11 },
+			backgroundColor: paperCanvas(),
+			webPreferences: {
+				preload: preloadPath,
+				contextIsolation: true,
+				sandbox: true,
+				// The person's own key, handed back at joining: every request is them.
+				additionalArguments: windowArguments(readPersonKey(ctx.credentialsPath) ?? ""),
+			},
+			show: false,
+		});
+		guardContents(win.webContents, serverUrl, (url) => void shell.openExternal(url));
+		win.show();
+		if (state.isMaximized) win.maximize();
+		if (state.isFullScreen) win.setFullScreen(true);
+		bindWindowStatePersistence(win, ctx.configPath);
+		return win;
+	};
 
-	guardContents(mainWindow.webContents, serverUrl, (url) => void shell.openExternal(url));
-	const splashPath = path.join(Dirname, "splash.html");
-	mainWindow.loadFile(splashPath);
-	mainWindow.show();
-	if (windowState.isMaximized) mainWindow.maximize();
-	if (windowState.isFullScreen) mainWindow.setFullScreen(true);
-
-	if (!mainWindow.isDestroyed()) {
-		void mainWindow.webContents.executeJavaScript(
+	let bootWindow: BrowserWindow | null = null;
+	if (!startedAtLogin) {
+		bootWindow = newWindow();
+		const splashPath = path.join(Dirname, "splash.html");
+		bootWindow.loadFile(splashPath);
+		void bootWindow.webContents.executeJavaScript(
 			'window.updateStatus && window.updateStatus("Connecting to remote server...")',
 		);
+	} else {
+		app.dock?.hide();
 	}
 
 	try {
@@ -857,11 +863,54 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		return;
 	}
 
-	mainWindow.loadURL(serverUrl);
-	bindWindowStatePersistence(mainWindow, ctx.configPath);
+	if (bootWindow && !bootWindow.isDestroyed()) bootWindow.loadURL(serverUrl);
 
 	const sharedPersonKey = readPersonKey(ctx.credentialsPath) ?? "";
 	const stopRunner = forkRunner(serverUrl, sharedPersonKey, ctx.userDataDir);
+
+	const createAppWindow = (): void => {
+		newWindow().loadURL(serverUrl);
+	};
+	const reopen = makeReopenWindowHandler(createAppWindow);
+	reopenHandler = reopen;
+
+	// Tray icon stays visible the whole time the runner runs.
+	const trayIcon = createTrayIcon();
+	const tray = new Tray(trayIcon);
+	tray.setToolTip("HyperIdle");
+
+	const stopAll = (): void => {
+		stopRunner?.();
+		logRotator?.detach();
+		app.exit(0);
+	};
+
+	tray.setContextMenu(
+		Menu.buildFromTemplate([
+			{ label: "HyperIdle is running", enabled: false },
+			{ label: "Open HyperIdle", click: reopen },
+			{ type: "separator" },
+			{ label: "Stop HyperIdle", click: stopAll },
+		]),
+	);
+	tray.on("double-click", reopen);
+
+	let systemShuttingDown = false;
+	app.on(
+		"before-quit",
+		makeLocalBeforeQuitHandler(
+			(): void => {
+				for (const win of BrowserWindow.getAllWindows()) win.close();
+				app.dock?.hide();
+			},
+			() => systemShuttingDown,
+		),
+	);
+	app.on("activate", reopen);
+	process.on("SIGTERM", stopAll);
+	powerMonitor.on("shutdown", (): void => {
+		systemShuttingDown = true;
+	});
 
 	registerCommonIpcHandlers(ctx);
 
@@ -871,13 +920,13 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		dataDir: ctx.userDataDir,
 	});
 	Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
-	app.on("before-quit", () => {
-		stopRunner?.();
-		return getBeforeQuitHandler(null, logRotator)();
-	});
-	app.on("activate", (): void => {
-		if (BrowserWindow.getAllWindows().length === 0) void startApp();
-	});
+
+	if (shouldRegisterLoginItem(clientConfig, app.isPackaged)) {
+		app.setLoginItemSettings({ openAtLogin: true });
+		saveClientConfig(ctx.configPath, { loginItemSet: true });
+	}
+
+	log("boot:shared complete", { serverUrl });
 }
 
 async function startApp(): Promise<void> {
