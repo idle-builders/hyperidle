@@ -32,9 +32,9 @@ Start talking (`POST /api/start`, `layers/core-api/src/routes/start.ts`) makes y
 
 ### Dev server runs no agents
 
-`npm run dev` boots the server with `topology: "disabled"` (`applications/remote-server/src/index.ts`) — the harness pool is empty, so no agent runs. To run agents in dev, use the desktop app: `npm run dev:desktop` (desktop shell + web dev server) or `npm run build:desktop:local`.
+`npm run dev` boots the server without a runner — no agents run. To run agents in dev, use the desktop app: `npm run dev:desktop` (desktop shell + web dev server) or `npm run build:desktop:local`.
 
-The desktop app uses `topology: "local"` (`applications/desktop/src/boot-server.ts`) and runs agents on the host.
+The desktop app forks `applications/runner/` as a separate process and runs agents on the host.
 
 ### Dev auth
 

@@ -111,7 +111,7 @@ Each row has a reason (`INBOX_REASONS`, `framework/domain-model/src/actions/user
 
 ### The runner
 
-The **runner** (`layers/agent-orchestration/src/runner/`) holds the agents' keys and works their inboxes. It runs inside the desktop app only (`applications/desktop/src/create-server.ts`). A shared server runs no runner, so its agents' rows wait there unread.
+The **runner** (`applications/runner/`) holds the agents' keys and works their inboxes. The desktop app forks it as a separate process (`applications/desktop/src/main.ts`) and points it at the server it is using — local or shared. The server process itself never starts a runner.
 
 - **Keys.** At start it calls as the person on this computer, with their own key, and lists the agents that person may hold: their own, and any agent no one owns. For each it asks for a fresh key (`edit_user({ id, key: "new" })`). It looks again whenever a user is created or changed.
 - **Reading the inbox.** For each agent it reads the unread rows oldest first (`open_user({ unread: true })`), acts on each as that agent, and marks it read (`edit_user({ inbox: { read: [id] } })`). It does this once at start (whatever waited while it was off), on every nudge, and every 30 seconds. A row whose task or thread is gone, or no longer the agent's, is marked read with nothing done; a failed pass leaves the rows unread for the next one.

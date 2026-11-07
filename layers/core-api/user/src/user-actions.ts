@@ -217,7 +217,7 @@ async function toUserRows(db: HyperIdleDb, rows: readonly UserWithTeams[]): Prom
 			health: r.health ?? null,
 			discipline: r.discipline ?? null,
 			what: r.what ?? null,
-			hasKey: r.keyHash !== null && r.keyHash !== undefined ? true : undefined,
+			hasKey: r.keyHash !== null && r.keyHash !== undefined,
 			teams,
 			edges: edgesByUser.get(r.id) ?? [],
 		};

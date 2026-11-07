@@ -526,15 +526,16 @@ describe("merged database surface index (runner-db alongside db)", () => {
 	});
 
 	it("routes a file inside runner-db's sourceRoot by prefix match", () => {
-		expect(
-			merged.resolve("framework/runner-db/src/schema.ts", "runs", false),
-		).toMatchObject({ surface: "db:table", table: "runs" });
+		expect(merged.resolve("framework/runner-db/src/schema.ts", "runs", false)).toMatchObject({
+			surface: "db:table",
+			table: "runs",
+		});
 	});
 
 	it("classifies a file outside both packages as unknown", () => {
-		expect(
-			merged.resolve("layers/core-api/src/something.ts", "runs", false).surface,
-		).toBe("db:unknown");
+		expect(merged.resolve("layers/core-api/src/something.ts", "runs", false).surface).toBe(
+			"db:unknown",
+		);
 	});
 });
 

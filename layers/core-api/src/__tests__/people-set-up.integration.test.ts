@@ -5,7 +5,7 @@
  */
 
 import { documents, type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
-import { type EditUserInput, type UserView } from "@hyperidle/domain-model";
+import type { EditUserInput, UserView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -122,4 +122,3 @@ describe("setting someone up", () => {
 		]);
 	});
 });
-

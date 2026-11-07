@@ -123,10 +123,7 @@ export async function cancelAllPendingForAgent(
 		.update(agentSessionRequests)
 		.set({ status: "cancelled", updatedAt: now })
 		.where(
-			and(
-				eq(agentSessionRequests.agentId, agentId),
-				eq(agentSessionRequests.status, "pending"),
-			),
+			and(eq(agentSessionRequests.agentId, agentId), eq(agentSessionRequests.status, "pending")),
 		)
 		.returning({ id: agentSessionRequests.id });
 	return cancelled.length;

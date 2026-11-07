@@ -367,34 +367,7 @@ function registerCommonIpcHandlers(ctx: BootContext): void {
 		(_event: unknown, agentId: string): Promise<{ held: boolean; movedAway: boolean } | null> => {
 			const child = runnerChild;
 			if (!child) return Promise.resolve(null);
-			return new Promise<{ held: boolean; movedAway: boolean } | null>((resolve) => {
-				const reqId = crypto.randomUUID();
-				let settled = false;
-				const done = (result: { held: boolean; movedAway: boolean } | null): void => {
-					if (settled) return;
-					settled = true;
-					child.off("message", handler);
-					child.off("exit", onExit);
-					clearTimeout(timer);
-					resolve(result);
-				};
-				const handler = (msg: unknown): void => {
-					const m = msg as {
-						type?: string;
-						reqId?: string;
-						held?: boolean;
-						movedAway?: boolean;
-					} | null;
-					if (m?.type === "state" && m.reqId === reqId) {
-						done({ held: m.held ?? false, movedAway: m.movedAway ?? false });
-					}
-				};
-				const onExit = (): void => done(null);
-				const timer = setTimeout(() => done(null), 3_000);
-				child.on("message", handler);
-				child.on("exit", onExit);
-				child.postMessage({ type: "state", agentId, reqId });
-			});
+			return askRunner(child, "state", agentId, 3_000);
 		},
 	);
 	ipcMain.handle(
@@ -402,34 +375,7 @@ function registerCommonIpcHandlers(ctx: BootContext): void {
 		(_event: unknown, agentId: string): Promise<{ held: boolean; movedAway: boolean } | null> => {
 			const child = runnerChild;
 			if (!child) return Promise.resolve(null);
-			return new Promise<{ held: boolean; movedAway: boolean } | null>((resolve) => {
-				const reqId = crypto.randomUUID();
-				let settled = false;
-				const done = (result: { held: boolean; movedAway: boolean } | null): void => {
-					if (settled) return;
-					settled = true;
-					child.off("message", handler);
-					child.off("exit", onExit);
-					clearTimeout(timer);
-					resolve(result);
-				};
-				const handler = (msg: unknown): void => {
-					const m = msg as {
-						type?: string;
-						reqId?: string;
-						held?: boolean;
-						movedAway?: boolean;
-					} | null;
-					if (m?.type === "state" && m.reqId === reqId) {
-						done({ held: m.held ?? false, movedAway: m.movedAway ?? false });
-					}
-				};
-				const onExit = (): void => done(null);
-				const timer = setTimeout(() => done(null), 10_000);
-				child.on("message", handler);
-				child.on("exit", onExit);
-				child.postMessage({ type: "take", agentId, reqId });
-			});
+			return askRunner(child, "take", agentId, 10_000);
 		},
 	);
 }
@@ -536,6 +482,42 @@ function createTrayIcon(): ReturnType<typeof nativeImage.createFromPath> {
 	const icon = nativeImage.createFromPath(iconPath);
 	icon.setTemplateImage(true);
 	return icon;
+}
+
+function askRunner(
+	child: Electron.UtilityProcess,
+	type: "state" | "take",
+	agentId: string,
+	timeoutMs: number,
+): Promise<{ held: boolean; movedAway: boolean } | null> {
+	return new Promise<{ held: boolean; movedAway: boolean } | null>((resolve) => {
+		const reqId = crypto.randomUUID();
+		let settled = false;
+		const done = (result: { held: boolean; movedAway: boolean } | null): void => {
+			if (settled) return;
+			settled = true;
+			child.off("message", handler);
+			child.off("exit", onExit);
+			clearTimeout(timer);
+			resolve(result);
+		};
+		const handler = (msg: unknown): void => {
+			const m = msg as {
+				type?: string;
+				reqId?: string;
+				held?: boolean;
+				movedAway?: boolean;
+			} | null;
+			if (m?.type === "state" && m.reqId === reqId) {
+				done({ held: m.held ?? false, movedAway: m.movedAway ?? false });
+			}
+		};
+		const onExit = (): void => done(null);
+		const timer = setTimeout(() => done(null), timeoutMs);
+		child.on("message", handler);
+		child.on("exit", onExit);
+		child.postMessage({ type, agentId, reqId });
+	});
 }
 
 // @lore: forkRunner — runner.cjs only exists after build:local; dev mode skips the fork and the runner runs separately.
