@@ -20,7 +20,6 @@
 		"@hyperidle/document": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/policy": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/task": "*",
@@ -33,6 +32,7 @@
 	"devDependencies": {
 		"@hono/node-server": "^2.0.6",
 		"@hyperidle/agent-execution": "*",
+		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/remote-server": "*",
 		"@hyperidle/run-orchestration": "*",
