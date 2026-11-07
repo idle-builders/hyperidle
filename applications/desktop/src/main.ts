@@ -32,18 +32,8 @@ import { cancelSignIn, type Provider, SignInCancelled, signIn } from "./sign-in.
 import { registerSpeechHandlers } from "./speech.js";
 import { guardContents } from "./window-guard.js";
 
-/** Minimal interface the runner hook must satisfy. */
-interface RunnerHook {
-	keyFor(agentId: string): string | undefined;
-}
-
-/** Set by the runner process when it starts; queried by IPC handlers. */
-let runnerHook: RunnerHook | undefined;
-
-/** Wire the runner to the IPC handlers. Called from outside main.ts once the runner starts. */
-export function setRunnerHook(runner: RunnerHook): void {
-	runnerHook = runner;
-}
+/** Current runner child process; updated each time forkRunner succeeds. */
+let runnerChild: Electron.UtilityProcess | null = null;
 
 function log(message: string, data?: Record<string, unknown>): void {
 	const ts = new Date().toISOString();
@@ -376,14 +366,25 @@ function registerCommonIpcHandlers(ctx: BootContext): void {
 	);
 	ipcMain.handle(
 		"runner:state",
-		(_event: unknown, agentId: string): { held: boolean; movedAway: boolean } | null => {
-			if (!runnerHook) return null;
-			return { held: runnerHook.keyFor(agentId) !== undefined, movedAway: false };
+		(_event: unknown, agentId: string): Promise<{ held: boolean; movedAway: boolean } | null> => {
+			const child = runnerChild;
+			if (!child) return Promise.resolve(null);
+			return new Promise<{ held: boolean; movedAway: boolean }>((resolve) => {
+				const reqId = crypto.randomUUID();
+				const handler = (msg: unknown): void => {
+					const m = msg as { type?: string; reqId?: string; held?: boolean; movedAway?: boolean } | null;
+					if (m?.type === "state" && m.reqId === reqId) {
+						child.off("message", handler);
+						resolve({ held: m.held ?? false, movedAway: m.movedAway ?? false });
+					}
+				};
+				child.on("message", handler);
+				child.postMessage({ type: "state", agentId, reqId });
+			});
 		},
 	);
-	ipcMain.handle("runner:move-here", (_event: unknown, _agentId: string): undefined => {
-		// No-op until the runner is wired; the runner's sweep will adopt the agent on its next pass.
-		return undefined;
+	ipcMain.handle("runner:move-here", (_event: unknown, agentId: string): void => {
+		runnerChild?.postMessage({ type: "take", agentId });
 	});
 }
 
@@ -511,37 +512,10 @@ function forkRunner(serverUrl: string, apiKey: string, dataDir: string): (() => 
 	env.HYPERIDLE_RUNNER_DRIZZLE_DIR = runnerDrizzleDir;
 	log("forkRunner", { runnerBundle, serverUrl, dataDir, runnerDrizzleDir });
 	const child = utilityProcess.fork(runnerBundle, [], { env });
+	runnerChild = child;
 	child.on("exit", (code) => {
+		if (runnerChild === child) runnerChild = null;
 		log("runner process exited", { code });
-	});
-	ipcMain.handle("runner:take", (_event: unknown, agentId: string) => {
-		child.postMessage({ type: "take", agentId });
-	});
-	ipcMain.handle("runner:held", () => {
-		return new Promise<string[]>((resolve) => {
-			const handler = (msg: unknown) => {
-				const m = msg as { type?: string; ids?: string[] } | null;
-				if (m?.type === "held") {
-					child.off("message", handler);
-					resolve(m.ids ?? []);
-				}
-			};
-			child.on("message", handler);
-			child.postMessage({ type: "held" });
-		});
-	});
-	ipcMain.handle("runner:movedAway", () => {
-		return new Promise<string[]>((resolve) => {
-			const handler = (msg: unknown) => {
-				const m = msg as { type?: string; ids?: string[] } | null;
-				if (m?.type === "movedAway") {
-					child.off("message", handler);
-					resolve(m.ids ?? []);
-				}
-			};
-			child.on("message", handler);
-			child.postMessage({ type: "movedAway" });
-		});
 	});
 	return () => {
 		child.kill();

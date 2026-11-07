@@ -13,6 +13,8 @@
  *   Receives  { type: "take", agentId: string }
  *   Receives  { type: "held" }     → replies { type: "held", ids: string[] }
  *   Receives  { type: "movedAway" } → replies { type: "movedAway", ids: string[] }
+ *   Receives  { type: "state", agentId: string, reqId: string }
+ *             → replies { type: "state", reqId: string, held: boolean, movedAway: boolean }
  */
 
 import { createLogger } from "@hyperidle/diagnostics";
@@ -52,7 +54,7 @@ void (async () => {
 	const parentPort = (process as { parentPort?: ParentPort }).parentPort;
 	if (parentPort) {
 		parentPort.on("message", (event: { data: unknown }) => {
-			const msg = event.data as { type?: string; agentId?: string } | null;
+			const msg = event.data as { type?: string; agentId?: string; reqId?: string } | null;
 			if (!msg || typeof msg.type !== "string") return;
 			if (msg.type === "take" && typeof msg.agentId === "string") {
 				runner.takeAgent(msg.agentId).catch((err: unknown) => {
@@ -62,6 +64,15 @@ void (async () => {
 				parentPort.postMessage({ type: "held", ids: runner.heldAgentIds() });
 			} else if (msg.type === "movedAway") {
 				parentPort.postMessage({ type: "movedAway", ids: runner.movedAwayAgentIds() });
+			} else if (msg.type === "state" && typeof msg.agentId === "string" && typeof msg.reqId === "string") {
+				const agentId = msg.agentId;
+				const reqId = msg.reqId;
+				parentPort.postMessage({
+					type: "state",
+					reqId,
+					held: runner.heldAgentIds().includes(agentId),
+					movedAway: runner.movedAwayAgentIds().includes(agentId),
+				});
 			}
 		});
 	}
