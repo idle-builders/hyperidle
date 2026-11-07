@@ -81,6 +81,12 @@ export interface RunnerWorld {
 	/** Every sessionId the scripted program was run for, in order. */
 	readonly runs: readonly string[];
 	stop(): Promise<void>;
+	/**
+	 * Stop the current runner and start a fresh one against the same server and DB.
+	 * The new runner loads persisted keys — simulates a process restart.
+	 * Pass a boot override to inject a different program (e.g. `makeFailingBoot()`).
+	 */
+	restartRunner(agentExecutionOverride?: AgentExecutionBoot): Promise<void>;
 }
 
 // ---- Scripted execution boot ----
@@ -214,7 +220,7 @@ export async function bootRunnerWorld(
 
 	// Boot the runner (not started — caller must call world.runner.start()).
 	const mcpPort = await resolveFreePort();
-	const runnerHandle = await startRunner({
+	let currentRunnerHandle = await startRunner({
 		serverUrl,
 		personKey,
 		dataDir,
@@ -227,14 +233,16 @@ export async function bootRunnerWorld(
 
 	let stopped = false;
 
-	return {
-		runner: runnerHandle,
+	const world: RunnerWorld = {
+		get runner() {
+			return currentRunnerHandle;
+		},
 		door,
 		runs,
 		async stop() {
 			if (stopped) return;
 			stopped = true;
-			await runnerHandle.stop();
+			await currentRunnerHandle.stop();
 			await serverHandle.dispose();
 			try {
 				fs.rmSync(tempSpacesDir, { recursive: true, force: true });
@@ -242,5 +250,19 @@ export async function bootRunnerWorld(
 				// best-effort cleanup
 			}
 		},
+		async restartRunner(agentExecutionOverride?: AgentExecutionBoot) {
+			await currentRunnerHandle.stop();
+			const newBoot = agentExecutionOverride ?? makeScriptedBoot(script, runs);
+			const newMcpPort = await resolveFreePort();
+			currentRunnerHandle = await startRunner({
+				serverUrl,
+				personKey,
+				dataDir,
+				agentExecution: newBoot,
+				mcpPort: newMcpPort,
+			});
+			await currentRunnerHandle.start();
+		},
 	};
+	return world;
 }

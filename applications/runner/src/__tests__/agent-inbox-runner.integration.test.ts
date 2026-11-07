@@ -507,9 +507,9 @@ describe("an agent acts on its inbox", () => {
 				const noticeText =
 					(JSON.parse(notices[0]?.payload ?? "{}") as { text?: string }).text ?? "";
 				expect(noticeText).toContain("could not start");
-				// Idempotent: a second drain (triggered naturally by user.changed after
-				// the row is marked read) posts no duplicate.
-				await new Promise((r) => setTimeout(r, 300));
+				// Idempotent: restart the runner with the same failing boot so it
+				// re-drains the inbox. The row was marked as read; no duplicate notice.
+				await world.restartRunner(makeFailingBoot());
 				const after = await db
 					.select()
 					.from(messages)
