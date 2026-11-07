@@ -9,6 +9,13 @@ export {
 	readAgentRunConfigs,
 	writeAgentRunConfig,
 } from "./agent-run-config-store.js";
+export {
+	type AgentRunnerKeyRow,
+	loadHeldAgentRunnerKeys,
+	loadMovedAwayAgentIds,
+	markAgentRunnerKeyMovedAway,
+	persistAgentRunnerKey,
+} from "./agent-runner-keys.js";
 export { deriveWorkingFolder, ensureAgentSpace, spacesRoot } from "./agent-space.js";
 export {
 	applyProvisioningPlan,

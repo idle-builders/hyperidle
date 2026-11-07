@@ -32,6 +32,19 @@ async function count(db: HyperIdleDb, table: string, where = ""): Promise<number
 	return Number(r[0]?.c ?? 0);
 }
 
+async function runnerRows<T extends Record<string, unknown>>(
+	db: RunnerDb,
+	q: string,
+): Promise<T[]> {
+	const result = await db.execute(sql.raw(q));
+	return (result as { rows: T[] }).rows;
+}
+
+async function countRunner(db: RunnerDb, table: string, where = ""): Promise<number> {
+	const r = await runnerRows<{ c: string }>(db, `SELECT COUNT(*) AS c FROM ${table} ${where}`);
+	return Number(r[0]?.c ?? 0);
+}
+
 async function seedWorld(db: HyperIdleDb, runnerDb: RunnerDb): Promise<void> {
 	await runFactoryBootstrap(db);
 	await seedDemoWorld(db, runnerDb);
@@ -272,14 +285,25 @@ describe("the demo world tells the design's story", () => {
 		runnerDb,
 	}) => {
 		await seedWorld(db, runnerDb);
-		expect(await count(db, "sessions", "WHERE state = 'active' OR ended_at IS NULL")).toBe(0);
-		const underWay = await rows<{ id: string; notes: string | null }>(
+		expect(
+			await countRunner(runnerDb, "sessions", "WHERE state = 'active' OR ended_at IS NULL"),
+		).toBe(0);
+		// sessions live in runner-db; get tasks from core-db first, then fetch notes per task
+		const underWayTasks = await rows<{ id: string }>(
 			db,
-			`SELECT t.id, (SELECT s.notes FROM sessions s WHERE s.task_id = t.id ORDER BY s.started_at DESC LIMIT 1) AS notes
-			 FROM tasks t WHERE t.state = 'in_progress' AND t.owner_agent_id IS NOT NULL
+			`SELECT t.id FROM tasks t WHERE t.state = 'in_progress' AND t.owner_agent_id IS NOT NULL
 			 AND NOT EXISTS (SELECT 1 FROM tasks c WHERE c.parent_task_id = t.id)`,
 		);
-		expect(underWay.length).toBeGreaterThan(0);
+		expect(underWayTasks.length).toBeGreaterThan(0);
+		const underWay = await Promise.all(
+			underWayTasks.map(async (task) => {
+				const sessionNotes = await runnerRows<{ notes: string | null }>(
+					runnerDb,
+					`SELECT s.notes FROM sessions s WHERE s.task_id = '${task.id}' ORDER BY s.started_at DESC LIMIT 1`,
+				);
+				return { id: task.id, notes: sessionNotes[0]?.notes ?? null };
+			}),
+		);
 		for (const task of underWay) expect(task.notes, task.id).toEqual(expect.any(String));
 	});
 
@@ -292,16 +316,17 @@ describe("the demo world tells the design's story", () => {
 			"threads",
 			"messages",
 			"documents",
-			"sessions",
 			"subscriptions",
 			"inbox",
 			"plugins",
 			"plugin_contributions",
 		];
 		const before = await Promise.all(tables.map((t) => count(db, t)));
+		const sessionsBefore = await countRunner(runnerDb, "sessions");
 
 		await seedDemoWorld(db, runnerDb);
 
 		expect(await Promise.all(tables.map((t) => count(db, t)))).toEqual(before);
+		expect(await countRunner(runnerDb, "sessions")).toBe(sessionsBefore);
 	});
 });

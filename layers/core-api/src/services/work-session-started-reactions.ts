@@ -2,6 +2,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ActionResult, EditTaskInput, TaskView } from "@hyperidle/domain-model";
 import type { EventBus, SessionStartedEvent } from "@hyperidle/event-bus";
+import { taskDispatchAttemptStore } from "@hyperidle/task";
 import type { ActionContext } from "../actions/action.js";
 
 const logger = createLogger({ pkg: "core-api.work-session-started-reactions" });
@@ -10,6 +11,17 @@ const registeredBuses = new WeakSet<EventBus>();
 /** `edit_task`'s own bound `run` function. */
 type EditTask = (ctx: ActionContext, input: EditTaskInput) => Promise<ActionResult<TaskView>>;
 
+/**
+ * When a session starts carrying a requestId, flip the most recent
+ * `requested` dispatch attempt for the task to `running`. This is what lets
+ * `work-session-end-reactions` later finalise the row via `updateIfActive`
+ * when `agent_run_lifecycle_changed` arrives.
+ */
+async function markRunning(db: HyperIdleDb, event: SessionStartedEvent): Promise<void> {
+	if (!(event.requestId && event.taskId)) return;
+	await taskDispatchAttemptStore.markRunning(db, event.taskId, event.agentId);
+}
+
 async function reactToSessionStarted(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -17,6 +29,8 @@ async function reactToSessionStarted(
 	editTask: EditTask,
 ): Promise<void> {
 	if (!event.taskId) return;
+	// Flip the dispatch attempt to running before transitioning the task.
+	await markRunning(db, event);
 	const now = new Date().toISOString();
 	const result = await editTask(
 		{ actor: event.agentId, db, eventBus, now },

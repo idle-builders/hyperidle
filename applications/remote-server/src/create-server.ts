@@ -24,7 +24,7 @@ import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
 import { bootCoreApi, type CoreApiBoot, type SignIn } from "@hyperidle/core-api/boot";
 import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import { createPgliteRunnerDb, type RunnerDb, type RunnerDbHandle } from "@hyperidle/runner-db";
+import { createAndMigrateRunnerDb, type RunnerDb, type RunnerDbHandle } from "@hyperidle/runner-db";
 import { WebSocketServer } from "ws";
 import { resolveProfile } from "./profiles.js";
 
@@ -155,7 +155,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		const profile = resolveProfile(process.env);
 		const rawDbUrl = process.env.DATABASE_URL ?? profile.dbUrlDefault;
 		const dbUrl = profile.dbDriver === "pglite" ? resolvePglitePath(rawDbUrl) : rawDbUrl;
-		runnerDbHandle = await createPgliteRunnerDb(`${dbUrl}-runner`);
+		runnerDbHandle = await createAndMigrateRunnerDb(`${dbUrl}-runner`);
 		runnerDb = runnerDbHandle.db;
 	}
 

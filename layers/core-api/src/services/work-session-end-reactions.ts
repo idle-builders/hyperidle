@@ -1,8 +1,12 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ActionResult, EditTaskInput, TaskView } from "@hyperidle/domain-model";
-import type { EventBus, SessionEndedEvent } from "@hyperidle/event-bus";
-import { get } from "@hyperidle/task";
+import type {
+	AgentRunLifecycleChangedEvent,
+	EventBus,
+	SessionEndedEvent,
+} from "@hyperidle/event-bus";
+import { get, taskDispatchAttemptStore } from "@hyperidle/task";
 import type { ActionContext } from "../actions/action.js";
 
 const logger = createLogger({ pkg: "core-api.work-session-end-reactions" });
@@ -11,6 +15,19 @@ const processedTokenSessions = new WeakMap<EventBus, Set<string>>();
 
 /** `edit_task`'s own bound `run` function. */
 type EditTask = (ctx: ActionContext, input: EditTaskInput) => Promise<ActionResult<TaskView>>;
+
+/**
+ * Finalise the most recent active dispatch attempt for the task identified
+ * by `sourceId`. Only updates rows whose status is still `requested` or
+ * `running` — a completed/failed row is left untouched (idempotency guard).
+ */
+async function updateIfActive(
+	db: HyperIdleDb,
+	event: AgentRunLifecycleChangedEvent,
+): Promise<void> {
+	if (event.sourceKind !== "task") return;
+	await taskDispatchAttemptStore.updateIfActive(db, event.sourceId, event.state);
+}
 
 /**
  * Merge `tokensByTier` into the worked task's own `tokensActualJson` and
@@ -102,6 +119,16 @@ export function registerWorkSessionEndReactions(
 	}
 	registeredBuses.add(eventBus);
 
+	const unsubscribeLifecycle = eventBus.on("agent_run_lifecycle_changed", (event) => {
+		void updateIfActive(db, event).catch((error: unknown) => {
+			logger.error("agent_run_lifecycle_changed dispatch-attempt finalization failed", {
+				requestId: event.requestId,
+				state: event.state,
+				error: error instanceof Error ? error.message : String(error),
+			});
+		});
+	});
+
 	const unsubscribeTokens = eventBus.on("session_ended", (event) => {
 		void reactToSessionEndedTokens(db, eventBus, event, editTask)?.catch((error: unknown) => {
 			logger.error("session_ended task token-writeback reaction failed", {
@@ -113,6 +140,7 @@ export function registerWorkSessionEndReactions(
 	});
 
 	return () => {
+		unsubscribeLifecycle();
 		unsubscribeTokens();
 		registeredBuses.delete(eventBus);
 	};

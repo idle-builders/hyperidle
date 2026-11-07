@@ -25,7 +25,7 @@ import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
 import { bootCoreApi } from "@hyperidle/core-api/boot";
 import { createPgliteDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import { createPgliteRunnerDb, type RunnerDb, type RunnerDbHandle } from "@hyperidle/runner-db";
+import { createAndMigrateRunnerDb, type RunnerDb, type RunnerDbHandle } from "@hyperidle/runner-db";
 import { WebSocketServer } from "ws";
 // @lore: ws — ships no type declarations; @types/ws must be in devDependencies alongside ws; stale local dist masks missing @types on a clean npm ci
 
@@ -133,7 +133,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	} else {
 		const rawDbUrl = process.env.DATABASE_URL ?? "./hyperidle-pg";
 		const dbUrl = resolvePglitePath(rawDbUrl);
-		runnerDbHandle = await createPgliteRunnerDb(`${dbUrl}-runner`);
+		runnerDbHandle = await createAndMigrateRunnerDb(`${dbUrl}-runner`);
 		runnerDb = runnerDbHandle.db;
 	}
 	const bundledPluginsDir = deps.bundledPluginsDir ?? process.env.HYPERIDLE_BUNDLED_PLUGINS_DIR;

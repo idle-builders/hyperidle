@@ -88,9 +88,11 @@ describe("joining a shared backend", () => {
 	test("each person who signs in gets their own key that speaks as them; the first is the founder", async ({
 		db,
 		eventBus,
+		runnerDb,
 	}) => {
 		const app = await createTestApp({
 			db,
+			runnerDb,
 			eventBus,
 			authApiKey: TEAM_KEY,
 			signIn: { issuer, clientId: CLIENT_ID },
@@ -116,9 +118,11 @@ describe("joining a shared backend", () => {
 	test("a server given the provider's address with a trailing slash still lets people join", async ({
 		db,
 		eventBus,
+		runnerDb,
 	}) => {
 		const app = await createTestApp({
 			db,
+			runnerDb,
 			eventBus,
 			authApiKey: TEAM_KEY,
 			signIn: { issuer: `${issuer}/`, clientId: CLIENT_ID },
@@ -134,9 +138,11 @@ describe("joining a shared backend", () => {
 	test("signing in again from another computer hands the same person a new key", async ({
 		db,
 		eventBus,
+		runnerDb,
 	}) => {
 		const app = await createTestApp({
 			db,
+			runnerDb,
 			eventBus,
 			authApiKey: TEAM_KEY,
 			signIn: { issuer, clientId: CLIENT_ID },
@@ -158,9 +164,11 @@ describe("joining a shared backend", () => {
 	test("refused: a new server's first person without a team, an unproven email, another app's or a forged sign-in", async ({
 		db,
 		eventBus,
+		runnerDb,
 	}) => {
 		const app = await createTestApp({
 			db,
+			runnerDb,
 			eventBus,
 			authApiKey: TEAM_KEY,
 			signIn: { issuer, clientId: CLIENT_ID },
@@ -187,9 +195,11 @@ describe("joining a shared backend", () => {
 	test("the team key alone is nobody: it can ask who it is, and any other action is refused, not crashed", async ({
 		db,
 		eventBus,
+		runnerDb,
 	}) => {
 		const app = await createTestApp({
 			db,
+			runnerDb,
 			eventBus,
 			authApiKey: TEAM_KEY,
 			signIn: { issuer, clientId: CLIENT_ID },
@@ -228,9 +238,11 @@ describe("joining a shared backend", () => {
 	test("a direct chat with an agent opens for its member and not for another person", async ({
 		db,
 		eventBus,
+		runnerDb,
 	}) => {
 		const app = await createTestApp({
 			db,
+			runnerDb,
 			eventBus,
 			authApiKey: TEAM_KEY,
 			signIn: { issuer, clientId: CLIENT_ID },

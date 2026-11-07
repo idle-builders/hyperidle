@@ -91,6 +91,52 @@ export const taskDispatchAttemptStore = {
 			.returning({ id: taskDispatchAttempts.id });
 		return Math.min(rows.length, batchSize);
 	},
+	/**
+	 * Flip the most recent `requested` dispatch attempt for `taskId` + `agentId`
+	 * to `running`. Called when `session_started` fires with a `requestId`,
+	 * confirming the session has actually begun.
+	 */
+	markRunning: async (exec: WriteExecutor, taskId: string, agentId: string): Promise<void> => {
+		const now = new Date().toISOString();
+		const [row] = await exec
+			.select({ id: taskDispatchAttempts.id })
+			.from(taskDispatchAttempts)
+			.where(
+				and(
+					eq(taskDispatchAttempts.taskId, taskId),
+					eq(taskDispatchAttempts.agentId, agentId),
+					eq(taskDispatchAttempts.status, "requested"),
+				),
+			)
+			.orderBy(desc(taskDispatchAttempts.ordinal))
+			.limit(1);
+		if (!row) return;
+		await exec
+			.update(taskDispatchAttempts)
+			.set({ status: "running", updatedAt: now })
+			.where(eq(taskDispatchAttempts.id, row.id));
+	},
+	/**
+	 * Finalise every `requested` or `running` attempt for `taskId` to `state`.
+	 * Called when `agent_run_lifecycle_changed` fires with `sourceKind = "task"`.
+	 * Only updates rows whose status is still active — idempotency guard.
+	 */
+	updateIfActive: async (
+		exec: WriteExecutor,
+		taskId: string,
+		state: "completed" | "failed" | "cancelled",
+	): Promise<void> => {
+		const now = new Date().toISOString();
+		await exec
+			.update(taskDispatchAttempts)
+			.set({ status: state, updatedAt: now })
+			.where(
+				and(
+					eq(taskDispatchAttempts.taskId, taskId),
+					inArray(taskDispatchAttempts.status, ["requested", "running"]),
+				),
+			);
+	},
 };
 /** Internal raw update shape. Consumers use the operator-aware generic patch. */
 /** `NewTask` widened so a patch field may carry a raw `SQL` fragment. */

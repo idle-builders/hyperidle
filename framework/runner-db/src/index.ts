@@ -1,4 +1,5 @@
 export {
+	createAndMigrateRunnerDb,
 	createPgliteRunnerDb,
 	createPostgresRunnerDb,
 	type RunnerDb,

@@ -91,6 +91,8 @@ export const UserRowSchema = z.object({
 	discipline: z.string().nullable(),
 	/** What they do, in a few words, as everyone sees it. */
 	what: z.string().nullable(),
+	/** True when this agent currently has a key — meaning a runner holds it. Never the hash itself. */
+	hasKey: z.boolean().optional(),
 	teams: z.array(z.object({ id: z.string(), name: z.string() })),
 	edges: z.array(
 		z.object({

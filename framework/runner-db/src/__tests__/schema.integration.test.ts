@@ -63,6 +63,36 @@ describe("runner-db schema", () => {
 		});
 	});
 
+	test("sessions has an index for task_id", async ({ db }) => {
+		const result = await db.execute(
+			`SELECT indexname FROM pg_indexes WHERE tablename = 'sessions' AND schemaname = 'public'` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		const indexes = (result as { rows: Array<{ indexname: string }> }).rows.map((r) => r.indexname);
+		expect(indexes.some((i) => i.includes("task_id"))).toBe(true);
+	});
+
+	test("sessions has an index for agent_id", async ({ db }) => {
+		const result = await db.execute(
+			`SELECT indexname FROM pg_indexes WHERE tablename = 'sessions' AND schemaname = 'public'` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		const indexes = (result as { rows: Array<{ indexname: string }> }).rows.map((r) => r.indexname);
+		expect(indexes.some((i) => i.includes("agent_id"))).toBe(true);
+	});
+
+	test("sessions has an index for state", async ({ db }) => {
+		const result = await db.execute(
+			`SELECT indexname FROM pg_indexes WHERE tablename = 'sessions' AND schemaname = 'public'` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		const indexes = (result as { rows: Array<{ indexname: string }> }).rows.map((r) => r.indexname);
+		expect(indexes.some((i) => i.includes("state"))).toBe(true);
+	});
+
 	test("inserts and reads agentRunnerKeys", async ({ db }) => {
 		const now = new Date().toISOString();
 		await db.insert(agentRunnerKeys).values({
