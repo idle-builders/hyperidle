@@ -865,8 +865,10 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 
 	if (bootWindow && !bootWindow.isDestroyed()) bootWindow.loadURL(serverUrl);
 
-	const sharedPersonKey = readPersonKey(ctx.credentialsPath) ?? "";
-	const stopRunner = forkRunner(serverUrl, sharedPersonKey, ctx.userDataDir);
+	const sharedPersonKey = readPersonKey(ctx.credentialsPath);
+	const stopRunner = sharedPersonKey
+		? forkRunner(serverUrl, sharedPersonKey, ctx.userDataDir)
+		: null;
 
 	const createAppWindow = (): void => {
 		newWindow().loadURL(serverUrl);
