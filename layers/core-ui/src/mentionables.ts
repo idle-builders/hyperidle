@@ -1,4 +1,4 @@
-import type { SessionRow, UserRow } from "@hyperidle/domain-model";
+import type { UserRow } from "@hyperidle/domain-model";
 import { initials } from "./sidebar-lists";
 
 /** Someone you can @mention: agents and people are the same kind of thing, in one list. */
@@ -13,11 +13,7 @@ export interface Mentionable {
 	readonly load: string;
 }
 
-export function mentionables(
-	users: readonly UserRow[],
-	running: readonly SessionRow[],
-	you: string,
-): Mentionable[] {
+export function mentionables(users: readonly UserRow[], you: string): Mentionable[] {
 	const byId = new Map(users.map((u) => [u.id, u]));
 	return users
 		.filter((u) => u.id !== you && u.role !== "system" && u.status !== "retired")
@@ -31,14 +27,13 @@ export function mentionables(
 					: owner
 						? `${owner.name.split(" ")[0]}'s agent`
 						: "Agent";
-			const n = running.filter((s) => s.agentId === u.id).length;
 			return {
 				id: u.id,
 				name: u.name,
 				initials: initials(u.name),
 				human,
 				what: u.discipline ? `${whose} · ${u.discipline}` : whose,
-				load: human ? (u.status === "active" ? "" : "away") : n > 0 ? `${n} running` : "idle",
+				load: human ? (u.status === "active" ? "" : "away") : "idle",
 			};
 		});
 }

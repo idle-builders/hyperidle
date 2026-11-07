@@ -219,9 +219,7 @@ export async function bootAgentOrchestration(
 		);
 	}
 
-	const sessionActionsDeps = buildSessionActionsDeps(runnerDb, eventBus, (sessionId) =>
-		activityBuffer.getActivity(sessionId),
-	);
+	const sessionActionsDeps = buildSessionActionsDeps(runnerDb, eventBus);
 	const { app, actionTools } = createAgentOrchestrationApp({
 		runnerDb,
 		eventBus,

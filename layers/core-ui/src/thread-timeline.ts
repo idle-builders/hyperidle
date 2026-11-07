@@ -5,7 +5,6 @@ import {
 	isRedactedPayload,
 	type Message,
 	type ReviewPayload,
-	type SessionRow,
 	type Task,
 	type VerdictPayload,
 } from "@hyperidle/domain-model";
@@ -51,8 +50,7 @@ export function duration(ms: number): string {
 type Stamp =
 	| { at: string; rank: 0; message: Message }
 	| { at: string; rank: 1; task: Task }
-	| { at: string; rank: 1; doc: DocumentRow }
-	| { at: string; rank: 2; worked: number };
+	| { at: string; rank: 1; doc: DocumentRow };
 
 /**
  * `messages` oldest first. `who(id)` names a sender the way an event says it ("You", "Maya").
@@ -61,7 +59,6 @@ type Stamp =
 export function timeline(
 	messages: readonly Message[],
 	tasks: readonly Task[],
-	sessions: readonly SessionRow[],
 	who: (id: string) => string,
 	made: readonly DocumentRow[] = [],
 ): Entry[] {
@@ -74,32 +71,12 @@ export function timeline(
 		...messages.map((message): Stamp => ({ at: message.createdAt, rank: 0, message })),
 		...tasks.map((task): Stamp => ({ at: task.createdAt, rank: 1, task })),
 		...made.map((doc): Stamp => ({ at: doc.createdAt, rank: 1, doc })),
-		...sessions.flatMap((s): Stamp[] =>
-			s.endedAt
-				? [{ at: s.endedAt, rank: 2, worked: Date.parse(s.endedAt) - Date.parse(s.startedAt) }]
-				: [],
-		),
 	].sort((a, b) => a.at.localeCompare(b.at) || a.rank - b.rank);
 
 	const out: Entry[] = [];
 	/** huddle message id → index of the huddle Entry in `out`, for appending fold messages. */
 	const huddleIndex = new Map<string, number>();
-	/** The stretch of finished sessions not yet written out. */
-	const worked: { ms: number; n: number; key: string }[] = [];
-	const flushWorked = () => {
-		const w = worked.pop();
-		if (!w) return;
-		const n = w.n === 1 ? "1 session" : `${w.n} sessions`;
-		out.push({ kind: "event", key: w.key, text: `Worked ${duration(w.ms)} · ${n}` });
-	};
 	for (const s of stamps) {
-		if (s.rank === 2) {
-			const w = worked[0];
-			if (w) worked[0] = { ...w, ms: w.ms + s.worked, n: w.n + 1 };
-			else worked.push({ ms: s.worked, n: 1, key: `worked-${s.at}` });
-			continue;
-		}
-		flushWorked();
 		if (s.rank === 1) {
 			out.push(
 				"task" in s
@@ -144,7 +121,6 @@ export function timeline(
 		} else
 			out.push({ kind: "said", key: m.id, senderId: m.senderId, at: m.createdAt, messages: [m] });
 	}
-	flushWorked();
 	return out;
 }
 

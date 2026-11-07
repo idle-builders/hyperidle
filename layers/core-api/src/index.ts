@@ -13,11 +13,5 @@ export { installedPluginsDir } from "./installed-plugins-dir.js";
 export { health } from "./routes/health.js";
 export {
 	DEFAULT_REAPER_STALE_AFTER_MS,
-	registerAgentLayerServices,
 	registerCoreDomainServices,
 } from "./service-bootstrap.js";
-export {
-	buildAgentOrchestrationPort,
-	createInProcessAgentOrchestrationTransport,
-	createNetworkAgentOrchestrationTransport,
-} from "./services/agent-orchestration-port-composition.js";

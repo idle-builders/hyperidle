@@ -170,29 +170,12 @@ export interface PlatformActionsDeps {
 	/** The plugins that ship inside the app, one folder each. Never `pluginsBaseDir`
 	 * (install removes its destination first). Absent → no available rows. */
 	readonly bundledPluginsDir?: string;
-	/** The orchestration run-config port, mirrored: an installed agent's harness is
-	 * written through it, after the install's own transaction commits. */
-	readonly runConfig: {
-		read(agentId: string): Promise<{ readonly harnessType: string | null }>;
-		write(agentId: string, patch: HarnessPick): Promise<void>;
-	};
-	/** The first ready, not-disabled harness on this machine, as a run-config pick;
-	 * null when there is none. Absent when no adapter pool is wired. */
-	readonly firstAvailableHarness?: (db: HyperIdleDb) => Promise<HarnessPick | null>;
-	/** The team a viewer judges availability by: their own, else their owner's. */
 	/** Every team the viewer is in. */
 	readonly viewerTeamIds: (db: HyperIdleDb, actorId: string) => Promise<readonly string[]>;
 	/** Whether a team exists, asked of the module that owns teams. */
 	readonly teams: {
 		exists(exec: WriteExecutor, teamId: string): Promise<boolean>;
 	};
-}
-
-/** The three run-config fields a harness pick fills. */
-interface HarnessPick {
-	readonly harnessType: string;
-	readonly modelId?: string;
-	readonly modelProvider?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -603,31 +586,6 @@ function toPluginSource(source: EditPluginSource, bundledPluginsDir?: string): P
 	}
 }
 
-/**
- * Put every installed agent that has no harness yet on the first available
- * one, through the orchestration run-config port. Runs after the install's
- * transaction commits (the port is its own write). An agent that already has
- * a harness — a person's later choice, or an earlier install's — keeps it.
- * No harness ready on this machine → nothing is written; the install still
- * stands and the agent becomes runnable by the ordinary agent edit.
- */
-async function giveAgentsAHarness(
-	ctx: ActionContext,
-	deps: PlatformActionsDeps,
-	agentIds: readonly string[],
-): Promise<void> {
-	const { firstAvailableHarness } = deps;
-	if (!firstAvailableHarness || agentIds.length === 0) return;
-	let pick: HarnessPick | null | undefined;
-	for (const agentId of agentIds) {
-		const current = await deps.runConfig.read(agentId);
-		if (current.harnessType) continue;
-		if (pick === undefined) pick = await firstAvailableHarness(ctx.db);
-		if (pick === null) return;
-		await deps.runConfig.write(agentId, pick);
-	}
-}
-
 async function installRun(
 	ctx: ActionContext,
 	deps: PlatformActionsDeps,
@@ -764,7 +722,6 @@ async function installRun(
 
 		await setNonDocumentContributionsLive(deps, tx, { agentIds, subscriptionIds }, true);
 	});
-	await giveAgentsAHarness(ctx, deps, agentIds);
 
 	// Phase 2 — after that transaction commits: the plugin's documents,
 	// through `editDocument`'s read-then-edit upsert. BEFORE the

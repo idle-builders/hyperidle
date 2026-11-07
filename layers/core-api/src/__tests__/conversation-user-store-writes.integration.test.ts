@@ -19,8 +19,7 @@ import type { ActionContext } from "../actions/action.js";
 import { buildCoreActions } from "../actions/compose.js";
 
 function buildTestActions() {
-	return buildCoreActions({
-		});
+	return buildCoreActions({});
 }
 
 const NOW = new Date().toISOString();
@@ -82,7 +81,7 @@ describe("conversation-store row writes", () => {
 	test("adjust_thread applies a typed pinned patch (was updateThread)", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await insertUser(db, userValues("u3"));
 		await db.insert(threads).values(threadValues("t3", "u3"));
 		const actions = buildTestActions();
@@ -103,7 +102,7 @@ describe("conversation-store row writes", () => {
 	test("send_message reuses the same direct thread for the same sender+recipient", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await insertUser(db, userValues("u5a"));
 		await insertUser(db, userValues("u5b", { kind: "human" }));
 		const actions = buildTestActions();

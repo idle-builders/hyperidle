@@ -1,5 +1,5 @@
 /** Who the mention picker offers, what it says about each, and when it opens. */
-import type { SessionRow, UserRow } from "@hyperidle/domain-model";
+import type { UserRow } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
 import { matching, mentionables, typedMention } from "./mentionables";
 
@@ -19,20 +19,6 @@ const user = (u: Partial<UserRow> & Pick<UserRow, "id" | "name">): UserRow => ({
 	...u,
 });
 
-const running = (agentId: string): SessionRow => ({
-	id: `s-${agentId}-${Math.random()}`,
-	agentId,
-	taskId: null,
-	threadId: null,
-	startedAt: "2026-10-21T08:00:00.000Z",
-	endedAt: null,
-	state: "active",
-	outcome: null,
-	notes: null,
-	modelTier: "workhorse",
-	sourceKind: null,
-});
-
 describe("mentionables", () => {
 	test("agents and people in one list, each saying whose they are, their craft and their load", () => {
 		const users = [
@@ -45,10 +31,10 @@ describe("mentionables", () => {
 			user({ id: "sys", name: "System", role: "system" }),
 			user({ id: "r", name: "Retired", status: "retired" }),
 		];
-		const list = mentionables(users, [running("d"), running("d")], "me");
+		const list = mentionables(users, "me");
 		expect(list.map((m) => [m.name, m.what, m.load])).toEqual([
 			["Builder", "Your agent · Engineering", "idle"],
-			["Designer", "Maya's agent · Design", "2 running"],
+			["Designer", "Maya's agent · Design", "idle"],
 			["Facilitation", "Agent", "idle"],
 			["Maya Chen", "Person · Support", ""],
 			["Old Hand", "Person", "away"],
@@ -58,7 +44,6 @@ describe("mentionables", () => {
 	test("names starting with what was typed come before names containing it", () => {
 		const list = mentionables(
 			[user({ id: "a", name: "Builder" }), user({ id: "b", name: "Rebuild bot" })],
-			[],
 			"me",
 		);
 		expect(matching(list, "bu").map((m) => m.name)).toEqual(["Builder", "Rebuild bot"]);

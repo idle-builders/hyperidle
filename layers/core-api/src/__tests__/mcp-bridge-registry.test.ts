@@ -14,14 +14,10 @@ const registry: ToolRegistry = {
 };
 
 describe("MCP session custody", () => {
-	test("opens a production tool registry and preserves result codes", async ({
-		db,
-	}) => {
+	test("opens a production tool registry and preserves result codes", async ({ db }) => {
 		// A session's tool registry is the composed action list's own tool
 		// projection — no separate hand-written management catalog.
-		const definitions = actionsAsTools(
-			buildCoreActions({}),
-		);
+		const definitions = actionsAsTools(buildCoreActions({}));
 		const context: ToolContext<typeof db> = {
 			db,
 			eventBus: new EventBus(),

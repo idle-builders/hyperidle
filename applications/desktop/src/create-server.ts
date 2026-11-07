@@ -2,29 +2,21 @@ import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
-import { bootAgentExecution } from "@hyperidle/agent-execution";
-import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import {
-	buildAgentOrchestrationPort,
 	composeApiApplication,
-	createInProcessAgentOrchestrationTransport,
 	health,
 	installedPluginsDir,
-	registerAgentLayerServices,
 	registerCoreDomainServices,
 } from "@hyperidle/core-api";
 import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
 import { bootCoreApi } from "@hyperidle/core-api/boot";
 import { createPgliteDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import { createAndMigrateRunnerDb, type RunnerDb, type RunnerDbHandle } from "@hyperidle/runner-db";
 import { WebSocketServer } from "ws";
 // @lore: ws — ships no type declarations; @types/ws must be in devDependencies alongside ws; stale local dist masks missing @types on a clean npm ci
 
 export interface CreateServerDeps {
 	readonly db?: HyperIdleDb;
-	readonly runnerDb?: RunnerDb;
-	readonly topology: "local" | "disabled";
 	readonly hostname?: string;
 	/**
 	 * The plugins that ship inside the app, one folder each. Omitted →
@@ -88,8 +80,9 @@ function resolvePglitePath(rawPath: string): string {
 
 /**
  * Resolve a concrete OS-assigned loopback port by briefly binding `:0`, reading
- * the assigned port, then releasing it. Used so `mcpBaseUrl` can carry the real
- * port BEFORE `serve()` binds — the CLI-harness MCP bridge dials that URL.
+ * the assigned port, then releasing it. Used so the server URL is known before
+ * `serve()` binds — callers that need the port for runner bootstrapping read it
+ * after `createServer` resolves.
  */
 async function resolveFreeLoopbackPort(hostname: string | undefined): Promise<number> {
 	return await new Promise<number>((resolve, reject) => {
@@ -105,9 +98,7 @@ async function resolveFreeLoopbackPort(hostname: string | undefined): Promise<nu
 
 export async function createServer(port: number, deps: CreateServerDeps): Promise<ServerHandle> {
 	let dbHandle: DbHandle | null = null;
-	let runnerDbHandle: RunnerDbHandle | null = null;
 	let db: HyperIdleDb;
-	let runnerDb: RunnerDb;
 	let pluginsBaseDir: string | undefined;
 	if (deps.db) {
 		db = deps.db;
@@ -117,14 +108,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		dbHandle = await createPgliteDb(dbUrl);
 		db = dbHandle.db;
 		pluginsBaseDir = installedPluginsDir(dbUrl);
-	}
-	if (deps.runnerDb) {
-		runnerDb = deps.runnerDb;
-	} else {
-		const rawDbUrl = process.env.DATABASE_URL ?? "./hyperidle-pg";
-		const dbUrl = resolvePglitePath(rawDbUrl);
-		runnerDbHandle = await createAndMigrateRunnerDb(`${dbUrl}-runner`);
-		runnerDb = runnerDbHandle.db;
 	}
 	const bundledPluginsDir = deps.bundledPluginsDir ?? process.env.HYPERIDLE_BUNDLED_PLUGINS_DIR;
 	const eventBus = new EventBus();
@@ -137,82 +120,26 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		);
 	}
 
-	// `mcpBaseUrl` must carry the REAL listening port: CLI harnesses dial
-	// `${mcpBaseUrl}/api/mcp/:token` for their tool bridge. `serve()` binds
-	// further below, so when the caller asks for an OS-assigned port (0) we
-	// resolve a concrete free loopback port up front and use it for BOTH the
-	// bridge URL and the listener. Otherwise `mcpBaseUrl` would be
-	// `http://…:0` — an unreachable bridge, leaving every CLI-harness session
-	// with no HyperIdle MCP tools.
-	const mcpHost = deps.hostname ?? "localhost";
 	const listenPort = port === 0 ? await resolveFreeLoopbackPort(deps.hostname) : port;
-	const mcpBaseUrl = `http://${mcpHost}:${listenPort}`;
-
-	const agentExecution = await bootAgentExecution({ topology: deps.topology, mcpBaseUrl });
-
-	let realAgentOrchestrationTransport:
-		| Parameters<typeof buildAgentOrchestrationPort>[0]
-		| undefined;
-	const agentOrchestrationTransport: Parameters<typeof buildAgentOrchestrationPort>[0] = (req) => {
-		if (!realAgentOrchestrationTransport) {
-			throw new Error("AgentOrchestrationTransport called before the composed app was built.");
-		}
-		return realAgentOrchestrationTransport(req);
-	};
-	const agentOrchestrationPort = buildAgentOrchestrationPort(agentOrchestrationTransport);
-
-	let realInheritedReachRefresh: (() => Promise<void>) | undefined;
-	const onHarnessRedetect: () => Promise<void> = () => {
-		if (!realInheritedReachRefresh) {
-			throw new Error("onHarnessRedetect called before the composed app was built.");
-		}
-		return realInheritedReachRefresh();
-	};
 
 	const coreApi = await bootCoreApi({
 		db,
 		eventBus,
-		agentOrchestration: agentOrchestrationPort,
 		upgradeWebSocket,
-		adapterPool: agentExecution.adapters.pool,
-		onHarnessRedetect,
-		probeAgentLogin: agentExecution.probeAgentLoginStatus,
 		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
 		...(bundledPluginsDir ? { bundledPluginsDir } : {}),
-		serviceBootstrap: (ctx) => {
-			return [
-				...registerCoreDomainServices({ ...ctx, canProvision: true }),
-				...registerAgentLayerServices({ ...ctx, canProvision: true }),
-			];
-		},
+		serviceBootstrap: (ctx) => registerCoreDomainServices(ctx),
 	});
-
-	// @lore: runner separation — runner.cjs is a separate process forked by main.ts; it owns agentExecution and the session poller.
-	const agentOrchestration = await bootAgentOrchestration({
-		db,
-		runnerDb,
-		eventBus,
-		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
-		probeInheritedReach: deps.topology === "local",
-		// No runtime: the runner process drives sessions, not this server process.
-	});
-	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();
 
 	const app = composeApiApplication({
 		middleware: coreApi.middleware,
-		preAuthRegistrars: [coreApi.registerPreAuthRoutes, agentExecution.mountMcpRouter],
-		apps: [coreApi.app, agentOrchestration.app],
+		preAuthRegistrars: [coreApi.registerPreAuthRoutes],
+		apps: [coreApi.app],
 	});
 	// Backward-compat: /health without auth, outside the /api tree.
 	app.route("/", health);
 
-	realAgentOrchestrationTransport = createInProcessAgentOrchestrationTransport(app);
-
-	registerAppDisposers(app, [
-		...coreApi.disposers,
-		agentOrchestration.dispose,
-		agentExecution.dispose,
-	]);
+	registerAppDisposers(app, [...coreApi.disposers]);
 
 	const staticDir = process.env.HYPERIDLE_STATIC_DIR;
 	let resolvedStaticDir: string | null = null;
@@ -289,9 +216,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			);
 			if (dbHandle) {
 				await runPhase("owned-db", () => dbHandle.close());
-			}
-			if (runnerDbHandle) {
-				await runPhase("owned-runner-db", () => runnerDbHandle.close());
 			}
 
 			if (failures.length > 0) {

@@ -135,9 +135,7 @@ const expectedPhases = ["run-runtime", "app-domain", "websocket", "http", "owned
 
 async function bootOwnedServer(db: HyperIdleDb): Promise<AsyncServerHandle> {
 	shutdown.state.nextOwnedDb = db;
-	return createServer(0, {
-		topology: "disabled",
-	}) as Promise<AsyncServerHandle>;
+	return createServer(0, {}) as Promise<AsyncServerHandle>;
 }
 
 describe("ordered asynchronous server disposal", () => {
@@ -200,10 +198,7 @@ describe("ordered asynchronous server disposal", () => {
 
 	test("never closes an injected database", async ({ db }) => {
 		shutdown.state.events.length = 0;
-		const server = (await createServer(0, {
-			db,
-			topology: "disabled",
-		})) as AsyncServerHandle;
+		const server = (await createServer(0, { db })) as AsyncServerHandle;
 
 		await server.dispose();
 		expect(shutdown.state.events).toEqual(expectedPhases.slice(0, -1));

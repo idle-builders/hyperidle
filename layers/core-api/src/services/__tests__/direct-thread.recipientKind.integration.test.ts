@@ -5,7 +5,6 @@
  *
  */
 
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import type { SendMessageOutput } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -26,11 +25,8 @@ async function sendMessageAs(
 	body: Record<string, unknown>,
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	agentOrchestration: AgentOrchestrationPort,
 ): Promise<{ readonly status: number; readonly body: ActionEnvelope<SendMessageOutput> }> {
-	const actions = buildCoreActions({
-		agentOrchestration,
-	});
+	const actions = buildCoreActions({});
 	const sendMessage = actions.find((a) => a.declaration.name === "send_message");
 	if (!sendMessage) throw new Error("send_message action not found");
 	const ctx: ActionContext = { actor: actorId, db, eventBus, now: new Date().toISOString() };
@@ -74,11 +70,7 @@ async function seedHumanRecipient(db: HyperIdleDb, id: string): Promise<void> {
 }
 
 describe("send_message — single-recipient direct thread hostKind", () => {
-	test("an ai recipient creates a thread with hostKind='agent'", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
+	test("an ai recipient creates a thread with hostKind='agent'", async ({ db, eventBus }) => {
 		await seedSender(db, "sender-1");
 		await seedAgentRecipient(db, "agent-recipient-1");
 
@@ -87,7 +79,6 @@ describe("send_message — single-recipient direct thread hostKind", () => {
 			{ recipients: ["agent-recipient-1"], text: "hi" },
 			db,
 			eventBus,
-			agentOrchestration,
 		);
 		expect(res.status).toBe(200);
 		expect(res.body.data?.thread.hostKind).toBe("agent");
@@ -95,11 +86,7 @@ describe("send_message — single-recipient direct thread hostKind", () => {
 		expect(res.body.data?.thread.initiatorId).toBe("sender-1");
 	});
 
-	test("a human recipient creates a thread with hostKind='user'", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
+	test("a human recipient creates a thread with hostKind='user'", async ({ db, eventBus }) => {
 		await seedSender(db, "sender-2");
 		await seedHumanRecipient(db, "human-recipient-1");
 
@@ -108,18 +95,13 @@ describe("send_message — single-recipient direct thread hostKind", () => {
 			{ recipients: ["human-recipient-1"], text: "hi" },
 			db,
 			eventBus,
-			agentOrchestration,
 		);
 		expect(res.status).toBe(200);
 		expect(res.body.data?.thread.hostKind).toBe("user");
 		expect(res.body.data?.thread.hostId).toBe("human-recipient-1");
 	});
 
-	test("a second send to the same recipient reuses the same thread", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
+	test("a second send to the same recipient reuses the same thread", async ({ db, eventBus }) => {
 		await seedSender(db, "sender-3");
 		await seedAgentRecipient(db, "agent-recipient-2");
 
@@ -128,14 +110,12 @@ describe("send_message — single-recipient direct thread hostKind", () => {
 			{ recipients: ["agent-recipient-2"], text: "one" },
 			db,
 			eventBus,
-			agentOrchestration,
 		);
 		const second = await sendMessageAs(
 			"sender-3",
 			{ recipients: ["agent-recipient-2"], text: "two" },
 			db,
 			eventBus,
-			agentOrchestration,
 		);
 		expect(first.body.data?.thread.id).toBe(second.body.data?.thread.id);
 	});

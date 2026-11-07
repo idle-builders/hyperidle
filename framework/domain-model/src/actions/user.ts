@@ -1,7 +1,5 @@
 import { z } from "zod";
-import { CONNECTION_AUTH_SOURCES, CONNECTION_HEALTH, HELD_AUTH_SOURCES } from "../connection.js";
-import { MODEL_PROVIDERS } from "../model-provider.js";
-import { AGENT_CATEGORIES, HARNESS_TYPES, ORG_EDGE_MECHANISMS } from "../types.js";
+import { AGENT_CATEGORIES, ORG_EDGE_MECHANISMS } from "../types.js";
 import type { ActionDeclaration, Problem } from "./action.js";
 import { DOCUMENT_SLOTS } from "./document.js";
 
@@ -146,96 +144,6 @@ export const OpenUserInputSchema = z
 	.strict();
 export type OpenUserInput = z.infer<typeof OpenUserInputSchema>;
 
-const HarnessOptionChoiceSchema = z.object({ value: z.string(), label: z.string() });
-
-const HarnessModelOptionControlSchema = z.discriminatedUnion("kind", [
-	z.object({ kind: z.literal("select"), choices: z.array(HarnessOptionChoiceSchema) }),
-	z.object({ kind: z.literal("boolean") }),
-	z.object({
-		kind: z.literal("number"),
-		min: z.number().optional(),
-		max: z.number().optional(),
-		step: z.number().optional(),
-	}),
-	z.object({ kind: z.literal("text"), placeholder: z.string().optional() }),
-]);
-
-const HarnessModelOptionDescriptorSchema = z.object({
-	key: z.string(),
-	label: z.string(),
-	helpText: z.string().optional(),
-	control: HarnessModelOptionControlSchema,
-	required: z.boolean(),
-	defaultValue: z.union([z.string(), z.number(), z.boolean()]).optional(),
-});
-
-const HarnessModelDescriptorSchema = z.object({
-	id: z.string(),
-	label: z.string(),
-	provider: z.enum(MODEL_PROVIDERS).optional(),
-	contextWindow: z.number().optional(),
-	selectable: z.boolean(),
-	options: z.array(HarnessModelOptionDescriptorSchema),
-});
-
-const HarnessAuthActionDescriptorSchema = z.object({
-	kind: z.enum(["enter_api_key", "native_cli_login", "none"]),
-	label: z.string(),
-	description: z.string().optional(),
-	command: z.array(z.string()).optional(),
-	credentialNames: z.array(z.string()).optional(),
-});
-
-const HarnessDiscoveryStatusSchema = z.object({
-	state: z.enum(["missing", "installed", "unauthenticated", "ready", "unavailable"]),
-	version: z.string().optional(),
-	reason: z.string().optional(),
-	disabled: z.boolean().optional(),
-});
-
-/** Mirrors `@hyperidle/harness-capability`'s `HarnessCapabilityDescriptor`. */
-export const HarnessDescriptorSchema = z.object({
-	type: z.string(),
-	name: z.string(),
-	authAction: HarnessAuthActionDescriptorSchema,
-	discovery: HarnessDiscoveryStatusSchema,
-	models: z.array(HarnessModelDescriptorSchema),
-	returnEnforcement: z
-		.enum([
-			"sdk-inprocess",
-			"settings-claude",
-			"settings-codex",
-			"process-reengage",
-			"soft-continue",
-			"none",
-		])
-		.optional(),
-	modelProviders: z.array(z.string()),
-});
-export type HarnessDescriptor = z.infer<typeof HarnessDescriptorSchema>;
-
-/** Mirrors `ServiceConnectionView` — never a token, held or projected alike. */
-export const ConnectionViewSchema = z.object({
-	id: z.string(),
-	service: z.string(),
-	via: z.string(),
-	authSource: z.enum(CONNECTION_AUTH_SOURCES),
-	health: z.enum(CONNECTION_HEALTH),
-	removable: z.boolean(),
-	/** The agents it is kept from; every other agent of its owner reaches it. Always empty for an inherited one. */
-	withheldFrom: z.array(z.string()),
-});
-export type ConnectionView = z.infer<typeof ConnectionViewSchema>;
-
-/** Mirrors `SpaceFolderView` (`@hyperidle/run-orchestration`). */
-export const FolderViewSchema = z.object({
-	name: z.string(),
-	path: z.string(),
-	isGit: z.boolean(),
-	isMissing: z.boolean(),
-});
-export type FolderView = z.infer<typeof FolderViewSchema>;
-
 export const SubscriptionViewSchema = z.object({
 	id: z.string(),
 	event: z.enum(SUBSCRIPTION_EVENTS).nullable(),
@@ -276,48 +184,12 @@ const InboxRowViewSchema = z.object({
 });
 export type InboxRowView = z.infer<typeof InboxRowViewSchema>;
 
-const RunConfigViewSchema = z.object({
-	harnessType: z.enum(HARNESS_TYPES).nullable(),
-	modelId: z.string().nullable(),
-	modelProvider: z.enum(MODEL_PROVIDERS).nullable(),
-	maxConcurrentSessions: z.number().int(),
-	modelOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).nullable(),
-	login: z.enum(["own", "owner"]),
-	spacePath: z.string().nullable(),
-});
-
 export const UserViewSchema = z.object({
 	/** null only for a caller with no row — the first-run moment. */
 	user: UserRowSchema.nullable(),
-	/** Install-wide: this machine's harnesses, `discovery.disabled` stamped. */
-	runsOn: z.array(HarnessDescriptorSchema),
-	runConfig: RunConfigViewSchema.nullable(),
-	/**
-	 * Agent with `login: "own"` only: whether the agent's isolated login folder
-	 * is authenticated. Absent when login is "owner", harness does not support
-	 * own-login, space is not set, or the probe was not wired.
-	 */
-	agentLoginStatus: z
-		.object({
-			state: z.enum(["missing", "installed", "unauthenticated", "ready", "unavailable"]),
-			reason: z.string().optional(),
-		})
-		.optional(),
 	/** An agent's identity, skill and rule documents; a person's About (their `agent_file`). */
 	documentIds: z.array(z.object({ slot: z.enum(DOCUMENT_SLOTS), id: z.string() })),
-	/** Agent: folders in its space. Person: always empty. */
-	folders: z.array(FolderViewSchema),
 	subscriptions: z.array(SubscriptionViewSchema),
-	/** Yourself, or an agent: the services its sessions get — its owner's, or the first person's for an agent no one owns. */
-	connections: z
-		.object({
-			connections: z.array(ConnectionViewSchema),
-			/** Mirrors `ServiceConnectionView` too — the connections door
-			 * (`projectFacts`) already projects inherited facts into the same
-			 * held-row shape, never a separate one. */
-			inherited: z.array(ConnectionViewSchema),
-		})
-		.nullable(),
 	/** Self only: newest 50, or with `unread` the oldest 50 not yet read. */
 	inbox: z.array(InboxRowViewSchema).nullable(),
 	/** Only in the answer to `edit_user {key: "new"}`: the agent's new key, shown this once. */
@@ -328,23 +200,12 @@ export type UserView = z.infer<typeof UserViewSchema>;
 export const openUser: ActionDeclaration<OpenUserInput, UserView> = {
 	name: "open_user",
 	sentence:
-		"Open a user: name, role, kind, team, status, who they report to, how they run, their " +
-		"identity and skill documents, folders, connections, subscriptions — and, when you open " +
+		"Open a user: name, role, kind, team, status, who they report to, their " +
+		"identity and skill documents, subscriptions — and, when you open " +
 		"yourself, your inbox. No id opens you.",
 	input: OpenUserInputSchema,
 	output: UserViewSchema,
 };
-
-const EditUserRunConfigSchema = z
-	.object({
-		harnessType: z.enum(HARNESS_TYPES).optional(),
-		modelId: z.string().optional(),
-		modelProvider: z.enum(MODEL_PROVIDERS).optional(),
-		modelOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-		maxConcurrentSessions: z.number().int().min(1).optional(),
-		login: z.enum(["own", "owner"]).optional(),
-	})
-	.strict();
 
 const EditUserEdgesSchema = z
 	.object({
@@ -354,59 +215,6 @@ const EditUserEdgesSchema = z
 			)
 			.optional(),
 		remove: z.array(z.string().min(1)).optional(),
-	})
-	.strict();
-
-const EditUserFoldersSchema = z
-	.object({
-		/** Symlink a local directory into the agent's space. Persons are refused. */
-		add: z
-			.array(
-				z
-					.object({
-						path: z.string().min(1),
-						name: z.string().min(1).optional(),
-					})
-					.strict(),
-			)
-			.optional(),
-		/** Remove a symlink by name. Persons are refused. */
-		remove: z
-			.array(
-				z
-					.string()
-					.min(1)
-					.refine((n) => !(n.includes("/") || n.includes("\\")), {
-						message: "Folder name must not contain path separators.",
-					}),
-			)
-			.optional(),
-	})
-	.strict();
-
-const EditUserConnectionsSchema = z
-	.object({
-		add: z
-			.array(
-				z
-					.object({
-						// Optional: an "mcp" add derives its service name from
-						// `serverUrl`'s hostname when the caller omits it (mirrors
-						// `createConnectionSchema`'s own optional `service` on that
-						// branch); a "token" add still needs one named explicitly.
-						service: z.string().min(1).optional(),
-						authSource: z.enum(HELD_AUTH_SOURCES),
-						token: z.string().optional(),
-						serverUrl: z.string().optional(),
-					})
-					.strict(),
-			)
-			.optional(),
-		remove: z.array(z.string().min(1)).optional(),
-		/** On an agent: let it reach these services of its owner again. */
-		give: z.array(z.string().min(1)).optional(),
-		/** On an agent: keep these services of its owner from it. */
-		take: z.array(z.string().min(1)).optional(),
 	})
 	.strict();
 
@@ -476,15 +284,11 @@ export const EditUserInputSchema = z
 		 * when there is none yet; never overwrites one that exists — that is edited as a document.
 		 */
 		identity: z.string().nullable().optional(),
-		runConfig: EditUserRunConfigSchema.optional(),
 		edges: EditUserEdgesSchema.optional(),
-		folders: EditUserFoldersSchema.optional(),
-		connections: EditUserConnectionsSchema.optional(),
 		subscriptions: EditUserSubscriptionsSchema.optional(),
 		inbox: EditUserInboxSchema.optional(),
 		/** An agent only: a fresh key, returned once. The agent's older key stops working. */
 		key: z.literal("new").optional(),
-		redetectHarnesses: z.literal(true).optional(),
 	})
 	.strict();
 export type EditUserInput = z.infer<typeof EditUserInputSchema>;
@@ -495,8 +299,7 @@ export const editUser: ActionDeclaration<EditUserInput, UserView> = {
 		"Write a user, new or existing: no id creates — a person, or an agent, owned by a person " +
 		"or not. Name, role, teams (by name — created if they do not exist; a person may be in " +
 		"several, an agent in exactly one), status, who they report " +
-		"to, harness and model, folders given or taken, connections added or removed, subscriptions " +
-		"added, changed, paused or removed, inbox rows marked read, a fresh key for an agent.",
+		"to, subscriptions added, changed, paused or removed, inbox rows marked read, a fresh key for an agent.",
 	input: EditUserInputSchema,
 	output: UserViewSchema,
 };
@@ -584,14 +387,11 @@ function createUserInvariants(input: EditUserInput): Problem[] {
 			path: "ownerUserId",
 		});
 	}
-	if (
-		input.kind === "human" &&
-		(input.agentCategory !== undefined || input.runConfig !== undefined)
-	) {
+	if (input.kind === "human" && input.agentCategory !== undefined) {
 		problems.push({
 			code: "agent_fields_for_agents",
-			message: "Category and run config belong to an agent, not a person.",
-			path: "runConfig",
+			message: "Category belongs to an agent, not a person.",
+			path: "agentCategory",
 		});
 	}
 	return problems;

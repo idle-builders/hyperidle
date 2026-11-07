@@ -10,12 +10,7 @@ import type {
 import { EventBus } from "@hyperidle/event-bus";
 import { getPluginMcpContributions } from "@hyperidle/settings";
 import { findThread } from "@hyperidle/thread";
-import {
-	connectionOwnerFor,
-	createUpgradeTokenStore,
-	listUsers,
-	type UpgradeTokenStore,
-} from "@hyperidle/user";
+import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/user";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import type { ActionContext } from "./actions/action.js";
@@ -65,8 +60,6 @@ export interface CoreApiBoot {
 	readonly wsHub: WsConnectionHub;
 	/** Present whenever WS support is being wired. */
 	readonly upgradeTokenStore: UpgradeTokenStore | null;
-	/** Present whenever `db` is provided. */
-	readonly resolveProvisioningOwnerUserId?: (agentId: string) => Promise<string | null>;
 	readonly pluginMcpContributions?: {
 		getContributions(teamId: string | null): Promise<
 			readonly {
@@ -111,12 +104,6 @@ export interface CoreApiBoot {
 	 * non-default user. Present whenever WS support was wired.
 	 */
 	readonly mintWsTokenFor?: (actorId: string) => string;
-}
-
-function resolveProvisioningOwnerUserIdFor(
-	db: NonNullable<AppOptions["db"]>,
-): (agentId: string) => Promise<string | null> {
-	return (agentId) => connectionOwnerFor(db, agentId);
 }
 
 export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApiBoot> {
@@ -315,7 +302,6 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 		upgradeTokenStore: tokenStore,
 		...(callActionAs ? { callActionAs } : {}),
 		...(mintWsTokenFor ? { mintWsTokenFor } : {}),
-		...(db ? { resolveProvisioningOwnerUserId: resolveProvisioningOwnerUserIdFor(db) } : {}),
 		...(db
 			? {
 					pluginMcpContributions: {

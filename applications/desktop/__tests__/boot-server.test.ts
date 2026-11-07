@@ -21,10 +21,10 @@ vi.mock("../src/create-server.js", () => ({
 }));
 
 describe("startServer", () => {
-	it("calls createServer with port 0 and topology:local", async () => {
+	it("calls createServer with port 0", async () => {
 		const { createServer } = await import("../src/create-server.js");
 		await startServer();
-		expect(createServer).toHaveBeenCalledWith(0, expect.objectContaining({ topology: "local" }));
+		expect(createServer).toHaveBeenCalledWith(0, expect.any(Object));
 	});
 
 	// The desktop app binds loopback only — the embedded server must not be reachable from the local network.

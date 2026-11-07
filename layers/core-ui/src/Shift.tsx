@@ -4,7 +4,6 @@ import {
 	type Message,
 	type QuestionnairePayload,
 	type ReviewPayload,
-	type SessionRow,
 	type Task,
 	type TaskNode,
 	type TaskView,
@@ -20,7 +19,7 @@ import { Event, Msg } from "./Msg";
 import { type Need, NeedIcon } from "./NeedIcon";
 import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
-import { Body, type People, peopleOf, resolvingOf, stepWords, useNow } from "./Thread";
+import { Body, type People, peopleOf, resolvingOf } from "./Thread";
 import {
 	ago,
 	cameFrom,
@@ -37,7 +36,7 @@ import {
 	tally,
 	waitsFor,
 } from "./task-page";
-import { clock, duration, timeline } from "./thread-timeline";
+import { clock, timeline } from "./thread-timeline";
 import { useAction } from "./useAction";
 
 /**
@@ -71,7 +70,7 @@ interface Thing {
 	readonly open: () => void;
 }
 
-const NO_SESSIONS: readonly SessionRow[] = [];
+const NO_RUNNING: ReadonlySet<string> = new Set();
 
 /** A review hangs on the task it names; one that names none hangs on its thread's task. */
 function reviewIsFor(m: Message, taskId: string): boolean {
@@ -80,7 +79,6 @@ function reviewIsFor(m: Message, taskId: string): boolean {
 
 /** What hangs around the tree: live sessions, documents, open questions and reviews. Asked again whenever the tree changes. */
 function useAround(view: TaskView) {
-	const [running, setRunning] = useState<ReadonlySet<string>>(new Set());
 	const [docs, setDocs] = useState<readonly DocumentRow[]>([]);
 	const [asks, setAsks] = useState<readonly Ask[]>([]);
 	useEffect(() => {
@@ -89,7 +87,6 @@ function useAround(view: TaskView) {
 		const ids = [...tree.byId.keys()];
 		const needy = [...tree.byId.values()].filter((n) => n.need !== null);
 		void Promise.all([
-			call("search_sessions", { state: "active", limit: 500 }),
 			call("search_documents", { parent: { kind: "task", ids }, limit: 500 }),
 			Promise.all(
 				needy.map(async (n) => {
@@ -105,11 +102,8 @@ function useAround(view: TaskView) {
 						.map((message): Ask => ({ task: n.id, message }));
 				}),
 			),
-		]).then(([sessions, found, open]) => {
+		]).then(([found, open]) => {
 			if (!current) return;
-			setRunning(
-				new Set(sessions.ok ? sessions.data.flatMap((s) => (s.taskId ? [s.taskId] : [])) : []),
-			);
 			setDocs(found.ok ? found.data : []);
 			setAsks(onePerAsk(open.flat()));
 		});
@@ -117,7 +111,7 @@ function useAround(view: TaskView) {
 			current = false;
 		};
 	}, [view]);
-	return { running, docs, asks };
+	return { docs, asks };
 }
 
 /** The address names the task; a part of it is `?part=`. A part's own address leads to its task. */
@@ -198,7 +192,7 @@ function TaskScreen({
 		path: new Set(path),
 		open,
 		unfolded,
-		running: around.running,
+		running: NO_RUNNING,
 		owner,
 		docs: around.docs,
 		asks: around.asks,
@@ -235,20 +229,20 @@ function TaskScreen({
 		<section className="detail">
 			<header className="detail-head">
 				<span className="chip chip--quiet">Task</span>
-				<span className="doc-state">{headWords(tree, root, around.running)}</span>
+				<span className="doc-state">{headWords(tree, root, NO_RUNNING)}</span>
 			</header>
 
 			<div className="detail-scroll">
 				<article className="tk-page">
 					<div className="tk-main">
 						<h1 className="page-title">{root.title}</h1>
-						<Stand tree={tree} n={root} running={around.running} owner={owner} />
+						<Stand tree={tree} n={root} running={NO_RUNNING} owner={owner} />
 						<Description task={root} />
 
 						{root.children.length > 0 && (
 							<section className="tk-map" aria-label="Parts of this task">
 								<h3>
-									Parts <span>{tally(tree, root, around.running)}</span>
+									Parts <span>{tally(tree, root, NO_RUNNING)}</span>
 								</h3>
 								{sel !== root && (
 									<nav className="crumbs" aria-label="Where you are in this task">
@@ -271,7 +265,7 @@ function TaskScreen({
 							{sel !== root && (
 								<>
 									<h2 className="tk-part-title">{sel.title}</h2>
-									<Stand tree={tree} n={sel} running={around.running} owner={owner} />
+									<Stand tree={tree} n={sel} running={NO_RUNNING} owner={owner} />
 									<Description task={sel} />
 								</>
 							)}
@@ -286,7 +280,7 @@ function TaskScreen({
 						key={sel.id}
 						tree={tree}
 						n={sel}
-						running={around.running}
+						running={NO_RUNNING}
 						owner={owner}
 						people={people}
 						you={you}
@@ -389,7 +383,7 @@ function Conversation({
 	const resolving = resolvingOf(messages);
 	const first = (uid: string) =>
 		uid === you ? "You" : (people.get(uid)?.name.split(" ")[0] ?? "Someone");
-	const entries = timeline(messages, [], [], first);
+	const entries = timeline(messages, [], first);
 
 	useLayoutEffect(() => {
 		if (focus && messages.length > 0)
@@ -836,7 +830,6 @@ function TaskBox({
 	const navigate = useNavigate();
 	const openApp = useOpenApp();
 	const [more, setMore] = useState(false);
-	const sessions = useAction("search_sessions", { taskId: n.id }, [`task:${n.id}`]);
 	const thread = useAction("open_thread", { id: n.threadId }, [`thread:${n.threadId}`]);
 	const done = finished(n);
 	const stopped = n.paused === "stopped";
@@ -897,21 +890,13 @@ function TaskBox({
 		.sort(newest)
 		.map(asDoc);
 
-	const all = [...(sessions.data ?? NO_SESSIONS)].sort((a, b) =>
-		a.startedAt.localeCompare(b.startedAt),
-	);
-	const worked = all.reduce(
-		(ms, s) => ms + (Date.parse(s.endedAt ?? new Date().toISOString()) - Date.parse(s.startedAt)),
-		0,
-	);
 	const facts = [
 		`${owner(n)} owns this`,
 		done
 			? `Finished ${ago(n.completedAt ?? n.updatedAt)}`
-			: all.length > 0 || (n.state !== "proposed" && n.state !== "accepted")
+			: n.state !== "proposed" && n.state !== "accepted"
 				? `Started ${ago(n.createdAt)}`
 				: "Not started",
-		all.length > 0 && `${duration(worked)} in ${plural(all.length, "session", "sessions")}`,
 	].filter((f): f is string => Boolean(f));
 	const came = thread.data && cameFrom(n, thread.data.thread) ? thread.data.thread : null;
 
@@ -1048,98 +1033,7 @@ function TaskBox({
 					</section>
 				);
 			})}
-
-			{all.length > 0 && <Sessions sessions={all} quiet={Boolean(n.paused)} />}
 		</aside>
-	);
-}
-
-/** The newest session; the earlier ones open in place. A live one can be peeked at. */
-function Sessions({ sessions, quiet }: { sessions: readonly SessionRow[]; quiet: boolean }) {
-	const [earlier, setEarlier] = useState(false);
-	const now = useNow();
-	const numbered = sessions.map((s, i) => ({ s, n: i + 1 })).reverse();
-	const shown = earlier ? numbered : numbered.slice(0, 1);
-	return (
-		<section className="tbox-sec">
-			<h4>Sessions</h4>
-			{shown.map(({ s, n }) => (
-				<SessionRowLine key={s.id} session={s} n={n} now={now} quiet={quiet} />
-			))}
-			{numbered.length > 1 && (
-				<button
-					type="button"
-					className="tbox-more"
-					aria-expanded={earlier}
-					onClick={() => setEarlier(!earlier)}
-				>
-					{earlier
-						? "Hide earlier sessions"
-						: `${plural(numbered.length - 1, "earlier session", "earlier sessions")}`}
-				</button>
-			)}
-		</section>
-	);
-}
-
-function SessionRowLine({
-	session,
-	n,
-	now,
-	quiet,
-}: {
-	session: SessionRow;
-	n: number;
-	now: number;
-	quiet: boolean;
-}) {
-	const [peek, setPeek] = useState(false);
-	const live = session.endedAt === null && session.state === "active";
-	const when = clock(session.startedAt, now);
-	const said = live
-		? `running · ${duration(now - Date.parse(session.startedAt))}`
-		: [
-				duration(Date.parse(session.endedAt ?? session.startedAt) - Date.parse(session.startedAt)),
-				session.state === "stopped" ? "stopped" : session.notes,
-			]
-				.filter(Boolean)
-				.join(" · ");
-	return (
-		<>
-			<div className="ses">
-				<span className="ses-t">
-					Session {n} · {/^\d/.test(when) ? `today ${when}` : when}
-				</span>
-				<span className="ses-s">
-					{said}
-					{live && !quiet && (
-						<>
-							{" "}
-							·{" "}
-							<button type="button" className="peek" onClick={() => setPeek(!peek)}>
-								{peek ? "Hide" : "Peek"}
-							</button>
-						</>
-					)}
-				</span>
-			</div>
-			{peek && live && <Steps id={session.id} />}
-		</>
-	);
-}
-
-function Steps({ id }: { id: string }) {
-	const watch = useAction("watch_session", { id }, [`session:${id}`]);
-	const steps = (watch.data?.activity ?? []).flatMap((e) => stepWords(e) ?? []);
-	return (
-		<ul className="session" aria-label="Steps so far">
-			{steps.length === 0 ? (
-				<li>· no steps yet</li>
-			) : (
-				// biome-ignore lint/suspicious/noArrayIndexKey: steps repeat and only ever append
-				steps.map((s, i) => <li key={i}>· {s}</li>)
-			)}
-		</ul>
 	);
 }
 

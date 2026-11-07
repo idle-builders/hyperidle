@@ -43,6 +43,13 @@ declare global {
 				/** In a huddle (`utterances`): the call's microphone sound, 16 kHz mono. */
 				audio(samples: Float32Array): void;
 			};
+			/** Desktop only: query and control the local runner that holds agent keys. */
+			readonly runner?: {
+				/** Null when runner is not wired to this window. */
+				state(agentId: string): Promise<{ held: boolean; movedAway: boolean } | null>;
+				/** Trigger adoption of this agent to the local runner. */
+				moveHere(agentId: string): Promise<void>;
+			};
 		};
 	}
 }

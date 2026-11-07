@@ -5,31 +5,18 @@
  * Declared in `framework/domain-model/src/actions/user.ts`.
  *
  * `Action`/`ActionContext` are this Service's own structural mirror
- * (`./action-types.js`) — the same reason `@hyperidle/settings`'s
- * `platform-actions.ts` declares its own: a nested Service may not import
- * the layer's own `actions/action.ts`. Everything this module reaches
- * outside its own five tables (`users`, `teams`, `org_edges`,
- * `subscriptions`, `inbox`) arrives through `UserActionsDeps`, bound in
- * `compose.ts` — run config/folders/connections structurally mirror
- * `AgentOrchestrationPort`'s own sub-ports (this Service may not import
- * `@hyperidle/api-contract` — governance: "a service talks through its own
- * layer" — so the shapes are hand-typed here, the way `AgentOrchestrationPort`
- * itself mirrors `AgentRunConfig`/`ServiceConnectionView` rather than
- * importing them), documents through the composed `search_documents`/
- * `edit_document` runners, harnesses/server config through thin
- * function seams.
- *
+ * (`./action-types.js`). Everything this module reaches outside its own
+ * five tables (`users`, `teams`, `org_edges`, `subscriptions`, `inbox`)
+ * arrives through `UserActionsDeps`, bound in `compose.ts` — documents
+ * through the composed `search_documents`/`edit_document` runners.
  */
-import { basename } from "node:path";
 import type { Change, HyperIdleDb, NewChange, NewUser, Team, WriteExecutor } from "@hyperidle/db";
-import { createLogger } from "@hyperidle/diagnostics";
 import {
 	type AddSubscriptionInput,
 	type AgentCategory,
 	type EditUserInput,
 	editUser as editUserDeclaration,
 	editUserInvariants,
-	type HarnessDescriptor,
 	type InboxReason,
 	type ObjectEventName,
 	type OpenUserInput,
@@ -55,7 +42,6 @@ import type {
 	SearchDocumentsRunFn,
 } from "./action-types.js";
 import { type AgentIdentityPort, createAgentIdentityPort } from "./agent-identity.js";
-import { connectionOwnerFor } from "./connection-owner.js";
 import { nextCronMatch, parseCron } from "./cron.js";
 import { deleteOrgEdge, listOrgEdges, resolveDisciplineUsers, upsertOrgEdge } from "./org-edges.js";
 import {
@@ -77,122 +63,16 @@ import {
 	type UserWithTeams,
 	updateUser,
 } from "./user-store.js";
-import { validateAgentLogin } from "./validate-agent-config.js";
 
 // ---------------------------------------------------------------------------
 // The deps bag — everything this module reaches outside its own tables.
 // ---------------------------------------------------------------------------
-
-/** Hand-typed structural mirror of `AgentOrchestrationRunConfigView`
- * (`@hyperidle/api-contract`) — this Service may not import that package
- * directly (governance: "a service talks through its own layer"), so
- * `compose.ts` (the layer itself, which may) binds the real port here. */
-export interface UserActionsRunConfigView {
-	readonly harnessType: string | null;
-	readonly modelId: string | null;
-	readonly modelProvider: string | null;
-	readonly maxConcurrentSessions: number;
-	readonly modelOptions: Readonly<Record<string, string | number | boolean>>;
-	readonly login: "own" | "owner";
-	readonly spacePath: string | null;
-}
-
-export type UserActionsRunConfigPatch = {
-	-readonly [K in keyof UserActionsRunConfigView]?: UserActionsRunConfigView[K];
-};
-
-/** Mirrors `SpaceFolderView` (`@hyperidle/run-orchestration`). */
-export interface UserActionsFolderView {
-	readonly name: string;
-	readonly path: string;
-	readonly isGit: boolean;
-	readonly isMissing: boolean;
-}
-
-/** Mirrors `AgentOrchestrationConnectionView`. */
-export interface UserActionsConnectionView {
-	readonly id: string;
-	readonly service: string;
-	readonly via: string;
-	readonly authSource: "token" | "mcp" | "inherited";
-	readonly health: "working" | "needs-attention";
-	readonly removable: boolean;
-	readonly withheldFrom: readonly string[];
-}
-
-/** Mirrors `AgentOrchestrationConnectionCreateInput`'s discriminated union. */
-export type UserActionsConnectionCreateInput =
-	| { readonly service: string; readonly authSource: "token"; readonly token: string }
-	| { readonly service?: string; readonly authSource: "mcp"; readonly serverUrl: string };
-
-export type UserActionsRemoveResult =
-	| { readonly ok: true }
-	| { readonly ok: false; readonly code: "NOT_FOUND" };
 
 export interface UserActionsDeps {
 	readonly changes: {
 		readonly appendChange: (exec: WriteExecutor, row: NewChange) => Promise<Change>;
 		readonly listByIds: (db: HyperIdleDb, ids: readonly string[]) => Promise<readonly Change[]>;
 	};
-	/** Structural mirrors of the ports orchestration already exposes —
-	 * `compose.ts` binds these straight to the real `AgentOrchestrationPort` members. */
-	readonly runConfig: {
-		read(agentId: string): Promise<UserActionsRunConfigView>;
-		write(agentId: string, patch: UserActionsRunConfigPatch): Promise<void>;
-		/** Ensure a space directory exists for the agent.
-		 * Called when login is set to "own" so the probe can run before the first session. */
-		ensureSpace(agentId: string, agentName: string): Promise<string>;
-	};
-	readonly spaceFolders: {
-		list(agentId: string): Promise<readonly UserActionsFolderView[]>;
-		add(
-			agentId: string,
-			path: string,
-			name: string | undefined,
-			agentName: string,
-		): Promise<{ readonly ok: true } | { readonly ok: false; readonly code: string }>;
-		remove(
-			agentId: string,
-			name: string,
-		): Promise<{ readonly ok: true } | { readonly ok: false; readonly code: string }>;
-	};
-	readonly connections: {
-		list(userId: string): Promise<{
-			readonly connections: readonly UserActionsConnectionView[];
-			readonly inherited: readonly UserActionsConnectionView[];
-		}>;
-		add(
-			userId: string,
-			input: UserActionsConnectionCreateInput,
-		): Promise<
-			| { readonly ok: true; readonly connection: UserActionsConnectionView }
-			| { readonly ok: false; readonly code: "MISSING_ROOT_SECRET" | "DUPLICATE_CONNECTION" }
-		>;
-		remove(userId: string, id: string): Promise<UserActionsRemoveResult>;
-		withhold(
-			userId: string,
-			id: string,
-			agentUserId: string,
-			keep: boolean,
-		): Promise<UserActionsRemoveResult>;
-	};
-	/** Install-wide: this machine's harnesses. Absent when no adapter pool
-	 * is wired (a composition without agent execution). */
-	readonly harnesses?: {
-		describe(): readonly HarnessDescriptor[];
-		redetect(): Promise<void>;
-	};
-	/**
-	 * Probe the per-agent login dir for an agent running with login: "own".
-	 * Absent when no probe is wired (e.g. remote server without CLI tools).
-	 */
-	readonly probeAgentLogin?: (
-		harnessType: "claude-code" | "codex",
-		agentSpacePath: string,
-	) => Promise<{
-		readonly state: "missing" | "installed" | "unauthenticated" | "ready" | "unavailable";
-		readonly reason?: string;
-	}>;
 	readonly searchDocuments: SearchDocumentsRunFn;
 	readonly editDocument: EditDocumentRunFn;
 	/**
@@ -218,8 +98,6 @@ type Result<T> = { ok: true; data: T } | { ok: false; problems: Problem[] };
 function problem(code: string, message: string, path?: string): { ok: false; problems: Problem[] } {
 	return { ok: false, problems: [{ code, message, ...(path ? { path } : {}) }] };
 }
-
-const logger = createLogger({ pkg: "user.user-actions" });
 
 const RUNNABLE_STATUSES: ReadonlySet<string> = new Set(["active", "idle"]);
 
@@ -391,25 +269,17 @@ async function buildUserView(
 	isSelf: boolean,
 	unread = false,
 ): Promise<UserView> {
-	const runsOn = deps.harnesses ? [...deps.harnesses.describe()] : [];
-
 	if (!userRow) {
 		return {
 			user: null,
-			runsOn,
-			runConfig: null,
 			documentIds: [],
-			folders: [],
 			subscriptions: [],
-			connections: null,
 			inbox: null,
 		};
 	}
 
 	const [row] = await toUserRows(ctx.db, [userRow]);
 	if (!row) throw new Error("open_user: toUserRows dropped a row it was given");
-
-	const runConfig = userRow.kind === "ai" ? await deps.runConfig.read(userRow.id) : null;
 
 	let documentIds: UserView["documentIds"] = [];
 	const ownDocs = await deps.searchDocuments(internalCtx(ctx, userRow.id), {
@@ -421,8 +291,6 @@ async function buildUserView(
 			.filter((d) => slots.includes(d.slot) && d.status !== "archived")
 			.map((d) => ({ slot: d.slot, id: d.id }));
 	}
-
-	const folders = userRow.kind === "ai" ? await deps.spaceFolders.list(userRow.id) : [];
 
 	const subscriptionRows = await listSubscriptions(ctx.db, { userId: userRow.id });
 	const promptDocByParent = new Map<string, string>();
@@ -445,13 +313,6 @@ async function buildUserView(
 		nextRunAt: s.nextRunAt,
 	}));
 
-	const connectionOwner = isSelf
-		? userRow.id
-		: userRow.kind === "ai"
-			? await connectionOwnerFor(ctx.db, userRow.id)
-			: null;
-	const connections = connectionOwner ? await deps.connections.list(connectionOwner) : null;
-
 	let inbox: UserView["inbox"] = null;
 	if (isSelf) {
 		const inboxRows = await listInboxRows(ctx.db, { userId: userRow.id, limit: 50, unread });
@@ -472,36 +333,12 @@ async function buildUserView(
 		}));
 	}
 
-	// Probe per-agent login when the agent runs with login: "own" and has a space.
-	let agentLoginStatus: UserView["agentLoginStatus"];
-	if (
-		deps.probeAgentLogin &&
-		runConfig?.login === "own" &&
-		runConfig.spacePath !== null &&
-		(runConfig.harnessType === "claude-code" || runConfig.harnessType === "codex")
-	) {
-		agentLoginStatus = await deps.probeAgentLogin(runConfig.harnessType, runConfig.spacePath);
-	}
-
-	// Cast: `runConfig`/`spaceFolders`/`connections` come straight off
-	// `AgentOrchestrationPort` — structural mirrors of the wire shape
-	// `UserView` names, which the domain-model action file may not import
-	// (zero-runtime-deps). `readonly` arrays don't structurally satisfy a
-	// mutable wire array either. The real values are always one of the wire
-	// enum's members; the cast is the same trust boundary
-	// `agent-orchestration-port-composition.ts` already carries the other
-	// direction.
 	return {
 		user: row,
-		runsOn,
-		runConfig,
-		...(agentLoginStatus !== undefined ? { agentLoginStatus } : {}),
 		documentIds,
-		folders,
 		subscriptions,
-		connections,
 		inbox,
-	} as UserView;
+	};
 }
 
 function makeOpenUserRun(deps: UserActionsDeps) {
@@ -647,174 +484,6 @@ async function archiveSubscriptionPrompt(
 	if (existingDoc) {
 		await deps.editDocument(internalCtx(ctx, agentId), { id: existingDoc.id, status: "archived" });
 	}
-}
-
-// ---------------------------------------------------------------------------
-// edit_user — folders and connections, shared by create and edit
-//
-// ---------------------------------------------------------------------------
-
-/** Map a SpaceFolderAddCode to a user-facing problem code and message. */
-function folderAddProblem(
-	code: string,
-	label: string,
-	sourcePath: string,
-): { code: string; message: string } {
-	switch (code) {
-		case "RESERVED_NAME":
-			return {
-				code: "folder_name_reserved",
-				message: `A folder named '${label}' can't be added: that name is kept for the agent's own work.`,
-			};
-		case "CONFLICT":
-			return {
-				code: "folder_exists",
-				message: `The agent already has a folder called '${label}'.`,
-			};
-		case "SOURCE_NOT_FOUND":
-			return {
-				code: "folder_not_found",
-				message: `No folder at '${sourcePath}' on this computer.`,
-			};
-		case "SOURCE_NOT_DIRECTORY":
-			return {
-				code: "folder_not_directory",
-				message: `'${sourcePath}' is a file, not a folder.`,
-			};
-		case "INVALID_NAME":
-			return {
-				code: "folder_invalid_name",
-				message: `'${label}' can't be used as a folder name.`,
-			};
-		default:
-			return { code: "unknown_folder", message: `Could not add folder '${label}'.` };
-	}
-}
-
-/**
- * Apply a `folders` edit to an agent's space.
- *
- * Persons are refused — folders only belong to agents (space symlinks).
- * Agents: `add` creates a symlink, `remove` deletes one. The port returns a
- * typed code for each expected failure; a thrown error is treated as an
- * unexpected I/O failure.
- */
-async function applyUserFolders(
-	deps: UserActionsDeps,
-	id: string,
-	kind: string,
-	agentName: string,
-	folders: NonNullable<EditUserInput["folders"]>,
-): Promise<Problem | null> {
-	if (kind !== "ai") {
-		return {
-			code: "folders_not_supported",
-			message: "Folders belong to agents, not people.",
-			path: "folders",
-		};
-	}
-	for (const { path: folderPath, name } of folders.add ?? []) {
-		let result: Awaited<ReturnType<typeof deps.spaceFolders.add>>;
-		try {
-			result = await deps.spaceFolders.add(id, folderPath, name, agentName);
-		} catch {
-			return { code: "unknown_folder", message: "Could not add that folder.", path: "folders" };
-		}
-		if (!result.ok) {
-			const label = name ?? basename(folderPath);
-			const { code, message } = folderAddProblem(result.code, label, folderPath);
-			return { code, message, path: "folders" };
-		}
-	}
-	for (const name of folders.remove ?? []) {
-		let result: Awaited<ReturnType<typeof deps.spaceFolders.remove>>;
-		try {
-			result = await deps.spaceFolders.remove(id, name);
-		} catch {
-			return {
-				code: "unknown_folder",
-				message: `No folder '${name}' in this agent's space.`,
-				path: "folders",
-			};
-		}
-		if (!result.ok) {
-			return {
-				code: "unknown_folder",
-				message: `No folder '${name}' in this agent's space.`,
-				path: "folders",
-			};
-		}
-	}
-	return null;
-}
-
-async function applyUserConnections(
-	db: HyperIdleDb,
-	deps: UserActionsDeps,
-	id: string,
-	connections: NonNullable<EditUserInput["connections"]>,
-): Promise<Problem | null> {
-	for (const conn of connections.add ?? []) {
-		// `EditUserConnectionsSchema`'s flat `{service, authSource, token?,
-		// serverUrl?}` (today's `POST /filesystems` body shape) is wider than
-		// the port's own discriminated union — the port itself is the one
-		// that refuses a mismatched pair (`connection_invalid` below). One
-		// audited cast, widened through a local `unknown` binding rather than
-		// a chained `as unknown as` (forbidden — `design/no-unknown-cast`).
-		//
-		// @lore: connections.add seam — throws on non-2xx instead of returning {ok:false}; catch converts throw to connection_invalid, matching returned failures
-		const connWidened: unknown = conn;
-		let result: Awaited<ReturnType<typeof deps.connections.add>>;
-		try {
-			result = await deps.connections.add(
-				id,
-				connWidened as Parameters<typeof deps.connections.add>[1],
-			);
-		} catch {
-			return {
-				code: "connection_invalid",
-				message: "That connection could not be added.",
-				path: "connections",
-			};
-		}
-		if (!result.ok) {
-			return {
-				code: "connection_invalid",
-				message: "That connection could not be added.",
-				path: "connections",
-			};
-		}
-	}
-	for (const connId of connections.remove ?? []) {
-		const result = await deps.connections.remove(id, connId);
-		if (!result.ok) {
-			return {
-				code: "unknown_connection",
-				message: `No connection '${connId}'.`,
-				path: "connections",
-			};
-		}
-	}
-	const keeps = [
-		...(connections.give ?? []).map((connId) => [connId, false] as const),
-		...(connections.take ?? []).map((connId) => [connId, true] as const),
-	];
-	if (keeps.length > 0) {
-		const owner = await connectionOwnerFor(db, id);
-		for (const [connId, keep] of keeps) {
-			const result = owner
-				? await deps.connections.withhold(owner, connId, id, keep)
-				: ({ ok: false, code: "NOT_FOUND" } as const);
-			if (!result.ok) {
-				return {
-					code: "unknown_connection",
-					message: `No connection '${connId}' of this agent's owner.`,
-					path: "connections",
-				};
-			}
-		}
-	}
-	return null;
 }
 
 /** An agent's `agent_file` says who it is; a person's says what agents should know about them. */
@@ -964,28 +633,6 @@ async function createUserRun(
 		});
 	});
 
-	// -- post-commit: run config, folders + connections, identity + subscription
-	// prompt documents, redetect. No port or document call inside
-	// the transaction above. A folder/connection problem is held, not
-	// returned, so every step below still runs and the row's own
-	// `user.created` still reaches every subscriber in reach. --
-	if (input.runConfig) await deps.runConfig.write(id, input.runConfig);
-
-	// When login is explicitly set to "own" on an AI agent, ensure the space
-	// directory exists now — before the first session runs — so open_user can
-	// probe login status and show the sign-in command right away.
-	if (input.runConfig?.login === "own" && kind === "ai") {
-		await deps.runConfig.ensureSpace(id, name);
-	}
-
-	let stepProblem: Problem | null = null;
-	if (input.folders) {
-		stepProblem = await applyUserFolders(deps, id, kind, name, input.folders);
-	}
-	if (!stepProblem && input.connections) {
-		stepProblem = await applyUserConnections(ctx.db, deps, id, input.connections);
-	}
-
 	if (input.identity !== undefined) {
 		await identity.upsertAgentIdentity(ctx.db, {
 			agentId: id,
@@ -1005,18 +652,7 @@ async function createUserRun(
 				sub.prompt,
 			);
 	}
-	if (input.redetectHarnesses && deps.harnesses) await deps.harnesses.redetect();
-
 	if (mainChangeRow) ctx.eventBus.emit(objectEvent(mainChangeRow));
-
-	// create always answers ok:true once the row is committed — folder/connection problem is logged, not returned (row is already committed)
-	if (stepProblem) {
-		logger.warn("create: folder/connection step failed after the row committed", {
-			userId: id,
-			code: stepProblem.code,
-			path: stepProblem.path,
-		});
-	}
 
 	const userRow = await findUser(ctx.db, { id });
 	const data = await buildUserView(ctx, deps, userRow ?? null, true);
@@ -1072,16 +708,6 @@ async function editExistingUserRun(
 	if (input.teams !== undefined) {
 		const membership = await membershipProblemsFor(ctx.db, existing, input.teams);
 		if (membership.length > 0) return { ok: false, problems: membership };
-	}
-	if ((input.connections?.add || input.connections?.remove) && ctx.actor !== id) {
-		return problem("yourself_only", "Connections are added on your own view only.", "connections");
-	}
-	if ((input.connections?.give || input.connections?.take) && existing.kind !== "ai") {
-		return problem(
-			"agents_only",
-			"A service is given to or kept from an agent; a person reaches their own.",
-			"connections",
-		);
 	}
 	if (input.inbox !== undefined && ctx.actor !== id) {
 		return problem("yourself_only", "Your inbox is edited on your own view only.", "inbox");
@@ -1153,16 +779,6 @@ async function editExistingUserRun(
 		}
 	}
 
-	if (input.runConfig?.login !== undefined && existing.kind === "ai") {
-		let effectiveHarnessType: string | null = input.runConfig.harnessType ?? null;
-		if (effectiveHarnessType === null) {
-			const existingRC = await deps.runConfig.read(id);
-			effectiveHarnessType = existingRC.harnessType;
-		}
-		const loginErr = validateAgentLogin(input.runConfig.login, effectiveHarnessType);
-		if (loginErr) return problem(loginErr.code, loginErr.error, "runConfig");
-	}
-
 	const touchesTeams = input.teams !== undefined;
 	const touchesEdges =
 		(input.edges?.add?.length ?? 0) > 0 || (input.edges?.remove?.length ?? 0) > 0;
@@ -1170,15 +786,8 @@ async function editExistingUserRun(
 		(input.subscriptions?.add?.length ?? 0) > 0 ||
 		(input.subscriptions?.change?.length ?? 0) > 0 ||
 		(input.subscriptions?.remove?.length ?? 0) > 0;
-	const touchesRunConfig = input.runConfig !== undefined;
-	const touchesReach = input.folders !== undefined || input.connections !== undefined;
 	const appendsChange =
-		touchesIdentityFields(input) ||
-		touchesTeams ||
-		touchesEdges ||
-		touchesSubscriptions ||
-		touchesRunConfig ||
-		touchesReach;
+		touchesIdentityFields(input) || touchesTeams || touchesEdges || touchesSubscriptions;
 
 	const before: Record<string, unknown> = {};
 	const after: Record<string, unknown> = {};
@@ -1190,8 +799,6 @@ async function editExistingUserRun(
 	}
 	if (touchesEdges) after.edges = true;
 	if (touchesSubscriptions) after.subscriptions = true;
-	if (touchesRunConfig) after.runConfig = input.runConfig;
-	if (touchesReach) after.reach = true;
 
 	let teams: Array<{ id: string; name: string }> | undefined;
 	const addedSubscriptions: Array<{
@@ -1297,27 +904,6 @@ async function editExistingUserRun(
 		}
 	});
 
-	// -- post-commit: ports, documents, redetect, retire archive.
-	// No port or document call sits inside the transaction above. A
-	// folder/connection problem is held, not returned, so the rest of this
-	// sequence — including the `user.changed` emit below — still runs. --
-	if (input.runConfig) await deps.runConfig.write(id, input.runConfig);
-
-	// When login is explicitly set to "own" on an AI agent, ensure the space
-	// directory exists now — before the first session runs — so open_user can
-	// probe login status and show the sign-in command right away.
-	if (input.runConfig?.login === "own" && existing.kind === "ai") {
-		await deps.runConfig.ensureSpace(id, existing.name);
-	}
-
-	let stepProblem: Problem | null = null;
-	if (input.folders) {
-		stepProblem = await applyUserFolders(deps, id, existing.kind, existing.name, input.folders);
-	}
-	if (!stepProblem && input.connections) {
-		stepProblem = await applyUserConnections(ctx.db, deps, id, input.connections);
-	}
-
 	for (const sub of addedSubscriptions) {
 		if (typeof sub.prompt === "string")
 			await writeSubscriptionPrompt(
@@ -1355,15 +941,11 @@ async function editExistingUserRun(
 		await identity.archiveChildren(ctx.db, ctx.actor, id);
 	}
 
-	if (input.redetectHarnesses && deps.harnesses) await deps.harnesses.redetect();
-
 	// The newest key wins: the runner that asked last is where the agent lives now.
 	const key = input.key === "new" ? newUserKey() : undefined;
 	if (key) await giveUserKey(ctx.db, id, key);
 
 	if (mainChangeRow) ctx.eventBus.emit(objectEvent(mainChangeRow));
-
-	if (stepProblem) return { ok: false, problems: [stepProblem] };
 
 	const userRow = await findUser(ctx.db, { id });
 	const isSelf = id === ctx.actor;

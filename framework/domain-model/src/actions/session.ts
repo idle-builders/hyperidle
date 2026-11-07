@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { ActivityEntry } from "../session-activity.js";
 import { AGENT_SESSION_SOURCE_KINDS } from "../session-request.js";
 import { MODEL_TIERS } from "../types.js";
 import type { ActionDeclaration } from "./action.js";
@@ -31,101 +30,6 @@ export const SessionRowSchema = z.object({
 });
 export type SessionRow = z.infer<typeof SessionRowSchema>;
 
-export const SearchSessionsInputSchema = z
-	.object({
-		ids: z.array(z.string()).optional(),
-		taskId: z.string().optional(),
-		agentIds: z.array(z.string()).optional(),
-		state: z.enum(SESSION_STATES).optional(),
-		limit: z.number().int().min(1).max(500).optional(), // default 100
-		offset: z.number().int().min(0).optional(),
-	})
-	.strict();
-export type SearchSessionsInput = z.infer<typeof SearchSessionsInputSchema>;
-
-export const searchSessions: ActionDeclaration<SearchSessionsInput, SessionRow[]> = {
-	name: "search_sessions",
-	sentence:
-		"Search sessions — agent runs, past and live. No parameter lists them, newest first, up to " +
-		"100 unless you set limit (up to 500); filter by id, task, agent, or state.",
-	input: SearchSessionsInputSchema,
-	output: z.array(SessionRowSchema),
-};
-
-export const WatchSessionInputSchema = z.object({ id: z.string().min(1) }).strict();
-export type WatchSessionInput = z.infer<typeof WatchSessionInputSchema>;
-
-// Mirrors `../session-activity.js`'s `ActivityEntry` union verbatim — the
-// activity is the in-memory ring buffer, unchanged. Typed against the
-// real `ActivityEntry` so the two can never drift silently.
-const toolCallDataSchema = z.object({
-	toolName: z.string(),
-	argsSummary: z.string(),
-	toolKind: z.string().optional(),
-	verb: z.string().optional(),
-	target: z.string().optional(),
-	status: z.enum(["running", "ok", "failed", "neutral"]).optional(),
-	output: z.string().optional(),
-	diff: z
-		.object({ label: z.string(), added: z.number().int(), removed: z.number().int() })
-		.optional(),
-	opensSession: z.object({ sessionId: z.string(), label: z.string() }).optional(),
-});
-
-const reasoningDataSchema = z.object({
-	durationMs: z.number().optional(),
-	text: z.string().optional(),
-	excerpt: z.string().optional(),
-});
-
-const answerDeltaDataSchema = z.object({ text: z.string() });
-const answerSettledDataSchema = z.object({ text: z.string() });
-const humanMessageDataSchema = z.object({
-	text: z.string(),
-	author: z.object({
-		id: z.string(),
-		name: z.string(),
-		isAgent: z.literal(false),
-		isMe: z.boolean(),
-	}),
-});
-
-export const ActivityEntrySchema: z.ZodType<ActivityEntry> = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("tool_call"), timestamp: z.number(), data: toolCallDataSchema }),
-	z.object({ type: z.literal("reasoning"), timestamp: z.number(), data: reasoningDataSchema }),
-	z.object({
-		type: z.literal("answer_delta"),
-		timestamp: z.number(),
-		data: answerDeltaDataSchema,
-	}),
-	z.object({
-		type: z.literal("answer_settled"),
-		timestamp: z.number(),
-		data: answerSettledDataSchema,
-	}),
-	z.object({
-		type: z.literal("human_message"),
-		timestamp: z.number(),
-		data: humanMessageDataSchema,
-	}),
-]);
-
-export const WatchSessionOutputSchema = z.object({
-	session: SessionRowSchema,
-	activity: z.array(ActivityEntrySchema),
-});
-export type WatchSessionOutput = z.infer<typeof WatchSessionOutputSchema>;
-
-export const watchSession: ActionDeclaration<WatchSessionInput, WatchSessionOutput> = {
-	name: "watch_session",
-	sentence:
-		"Watch a session: its row and its activity buffer so far. An unknown id is an error; a " +
-		"session that has already ended and been evicted from the buffer answers with an empty " +
-		"activity list, not a problem.",
-	input: WatchSessionInputSchema,
-	output: WatchSessionOutputSchema,
-};
-
 // stop_session answers with the row as read BEFORE the stop, not a second re-read.
 
 export const StopSessionInputSchema = z.object({ id: z.string().min(1) }).strict();
@@ -148,30 +52,6 @@ export const stopSession: ActionDeclaration<StopSessionInput, StopSessionOutput>
 	output: StopSessionOutputSchema,
 };
 
-export const ListWaitingRequestsInputSchema = z.object({ threadId: z.string().min(1) }).strict();
-export type ListWaitingRequestsInput = z.infer<typeof ListWaitingRequestsInputSchema>;
-
-export const WaitingRequestRowSchema = z.object({
-	agentId: z.string(),
-	/** The session currently blocking this request, or null if the agent is not yet running. */
-	activeSession: SessionRowSchema.nullable(),
-});
-export type WaitingRequestRow = z.infer<typeof WaitingRequestRowSchema>;
-
-export const listWaitingRequests: ActionDeclaration<ListWaitingRequestsInput, WaitingRequestRow[]> =
-	{
-		name: "list_waiting_requests",
-		sentence:
-			"List agents waiting to start work in a conversation — requests queued (pending or claimed) " +
-			"for the given thread. Each entry carries the agent and the session it is blocked behind, " +
-			"if one is running. Empty when no work is queued.",
-		input: ListWaitingRequestsInputSchema,
-		output: z.array(WaitingRequestRowSchema),
-	};
-
 export const SESSION_ACTIONS = {
-	search_sessions: searchSessions,
-	watch_session: watchSession,
 	stop_session: stopSession,
-	list_waiting_requests: listWaitingRequests,
 } as const;

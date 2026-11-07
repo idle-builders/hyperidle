@@ -4,12 +4,11 @@ import { useAction } from "./useAction";
 
 const NONE: readonly never[] = [];
 
-/** Everyone you can @mention, with their load from the sessions running now. */
+/** Everyone you can @mention. */
 export function useMentionables(): readonly Mentionable[] {
 	const me = useAction("open_user", {});
 	const users = useAction("search_users", {}, ["users"]);
-	const running = useAction("search_sessions", { state: "active" });
-	return mentionables(users.data ?? NONE, running.data ?? NONE, me.data?.user?.id ?? "");
+	return mentionables(users.data ?? NONE, me.data?.user?.id ?? "");
 }
 
 /**

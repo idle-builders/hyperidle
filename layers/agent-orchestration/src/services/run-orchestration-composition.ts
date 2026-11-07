@@ -4,7 +4,6 @@
 import { summarizeToolArgs } from "@hyperidle/diagnostics";
 import type {
 	ActionResult,
-	ActivityEntry,
 	DocumentRow,
 	DocumentView,
 	EditDocumentInput,
@@ -14,7 +13,6 @@ import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool, ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import {
 	findSessionById,
-	listSessions,
 	type PluginMcpContributionsPort,
 	type RunOptions,
 	type RunResult,
@@ -32,7 +30,6 @@ import type { RunnerDb } from "@hyperidle/runner-db";
 import {
 	claimSessionRequest,
 	findSessionRequest,
-	listPendingByStream,
 	listSessionRequests,
 	releaseClaim,
 	renewClaim,
@@ -333,13 +330,10 @@ export function buildRunOrchestrationComposition(config: {
 export function buildSessionActionsDeps(
 	db: RunnerDb,
 	eventBus: EventBus,
-	getRecentActivity: (sessionId: string) => ReadonlyArray<ActivityEntry>,
 ): SessionActionsDeps {
 	return {
-		sessions: { list: listSessions, getById: findSessionById },
-		pendingRequests: { listForStream: listPendingByStream },
+		sessions: { getById: findSessionById },
 		stop: (sessionId) =>
 			stopSessionRun(db, eventBus, sessionId, (id) => sessionRunRegistry.abort(id, "stop")),
-		activity: getRecentActivity,
 	};
 }

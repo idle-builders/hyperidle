@@ -202,13 +202,6 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 		},
 		editDocument: runnerFor(documentActions, "edit_document"),
 		searchDocuments: runnerFor(documentActions, "search_documents"),
-		// No adapter pool here, so no harness is ever picked; the harness and the
-		// viewer's team are proven through the layer's own composition
-		// (`layers/core-api/src/routes/__tests__/plugins-bundled.integration.test.ts`).
-		runConfig: {
-			read: async () => ({ harnessType: null }),
-			write: async () => {},
-		},
 		viewerTeamIds: async () => [],
 		teams: {
 			exists: async (exec, teamId) => {

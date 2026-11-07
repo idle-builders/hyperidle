@@ -1,51 +1,13 @@
-import type { HarnessDescriptor } from "@hyperidle/domain-model";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { post } from "./api";
-import { programWords } from "./people-page";
 import { useAction } from "./useAction";
 
 /**
- * First start, on a fresh install: the agent programs found on this computer, your name and your
- * team's, and Start talking — which makes you, your team and your first agent, and opens your first
- * conversation. With no program signed in, each says how to fix it and Start talking waits. A team
- * that already runs on a server is joined instead, in the desktop app.
+ * First start, on a fresh install: your name and your team's, and Start talking — which makes you,
+ * your team and your first agent, and opens your first conversation. A team that already runs on a
+ * server is joined instead, in the desktop app.
  */
-const ready = (h: HarnessDescriptor) => h.discovery.state === "ready" && !h.discovery.disabled;
-
-/** How to make a program ready, from what it says about itself. */
-function Fix({ h }: { h: HarnessDescriptor }) {
-	const command = h.authAction.command;
-	if (h.discovery.state === "missing") return <>Install it, then look again.</>;
-	if (h.discovery.state === "unauthenticated" && command)
-		return (
-			<>
-				Sign in: run <code>{command.join(" ")}</code> in a terminal
-			</>
-		);
-	if (h.discovery.state === "unauthenticated") return <>Sign in to it, then look again.</>;
-	return <>{h.discovery.reason ?? "It cannot be used on this computer."}</>;
-}
-
-function Found({ programs, fixes }: { programs: readonly HarnessDescriptor[]; fixes: boolean }) {
-	return (
-		<section className="found" aria-label="Found on this computer">
-			<span className="found-h">Found on this computer</span>
-			{programs.map((h) => (
-				<div key={h.type} className={ready(h) ? "found-row" : "found-row found-row--off"}>
-					<span className={ready(h) ? "found-ok" : undefined}>{ready(h) ? "✓" : "–"}</span>
-					<b>{h.name}</b>
-					<span>{programWords(h)}</span>
-					{fixes && !ready(h) && h.discovery.state !== "installed" && (
-						<span className="found-fix">
-							<Fix h={h} />
-						</span>
-					)}
-				</div>
-			))}
-		</section>
-	);
-}
 
 /**
  * Joining happens in the desktop app: you sign in in your browser, and the server hands back your
@@ -128,8 +90,6 @@ function Join({ onBack }: { onBack: () => void }) {
 export function Start() {
 	const navigate = useNavigate();
 	const me = useAction("open_user", {});
-	const [looked, setLooked] = useState<readonly HarnessDescriptor[] | null>(null);
-	const [lookedNote, setLookedNote] = useState<string | null>(null);
 	const [joining, setJoining] = useState(false);
 	const [name, setName] = useState("");
 	const [team, setTeam] = useState("");
@@ -137,20 +97,7 @@ export function Start() {
 	const [starting, setStarting] = useState(false);
 
 	if (me.data?.user) return <Navigate to="/conversations" replace />;
-	const programs = looked ?? me.data?.runsOn ?? [];
-	const none = me.data !== null && !programs.some(ready);
 
-	const look = async () => {
-		setLookedNote("Looking…");
-		const res = await post("/api/start/look");
-		const found = res.ok ? ((await res.json()) as { runsOn: HarnessDescriptor[] }).runsOn : null;
-		if (found) setLooked(found);
-		setLookedNote(
-			found?.some(ready)
-				? "Looked again just now: one is ready."
-				: "Looked again just now: still none ready.",
-		);
-	};
 	const start = async () => {
 		if (!(name.trim() && team.trim())) return setProblem("Your name and your team's, please.");
 		setStarting(true);
@@ -169,18 +116,7 @@ export function Start() {
 					<Join onBack={() => setJoining(false)} />
 				) : (
 					<>
-						<p className="first-lead">
-							{none
-								? "Agents work through a program on this computer. None is ready yet."
-								: "Agents already on this computer can start right away."}
-						</p>
-						<Found programs={programs} fixes={none} />
-						{none && (
-							<p className="first-note">
-								{lookedNote ??
-									"Install one, or sign in to one, then look again. Any one of them is enough."}
-							</p>
-						)}
+						<p className="first-lead">Agents already on this computer can start right away.</p>
 						<label className="first-field">
 							<span>Your name</span>
 							<input
@@ -198,23 +134,15 @@ export function Start() {
 								onChange={(e) => setTeam(e.target.value)}
 							/>
 						</label>
-						{!none && (
-							<p className="first-note">
-								Folders, GitHub and teammates can come later, when you need them.
-							</p>
-						)}
+						<p className="first-note">
+							Folders, GitHub and teammates can come later, when you need them.
+						</p>
 						{problem && <p className="composer-problem">{problem}</p>}
 						<div className="first-acts">
-							{none && (
-								<button type="button" className="btn btn--accent" onClick={() => void look()}>
-									Look again
-								</button>
-							)}
 							<button
 								type="button"
-								className={none ? "btn" : "btn btn--accent"}
-								disabled={none || starting}
-								title={none ? "Needs one agent program that is signed in" : undefined}
+								className="btn btn--accent"
+								disabled={starting}
 								onClick={() => void start()}
 							>
 								Start talking

@@ -47,11 +47,9 @@ interface CapturedBroadcast {
 	};
 }
 
-function buildActionsWithHub(
-	broadcasts: CapturedBroadcast[],
-) {
+function buildActionsWithHub(broadcasts: CapturedBroadcast[]) {
 	return buildCoreActions({
-			wsPush: (topic: string, envelope: unknown) => {
+		wsPush: (topic: string, envelope: unknown) => {
 			broadcasts.push({ topic, envelope: envelope as CapturedBroadcast["envelope"] });
 		},
 	});
@@ -131,7 +129,7 @@ describe("send_message — the websocket nudge", () => {
 	test("a new-thread send broadcasts created+message on both topics, redacted on conversations", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "nudge-team-1");
 		await seedHuman(db, "nudge-human-1", "nudge-team-1");
 
@@ -181,10 +179,7 @@ describe("send_message — the websocket nudge", () => {
 		expect(after.senderId).toBe(FOUNDER_ID);
 	});
 
-	test("a refused send (not a member) broadcasts nothing", async ({
-		db,
-		eventBus,
-		}) => {
+	test("a refused send (not a member) broadcasts nothing", async ({ db, eventBus }) => {
 		await seedTeam(db, "nudge-team-2");
 		await seedHuman(db, "nudge-victim", "nudge-team-2");
 		await seedHuman(db, "nudge-stranger", "nudge-team-2");
@@ -210,13 +205,12 @@ describe("send_message — the websocket nudge", () => {
 	test("with no hub wired, send_message pushes nothing and does not throw", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "nudge-team-3");
 		await seedHuman(db, "nudge-human-3", "nudge-team-3");
 
 		// no `wsPush` in the bindings — the dep is optional.
-		const actions = buildCoreActions({
-				});
+		const actions = buildCoreActions({});
 		const sendMessage = runnerFor<SendMessageInput, SendMessageOutput>(actions, "send_message");
 
 		const result = await sendMessage(ctxFor(db, eventBus, FOUNDER_ID), {
@@ -229,7 +223,7 @@ describe("send_message — the websocket nudge", () => {
 	test("an overwrite broadcasts thread.message with no payload in before or after on conversations; thread:<id> still carries both", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "nudge-team-6");
 		await seedThreadRow(db, "nudge-thread-6", {
 			hostKind: "team",
@@ -284,7 +278,7 @@ describe("adjust_thread — the websocket nudge", () => {
 	test("a resolve broadcasts thread.changed on both topics, unredacted", async ({
 		db,
 		eventBus,
-		}) => {
+	}) => {
 		await seedTeam(db, "nudge-team-4");
 		await seedThreadRow(db, "nudge-thread-4", {
 			hostKind: "team",
@@ -314,10 +308,7 @@ describe("adjust_thread — the websocket nudge", () => {
 		}
 	});
 
-	test("a no-op adjust (nothing actually changes) broadcasts nothing", async ({
-		db,
-		eventBus,
-		}) => {
+	test("a no-op adjust (nothing actually changes) broadcasts nothing", async ({ db, eventBus }) => {
 		await seedTeam(db, "nudge-team-5");
 		await seedThreadRow(db, "nudge-thread-5", {
 			hostKind: "team",

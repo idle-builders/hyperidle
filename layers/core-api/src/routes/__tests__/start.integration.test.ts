@@ -1,76 +1,25 @@
 /**
- * First start makes the person, their team, their first agent on the program that is signed in,
- * and the first conversation with the agent's hello in it — once, and only with a program ready.
- * The machine's programs are the one stand-in: a reader answering the descriptors given.
+ * First start makes the person, their team, their first agent and the first
+ * conversation with the agent's hello in it — once.
  */
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { type HyperIdleDb, messages, subscriptions, threads, users } from "@hyperidle/db";
-import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
-import type { EventBus } from "@hyperidle/event-bus";
-import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
-import { findUser } from "@hyperidle/user";
-import { Hono } from "hono";
+import { messages, subscriptions, threads, users } from "@hyperidle/db";
 import { describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
-import { buildCoreActions } from "../../actions/compose.js";
-import type { HarnessCapabilityReader } from "../../services/harness-capability-reader.js";
-import { createStartRoutes } from "../start.js";
-
-const program = (state: "ready" | "unauthenticated"): HarnessCapabilityDescriptor => ({
-	type: "claude-code",
-	name: "Claude Code",
-	authAction: { kind: "native_cli_login", label: "Sign in", command: ["claude", "login"] },
-	discovery: { state },
-	models: [],
-	modelProviders: ["anthropic"],
-});
-
-/** The start routes as production mounts them, the actor resolved as the auth layer does. */
-function startApp(
-	{
-		db,
-		eventBus,
-		agentOrchestration,
-	}: { db: HyperIdleDb; eventBus: EventBus; agentOrchestration: AgentOrchestrationPort },
-	state: "ready" | "unauthenticated",
-) {
-	const looked: string[] = [];
-	const machine: HarnessCapabilityReader = {
-		size: 1,
-		describe: () => [program(state)],
-		refresh: async () => {
-			looked.push("again");
-		},
-	};
-	const actions = buildCoreActions({
-		agentOrchestration,
-		adapterPool: machine,
-	});
-	const app = new Hono<HyperIdleEnv>();
-	app.use("*", async (c, next) => {
-		c.set("userId", (await findUser(db, { kind: "human" }))?.id ?? "u-founder");
-		await next();
-	});
-	app.route(
-		"/start",
-		createStartRoutes(db, eventBus, actions, () => machine.refresh()),
-	);
-	const start = () =>
-		app.request("/start", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ name: "Ada", team: "Product" }),
-		});
-	return { app, start, looked };
-}
 
 describe("first start", () => {
 	test("makes the person, their first agent and the first conversation with its hello, once", async ({
 		db,
-		eventBus,
-		agentOrchestration,
+		app,
+		asPerson,
 	}) => {
-		const { start } = startApp({ db, eventBus, agentOrchestration }, "ready");
+		// No user yet — the first request goes as nobody; auth falls back to u-founder.
+		const start = () =>
+			app.request("/api/start", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ name: "Ada", team: "Product" }),
+			});
+
 		const res = await start();
 		expect(res.status).toBe(200);
 
@@ -89,31 +38,11 @@ describe("first start", () => {
 		expect(thread?.title).toBe("Getting started");
 		const said = await db.select().from(messages);
 		expect(said.map((m) => [m.senderId, JSON.parse(m.payload).text])).toEqual([
-			[
-				agents[0]?.id,
-				"Hi. I run on Claude Code on this computer, so I can already read and change files here. What are you working on?",
-			],
+			[agents[0]?.id, "Hi. What are you working on?"],
 		]);
 
+		// Second call returns 409 — already started.
+		await asPerson(people[0]!.id);
 		expect((await start()).status).toBe(409);
-	});
-
-	test("with no program signed in it makes nothing; Look again looks", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		const { app, start, looked } = startApp(
-			{ db, eventBus, agentOrchestration },
-			"unauthenticated",
-		);
-		const look = await app.request("/start/look", { method: "POST" });
-		expect(looked).toEqual(["again"]);
-		expect(((await look.json()) as { runsOn: unknown[] }).runsOn).toEqual([
-			expect.objectContaining({ discovery: { state: "unauthenticated" } }),
-		]);
-
-		expect((await start()).status).toBe(409);
-		expect((await db.select().from(users)).filter((u) => u.kind === "human")).toEqual([]);
 	});
 });
