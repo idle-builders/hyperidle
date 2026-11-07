@@ -8,6 +8,7 @@ import {
 	persistAgentRunnerKey,
 } from "@hyperidle/run-orchestration";
 import type { RunnerDb } from "@hyperidle/runner-db";
+import { cancelAllPendingForAgent } from "@hyperidle/session-requests";
 import { type CoreDoor, DoorError } from "./core-door.js";
 import { actOnInboxRow, NotYet, postFailureNotice } from "./inbox-work.js";
 import { cleanupFinishedTaskWorktrees } from "./task-cleanup.js";
@@ -82,10 +83,20 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 	/** Mark an agent as moved-away in the db. */
 	async function markMovedAway(agentId: string): Promise<void> {
 		movedAway.add(agentId);
+		const now = new Date().toISOString();
 		try {
 			await markAgentRunnerKeyMovedAway(deps.db, agentId);
 		} catch (err) {
 			logger.warn("could not mark agent moved-away in db", {
+				agentId,
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+		try {
+			const n = await cancelAllPendingForAgent(deps.db, agentId, now);
+			if (n > 0) logger.info("cancelled pending runs for moved-away agent", { agentId, n });
+		} catch (err) {
+			logger.warn("could not cancel pending runs for moved-away agent", {
 				agentId,
 				error: err instanceof Error ? err.message : String(err),
 			});

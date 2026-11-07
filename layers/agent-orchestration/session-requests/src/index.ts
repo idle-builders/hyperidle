@@ -1,6 +1,7 @@
 export {
 	type BakedRunRequest,
 	type ClaimOptions,
+	cancelAllPendingForAgent,
 	cancelPendingForTasks,
 	claimSessionRequest,
 	type FindQuery,

@@ -23,7 +23,6 @@ import type { ActionResult, DocumentRow, DocumentView } from "@hyperidle/domain-
 import {
 	DOCUMENT_ACTIONS,
 	PLATFORM_ACTIONS,
-	SESSION_ACTIONS,
 	TASK_ACTIONS,
 	THREAD_ACTIONS,
 	USER_ACTIONS,
@@ -102,7 +101,6 @@ function buildActionCatalog(): readonly ActionToolDeclaration[] {
 		...TASK_ACTIONS,
 		...THREAD_ACTIONS,
 		...USER_ACTIONS,
-		...SESSION_ACTIONS,
 		...PLATFORM_ACTIONS,
 	}).map((decl) => ({
 		name: decl.name,
@@ -120,6 +118,14 @@ function createWsSubscribeInbox(
 		let ws: WebSocket | null = null;
 		let disposed = false;
 		let pingTimer: ReturnType<typeof setInterval> | undefined;
+		let retryDelayMs = 1_000;
+
+		function scheduleReconnect(): void {
+			if (disposed) return;
+			const delay = retryDelayMs;
+			retryDelayMs = Math.min(retryDelayMs * 2, 30_000);
+			setTimeout(connect, delay);
+		}
 
 		function connect(): void {
 			if (disposed) return;
@@ -130,10 +136,11 @@ function createWsSubscribeInbox(
 			})
 				.then((res) => {
 					if (!res.ok) {
-						logger.warn("ws-token request failed; will retry on next sweep", {
+						logger.warn("ws-token request failed; will retry with backoff", {
 							agentId,
 							status: res.status,
 						});
+						scheduleReconnect();
 						return null;
 					}
 					return res.json() as Promise<{ token?: string }>;
@@ -143,6 +150,8 @@ function createWsSubscribeInbox(
 					const sock = new WebSocket(`${wsBase}/api/ws?token=${encodeURIComponent(json.token)}`);
 					ws = sock;
 					sock.on("open", () => {
+						// Connected — reset backoff.
+						retryDelayMs = 1_000;
 						sock.send(JSON.stringify({ type: "subscribe", topic: `user:${agentId}` }));
 						// Keep-alive ping every 30 s.
 						pingTimer = setInterval(() => {
@@ -166,18 +175,18 @@ function createWsSubscribeInbox(
 					sock.on("close", () => {
 						clearInterval(pingTimer);
 						ws = null;
-						// Reconnect after a short delay unless disposed.
-						if (!disposed) setTimeout(connect, 2_000);
+						scheduleReconnect();
 					});
 					sock.on("error", () => {
 						// close event follows; nothing to do here.
 					});
 				})
 				.catch((err: unknown) => {
-					logger.warn("ws-token fetch failed; will retry", {
+					logger.warn("ws-token fetch failed; will retry with backoff", {
 						agentId,
 						error: err instanceof Error ? err.message : String(err),
 					});
+					scheduleReconnect();
 				});
 		}
 
@@ -298,6 +307,25 @@ export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> 
 	// Run orchestration runtime: the session-request poller that runs agent sessions.
 	// Uses runner-db only — no core DB needed here.
 	const eventBus = new EventBus();
+
+	// When admission fails (the program is not ready, quota exceeded, etc.), post a notice
+	// to the conversation thread so the person knows the run did not start.
+	eventBus.on("agent_run_admission_failed", (event) => {
+		const { agentId, threadId } = event;
+		if (!threadId) return;
+		const key = runner.keyFor(agentId);
+		if (!key) return;
+		door
+			.call(key, "send_message", { threadId, text: "The run could not be started." })
+			.catch((err: unknown) => {
+				logger.warn("could not post admission-failed notice", {
+					agentId,
+					threadId,
+					error: err instanceof Error ? err.message : String(err),
+				});
+			});
+	});
+
 	const composition = buildRunOrchestrationComposition({
 		harnessRuntime: agentExecution.adapters.harnessRuntime,
 		returnStatusTool: agentExecution.adapters.returnStatusTool,

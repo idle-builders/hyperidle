@@ -112,6 +112,25 @@ export async function cancelPendingForTasks(
 		.returning({ id: agentSessionRequests.id });
 	return cancelled.length;
 }
+
+/** Cancel all pending requests for a given agent — called when the agent moves away (401). */
+export async function cancelAllPendingForAgent(
+	db: RunnerDb,
+	agentId: string,
+	now: string,
+): Promise<number> {
+	const cancelled = await db
+		.update(agentSessionRequests)
+		.set({ status: "cancelled", updatedAt: now })
+		.where(
+			and(
+				eq(agentSessionRequests.agentId, agentId),
+				eq(agentSessionRequests.status, "pending"),
+			),
+		)
+		.returning({ id: agentSessionRequests.id });
+	return cancelled.length;
+}
 async function hasActiveRequestClaimInternal(
 	db: RunnerDb,
 	input: { readonly requestId: string; readonly claimToken: string; readonly now: Date },
