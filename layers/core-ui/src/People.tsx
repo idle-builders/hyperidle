@@ -791,7 +791,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 										{paused ? "Let it work" : "Pause"}
 									</button>
 								)}
-								{runnerBtn === "move-here" && (
+								{(runnerBtn === "move-here" || runnerBtn === "moved-away") && (
 									<button
 										type="button"
 										className="btn"
