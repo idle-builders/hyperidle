@@ -15,7 +15,6 @@ import type { AgentExecutionBoot } from "@hyperidle/agent-execution";
 import { type CoreDoor, createCoreDoor } from "@hyperidle/agent-orchestration";
 import { applyMigrations, type HyperIdleDb } from "@hyperidle/db";
 import { createServer } from "@hyperidle/remote-server/create-server";
-import type { RunnerDb } from "@hyperidle/runner-db";
 import { vi } from "vitest";
 import { type RunnerHandle, startRunner } from "../index.js";
 
@@ -54,8 +53,6 @@ export interface RunnerWorld {
 	nudge(topic: string, envelope: unknown): void;
 	/** Every sessionId the scripted program was run for, in order. */
 	readonly runs: readonly string[];
-	/** The runner's own DB — for test assertions about session requests. */
-	readonly runnerDb: RunnerDb;
 	stop(): Promise<void>;
 }
 
@@ -178,7 +175,7 @@ export async function bootRunnerWorld(
 	vi.stubEnv("HYPERIDLE_SPACES_DIR", tempSpacesDir);
 
 	const runs: string[] = [];
-	const agentExecutionBoot = makeScriptedBoot(script, runs);
+	const agentExecution = makeScriptedBoot(script, runs);
 
 	// Boot the server.
 	const serverHandle = await createServer(0, { db });
@@ -191,7 +188,7 @@ export async function bootRunnerWorld(
 		serverUrl,
 		personKey,
 		dataDir,
-		agentExecutionBoot,
+		agentExecution,
 		sweepMs: 100,
 	});
 
@@ -208,7 +205,6 @@ export async function bootRunnerWorld(
 			// This method exists for ported test code that called world.nudge(...).
 		},
 		runs,
-		runnerDb: runnerHandle.runnerDb,
 		async stop() {
 			if (stopped) return;
 			stopped = true;

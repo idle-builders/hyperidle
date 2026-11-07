@@ -19,7 +19,6 @@ import {
 	users,
 	userTeams,
 } from "@hyperidle/db";
-import { agentSessionRequests, sessions } from "@hyperidle/runner-db";
 import { giveUserKey, startSubscriptionClock } from "@hyperidle/user";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -373,48 +372,69 @@ describe("an agent acts on its inbox", () => {
 	}, 20_000);
 
 	test("a task handed on while its run waits starts for the new owner, and the old run is cancelled", async () => {
-		await withWorld(answersPong, async (world, db) => {
-			// Builder is busy elsewhere, so its run on the task waits.
-			await world.runnerDb.insert(sessions).values({
-				id: "busy-elsewhere",
-				agentId: BUILDER,
-				modelTier: "workhorse",
-				startedAt: new Date().toISOString(),
-				state: "active",
-			});
+		// Builder's script blocks on its first run to hold a session slot
+		// (maxConcurrentSessions defaults to 1, so the task run stays pending).
+		let resolveBuilderStarted!: () => void;
+		const builderFirstRunStarted = new Promise<void>((r) => {
+			resolveBuilderStarted = r;
+		});
+		let releaseBuilderRun: (() => void) | undefined;
+
+		const blockingScript: RunScript = async (run) => {
+			if (run.index === 0) {
+				// Signal that builder is now actively running.
+				resolveBuilderStarted();
+				// Block until released so the slot stays occupied.
+				await new Promise<void>((r) => {
+					releaseBuilderRun = r;
+				});
+				return;
+			}
+			await run.call("send_message", { text: "pong" });
+		};
+
+		await withWorld(blockingScript, async (world, db) => {
 			await world.runner.start();
+
+			// Trigger builder's first (blocking) run via a direct message.
+			await asPerson<unknown>(world, "send_message", {
+				recipients: [BUILDER],
+				text: "Start blocking",
+			});
+
+			// Wait until builder has an active session (holds the slot).
+			await builderFirstRunStarted;
+
 			const created = await asPerson<{ task: { id: string; threadId: string } }>(
 				world,
 				"edit_task",
 				{ title: "Hand me on", teamId: TEAM, ownerAgentId: BUILDER },
 			);
 			await asPerson(world, "edit_task", { id: created.task.id, state: "accepted" });
-			await waitFor("Builder's waiting run", async () => {
-				const [found] = await world.runnerDb
-					.select()
-					.from(agentSessionRequests)
-					.where(eq(agentSessionRequests.agentId, BUILDER));
-				return found?.status === "pending" ? found : undefined;
-			});
 
+			// Give the inbox row time to be queued (pending, waiting for the busy slot).
+			await new Promise((r) => setTimeout(r, 400));
+
+			// Reassign to OTHER; builder's queued run is cancelled; OTHER runs it.
 			await asPerson(world, "edit_task", {
 				id: created.task.id,
 				ownerAgentId: OTHER,
 			});
+
+			// Release builder's blocking run so the runner can shut down cleanly.
+			releaseBuilderRun?.();
 
 			const [reply] = await waitFor("Other's run on the task", async () => {
 				const found = await saidBy(db, OTHER, "pong");
 				return found.length > 0 ? found : undefined;
 			});
 			expect(reply?.threadId).toBe(created.task.threadId);
-			await waitFor("Builder's waiting run cancelled", async () => {
-				const [found] = await world.runnerDb
-					.select()
-					.from(agentSessionRequests)
-					.where(eq(agentSessionRequests.agentId, BUILDER));
-				return found?.status === "cancelled" ? found : undefined;
-			});
-			await world.runnerDb.delete(sessions).where(eq(sessions.id, "busy-elsewhere"));
+
+			// Builder must not have replied on the task thread.
+			const builderOnTask = (await saidBy(db, BUILDER, "pong")).filter(
+				(m) => m.threadId === created.task.threadId,
+			);
+			expect(builderOnTask).toHaveLength(0);
 		});
 	}, 30_000);
 

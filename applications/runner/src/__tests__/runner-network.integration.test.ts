@@ -175,7 +175,7 @@ describe("runner network integration", () => {
 				serverUrl: server.url,
 				personKey: PERSON_KEY,
 				dataDir: tempDataDir,
-				agentExecutionBoot: makeStubExecutionBoot(),
+				agentExecution: makeStubExecutionBoot(),
 				sweepMs: 300,
 			});
 			await runner.start();
@@ -205,7 +205,7 @@ describe("runner network integration", () => {
 				serverUrl: server.url,
 				personKey: PERSON_KEY,
 				dataDir: tempDataDir,
-				agentExecutionBoot: makeStubExecutionBoot(),
+				agentExecution: makeStubExecutionBoot(),
 				sweepMs: 300,
 			});
 			await runner1.start();
@@ -225,7 +225,7 @@ describe("runner network integration", () => {
 				serverUrl: server.url,
 				personKey: PERSON_KEY,
 				dataDir: tempDataDir,
-				agentExecutionBoot: makeStubExecutionBoot(),
+				agentExecution: makeStubExecutionBoot(),
 				sweepMs: 300,
 			});
 			await runner2.start();
@@ -263,7 +263,7 @@ describe("runner network integration", () => {
 				serverUrl: server.url,
 				personKey: PERSON_KEY,
 				dataDir: tempDataDir,
-				agentExecutionBoot: makeStubExecutionBoot(),
+				agentExecution: makeStubExecutionBoot(),
 				sweepMs: 300,
 			});
 			await runner.start();
@@ -336,7 +336,7 @@ describe("runner network integration", () => {
 				serverUrl: server.url,
 				personKey: PERSON_KEY,
 				dataDir: tempDataDir,
-				agentExecutionBoot: makeStubExecutionBoot(),
+				agentExecution: makeStubExecutionBoot(),
 				sweepMs: 300,
 			});
 			await runner.start();

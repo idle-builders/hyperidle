@@ -9,7 +9,7 @@ import * as net from "node:net";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { type ServerType, serve } from "@hono/node-server";
-import { type AgentExecutionBoot, bootAgentExecution } from "@hyperidle/agent-execution";
+import type { AgentExecutionBoot } from "@hyperidle/agent-execution";
 import {
 	type ActionToolDeclaration,
 	type AgentRunner,
@@ -42,9 +42,16 @@ export interface StartRunnerDeps {
 	readonly dataDir: string;
 	/** Spaces directory for agent sandboxes. When omitted, HYPERIDLE_SPACES_DIR is used. */
 	readonly spacesDir?: string;
-	/** Injected agent-execution boot — for tests only. When omitted, the real one is booted. */
-	readonly agentExecutionBoot?: AgentExecutionBoot;
-	/** How often to sweep for new agents / missed inbox rows. Default 30 s. */
+	/** The agent-execution boot to use. Caller is responsible for the lifecycle. */
+	readonly agentExecution: AgentExecutionBoot;
+	/**
+	 * The free port the caller resolved for the MCP bridge server. Must match the
+	 * port in the `mcpBaseUrl` that agentExecution was booted with. Callers that
+	 * use a stubbed agentExecution (tests) may omit this; startRunner will resolve
+	 * its own free port.
+	 */
+	readonly mcpPort?: number;
+	/** How often to sweep for new agents / missed inbox rows. Defaults to SWEEP_MS. */
 	readonly sweepMs?: number;
 }
 
@@ -59,14 +66,14 @@ export interface RunnerHandle {
 	start(): Promise<void>;
 	/** Stop the runner and clean up. */
 	stop(): Promise<void>;
-	/** The runner's own DB — for test assertions about session requests. */
-	runnerDb: RunnerDb;
+	/** Path to the runner's PGlite database directory (for post-stop assertions). */
+	readonly dbDir: string;
 }
 
 const logger = createLogger({ pkg: "runner" });
 
-/** Resolve a free loopback port for the runner's own MCP bridge server. */
-function resolveFreePort(): Promise<number> {
+/** Resolve a free loopback port. Used by callers that must boot agentExecution before calling startRunner. */
+export function resolveFreePort(): Promise<number> {
 	return new Promise<number>((resolve, reject) => {
 		const probe = net.createServer();
 		probe.once("error", reject);
@@ -199,11 +206,9 @@ export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> 
 	const ownedRunnerDbHandle = await createPgliteRunnerDb(runnerDbDir);
 	const runnerDb: RunnerDb = ownedRunnerDbHandle.db;
 
-	// Boot agent-execution (harness discovery + MCP bridge on the runner's own server).
-	const mcpPort = await resolveFreePort();
-	const mcpBaseUrl = `http://127.0.0.1:${mcpPort}`;
-	const agentExecution =
-		deps.agentExecutionBoot ?? (await bootAgentExecution({ topology: "local", mcpBaseUrl }));
+	// Use the caller-provided MCP bridge port (must match agentExecution's mcpBaseUrl).
+	const mcpPort = deps.mcpPort ?? (await resolveFreePort());
+	const agentExecution = deps.agentExecution;
 
 	// Runner's own MCP bridge HTTP server.
 	// @lore: bridge /api prefix — mountMcpRouter places routes at /mcp/:token; config URLs use /api/mcp/:token; sub-router at /api aligns the paths.
@@ -347,13 +352,13 @@ export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> 
 		heldAgentIds: () => runner.heldAgentIds(),
 		movedAwayAgentIds: () => runner.movedAwayAgentIds(),
 		start: doStart,
-		runnerDb,
+		dbDir: runnerDbDir,
 		async stop() {
 			if (stopping) return;
 			stopping = true;
 			await runner.stop();
 			await runRuntime.dispose();
-			agentExecution.dispose();
+			// agentExecution is caller-owned; the caller disposes it after stop().
 			for (const off of unsubscribers.values()) off();
 			unsubscribers.clear();
 			await new Promise<void>((resolve, reject) => {

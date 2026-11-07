@@ -15,8 +15,9 @@
  *             → replies { type: "state", reqId: string, held: boolean, movedAway: boolean }
  */
 
+import { bootAgentExecution } from "@hyperidle/agent-execution";
 import { createLogger } from "@hyperidle/diagnostics";
-import { startRunner } from "./index.js";
+import { resolveFreePort, startRunner } from "./index.js";
 
 const logger = createLogger({ pkg: "runner.entry" });
 
@@ -42,7 +43,20 @@ interface ParentPort {
 void (async () => {
 	logger.info("runner starting", { serverUrl, dataDir });
 
-	const runner = await startRunner({ serverUrl, personKey, dataDir, spacesDir });
+	// Resolve the MCP bridge port first so agentExecution's mcpBaseUrl matches
+	// the port the bridge server will actually listen on.
+	const mcpPort = await resolveFreePort();
+	const mcpBaseUrl = `http://127.0.0.1:${mcpPort}`;
+	const agentExecution = await bootAgentExecution({ topology: "local", mcpBaseUrl });
+
+	const runner = await startRunner({
+		serverUrl,
+		personKey,
+		dataDir,
+		spacesDir,
+		agentExecution,
+		mcpPort,
+	});
 	await runner.start();
 
 	logger.info("runner started", {
@@ -104,10 +118,12 @@ void (async () => {
 		runner
 			.stop()
 			.then(() => {
+				agentExecution.dispose();
 				logger.info("runner stopped");
 				process.exit(0);
 			})
 			.catch((err: unknown) => {
+				agentExecution.dispose();
 				logger.error("runner stop error", {
 					error: err instanceof Error ? err.message : String(err),
 				});
