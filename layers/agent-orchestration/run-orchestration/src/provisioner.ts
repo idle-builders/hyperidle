@@ -743,12 +743,6 @@ interface ProvisionSessionDeps {
 	 * before the external harness session started.
 	 */
 	readonly onHarnessStarted?: () => void;
-	/**
-	 * Plugin MCP server contributions for this session's team scope.
-	 * When absent, no plugin MCP servers are merged into the session config.
-	 * Provided by the application via CoreApiBoot.pluginMcpContributions.
-	 */
-	readonly pluginMcpContributions?: PluginMcpContributionsPort;
 }
 
 interface ProvisionSessionParams {
@@ -1581,27 +1575,6 @@ async function runSession(
 			);
 		}
 	}
-	try {
-		const pluginCliConfigArgs = await mergePluginMcpContributions(
-			deps.pluginMcpContributions,
-			sandboxPath,
-			teamId ?? null,
-			adapterCapabilities.cliMcpDialect,
-			adapterCapabilities.cliMcpDialect
-				? (params) => ports.harnessRuntime.writePluginStdioMcpEntries(params)
-				: undefined,
-		);
-		if (pluginCliConfigArgs.length > 0) {
-			cliConfigArgs = [...cliConfigArgs, ...pluginCliConfigArgs];
-		}
-	} catch (mcpMergeErr) {
-		// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge
-		console.warn(
-			`[session-provisioning] plugin MCP merge failed for session ${sessionId}:`,
-			mcpMergeErr,
-		);
-	}
-
 	// ── Phase 8b-enforce: provision the return-enforcement hook for this adapter.
 	await ports.harnessRuntime.provisionReturnHook({
 		sandboxPath,

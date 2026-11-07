@@ -3,7 +3,6 @@ import {
 	decryptCredentialValue,
 	type InheritedReach,
 	listConnections,
-	listWithholds,
 	resolveHeldToken,
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -12,14 +11,12 @@ import {
 	type DocumentRow,
 	type DocumentView,
 	type EditDocumentInput,
-	HELD_AUTH_SOURCES,
 	type SearchDocumentsInput,
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool } from "@hyperidle/harness-protocol";
 import type {
-	HeldConnectionsReaderPort,
 	MountingGitRunnerFactory,
 	RunOptions,
 	RunResult,
@@ -41,7 +38,6 @@ import {
 	registerSessionActivityGateway,
 	type SessionActivityPush,
 } from "./services/session-activity-gateway.js";
-import { SessionActivityBuffer } from "./session-activity-buffer.js";
 
 export type ApplicationProvisionSessionDeps = Omit<
 	ProvisionSessionDeps,
@@ -54,9 +50,6 @@ export interface AgentOrchestrationRuntimeOptions {
 	readonly session: ApplicationProvisionSessionDeps;
 	/** Test override only — intercepts writeback without a real seam. */
 	readonly writeback?: RuntimeDeps["composition"]["writeback"];
-	/** This layer owns no user state; absent means no held connections are provisioned. */
-	/** Whose held connections an agent's sessions get. */
-	readonly resolveProvisioningOwnerUserId?: (agentId: string) => Promise<string | null>;
 	/** Core-api action tools thunk — Application reassigns once this layer's own tools exist too; avoids construction cycle. */
 	readonly actionTools?: () => readonly RegisteredTool<RunnerDb>[];
 	/** Core's edit_document action, threaded like actionTools. Writeback binds directly — never open_document (a re-read must not count as a read). */
@@ -99,7 +92,7 @@ export interface AgentOrchestrationBoot {
 	readonly disposeRuntime?: () => Promise<void>;
 	/** Waits only for this boot's stopped lifecycle projection drain. */
 	readonly joinLifecycleDrain: () => Promise<void>;
-	/** Stops activity buffer, unsubscribes gateway, drops WS adapters. Does NOT dispose run runtime — call disposeRuntime() first. */
+	/** Unsubscribes gateway, drops WS adapters. Does NOT dispose run runtime — call disposeRuntime() first. */
 	readonly dispose: () => void;
 	/** service_connections by auth source — stateless so Application can hand it to bootCoreApi without importing @hyperidle/connections. */
 	readonly serviceConnectionsReader: {
@@ -125,7 +118,6 @@ function buildRuntimeComposition(
 /** Builds provisioning reads. heldConnections needs resolveProvisioningOwnerUserId — absent means no held connections. */
 interface OrchestrationProvisioningReads {
 	readonly gitRunnerFactory: MountingGitRunnerFactory;
-	readonly heldConnections?: HeldConnectionsReaderPort;
 	readonly serviceConnectionResolver: {
 		resolve(userId: string, connectionId: string): Promise<string | null>;
 	};
@@ -133,36 +125,10 @@ interface OrchestrationProvisioningReads {
 
 function buildProvisioningReads(
 	runnerDb: RunnerDb,
-	resolveProvisioningOwnerUserId: ((agentId: string) => Promise<string | null>) | undefined,
 	decrypt: (ciphertext: string) => string | null,
 ): OrchestrationProvisioningReads {
 	return {
 		gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
-		...(resolveProvisioningOwnerUserId
-			? {
-					heldConnections: {
-						listHeldForProvisioning: async (agentId: string) => {
-							const ownerUserId = await resolveProvisioningOwnerUserId(agentId);
-							if (!ownerUserId) return [];
-							const rows = await listConnections(runnerDb, { userId: ownerUserId });
-							const kept = await listWithholds(
-								runnerDb,
-								rows.map((r) => r.id),
-							);
-							return rows
-								.filter((r) => (HELD_AUTH_SOURCES as readonly string[]).includes(r.authSource))
-								.filter((r) => !(kept.get(r.id) ?? []).includes(agentId))
-								.map((row) => ({
-									id: row.id,
-									userId: row.userId,
-									service: row.service,
-									authSource: row.authSource as (typeof HELD_AUTH_SOURCES)[number],
-									serverUrl: row.serverUrl ?? null,
-								}));
-						},
-					},
-				}
-			: {}),
 		serviceConnectionResolver: {
 			resolve: (userId: string, connectionId: string) =>
 				resolveHeldToken(runnerDb, userId, connectionId, decrypt),
@@ -180,9 +146,6 @@ export async function bootAgentOrchestration(
 	if (probeInheritedReach) {
 		await inheritedReach.refresh();
 	}
-
-	const activityBuffer = new SessionActivityBuffer(eventBus);
-	activityBuffer.start();
 
 	const disposeGateway = registerSessionActivityGateway(
 		eventBus,
@@ -206,11 +169,7 @@ export async function bootAgentOrchestration(
 			searchDocuments: runtime.searchDocuments,
 		});
 		runSession = composition.runSession;
-		provisioningReads = buildProvisioningReads(
-			runnerDb,
-			runtime.resolveProvisioningOwnerUserId,
-			decrypt,
-		);
+		provisioningReads = buildProvisioningReads(runnerDb, decrypt);
 		runRuntime = await composition.startRuntime(
 			composition.runtimeDeps(runnerDb, eventBus, {
 				runtime: { ...provisioningReads, ...runtime.session } as ProvisionSessionDeps,
@@ -235,7 +194,6 @@ export async function bootAgentOrchestration(
 		...(runRuntime ? { disposeRuntime: () => runRuntime.dispose() } : {}),
 		dispose: () => {
 			disposeGateway();
-			activityBuffer.stop();
 		},
 		joinLifecycleDrain: () => Promise.resolve(),
 		serviceConnectionsReader: {

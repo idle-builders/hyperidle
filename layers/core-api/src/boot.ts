@@ -8,7 +8,6 @@ import type {
 	SearchDocumentsInput,
 } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
-import { getPluginMcpContributions } from "@hyperidle/settings";
 import { findThread } from "@hyperidle/thread";
 import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/user";
 import type { Hono } from "hono";
@@ -60,15 +59,6 @@ export interface CoreApiBoot {
 	readonly wsHub: WsConnectionHub;
 	/** Present whenever WS support is being wired. */
 	readonly upgradeTokenStore: UpgradeTokenStore | null;
-	readonly pluginMcpContributions?: {
-		getContributions(teamId: string | null): Promise<
-			readonly {
-				readonly key: string;
-				readonly defaultValueJson: string;
-				readonly installPath: string | null;
-			}[]
-		>;
-	};
 	/** Every action as an agent's tool; empty when `db` is not provided. The runner calls each through the door. */
 	readonly actionCatalog: readonly ActionToolDeclaration[];
 	readonly editDocument: (
@@ -302,12 +292,5 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 		upgradeTokenStore: tokenStore,
 		...(callActionAs ? { callActionAs } : {}),
 		...(mintWsTokenFor ? { mintWsTokenFor } : {}),
-		...(db
-			? {
-					pluginMcpContributions: {
-						getContributions: (teamId: string | null) => getPluginMcpContributions(db, teamId),
-					},
-				}
-			: {}),
 	};
 }
