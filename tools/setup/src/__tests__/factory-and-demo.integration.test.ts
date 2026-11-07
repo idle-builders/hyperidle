@@ -1,6 +1,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 
@@ -14,9 +14,9 @@ async function queryRows<T extends Record<string, unknown>>(
 }
 
 describe("seed script", () => {
-	test("populates at least 1 row per major table", async ({ db }) => {
+	test("populates at least 1 row per major table", async ({ db, runnerDb }) => {
 		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
+		await seedDemoWorld(db, runnerDb);
 
 		const majorTables = ["users", "teams", "documents"];
 
@@ -26,9 +26,9 @@ describe("seed script", () => {
 		}
 	});
 
-	test("seed data is well-formed (queryable without errors)", async ({ db }) => {
+	test("seed data is well-formed (queryable without errors)", async ({ db, runnerDb }) => {
 		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
+		await seedDemoWorld(db, runnerDb);
 
 		const teamRow = await queryRows<{ id: string; name: string }>(
 			db,
@@ -53,14 +53,14 @@ describe("seed script", () => {
 		expect(kiRows[0]?.version).toBeGreaterThanOrEqual(1);
 	});
 
-	test("is idempotent (running twice does not error)", async ({ db }) => {
+	test("is idempotent (running twice does not error)", async ({ db, runnerDb }) => {
 		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
+		await seedDemoWorld(db, runnerDb);
 		const before = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM users");
 
 		// Second run must not error (uses onConflictDoNothing) and must not duplicate rows.
 		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
+		await seedDemoWorld(db, runnerDb);
 		const after = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM users");
 
 		expect(after[0]?.count).toBe(before[0]?.count);
@@ -68,9 +68,12 @@ describe("seed script", () => {
 });
 
 describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
-	test("seed() produces factory layer (bootstrap) + demo world (Product team)", async ({ db }) => {
+	test("seed() produces factory layer (bootstrap) + demo world (Product team)", async ({
+		db,
+		runnerDb,
+	}) => {
 		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
+		await seedDemoWorld(db, runnerDb);
 
 		// Factory layer: system:propagation exists
 		const propagation = await queryRows<{ id: string }>(
@@ -109,9 +112,12 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 		expect(Number(pluginRows[0]?.count)).toBe(0);
 	});
 
-	test("seedDemoWorld alone produces Product team + demo founder + demo agents", async ({ db }) => {
+	test("seedDemoWorld alone produces Product team + demo founder + demo agents", async ({
+		db,
+		runnerDb,
+	}) => {
 		await runFactoryBootstrap(db);
-		const { teamId, founderId } = await seedDemoWorld(db);
+		const { teamId, founderId } = await seedDemoWorld(db, runnerDb);
 
 		expect(teamId).toBe("demo-team-product");
 		expect(founderId).toBe("demo-founder");
@@ -133,9 +139,10 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 
 	test("Finn is in Product and Support, Maya in Support, each owned agent in one team", async ({
 		db,
+		runnerDb,
 	}) => {
 		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
+		await seedDemoWorld(db, runnerDb);
 
 		const teamsOf = async (userId: string): Promise<string[]> =>
 			(

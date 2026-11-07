@@ -34,7 +34,7 @@ const kwFileWriteBuilderDevops: EvalScenario = {
 	feature: "knowledge_writeback",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on DevOps infrastructure.
 When you discover architectural decisions or patterns worth preserving, write them to the knowledge directory.
@@ -60,6 +60,7 @@ Also document what you wrote in session notes.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -141,7 +142,7 @@ const kwEditExistingBuilderFrontend: EvalScenario = {
 	feature: "knowledge_writeback",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
+		const world = await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on frontend component patterns.
 When an existing document needs updating, you can edit knowledge files directly in the knowledge/ directory.
@@ -179,6 +180,7 @@ Document your edit in session notes.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -241,7 +243,7 @@ const kwIgnoredZoneBuilderConsulting: EvalScenario = {
 	feature: "knowledge_writeback",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on a consulting deliverable.
 Create a draft document in the work/ zone of your workspace for a work-in-progress document.
@@ -269,6 +271,7 @@ Document what you created in session notes.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{

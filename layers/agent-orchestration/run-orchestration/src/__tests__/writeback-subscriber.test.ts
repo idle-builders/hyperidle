@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { RunnerDb } from "@hyperidle/runner-db";
 import type { ActionResult, DocumentRow, DocumentView } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createWritebackProcessor } from "../writeback-processor.js";
 

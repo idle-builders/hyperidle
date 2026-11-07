@@ -7,7 +7,6 @@ import {
 	resolveHeldToken,
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { RunnerDb, ServiceConnectionRow } from "@hyperidle/runner-db";
 import {
 	type ActionResult,
 	type DocumentRow,
@@ -27,6 +26,7 @@ import type {
 	RuntimeDeps,
 	RuntimeHandle,
 } from "@hyperidle/run-orchestration";
+import type { RunnerDb, ServiceConnectionRow } from "@hyperidle/runner-db";
 import type { Hono } from "hono";
 import { createAgentOrchestrationApp } from "./app.js";
 import { createGitRunner } from "./git-runner.js";
@@ -206,7 +206,11 @@ export async function bootAgentOrchestration(
 			searchDocuments: runtime.searchDocuments,
 		});
 		runSession = composition.runSession;
-		provisioningReads = buildProvisioningReads(runnerDb, runtime.resolveProvisioningOwnerUserId, decrypt);
+		provisioningReads = buildProvisioningReads(
+			runnerDb,
+			runtime.resolveProvisioningOwnerUserId,
+			decrypt,
+		);
 		runRuntime = await composition.startRuntime(
 			composition.runtimeDeps(runnerDb, eventBus, {
 				runtime: { ...provisioningReads, ...runtime.session } as ProvisionSessionDeps,

@@ -1,7 +1,6 @@
 // Composition root for the `run-orchestration` Service.
 // Execution content (harness adapters) arrives as opaque typed values from `bootAgentExecution`.
 
-import type { RunnerDb } from "@hyperidle/runner-db";
 import { summarizeToolArgs } from "@hyperidle/diagnostics";
 import type {
 	ActionResult,
@@ -29,6 +28,7 @@ import {
 	stopSessionRun,
 	transitionRun as transitionRunInternal,
 } from "@hyperidle/run-orchestration";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import {
 	claimSessionRequest,
 	findSessionRequest,

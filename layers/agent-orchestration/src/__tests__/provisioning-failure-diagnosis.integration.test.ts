@@ -9,18 +9,12 @@
  * exists.
  */
 
-import {
-	agentSessionRequests,
-	type HyperIdleDb,
-	sessions,
-	teams,
-	users,
-	userTeams,
-} from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
+import { agentSessionRequests, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import {
 	buildRunOrchestrationComposition,
 	type ProvisionSessionDeps,
@@ -41,7 +35,7 @@ const NOW = "2026-08-28T14:49:37.000Z";
  */
 const POOL_EMPTY = "no harness adapters are registered";
 
-async function seed(db: HyperIdleDb): Promise<void> {
+async function seed(db: HyperIdleDb, runnerDb: RunnerDb): Promise<void> {
 	await db.insert(teams).values({ id: TEAM_ID, name: "Prov Diag", createdAt: NOW });
 	await db.insert(users).values({
 		id: AGENT_ID,
@@ -52,7 +46,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 	});
 	await db.insert(userTeams).values({ userId: AGENT_ID, teamId: TEAM_ID });
-	await db.insert(agentSessionRequests).values({
+	await runnerDb.insert(agentSessionRequests).values({
 		id: REQUEST_ID,
 		sourceKind: "subscription",
 		sourceId: SUBSCRIPTION_FIRE_ID,
@@ -80,9 +74,9 @@ async function seed(db: HyperIdleDb): Promise<void> {
  * here. The adapter pool selects NOTHING, which drives `admitSession` into
  * its Phase 3 pre-admission throw.
  */
-function buildDeps(db: HyperIdleDb, eventBus: EventBus): ProvisionSessionDeps {
+function buildDeps(runnerDb: RunnerDb, eventBus: EventBus): ProvisionSessionDeps {
 	return {
-		db,
+		db: runnerDb,
 		eventBus,
 		adapterPool: {
 			select: () => null,
@@ -109,14 +103,14 @@ function buildComposition() {
 	});
 }
 
-async function runUntilProvisioningFails(db: HyperIdleDb, eventBus: EventBus): Promise<void> {
-	const [request] = await db
+async function runUntilProvisioningFails(runnerDb: RunnerDb, eventBus: EventBus): Promise<void> {
+	const [request] = await runnerDb
 		.select()
 		.from(agentSessionRequests)
 		.where(eq(agentSessionRequests.id, REQUEST_ID));
 	if (!request) throw new Error("seed failed");
 	await expect(
-		buildComposition().runSession(buildDeps(db, eventBus), {
+		buildComposition().runSession(buildDeps(runnerDb, eventBus), {
 			mode: "durable",
 			request,
 		}),
@@ -124,11 +118,14 @@ async function runUntilProvisioningFails(db: HyperIdleDb, eventBus: EventBus): P
 }
 
 describe("pre-admission provisioning failure diagnosis", () => {
-	test("records the failure MESSAGE on the request, not just a bare code", async ({ db }) => {
-		await seed(db);
-		await runUntilProvisioningFails(db, new EventBus());
+	test("records the failure MESSAGE on the request, not just a bare code", async ({
+		db,
+		runnerDb,
+	}) => {
+		await seed(db, runnerDb);
+		await runUntilProvisioningFails(runnerDb, new EventBus());
 
-		const [row] = await db
+		const [row] = await runnerDb
 			.select()
 			.from(agentSessionRequests)
 			.where(eq(agentSessionRequests.id, REQUEST_ID));
@@ -142,14 +139,17 @@ describe("pre-admission provisioning failure diagnosis", () => {
 		expect(row?.errorMessage).toContain(POOL_EMPTY);
 	});
 
-	test("does not orphan the reserved session in state active", async ({ db }) => {
-		await seed(db);
-		await runUntilProvisioningFails(db, new EventBus());
+	test("does not orphan the reserved session in state active", async ({ db, runnerDb }) => {
+		await seed(db, runnerDb);
+		await runUntilProvisioningFails(runnerDb, new EventBus());
 
 		// `reserveOrAdoptSession` inserts the row BEFORE `admitSession` runs, so
 		// a pre-admission throw leaves it behind. The product then shows an
 		// agent working forever on work that already failed.
-		const [session] = await db.select().from(sessions).where(eq(sessions.requestId, REQUEST_ID));
+		const [session] = await runnerDb
+			.select()
+			.from(sessions)
+			.where(eq(sessions.requestId, REQUEST_ID));
 
 		expect(session).toBeDefined();
 		expect(session?.state).not.toBe("active");
@@ -158,15 +158,16 @@ describe("pre-admission provisioning failure diagnosis", () => {
 
 	test("carries the failure detail on the lifecycle event so core can record it", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seed(db);
+		await seed(db, runnerDb);
 		const eventBus = new EventBus();
 		const lifecycle: Array<Record<string, unknown>> = [];
 		eventBus.on("agent_run_lifecycle_changed", (event) => {
 			lifecycle.push(event as unknown as Record<string, unknown>);
 		});
 
-		await runUntilProvisioningFails(db, eventBus);
+		await runUntilProvisioningFails(runnerDb, eventBus);
 
 		// Without this, core-api has nothing to record the failure against —
 		// which is why the row's `error_message` is null in production too.

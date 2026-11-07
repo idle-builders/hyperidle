@@ -7,7 +7,6 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	DOCUMENT_STATUSES,
 	documentAnchorProblems,
@@ -19,7 +18,9 @@ import {
 	sendMessageInvariants,
 	TaskSchema,
 } from "@hyperidle/domain-model";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { sql } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 
@@ -28,14 +29,14 @@ async function rows<T extends Record<string, unknown>>(db: HyperIdleDb, q: strin
 	return (result as { rows: T[] }).rows;
 }
 
-async function seedWorld(db: HyperIdleDb): Promise<void> {
+async function seedWorld(db: HyperIdleDb, runnerDb: RunnerDb): Promise<void> {
 	await runFactoryBootstrap(db);
-	await seedDemoWorld(db);
+	await seedDemoWorld(db, runnerDb);
 }
 
 describe("demo world schema validation", () => {
-	test("every seeded task row parses against TaskSchema", async ({ db }) => {
-		await seedWorld(db);
+	test("every seeded task row parses against TaskSchema", async ({ db, runnerDb }) => {
+		await seedWorld(db, runnerDb);
 
 		const taskRows = await rows<Record<string, unknown>>(
 			db,
@@ -98,8 +99,8 @@ describe("demo world schema validation", () => {
 		expect(failures, failures.join("\n")).toHaveLength(0);
 	});
 
-	test("every message payload parses against its type schema", async ({ db }) => {
-		await seedWorld(db);
+	test("every message payload parses against its type schema", async ({ db, runnerDb }) => {
+		await seedWorld(db, runnerDb);
 
 		const msgRows = await rows<{ id: string; type: string; payload: string }>(
 			db,
@@ -122,8 +123,9 @@ describe("demo world schema validation", () => {
 
 	test("every review holds together, and every comment's pin fits a review in its own thread", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seedWorld(db);
+		await seedWorld(db, runnerDb);
 
 		const msgRows = await rows<{ id: string; thread_id: string; type: string; payload: string }>(
 			db,
@@ -176,8 +178,8 @@ describe("demo world schema validation", () => {
 		expect(failures, failures.join("\n")).toEqual([]);
 	});
 
-	test("every seeded document has valid status and scopeKind", async ({ db }) => {
-		await seedWorld(db);
+	test("every seeded document has valid status and scopeKind", async ({ db, runnerDb }) => {
+		await seedWorld(db, runnerDb);
 
 		const docRows = await rows<{ id: string; status: string; scope_kind: string }>(
 			db,
@@ -200,8 +202,8 @@ describe("demo world schema validation", () => {
 		expect(failures, failures.join("\n")).toHaveLength(0);
 	});
 
-	test("changes rows exist for each object kind", async ({ db }) => {
-		await seedWorld(db);
+	test("changes rows exist for each object kind", async ({ db, runnerDb }) => {
+		await seedWorld(db, runnerDb);
 
 		for (const obj of ["task", "thread", "document", "user"] as const) {
 			const count = await rows<{ c: string }>(

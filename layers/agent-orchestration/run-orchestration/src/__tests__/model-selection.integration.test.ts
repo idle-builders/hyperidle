@@ -22,16 +22,17 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
-import { type RunnerDb } from "@hyperidle/runner-db";
-import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { afterEach, describe, vi } from "vitest";
 import {
 	buildRunningHarnessPorts,
+	expect,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
 	rejectingHarnessAdapter,
+	test,
 } from "../__testing__/test-fixtures.js";
 import { writeAgentRunConfig } from "../agent-run-config-store.js";
 import { createProvisioner } from "../provisioner.js";
@@ -152,7 +153,10 @@ describe("the model an agent is configured with reaches its session", () => {
 		} as ProvisionSessionParams;
 	}
 
-	test("the configured model reaches the session with no credential resolved", async ({ db, runnerDb }) => {
+	test("the configured model reaches the session with no credential resolved", async ({
+		db,
+		runnerDb,
+	}) => {
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "model-selection-"));
 		sandboxDirs.push(sandboxPath);
 		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);

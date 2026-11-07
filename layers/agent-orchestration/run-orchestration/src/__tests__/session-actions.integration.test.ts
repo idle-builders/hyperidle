@@ -11,8 +11,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import { sessions, type RunnerDb } from "@hyperidle/runner-db";
-import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import type {
 	ActivityEntry,
 	SearchSessionsInput,
@@ -24,13 +22,19 @@ import type {
 } from "@hyperidle/domain-model";
 import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { sessionRunRegistry } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import {
+	afterEach,
 	buildNeverCalledPorts,
+	describe,
+	expect,
 	neverCalled,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
+	test,
+	vi,
 } from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 import { type Action, createSessionActions, type SessionActionsDeps } from "../session-actions.js";
@@ -108,7 +112,10 @@ describe("createSessionActions", () => {
 			});
 			const { search } = typedActions(buildDeps());
 
-			const result = await search.run({ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW }, {});
+			const result = await search.run(
+				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
+				{},
+			);
 
 			if (!result.ok) throw new Error("expected ok");
 			expect(result.data.map((r) => r.id)).toEqual(["s-new", "s-old"]);
@@ -133,7 +140,10 @@ describe("createSessionActions", () => {
 			});
 			const { search } = typedActions(buildDeps());
 
-			const result = await search.run({ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW }, {});
+			const result = await search.run(
+				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
+				{},
+			);
 
 			if (!result.ok) throw new Error("expected ok");
 			expect(result.data.map((r) => [r.id, r.threadId])).toEqual([
@@ -199,7 +209,11 @@ describe("createSessionActions", () => {
 			runnerDb,
 		}) => {
 			await seedAgent(db, "agent-stop-marked");
-			await seedSession(runnerDb, { id: "s-marked", agentId: "agent-stop-marked", state: "active" });
+			await seedSession(runnerDb, {
+				id: "s-marked",
+				agentId: "agent-stop-marked",
+				state: "active",
+			});
 			const { stop } = typedActions(buildDeps({ stop: async () => "marked" }));
 
 			const result = await stop.run(
@@ -448,11 +462,8 @@ describe("stopSessionRun — a live runtime entry (the abort path)", () => {
 		// The registry entry exists the instant `startSession` resolves (before
 		// `onHarnessStarted` fires) — safe to stop now.
 		await started;
-		const stopResult = await stopSessionRun(
-			runnerDb,
-			eventBus,
-			admitted.sessionId,
-			(sessionId) => sessionRunRegistry.abort(sessionId, "stop"),
+		const stopResult = await stopSessionRun(runnerDb, eventBus, admitted.sessionId, (sessionId) =>
+			sessionRunRegistry.abort(sessionId, "stop"),
 		);
 		expect(stopResult).toBe("aborted");
 
@@ -629,10 +640,7 @@ describe("provisioner — an adapter's own return action is not a user stop", ()
 		sessionIdBox.current = admitted.sessionId;
 		await provisioner.run(deps, params, admitted);
 
-		const [row] = await runnerDb
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, admitted.sessionId));
+		const [row] = await runnerDb.select().from(sessions).where(eq(sessions.id, admitted.sessionId));
 		expect(row?.state).toBe("done");
 		expect(row?.outcome).toBe("completed");
 		expect(emitted).toHaveLength(1);

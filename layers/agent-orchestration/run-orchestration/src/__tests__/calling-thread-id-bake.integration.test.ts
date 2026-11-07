@@ -7,10 +7,10 @@
  * payload, zero orchestration -> core read.
  */
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
-import { agentSessionRequests, type RunnerDb } from "@hyperidle/runner-db";
-import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
+import { agentSessionRequests, type RunnerDb } from "@hyperidle/runner-db";
 import { describe, vi } from "vitest";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";
 
@@ -120,7 +120,11 @@ describe("consumeAgentSessionRequest — callingThreadId bake", () => {
 		});
 
 		await runSession(
-			{ db: runnerDb, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+			{
+				db: runnerDb,
+				eventBus: new EventBus(),
+				ports,
+			} as unknown as import("../contracts.js").RuntimeDeps,
 			{ mode: "durable", request },
 		);
 
@@ -153,7 +157,11 @@ describe("consumeAgentSessionRequest — callingThreadId bake", () => {
 		});
 
 		await runSession(
-			{ db: runnerDb, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+			{
+				db: runnerDb,
+				eventBus: new EventBus(),
+				ports,
+			} as unknown as import("../contracts.js").RuntimeDeps,
 			{ mode: "durable", request },
 		);
 

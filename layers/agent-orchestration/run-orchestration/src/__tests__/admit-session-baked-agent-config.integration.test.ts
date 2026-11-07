@@ -12,16 +12,17 @@ import { mkdtempSync, rmSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { users } from "@hyperidle/db";
-import type { RunnerDb } from "@hyperidle/runner-db";
-import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import {
 	buildNeverCalledPorts,
+	expect,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
 	rejectingHarnessAdapter,
+	test,
 } from "../__testing__/test-fixtures.js";
 import { TargetAgentNotRunnableError } from "../errors.js";
 import { createProvisioner } from "../provisioner.js";

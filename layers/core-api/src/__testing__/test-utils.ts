@@ -8,6 +8,7 @@ import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { Hono } from "hono";
 import type { AppOptions } from "../app.js";
 import { registerAppDisposers } from "../app.js";
@@ -27,10 +28,12 @@ export interface TestAppOptions extends AppOptions {
 	signIn?: SignIn;
 	/**
 	 * A pre-booted orchestration Layer. Omitted → this harness boots one itself
-	 * (when a `db` is present), exactly as production does.
+	 * (when both `db` and `runnerDb` are present), exactly as production does.
 	 *
 	 */
 	agentOrchestrationBoot?: AgentOrchestrationBoot;
+	/** Runner-owned DB; required alongside `db` for orchestration boot. */
+	runnerDb?: RunnerDb;
 	/**
 	 * Mount extra routes on the `/api` router at the exact point production's
 	 * Application mounts the MCP bridge: after both Layers' pre-auth
@@ -80,9 +83,10 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	// `bootCoreApi`).
 	const agentOrchestration =
 		options?.agentOrchestrationBoot ??
-		(options?.db
+		(options?.db && options?.runnerDb
 			? await bootAgentOrchestration({
 					db: options.db,
+					runnerDb: options.runnerDb,
 					eventBus,
 				})
 			: undefined);

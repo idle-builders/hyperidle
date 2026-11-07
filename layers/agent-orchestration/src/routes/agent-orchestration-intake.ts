@@ -221,7 +221,11 @@ export function createAgentOrchestrationIntakeRoutes(
 
 	// ── connections.remove — POST /agent-orchestration/connections/:userId/:id/remove ──
 	router.post("/connections/:userId/:id/remove", async (c) => {
-		const result = await removeConnectionForUser(runnerDb, c.req.param("userId"), c.req.param("id"));
+		const result = await removeConnectionForUser(
+			runnerDb,
+			c.req.param("userId"),
+			c.req.param("id"),
+		);
 		return c.json(result);
 	});
 

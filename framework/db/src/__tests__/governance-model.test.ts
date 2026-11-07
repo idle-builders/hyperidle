@@ -9,6 +9,15 @@
  * to test real `PgTable` ownership.
  */
 
+import {
+	agentRunConfig,
+	agentRunnerKeys,
+	agentSessionRequests,
+	reviewSessions,
+	serviceConnections,
+	serviceConnectionWithholds,
+	sessions,
+} from "@hyperidle/runner-db";
 import { is } from "drizzle-orm";
 import { PgTable } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
@@ -546,9 +555,18 @@ describe("the clauses hold beyond the decided rows", () => {
 
 const tableOwners = tableOwnersJson as unknown as TableOwners;
 
-/** Every table the schema actually declares, by export name — read from the module, not the file. */
+/** Every table the schemas actually declare, by export name — read from both modules, not the files. */
+const runnerTables = {
+	agentRunConfig,
+	agentRunnerKeys,
+	agentSessionRequests,
+	reviewSessions,
+	serviceConnectionWithholds,
+	serviceConnections,
+	sessions,
+};
 const liveTables = new Set(
-	Object.entries(schema)
+	[...Object.entries(schema), ...Object.entries(runnerTables)]
 		.filter(([, value]) => is(value, PgTable))
 		.map(([name]) => name),
 );
@@ -602,6 +620,7 @@ describe("the registries are honest", () => {
 		// The document module fold (five knowledge tables into one `documents` table) took this
 		// from 33 to 29. Dropping the plugin configuration defaults and overrides took it from 27
 		// to 25. Dropping filesystem_injections and filesystems took it from 22 to 20.
+		// liveTables now spans both @hyperidle/db and @hyperidle/runner-db (21 total).
 		expect(liveTables.size).toBeGreaterThan(18);
 		expect(() => validateTableOwners(tableOwners, liveTables, packageNames)).not.toThrow();
 		expect(tableOwners.totals.tables).toBe(liveTables.size);

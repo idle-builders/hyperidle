@@ -147,7 +147,6 @@ export const tasks = pgTable(
 	],
 );
 
-
 // @lore: taskDispatchAttempts — task ID alone can't identify retries or handoffs; each dispatch is durable so replay reuses it without suppressing later attempts
 export const taskDispatchAttempts = pgTable(
 	"task_dispatch_attempts",

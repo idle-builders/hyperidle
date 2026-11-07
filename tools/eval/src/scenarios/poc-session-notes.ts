@@ -7,7 +7,8 @@
  * All 5 dimensions are rule-based DB checks (no LLM-as-judge).
  */
 
-import { documents, sessions, tasks } from "@hyperidle/db";
+import { documents, tasks } from "@hyperidle/db";
+import { sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { runEvalSession } from "../provision-harness.js";
 import { seedMinimalWorld } from "../seeding.js";
@@ -26,7 +27,7 @@ import type {
 // ---------------------------------------------------------------------------
 
 async function seed(ctx: SeedContext): Promise<ScenarioSeedResult> {
-	return await seedMinimalWorld(ctx.db, {
+	return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 		agentRole: "builder",
 		agentSystemPrompt: `You are a builder agent in an agentic operating system.
 Your job is to complete assigned tasks using the available tools.
@@ -60,6 +61,7 @@ async function trigger(ctx: TriggerContext): Promise<TriggerResult> {
 	return await runEvalSession(
 		{
 			db: ctx.db,
+			runnerDb: ctx.runnerDb,
 			eventBus: ctx.eventBus,
 		},
 		{
@@ -79,7 +81,7 @@ async function trigger(ctx: TriggerContext): Promise<TriggerResult> {
  * Rule-based: query sessions table for outcome = "completed".
  */
 async function judgeSessionCompleted(ctx: JudgeContext): Promise<DimensionScore> {
-	const [session] = await ctx.db
+	const [session] = await ctx.runnerDb
 		.select({ outcome: sessions.outcome })
 		.from(sessions)
 		.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -102,7 +104,7 @@ async function judgeSessionCompleted(ctx: JudgeContext): Promise<DimensionScore>
  * write_session_notes tool writes to sessions.notes directly.
  */
 async function judgeSessionNotesWritten(ctx: JudgeContext): Promise<DimensionScore> {
-	const [session] = await ctx.db
+	const [session] = await ctx.runnerDb
 		.select({ notes: sessions.notes })
 		.from(sessions)
 		.where(eq(sessions.id, ctx.triggerResult.sessionId))

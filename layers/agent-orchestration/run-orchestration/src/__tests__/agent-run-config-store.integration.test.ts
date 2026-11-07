@@ -24,10 +24,7 @@ import {
 
 const NOW = "2026-08-04T00:00:00.000Z";
 
-async function insertAgent(
-	db: HyperIdleDb,
-	id: string,
-): Promise<void> {
+async function insertAgent(db: HyperIdleDb, id: string): Promise<void> {
 	await db.insert(users).values({
 		id,
 		kind: "ai",
@@ -40,7 +37,10 @@ async function insertAgent(
 }
 
 describe("agent run config store", () => {
-	test("an agent with no config row resolves the all-null effective config", async ({ db, runnerDb }) => {
+	test("an agent with no config row resolves the all-null effective config", async ({
+		db,
+		runnerDb,
+	}) => {
 		await insertAgent(db, "a-none");
 
 		const config = await readAgentRunConfig(runnerDb, "a-none");
@@ -185,7 +185,10 @@ describe("agent run config store", () => {
 		expect(config.maxConcurrentSessions).toBe(4);
 	});
 
-	test("options round-trip every value shape a harness control can produce", async ({ db, runnerDb }) => {
+	test("options round-trip every value shape a harness control can produce", async ({
+		db,
+		runnerDb,
+	}) => {
 		await insertAgent(db, "a-shapes");
 
 		await writeAgentRunConfig(runnerDb, "a-shapes", {
@@ -199,7 +202,10 @@ describe("agent run config store", () => {
 		});
 	});
 
-	test("writing empty options clears them rather than storing an empty object", async ({ db, runnerDb }) => {
+	test("writing empty options clears them rather than storing an empty object", async ({
+		db,
+		runnerDb,
+	}) => {
 		await insertAgent(db, "a-cleared");
 		await writeAgentRunConfig(runnerDb, "a-cleared", { modelOptions: { effort: "low" } });
 

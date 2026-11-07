@@ -1,6 +1,6 @@
-import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { eq } from "drizzle-orm";
-import { agentRunConfig, agentRunnerKeys, sessions, serviceConnections } from "../schema.js";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
+import { agentRunConfig, agentRunnerKeys, serviceConnections, sessions } from "../schema.js";
 
 describe("runner-db schema", () => {
 	test("inserts and reads sessions without server FK dependency", async ({ db }) => {

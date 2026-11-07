@@ -18,16 +18,18 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { tasks, teams, threads, users } from "@hyperidle/db";
-import { agentRunConfig, type RunnerDb } from "@hyperidle/runner-db";
-import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
+import { agentRunConfig, type RunnerDb } from "@hyperidle/runner-db";
 import { afterEach, beforeEach, vi } from "vitest";
 import { createGitRunner } from "../../../src/git-runner.js";
 import {
 	buildRunningHarnessPorts,
+	describe,
+	expect,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
+	test,
 } from "../__testing__/test-fixtures.js";
 import { readAgentRunConfig } from "../agent-run-config-store.js";
 import { deriveWorkingFolder, ensureAgentSpace } from "../agent-space.js";
@@ -36,11 +38,7 @@ import { addSpaceFolder } from "../space-folders.js";
 
 const NOW = "2026-11-06T00:00:00.000Z";
 
-async function insertAgent(
-	db: HyperIdleDb,
-	id: string,
-	name = id,
-): Promise<void> {
+async function insertAgent(db: HyperIdleDb, id: string, name = id): Promise<void> {
 	await db.insert(users).values({
 		id,
 		kind: "ai",
@@ -414,7 +412,10 @@ describe("real provisioner runs: working folder isolation", () => {
 		expect(fs.existsSync(path.join(spacesDir, "RealIso"))).toBe(true);
 	});
 
-	test("second conversation run of the same agent uses the same working folder", async ({ db, runnerDb }) => {
+	test("second conversation run of the same agent uses the same working folder", async ({
+		db,
+		runnerDb,
+	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
 			id: "agent-real-reuse",
@@ -492,12 +493,7 @@ describe("real provisioner runs: working folder isolation", () => {
 
 			// Pre-create the agent's space (provisioner will reuse it) and add the
 			// git repo as a space-folder symlink before the session starts.
-			const spacePath = await ensureAgentSpace(
-				runnerDb,
-				"agent-real-mount",
-				"RealMount",
-				null,
-			);
+			const spacePath = await ensureAgentSpace(runnerDb, "agent-real-mount", "RealMount", null);
 			const addResult = addSpaceFolder(spacePath, repoDir);
 			expect(addResult.ok).toBe(true);
 

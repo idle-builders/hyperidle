@@ -13,7 +13,8 @@
  * was actually called, without reaching into tool-call events.
  */
 
-import { documents, sessions } from "@hyperidle/db";
+import { documents } from "@hyperidle/db";
+import { sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { judgeLlmQuality, judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
@@ -41,7 +42,7 @@ const rdFindAndOpenBuilderDevops: EvalScenario = {
 	feature: "read_document",
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
+		const world = await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on DevOps infrastructure.
 Before starting, use search_documents to find any existing document about the deploy runbook,
@@ -82,6 +83,7 @@ rollback threshold the runbook names — do not invent one.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -134,7 +136,7 @@ rollback threshold the runbook names — do not invent one.`,
 				id: "content_used",
 				label: "Session Notes Restate the Runbook's Real Rollback Threshold",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))

@@ -1,5 +1,5 @@
-import type { RunnerDb } from "@hyperidle/runner-db";
 import { EventBus } from "@hyperidle/event-bus";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { describe, expect, test, vi } from "vitest";
 import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";

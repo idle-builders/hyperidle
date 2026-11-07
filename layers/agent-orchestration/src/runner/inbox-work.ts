@@ -20,6 +20,7 @@ import {
 	recordReviewVerdict,
 	requestRunStopForTasks,
 } from "@hyperidle/run-orchestration";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import {
 	type BakedRunRequest,
 	cancelPendingForTasks,
@@ -28,7 +29,6 @@ import {
 	queueRun,
 	sessionRunRegistry,
 } from "@hyperidle/session-requests";
-import type { RunnerDb } from "@hyperidle/runner-db";
 import type { CoreDoor } from "./core-door.js";
 
 const logger = createLogger({ pkg: "agent-orchestration.runner" });

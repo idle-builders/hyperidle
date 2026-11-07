@@ -8,7 +8,8 @@
  * `s.threadId === id && s.taskId === null`; if the session row loses its
  * threadId (sourceCorrelationJson changes) or disappears, the line vanishes.
  */
-import { sessions, teams, threads, users } from "@hyperidle/db";
+import { teams, threads, users } from "@hyperidle/db";
+import { sessions } from "@hyperidle/runner-db";
 import { describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -37,6 +38,7 @@ async function callAction<T>(
 describe("search_sessions survives send_message", () => {
 	test("active thread-turn session stays in results with threadId after message is sent", async ({
 		db,
+		runnerDb,
 		app,
 		asPerson,
 	}) => {
@@ -75,7 +77,7 @@ describe("search_sessions survives send_message", () => {
 		});
 
 		// Insert an active session the provisioner would have written for a thread_turn.
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: SESSION_ID,
 			agentId: AGENT_ID,
 			taskId: null,

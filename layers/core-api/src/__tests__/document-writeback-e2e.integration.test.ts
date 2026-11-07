@@ -23,9 +23,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { listChanges } from "@hyperidle/changes";
-import { documents, type HyperIdleDb, sessions, teams, users, userTeams } from "@hyperidle/db";
+import { documents, type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { createWritebackProcessor, startWatcher } from "@hyperidle/run-orchestration";
+import { sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { realDocumentWritebackPort, seedDocument } from "./run-orchestration-test-runtime.js";
@@ -64,6 +65,7 @@ const writeback = createWritebackProcessor();
 describe("document writeback end-to-end: real files, real sandbox, real database, REAL edit_document/search_documents", () => {
 	test("a stale writeback: the server's body is unchanged and the manifest holds the server's version", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedAgent(db);
 		const { root, manifestPath } = makeSandbox();
@@ -105,7 +107,14 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 		fs.writeFileSync(filePath, "This agent's competing edit.");
 
 		const result = await writeback.process(
-			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, document, actor: AGENT_ID },
+			{
+				db: runnerDb,
+				sandboxPath: root,
+				sessionId: "sess-e2e",
+				manifestPath,
+				document,
+				actor: AGENT_ID,
+			},
 			[{ type: "modify", relativePath: "knowledge/racing-note.md", fullPath: filePath }],
 		);
 		expect(result.updated).toBe(1);
@@ -128,6 +137,7 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 
 	test("a fresh-version writeback applies the text and writes exactly one changes row authored by the agent; readCount stays 0", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedAgent(db);
 		const { root, manifestPath } = makeSandbox();
@@ -157,7 +167,14 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 
 		const before = new Date().toISOString();
 		const result = await writeback.process(
-			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, document, actor: AGENT_ID },
+			{
+				db: runnerDb,
+				sandboxPath: root,
+				sessionId: "sess-e2e",
+				manifestPath,
+				document,
+				actor: AGENT_ID,
+			},
 			[{ type: "modify", relativePath: "knowledge/fresh-note.md", fullPath: filePath }],
 		);
 		expect(result.updated).toBe(1);
@@ -174,6 +191,7 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 
 	test("a new file creates a document under the right parent, with the agent's own team scope — never readCount", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedAgent(db);
 		const { root, manifestPath } = makeSandbox();
@@ -207,7 +225,14 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 		fs.writeFileSync(filePath, "Lead with value, not discount.");
 
 		const result = await writeback.process(
-			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, document, actor: AGENT_ID },
+			{
+				db: runnerDb,
+				sandboxPath: root,
+				sessionId: "sess-e2e",
+				manifestPath,
+				document,
+				actor: AGENT_ID,
+			},
 			[{ type: "create", relativePath: "knowledge/pricing/objections.md", fullPath: filePath }],
 		);
 		expect(result.created).toBe(1);
@@ -226,7 +251,14 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 		const rootFilePath = path.join(root, "knowledge", "root-note.md");
 		fs.writeFileSync(rootFilePath, "A root-level note.");
 		const rootResult = await writeback.process(
-			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, document, actor: AGENT_ID },
+			{
+				db: runnerDb,
+				sandboxPath: root,
+				sessionId: "sess-e2e",
+				manifestPath,
+				document,
+				actor: AGENT_ID,
+			},
 			[{ type: "create", relativePath: "knowledge/root-note.md", fullPath: rootFilePath }],
 		);
 		expect(rootResult.created).toBe(1);
@@ -239,6 +271,7 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 
 	test("a deleted sandbox file drops the manifest entry and writes nothing — the document row is untouched, readCount stays 0", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedAgent(db);
 		const { root, manifestPath } = makeSandbox();
@@ -248,7 +281,14 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 		fs.writeFileSync(filePath, "Body before the sandbox file is removed.");
 
 		await writeback.process(
-			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, document, actor: AGENT_ID },
+			{
+				db: runnerDb,
+				sandboxPath: root,
+				sessionId: "sess-e2e",
+				manifestPath,
+				document,
+				actor: AGENT_ID,
+			},
 			[{ type: "create", relativePath: "knowledge/deleted-note.md", fullPath: filePath }],
 		);
 
@@ -257,7 +297,14 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 
 		fs.rmSync(filePath);
 		const result = await writeback.process(
-			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, document, actor: AGENT_ID },
+			{
+				db: runnerDb,
+				sandboxPath: root,
+				sessionId: "sess-e2e",
+				manifestPath,
+				document,
+				actor: AGENT_ID,
+			},
 			[{ type: "delete", relativePath: "knowledge/deleted-note.md", fullPath: filePath }],
 		);
 		expect(result.deleted).toBe(1);
@@ -279,6 +326,7 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 
 	test("moving a real materialised file changes its parent through a real edit_document call — body untouched, readCount stays 0", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedAgent(db);
 		const { root, manifestPath } = makeSandbox();
@@ -290,7 +338,14 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 		fs.writeFileSync(originalPath, "The original body.");
 
 		await writeback.process(
-			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, document, actor: AGENT_ID },
+			{
+				db: runnerDb,
+				sandboxPath: root,
+				sessionId: "sess-e2e",
+				manifestPath,
+				document,
+				actor: AGENT_ID,
+			},
 			[
 				{
 					type: "create",
@@ -312,7 +367,14 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 		fs.writeFileSync(movedPath, "The original body.");
 
 		await writeback.process(
-			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, document, actor: AGENT_ID },
+			{
+				db: runnerDb,
+				sandboxPath: root,
+				sessionId: "sess-e2e",
+				manifestPath,
+				document,
+				actor: AGENT_ID,
+			},
 			[
 				{
 					type: "delete",
@@ -358,10 +420,11 @@ describe.skipIf(!REAL_FS_WATCH)(
 	() => {
 		test("writing a file under knowledge/ is detected by the real watcher and lands in the real database", async ({
 			db,
+			runnerDb,
 			eventBus,
 		}) => {
 			await seedAgent(db);
-			await db.insert(sessions).values({
+			await runnerDb.insert(sessions).values({
 				id: "sess-real-watch",
 				agentId: AGENT_ID,
 				modelTier: "small",
@@ -371,7 +434,7 @@ describe.skipIf(!REAL_FS_WATCH)(
 			const { root, manifestPath } = makeSandbox();
 			const document = realDocumentWritebackPort(db, eventBus);
 
-			const dispose = writeback.subscribe({ db, eventBus, document });
+			const dispose = writeback.subscribe({ db: runnerDb, eventBus, document });
 			const watcher = startWatcher({
 				sandboxPath: root,
 				sessionId: "sess-real-watch",

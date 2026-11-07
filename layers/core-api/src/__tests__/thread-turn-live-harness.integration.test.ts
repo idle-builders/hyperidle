@@ -6,8 +6,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { agentRunConfig, type HyperIdleDb, users } from "@hyperidle/db";
-import { test as dbTest } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, users } from "@hyperidle/db";
 import type {
 	OpenThreadInput,
 	SendMessageInput,
@@ -20,8 +19,8 @@ import {
 	type SupportedHarnessName,
 	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
+import { agentRunConfig, type RunnerDb } from "@hyperidle/runner-db";
 import { giveUserKey } from "@hyperidle/user";
-import { afterEach, describe, expect } from "vitest";
 import {
 	assertSessionRowDone,
 	HARNESS_TYPE,
@@ -30,6 +29,7 @@ import {
 	waitForEffect,
 	waitForSessionCompleted,
 } from "../__testing__/live-harness-test-support.js";
+import { afterEach, describe, expect, test } from "../__testing__/test-fixtures.js";
 import { SESSION_NOT_RETURNED_NOTICE_TEXT } from "../services/session-not-returned-notice.js";
 
 const NOW = "2026-09-18T00:00:00.000Z";
@@ -41,6 +41,7 @@ const PROMPT = "Reply with exactly: THREAD_TURN_OK";
 
 async function seedFounderAndAgent(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	opts: {
 		readonly founderId: string;
 		readonly agentId: string;
@@ -64,7 +65,7 @@ async function seedFounderAndAgent(
 		status: "active",
 		createdAt: NOW,
 	});
-	await db.insert(agentRunConfig).values({
+	await runnerDb.insert(agentRunConfig).values({
 		agentUserId: opts.agentId,
 		harnessType: opts.harnessType,
 		modelId: opts.modelId,
@@ -79,13 +80,17 @@ describe("a human's send_message wakes an agent, whose own send_message ends the
 	 * `requireHarness("<name>")` call, one per harness — kept ungreppable-proof
 	 * by not collapsing these into a loop.
 	 */
-	async function runThreadTurnProof(harness: SupportedHarnessName, db: HyperIdleDb): Promise<void> {
+	async function runThreadTurnProof(
+		harness: SupportedHarnessName,
+		db: HyperIdleDb,
+		runnerDb: RunnerDb,
+	): Promise<void> {
 		const founderId = `founder-thread-turn-${harness}`;
 		const agentId = `agent-thread-turn-${harness}`;
 		const personKey = `person-key-thread-turn-${harness}`;
 		const harnessType = HARNESS_TYPE[harness];
 
-		await seedFounderAndAgent(db, {
+		await seedFounderAndAgent(db, runnerDb, {
 			founderId,
 			agentId,
 			harnessType,
@@ -95,7 +100,7 @@ describe("a human's send_message wakes an agent, whose own send_message ends the
 		});
 		await giveUserKey(db, founderId, personKey);
 
-		const run = await setUpLiveHarnessRun(db, `thread-turn-${harness}`, personKey);
+		const run = await setUpLiveHarnessRun(db, runnerDb, `thread-turn-${harness}`, personKey);
 
 		try {
 			await run.runner.start();
@@ -150,8 +155,8 @@ describe("a human's send_message wakes an agent, whose own send_message ends the
 			// verdict — the bug this test guards against (opencode's own return
 			// persisted as state/outcome "stopped" while the in-memory result said
 			// "completed") passed on the in-memory assertions alone.
-			const sessionId = await waitForSessionCompleted(db, agentId, harness);
-			await assertSessionRowDone(db, sessionId, harness);
+			const sessionId = await waitForSessionCompleted(runnerDb, agentId, harness);
+			await assertSessionRowDone(runnerDb, sessionId, harness);
 		} finally {
 			await run.teardown();
 		}
@@ -159,36 +164,36 @@ describe("a human's send_message wakes an agent, whose own send_message ends the
 
 	describe("[harness:claude]", () => {
 		requireHarness("claude");
-		dbTest(
+		test(
 			"a thread turn on claude-code ends with a real send_message() call landing in the calling thread",
-			async ({ db }) => runThreadTurnProof("claude", db),
+			async ({ db, runnerDb }) => runThreadTurnProof("claude", db, runnerDb),
 			180_000,
 		);
 	});
 
 	describe("[harness:codex]", () => {
 		requireHarness("codex");
-		dbTest(
+		test(
 			"a thread turn on codex ends with a real send_message() call landing in the calling thread",
-			async ({ db }) => runThreadTurnProof("codex", db),
+			async ({ db, runnerDb }) => runThreadTurnProof("codex", db, runnerDb),
 			180_000,
 		);
 	});
 
 	describe("[harness:opencode]", () => {
 		requireHarness("opencode");
-		dbTest(
+		test(
 			"a thread turn on opencode ends with a real send_message() call landing in the calling thread",
-			async ({ db }) => runThreadTurnProof("opencode", db),
+			async ({ db, runnerDb }) => runThreadTurnProof("opencode", db, runnerDb),
 			180_000,
 		);
 	});
 
 	describe("[harness:cursor-agent]", () => {
 		requireHarness("cursor-agent");
-		dbTest(
+		test(
 			"a thread turn on cursor-agent ends with a real send_message() call landing in the calling thread",
-			async ({ db }) => runThreadTurnProof("cursor-agent", db),
+			async ({ db, runnerDb }) => runThreadTurnProof("cursor-agent", db, runnerDb),
 			180_000,
 		);
 	});

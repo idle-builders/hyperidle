@@ -33,7 +33,7 @@ const ltProgressTrackingBuilderLegal: EvalScenario = {
 	feature: "log_task",
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
+		const world = await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on legal contract analysis.
 Your job is to review contracts and log your findings as you work.
@@ -72,6 +72,7 @@ Your logs should be specific and actionable, not generic.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -112,7 +113,7 @@ const ltMultiEntryBuilderDevops: EvalScenario = {
 	feature: "log_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure.
 Use log_task to document your work at multiple stages.
@@ -140,6 +141,7 @@ You must call log_task at least twice — once per phase.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -164,7 +166,7 @@ const ltDiscoveryPmConsulting: EvalScenario = {
 	feature: "log_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager coordinating a consulting engagement.
 Your job is to coordinate stakeholders and document your findings.
@@ -188,6 +190,7 @@ Your log entries should reflect PM-level insights (stakeholder coordination, not
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{

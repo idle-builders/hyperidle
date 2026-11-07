@@ -1,5 +1,5 @@
-import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import type { EventBus } from "@hyperidle/event-bus";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { and, eq, inArray } from "drizzle-orm";
 import { stopSessionRun } from "./session-store.js";
 

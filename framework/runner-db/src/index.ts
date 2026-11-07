@@ -1,5 +1,6 @@
 export {
 	createPgliteRunnerDb,
+	createPostgresRunnerDb,
 	type RunnerDb,
 	type RunnerDbHandle,
 	type RunnerWriteExecutor,
@@ -7,19 +8,19 @@ export {
 export { applyRunnerMigrations, isRunnerDowngrade, type MigrationResult } from "./migrate.js";
 export * as schema from "./schema.js";
 export {
+	type AgentRunnerKey,
+	type AgentSessionRequest,
 	agentRunConfig,
 	agentRunnerKeys,
-	type AgentRunnerKey,
 	agentSessionRequests,
-	type AgentSessionRequest,
 	type NewAgentRunConfigRow,
 	type NewReviewSessionRow,
 	type NewServiceConnectionRow,
-	reviewSessions,
 	type ReviewSessionRow,
-	serviceConnectionWithholds,
-	serviceConnections,
+	reviewSessions,
 	type ServiceConnectionRow,
 	type Session,
+	serviceConnections,
+	serviceConnectionWithholds,
 	sessions,
 } from "./schema.js";

@@ -68,12 +68,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { documents } from "@hyperidle/db";
-import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import { type BakedContextBundle, toBakedContextDocuments } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
-import { afterEach, beforeEach, describe, expect } from "vitest";
+import type { RunnerDb } from "@hyperidle/runner-db";
+import { afterEach, beforeEach, describe, expect, test } from "../__testing__/test-fixtures.js";
 import { buildTestRunOrchestrationComposition } from "./run-orchestration-test-runtime.js";
 
 // ---------------------------------------------------------------------------
@@ -139,7 +139,10 @@ afterEach(() => {
 // Production-path assembly helper
 // ---------------------------------------------------------------------------
 
-async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb): Promise<void> {
+async function assembleSkillIntoSandbox(
+	db: import("@hyperidle/db").HyperIdleDb,
+	runnerDb: RunnerDb,
+): Promise<void> {
 	const now = new Date().toISOString();
 	const skillId = `probe-skill-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -204,7 +207,7 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 	};
 
 	const assembled = await buildTestRunOrchestrationComposition().runSession(
-		{ db, eventBus: new EventBus() },
+		{ db: runnerDb, eventBus: new EventBus() },
 		{
 			mode: "assemble",
 			input: {
@@ -307,193 +310,178 @@ describe("skill materialisation via production writeSkillItem — real harnesses
 	describe("claude — reads from .claude/skills/", () => {
 		requireHarness("claude");
 
-		dbTest(
-			"skill body token appears in response after production assembly",
-			{ retry: 0 },
-			async ({ db }) => {
-				await assembleSkillIntoSandbox(db);
+		test("skill body token appears in response after production assembly", { retry: 0 }, async ({
+			db,
+			runnerDb,
+		}) => {
+			await assembleSkillIntoSandbox(db, runnerDb);
 
-				// Materialisation check: skill must be at the expected path.
-				// Goes RED when HARNESS_SKILL_DIRS is broken (sanity-break–sensitive).
-				const skillPath = path.join(sandboxPath, ".claude/skills", SKILL_DIR_NAME, "SKILL.md");
-				expect(fs.existsSync(skillPath)).toBe(true);
-				expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
+			// Materialisation check: skill must be at the expected path.
+			// Goes RED when HARNESS_SKILL_DIRS is broken (sanity-break–sensitive).
+			const skillPath = path.join(sandboxPath, ".claude/skills", SKILL_DIR_NAME, "SKILL.md");
+			expect(fs.existsSync(skillPath)).toBe(true);
+			expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
 
-				// Injection check: spawn and assert model output.
-				const { model } = HARNESS_TEST_MODELS.claude;
-				const { stdout } = await spawnWithClosedStdin(
-					"claude",
-					[
-						"-p",
-						PROBE_PROMPT,
-						"--dangerously-skip-permissions",
-						"--output-format",
-						"text",
-						"--model",
-						model,
-					],
-					{
-						cwd: sandboxPath,
-						env: {
-							// opencode authenticates itself. The locked matrix used to hand
-							// this spawn an OPENROUTER_API_KEY it had resolved; the matrix
-							// carries no key any more, and the inherited environment is where
-							// opencode looks for one anyway.
-							...process.env,
-							// @lore: pwd-override: pin PWD to sandbox so claude doesn't scan the worktree's skill dirs via inherited parent PWD.
-							PWD: sandboxPath,
-							CLAUDECODE: "",
-							CLAUDE_CODE_ENTRYPOINT: "",
-							CLAUDE_CODE_EXECPATH: "",
-							CLAUDE_CODE_SESSION_ID: "",
-							AI_AGENT: "",
-							CLAUDE_EFFORT: "",
-						},
-						timeoutMs: 60_000,
+			// Injection check: spawn and assert model output.
+			const { model } = HARNESS_TEST_MODELS.claude;
+			const { stdout } = await spawnWithClosedStdin(
+				"claude",
+				[
+					"-p",
+					PROBE_PROMPT,
+					"--dangerously-skip-permissions",
+					"--output-format",
+					"text",
+					"--model",
+					model,
+				],
+				{
+					cwd: sandboxPath,
+					env: {
+						// opencode authenticates itself. The locked matrix used to hand
+						// this spawn an OPENROUTER_API_KEY it had resolved; the matrix
+						// carries no key any more, and the inherited environment is where
+						// opencode looks for one anyway.
+						...process.env,
+						// @lore: pwd-override: pin PWD to sandbox so claude doesn't scan the worktree's skill dirs via inherited parent PWD.
+						PWD: sandboxPath,
+						CLAUDECODE: "",
+						CLAUDE_CODE_ENTRYPOINT: "",
+						CLAUDE_CODE_EXECPATH: "",
+						CLAUDE_CODE_SESSION_ID: "",
+						AI_AGENT: "",
+						CLAUDE_EFFORT: "",
 					},
-				);
+					timeoutMs: 60_000,
+				},
+			);
 
-				expect(stdout).toContain(probeToken);
-			},
-		);
+			expect(stdout).toContain(probeToken);
+		});
 	});
 
 	// ── codex ────────────────────────────────────────────────────────────────
 	describe("codex — reads from .agents/skills/ only", () => {
 		requireHarness("codex");
 
-		dbTest(
-			"skill body token appears in response after production assembly",
-			{ retry: 0 },
-			async ({ db }) => {
-				await assembleSkillIntoSandbox(db);
+		test("skill body token appears in response after production assembly", { retry: 0 }, async ({
+			db,
+			runnerDb,
+		}) => {
+			await assembleSkillIntoSandbox(db, runnerDb);
 
-				// Materialisation check: skill must be at the expected path.
-				// Goes RED when HARNESS_SKILL_DIRS is broken (sanity-break–sensitive).
-				// NOTE: codex scans ALL files in CWD, so a model output assertion alone
-				// would pass even with a broken HARNESS_SKILL_DIRS (the file lands at the
-				// dead path and codex reads it from there). This file presence assertion
-				// at the EXPECTED path is what detects the break.
-				const skillPath = path.join(sandboxPath, ".agents/skills", SKILL_DIR_NAME, "SKILL.md");
-				expect(fs.existsSync(skillPath)).toBe(true);
-				expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
+			// Materialisation check: skill must be at the expected path.
+			// Goes RED when HARNESS_SKILL_DIRS is broken (sanity-break–sensitive).
+			// NOTE: codex scans ALL files in CWD, so a model output assertion alone
+			// would pass even with a broken HARNESS_SKILL_DIRS (the file lands at the
+			// dead path and codex reads it from there). This file presence assertion
+			// at the EXPECTED path is what detects the break.
+			const skillPath = path.join(sandboxPath, ".agents/skills", SKILL_DIR_NAME, "SKILL.md");
+			expect(fs.existsSync(skillPath)).toBe(true);
+			expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
 
-				// Injection check: spawn and assert model output.
-				const { model } = HARNESS_TEST_MODELS.codex;
-				const { stdout } = await spawnWithClosedStdin(
-					"codex",
-					[
-						"exec",
-						"--skip-git-repo-check",
-						PROBE_PROMPT,
-						"--model",
-						model,
-						"--json",
-						"--dangerously-bypass-approvals-and-sandbox",
-					],
-					{
-						cwd: sandboxPath,
-						env: {
-							...process.env,
-							PWD: sandboxPath,
-						},
-						timeoutMs: 90_000,
+			// Injection check: spawn and assert model output.
+			const { model } = HARNESS_TEST_MODELS.codex;
+			const { stdout } = await spawnWithClosedStdin(
+				"codex",
+				[
+					"exec",
+					"--skip-git-repo-check",
+					PROBE_PROMPT,
+					"--model",
+					model,
+					"--json",
+					"--dangerously-bypass-approvals-and-sandbox",
+				],
+				{
+					cwd: sandboxPath,
+					env: {
+						...process.env,
+						PWD: sandboxPath,
 					},
-				);
+					timeoutMs: 90_000,
+				},
+			);
 
-				expect(stdout).toContain(probeToken);
-			},
-		);
+			expect(stdout).toContain(probeToken);
+		});
 	});
 
 	// ── opencode ─────────────────────────────────────────────────────────────
 	describe("opencode — reads from .claude/skills/, .opencode/skills/, .agents/skills/", () => {
 		requireHarness("opencode");
 
-		dbTest(
-			"skill body token appears in response after production assembly (qwen3-8b override)",
-			{ retry: 0 },
-			async ({ db }) => {
-				await assembleSkillIntoSandbox(db);
+		test("skill body token appears in response after production assembly (qwen3-8b override)", {
+			retry: 0,
+		}, async ({ db, runnerDb }) => {
+			await assembleSkillIntoSandbox(db, runnerDb);
 
-				// Materialisation check: primary opencode skill path is .claude/skills/.
-				// Goes RED when HARNESS_SKILL_DIRS is broken.
-				const skillPath = path.join(sandboxPath, ".claude/skills", SKILL_DIR_NAME, "SKILL.md");
-				expect(fs.existsSync(skillPath)).toBe(true);
-				expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
+			// Materialisation check: primary opencode skill path is .claude/skills/.
+			// Goes RED when HARNESS_SKILL_DIRS is broken.
+			const skillPath = path.join(sandboxPath, ".claude/skills", SKILL_DIR_NAME, "SKILL.md");
+			expect(fs.existsSync(skillPath)).toBe(true);
+			expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
 
-				// Injection check: spawn and assert model output.
-				// @lore: opencode uses qwen3-8b (coordinator-authorized) — the locked baseline model can't drive skill selection.
-				const opencodeModel = "openrouter/qwen/qwen3-8b";
+			// Injection check: spawn and assert model output.
+			// @lore: opencode uses qwen3-8b (coordinator-authorized) — the locked baseline model can't drive skill selection.
+			const opencodeModel = "openrouter/qwen/qwen3-8b";
 
-				const { stdout, stderr } = await spawnWithClosedStdin(
-					"opencode",
-					["run", OPENCODE_PROBE_PROMPT, "--pure", "--model", opencodeModel],
-					{
-						cwd: sandboxPath,
-						env: {
-							...process.env,
-							// @lore: opencode uses process.env.PWD, not process.cwd(), for project-root skill scanning.
-							PWD: sandboxPath,
-						},
-						timeoutMs: 180_000,
+			const { stdout, stderr } = await spawnWithClosedStdin(
+				"opencode",
+				["run", OPENCODE_PROBE_PROMPT, "--pure", "--model", opencodeModel],
+				{
+					cwd: sandboxPath,
+					env: {
+						...process.env,
+						// @lore: opencode uses process.env.PWD, not process.cwd(), for project-root skill scanning.
+						PWD: sandboxPath,
 					},
-				);
+					timeoutMs: 180_000,
+				},
+			);
 
-				expect(stdout + stderr).toContain(probeToken);
-			},
-		);
+			expect(stdout + stderr).toContain(probeToken);
+		});
 	});
 
 	// ── cursor-agent ──────────────────────────────────────────────────────────
 	describe("cursor-agent — reads from .claude/skills/ and .agents/skills/", () => {
 		requireHarness("cursor-agent");
 
-		dbTest(
-			"skill body token appears in response after production assembly",
-			{ retry: 0 },
-			async ({ db }) => {
-				await assembleSkillIntoSandbox(db);
+		test("skill body token appears in response after production assembly", { retry: 0 }, async ({
+			db,
+			runnerDb,
+		}) => {
+			await assembleSkillIntoSandbox(db, runnerDb);
 
-				// Materialisation check: skill must be at BOTH expected paths.
-				// Goes RED when HARNESS_SKILL_DIRS is broken.
-				// NOTE: cursor-agent scans ALL files in CWD (same as codex), so the model
-				// output assertion alone would not detect a broken HARNESS_SKILL_DIRS.
-				// File presence at the specific expected paths is the correct signal.
-				const claudeSkillPath = path.join(
-					sandboxPath,
-					".claude/skills",
-					SKILL_DIR_NAME,
-					"SKILL.md",
-				);
-				const agentsSkillPath = path.join(
-					sandboxPath,
-					".agents/skills",
-					SKILL_DIR_NAME,
-					"SKILL.md",
-				);
-				expect(fs.existsSync(claudeSkillPath)).toBe(true);
-				expect(fs.readFileSync(claudeSkillPath, "utf8")).toContain(probeToken);
-				expect(fs.existsSync(agentsSkillPath)).toBe(true);
-				expect(fs.readFileSync(agentsSkillPath, "utf8")).toContain(probeToken);
+			// Materialisation check: skill must be at BOTH expected paths.
+			// Goes RED when HARNESS_SKILL_DIRS is broken.
+			// NOTE: cursor-agent scans ALL files in CWD (same as codex), so the model
+			// output assertion alone would not detect a broken HARNESS_SKILL_DIRS.
+			// File presence at the specific expected paths is the correct signal.
+			const claudeSkillPath = path.join(sandboxPath, ".claude/skills", SKILL_DIR_NAME, "SKILL.md");
+			const agentsSkillPath = path.join(sandboxPath, ".agents/skills", SKILL_DIR_NAME, "SKILL.md");
+			expect(fs.existsSync(claudeSkillPath)).toBe(true);
+			expect(fs.readFileSync(claudeSkillPath, "utf8")).toContain(probeToken);
+			expect(fs.existsSync(agentsSkillPath)).toBe(true);
+			expect(fs.readFileSync(agentsSkillPath, "utf8")).toContain(probeToken);
 
-				// Injection check: spawn and assert model output.
-				const { model } = HARNESS_TEST_MODELS["cursor-agent"];
-				const { stdout } = await spawnWithClosedStdin(
-					"cursor-agent",
-					["-p", PROBE_PROMPT, "--print", "--model", model, "--trust"],
-					{
-						cwd: sandboxPath,
-						env: {
-							...process.env,
-							PWD: sandboxPath,
-						},
-						timeoutMs: 90_000,
+			// Injection check: spawn and assert model output.
+			const { model } = HARNESS_TEST_MODELS["cursor-agent"];
+			const { stdout } = await spawnWithClosedStdin(
+				"cursor-agent",
+				["-p", PROBE_PROMPT, "--print", "--model", model, "--trust"],
+				{
+					cwd: sandboxPath,
+					env: {
+						...process.env,
+						PWD: sandboxPath,
 					},
-				);
+					timeoutMs: 90_000,
+				},
+			);
 
-				expect(stdout).toContain(probeToken);
-			},
-		);
+			expect(stdout).toContain(probeToken);
+		});
 	});
 });

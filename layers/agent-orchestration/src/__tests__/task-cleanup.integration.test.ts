@@ -10,10 +10,10 @@ import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { writeAgentRunConfig } from "@hyperidle/run-orchestration";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../__testing__/test-fixtures.js";
 import { createGitRunner } from "../git-runner.js";
 import type { CoreDoor } from "../runner/core-door.js";
 import { cleanupFinishedTaskWorktrees } from "../runner/task-cleanup.js";
-import { test } from "../__testing__/test-fixtures.js";
 
 async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 	await db.insert(users).values({
@@ -69,7 +69,10 @@ describe("cleanupFinishedTaskWorktrees", () => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
-	test("removes worktrees for done and killed tasks; leaves in-progress alone", async ({ db, runnerDb }) => {
+	test("removes worktrees for done and killed tasks; leaves in-progress alone", async ({
+		db,
+		runnerDb,
+	}) => {
 		const agentId = "agent-cleanup-scan";
 
 		await seedAgent(db, agentId);
@@ -102,7 +105,7 @@ describe("cleanupFinishedTaskWorktrees", () => {
 			"task-active": "in_progress",
 		});
 
-		await cleanupFinishedTaskWorktrees(db, agentId, door, "agent-key");
+		await cleanupFinishedTaskWorktrees(runnerDb, agentId, door, "agent-key");
 
 		// Worktrees for done + killed are removed from the source repo.
 		const afterList = execSync("git worktree list", { cwd: repoPath, encoding: "utf8" });
@@ -112,13 +115,15 @@ describe("cleanupFinishedTaskWorktrees", () => {
 		expect(afterList).toContain(mountPaths["task-active"]);
 	});
 
-	test("does nothing when the agent has no space configured", async ({ db }) => {
+	test("does nothing when the agent has no space configured", async ({ db, runnerDb }) => {
 		const agentId = "agent-cleanup-nospace";
 		await seedAgent(db, agentId);
 		// No writeAgentRunConfig — spacePath is null.
 
 		const door = makeFakeDoor({});
-		await expect(cleanupFinishedTaskWorktrees(db, agentId, door, "key")).resolves.toBeUndefined();
+		await expect(
+			cleanupFinishedTaskWorktrees(runnerDb, agentId, door, "key"),
+		).resolves.toBeUndefined();
 	});
 
 	test("does nothing when the tasks directory does not exist", async ({ db, runnerDb }) => {
@@ -130,6 +135,8 @@ describe("cleanupFinishedTaskWorktrees", () => {
 		await writeAgentRunConfig(runnerDb, agentId, { spacePath });
 
 		const door = makeFakeDoor({});
-		await expect(cleanupFinishedTaskWorktrees(db, agentId, door, "key")).resolves.toBeUndefined();
+		await expect(
+			cleanupFinishedTaskWorktrees(runnerDb, agentId, door, "key"),
+		).resolves.toBeUndefined();
 	});
 });

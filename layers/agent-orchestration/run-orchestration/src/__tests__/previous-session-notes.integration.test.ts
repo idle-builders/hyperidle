@@ -53,7 +53,10 @@ describe("fetchPreviousSessionNotes", () => {
 		expect(result).toBeNull();
 	});
 
-	test("returns the notes from the most recent done session of the same task", async ({ db, runnerDb }) => {
+	test("returns the notes from the most recent done session of the same task", async ({
+		db,
+		runnerDb,
+	}) => {
 		await seedWorld(db);
 		await runnerDb.insert(sessions).values([
 			{

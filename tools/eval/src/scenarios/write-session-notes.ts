@@ -5,7 +5,7 @@
  * The POC scenario already covers basic usage; these test content quality + append.
  */
 
-import { sessions } from "@hyperidle/db";
+import { sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { judgeLlmQuality, judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
@@ -30,7 +30,7 @@ const wsnQualityGrowthSales: EvalScenario = {
 	feature: "write_session_notes",
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "growth",
 			agentSystemPrompt: `You are a growth agent specializing in sales pipeline optimization.
 Your job is to analyze sales metrics and document insights for the team.
@@ -56,6 +56,7 @@ Your session notes must be substantive — not generic boilerplate.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -73,7 +74,7 @@ Your session notes must be substantive — not generic boilerplate.`,
 				id: "notes_quality",
 				label: "Session Notes Quality",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -96,7 +97,7 @@ const wsnAppendBuilderDevops: EvalScenario = {
 	feature: "write_session_notes",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure.
 Your job is to implement tasks in phases and document each phase.
@@ -124,6 +125,7 @@ Your final session notes should contain documentation of BOTH phases.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -141,7 +143,7 @@ Your final session notes should contain documentation of BOTH phases.`,
 				id: "notes_appended",
 				label: "Session Notes Contain Both Phases",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))

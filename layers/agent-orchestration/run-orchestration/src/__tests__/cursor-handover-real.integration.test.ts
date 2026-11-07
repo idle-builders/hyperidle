@@ -25,8 +25,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import { agentRunConfig, sessions } from "@hyperidle/runner-db";
-import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import { createLocalAdapterPool } from "@hyperidle/harness-registry";
 import { requireHarnessAuthed } from "@hyperidle/harness-registry/test-fixtures";
@@ -35,12 +33,15 @@ import {
 	requireHarness,
 	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
+import { agentRunConfig, sessions } from "@hyperidle/runner-db";
 import { desc, eq } from "drizzle-orm";
 import { afterEach, describe, vi } from "vitest";
 import {
 	buildRunningHarnessPorts,
+	expect,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
+	test,
 } from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 

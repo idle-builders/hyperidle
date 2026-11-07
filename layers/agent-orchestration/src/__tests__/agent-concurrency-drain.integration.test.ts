@@ -7,16 +7,16 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { teams, type HyperIdleDb, users, userTeams } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import { agentSessionRequests, sessions, type RunnerDb } from "@hyperidle/runner-db";
+import { agentSessionRequests, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, vi } from "vitest";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import {
 	buildRunOrchestrationComposition,
 	type ProvisionSessionDeps,
 } from "../services/run-orchestration-composition.js";
-import { expect, test } from "../__testing__/test-fixtures.js";
 
 const BUSY = "agent-busy";
 const IDLE = "agent-idle";
@@ -167,9 +167,7 @@ describe("drain with one agent at its session limit", () => {
 			// A request carries a session id only once admission let it run.
 			await vi.waitFor(
 				async () =>
-					expect((await requestRow(runnerDb, "idle-new"))?.sessionId).toEqual(
-						expect.any(String),
-					),
+					expect((await requestRow(runnerDb, "idle-new"))?.sessionId).toEqual(expect.any(String)),
 				{ timeout: 5_000, interval: 100 },
 			);
 			expect(await requestRow(runnerDb, "busy-waiting")).toMatchObject({

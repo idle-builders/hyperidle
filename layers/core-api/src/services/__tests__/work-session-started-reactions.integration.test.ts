@@ -26,9 +26,7 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
-	agentSessionRequests,
 	type HyperIdleDb,
-	sessions,
 	taskDispatchAttempts,
 	tasks,
 	teams,
@@ -37,6 +35,7 @@ import {
 } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import type { SessionStartedEvent } from "@hyperidle/event-bus";
+import { agentSessionRequests, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import { buildCoreActions } from "../../actions/compose.js";
@@ -117,11 +116,11 @@ async function seedTaskAndAgent(
 }
 
 async function seedSession(
-	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	id: string,
 	options: { readonly agentId: string; readonly taskId?: string },
 ): Promise<void> {
-	await db.insert(sessions).values({
+	await runnerDb.insert(sessions).values({
 		id,
 		agentId: options.agentId,
 		taskId: options.taskId,
@@ -165,12 +164,13 @@ async function readTaskState(db: HyperIdleDb, taskId: string): Promise<string | 
  */
 async function settleIgnoredReaction(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	eventBus: Parameters<typeof registerWorkSessionStartedReactions>[1],
 	editTask: Parameters<typeof registerWorkSessionStartedReactions>[2],
 	sentinelId: string,
 ): Promise<void> {
 	const { taskId, agentId } = await seedTaskAndAgent(db, sentinelId, { taskState: "accepted" });
-	await seedSession(db, `${sentinelId}-session`, { agentId, taskId });
+	await seedSession(runnerDb, `${sentinelId}-session`, { agentId, taskId });
 	registerWorkSessionStartedReactions(db, eventBus, editTask);
 	eventBus.emit(sessionStarted({ sessionId: `${sentinelId}-session`, agentId, taskId }));
 	await vi.waitFor(async () => {
@@ -205,11 +205,11 @@ async function seedRequestedAttempt(
  * mirroring `work-session-end-reactions.integration.test.ts`'s own fixture.
  */
 async function seedSessionRequest(
-	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	id: string,
 	options: { readonly taskId: string; readonly agentId: string },
 ): Promise<void> {
-	await db.insert(agentSessionRequests).values({
+	await runnerDb.insert(agentSessionRequests).values({
 		id,
 		sourceKind: "task",
 		sourceId: options.taskId,
@@ -228,24 +228,25 @@ async function seedSessionRequest(
 async function readAttempt(
 	db: HyperIdleDb,
 	attemptId: string,
-): Promise<{ readonly status: string; readonly sessionId: string | null } | undefined> {
+): Promise<{ readonly status: string } | undefined> {
 	const [row] = await db
 		.select()
 		.from(taskDispatchAttempts)
 		.where(eq(taskDispatchAttempts.id, attemptId));
-	return row ? { status: row.status, sessionId: row.sessionId } : undefined;
+	return row ? { status: row.status } : undefined;
 }
 
 describe("registerWorkSessionStartedReactions", () => {
 	test("session_started transitions an accepted task to in_progress (NEW event path, zero orchestration->work write)", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wssr-accepted", {
 			taskState: "accepted",
 		});
-		await seedSession(db, "wssr-accepted-session", { agentId, taskId });
+		await seedSession(runnerDb, "wssr-accepted-session", { agentId, taskId });
 		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-accepted-session", agentId, taskId }));
@@ -257,13 +258,14 @@ describe("registerWorkSessionStartedReactions", () => {
 
 	test("session_started transitions a blocked task to in_progress (the other valid canTransitionTaskState source)", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wssr-blocked", {
 			taskState: "blocked",
 		});
-		await seedSession(db, "wssr-blocked-session", { agentId, taskId });
+		await seedSession(runnerDb, "wssr-blocked-session", { agentId, taskId });
 		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-blocked-session", agentId, taskId }));
@@ -275,13 +277,14 @@ describe("registerWorkSessionStartedReactions", () => {
 
 	test("session_started for a task already in_progress (handoff re-dispatch) is a safe no-op, never an uncaught TaskInvalidTransitionError", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wssr-handoff", {
 			taskState: "in_progress",
 		});
-		await seedSession(db, "wssr-handoff-session", { agentId, taskId });
+		await seedSession(runnerDb, "wssr-handoff-session", { agentId, taskId });
 		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-handoff-session", agentId, taskId }));
@@ -290,6 +293,7 @@ describe("registerWorkSessionStartedReactions", () => {
 		// rejection escaped the handler.
 		await settleIgnoredReaction(
 			db,
+			runnerDb,
 			eventBus,
 			editTaskFrom(agentOrchestration),
 			"wssr-handoff-settle",
@@ -299,13 +303,14 @@ describe("registerWorkSessionStartedReactions", () => {
 
 	test("a duplicate/redelivered session_started for the same transition is a safe no-op (idempotency)", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wssr-idempotent", {
 			taskState: "accepted",
 		});
-		await seedSession(db, "wssr-idempotent-session", { agentId, taskId });
+		await seedSession(runnerDb, "wssr-idempotent-session", { agentId, taskId });
 		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-idempotent-session", agentId, taskId }));
@@ -318,6 +323,7 @@ describe("registerWorkSessionStartedReactions", () => {
 		eventBus.emit(sessionStarted({ sessionId: "wssr-idempotent-session", agentId, taskId }));
 		await settleIgnoredReaction(
 			db,
+			runnerDb,
 			eventBus,
 			editTaskFrom(agentOrchestration),
 			"wssr-idempotent-settle",
@@ -328,17 +334,19 @@ describe("registerWorkSessionStartedReactions", () => {
 
 	test("session_started with taskId: null (task-free session) is a no-op", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		const { agentId } = await seedTaskAndAgent(db, "wssr-taskfree", { taskState: "accepted" });
-		await seedSession(db, "wssr-taskfree-session", { agentId });
+		await seedSession(runnerDb, "wssr-taskfree-session", { agentId });
 		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		// Must not throw for a null taskId.
 		eventBus.emit(sessionStarted({ sessionId: "wssr-taskfree-session", agentId, taskId: null }));
 		await settleIgnoredReaction(
 			db,
+			runnerDb,
 			eventBus,
 			editTaskFrom(agentOrchestration),
 			"wssr-taskfree-settle",
@@ -346,21 +354,22 @@ describe("registerWorkSessionStartedReactions", () => {
 	});
 
 	// Proven against a REAL session_started event, not a hand-seeded column.
-	// `insertAttempt` leaves the attempt row with no `requestId`/`sessionId`;
-	// a `session_started` carrying a real `requestId` is what fills both, via
-	// `markRunning`, before the `in_progress` transition — this is what makes
+	// `insertAttempt` leaves the attempt row at `requested`; a `session_started`
+	// carrying a real `requestId` triggers `markRunning`, flipping it to `running`
+	// before the `in_progress` transition — this is what makes
 	// `work-session-end-reactions`' `updateIfActive` finalize a real row.
-	test("session_started with a real requestId fills the dispatch attempt's requestId and sessionId", async ({
+	test("session_started with a real requestId marks the dispatch attempt as running", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wssr-repair", {
 			taskState: "accepted",
 		});
-		await seedSessionRequest(db, "wssr-repair-req", { taskId, agentId });
+		await seedSessionRequest(runnerDb, "wssr-repair-req", { taskId, agentId });
 		await seedRequestedAttempt(db, { attemptId: "wssr-repair-attempt", taskId, agentId });
-		await seedSession(db, "wssr-repair-session", { agentId, taskId });
+		await seedSession(runnerDb, "wssr-repair-session", { agentId, taskId });
 		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		eventBus.emit(
@@ -375,7 +384,6 @@ describe("registerWorkSessionStartedReactions", () => {
 		await vi.waitFor(async () => {
 			const attempt = await readAttempt(db, "wssr-repair-attempt");
 			expect(attempt?.status).toBe("running");
-			expect(attempt?.sessionId).toBe("wssr-repair-session");
 			expect(await readTaskState(db, taskId)).toBe("in_progress");
 		});
 	});
@@ -385,6 +393,7 @@ describe("registerWorkSessionStartedReactions", () => {
 	// must stay untouched, but the `in_progress` transition still fires.
 	test("session_started with NO requestId (legacy bare-insert path) leaves the dispatch attempt untouched", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
@@ -392,7 +401,7 @@ describe("registerWorkSessionStartedReactions", () => {
 			taskState: "accepted",
 		});
 		await seedRequestedAttempt(db, { attemptId: "wssr-legacy-attempt", taskId, agentId });
-		await seedSession(db, "wssr-legacy-session", { agentId, taskId });
+		await seedSession(runnerDb, "wssr-legacy-session", { agentId, taskId });
 		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-legacy-session", agentId, taskId }));
@@ -402,6 +411,5 @@ describe("registerWorkSessionStartedReactions", () => {
 		});
 		const attempt = await readAttempt(db, "wssr-legacy-attempt");
 		expect(attempt?.status).toBe("requested");
-		expect(attempt?.sessionId).toBeNull();
 	});
 });

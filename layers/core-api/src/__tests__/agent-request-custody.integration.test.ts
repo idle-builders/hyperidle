@@ -7,19 +7,10 @@
  * custody/claim/terminal/recovery helper directly to assert its return value.
  */
 
-import {
-	agentRunConfig,
-	agentSessionRequests,
-	messages,
-	sessions,
-	tasks,
-	teams,
-	threads,
-	users,
-	userTeams,
-} from "@hyperidle/db";
+import { messages, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
+import { agentRunConfig, agentSessionRequests, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, vi } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";
@@ -57,9 +48,18 @@ const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {
 	}),
 };
 
-async function drain(db: import("@hyperidle/db").HyperIdleDb) {
+async function drain(
+	db: import("@hyperidle/db").HyperIdleDb,
+	runnerDb: import("@hyperidle/runner-db").RunnerDb,
+) {
 	const eventBus = new EventBus();
-	const handle = await startTestRuntime(db, eventBus, { db, eventBus }, sessionProvisioner);
+	const handle = await startTestRuntime(
+		db,
+		runnerDb,
+		eventBus,
+		{ db: runnerDb, eventBus },
+		sessionProvisioner,
+	);
 	await handle.dispose();
 }
 
@@ -69,6 +69,7 @@ afterEach(() => {
 
 async function seedTaskRequest(
 	db: import("@hyperidle/db").HyperIdleDb,
+	runnerDb: import("@hyperidle/runner-db").RunnerDb,
 	id: string,
 	options: { claimed?: boolean; expired?: boolean } = {},
 ): Promise<void> {
@@ -123,7 +124,7 @@ async function seedTaskRequest(
 		createdAt: now,
 		updatedAt: now,
 	});
-	await db.insert(agentSessionRequests).values({
+	await runnerDb.insert(agentSessionRequests).values({
 		id,
 		sourceKind: "task",
 		sourceId: `${id}-task`,
@@ -159,6 +160,7 @@ async function seedTaskRequest(
  */
 async function seedAssistantTurnRequest(
 	db: import("@hyperidle/db").HyperIdleDb,
+	runnerDb: import("@hyperidle/runner-db").RunnerDb,
 	id: string,
 ): Promise<void> {
 	const now = new Date().toISOString();
@@ -183,7 +185,7 @@ async function seedAssistantTurnRequest(
 		createdAt: now,
 	});
 	// The run config lives in `agent_run_config`.
-	await db.insert(agentRunConfig).values({
+	await runnerDb.insert(agentRunConfig).values({
 		agentUserId: assistantId,
 		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
@@ -207,7 +209,7 @@ async function seedAssistantTurnRequest(
 		clientKey: `ck-${id}`,
 		createdAt: now,
 	});
-	await db.insert(agentSessionRequests).values({
+	await runnerDb.insert(agentSessionRequests).values({
 		id,
 		sourceKind: "assistant",
 		sourceId: messageId,
@@ -230,11 +232,14 @@ async function seedAssistantTurnRequest(
 }
 
 describe("request custody drives the real drain and runtime", () => {
-	test("two concurrent drains yield exactly one winner for a pending request", async ({ db }) => {
-		await seedTaskRequest(db, "pending-race");
-		await Promise.all([drain(db), drain(db)]);
-		expect(await db.select().from(sessions)).toHaveLength(1);
-		const [request] = await db
+	test("two concurrent drains yield exactly one winner for a pending request", async ({
+		db,
+		runnerDb,
+	}) => {
+		await seedTaskRequest(db, runnerDb, "pending-race");
+		await Promise.all([drain(db, runnerDb), drain(db, runnerDb)]);
+		expect(await runnerDb.select().from(sessions)).toHaveLength(1);
+		const [request] = await runnerDb
 			.select()
 			.from(agentSessionRequests)
 			.where(eq(agentSessionRequests.id, "pending-race"));
@@ -246,21 +251,23 @@ describe("request custody drives the real drain and runtime", () => {
 
 	test("an expired claim is reclaimed once and the unique correlated session is adopted", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seedTaskRequest(db, "restart-request", { claimed: true, expired: true });
-		await Promise.all([drain(db), drain(db)]);
-		expect(await db.select().from(sessions)).toHaveLength(1);
+		await seedTaskRequest(db, runnerDb, "restart-request", { claimed: true, expired: true });
+		await Promise.all([drain(db, runnerDb), drain(db, runnerDb)]);
+		expect(await runnerDb.select().from(sessions)).toHaveLength(1);
 	});
 
 	test("process death immediately after a committed session insert is recovered on restart without a second session", async ({
 		db,
+		runnerDb,
 	}) => {
 		// Legacy checkpoint: the session row was committed (a prior crashed attempt's
 		// reserve-or-adopt succeeded) but the request never reached "running" —
 		// it is still "claimed" with an expired lease.
-		await seedTaskRequest(db, "checkpoint-request", { claimed: true, expired: true });
+		await seedTaskRequest(db, runnerDb, "checkpoint-request", { claimed: true, expired: true });
 		const now = new Date().toISOString();
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "checkpoint-session",
 			requestId: "checkpoint-request",
 			taskId: "checkpoint-request-task",
@@ -275,14 +282,14 @@ describe("request custody drives the real drain and runtime", () => {
 				teamId: "checkpoint-request-team",
 			}),
 		});
-		await drain(db);
-		const durableSessions = await db
+		await drain(db, runnerDb);
+		const durableSessions = await runnerDb
 			.select()
 			.from(sessions)
 			.where(eq(sessions.requestId, "checkpoint-request"));
 		expect(durableSessions).toHaveLength(1);
 		expect(durableSessions[0]?.id).toBe("checkpoint-session");
-		const [request] = await db
+		const [request] = await runnerDb
 			.select()
 			.from(agentSessionRequests)
 			.where(eq(agentSessionRequests.id, "checkpoint-request"));
@@ -291,10 +298,11 @@ describe("request custody drives the real drain and runtime", () => {
 
 	test("a completed run has one CAS-won terminal transition and exactly one lifecycle fact", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seedTaskRequest(db, "terminal-request");
-		await drain(db);
-		const [request] = await db
+		await seedTaskRequest(db, runnerDb, "terminal-request");
+		await drain(db, runnerDb);
+		const [request] = await runnerDb
 			.select()
 			.from(agentSessionRequests)
 			.where(eq(agentSessionRequests.id, "terminal-request"));
@@ -314,18 +322,19 @@ describe("request custody drives the real drain and runtime", () => {
 
 	test("an assistant_turn request reaches running then completed through the shared durable poller", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seedAssistantTurnRequest(db, "assistant-lifecycle-request");
-		await drain(db);
+		await seedAssistantTurnRequest(db, runnerDb, "assistant-lifecycle-request");
+		await drain(db, runnerDb);
 
-		const [request] = await db
+		const [request] = await runnerDb
 			.select()
 			.from(agentSessionRequests)
 			.where(eq(agentSessionRequests.id, "assistant-lifecycle-request"));
 		expect(request?.status).toBe("completed");
 		expect(request?.sourceKind).toBe("assistant");
 
-		const [session] = await db
+		const [session] = await runnerDb
 			.select()
 			.from(sessions)
 			.where(eq(sessions.requestId, "assistant-lifecycle-request"));

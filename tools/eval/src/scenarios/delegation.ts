@@ -52,7 +52,7 @@ const delSuccessfulDelegation: EvalScenario = {
 	feature: "delegation",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
+		const world = await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "assistant",
 			taskTitle: "Primary delegation task",
 		});
@@ -65,7 +65,10 @@ const delSuccessfulDelegation: EvalScenario = {
 			ownerAgentId: world.agentId,
 			title: "Owner blocking task",
 		});
-		await seedActiveSession(ctx.db, { taskId: blockingTaskId, agentId: world.agentId });
+		await seedActiveSession(ctx.db, ctx.runnerDb, {
+			taskId: blockingTaskId,
+			agentId: world.agentId,
+		});
 
 		const { subscriptionId } = await seedSubscription(ctx.db, {
 			userId: world.agentId,

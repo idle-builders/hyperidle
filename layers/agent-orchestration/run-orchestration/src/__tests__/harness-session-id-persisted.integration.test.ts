@@ -11,16 +11,17 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import { sessions, type RunnerDb } from "@hyperidle/runner-db";
-import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import {
 	buildRunningHarnessPorts,
+	expect,
 	type FakeHarnessAdapter,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
+	test,
 } from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 
@@ -121,20 +122,17 @@ describe("provisioner.run — the harness session id is written down", () => {
 	}) => {
 		const sessionId = await runOnce(db, runnerDb, "agent-native-id-1", "claude-uuid-abc");
 
-		const [row] = await runnerDb
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, sessionId));
+		const [row] = await runnerDb.select().from(sessions).where(eq(sessions.id, sessionId));
 		expect(row?.harnessSessionId).toBe("claude-uuid-abc");
 	});
 
-	test("a harness that reported no id leaves it null rather than inventing one", async ({ db, runnerDb }) => {
+	test("a harness that reported no id leaves it null rather than inventing one", async ({
+		db,
+		runnerDb,
+	}) => {
 		const sessionId = await runOnce(db, runnerDb, "agent-native-id-2", undefined);
 
-		const [row] = await runnerDb
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, sessionId));
+		const [row] = await runnerDb.select().from(sessions).where(eq(sessions.id, sessionId));
 		expect(row?.harnessSessionId).toBe(null);
 	});
 });

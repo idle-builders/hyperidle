@@ -17,7 +17,6 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	changes,
 	type HyperIdleDb,
-	sessions,
 	tasks,
 	teams,
 	threads,
@@ -31,6 +30,7 @@ import type {
 	PropagationFailedEvent,
 } from "@hyperidle/event-bus";
 import { type PolicyDeps, registerLifecyclePropagation } from "@hyperidle/policy";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import * as work from "@hyperidle/task";
 import { listMessages } from "@hyperidle/thread";
 import { eq } from "drizzle-orm";
@@ -146,13 +146,13 @@ async function seedTask(
 }
 
 async function seedSession(
-	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	id: string,
 	taskId: string,
 	state: string,
 	outcome?: string,
 ): Promise<void> {
-	await db.insert(sessions).values({
+	await runnerDb.insert(sessions).values({
 		id,
 		taskId,
 		agentId: "agent-1",
@@ -171,13 +171,14 @@ async function seedSession(
  */
 async function settlePropagation(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	eventBus: EventBus,
 	sentinelId: string,
 ): Promise<void> {
 	const taskId = `${sentinelId}-task`;
 	const sessionId = `${sentinelId}-session`;
 	await seedTask(db, taskId, "in_progress");
-	await seedSession(db, sessionId, taskId, "active");
+	await seedSession(runnerDb, sessionId, taskId, "active");
 	eventBus.emit({
 		type: "session_ended",
 		streamId: sessionId,
@@ -237,13 +238,14 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 	test("transitions task to done when session ends with outcome=completed and task is in_progress", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
-		await seedSession(db, "session-1", "task-1", "active");
+		await seedSession(runnerDb, "session-1", "task-1", "active");
 		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act: emit session_ended with outcome=completed
@@ -269,13 +271,14 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 	test("emits propagation_applied when session->task transition succeeds", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
-		await seedSession(db, "session-1", "task-1", "active");
+		await seedSession(runnerDb, "session-1", "task-1", "active");
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
 		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
@@ -308,13 +311,14 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 	test("does NOT transition task when session ends with outcome=crashed (crashed stays in_progress)", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
-		await seedSession(db, "session-1", "task-1", "active");
+		await seedSession(runnerDb, "session-1", "task-1", "active");
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
 		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
@@ -332,7 +336,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 		// A real sentinel session_ended through the same handler proves the
 		// fire-and-forget reaction has run before checking task-1 stayed put.
-		await settlePropagation(db, eventBus, "crashed-sentinel");
+		await settlePropagation(db, runnerDb, eventBus, "crashed-sentinel");
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("in_progress");
 		expect(appliedEvents.filter((e) => e.targetId === "task-1")).toHaveLength(0);
@@ -340,13 +344,14 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 	test("does NOT transition task when session ends with outcome=stopped (stopped same as crashed)", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
-		await seedSession(db, "session-1", "task-1", "active");
+		await seedSession(runnerDb, "session-1", "task-1", "active");
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
 		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
@@ -364,7 +369,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 		// A real sentinel session_ended through the same handler proves the
 		// fire-and-forget reaction has run before checking task-1 stayed put.
-		await settlePropagation(db, eventBus, "stopped-sentinel");
+		await settlePropagation(db, runnerDb, eventBus, "stopped-sentinel");
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("in_progress");
 		expect(appliedEvents.filter((e) => e.targetId === "task-1")).toHaveLength(0);
@@ -384,14 +389,15 @@ describe("registerLifecyclePropagation — session -> task", () => {
 	 */
 	test("transitions task to review on a completed run even with a sibling run still active", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange: two sessions on one task, both active
 		await seedTask(db, "task-1", "in_progress");
-		await seedSession(db, "session-1", "task-1", "active");
-		await seedSession(db, "session-2", "task-1", "active");
+		await seedSession(runnerDb, "session-1", "task-1", "active");
+		await seedSession(runnerDb, "session-2", "task-1", "active");
 		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act: session-1 ends completed while session-2 is still active
@@ -414,13 +420,14 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 	test("does NOT transition task when task is NOT in_progress (already moved)", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange: task is already in 'review'
 		await seedTask(db, "task-1", "review");
-		await seedSession(db, "session-1", "task-1", "active");
+		await seedSession(runnerDb, "session-1", "task-1", "active");
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
 		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
@@ -438,7 +445,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 		// A real sentinel session_ended through the same handler proves the
 		// fire-and-forget reaction has run before checking task-1 stayed put.
-		await settlePropagation(db, eventBus, "already-moved-sentinel");
+		await settlePropagation(db, runnerDb, eventBus, "already-moved-sentinel");
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		// Unchanged: the task was seeded in `review` and the handler returns early
 		// because it is not `in_progress`. This is not the done-by-default rule —
@@ -450,13 +457,14 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 	test("handles concurrent race: InvalidTransitionError is caught silently", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange: task manually moved away from in_progress BEFORE propagation fires
 		await seedTask(db, "task-1", "in_progress");
-		await seedSession(db, "session-1", "task-1", "active");
+		await seedSession(runnerDb, "session-1", "task-1", "active");
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		const failedEvents: PropagationFailedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
@@ -483,7 +491,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		// A real sentinel session_ended through the same handler proves the
 		// fire-and-forget reaction has run — no applied event for task-1 and no
 		// failed event (just silent early return), and it stays 'done'.
-		await settlePropagation(db, eventBus, "race-sentinel");
+		await settlePropagation(db, runnerDb, eventBus, "race-sentinel");
 		expect(appliedEvents.filter((e) => e.targetId === "task-1")).toHaveLength(0);
 		expect(failedEvents).toHaveLength(0);
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
@@ -501,13 +509,14 @@ describe("registerLifecyclePropagation — propagation events", () => {
 
 	test("emits propagation_applied event when session->task propagation succeeds", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
-		await seedSession(db, "session-1", "task-1", "active");
+		await seedSession(runnerDb, "session-1", "task-1", "active");
 		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		const appliedEvents: PropagationAppliedEvent[] = [];
@@ -539,13 +548,14 @@ describe("registerLifecyclePropagation — propagation events", () => {
 
 	test("returns unsubscribe function that stops all event handling", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
-		await seedSession(db, "session-1", "task-1", "active");
+		await seedSession(runnerDb, "session-1", "task-1", "active");
 		const unsub = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Unsubscribe
@@ -578,6 +588,7 @@ describe("registerLifecyclePropagation — ship-confirmation review", () => {
 
 	test("posts the ship-confirmation review through send_message: a changes row on the root's thread, and open_thread returns it", async ({
 		db,
+		runnerDb,
 		app,
 		asPerson,
 		eventBus,
@@ -596,7 +607,7 @@ describe("registerLifecyclePropagation — ship-confirmation review", () => {
 		});
 		await asPerson("lp-reader");
 		await seedTask(db, "task-1", "in_progress");
-		await seedSession(db, "session-1", "task-1", "active");
+		await seedSession(runnerDb, "session-1", "task-1", "active");
 		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		eventBus.emit({
@@ -703,6 +714,7 @@ describe("a person's approval of a task review", () => {
 
 	test("with an agent coming back the task returns to work, and the agent's finished session closes it", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
@@ -711,7 +723,7 @@ describe("a person's approval of a task review", () => {
 		expect(approved?.state).toBe("in_progress");
 		expect(JSON.parse(approved?.doneWhen ?? "[]")[0].state).toBe("met");
 
-		await seedSession(db, "s-resumed", "task-ap", "active");
+		await seedSession(runnerDb, "s-resumed", "task-ap", "active");
 		eventBus.emit({
 			type: "session_ended",
 			streamId: "s-resumed",

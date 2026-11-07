@@ -5,11 +5,12 @@
  */
 
 import { changes, type HyperIdleDb } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { computeTaskNeed } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { createUserActions, type UserActionsDeps } from "@hyperidle/user";
 import { sql } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { seedDemoWorld } from "../demo-fixture.js";
 import {
 	FOUNDER_ID,
@@ -31,9 +32,9 @@ async function count(db: HyperIdleDb, table: string, where = ""): Promise<number
 	return Number(r[0]?.c ?? 0);
 }
 
-async function seedWorld(db: HyperIdleDb): Promise<void> {
+async function seedWorld(db: HyperIdleDb, runnerDb: RunnerDb): Promise<void> {
 	await runFactoryBootstrap(db);
-	await seedDemoWorld(db);
+	await seedDemoWorld(db, runnerDb);
 }
 
 /** The need the backend derives for a task, from its state and its thread messages. */
@@ -98,8 +99,8 @@ function openUserDeps(db: HyperIdleDb): UserActionsDeps {
 }
 
 describe("the demo world tells the design's story", () => {
-	test("Work lists the design's root tasks", async ({ db }) => {
-		await seedWorld(db);
+	test("Work lists the design's root tasks", async ({ db, runnerDb }) => {
+		await seedWorld(db, runnerDb);
 
 		const roots = await rows<{ title: string; state: string; team: string }>(
 			db,
@@ -119,8 +120,9 @@ describe("the demo world tells the design's story", () => {
 
 	test("the trials task has four parts and twelve at the bottom, six of them done", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seedWorld(db);
+		await seedWorld(db, runnerDb);
 
 		const parts = await rows<{ title: string }>(
 			db,
@@ -147,8 +149,9 @@ describe("the demo world tells the design's story", () => {
 
 	test("the card question is open, so its part needs input; the layout needs a review", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seedWorld(db);
+		await seedWorld(db, runnerDb);
 
 		const questions = await rows<{ payload: string; resolved_at: string | null }>(
 			db,
@@ -164,8 +167,9 @@ describe("the demo world tells the design's story", () => {
 
 	test("the trial-end explainer: round 1 rejected with a reason, round 2 waiting", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seedWorld(db);
+		await seedWorld(db, runnerDb);
 
 		const reviews = await rows<{ id: string; resolved_at: string | null }>(
 			db,
@@ -186,8 +190,11 @@ describe("the demo world tells the design's story", () => {
 		expect(await needOf(db, TASK_EXPLAIN)).toBe("review");
 	});
 
-	test("Support themes, weekly: twelve Monday runs done, the next one to come", async ({ db }) => {
-		await seedWorld(db);
+	test("Support themes, weekly: twelve Monday runs done, the next one to come", async ({
+		db,
+		runnerDb,
+	}) => {
+		await seedWorld(db, runnerDb);
 
 		const runs = await rows<{ state: string }>(
 			db,
@@ -201,8 +208,11 @@ describe("the demo world tells the design's story", () => {
 		expect(monday).toEqual([{ schedule: "0 7 * * 1", paused: false }]);
 	});
 
-	test("knowledge has a space per team, with How we price and its drafts", async ({ db }) => {
-		await seedWorld(db);
+	test("knowledge has a space per team, with How we price and its drafts", async ({
+		db,
+		runnerDb,
+	}) => {
+		await seedWorld(db, runnerDb);
 
 		const tree = await rows<{ team: string; title: string; parent: string | null; status: string }>(
 			db,
@@ -233,8 +243,8 @@ describe("the demo world tells the design's story", () => {
 		]);
 	});
 
-	test("Finn lands in the app, and has unread notifications", async ({ db }) => {
-		await seedWorld(db);
+	test("Finn lands in the app, and has unread notifications", async ({ db, runnerDb }) => {
+		await seedWorld(db, runnerDb);
 
 		const humans = await rows<{ id: string; name: string }>(
 			db,
@@ -259,8 +269,9 @@ describe("the demo world tells the design's story", () => {
 
 	test("nothing claims to be running: every session has ended, and tasks under way keep its notes", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seedWorld(db);
+		await seedWorld(db, runnerDb);
 		expect(await count(db, "sessions", "WHERE state = 'active' OR ended_at IS NULL")).toBe(0);
 		const underWay = await rows<{ id: string; notes: string | null }>(
 			db,
@@ -272,8 +283,8 @@ describe("the demo world tells the design's story", () => {
 		for (const task of underWay) expect(task.notes, task.id).toEqual(expect.any(String));
 	});
 
-	test("seeding twice changes nothing", async ({ db }) => {
-		await seedWorld(db);
+	test("seeding twice changes nothing", async ({ db, runnerDb }) => {
+		await seedWorld(db, runnerDb);
 		const tables = [
 			"users",
 			"teams",
@@ -289,7 +300,7 @@ describe("the demo world tells the design's story", () => {
 		];
 		const before = await Promise.all(tables.map((t) => count(db, t)));
 
-		await seedDemoWorld(db);
+		await seedDemoWorld(db, runnerDb);
 
 		expect(await Promise.all(tables.map((t) => count(db, t)))).toEqual(before);
 	});

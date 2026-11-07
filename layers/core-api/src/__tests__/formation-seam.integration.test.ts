@@ -14,8 +14,9 @@
  * not two.
  */
 
-import { agentRunConfig, type HyperIdleDb, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, threads, users } from "@hyperidle/db";
 import { readAgentRunConfig } from "@hyperidle/run-orchestration";
+import { agentRunConfig, type RunnerDb } from "@hyperidle/runner-db";
 import type { Hono } from "hono";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { listInboxRows } from "../../user/src/subscriptions-store.js";
@@ -36,7 +37,7 @@ const THREAD_ID = "thread-formation";
 const GATE_API_KEY = "formation-key";
 const ALPHA_PERSONA = "test-persona-alpha — you are the Alpha test assistant.";
 
-async function seedFixtures(db: HyperIdleDb): Promise<void> {
+async function seedFixtures(db: HyperIdleDb, runnerDb: RunnerDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(users).values({
 		id: FOUNDER_ID,
@@ -56,7 +57,7 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 	// How the assistant RUNS. Who it is lives in its identity document below.
-	await db.insert(agentRunConfig).values({
+	await runnerDb.insert(agentRunConfig).values({
 		agentUserId: ASSISTANT_ID,
 		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
@@ -90,6 +91,7 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 async function postAndResolveTurnPersona(
 	app: Hono,
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	clientKey: string,
 ): Promise<string | null> {
 	const res = await app.request("/api/actions/send_message", {
@@ -123,7 +125,7 @@ async function postAndResolveTurnPersona(
 	const persona = await getAgentIdentity(db, ASSISTANT_ID);
 
 	// The old systemPrompt spelling must not appear on the run config.
-	const runConfig = await readAgentRunConfig(db, ASSISTANT_ID);
+	const runConfig = await readAgentRunConfig(runnerDb, ASSISTANT_ID);
 	expect(runConfig).not.toHaveProperty("systemPrompt");
 
 	return persona;
@@ -136,25 +138,27 @@ describe("formation seam — editing the assistant's identity document changes i
 
 	test("the seeded identity drives the turn when nothing has been edited", async ({
 		db,
+		runnerDb,
 		app,
 		asPerson,
 	}) => {
-		await seedFixtures(db);
+		await seedFixtures(db, runnerDb);
 		await asPerson(FOUNDER_ID);
 
-		const persona = await postAndResolveTurnPersona(app, db, "msg-formation-default");
+		const persona = await postAndResolveTurnPersona(app, db, runnerDb, "msg-formation-default");
 		expect(persona).toBe("Original row persona — the app default.");
 	});
 
 	test("editing the identity document in Knowledge drives the NEXT turn", async ({
 		db,
+		runnerDb,
 		app,
 		asPerson,
 	}) => {
-		await seedFixtures(db);
+		await seedFixtures(db, runnerDb);
 		await asPerson(FOUNDER_ID);
 
-		const before = await postAndResolveTurnPersona(app, db, "msg-formation-before-patch");
+		const before = await postAndResolveTurnPersona(app, db, runnerDb, "msg-formation-before-patch");
 		expect(before).toBe("Original row persona — the app default.");
 
 		// The one document edit door — the same one every other document is
@@ -173,7 +177,7 @@ describe("formation seam — editing the assistant's identity document changes i
 		});
 		expect(patchRes.status).toBe(200);
 
-		const after = await postAndResolveTurnPersona(app, db, "msg-formation-after-patch");
+		const after = await postAndResolveTurnPersona(app, db, runnerDb, "msg-formation-after-patch");
 		expect(after).toBe(ALPHA_PERSONA);
 
 		// Changing the formation response changes the assistant's form.

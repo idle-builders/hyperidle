@@ -16,8 +16,9 @@ import {
 	createCoreDoor,
 } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
-import { agentSessionRequests, type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
+import { agentSessionRequests, type RunnerDb } from "@hyperidle/runner-db";
 import { inArray } from "drizzle-orm";
 import { vi } from "vitest";
 import { disposeApp } from "../app.js";
@@ -74,6 +75,7 @@ export interface RunnerWorldOptions {
  */
 export async function bootRunnerWorld(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	eventBus: EventBus,
 	personKey: string,
 	script: RunScript,
@@ -111,7 +113,7 @@ export async function bootRunnerWorld(
 		return appFetch(req);
 	}, "http://hyperidle.local/api");
 	const runner = createAgentRunner({
-		db,
+		db: runnerDb,
 		eventBus,
 		door,
 		personKey: () => personKey,
@@ -159,6 +161,7 @@ export async function bootRunnerWorld(
 
 	const orchestration = await bootAgentOrchestration({
 		db,
+		runnerDb,
 		eventBus,
 		runtime: {
 			harnessRuntime: {
@@ -187,7 +190,7 @@ export async function bootRunnerWorld(
 			editDocument: coreApi.editDocument,
 			searchDocuments: coreApi.searchDocuments,
 			session: {
-				db,
+				db: runnerDb,
 				eventBus,
 				adapterPool: {
 					select: () => ({
@@ -221,7 +224,7 @@ export async function bootRunnerWorld(
 			// A run goes on after the agent has answered; let every one finish before the world goes.
 			const deadline = Date.now() + 10_000;
 			while (Date.now() < deadline) {
-				const open = await db
+				const open = await runnerDb
 					.select({ id: agentSessionRequests.id })
 					.from(agentSessionRequests)
 					.where(inArray(agentSessionRequests.status, ["pending", "claimed", "running"]));

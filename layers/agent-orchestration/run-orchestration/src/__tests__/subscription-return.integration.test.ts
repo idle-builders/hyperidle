@@ -17,10 +17,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import { type RunnerDb } from "@hyperidle/runner-db";
-import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import { isRequiredReturnAction } from "@hyperidle/harness-protocol";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { afterEach, describe, vi } from "vitest";
 import type {
 	FakeHarnessAdapter,
@@ -28,6 +27,7 @@ import type {
 	ProvisionSessionParams,
 	SessionLifecyclePorts,
 } from "../__testing__/test-fixtures.js";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import { createContextAssembler } from "../context.js";
 import { createProvisioner } from "../provisioner.js";
 
@@ -372,7 +372,10 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		expect(prompt).not.toContain("Speak only if");
 	});
 
-	test("with an instruction written, the session speaks only if it asks", async ({ db, runnerDb }) => {
+	test("with an instruction written, the session speaks only if it asks", async ({
+		db,
+		runnerDb,
+	}) => {
 		const prompt = await composedPrompt(
 			db,
 			runnerDb,
@@ -390,20 +393,8 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		db,
 		runnerDb,
 	}) => {
-		const claude = await composedPrompt(
-			db,
-			runnerDb,
-			"agent-sub-review-1",
-			null,
-			"claude-code",
-		);
-		const opencode = await composedPrompt(
-			db,
-			runnerDb,
-			"agent-sub-review-2",
-			null,
-			"opencode",
-		);
+		const claude = await composedPrompt(db, runnerDb, "agent-sub-review-1", null, "claude-code");
+		const opencode = await composedPrompt(db, runnerDb, "agent-sub-review-2", null, "opencode");
 
 		expect(claude).toContain("## When work needs a person");
 		expect(claude).toContain("`mcp__hyperidle__send_message`");

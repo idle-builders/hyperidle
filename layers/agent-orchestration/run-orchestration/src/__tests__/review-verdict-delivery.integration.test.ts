@@ -11,7 +11,10 @@ import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { recordReviewSession, recordReviewVerdict } from "../review-sessions.js";
 
 describe("recordReviewVerdict — live-session delivery", () => {
-	test("delivers verdict to live session instead of queuing a resume intent", async ({ db, runnerDb }) => {
+	test("delivers verdict to live session instead of queuing a resume intent", async ({
+		db,
+		runnerDb,
+	}) => {
 		await db.insert(users).values({
 			id: "agent-1",
 			kind: "ai",
@@ -64,7 +67,10 @@ describe("recordReviewVerdict — live-session delivery", () => {
 		expect(deliverCallCount).toBe(1);
 	});
 
-	test("falls through to enqueue when tryDeliverToLive returns not_found", async ({ db, runnerDb }) => {
+	test("falls through to enqueue when tryDeliverToLive returns not_found", async ({
+		db,
+		runnerDb,
+	}) => {
 		await db.insert(users).values({
 			id: "agent-2",
 			kind: "ai",
@@ -110,7 +116,10 @@ describe("recordReviewVerdict — live-session delivery", () => {
 		expect(enqueueCallCount).toBe(1);
 	});
 
-	test("returns not_resumable when no harnessSessionId and no live deliver", async ({ db, runnerDb }) => {
+	test("returns not_resumable when no harnessSessionId and no live deliver", async ({
+		db,
+		runnerDb,
+	}) => {
 		await db.insert(users).values({
 			id: "agent-3",
 			kind: "ai",

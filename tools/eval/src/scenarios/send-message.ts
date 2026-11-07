@@ -30,7 +30,7 @@ const smCoordinationPmFrontend: EvalScenario = {
 	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMultiAgentWorld(ctx.db, {
+		const world = await seedMultiAgentWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager coordinating frontend development.
 When you need to assign or prioritize work for a builder teammate, use send_message.
@@ -57,6 +57,7 @@ Use send_message with the builder's agentId as the recipient.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -140,7 +141,7 @@ const smHandoffContextBuilderDevops: EvalScenario = {
 	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMultiAgentWorld(ctx.db, {
+		const world = await seedMultiAgentWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on infrastructure.
 When you complete an investigation or reach a stopping point, proactively share your findings with your team.
@@ -167,6 +168,7 @@ Your message should summarize: root cause, fix applied, and what still needs to 
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -208,7 +210,7 @@ const smThreadReuseBuilderConsulting: EvalScenario = {
 	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMultiAgentWorld(ctx.db, {
+		const world = await seedMultiAgentWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on consulting deliverables.
 When sending messages to teammates, the system automatically reuses existing direct threads.
@@ -240,6 +242,7 @@ Use send_message to tell the PM:
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{

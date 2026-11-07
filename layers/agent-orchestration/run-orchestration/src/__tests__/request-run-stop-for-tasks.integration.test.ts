@@ -12,10 +12,10 @@
  */
 
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
-import { sessions, type RunnerDb } from "@hyperidle/runner-db";
-import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { requestRunStopForTasks } from "../request-run-stop-for-tasks.js";
 
 /** No test in this file registers a live runtime entry — `abort` always answers false, the no-live-entry path. */
@@ -71,7 +71,12 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	}
 }
 
-async function seedRun(runnerDb: RunnerDb, id: string, taskId: string, state: string): Promise<void> {
+async function seedRun(
+	runnerDb: RunnerDb,
+	id: string,
+	taskId: string,
+	state: string,
+): Promise<void> {
 	await runnerDb.insert(sessions).values({
 		id,
 		taskId,
@@ -92,7 +97,12 @@ describe("requestRunStopForTasks", () => {
 		await seedRun(runnerDb, "run-b", "task-b", "active");
 		const eventBus = new EventBus();
 
-		const stopped = await requestRunStopForTasks(runnerDb, eventBus, ["task-a", "task-b"], noLiveEntry);
+		const stopped = await requestRunStopForTasks(
+			runnerDb,
+			eventBus,
+			["task-a", "task-b"],
+			noLiveEntry,
+		);
 
 		expect([...stopped].sort((x, y) => x.sessionId.localeCompare(y.sessionId))).toEqual([
 			{ taskId: "task-a", sessionId: "run-a" },
@@ -100,7 +110,10 @@ describe("requestRunStopForTasks", () => {
 		]);
 	});
 
-	test("emits session_ended per stopped run on the no-live-entry path", async ({ db, runnerDb }) => {
+	test("emits session_ended per stopped run on the no-live-entry path", async ({
+		db,
+		runnerDb,
+	}) => {
 		await seed(db);
 		await seedRun(runnerDb, "run-a", "task-a", "active");
 		const eventBus = new EventBus();
@@ -131,7 +144,10 @@ describe("requestRunStopForTasks", () => {
 		expect(other?.state).toBe("active");
 	});
 
-	test("is idempotent — an already-stopped run is not in the returned set", async ({ db, runnerDb }) => {
+	test("is idempotent — an already-stopped run is not in the returned set", async ({
+		db,
+		runnerDb,
+	}) => {
 		await seed(db);
 		await seedRun(runnerDb, "run-a", "task-a", "active");
 		const eventBus = new EventBus();

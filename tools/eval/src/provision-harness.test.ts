@@ -146,6 +146,7 @@ describe("eval harness provisioning", () => {
 		const result = await runEvalSession(
 			{
 				db: {} as HyperIdleDb,
+				runnerDb: {} as import("@hyperidle/runner-db").RunnerDb,
 				eventBus: {} as EventBus,
 			},
 			{ taskId: "task", agentId: "agent", teamId: "team" },
@@ -178,7 +179,11 @@ describe("eval harness provisioning", () => {
 		});
 
 		await runEvalSession(
-			{ db: {} as HyperIdleDb, eventBus: {} as EventBus },
+			{
+				db: {} as HyperIdleDb,
+				runnerDb: {} as import("@hyperidle/runner-db").RunnerDb,
+				eventBus: {} as EventBus,
+			},
 			{ taskId: "task", agentId: "agent", teamId: "team" },
 		);
 

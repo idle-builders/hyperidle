@@ -1,14 +1,6 @@
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import {
-	documents,
-	messages,
-	subscriptions,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "../schema.js";
+import { documents, messages, subscriptions, tasks, teams, threads, users } from "../schema.js";
 
 describe("database schema", () => {
 	describe("CRUD operations", () => {

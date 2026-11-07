@@ -1,10 +1,4 @@
 import { randomUUID } from "node:crypto";
-import {
-	agentSessionRequests,
-	type AgentSessionRequest,
-	type RunnerDb,
-	type RunnerWriteExecutor,
-} from "@hyperidle/runner-db";
 import type {
 	AgentSessionRequestInput,
 	AgentSessionSourceCorrelation,
@@ -14,6 +8,12 @@ import type {
 	BakedSessionResumeRequest,
 } from "@hyperidle/domain-model";
 import { agentSessionRequestInputSchema } from "@hyperidle/domain-model";
+import {
+	type AgentSessionRequest,
+	agentSessionRequests,
+	type RunnerDb,
+	type RunnerWriteExecutor,
+} from "@hyperidle/runner-db";
 import { and, asc, eq, gt, inArray, lt, notInArray, or, sql } from "drizzle-orm";
 
 type TerminalInput =
@@ -317,11 +317,7 @@ async function admitClaimedRequestInternal(
 		.returning({ id: agentSessionRequests.id });
 	if (updated.length !== 1) throw new Error(`Lost request custody before admission: ${requestId}`);
 }
-async function requeueClaimedRequestInternal(
-	db: RunnerDb,
-	requestId: string,
-	claimToken: string,
-) {
+async function requeueClaimedRequestInternal(db: RunnerDb, requestId: string, claimToken: string) {
 	const released = await db
 		.update(agentSessionRequests)
 		.set({

@@ -18,7 +18,6 @@ import {
 	documents,
 	type HyperIdleDb,
 	messages,
-	sessions,
 	tasks,
 	teams,
 	threads,
@@ -27,6 +26,7 @@ import {
 } from "@hyperidle/db";
 import type { ActionResult, SendMessageInput, ThreadView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
+import { sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { listInboxRows } from "../../user/src/subscriptions-store.js";
@@ -1763,6 +1763,7 @@ describe("send_message — review requires a task for agents", () => {
 
 	test("approving a review an agent's session asked brings that session back carrying the task", async ({
 		db,
+		runnerDb,
 		agentOrchestration,
 		eventBus,
 	}) => {
@@ -1775,7 +1776,7 @@ describe("send_message — review requires a task for agents", () => {
 			.update(threads)
 			.set({ participants: JSON.stringify(["rsm-agent", FOUNDER_ID]) })
 			.where(eq(threads.id, threadId));
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "rsm-sess",
 			agentId: "rsm-agent",
 			taskId: "rsm-task",

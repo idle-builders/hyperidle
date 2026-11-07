@@ -14,6 +14,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { applyMigrations, createPgliteDb, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
+import { applyRunnerMigrations, createPgliteRunnerDb, type RunnerDb } from "@hyperidle/runner-db";
 import { type EvalHarnessName, evalHarnessName, selectEvalHarness } from "./eval-harness.js";
 import { scoreScenario } from "./scoring.js";
 import type {
@@ -44,6 +45,12 @@ function resolveMigrationsFolder(): string {
 	return resolve(dirname, "../../../framework/db/drizzle");
 }
 
+function resolveRunnerMigrationsFolder(): string {
+	const dirname = resolveDirname();
+	// tools/eval/src → framework/runner-db/drizzle
+	return resolve(dirname, "../../../framework/runner-db/drizzle");
+}
+
 // ---------------------------------------------------------------------------
 // Ephemeral DB lifecycle
 // ---------------------------------------------------------------------------
@@ -63,18 +70,28 @@ function resolveMigrationsFolder(): string {
  * createPgliteDb(dataDir) on the same dir — rather than hand-rolling a
  * drizzle(client, { schema }) client.
  */
-export async function createEvalDb(): Promise<{ db: HyperIdleDb; close: () => Promise<void> }> {
+export async function createEvalDb(): Promise<{
+	db: HyperIdleDb;
+	runnerDb: RunnerDb;
+	close: () => Promise<void>;
+}> {
 	const dataDir = await mkdtemp(join(tmpdir(), "eval-db-"));
+	const runnerDataDir = `${dataDir}-runner`;
 	await applyMigrations(dataDir, resolveMigrationsFolder());
+	await applyRunnerMigrations(runnerDataDir, resolveRunnerMigrationsFolder());
 	const { db, close } = await createPgliteDb(dataDir);
+	const { db: runnerDb, close: closeRunner } = await createPgliteRunnerDb(runnerDataDir);
 	// @lore AU32: `createPgliteDb`'s own `close()` only closes the client handle — it does not
 	// know it was handed a per-boot `mkdtemp` directory rather than an in-memory database, so it
 	// cannot remove one. The caller that composed the tmp dir is the one that has to clean it up.
 	return {
 		db,
+		runnerDb,
 		close: async () => {
 			await close();
+			await closeRunner();
 			await rm(dataDir, { recursive: true, force: true });
+			await rm(runnerDataDir, { recursive: true, force: true });
 		},
 	};
 }
@@ -253,18 +270,19 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 	for (const scenario of scenarios) {
 		process.stderr.write(`\n[eval] Running: ${scenario.id}...\n`);
 
-		const { db, close } = await createEvalDb();
+		const { db, runnerDb, close } = await createEvalDb();
 		let triggerResult: TriggerResult | null = null;
 		let seedResult: Awaited<ReturnType<typeof scenario.seed>> | null = null;
 
 		try {
 			// Step 1: Seed
-			seedResult = await scenario.seed({ db });
+			seedResult = await scenario.seed({ db, runnerDb });
 
 			// Step 2: Trigger
 			const eventBus = new EventBus();
 			const triggerCtx = {
 				db,
+				runnerDb,
 				eventBus,
 				seedResult,
 			};
@@ -277,6 +295,7 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 			// Step 3: Score
 			const judgeCtx = {
 				db,
+				runnerDb,
 				seedResult,
 				triggerResult,
 				judgeModel,

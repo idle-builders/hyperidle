@@ -28,7 +28,7 @@ const ctDecompositionPmMarketing: EvalScenario = {
 	feature: "create_task",
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager for a marketing team.
 Your job is to decompose large bets into concrete, scoped tasks.
@@ -53,6 +53,7 @@ Create at least 3 tasks. Good decompositions include: asset creation, copy revie
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -124,7 +125,7 @@ const ctSubtaskBuilderDevops: EvalScenario = {
 	feature: "create_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on infrastructure tasks.
 When you discover sub-problems during your work that require separate tracking, create subtasks.
@@ -148,6 +149,7 @@ You must create at least 2 subtasks.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -232,7 +234,7 @@ const ctDecompositionPmHealthcare: EvalScenario = {
 	feature: "create_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager in the healthcare domain.
 Your job is to decompose compliance and regulatory bets into concrete, auditable tasks.
@@ -263,6 +265,7 @@ Create at least 3 tasks with regulatory references in their done conditions.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{

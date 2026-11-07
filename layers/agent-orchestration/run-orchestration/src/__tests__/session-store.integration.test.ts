@@ -19,11 +19,11 @@
  */
 
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
-import { sessions, type RunnerDb } from "@hyperidle/runner-db";
-import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { endSessionByCas } from "../session-store.js";
 
 const AGENT_ID = "agent-session-store";
@@ -114,7 +114,10 @@ async function readSession(
 }
 
 describe("endSessionByCas — the terminal transition lives with the table", () => {
-	test("refuses a session that is no longer active, and emits nothing", async ({ db, runnerDb }) => {
+	test("refuses a session that is no longer active, and emits nothing", async ({
+		db,
+		runnerDb,
+	}) => {
 		await seedWorld(db);
 		await seedSession(runnerDb, { id: "s-settled", state: "done", outcome: "completed" });
 		const before = await readSession(runnerDb, "s-settled");

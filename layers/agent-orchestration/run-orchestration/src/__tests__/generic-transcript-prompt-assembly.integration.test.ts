@@ -14,18 +14,19 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
-import { type RunnerDb } from "@hyperidle/runner-db";
-import { expect, test } from "../__testing__/test-fixtures.js";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { afterEach, describe, vi } from "vitest";
 import {
 	buildRunningHarnessPorts,
+	expect,
 	neverCalled,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
 	rejectingHarnessAdapter,
 	type SessionLifecyclePorts,
+	test,
 } from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 
@@ -388,7 +389,10 @@ describe("generic transcript delivery", () => {
 	 *
 	 * @lore: a gate's deny message states only that a rule blocked the call — an imperative there reads as a suspected injection.
 	 */
-	test("every session is told in its prompt that some work needs a person", async ({ db, runnerDb }) => {
+	test("every session is told in its prompt that some work needs a person", async ({
+		db,
+		runnerDb,
+	}) => {
 		await seedAgent(db, "agent-gated-1");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-gate-prompt-"));
 		sandboxDirs.push(sandboxPath);

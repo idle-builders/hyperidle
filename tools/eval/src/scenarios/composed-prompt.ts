@@ -4,7 +4,7 @@
  * Tests context assembly: system prompt identity delivery, task comprehension, template vars.
  */
 
-import { sessions } from "@hyperidle/db";
+import { sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { judgeLlmQuality, judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
@@ -28,7 +28,7 @@ const cpIdentityBrandvoiceMarketing: EvalScenario = {
 	feature: "composed_prompt",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "brand_voice",
 			agentSystemPrompt: `You are Aria, the brand voice guardian for Luminary Creative Agency.
 
@@ -64,6 +64,7 @@ End your session notes with "Made with intention." (our standard sign-off).`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -81,7 +82,7 @@ End your session notes with "Made with intention." (our standard sign-off).`,
 				id: "identity_adherence",
 				label: "Brand Voice Adherence",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -94,7 +95,7 @@ End your session notes with "Made with intention." (our standard sign-off).`,
 				id: "session_notes_on_brand",
 				label: "Session Notes Written in Brand Voice",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -118,7 +119,7 @@ const cpTaskComprehensionPmLegal: EvalScenario = {
 	feature: "composed_prompt",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager responsible for legal and compliance initiatives.
 You work at the intersection of product development and legal constraints.
@@ -145,6 +146,7 @@ Explicitly note which done conditions you have addressed and how.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -162,7 +164,7 @@ Explicitly note which done conditions you have addressed and how.`,
 				id: "task_understood",
 				label: "Done Conditions Understood",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -175,7 +177,7 @@ Explicitly note which done conditions you have addressed and how.`,
 				id: "actions_aligned",
 				label: "Actions Aligned With Task (Not Generic)",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -198,7 +200,7 @@ const cpTemplateVarsPfDevops: EvalScenario = {
 	feature: "composed_prompt",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			agentSystemPrompt: `You are the practice facilitator for the Platform Engineering community.
 
@@ -226,6 +228,7 @@ This confirms that template variable substitution correctly set your community i
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -243,7 +246,7 @@ This confirms that template variable substitution correctly set your community i
 				id: "community_correct",
 				label: "Session Notes Reference Correct Community",
 				judge: async (ctx: JudgeContext) => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -262,7 +265,7 @@ This confirms that template variable substitution correctly set your community i
 				id: "identity_adherence",
 				label: "PF Identity Demonstrated in Notes",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))

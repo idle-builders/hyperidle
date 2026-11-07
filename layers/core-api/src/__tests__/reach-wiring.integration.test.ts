@@ -20,8 +20,9 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
-import { agentRunConfig, type HyperIdleDb, users } from "@hyperidle/db";
+import { type HyperIdleDb, users } from "@hyperidle/db";
 import { AdapterPool } from "@hyperidle/harness-registry";
+import { agentRunConfig, type RunnerDb } from "@hyperidle/runner-db";
 import { giveUserKey } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -81,7 +82,11 @@ async function seedHuman(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-async function seedAgentWithHarness(db: HyperIdleDb, harnessType: string): Promise<void> {
+async function seedAgentWithHarness(
+	db: HyperIdleDb,
+	runnerDb: RunnerDb,
+	harnessType: string,
+): Promise<void> {
 	await db.insert(users).values({
 		id: AGENT_ID,
 		kind: "ai",
@@ -90,11 +95,11 @@ async function seedAgentWithHarness(db: HyperIdleDb, harnessType: string): Promi
 		status: "idle",
 		createdAt: NOW,
 	});
-	await db.insert(agentRunConfig).values({ agentUserId: AGENT_ID, harnessType });
+	await runnerDb.insert(agentRunConfig).values({ agentUserId: AGENT_ID, harnessType });
 }
 
-async function switchAgentHarness(db: HyperIdleDb, harnessType: string): Promise<void> {
-	await db
+async function switchAgentHarness(runnerDb: RunnerDb, harnessType: string): Promise<void> {
+	await runnerDb
 		.update(agentRunConfig)
 		.set({ harnessType })
 		.where(eq(agentRunConfig.agentUserId, AGENT_ID));
@@ -164,6 +169,7 @@ describe("reach wiring end to end", () => {
 	describe("boot wire — probeInheritedReach populates GET /api/connections", () => {
 		test("seeded inherited entries appear with exact view JSON, no adapter pool in the boot", async ({
 			db,
+			runnerDb,
 			eventBus,
 		}) => {
 			const codexHome = trackTemporaryDirectory(await seedCodexHome("reach-codex-boot"));
@@ -175,6 +181,7 @@ describe("reach wiring end to end", () => {
 			// connections domain's own probe + cache, not the harness model.
 			const boot = await bootAgentOrchestration({
 				db,
+				runnerDb,
 				eventBus,
 				probeInheritedReach: true,
 			});
@@ -194,7 +201,11 @@ describe("reach wiring end to end", () => {
 	});
 
 	describe("redetect wire — edit_user({ redetectHarnesses: true }) refreshes inherited reach", () => {
-		test("facts seeded after boot appear in GET after redetect", async ({ db, eventBus }) => {
+		test("facts seeded after boot appear in GET after redetect", async ({
+			db,
+			runnerDb,
+			eventBus,
+		}) => {
 			const codexHome = trackTemporaryDirectory(await emptyCodexHome());
 			const opencodeHome = trackTemporaryDirectory(await seedOpenCodeHome("reach-opencode-stable"));
 			vi.stubEnv("CODEX_HOME", codexHome);
@@ -202,6 +213,7 @@ describe("reach wiring end to end", () => {
 
 			const boot = await bootAgentOrchestration({
 				db,
+				runnerDb,
 				eventBus,
 				probeInheritedReach: true,
 			});
@@ -244,7 +256,11 @@ describe("reach wiring end to end", () => {
 	});
 
 	describe("harness switch A->B->A leaves reach identical", () => {
-		test("GET /api/connections is byte-identical across the switch", async ({ db, eventBus }) => {
+		test("GET /api/connections is byte-identical across the switch", async ({
+			db,
+			runnerDb,
+			eventBus,
+		}) => {
 			const codexHome = trackTemporaryDirectory(await seedCodexHome("reach-switch-codex"));
 			const opencodeHome = trackTemporaryDirectory(await seedOpenCodeHome("reach-switch-opencode"));
 			vi.stubEnv("CODEX_HOME", codexHome);
@@ -252,6 +268,7 @@ describe("reach wiring end to end", () => {
 
 			const boot = await bootAgentOrchestration({
 				db,
+				runnerDb,
 				eventBus,
 				probeInheritedReach: true,
 			});
@@ -261,7 +278,7 @@ describe("reach wiring end to end", () => {
 
 			await seedHuman(db);
 			await giveUserKey(db, HUMAN_ID, TEST_API_KEY);
-			await seedAgentWithHarness(db, "claude-code");
+			await seedAgentWithHarness(db, runnerDb, "claude-code");
 
 			const first = await openInherited(app);
 
@@ -271,11 +288,11 @@ describe("reach wiring end to end", () => {
 			expect(first).toContainEqual(inheritedView("opencode", "reach-switch-opencode"));
 
 			// A → B
-			await switchAgentHarness(db, "codex");
+			await switchAgentHarness(runnerDb, "codex");
 			const second = await openInherited(app);
 
 			// B → A
-			await switchAgentHarness(db, "claude-code");
+			await switchAgentHarness(runnerDb, "claude-code");
 			const third = await openInherited(app);
 
 			expect(second).toEqual(first);

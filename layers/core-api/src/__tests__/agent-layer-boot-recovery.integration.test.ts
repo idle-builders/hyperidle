@@ -7,8 +7,9 @@
  * (`session-provisioning.js`'s `admitSession`/`runSession`).
  */
 
-import { agentSessionRequests, sessions, users } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
+import { agentSessionRequests, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
@@ -50,6 +51,7 @@ const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {
 describe("agent-layer boot recovery", () => {
 	test("an awaited first sweep reconciles running recovery and requested terminations — each exactly once", async ({
 		db,
+		runnerDb,
 		eventBus,
 	}) => {
 		const now = new Date();
@@ -66,7 +68,7 @@ describe("agent-layer boot recovery", () => {
 			status: "active",
 			createdAt: nowIso,
 		});
-		await db.insert(agentSessionRequests).values({
+		await runnerDb.insert(agentSessionRequests).values({
 			id: "boot-orphan-request",
 			sourceKind: "assistant",
 			sourceId: "boot-orphan-source",
@@ -80,7 +82,7 @@ describe("agent-layer boot recovery", () => {
 			createdAt: nowIso,
 			updatedAt: nowIso,
 		});
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "boot-orphan-session",
 			requestId: "boot-orphan-request",
 			agentId: "boot-orphan-agent",
@@ -99,7 +101,7 @@ describe("agent-layer boot recovery", () => {
 			status: "active",
 			createdAt: nowIso,
 		});
-		await db.insert(agentSessionRequests).values({
+		await runnerDb.insert(agentSessionRequests).values({
 			id: "boot-shutdown-request",
 			sourceKind: "assistant",
 			sourceId: "boot-shutdown-source",
@@ -115,7 +117,7 @@ describe("agent-layer boot recovery", () => {
 			createdAt: nowIso,
 			updatedAt: nowIso,
 		});
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "boot-shutdown-session",
 			requestId: "boot-shutdown-request",
 			agentId: "boot-shutdown-agent",
@@ -124,22 +126,28 @@ describe("agent-layer boot recovery", () => {
 			state: "active",
 		});
 
-		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, sessionProvisioner);
+		const runtime = await startTestRuntime(
+			db,
+			runnerDb,
+			eventBus,
+			{ db: runnerDb, eventBus },
+			sessionProvisioner,
+		);
 		try {
 			// (1) orphaned running request recovered to failed/RUNTIME_LOST; session crashed.
-			const [orphanRequest] = await db
+			const [orphanRequest] = await runnerDb
 				.select()
 				.from(agentSessionRequests)
 				.where(eq(agentSessionRequests.id, "boot-orphan-request"));
 			expect(orphanRequest).toMatchObject({ status: "failed", errorCode: "RUNTIME_LOST" });
-			const [orphanSession] = await db
+			const [orphanSession] = await runnerDb
 				.select()
 				.from(sessions)
 				.where(eq(sessions.id, "boot-orphan-session"));
 			expect(orphanSession).toMatchObject({ state: "crashed" });
 
 			// (2) requested shutdown termination recovered to failed/RUNTIME_LOST.
-			const [shutdownRequest] = await db
+			const [shutdownRequest] = await runnerDb
 				.select()
 				.from(agentSessionRequests)
 				.where(eq(agentSessionRequests.id, "boot-shutdown-request"));

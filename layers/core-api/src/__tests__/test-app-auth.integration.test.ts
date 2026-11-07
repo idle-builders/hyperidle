@@ -26,9 +26,9 @@ test("the service app fixture keeps intentional missing-auth requests raw", asyn
 	expect(response.status).toBe(401);
 });
 
-test("each service app owns a distinct API key", async ({ db }) => {
-	const first = await createServiceTestApp(db, new EventBus());
-	const second = await createServiceTestApp(db, new EventBus());
+test("each service app owns a distinct API key", async ({ db, runnerDb }) => {
+	const first = await createServiceTestApp(db, runnerDb, new EventBus());
+	const second = await createServiceTestApp(db, runnerDb, new EventBus());
 	try {
 		expect(first.authApiKey).not.toBe(second.authApiKey);
 		vi.stubEnv("HYPERIDLE_API_KEY", "changed-after-both-apps-were-built");
