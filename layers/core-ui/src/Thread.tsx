@@ -1,5 +1,4 @@
 import {
-	type ActivityEntry,
 	type DocumentRow,
 	type HuddlePayload,
 	isRedactedPayload,
@@ -35,7 +34,7 @@ import { Avatar, Event, Msg } from "./Msg";
 import { useSealedPage } from "./ReviewPart";
 import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
-import { clock, huddleLabel, stepFrom, timeline, titleFrom, workState } from "./thread-timeline";
+import { clock, huddleLabel, timeline, titleFrom, workState } from "./thread-timeline";
 import { useAction } from "./useAction";
 
 /**
@@ -60,12 +59,6 @@ export function useNow(): number {
 		return () => clearInterval(timer);
 	}, []);
 	return now;
-}
-
-export function stepWords(entry: ActivityEntry): string | null {
-	if (entry.type !== "tool_call") return null;
-	const d = entry.data;
-	return d.verb ? `${d.verb} ${d.target ?? ""}`.trim() : stepFrom(d.toolName, d.argsSummary ?? "");
 }
 
 /** The agent's work, as a reference: it carries its state in place and opens the task. */

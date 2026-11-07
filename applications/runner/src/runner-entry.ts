@@ -20,15 +20,15 @@ import { startRunner } from "./index.js";
 
 const logger = createLogger({ pkg: "runner.entry" });
 
-function require(name: string): string {
+function needEnv(name: string): string {
 	const v = process.env[name];
 	if (!v) throw new Error(`Runner: required env var ${name} is not set`);
 	return v;
 }
 
-const serverUrl = require("HYPERIDLE_SERVER_URL");
-const personKey = require("HYPERIDLE_API_KEY");
-const dataDir = require("HYPERIDLE_DATA_DIR");
+const serverUrl = needEnv("HYPERIDLE_SERVER_URL");
+const personKey = needEnv("HYPERIDLE_API_KEY");
+const dataDir = needEnv("HYPERIDLE_DATA_DIR");
 const spacesDir = process.env.HYPERIDLE_SPACES_DIR;
 
 // IPC channel for Electron utilityProcess.fork — handle messages from main.ts.

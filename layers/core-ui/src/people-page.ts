@@ -357,11 +357,6 @@ export function runnerButtonState(opts: {
 	return "move-here";
 }
 
-/** "Builder and Growth", or "nobody yet". */
-export function givenTo(names: readonly string[]): string {
-	return names.length === 0 ? "nobody yet" : joinWords(names);
-}
-
 /** A plugin's name as a person reads it: "team-habits" is "Team habits". */
 export function pluginName(name: string): string {
 	const words = name.replace(/[-_]+/g, " ").trim();

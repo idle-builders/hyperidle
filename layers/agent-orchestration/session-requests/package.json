@@ -11,13 +11,13 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/db": "*",
 		"@hyperidle/runner-db": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/harness-protocol": "*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {
+		"@hyperidle/db": "*",
 		"vitest": "^4.1.9"
 	}
 }

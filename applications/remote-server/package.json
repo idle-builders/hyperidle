@@ -24,9 +24,9 @@
 		"ws": "^8.20.0"
 	},
 	"devDependencies": {
-		"@hyperidle/user": "*",
 		"@types/node": "^24",
 		"@types/ws": "^8.18.1",
+		"drizzle-orm": "^0.45.2",
 		"vitest": "^4.1.9"
 	}
 }

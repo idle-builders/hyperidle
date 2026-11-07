@@ -81,6 +81,11 @@
 			// electron-builder.yml, so the WASM bundle loads from node_modules at runtime.
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
+		"applications/runner": {
+			// runner-entry.ts is the CLI entry point spawned by Electron (utilityProcess.fork)
+			// and the npm start/dev scripts — never imported, so it must be declared here.
+			"entry": ["src/runner-entry.ts!"]
+		},
 		"tools/eslint-plugin-design": {},
 		"tools/eval": {
 			"entry": ["src/judges.ts!", "src/cli.ts!"]
