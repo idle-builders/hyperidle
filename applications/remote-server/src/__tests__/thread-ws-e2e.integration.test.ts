@@ -7,8 +7,8 @@
  * socket, subscribes over that socket, then writes through BOTH real doors —
  * the HTTP action route (`POST /api/actions/send_message`) and the MCP tool
  * door (`actionTools`'s registered `send_message` handler: the exact
- * registry `bootAgentOrchestration`'s runtime threads a live agent session's
- * tool calls through, `actionsAsTools` in `actions/actions-as-tools.ts`) —
+ * registry the run-orchestration composition threads a live agent session's
+ * tool calls through) —
  * and asserts the nudge actually reaches the client.
  *
  * No fakes on the path under test: this is the seam

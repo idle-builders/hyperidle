@@ -7,13 +7,6 @@ import { runEvalSession } from "./provision-harness.js";
 const runSession = vi.fn();
 vi.mock("@hyperidle/agent-orchestration", () => ({
 	buildRunOrchestrationComposition: () => ({ runSession }),
-	bootAgentOrchestration: vi.fn(async () => ({
-		app: {},
-		registerPreAuthRoutes: vi.fn(),
-		inheritedReach: { refresh: vi.fn() },
-		dispose: vi.fn(),
-		joinLifecycleDrain: vi.fn(async () => {}),
-	})),
 }));
 
 /*

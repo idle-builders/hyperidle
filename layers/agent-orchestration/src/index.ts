@@ -1,10 +1,3 @@
-export type {
-	AgentOrchestrationBoot,
-	AgentOrchestrationBootOptions,
-	AgentOrchestrationRuntimeOptions,
-	ApplicationProvisionSessionDeps,
-} from "./boot.js";
-export { bootAgentOrchestration } from "./boot.js";
 /** The agents' runner on this computer: their keys, their inboxes, and their tools through the door. */
 export { type ActionToolDeclaration, actionToolsThroughDoor } from "./runner/action-tools.js";
 export {

@@ -575,9 +575,6 @@ export const pluginContributions = pgTable(
 	],
 );
 
-// --- Service connections, reviewSessions ---
-// Moved to @hyperidle/runner-db (runner-owned tables).
-
 // --- Inferred types ---
 
 export type Team = typeof teams.$inferSelect;

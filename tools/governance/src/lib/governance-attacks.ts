@@ -663,17 +663,16 @@ export const ATTACKS: readonly Attack[] = [
 	{
 		id: "composition-handoff-inline",
 		detail:
-			"a composition root calling one layer's boot INLINE, as an argument into another layer's boot — the identifier-spelled crossing the census's DI provenance model catches",
+			"a composition root calling one layer's boot INLINE, as an argument into another layer's composition root — the identifier-spelled crossing the census's DI provenance model catches",
 		rules: ["crossing-di"],
 		overlay: {
 			[`${a.applicationDir}/attack-composition-inline.ts`]:
 				`import { bootAgentExecution } from "@hyperidle/agent-execution";\n` +
-				`import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";\n` +
+				`import { buildRunOrchestrationComposition } from "@hyperidle/agent-orchestration";\n` +
 				`export const composeInline = () =>\n` +
-				`\tbootAgentOrchestration({\n` +
-				`\t\tdb: undefined as never,\n` +
-				`\t\teventBus: undefined as never,\n` +
-				`\t\truntime: { adapterPool: bootAgentExecution(undefined as never) } as never,\n` +
+				`\tbuildRunOrchestrationComposition({\n` +
+				`\t\tharnessRuntime: bootAgentExecution(undefined as never) as never,\n` +
+				`\t\treturnStatusTool: undefined as never,\n` +
 				`\t});\n`,
 		},
 		expect: {
@@ -690,13 +689,12 @@ export const ATTACKS: readonly Attack[] = [
 		overlay: {
 			[`${a.applicationDir}/attack-composition-mediated.ts`]:
 				`import { bootAgentExecution } from "@hyperidle/agent-execution";\n` +
-				`import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";\n` +
+				`import { buildRunOrchestrationComposition } from "@hyperidle/agent-orchestration";\n` +
 				`export const composeMediated = async () => {\n` +
 				`\tconst execution = await bootAgentExecution(undefined as never);\n` +
-				`\treturn bootAgentOrchestration({\n` +
-				`\t\tdb: undefined as never,\n` +
-				`\t\teventBus: undefined as never,\n` +
-				`\t\truntime: { adapterPool: execution } as never,\n` +
+				`\treturn buildRunOrchestrationComposition({\n` +
+				`\t\tharnessRuntime: execution as never,\n` +
+				`\t\treturnStatusTool: undefined as never,\n` +
 				`\t});\n` +
 				`};\n`,
 		},
