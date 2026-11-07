@@ -520,13 +520,23 @@ function askRunner(
 	});
 }
 
-// @lore: forkRunner — runner.cjs only exists after build:local; dev mode skips the fork and the runner runs separately.
+// @lore: forkRunner — runner.cjs only exists after build:local; dev mode runs from TypeScript source via tsx.
 function forkRunner(serverUrl: string, apiKey: string, dataDir: string): (() => void) | null {
 	const runnerBundle = path.join(Dirname, "runner.cjs");
-	if (!fs.existsSync(runnerBundle)) {
+	const runnerEntry = fs.existsSync(runnerBundle)
+		? runnerBundle
+		: IS_DEV
+			? path.resolve(Dirname, "../../runner/src/runner-entry.ts")
+			: null;
+
+	if (runnerEntry === null) {
 		log("runner bundle not found, skipping fork", { runnerBundle });
 		return null;
 	}
+
+	// Capture narrowed (non-null) value so the launch() closure sees string, not string|null.
+	const entry: string = runnerEntry;
+
 	const runnerDrizzleDir = app.isPackaged
 		? path.join(process.resourcesPath ?? "", "runner-drizzle")
 		: path.resolve(Dirname, "..", "..", "..", "framework", "runner-db", "drizzle");
@@ -544,8 +554,16 @@ function forkRunner(serverUrl: string, apiKey: string, dataDir: string): (() => 
 		env.HYPERIDLE_API_KEY = apiKey;
 		env.HYPERIDLE_DATA_DIR = dataDir;
 		env.HYPERIDLE_RUNNER_DRIZZLE_DIR = runnerDrizzleDir;
-		log("forkRunner launching", { runnerBundle, serverUrl, dataDir, runnerDrizzleDir });
-		const child = utilityProcess.fork(runnerBundle, [], { env });
+
+		const forkOptions: Electron.ForkOptions = { env };
+		if (entry.endsWith(".ts")) {
+			// In dev mode, tsx transforms TypeScript at runtime via the ESM loader.
+			const tsxEsm = path.resolve(Dirname, "../../../node_modules/tsx/dist/esm/index.mjs");
+			forkOptions.execArgv = ["--import", tsxEsm];
+		}
+
+		log("forkRunner launching", { entry, serverUrl, dataDir, runnerDrizzleDir });
+		const child = utilityProcess.fork(entry, [], forkOptions);
 		runnerChild = child;
 		child.on("exit", (code) => {
 			if (runnerChild === child) runnerChild = null;
