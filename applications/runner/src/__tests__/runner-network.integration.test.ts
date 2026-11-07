@@ -153,13 +153,26 @@ async function bootTestServer(db: HyperIdleDb): Promise<TestServer> {
 // ---- Setup ----
 
 let tempDataDir: string;
+let tempSpacesDir: string;
 beforeEach(() => {
 	tempDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "runner-integration-"));
+	// Give each test its own spaces root so runner1 and runner2 don't collide
+	// with agent-space dirs created by other provisioner tests in the same
+	// worker (integration tests share a worker with isolate:false, and the
+	// shared HYPERIDLE_SPACES_DIR gets Agent/ and Agent-{sha1}/ from previous
+	// tests, causing collisionFreeDir to throw on runner2's admission).
+	tempSpacesDir = fs.mkdtempSync(path.join(os.tmpdir(), "runner-integration-spaces-"));
+	vi.stubEnv("HYPERIDLE_SPACES_DIR", tempSpacesDir);
 });
 afterEach(() => {
 	vi.unstubAllEnvs();
 	try {
 		fs.rmSync(tempDataDir, { recursive: true, force: true });
+	} catch {
+		// best-effort
+	}
+	try {
+		fs.rmSync(tempSpacesDir, { recursive: true, force: true });
 	} catch {
 		// best-effort
 	}
