@@ -37,6 +37,15 @@ function assertGlobMatchesFiles(label: string, patterns: string[]): void {
 
 assertGlobMatchesFiles("vitest test-file rules", ["**/*.test.ts", "**/*.test.tsx"]);
 
+// AC1 — Server entry points boot core only.
+// The runner process owns all execution; server files must not import
+// agent-execution, agent-orchestration, or runner-db directly.
+assertGlobMatchesFiles("server entry import gate", [
+	"applications/remote-server/src/**/*.ts",
+	"applications/desktop/src/create-server.ts",
+	"applications/desktop/src/main.ts",
+]);
+
 export default [
 	{
 		ignores: [
@@ -527,6 +536,46 @@ export default [
 		plugins: { design },
 		rules: {
 			"design/no-dom-marker-assert": "error",
+		},
+	},
+
+	// AC1 — Server entry points boot core only.
+	// The runner process owns agent-execution and agent-orchestration; a server
+	// file that imports them pulls the whole execution stack into the core
+	// process and breaks the boundary.
+	{
+		files: [
+			"applications/remote-server/src/**/*.ts",
+			"applications/desktop/src/create-server.ts",
+			"applications/desktop/src/main.ts",
+		],
+		ignores: [
+			"applications/remote-server/src/**/__tests__/**",
+			"applications/remote-server/src/**/__testing__/**",
+			"applications/remote-server/src/**/*.test.ts",
+			"applications/remote-server/src/**/*.integration.test.ts",
+		],
+		languageOptions: { parser: tsParser },
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					patterns: [
+						{
+							group: ["@hyperidle/agent-orchestration", "@hyperidle/agent-orchestration/*"],
+							message: "Server boots core only — agent-orchestration runs in the runner process.",
+						},
+						{
+							group: ["@hyperidle/agent-execution", "@hyperidle/agent-execution/*"],
+							message: "Server boots core only — agent-execution runs in the runner process.",
+						},
+						{
+							group: ["@hyperidle/runner-db", "@hyperidle/runner-db/*"],
+							message: "Server boots core only — runner-db belongs to the runner process.",
+						},
+					],
+				},
+			],
 		},
 	},
 ];

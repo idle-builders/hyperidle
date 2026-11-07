@@ -166,3 +166,65 @@ if (danglingRequires.length > 0) {
 // drivers.
 
 process.stdout.write("Desktop bundle complete. Validation passed.\n");
+
+// Bundle runner process (Electron utilityProcess.fork target)
+// @lore: runner bundle — forked via utilityProcess.fork; standalone Node process, so electron is not an external.
+const RUNNER_DIR = path.resolve(import.meta.dirname, "..", "..", "runner");
+await esbuild.build({
+	entryPoints: [path.join(RUNNER_DIR, "src/runner-entry.ts")],
+	bundle: true,
+	platform: "node",
+	target: "node24",
+	format: "cjs",
+	outfile: path.join(DIST_DIR, "runner.cjs"),
+	external: ["@electric-sql/pglite"],
+	plugins: [pgStubPlugin],
+	define: {
+		"import.meta.url": "__IMPORT_META_URL__",
+		"import.meta.dirname": "__IMPORT_META_DIRNAME__",
+	},
+	banner: {
+		js: [
+			'var __IMPORT_META_URL__ = require("url").pathToFileURL(__filename).href;',
+			'var __IMPORT_META_DIRNAME__ = require("path").dirname(require("url").fileURLToPath(__IMPORT_META_URL__));',
+		].join("\n"),
+	},
+	sourcemap: true,
+	minify: false,
+});
+
+// Post-bundle validation for runner.cjs
+const RUNNER_ALLOWED_EXTERNALS = new Set([
+	"@electric-sql/pglite",
+	// Optional ws peer deps — ws try/catches these, safe if missing
+	"bufferutil",
+	"utf-8-validate",
+	// AJV string literals (same reason as main bundle)
+	...AJV_STUB_MODULES,
+]);
+
+const runnerBundleContent = fs.readFileSync(path.join(DIST_DIR, "runner.cjs"), "utf-8");
+const runnerDanglingRequires: string[] = [];
+for (const match of runnerBundleContent.matchAll(requirePattern)) {
+	const mod = match[1];
+	if (mod.startsWith("./") || mod.startsWith("../")) continue;
+	if (isBuiltin(mod)) continue;
+	if (RUNNER_ALLOWED_EXTERNALS.has(mod)) continue;
+	runnerDanglingRequires.push(mod);
+}
+
+if (runnerDanglingRequires.length > 0) {
+	const unique = [...new Set(runnerDanglingRequires)];
+	process.stderr.write(
+		`\nRunner bundle validation FAILED: found require() for modules not in the packaged app:\n`,
+	);
+	for (const mod of unique) {
+		process.stderr.write(`  - ${mod}\n`);
+	}
+	process.stderr.write(
+		`\nThese modules must be either stubbed (pgStubPlugin) or added to runner bundle externals.\n`,
+	);
+	process.exit(1);
+}
+
+process.stdout.write("Runner bundle complete. Validation passed.\n");

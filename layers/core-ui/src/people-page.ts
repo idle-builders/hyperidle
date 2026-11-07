@@ -1,14 +1,9 @@
 import type {
-	ConnectionView,
-	FolderView,
-	HarnessDescriptor,
-	SessionRow,
 	SubscriptionEventName,
 	SubscriptionView,
 	Task,
 	ThreadListRow,
 	UserRow,
-	UserView,
 } from "@hyperidle/domain-model";
 import { NEED_WORDS, PAUSE_WORDS } from "./sidebar-lists";
 
@@ -193,9 +188,8 @@ export function startRows(
 	];
 }
 
-/** How a task reads in someone's list: running, waiting on a person, paused, or how far it is. */
-function taskWords(t: Task, running: SessionRow | undefined, now: number): string {
-	if (running) return `Running · ${forWords(running.startedAt, now)}`;
+/** How a task reads in someone's list: waiting on a person, paused, or how far it is. */
+function taskWords(t: Task, now: number): string {
 	if (t.paused) return PAUSE_WORDS[t.paused];
 	if (t.need) return `${NEED_WORDS[t.need]} · ${forWords(t.updatedAt, now)}`;
 	if (t.state === "proposed" || t.state === "accepted" || t.state === "hold") return "Waits";
@@ -218,11 +212,10 @@ const open = (t: Task): boolean => t.state !== "done" && t.state !== "killed";
 const isToday = (iso: string | null, now: number): boolean =>
 	iso !== null && new Date(iso).toDateString() === new Date(now).toDateString();
 
-/** An agent's own tasks not finished, the running ones first; and how many it finished today. */
+/** An agent's own tasks not finished, needs-input ones first; and how many it finished today. */
 export function agentJobs(
 	tasks: readonly Task[],
 	agentId: string,
-	sessions: readonly SessionRow[],
 	initialsOf: string,
 	now: number,
 ): { on: Job[]; doneToday: number } {
@@ -230,23 +223,19 @@ export function agentJobs(
 	const mine = tasks.filter((t) => t.ownerAgentId === agentId);
 	// A parent is only a list of its parts here; the parts are the work.
 	const parents = new Set(mine.map((t) => t.parentTaskId));
-	const running = new Map(
-		sessions.filter((s) => s.agentId === agentId && s.endedAt === null).map((s) => [s.taskId, s]),
-	);
 	const on = mine
-		.filter((t) => open(t) && !(parents.has(t.id) && !running.has(t.id)))
+		.filter((t) => open(t) && !parents.has(t.id))
 		.map((t): Job & { rank: number } => {
-			const run = running.get(t.id);
 			const needs = needOf(t);
 			return {
 				id: t.id,
 				title: t.title,
-				words: taskWords(t, run, now),
-				mark: run ? "run" : "open",
-				...(needs && !run ? { needs } : {}),
+				words: taskWords(t, now),
+				mark: "open",
+				...(needs ? { needs } : {}),
 				href: taskHref(t, byId),
 				by: initialsOf,
-				rank: run ? 0 : needs ? 1 : 2,
+				rank: needs ? 0 : 1,
 			};
 		})
 		.sort((a, b) => a.rank - b.rank)
@@ -277,7 +266,6 @@ export function startedJobs(
 	personId: string,
 	firstNames: ReadonlyMap<string, string>,
 	initialsOf: (id: string) => string,
-	sessions: readonly SessionRow[],
 	now: number,
 	/** Conversations they started: a task an agent made there is what they asked for. */
 	askedIn: ReadonlySet<string> = new Set(),
@@ -295,21 +283,20 @@ export function startedJobs(
 	return tasks
 		.filter((t) => theirs(t) && open(t) && !theirs(byId.get(t.parentTaskId ?? "")))
 		.map((t) => {
-			const run = sessions.find((s) => s.taskId === t.id && s.endedAt === null);
 			const parts = kids.has(t.id) ? leaves(t) : [];
 			const done = parts.filter((p) => p.state === "done").length;
 			const needs = needOf(t);
 			const how =
 				parts.length > 0 && !t.need && !t.paused
 					? `${done} of ${parts.length} done`
-					: taskWords(t, run, now).toLowerCase();
+					: taskWords(t, now).toLowerCase();
 			const owner = firstNames.get(t.ownerAgentId ?? "") ?? "Nobody";
 			return {
 				id: t.id,
 				title: t.title,
 				words: `${owner} · ${how}`,
-				mark: run ? ("run" as const) : ("open" as const),
-				...(needs && !run ? { needs } : {}),
+				mark: "open" as const,
+				...(needs ? { needs } : {}),
 				by: initialsOf(t.ownerAgentId ?? ""),
 				href: taskHref(t, byId),
 			};
@@ -353,132 +340,42 @@ export function personStand(waiting: readonly Job[], you: boolean): string {
 	return `${what.charAt(0).toUpperCase()}${what.slice(1)} ${wait} for ${you ? "you" : "them"}.`;
 }
 
-const OWN_LOGIN_HARNESSES = new Set(["claude-code", "codex"]);
-
-/** What an agent's login setting says about itself. */
-function loginWords(login: "own" | "owner", harnessType: string | null): string {
-	if (login === "own") {
-		if (harnessType === null || OWN_LOGIN_HARNESSES.has(harnessType)) return "its own login";
-		return "its own login (not supported by this program)";
-	}
-	return "your login";
-}
-
 /**
- * Whether the agent's isolated login is authenticated, and what to run to log in.
- * Returns null when status is absent or login is "owner".
+ * Whether the Move-here button should show on an agent's page.
+ * Returns "move-here" when the runner is present but doesn't hold this agent,
+ * "moved-away" when the runner reports the agent has moved to another computer,
+ * or null when neither state applies (browser mode or already held here).
  */
-function loginStatusLine(
-	agentLoginStatus: UserView["agentLoginStatus"],
-	runConfig: {
-		harnessType: string | null;
-		spacePath: string | null;
-		login: "own" | "owner";
-	} | null,
-): string | null {
-	if (!(agentLoginStatus && runConfig) || runConfig.login !== "own") return null;
-	const { state } = agentLoginStatus;
-	if (state === "ready") return "signed in";
-	const spacePath = runConfig.spacePath;
-	const harnessType = runConfig.harnessType;
-	let command: string | null = null;
-	if (spacePath !== null) {
-		if (harnessType === "codex") {
-			command = `CODEX_HOME=${spacePath}/.codex codex login`;
-		} else if (harnessType === "claude-code") {
-			command = `CLAUDE_CONFIG_DIR=${spacePath}/.claude claude, then /login`;
-		}
-	}
-	const base = state === "missing" ? "program not installed" : "not logged in";
-	return command !== null ? `${base} · run: ${command}` : base;
-}
-
-/** What an agent program on this computer says about itself. */
-export function programWords(h: HarnessDescriptor): string {
-	if (h.discovery.disabled) return "switched off";
-	switch (h.discovery.state) {
-		case "ready":
-			return "signed in";
-		case "unauthenticated":
-			return "installed, not signed in";
-		case "installed":
-			return "installed";
-		case "missing":
-			return "not installed";
-		default:
-			return h.discovery.reason ?? "not available";
-	}
-}
-
-/**
- * "on this computer · <state>" for the program row in Runs on.
- *
- * When login="own", the owner's sign-in state is irrelevant to the agent's
- * per-agent login — only whether the program is installed matters here.
- * The separate Login row carries the actual per-agent sign-in status.
- */
-export function programLineWhy(h: HarnessDescriptor, login: "own" | "owner"): string {
-	if (login === "owner") return `on this computer · ${programWords(h)}`;
-	if (h.discovery.disabled) return "on this computer · switched off";
-	switch (h.discovery.state) {
-		case "ready":
-		case "unauthenticated":
-		case "installed":
-			return "on this computer · installed";
-		case "missing":
-			return "on this computer · not installed";
-		default:
-			return `on this computer · ${h.discovery.reason ?? "not available"}`;
-	}
-}
-
-/**
- * The "why" text for the Login row in Runs on.
- *
- * - "owner": "your login" (no status — the program row already shows sign-in state)
- * - "own" + status known: "its own login · signed in" or "its own login · not logged in · run: …"
- * - "own" + no status yet (no space exists): "its own login"
- */
-export function loginRowWhy(
-	login: "own" | "owner",
-	harnessType: string | null,
-	agentLoginStatus: UserView["agentLoginStatus"],
-	runConfig: { spacePath: string | null } | null,
-): string {
-	const base = loginWords(login, harnessType);
-	if (login !== "own") return base;
-	const status = loginStatusLine(agentLoginStatus, {
-		harnessType,
-		spacePath: runConfig?.spacePath ?? null,
-		login: "own",
-	});
-	return status !== null ? `${base} · ${status}` : base;
-}
-
-/** A folder's path. */
-export function folderPath(f: FolderView): string {
-	return f.path;
-}
-
-/** What went wrong when the agent last accessed this folder, or null when nothing did. */
-export function folderTrouble(f: FolderView): string | null {
-	return f.isMissing ? "Not found on this computer" : null;
-}
-
-/** How a service is reached: a key, a server, or signed in on this computer. */
-export function serviceHow(c: ConnectionView): string {
-	if (c.authSource === "inherited") return "Signed in on this computer";
-	if (c.authSource === "token") return "A key, kept encrypted";
-	return `Through its MCP server, ${c.via}`;
-}
-
-/** "Builder and Growth", or "nobody yet". */
-export function givenTo(names: readonly string[]): string {
-	return names.length === 0 ? "nobody yet" : joinWords(names);
+export function runnerButtonState(opts: {
+	hasRunner: boolean;
+	held: boolean;
+	movedAway: boolean;
+}): "move-here" | "moved-away" | null {
+	if (!opts.hasRunner) return null;
+	if (opts.held) return null;
+	if (opts.movedAway) return "moved-away";
+	return "move-here";
 }
 
 /** A plugin's name as a person reads it: "team-habits" is "Team habits". */
 export function pluginName(name: string): string {
 	const words = name.replace(/[-_]+/g, " ").trim();
 	return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+export type RunnerHeldState = { held: boolean; movedAway: boolean };
+
+/**
+ * Maps the raw moveHere reply to a state update or an error message.
+ * Returns `{ ok: true, state }` on a successful hold, or `{ ok: false, problem }` to show inline.
+ * Does NOT update runnerState on failure — the button stays visible.
+ */
+export function applyMoveHereResult(
+	result: RunnerHeldState | null | undefined,
+	agentName: string,
+): { ok: true; state: RunnerHeldState } | { ok: false; problem: string } {
+	if (result?.held === true) {
+		return { ok: true, state: result };
+	}
+	return { ok: false, problem: `Could not move ${agentName} here. Try again.` };
 }

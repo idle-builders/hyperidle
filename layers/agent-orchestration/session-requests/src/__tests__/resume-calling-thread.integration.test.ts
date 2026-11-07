@@ -12,10 +12,11 @@
  * `not_returned`, and nothing was posted anywhere.
  */
 
-import { agentSessionRequests, users } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { users } from "@hyperidle/db";
+import { agentSessionRequests } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { describe } from "vitest";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import { queueResume } from "../index.js";
 
 const NOW = "2026-09-01T00:00:00.000Z";
@@ -26,6 +27,7 @@ const THREAD_ID = "thread-the-human-answered-in";
 describe("queueResume carries the calling thread", () => {
 	test("the request carries the calling thread, so a silent resume still reaches the human", async ({
 		db,
+		runnerDb,
 	}) => {
 		await db.insert(users).values({
 			id: AGENT_ID,
@@ -36,7 +38,7 @@ describe("queueResume carries the calling thread", () => {
 			createdAt: NOW,
 		});
 
-		await queueResume(db, {
+		await queueResume(runnerDb, {
 			reviewMessageId: REVIEW_ID,
 			idempotencyKey: `review-verdict:${REVIEW_ID}`,
 			resume: {
@@ -49,7 +51,7 @@ describe("queueResume carries the calling thread", () => {
 			},
 		});
 
-		const [request] = await db
+		const [request] = await runnerDb
 			.select()
 			.from(agentSessionRequests)
 			.where(eq(agentSessionRequests.sourceId, REVIEW_ID));

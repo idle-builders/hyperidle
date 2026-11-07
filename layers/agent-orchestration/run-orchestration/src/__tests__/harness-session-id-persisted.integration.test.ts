@@ -10,16 +10,18 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, sessions, users } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import {
 	buildRunningHarnessPorts,
+	expect,
 	type FakeHarnessAdapter,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
+	test,
 } from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 
@@ -54,9 +56,9 @@ function buildHarnessPorts() {
 	return buildRunningHarnessPorts();
 }
 
-function buildDeps(db: HyperIdleDb, nativeId: string | undefined): ProvisionSessionDeps {
+function buildDeps(runnerDb: RunnerDb, nativeId: string | undefined): ProvisionSessionDeps {
 	return {
-		db,
+		db: runnerDb,
 		eventBus: new EventBus(),
 		adapterPool: {
 			select: () => ({
@@ -77,6 +79,7 @@ function buildDeps(db: HyperIdleDb, nativeId: string | undefined): ProvisionSess
 
 async function runOnce(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	agentId: string,
 	nativeId: string | undefined,
 ): Promise<string> {
@@ -96,7 +99,7 @@ async function runOnce(
 		agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
 		callingThreadId: `thread-harness-sid-${agentId}`,
 	} as ProvisionSessionParams;
-	const deps = buildDeps(db, nativeId);
+	const deps = buildDeps(runnerDb, nativeId);
 	const admitted = await provisioner.admit(deps, params);
 	await provisioner.run(deps, params, admitted);
 	return admitted.sessionId;
@@ -115,23 +118,21 @@ describe("provisioner.run — the harness session id is written down", () => {
 
 	test("the id the harness reported is persisted, so the session can be resumed", async ({
 		db,
+		runnerDb,
 	}) => {
-		const sessionId = await runOnce(db as HyperIdleDb, "agent-native-id-1", "claude-uuid-abc");
+		const sessionId = await runOnce(db, runnerDb, "agent-native-id-1", "claude-uuid-abc");
 
-		const [row] = await (db as HyperIdleDb)
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, sessionId));
+		const [row] = await runnerDb.select().from(sessions).where(eq(sessions.id, sessionId));
 		expect(row?.harnessSessionId).toBe("claude-uuid-abc");
 	});
 
-	test("a harness that reported no id leaves it null rather than inventing one", async ({ db }) => {
-		const sessionId = await runOnce(db as HyperIdleDb, "agent-native-id-2", undefined);
+	test("a harness that reported no id leaves it null rather than inventing one", async ({
+		db,
+		runnerDb,
+	}) => {
+		const sessionId = await runOnce(db, runnerDb, "agent-native-id-2", undefined);
 
-		const [row] = await (db as HyperIdleDb)
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, sessionId));
+		const [row] = await runnerDb.select().from(sessions).where(eq(sessions.id, sessionId));
 		expect(row?.harnessSessionId).toBe(null);
 	});
 });

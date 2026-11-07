@@ -5,11 +5,12 @@
  */
 
 import { changes, type HyperIdleDb } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { computeTaskNeed } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { createUserActions, type UserActionsDeps } from "@hyperidle/user";
 import { sql } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { seedDemoWorld } from "../demo-fixture.js";
 import {
 	FOUNDER_ID,
@@ -31,9 +32,22 @@ async function count(db: HyperIdleDb, table: string, where = ""): Promise<number
 	return Number(r[0]?.c ?? 0);
 }
 
-async function seedWorld(db: HyperIdleDb): Promise<void> {
+async function runnerRows<T extends Record<string, unknown>>(
+	db: RunnerDb,
+	q: string,
+): Promise<T[]> {
+	const result = await db.execute(sql.raw(q));
+	return (result as { rows: T[] }).rows;
+}
+
+async function countRunner(db: RunnerDb, table: string, where = ""): Promise<number> {
+	const r = await runnerRows<{ c: string }>(db, `SELECT COUNT(*) AS c FROM ${table} ${where}`);
+	return Number(r[0]?.c ?? 0);
+}
+
+async function seedWorld(db: HyperIdleDb, runnerDb: RunnerDb): Promise<void> {
 	await runFactoryBootstrap(db);
-	await seedDemoWorld(db);
+	await seedDemoWorld(db, runnerDb);
 }
 
 /** The need the backend derives for a task, from its state and its thread messages. */
@@ -67,30 +81,6 @@ function openUserDeps(db: HyperIdleDb): UserActionsDeps {
 				return all.filter((r) => (ids as string[]).includes(r.id));
 			},
 		},
-		runConfig: {
-			read: async () => ({
-				harnessType: null,
-				modelId: null,
-				modelProvider: null,
-				maxConcurrentSessions: 1,
-				modelOptions: {},
-				login: "owner" as const,
-				spacePath: null,
-			}),
-			write: async () => undefined,
-			ensureSpace: async (_agentId, agentName) => `/spaces/${agentName}`,
-		},
-		spaceFolders: {
-			list: async () => [],
-			add: async () => ({ ok: true }) as const,
-			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
-		},
-		connections: {
-			list: async () => ({ connections: [], inherited: [] }),
-			add: async () => ({ ok: false, code: "MISSING_ROOT_SECRET" }) as const,
-			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
-			withhold: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
-		},
 		searchDocuments: async () => ({ ok: true, data: [] as never }) as const,
 		editDocument: async () => ({ ok: false, problems: [] as never }) as const,
 		onPluginPartEdited: async () => undefined,
@@ -98,8 +88,8 @@ function openUserDeps(db: HyperIdleDb): UserActionsDeps {
 }
 
 describe("the demo world tells the design's story", () => {
-	test("Work lists the design's root tasks", async ({ db }) => {
-		await seedWorld(db);
+	test("Work lists the design's root tasks", async ({ db, runnerDb }) => {
+		await seedWorld(db, runnerDb);
 
 		const roots = await rows<{ title: string; state: string; team: string }>(
 			db,
@@ -119,8 +109,9 @@ describe("the demo world tells the design's story", () => {
 
 	test("the trials task has four parts and twelve at the bottom, six of them done", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seedWorld(db);
+		await seedWorld(db, runnerDb);
 
 		const parts = await rows<{ title: string }>(
 			db,
@@ -147,8 +138,9 @@ describe("the demo world tells the design's story", () => {
 
 	test("the card question is open, so its part needs input; the layout needs a review", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seedWorld(db);
+		await seedWorld(db, runnerDb);
 
 		const questions = await rows<{ payload: string; resolved_at: string | null }>(
 			db,
@@ -164,8 +156,9 @@ describe("the demo world tells the design's story", () => {
 
 	test("the trial-end explainer: round 1 rejected with a reason, round 2 waiting", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seedWorld(db);
+		await seedWorld(db, runnerDb);
 
 		const reviews = await rows<{ id: string; resolved_at: string | null }>(
 			db,
@@ -186,8 +179,11 @@ describe("the demo world tells the design's story", () => {
 		expect(await needOf(db, TASK_EXPLAIN)).toBe("review");
 	});
 
-	test("Support themes, weekly: twelve Monday runs done, the next one to come", async ({ db }) => {
-		await seedWorld(db);
+	test("Support themes, weekly: twelve Monday runs done, the next one to come", async ({
+		db,
+		runnerDb,
+	}) => {
+		await seedWorld(db, runnerDb);
 
 		const runs = await rows<{ state: string }>(
 			db,
@@ -201,8 +197,11 @@ describe("the demo world tells the design's story", () => {
 		expect(monday).toEqual([{ schedule: "0 7 * * 1", paused: false }]);
 	});
 
-	test("knowledge has a space per team, with How we price and its drafts", async ({ db }) => {
-		await seedWorld(db);
+	test("knowledge has a space per team, with How we price and its drafts", async ({
+		db,
+		runnerDb,
+	}) => {
+		await seedWorld(db, runnerDb);
 
 		const tree = await rows<{ team: string; title: string; parent: string | null; status: string }>(
 			db,
@@ -233,8 +232,8 @@ describe("the demo world tells the design's story", () => {
 		]);
 	});
 
-	test("Finn lands in the app, and has unread notifications", async ({ db }) => {
-		await seedWorld(db);
+	test("Finn lands in the app, and has unread notifications", async ({ db, runnerDb }) => {
+		await seedWorld(db, runnerDb);
 
 		const humans = await rows<{ id: string; name: string }>(
 			db,
@@ -259,21 +258,33 @@ describe("the demo world tells the design's story", () => {
 
 	test("nothing claims to be running: every session has ended, and tasks under way keep its notes", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seedWorld(db);
-		expect(await count(db, "sessions", "WHERE state = 'active' OR ended_at IS NULL")).toBe(0);
-		const underWay = await rows<{ id: string; notes: string | null }>(
+		await seedWorld(db, runnerDb);
+		expect(
+			await countRunner(runnerDb, "sessions", "WHERE state = 'active' OR ended_at IS NULL"),
+		).toBe(0);
+		// sessions live in runner-db; get tasks from core-db first, then fetch notes per task
+		const underWayTasks = await rows<{ id: string }>(
 			db,
-			`SELECT t.id, (SELECT s.notes FROM sessions s WHERE s.task_id = t.id ORDER BY s.started_at DESC LIMIT 1) AS notes
-			 FROM tasks t WHERE t.state = 'in_progress' AND t.owner_agent_id IS NOT NULL
+			`SELECT t.id FROM tasks t WHERE t.state = 'in_progress' AND t.owner_agent_id IS NOT NULL
 			 AND NOT EXISTS (SELECT 1 FROM tasks c WHERE c.parent_task_id = t.id)`,
 		);
-		expect(underWay.length).toBeGreaterThan(0);
+		expect(underWayTasks.length).toBeGreaterThan(0);
+		const underWay = await Promise.all(
+			underWayTasks.map(async (task) => {
+				const sessionNotes = await runnerRows<{ notes: string | null }>(
+					runnerDb,
+					`SELECT s.notes FROM sessions s WHERE s.task_id = '${task.id}' ORDER BY s.started_at DESC LIMIT 1`,
+				);
+				return { id: task.id, notes: sessionNotes[0]?.notes ?? null };
+			}),
+		);
 		for (const task of underWay) expect(task.notes, task.id).toEqual(expect.any(String));
 	});
 
-	test("seeding twice changes nothing", async ({ db }) => {
-		await seedWorld(db);
+	test("seeding twice changes nothing", async ({ db, runnerDb }) => {
+		await seedWorld(db, runnerDb);
 		const tables = [
 			"users",
 			"teams",
@@ -281,16 +292,17 @@ describe("the demo world tells the design's story", () => {
 			"threads",
 			"messages",
 			"documents",
-			"sessions",
 			"subscriptions",
 			"inbox",
 			"plugins",
 			"plugin_contributions",
 		];
 		const before = await Promise.all(tables.map((t) => count(db, t)));
+		const sessionsBefore = await countRunner(runnerDb, "sessions");
 
-		await seedDemoWorld(db);
+		await seedDemoWorld(db, runnerDb);
 
 		expect(await Promise.all(tables.map((t) => count(db, t)))).toEqual(before);
+		expect(await countRunner(runnerDb, "sessions")).toBe(sessionsBefore);
 	});
 });

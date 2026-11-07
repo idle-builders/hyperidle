@@ -70,8 +70,7 @@ describe("API availability regression guard", () => {
 		// `search_documents`/`open_document`/`edit_document` under
 		// `POST /api/actions/<name>`, not a route module with a GET base path.
 		"/api/knowledge",
-		// /api/sessions is deleted — session is an action now,
-		// `search_sessions`/`watch_session`/`stop_session` under
+		// /api/sessions is deleted — `search_sessions` is under
 		// `POST /api/actions/<name>`, not a route module with a GET base path.
 		"/api/sessions",
 		"/api/git-export",

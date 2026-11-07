@@ -7,9 +7,9 @@
 
 import { createStandaloneSearchDocuments } from "@hyperidle/core-api";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterAll, vi } from "vitest";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { seedAgent, seedMinimalWorld, seedMultiAgentWorld, seedTeam } from "../seeding.js";
 
 // @lore: harness choice fixed — a real harness needs a binary CI lacks; service lane resets the shared module cache after this file
@@ -35,14 +35,17 @@ async function identityOf(db: HyperIdleDb, agentId: string): Promise<string[]> {
 }
 
 describe("a scenario's agent identity", () => {
-	test("the minimal world's agent carries the scenario's identity", async ({ db }) => {
-		const world = await seedMinimalWorld(db, { agentSystemPrompt: "You are Aria." });
+	test("the minimal world's agent carries the scenario's identity", async ({ db, runnerDb }) => {
+		const world = await seedMinimalWorld(db, runnerDb, { agentSystemPrompt: "You are Aria." });
 
 		expect(await identityOf(db, world.agentId)).toEqual(["You are Aria."]);
 	});
 
-	test("the second agent of a multi-agent world carries its own identity", async ({ db }) => {
-		const world = await seedMultiAgentWorld(db, {
+	test("the second agent of a multi-agent world carries its own identity", async ({
+		db,
+		runnerDb,
+	}) => {
+		const world = await seedMultiAgentWorld(db, runnerDb, {
 			agentSystemPrompt: "You are the builder.",
 			secondAgentSystemPrompt: "You are the reviewer.",
 		});
@@ -51,10 +54,10 @@ describe("a scenario's agent identity", () => {
 		expect(await identityOf(db, world.secondAgentId)).toEqual(["You are the reviewer."]);
 	});
 
-	test("an agent the scenario gives no identity has none", async ({ db }) => {
-		const world = await seedMinimalWorld(db);
+	test("an agent the scenario gives no identity has none", async ({ db, runnerDb }) => {
+		const world = await seedMinimalWorld(db, runnerDb);
 		const { teamId } = await seedTeam(db);
-		const { agentId } = await seedAgent(db, { name: "Plain", role: "ops", teamId });
+		const { agentId } = await seedAgent(db, runnerDb, { name: "Plain", role: "ops", teamId });
 
 		expect(await identityOf(db, world.agentId)).toEqual([]);
 		expect(await identityOf(db, agentId)).toEqual([]);

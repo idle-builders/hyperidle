@@ -57,6 +57,7 @@ function trigger(ctx: TriggerContext): Promise<TriggerResult> {
 	return runEvalSession(
 		{
 			db: ctx.db,
+			runnerDb: ctx.runnerDb,
 			eventBus: ctx.eventBus,
 		},
 		{
@@ -77,7 +78,7 @@ const caCodeBuilderDevops: EvalScenario = {
 	feature: "edit_document_artifact",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure changes.
 When you finish a piece of work, leave the output where your team can find it.`,
@@ -114,7 +115,7 @@ const caInteractiveDesignerFrontend: EvalScenario = {
 	feature: "edit_document_artifact",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "designer",
 			agentSystemPrompt: `You are a designer agent.
 When you make something a person should look at rather than read, leave it where the team can see it.`,
@@ -169,7 +170,7 @@ const caDecisionPmHealthcare: EvalScenario = {
 	feature: "edit_document_artifact",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager in the healthcare domain.
 Decisions you make need to be findable later by whoever has to live with them.`,

@@ -49,7 +49,7 @@ const frForcedReturnBuilder: EvalScenario = {
 	tags: [],
 
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent.
 IMPORTANT INSTRUCTION: Do the analysis task below and then STOP your turn immediately.
@@ -74,6 +74,7 @@ Your system prompt has specific instructions about how to end this task.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -197,7 +198,7 @@ const frCompliantReturnBuilder: EvalScenario = {
 	tags: [],
 
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent. When you complete work,
 always use send_message with type "review" to report your results. This is required — your work
@@ -221,6 +222,7 @@ This is a simple task. Complete it and call send_message before ending your turn
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -288,7 +290,7 @@ const frForcedReturnExternal: EvalScenario = {
 	tags: [],
 
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent.
 IMPORTANT INSTRUCTION: Do the analysis task below and then STOP your turn immediately.
@@ -312,6 +314,7 @@ Do NOT call edit_task or send_message.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -461,7 +464,7 @@ const frForcedReturnExternalCompliant: EvalScenario = {
 	tags: [],
 
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			// @lore Seed tuning — compliant but ambiguous system prompt.
 			// "You are a builder agent" → willing to comply with orchestrator directives.
@@ -493,6 +496,7 @@ Your response is complete once you have written the summary.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{

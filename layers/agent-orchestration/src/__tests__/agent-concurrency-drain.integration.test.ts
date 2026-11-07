@@ -7,18 +7,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	agentSessionRequests,
-	type HyperIdleDb,
-	sessions,
-	teams,
-	users,
-	userTeams,
-} from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
+import { agentSessionRequests, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, vi } from "vitest";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import {
 	buildRunOrchestrationComposition,
 	type ProvisionSessionDeps,
@@ -33,7 +27,7 @@ afterEach(() => {
 	for (const dir of sandboxDirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 });
 
-function buildDeps(db: HyperIdleDb, eventBus: EventBus): ProvisionSessionDeps {
+function buildDeps(db: RunnerDb, eventBus: EventBus): ProvisionSessionDeps {
 	return {
 		db,
 		eventBus,
@@ -70,7 +64,7 @@ function buildDeps(db: HyperIdleDb, eventBus: EventBus): ProvisionSessionDeps {
 	} as unknown as ProvisionSessionDeps;
 }
 
-function startRuntime(db: HyperIdleDb, eventBus: EventBus) {
+function startRuntime(db: RunnerDb, eventBus: EventBus) {
 	const composition = buildRunOrchestrationComposition({
 		harnessRuntime: {
 			enforcementRegistry: {
@@ -101,8 +95,8 @@ function startRuntime(db: HyperIdleDb, eventBus: EventBus) {
 	);
 }
 
-async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
-	await db.insert(users).values({
+async function seedAgent(serverDb: HyperIdleDb, id: string): Promise<void> {
+	await serverDb.insert(users).values({
 		id,
 		kind: "ai",
 		name: id,
@@ -110,11 +104,11 @@ async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 		status: "active",
 		createdAt: new Date().toISOString(),
 	});
-	await db.insert(userTeams).values({ userId: id, teamId: TEAM });
+	await serverDb.insert(userTeams).values({ userId: id, teamId: TEAM });
 }
 
 async function seedRequest(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	id: string,
 	agentId: string,
 	status: "pending" | "running",
@@ -140,7 +134,7 @@ async function seedRequest(
 	});
 }
 
-async function requestRow(db: HyperIdleDb, id: string) {
+async function requestRow(db: RunnerDb, id: string) {
 	const [row] = await db.select().from(agentSessionRequests).where(eq(agentSessionRequests.id, id));
 	return row;
 }
@@ -148,16 +142,17 @@ async function requestRow(db: HyperIdleDb, id: string) {
 describe("drain with one agent at its session limit", () => {
 	test("a request for another agent is admitted, and the waiting one runs once a slot frees", async ({
 		db,
+		runnerDb,
 	}) => {
 		await db.insert(teams).values({ id: TEAM, name: "Drain", createdAt: new Date().toISOString() });
 		await seedAgent(db, BUSY);
 		await seedAgent(db, IDLE);
 		const eventBus = new EventBus();
-		const runtime = await startRuntime(db, eventBus);
+		const runtime = await startRuntime(runnerDb, eventBus);
 		try {
 			// The busy agent's one slot is taken by a run already in flight.
-			await seedRequest(db, "busy-running", BUSY, "running", "2026-10-01T00:00:00.000Z");
-			await db.insert(sessions).values({
+			await seedRequest(runnerDb, "busy-running", BUSY, "running", "2026-10-01T00:00:00.000Z");
+			await runnerDb.insert(sessions).values({
 				id: "session-busy-running",
 				requestId: "busy-running",
 				agentId: BUSY,
@@ -166,27 +161,29 @@ describe("drain with one agent at its session limit", () => {
 				state: "active",
 			});
 			// Oldest pending first: the busy agent's request sits ahead of the idle one's.
-			await seedRequest(db, "busy-waiting", BUSY, "pending", "2026-10-01T00:00:01.000Z");
-			await seedRequest(db, "idle-new", IDLE, "pending", "2026-10-01T00:00:02.000Z");
+			await seedRequest(runnerDb, "busy-waiting", BUSY, "pending", "2026-10-01T00:00:01.000Z");
+			await seedRequest(runnerDb, "idle-new", IDLE, "pending", "2026-10-01T00:00:02.000Z");
 
 			// A request carries a session id only once admission let it run.
 			await vi.waitFor(
 				async () =>
-					expect((await requestRow(db, "idle-new"))?.sessionId).toEqual(expect.any(String)),
+					expect((await requestRow(runnerDb, "idle-new"))?.sessionId).toEqual(expect.any(String)),
 				{ timeout: 5_000, interval: 100 },
 			);
-			expect(await requestRow(db, "busy-waiting")).toMatchObject({
+			expect(await requestRow(runnerDb, "busy-waiting")).toMatchObject({
 				status: "pending",
 				sessionId: null,
 			});
 
-			await db
+			await runnerDb
 				.update(sessions)
 				.set({ state: "done", outcome: "completed", endedAt: new Date().toISOString() })
 				.where(eq(sessions.id, "session-busy-running"));
 			await vi.waitFor(
 				async () =>
-					expect((await requestRow(db, "busy-waiting"))?.sessionId).toEqual(expect.any(String)),
+					expect((await requestRow(runnerDb, "busy-waiting"))?.sessionId).toEqual(
+						expect.any(String),
+					),
 				{ timeout: 5_000, interval: 100 },
 			);
 		} finally {

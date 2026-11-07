@@ -1,0 +1,21 @@
+{
+	"name": "@hyperidle/runner-db",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./test-fixtures": "./src/__testing__/test-fixtures.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@electric-sql/pglite": "^0.5.4",
+		"drizzle-orm": "^0.45.2",
+		"postgres": "^3.4.9"
+	},
+	"devDependencies": {
+		"vitest": "^4.1.9"
+	}
+}

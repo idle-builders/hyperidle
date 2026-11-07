@@ -33,7 +33,7 @@ const riCheckAndRespondPmConsulting: EvalScenario = {
 	feature: "read_inbox",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMultiAgentWorld(ctx.db, {
+		const world = await seedMultiAgentWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager coordinating a consulting engagement.
 At the start of each session, check your inbox using read_inbox to see if teammates have questions.
@@ -70,6 +70,7 @@ Your response should directly address the timeline question asked.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -109,7 +110,7 @@ const riEmptyInboxBuilderDevops: EvalScenario = {
 	feature: "read_inbox",
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on infrastructure tasks.
 At the start of each session, check your inbox using read_inbox.
@@ -127,6 +128,7 @@ Do NOT create any tasks or items if the inbox is empty — just do your assigned
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -173,7 +175,7 @@ const riMultipleThreadsBuilderFrontend: EvalScenario = {
 	feature: "read_inbox",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMultiAgentWorld(ctx.db, {
+		const world = await seedMultiAgentWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent implementing frontend components.
 Check your inbox using read_inbox when you start your session.
@@ -228,6 +230,7 @@ Ignore unrelated threads (e.g., general team updates).`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{

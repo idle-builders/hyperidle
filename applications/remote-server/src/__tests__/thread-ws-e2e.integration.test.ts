@@ -7,8 +7,8 @@
  * socket, subscribes over that socket, then writes through BOTH real doors —
  * the HTTP action route (`POST /api/actions/send_message`) and the MCP tool
  * door (`actionTools`'s registered `send_message` handler: the exact
- * registry `bootAgentOrchestration`'s runtime threads a live agent session's
- * tool calls through, `actionsAsTools` in `actions/actions-as-tools.ts`) —
+ * registry the run-orchestration composition threads a live agent session's
+ * tool calls through) —
  * and asserts the nudge actually reaches the client.
  *
  * No fakes on the path under test: this is the seam
@@ -37,7 +37,6 @@ async function boot(db: HyperIdleDb): Promise<Booted> {
 	vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "thread-ws-e2e-test-secret-32-chars!!");
 	const server = await createServer(0, {
 		db,
-		topology: "disabled",
 	});
 	const addr = server.httpServer.address();
 	if (typeof addr !== "object" || addr === null) {
@@ -71,9 +70,16 @@ function connect(handle: Booted, token: string): WebSocket {
 function waitForOpen(ws: WebSocket): Promise<void> {
 	return new Promise((resolve, reject) => {
 		ws.addEventListener("open", () => resolve(), { once: true });
-		ws.addEventListener("error", (evt) => reject(new Error(`ws error: ${String(evt)}`)), {
-			once: true,
-		});
+		ws.addEventListener(
+			"error",
+			(evt) => {
+				const e = evt as ErrorEvent;
+				const underlying = e.error instanceof Error ? e.error.message : String(e.error ?? "");
+				const detail = underlying ? ` (${underlying})` : "";
+				reject(new Error(`ws error: ${e.message ?? "unknown"}${detail}`));
+			},
+			{ once: true },
+		);
 	});
 }
 

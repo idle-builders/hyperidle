@@ -70,11 +70,11 @@
 		},
 		"framework/db": {
 			"reach": "everyone",
-			"why": "the manifest-level dependency on the database package. Which surface INSIDE it you may touch is decided per surface below, so declaring the dependency is not itself a decision."
+			"why": "the manifest-level dependency on the server database package. Which surface INSIDE it you may touch is decided per surface below, so declaring the dependency is not itself a decision."
 		},
-		"framework/api-contract": {
-			"reach": ["layer"],
-			"why": "the request/response shapes two layers agree on. A service talks through its own layer, so it has no business naming the contract directly."
+		"framework/runner-db": {
+			"reach": "everyone",
+			"why": "the manifest-level dependency on the runner database package. Which surface INSIDE it you may touch is decided per surface below, so declaring the dependency is not itself a decision."
 		},
 		"db:client": {
 			"reach": "everyone",
@@ -97,20 +97,33 @@
 			"why": "development code. A production file naming it is already an error under the production-may-not-name-development clause; this entry keeps the two answers from disagreeing."
 		}
 	},
-	"databasePackage": {
-		"note": "`framework/db` is not one target \u2014 it is several surfaces with different rules (Ruling 11.2). Which surface an import lands on is decided by the MODULE the symbol is defined in. Tables and row types are detected from the schema source itself, so they are absent here. A module not listed falls to `db:unknown` and is reported \u2014 guessing its surface would be fabrication.",
-		"packageName": "db",
-		"sourceRoot": "framework/db/src",
-		"barrel": "framework/db/src/index.ts",
-		"schemaModule": "framework/db/src/schema.ts",
-		"moduleSurface": {
-			"connection.ts": "db:client",
-			"migrate.ts": "db:client",
-			"write-executor.ts": "db:client",
-			"migrate-pg.ts": "db:client",
-			"pg-ssl.ts": "db:client"
+	"databasePackages": [
+		{
+			"note": "`framework/db` is not one target \u2014 it is several surfaces with different rules (Ruling 11.2). Which surface an import lands on is decided by the MODULE the symbol is defined in. Tables and row types are detected from the schema source itself, so they are absent here. A module not listed falls to `db:unknown` and is reported \u2014 guessing its surface would be fabrication.",
+			"packageName": "db",
+			"sourceRoot": "framework/db/src",
+			"barrel": "framework/db/src/index.ts",
+			"schemaModule": "framework/db/src/schema.ts",
+			"moduleSurface": {
+				"connection.ts": "db:client",
+				"migrate.ts": "db:client",
+				"write-executor.ts": "db:client",
+				"migrate-pg.ts": "db:client",
+				"pg-ssl.ts": "db:client"
+			}
+		},
+		{
+			"note": "`framework/runner-db` holds the run tables the runner process owns. Same surface rules as `framework/db` \u2014 the module decides, never the package.",
+			"packageName": "runner-db",
+			"sourceRoot": "framework/runner-db/src",
+			"barrel": "framework/runner-db/src/index.ts",
+			"schemaModule": "framework/runner-db/src/schema.ts",
+			"moduleSurface": {
+				"connection.ts": "db:client",
+				"migrate.ts": "db:client"
+			}
 		}
-	},
+	],
 	"endpoints": {
 		"note": "A door is dialled only if the target declares it.",
 		"httpApiLayers": {

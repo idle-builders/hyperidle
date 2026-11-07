@@ -11,10 +11,11 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import type { JudgeModel } from "./runner.js";
 
 // Re-export for consumers of @hyperidle/eval
-export type { HyperIdleDb, JudgeModel };
+export type { HyperIdleDb, JudgeModel, RunnerDb };
 
 // ---------------------------------------------------------------------------
 // Seeding types
@@ -24,6 +25,7 @@ export type { HyperIdleDb, JudgeModel };
 export interface SeedContext {
 	/** Ephemeral PGlite-backed Drizzle DB instance with full schema. */
 	readonly db: HyperIdleDb;
+	readonly runnerDb: RunnerDb;
 }
 
 /** The IDs a seed function must return so the trigger knows what to provision. */
@@ -45,6 +47,7 @@ export interface ScenarioSeedResult {
  */
 export interface TriggerContext {
 	readonly db: HyperIdleDb;
+	readonly runnerDb: RunnerDb;
 	readonly eventBus: EventBus;
 	readonly seedResult: ScenarioSeedResult;
 }
@@ -101,6 +104,7 @@ export interface RubricDimension {
 
 export interface JudgeContext {
 	readonly db: HyperIdleDb;
+	readonly runnerDb: RunnerDb;
 	readonly seedResult: ScenarioSeedResult;
 	readonly triggerResult: TriggerResult;
 	/** The model the LLM-as-judge scores with — never the harness's own. */

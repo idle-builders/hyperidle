@@ -14,6 +14,13 @@ contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 		ipcRenderer.invoke("backend:join", form),
 	/** Stops a sign-in that is still waiting for the browser. */
 	cancelJoin: (): Promise<void> => ipcRenderer.invoke("backend:cancel-join"),
+	/** The local runner: query which agents it holds and adopt one to this computer. */
+	runner: {
+		state: (agentId: string): Promise<{ held: boolean; movedAway: boolean } | null> =>
+			ipcRenderer.invoke("runner:state", agentId),
+		moveHere: (agentId: string): Promise<{ held: boolean; movedAway: boolean } | null> =>
+			ipcRenderer.invoke("runner:move-here", agentId),
+	},
 	/** Only when the speech helper shipped with this app; the page never sees the IPC event. */
 	speech: process.argv.includes("--speech")
 		? {

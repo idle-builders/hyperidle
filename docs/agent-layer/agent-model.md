@@ -9,7 +9,7 @@ Agents and humans are both `users` rows. The only difference is `users.kind`: `'
 Agent identity has two parts:
 
 - **Who the agent is** — `users`: the stable `users.id` (kind `'ai'`), plus `status`, its one team (`user_teams`), `agentCategory`, and `health` (a freeform crash note, written by the orchestrator on session failure).
-- **How the agent runs** — `agent_run_config`: one row per `agent_user_id`, holding `harness_type`, `model_id`, `model_provider`, `model_options_json`, and `max_concurrent_sessions` (default 1). An absent row is identical to an all-null row.
+- **How the agent runs** — `agent_run_config` (`framework/runner-db/src/schema.ts`): one row per `agent_user_id`, holding `harness_type`, `model_id`, `model_provider`, `model_options_json`, and `max_concurrent_sessions` (default 1). This table lives in the runner's own database, not in the core database. An absent row is identical to an all-null row.
 
 ### Identity document
 
@@ -41,8 +41,6 @@ Every human has one personal assistant: an `individual`-category agent, `ownerUs
 ## Model
 
 Model is per agent: `agent_run_config.model_id` and `agent_run_config.model_provider`. At session start the provisioner reads these and passes them to the harness as `selectedModel` in `SessionConfig`. The tier label is recorded on `sessions.model_tier` (used for token-usage bucketing in `TokenUsage.byTier`), not for routing.
-
-`validate-agent-config.ts` (`layers/core-api/user/src/validate-agent-config.ts`) checks that the harness supports the requested model before accepting an `edit_user`.
 
 HyperIdle holds no model API key. The harness brings its own login. See [harnesses.md](./harnesses.md).
 

@@ -26,21 +26,6 @@ describe("secondary index coverage", () => {
 		expect(indexes.some((i) => i.includes("team_id"))).toBe(true);
 	});
 
-	test("sessions has an index for task_id", async ({ db }) => {
-		const indexes = await indexesFor(db, "sessions");
-		expect(indexes.some((i) => i.includes("task_id"))).toBe(true);
-	});
-
-	test("sessions has an index for agent_id", async ({ db }) => {
-		const indexes = await indexesFor(db, "sessions");
-		expect(indexes.some((i) => i.includes("agent_id"))).toBe(true);
-	});
-
-	test("sessions has an index for state", async ({ db }) => {
-		const indexes = await indexesFor(db, "sessions");
-		expect(indexes.some((i) => i.includes("state"))).toBe(true);
-	});
-
 	test("messages has an index for thread_id", async ({ db }) => {
 		const indexes = await indexesFor(db, "messages");
 		expect(indexes.some((i) => i.includes("thread_id"))).toBe(true);

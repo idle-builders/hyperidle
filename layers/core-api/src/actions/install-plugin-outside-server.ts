@@ -15,7 +15,6 @@ import type {
 } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { agentItemId } from "@hyperidle/settings";
-import { buildAgentOrchestrationPort } from "../services/agent-orchestration-port-composition.js";
 import type { Action } from "./action.js";
 import { buildCoreActions } from "./compose.js";
 
@@ -30,16 +29,11 @@ export interface InstallPluginOutsideServerInput {
 	readonly pluginsBaseDir?: string;
 }
 
-function unreachable(what: string): never {
-	throw new Error(`installPluginOutsideServer: ${what} is unreachable — an install never calls it`);
-}
-
 export async function installPluginOutsideServer(
 	db: HyperIdleDb,
 	input: InstallPluginOutsideServerInput,
 ): Promise<PluginView> {
 	const actions = buildCoreActions({
-		agentOrchestration: buildAgentOrchestrationPort(() => unreachable("orchestration")),
 		...(input.pluginsBaseDir ? { pluginsBaseDir: input.pluginsBaseDir } : {}),
 	});
 	const editPlugin = actions.find((a) => a.declaration.name === "edit_plugin") as

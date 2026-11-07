@@ -7,8 +7,6 @@
 // -- agent identity --
 export type { AgentIdentityDeps, AgentIdentityPort } from "./agent-identity.js";
 export { createAgentIdentityPort } from "./agent-identity.js";
-// -- whose services an agent reaches --
-export { connectionOwnerFor } from "./connection-owner.js";
 // -- cron (used by the subscription clock's schedule trigger) --
 export type { CronFields } from "./cron.js";
 export { nextCronMatch, parseCron } from "./cron.js";
@@ -82,9 +80,3 @@ export {
 	setUserTeams,
 	updateUser,
 } from "./user-store.js";
-// -- run-config validation --
-export type {
-	AgentConfigValidationError,
-	HarnessCapabilityProbe,
-} from "./validate-agent-config.js";
-export { validateAgentConfig, validateAgentLogin } from "./validate-agent-config.js";

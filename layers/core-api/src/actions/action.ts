@@ -3,11 +3,7 @@ import type {
 	ActionDeclaration,
 	ActionResult,
 	DocumentRow,
-	EditUserInput,
 	SearchDocumentsInput,
-	SendMessageInput,
-	SendMessageOutput,
-	UserView,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 
@@ -33,16 +29,6 @@ export interface Action<I = unknown, O = unknown> {
 	readonly run: (ctx: ActionContext, input: I) => Promise<ActionResult<O>>;
 }
 
-/** send_message's bound run — one canonical shape for all consumers threading it through. */
-export type SendMessageRunFn = (
-	ctx: ActionContext,
-	input: SendMessageInput,
-) => Promise<ActionResult<SendMessageOutput>>;
-/** edit_user's bound run — same canonical-shape idiom as SendMessageRunFn. */
-export type EditUserRunFn = (
-	ctx: ActionContext,
-	input: EditUserInput,
-) => Promise<ActionResult<UserView>>;
 /** search_documents's bound run — the only door a document-reading neighbour gets onto @hyperidle/document. */
 export type SearchDocumentsRunFn = (
 	ctx: ActionContext,

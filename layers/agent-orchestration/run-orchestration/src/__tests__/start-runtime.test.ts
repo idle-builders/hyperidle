@@ -1,5 +1,5 @@
-import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
+import type { AgentSessionRequest, RunnerDb } from "@hyperidle/runner-db";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RuntimeDeps, RuntimePorts } from "../contracts.js";
 import { ConcurrencyLimitError } from "../errors.js";
@@ -50,7 +50,7 @@ function deps(): RuntimeDeps {
 		},
 	} as unknown as RuntimePorts;
 	return {
-		db: {} as HyperIdleDb,
+		db: {} as RunnerDb,
 		eventBus: new EventBus(),
 		ports,
 		composition: {

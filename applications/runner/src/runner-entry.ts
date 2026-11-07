@@ -1,0 +1,131 @@
+/**
+ * CLI entry point for the standalone runner process.
+ *
+ * Required environment variables:
+ *   HYPERIDLE_SERVER_URL  — the core-api server to connect to
+ *   HYPERIDLE_API_KEY     — the person's API key
+ *   HYPERIDLE_DATA_DIR    — directory for runner-db and logs
+ *
+ * IPC (Electron utilityProcess.fork):
+ *   Receives  { type: "take", agentId: string }
+ *   Receives  { type: "state", agentId: string, reqId: string }
+ *             → replies { type: "state", reqId: string, held: boolean, movedAway: boolean }
+ */
+
+import { bootAgentExecution } from "@hyperidle/agent-execution";
+import { createLogger } from "@hyperidle/diagnostics";
+import { resolveFreePort, startRunner } from "./index.js";
+
+const logger = createLogger({ pkg: "runner.entry" });
+
+function needEnv(name: string): string {
+	const v = process.env[name];
+	if (!v) throw new Error(`Runner: required env var ${name} is not set`);
+	return v;
+}
+
+const serverUrl = needEnv("HYPERIDLE_SERVER_URL");
+const personKey = needEnv("HYPERIDLE_API_KEY");
+const dataDir = needEnv("HYPERIDLE_DATA_DIR");
+
+// IPC channel for Electron utilityProcess.fork — handle messages from main.ts.
+// @lore: process.parentPort — injected by Electron utility process runtime; absent in CLI; not in @types/node.
+interface ParentPort {
+	on(event: "message", listener: (event: { data: unknown }) => void): void;
+	postMessage(msg: unknown): void;
+}
+
+// Wrapped in an IIFE so CJS output (esbuild) can compile top-level await.
+void (async () => {
+	logger.info("runner starting", { serverUrl, dataDir });
+
+	// Resolve the MCP bridge port first so agentExecution's mcpBaseUrl matches
+	// the port the bridge server will actually listen on.
+	const mcpPort = await resolveFreePort();
+	const mcpBaseUrl = `http://127.0.0.1:${mcpPort}`;
+	const agentExecution = await bootAgentExecution({ topology: "local", mcpBaseUrl });
+
+	const runner = await startRunner({
+		serverUrl,
+		personKey,
+		dataDir,
+		agentExecution,
+		mcpPort,
+	});
+	await runner.start();
+
+	logger.info("runner started", {
+		held: runner.heldAgentIds().length,
+		movedAway: runner.movedAwayAgentIds().length,
+	});
+
+	const parentPort = (process as { parentPort?: ParentPort }).parentPort;
+	if (parentPort) {
+		parentPort.on("message", (event: { data: unknown }) => {
+			const msg = event.data as { type?: string; agentId?: string; reqId?: string } | null;
+			if (!msg || typeof msg.type !== "string") return;
+			if (msg.type === "take" && typeof msg.agentId === "string") {
+				const takeAgentId = msg.agentId;
+				const takeReqId = msg.reqId;
+				runner
+					.takeAgent(takeAgentId)
+					.then(() => {
+						if (takeReqId && parentPort) {
+							parentPort.postMessage({
+								type: "state",
+								reqId: takeReqId,
+								held: runner.heldAgentIds().includes(takeAgentId),
+								movedAway: runner.movedAwayAgentIds().includes(takeAgentId),
+							});
+						}
+					})
+					.catch((err: unknown) => {
+						logger.error("runner.takeAgent failed", { agentId: takeAgentId, error: String(err) });
+						if (takeReqId && parentPort) {
+							parentPort.postMessage({
+								type: "state",
+								reqId: takeReqId,
+								held: runner.heldAgentIds().includes(takeAgentId),
+								movedAway: runner.movedAwayAgentIds().includes(takeAgentId),
+							});
+						}
+					});
+			} else if (
+				msg.type === "state" &&
+				typeof msg.agentId === "string" &&
+				typeof msg.reqId === "string"
+			) {
+				const agentId = msg.agentId;
+				const reqId = msg.reqId;
+				parentPort.postMessage({
+					type: "state",
+					reqId,
+					held: runner.heldAgentIds().includes(agentId),
+					movedAway: runner.movedAwayAgentIds().includes(agentId),
+				});
+			}
+		});
+	}
+
+	// Graceful shutdown on SIGTERM/SIGINT.
+	function shutdown(signal: string): void {
+		logger.info("runner shutting down", { signal });
+		runner
+			.stop()
+			.then(() => {
+				agentExecution.dispose();
+				logger.info("runner stopped");
+				process.exit(0);
+			})
+			.catch((err: unknown) => {
+				agentExecution.dispose();
+				logger.error("runner stop error", {
+					error: err instanceof Error ? err.message : String(err),
+				});
+				process.exit(1);
+			});
+	}
+
+	process.on("SIGTERM", () => shutdown("SIGTERM"));
+	process.on("SIGINT", () => shutdown("SIGINT"));
+})();

@@ -7,16 +7,17 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, users } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { users } from "@hyperidle/db";
 import type { SessionNotReturnedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, describe, vi } from "vitest";
 import {
 	buildRunningHarnessPorts,
 	completingHarnessAdapter,
+	expect,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
+	test,
 } from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 
@@ -36,6 +37,7 @@ describe("session_not_returned carries callingThreadId", () => {
 
 	test("a not-returned session with a baked callingThreadId emits session_not_returned carrying it", async ({
 		db,
+		runnerDb,
 	}) => {
 		await db.insert(users).values({
 			id: "agent-not-returned-1",
@@ -58,7 +60,7 @@ describe("session_not_returned carries callingThreadId", () => {
 		const ports = buildHarnessPorts();
 		const provisioner = createProvisioner(ports);
 		const deps: ProvisionSessionDeps = {
-			db: db as HyperIdleDb,
+			db: runnerDb,
 			eventBus,
 			adapterPool: {
 				select: () => ({
@@ -99,6 +101,7 @@ describe("session_not_returned carries callingThreadId", () => {
 
 	test("a not-returned session with no callingThreadId omits the field (unchanged)", async ({
 		db,
+		runnerDb,
 	}) => {
 		await db.insert(users).values({
 			id: "agent-not-returned-2",
@@ -127,7 +130,7 @@ describe("session_not_returned carries callingThreadId", () => {
 		});
 		const provisioner = createProvisioner(ports);
 		const deps: ProvisionSessionDeps = {
-			db: db as HyperIdleDb,
+			db: runnerDb,
 			eventBus,
 			adapterPool: {
 				select: () => ({

@@ -6,6 +6,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { seedActivity } from "./activity.js";
 import { seedAgentFiles } from "./agent-files.js";
 import { seedApps } from "./apps.js";
@@ -18,15 +19,16 @@ import { seedWork } from "./work.js";
 
 export async function seedDemoWorldContent(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	clock: DemoClock,
 	places: DemoWorldPlaces,
 ): Promise<void> {
-	await seedCast(db, clock, places);
+	await seedCast(db, runnerDb, clock, places);
 	await seedAgentFiles(db, clock);
 	await seedDocuments(db, clock);
 	await seedConversations(db, clock);
 	await seedWork(db, clock);
 	await seedApps(db, clock);
-	await seedActivity(db, clock);
+	await seedActivity(db, runnerDb, clock);
 	await seedChanges(db, clock);
 }

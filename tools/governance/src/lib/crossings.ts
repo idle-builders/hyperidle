@@ -64,6 +64,8 @@ export interface CrossingsInput {
 	readonly tableOwners: TableOwners;
 	/** Framework package name → the surface label it is named by, e.g. `db` → `framework/db`. */
 	readonly frameworkSurfaces: ReadonlyMap<string, string>;
+	/** Package names that are database packages and require per-symbol resolution (e.g. `db`, `runner-db`). */
+	readonly dbPackageNames: ReadonlySet<string>;
 }
 
 export interface CrossingsResult {
@@ -72,6 +74,8 @@ export interface CrossingsResult {
 	readonly countsByKind: ReadonlyMap<Kind, number>;
 	/** Database symbols that could not be placed. Reported, never absorbed. */
 	readonly unplacedDbSymbols: ReadonlyMap<string, string>;
+	/** Per-database-package unplaced symbol maps. Keyed by `packageName` from `DatabasePackageConfig`. */
+	readonly unplacedDbSymbolsByPackage: ReadonlyMap<string, ReadonlyMap<string, string>>;
 	/** Passed back so a rule can resolve a symbol to its surface without a second index. */
 	readonly db: DbSurfaceIndex;
 	readonly frameworkSurfaces: ReadonlyMap<string, string>;
@@ -168,8 +172,8 @@ function detectImports(
 			continue;
 		}
 
-		// The database package: split per symbol.
-		if (toPkg.name === "db") {
+		// A database package: split per symbol so each table reach is classified individually.
+		if (input.dbPackageNames.has(toPkg.name)) {
 			const symbols = edge.namespace || edge.symbols.length === 0 ? [""] : edge.symbols;
 			for (const symbol of symbols) {
 				const resolved = db.resolve(edge.to, symbol, edge.namespace || symbol === "");
@@ -212,7 +216,7 @@ function detectImports(
  * migration, and it removes the last production→tooling breach on its own.
  */
 function detectManifests(input: CrossingsInput): DetectedCrossing[] {
-	const { census, frameworkSurfaces } = input;
+	const { census, frameworkSurfaces, dbPackageNames } = input;
 	const out: DetectedCrossing[] = [];
 	const byScopedName = new Map(census.packages.map((p) => [p.scopedName, p]));
 
@@ -237,7 +241,9 @@ function detectManifests(input: CrossingsInput): DetectedCrossing[] {
 				if (target === undefined) continue; // an external dependency is not a boundary crossing
 				if (target.dir === pkg.dir) continue;
 
-				const surface = target.name === "db" ? "framework/db" : frameworkSurfaces.get(target.name);
+				const surface = dbPackageNames.has(target.name)
+					? `framework/${target.name}`
+					: frameworkSurfaces.get(target.name);
 				out.push({
 					crossing: {
 						kind: "manifest",
@@ -312,6 +318,7 @@ export function detectCrossings(
 		crossings,
 		countsByKind,
 		unplacedDbSymbols: input.db.unplaced,
+		unplacedDbSymbolsByPackage: input.db.unplacedByPackage ?? new Map(),
 		db: input.db,
 		frameworkSurfaces: input.frameworkSurfaces,
 	};

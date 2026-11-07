@@ -1,5 +1,5 @@
-import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { describe, expect, test, vi } from "vitest";
 import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";
@@ -34,7 +34,7 @@ describe("runSession modes", () => {
 		};
 		const result = await runSession(
 			{
-				db: {} as HyperIdleDb,
+				db: {} as RunnerDb,
 				eventBus: new EventBus(),
 				ports,
 				composition: { context: contextPorts },
@@ -64,7 +64,7 @@ describe("runSession modes", () => {
 
 		const result = await runSession(
 			{
-				db: {} as HyperIdleDb,
+				db: {} as RunnerDb,
 				eventBus: new EventBus(),
 				ports,
 			} as unknown as import("../contracts.js").RuntimeDeps,
@@ -87,7 +87,7 @@ describe("runSession modes", () => {
 		await expect(
 			runSession(
 				{
-					db: {} as HyperIdleDb,
+					db: {} as RunnerDb,
 					eventBus: new EventBus(),
 					ports,
 				} as unknown as import("../contracts.js").RuntimeDeps,

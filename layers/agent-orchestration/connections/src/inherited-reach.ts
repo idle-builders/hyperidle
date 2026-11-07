@@ -364,7 +364,7 @@ async function inspectInheritedTools(
 	return tools;
 }
 
-/** Reach cache; built by bootAgentOrchestration, refreshed at boot and redetect moments. list() returns ServiceConnectionView[] directly; snapshot is internal. */
+/** Reach cache; refreshed at boot and redetect moments. list() returns ServiceConnectionView[] directly; snapshot is internal. */
 export interface InheritedReach {
 	/**
 	 * Run the four probes concurrently and atomically swap the frozen snapshot.

@@ -9,12 +9,12 @@
  */
 
 import {
-	type HyperIdleDb,
 	type NewServiceConnectionRow,
+	type RunnerDb,
 	type ServiceConnectionRow,
 	serviceConnections,
 	serviceConnectionWithholds,
-} from "@hyperidle/db";
+} from "@hyperidle/runner-db";
 import { and, eq, inArray } from "drizzle-orm";
 
 /**
@@ -25,7 +25,7 @@ import { and, eq, inArray } from "drizzle-orm";
  * @lore: listConnections — {id, userId} combined yields [] on cross-user; caller 404s without leaking existence; never 403
  */
 export function listConnections(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	filter: { userId?: string; authSource?: string; id?: string } = {},
 ): Promise<ServiceConnectionRow[]> {
 	const conditions = [
@@ -52,7 +52,7 @@ export function listConnections(
  * it to a 409.
  */
 export async function insertConnection(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	values: NewServiceConnectionRow,
 ): Promise<void> {
 	await db.insert(serviceConnections).values(values);
@@ -63,7 +63,7 @@ export async function insertConnection(
  * both id and owning user. A mismatched owner leaves the row unchanged.
  */
 export async function updateConnection(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	params: { id: string; userId: string },
 	patch: {
 		readonly health: string;
@@ -83,7 +83,7 @@ export async function updateConnection(
 
 /** The agents each of these connections is kept from. */
 export async function listWithholds(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	connectionIds: readonly string[],
 ): Promise<Map<string, string[]>> {
 	const kept = new Map<string, string[]>();
@@ -99,7 +99,7 @@ export async function listWithholds(
 
 /** Keep a connection from one agent, or let that agent reach it again. */
 export async function setWithhold(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	params: { connectionId: string; agentUserId: string; keep: boolean; at: string },
 ): Promise<void> {
 	if (params.keep) {
@@ -129,7 +129,7 @@ export async function setWithhold(
  * Provides per-user isolation.
  */
 export async function deleteConnection(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	params: { id: string; userId: string },
 ): Promise<void> {
 	await db

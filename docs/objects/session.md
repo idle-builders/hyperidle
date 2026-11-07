@@ -2,7 +2,7 @@
 
 A session is one bounded agent run: started, working, finished. Many sessions can happen per task.
 
-Source: `framework/domain-model/src/actions/session.ts`, `layers/agent-orchestration/run-orchestration/src/`.
+Source: `layers/agent-orchestration/run-orchestration/src/`.
 
 ## States
 
@@ -10,7 +10,7 @@ Four: `active`, `done`, `stopped`, `crashed`. Declared in `SESSION_STATES` (`act
 
 - `active` — process is running.
 - `done` — completed normally.
-- `stopped` — stopped by `stop_session`.
+- `stopped` — harness was interrupted: the task was killed, or the agent moved to another runner.
 - `crashed` — harness process exited unexpectedly, or the reaper swept it.
 
 ## Where a session comes from
@@ -49,10 +49,6 @@ The working folder contains four named zones and the agent's space folders:
 
 `sessions.modelTier` is set at session start. Token usage per tier is tracked on the task (`tasks.tokensActualJson`) and merged at session end.
 
-## Watching a session
-
-`watch_session` returns the session row and its in-memory activity buffer (tool calls, reasoning, answer deltas). The buffer is evicted when the session ends; a call after eviction returns an empty list, not an error.
-
 ## Stopping a session
 
-`stop_session` kills the harness process. Anyone signed in may stop any session — no ownership check. The stop is async: the answer reflects the row at the moment of the call; the terminal state arrives as a later event.
+`stopSessionRun` (`layers/agent-orchestration/run-orchestration/src/session-store.ts`) kills the harness process. The stop is async: the terminal state (`stopped`/`stopped`) arrives once the harness teardown completes and a `session_ended` bus event is emitted.

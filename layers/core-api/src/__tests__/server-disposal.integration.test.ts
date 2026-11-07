@@ -1,5 +1,4 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -11,9 +10,6 @@ const shutdown = vi.hoisted(() => {
 		events: [] as string[],
 		failures: new Set<string>(),
 		nextOwnedDb: null as HyperIdleDb | null,
-		recordDurableShutdown: null as null | (() => Promise<void>),
-		verifyDurableShutdown: null as null | (() => Promise<void>),
-		ownedDbSawDurableShutdown: false,
 	};
 	const phase = async (name: string): Promise<void> => {
 		state.events.push(name);
@@ -25,37 +21,6 @@ const shutdown = vi.hoisted(() => {
 		if (state.failures.has(name)) throw new Error(`${name} failed`);
 	};
 	return { state, phase, phaseSync };
-});
-
-/**
- * `bootAgentOrchestration` starts the runtime internally and exposes its
- * disposer separately as `disposeRuntime`. Wrap the REAL
- * `bootAgentOrchestration` and override only `disposeRuntime`'s behavior —
- * everything else (the app, the session-stream socket, the lifecycle drain)
- * stays real.
- */
-vi.mock("@hyperidle/agent-orchestration", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("@hyperidle/agent-orchestration")>();
-	return {
-		...actual,
-		bootAgentOrchestration: async (
-			options: Parameters<typeof actual.bootAgentOrchestration>[0],
-		) => {
-			const boot = await actual.bootAgentOrchestration(options);
-			registerFixtureOrchestrationCleanup(options.db, () => {
-				boot.dispose();
-				return boot.joinLifecycleDrain();
-			});
-			return {
-				...boot,
-				disposeRuntime: async () => {
-					await boot.disposeRuntime?.();
-					await shutdown.phase("run-runtime");
-					await shutdown.state.recordDurableShutdown?.();
-				},
-			};
-		},
-	};
 });
 
 vi.mock("../app.js", async (importOriginal) => {
@@ -108,7 +73,6 @@ vi.mock("@hyperidle/db", async (importOriginal) => {
 			return {
 				db: shutdown.state.nextOwnedDb,
 				close: async () => {
-					await shutdown.state.verifyDurableShutdown?.();
 					await shutdown.phase("owned-db");
 				},
 			};
@@ -117,7 +81,6 @@ vi.mock("@hyperidle/db", async (importOriginal) => {
 });
 
 afterAll(() => {
-	vi.doUnmock("@hyperidle/agent-orchestration");
 	vi.doUnmock("../app.js");
 	vi.doUnmock("../routes/ws.js");
 	vi.doUnmock("@hono/node-server");
@@ -131,13 +94,11 @@ type AsyncServerHandle = Omit<ServerHandle, "dispose"> & {
 	dispose(): Promise<void>;
 };
 
-const expectedPhases = ["run-runtime", "app-domain", "websocket", "http", "owned-db"] as const;
+const expectedPhases = ["app-domain", "websocket", "http", "owned-db"] as const;
 
 async function bootOwnedServer(db: HyperIdleDb): Promise<AsyncServerHandle> {
 	shutdown.state.nextOwnedDb = db;
-	return createServer(0, {
-		topology: "disabled",
-	}) as Promise<AsyncServerHandle>;
+	return createServer(0, {}) as Promise<AsyncServerHandle>;
 }
 
 describe("ordered asynchronous server disposal", () => {
@@ -145,9 +106,6 @@ describe("ordered asynchronous server disposal", () => {
 		shutdown.state.events.length = 0;
 		shutdown.state.failures.clear();
 		shutdown.state.nextOwnedDb = null;
-		shutdown.state.recordDurableShutdown = null;
-		shutdown.state.verifyDurableShutdown = null;
-		shutdown.state.ownedDbSawDurableShutdown = false;
 		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-server-disposal");
 	});
 
@@ -157,7 +115,7 @@ describe("ordered asynchronous server disposal", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("runs all six shutdown phases exactly once in the required order", async ({ db }) => {
+	test("runs all four shutdown phases exactly once in the required order", async ({ db }) => {
 		const server = await bootOwnedServer(db);
 
 		await server.dispose();
@@ -200,34 +158,10 @@ describe("ordered asynchronous server disposal", () => {
 
 	test("never closes an injected database", async ({ db }) => {
 		shutdown.state.events.length = 0;
-		const server = (await createServer(0, {
-			db,
-			topology: "disabled",
-		})) as AsyncServerHandle;
+		const server = (await createServer(0, { db })) as AsyncServerHandle;
 
 		await server.dispose();
 		expect(shutdown.state.events).toEqual(expectedPhases.slice(0, -1));
 		await expect(db.execute(sql`select 1`)).resolves.toBeDefined();
-	});
-
-	test("awaits the durable runtime shutdown write before closing its owned database", async ({
-		db,
-	}) => {
-		await db.execute(sql`create temporary table shutdown_proof (value text not null)`);
-		shutdown.state.recordDurableShutdown = async () => {
-			await db.execute(sql`insert into shutdown_proof (value) values ('shutdown')`);
-		};
-		shutdown.state.verifyDurableShutdown = async () => {
-			const result = (await db.execute(sql`select value from shutdown_proof`)) as {
-				rows: Array<{ value: string }>;
-			};
-			shutdown.state.ownedDbSawDurableShutdown =
-				JSON.stringify(result.rows) === JSON.stringify([{ value: "shutdown" }]);
-		};
-		const server = await bootOwnedServer(db);
-
-		await server.dispose();
-
-		expect(shutdown.state.ownedDbSawDurableShutdown).toBe(true);
 	});
 });

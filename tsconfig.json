@@ -20,13 +20,13 @@
 			"path": "framework/db"
 		},
 		{
+			"path": "framework/runner-db"
+		},
+		{
 			"path": "tools/eslint-plugin-design"
 		},
 		{
 			"path": "tools/eslint-plugin-authz"
-		},
-		{
-			"path": "framework/api-contract"
 		},
 		{
 			"path": "applications/desktop"

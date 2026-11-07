@@ -22,7 +22,6 @@ describe("createServer factory bootstrap", () => {
 		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "factory-bootstrap-secret-32-chars!!!!");
 		const server = await createServer(0, {
 			db,
-			topology: "disabled",
 		});
 		try {
 			const rows = await db.select({ id: users.id, role: users.role }).from(users);

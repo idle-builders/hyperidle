@@ -5,7 +5,8 @@
  * last session's notes.
  */
 
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import {
 	BUILDER_ID,
 	DESIGNER_ID,
@@ -43,7 +44,11 @@ interface SessionSpec {
 	readonly notes: string;
 }
 
-export async function seedActivity(db: HyperIdleDb, clock: DemoClock): Promise<void> {
+export async function seedActivity(
+	_db: HyperIdleDb,
+	runnerDb: RunnerDb,
+	clock: DemoClock,
+): Promise<void> {
 	const specs: SessionSpec[] = [
 		// Growth checks on the trials task every couple of days and rewrites its summary.
 		...[13, 11, 8, 5, 2].map((days) => ({
@@ -224,7 +229,7 @@ export async function seedActivity(db: HyperIdleDb, clock: DemoClock): Promise<v
 	];
 
 	for (const [i, spec] of specs.entries()) {
-		await db
+		await runnerDb
 			.insert(sessions)
 			.values({
 				id: `demo-session-${i + 1}`,

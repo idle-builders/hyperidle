@@ -8,15 +8,17 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, users } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { afterEach, describe, vi } from "vitest";
 import {
 	buildRunningHarnessPorts,
 	completingHarnessAdapter,
+	expect,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
+	test,
 } from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 
@@ -30,9 +32,9 @@ function buildHarnessPorts(captured: { toolContext?: { readonly threadId?: strin
 	});
 }
 
-function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
+function buildDeps(runnerDb: RunnerDb): ProvisionSessionDeps {
 	return {
-		db,
+		db: runnerDb,
 		eventBus: new EventBus(),
 		adapterPool: {
 			select: () => ({
@@ -61,6 +63,7 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 	});
 	test("a session with a baked callingThreadId gets a ToolContext.threadId matching it", async ({
 		db,
+		runnerDb,
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
@@ -92,7 +95,7 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 			callingThreadId: "thread-provisioner-ctx-1",
 		} as ProvisionSessionParams;
 
-		const deps = buildDeps(db as HyperIdleDb);
+		const deps = buildDeps(runnerDb);
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
 
@@ -101,6 +104,7 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 
 	test("a session with no baked callingThreadId gets no ToolContext.threadId (subscription_run)", async ({
 		db,
+		runnerDb,
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
@@ -145,7 +149,7 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 			},
 		} as ProvisionSessionParams;
 
-		const deps = buildDeps(db as HyperIdleDb);
+		const deps = buildDeps(runnerDb);
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
 

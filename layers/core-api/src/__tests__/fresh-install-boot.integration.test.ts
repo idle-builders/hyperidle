@@ -48,8 +48,6 @@ async function call<T>(
 	return envelope.data;
 }
 
-const PICKED_HARNESS = { harnessType: "claude-code" };
-
 describe("a fresh install", () => {
 	test("boot writes only the hidden system actor, again and again", async ({ db }) => {
 		await applyFactoryCoreState(db);
@@ -65,15 +63,12 @@ describe("a fresh install", () => {
 		db,
 		app,
 		asPerson,
-		agentOrchestration,
 		eventBus,
 	}) => {
 		await applyFactoryCoreState(db);
 
 		// First start makes the person in-process as nobody (`routes/start.ts`); the HTTP door refuses nobody.
-		const bootstrapActions = buildCoreActions({
-			agentOrchestration,
-		});
+		const bootstrapActions = buildCoreActions({});
 		const editUserAction = bootstrapActions.find((a) => a.declaration.name === "edit_user");
 		if (!editUserAction) throw new Error("edit_user action not found");
 		const personResult = await editUserAction.run(
@@ -95,7 +90,6 @@ describe("a fresh install", () => {
 			agentCategory: "individual",
 			ownerUserId: personId,
 			teams: ["My Team"],
-			runConfig: PICKED_HARNESS,
 			subscriptions: { add: OBJECT_EVENTS.map((event) => ({ event })) },
 		});
 
@@ -109,7 +103,6 @@ describe("a fresh install", () => {
 		expect(everyone.map((u) => u.id).sort()).toEqual([personId, assistant?.id].sort());
 
 		const opened = await call<UserView>(app, "open_user", { id: assistant?.id });
-		expect(opened.runConfig?.harnessType).toBe("claude-code");
 		expect(opened.subscriptions.map((s) => s.event).sort()).toEqual([...OBJECT_EVENTS].sort());
 		expect(opened.subscriptions.every((s) => s.documentId === null && !s.paused)).toBe(true);
 		expect(opened.documentIds).toEqual([]);

@@ -3,21 +3,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
-import { bootAgentExecution } from "@hyperidle/agent-execution";
-import {
-	type ApplicationProvisionSessionDeps,
-	bootAgentOrchestration,
-	type RunOrchestrationHarnessRuntimeAdapter,
-	type RunOrchestrationReturnStatusToolAdapter,
-} from "@hyperidle/agent-orchestration";
 import {
 	applyFactoryCoreState,
-	buildAgentOrchestrationPort,
 	composeApiApplication,
-	createInProcessAgentOrchestrationTransport,
 	health,
 	installedPluginsDir,
-	registerAgentLayerServices,
 	registerCoreDomainServices,
 } from "@hyperidle/core-api";
 import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
@@ -27,31 +17,14 @@ import { EventBus } from "@hyperidle/event-bus";
 import { WebSocketServer } from "ws";
 import { resolveProfile } from "./profiles.js";
 
-/**
- * Which shape of execution face this
- * composition wants — `"local"` (in-process CLI harness discovery + a real
- * local sandbox, `desktop`'s shape) or `"disabled"` (an empty pool, so no
- * agent runs — `remote-server`'s shape).
- */
 export interface CreateServerDeps {
 	readonly db?: HyperIdleDb;
-	readonly topology: "local" | "disabled";
 	/**
 	 * Interface to bind the listening socket to. Omitted → `@hono/node-server`
 	 * binds EVERY interface, which is what the hosted deployment needs (the
 	 * container must be reachable from its ingress).
 	 */
 	readonly hostname?: string;
-	/**
-	 * Test-only escape hatch: a pre-built execution face, used instead of
-	 * calling `bootAgentExecution({ topology, mcpBaseUrl })` internally — same
-	 * idiom as `test-utils.ts`'s `TestAppOptions.agentOrchestrationBoot`. Lets
-	 * a harness-facing integration test inject a pool with tuned adapter
-	 * options (e.g. `maxIterations`/`maxOutputTokens` for a fast, deterministic
-	 * real-LLM call) that `topology` alone cannot express. `topology` is
-	 * ignored when this is supplied.
-	 */
-	readonly agentExecutionBoot?: Awaited<ReturnType<typeof bootAgentExecution>>;
 	/**
 	 * The plugins that ship with the server, one folder each. Omitted →
 	 * `HYPERIDLE_BUNDLED_PLUGINS_DIR`, else the repo's own `plugins/` (the
@@ -159,95 +132,26 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		);
 	}
 
-	const mcpBaseUrl = `http://localhost:${port}`;
-
-	const agentExecution =
-		deps.agentExecutionBoot ?? (await bootAgentExecution({ topology: deps.topology, mcpBaseUrl }));
-
-	let realAgentOrchestrationTransport:
-		| Parameters<typeof buildAgentOrchestrationPort>[0]
-		| undefined;
-	const agentOrchestrationTransport: Parameters<typeof buildAgentOrchestrationPort>[0] = (req) => {
-		if (!realAgentOrchestrationTransport) {
-			throw new Error("AgentOrchestrationPort transport called before the composed app was built.");
-		}
-		return realAgentOrchestrationTransport(req);
-	};
-	const agentOrchestrationPort = buildAgentOrchestrationPort(agentOrchestrationTransport);
-
-	let realInheritedReachRefresh: (() => Promise<void>) | undefined;
-	const onHarnessRedetect: () => Promise<void> = () => {
-		if (!realInheritedReachRefresh) {
-			throw new Error("onHarnessRedetect called before the composed app was built.");
-		}
-		return realInheritedReachRefresh();
-	};
-
 	const coreApi = await bootCoreApi({
 		db,
 		eventBus,
-		agentOrchestration: agentOrchestrationPort,
 		upgradeWebSocket,
-		adapterPool: agentExecution.adapters.pool,
-		onHarnessRedetect,
 		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
 		bundledPluginsDir: resolveBundledPluginsDir(deps),
 		...(deps.signIn ? { signIn: deps.signIn } : {}),
-		serviceBootstrap: (ctx) => {
-			return [
-				...registerCoreDomainServices({ ...ctx, canProvision: true }),
-				...registerAgentLayerServices({ ...ctx, canProvision: true }),
-			];
-		},
+		serviceBootstrap: (ctx) => registerCoreDomainServices(ctx),
 	});
-
-	const harnessRuntimeAdapter: RunOrchestrationHarnessRuntimeAdapter =
-		agentExecution.adapters.harnessRuntime;
-	const returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter = {
-		forRegistry: (registry) => agentExecution.adapters.returnStatusTool.forRegistry(registry),
-	};
-
-	const runtimeSessionDeps = {
-		db,
-		eventBus,
-		adapterPool: agentExecution.adapters.pool,
-		pluginMcpContributions: coreApi.pluginMcpContributions,
-	} satisfies ApplicationProvisionSessionDeps;
-
-	const agentOrchestration = await bootAgentOrchestration({
-		db,
-		eventBus,
-		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
-		probeInheritedReach: deps.topology === "local",
-		runtime: {
-			harnessRuntime: harnessRuntimeAdapter,
-			returnStatusTool: returnStatusToolAdapter,
-			// This server runs no agent, so no core action is an agent's tool here: an agent's tools
-			// live with its runner, which calls this server through the door.
-			actionTools: () => agentOrchestration.actionTools,
-			editDocument: coreApi.editDocument,
-			searchDocuments: coreApi.searchDocuments,
-			session: runtimeSessionDeps,
-			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
-		},
-	});
-	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();
 
 	const app = composeApiApplication({
 		middleware: coreApi.middleware,
-		preAuthRegistrars: [coreApi.registerPreAuthRoutes, agentExecution.mountMcpRouter],
-		apps: [coreApi.app, agentOrchestration.app],
+		preAuthRegistrars: [coreApi.registerPreAuthRoutes],
+		apps: [coreApi.app],
 	});
 	// Backward-compat: /health without auth, outside the /api tree.
 	app.route("/", health);
 
-	realAgentOrchestrationTransport = createInProcessAgentOrchestrationTransport(app);
+	registerAppDisposers(app, [...coreApi.disposers]);
 
-	registerAppDisposers(app, [
-		...coreApi.disposers,
-		agentOrchestration.dispose,
-		agentExecution.dispose,
-	]);
 	const staticDir = process.env.HYPERIDLE_STATIC_DIR;
 	let resolvedStaticDir: string | null = null;
 	if (staticDir) {
@@ -308,7 +212,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				}
 			};
 
-			await runPhase("run-runtime", () => agentOrchestration.disposeRuntime?.());
 			await runPhase("app-domain", () => disposeApp(app));
 			await runPhase("websocket", () => {
 				coreApi.disposeWebSocket();

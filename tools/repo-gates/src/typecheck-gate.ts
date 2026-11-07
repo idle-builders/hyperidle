@@ -511,6 +511,10 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"framework/event-bus",
 		"framework/harness-protocol",
 		"framework/db",
+		// @lore runner-db has no path alias in tsconfig.base.json; applications/runner
+		// and the agent-orchestration barrel import it — without a pre-built dist/ the
+		// per-package noEmit resolves all runner-db-typed parameters to any (TS7006).
+		"framework/runner-db",
 		"layers/core-api",
 		"layers/core-api/document",
 		"layers/core-api/work",
@@ -541,7 +545,14 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		// `applications/desktop` imports it directly. Same TS6305 cascade as
 		// every other leaf without a pre-built dist.
 		"layers/agent-execution",
+		// @lore the agent-orchestration barrel has a real consumer —
+		// `applications/runner` imports it directly. Same TS6305 cascade as
+		// every other leaf without a pre-built dist.
+		"layers/agent-orchestration",
 		"applications/remote-server",
+		// @lore leaf Application — pre-building its declarations keeps its own
+		// typecheck measurement deterministic, same reason as remote-server above.
+		"applications/runner",
 	]) {
 		try {
 			// Stays SERIAL: these are a dependency chain writing shared `dist/`

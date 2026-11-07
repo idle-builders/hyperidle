@@ -13,7 +13,6 @@
 import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { documents, type HyperIdleDb, subscriptions, teams, users, userTeams } from "@hyperidle/db";
 import type { DocumentRow } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -41,21 +40,14 @@ function auth(): Record<string, string> {
 	return { "X-API-Key": API_KEY };
 }
 
-function buildActions(agentOrchestration: AgentOrchestrationPort) {
-	return buildCoreActions({
-		agentOrchestration,
-	});
-}
-
 async function callActionAs<T>(
 	name: string,
 	body: Record<string, unknown>,
 	actorId: string,
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	agentOrchestration: AgentOrchestrationPort,
 ): Promise<ActionEnvelope<T>> {
-	const actions = buildActions(agentOrchestration);
+	const actions = buildCoreActions({});
 	const action = actions.find((a) => a.declaration.name === name);
 	if (!action) throw new Error(`action not found: ${name}`);
 	const ctx: ActionContext = { actor: actorId, db, eventBus, now: new Date().toISOString() };
@@ -218,7 +210,6 @@ describe("document-management plugin — team-scope isolation", () => {
 		db,
 		app,
 		eventBus,
-		agentOrchestration,
 		asPerson,
 	}) => {
 		await db.insert(teams).values([
@@ -260,7 +251,6 @@ describe("document-management plugin — team-scope isolation", () => {
 			"u-alpha-member",
 			db,
 			eventBus,
-			agentOrchestration,
 		);
 		expect(editRes.ok).toBe(true);
 
@@ -310,7 +300,6 @@ describe("document-management plugin — team-scope isolation", () => {
 			"u-alpha-member",
 			db,
 			eventBus,
-			agentOrchestration,
 		);
 		expect((alphaBody.data ?? []).map((d) => d.id).sort()).toEqual(
 			[skillIdAlpha, skillIdBeta].sort(),

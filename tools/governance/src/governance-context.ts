@@ -17,7 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { type CrossingsResult, type DetectorKind, detectCrossings } from "./lib/crossings.js";
-import { buildDbSurfaceIndex, type DatabasePackageConfig } from "./lib/db-surfaces.js";
+import { buildMergedDbSurfaceIndex, type DatabasePackageConfig } from "./lib/db-surfaces.js";
 import type { Architecture } from "./lib/governance-model.js";
 import type { TableOwners } from "./lib/governance-registry.js";
 import { buildCensus, type Census, type WorkspaceRoleRule } from "./lib/repo-census.js";
@@ -31,7 +31,7 @@ export const REPO_ROOT = path.resolve(
 
 export type LoadedArchitecture = Architecture & {
 	readonly roles: { readonly byWorkspacePattern: readonly WorkspaceRoleRule[] };
-	readonly databasePackage: DatabasePackageConfig;
+	readonly databasePackages: readonly DatabasePackageConfig[];
 };
 
 export const readJson = <T>(rel: string): T =>
@@ -209,9 +209,10 @@ export function buildCrossings(census: Census, architecture: LoadedArchitecture)
 			readFile: readRepoFile,
 			mcpRouterHost: architecture.endpoints.mcpRouter.host,
 			eventTypesModule: architecture.eventBus.typesModule,
-			db: buildDbSurfaceIndex(architecture.databasePackage, readRepoFile),
+			db: buildMergedDbSurfaceIndex(architecture.databasePackages, readRepoFile),
 			tableOwners: loadTableOwners(),
 			frameworkSurfaces: frameworkSurfacesOf(census),
+			dbPackageNames: new Set(architecture.databasePackages.map((c) => c.packageName)),
 		},
 		CROSSING_KINDS,
 	);

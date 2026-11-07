@@ -45,7 +45,6 @@
 			// the --production lane does not count, so only that lane reports it.
 			"ignoreBinaries": ["vitest"]
 		},
-		"framework/api-contract": {},
 		// codex and opencode are real harness binaries spawned by integration tests
 		// (BA9b-plugin-mcp-dialect-real.integration.test.ts and AN2). They are not
 		// npm packages — they are installed CLIs on PATH, like `claude` and `cursor-agent`.
@@ -80,6 +79,11 @@
 			// Never imported: marked external in __scripts__/bundle.ts and copied verbatim by
 			// electron-builder.yml, so the WASM bundle loads from node_modules at runtime.
 			"ignoreDependencies": ["@electric-sql/pglite"]
+		},
+		"applications/runner": {
+			// runner-entry.ts is the CLI entry point spawned by Electron (utilityProcess.fork)
+			// and the npm start/dev scripts — never imported, so it must be declared here.
+			"entry": ["src/runner-entry.ts!"]
 		},
 		"tools/eslint-plugin-design": {},
 		"tools/eval": {

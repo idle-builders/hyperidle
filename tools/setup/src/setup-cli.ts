@@ -219,17 +219,33 @@ async function applyLaptopMigrations(
 	founderKey?: string,
 ): Promise<void> {
 	const { applyMigrations, createPgliteDb } = await import("@hyperidle/db");
+	const { applyRunnerMigrations, createPgliteRunnerDb } = await import("@hyperidle/runner-db");
+	// runner DB lives next to the core DB: same parent, sibling "runner-pg" dir.
+	// This matches what startRunner reads: path.join(deps.dataDir, "runner-pg")
+	// where dataDir = the app's user-data folder (parent of hyperidle-pg).
+	const runnerDataDir = path.join(path.dirname(dataDir), "runner-pg");
+	const runnerMigrationsFolder = path.resolve(
+		Dirname,
+		"..",
+		"..",
+		"..",
+		"framework",
+		"runner-db",
+		"drizzle",
+	);
 	await applyMigrations(dataDir, migrationsFolder);
+	await applyRunnerMigrations(runnerDataDir, runnerMigrationsFolder);
 
 	// Apply factory bootstrap — always; idempotent.
 	const handle = await createPgliteDb(dataDir);
+	const runnerHandle = await createPgliteRunnerDb(runnerDataDir);
 	try {
 		await runFactoryBootstrap(handle.db);
 		// @lore AF17: demo mode seeds the Northwind demo world — opt-in only.
 		// Without --demo, factory bootstrap only (no demo data in production DBs).
 		if (demo) {
 			const demoRoot = path.dirname(dataDir);
-			await seedDemoWorld(handle.db, {
+			await seedDemoWorld(handle.db, runnerHandle.db, {
 				pluginsBaseDir: installedPluginsDir(dataDir),
 				foldersDir: path.join(demoRoot, "demo-folders"),
 				spacesDir: path.join(demoRoot, "demo-spaces"),
@@ -238,6 +254,7 @@ async function applyLaptopMigrations(
 		}
 	} finally {
 		await handle.close();
+		await runnerHandle.close();
 	}
 }
 

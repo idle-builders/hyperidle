@@ -14,15 +14,12 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/api-contract": "*",
 		"@hyperidle/changes": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/document": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/harness-capability": "*",
-		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/policy": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/task": "*",
@@ -35,8 +32,7 @@
 	"devDependencies": {
 		"@hono/node-server": "^2.0.6",
 		"@hyperidle/agent-execution": "*",
-		"@hyperidle/agent-orchestration": "*",
-		"@hyperidle/connections": "*",
+		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/remote-server": "*",
 		"@hyperidle/run-orchestration": "*",

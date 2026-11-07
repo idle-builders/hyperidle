@@ -42,7 +42,6 @@ describe("createServer bind address", () => {
 
 	const deps = (db: HyperIdleDb, hostname?: string) => ({
 		db,
-		topology: "disabled" as const,
 		...(hostname === undefined ? {} : { hostname }),
 	});
 

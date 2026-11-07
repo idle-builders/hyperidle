@@ -89,7 +89,7 @@ export interface AgentExecutionHarnessRuntime {
 	closeMcpBridge(token: string): Promise<void>;
 }
 
-/** Runtime-adapter bundle an Application hands into bootAgentOrchestration's options; agent-orchestration never imports it directly. */
+/** Runtime-adapter bundle an Application hands into the run-orchestration composition; agent-orchestration never imports it directly. */
 export interface AgentExecutionAdapters {
 	readonly pool: AdapterPool;
 	readonly harnessRuntime: AgentExecutionHarnessRuntime;

@@ -18,11 +18,12 @@
  *
  */
 
-import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { endSessionByCas } from "../session-store.js";
 
 const AGENT_ID = "agent-session-store";
@@ -84,7 +85,7 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 }
 
 async function seedSession(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	options: { readonly id: string; readonly state: string; readonly outcome?: string },
 ): Promise<void> {
 	await db.insert(sessions).values({
@@ -105,7 +106,7 @@ function captureSessionEnded(eventBus: EventBus): SessionEndedEvent[] {
 }
 
 async function readSession(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	id: string,
 ): Promise<typeof sessions.$inferSelect | undefined> {
 	const [row] = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
@@ -113,14 +114,17 @@ async function readSession(
 }
 
 describe("endSessionByCas — the terminal transition lives with the table", () => {
-	test("refuses a session that is no longer active, and emits nothing", async ({ db }) => {
+	test("refuses a session that is no longer active, and emits nothing", async ({
+		db,
+		runnerDb,
+	}) => {
 		await seedWorld(db);
-		await seedSession(db, { id: "s-settled", state: "done", outcome: "completed" });
-		const before = await readSession(db, "s-settled");
+		await seedSession(runnerDb, { id: "s-settled", state: "done", outcome: "completed" });
+		const before = await readSession(runnerDb, "s-settled");
 		const eventBus = new EventBus();
 		const emitted = captureSessionEnded(eventBus);
 
-		await endSessionByCas(db, eventBus, {
+		await endSessionByCas(runnerDb, eventBus, {
 			sessionId: "s-settled",
 			agentId: AGENT_ID,
 			taskId: TASK_ID,
@@ -128,18 +132,18 @@ describe("endSessionByCas — the terminal transition lives with the table", () 
 			now: new Date().toISOString(),
 		});
 
-		expect(await readSession(db, "s-settled")).toEqual(before);
+		expect(await readSession(runnerDb, "s-settled")).toEqual(before);
 		expect(emitted).toHaveLength(0);
 	});
 
-	test("emits session_ended exactly once for one real transition", async ({ db }) => {
+	test("emits session_ended exactly once for one real transition", async ({ db, runnerDb }) => {
 		await seedWorld(db);
-		await seedSession(db, { id: "s-active", state: "active" });
+		await seedSession(runnerDb, { id: "s-active", state: "active" });
 		const eventBus = new EventBus();
 		const emitted = captureSessionEnded(eventBus);
 		const now = new Date().toISOString();
 
-		await endSessionByCas(db, eventBus, {
+		await endSessionByCas(runnerDb, eventBus, {
 			sessionId: "s-active",
 			agentId: AGENT_ID,
 			taskId: TASK_ID,
@@ -157,12 +161,12 @@ describe("endSessionByCas — the terminal transition lives with the table", () 
 			outcome: "completed",
 		});
 
-		const afterFirst = await readSession(db, "s-active");
+		const afterFirst = await readSession(runnerDb, "s-active");
 		expect(afterFirst?.state).toBe("done");
 		expect(afterFirst?.endedAt).toBe(now);
 
 		// A repeat of the same call finds a settled row: no write, no second emit.
-		await endSessionByCas(db, eventBus, {
+		await endSessionByCas(runnerDb, eventBus, {
 			sessionId: "s-active",
 			agentId: AGENT_ID,
 			taskId: TASK_ID,
@@ -171,16 +175,16 @@ describe("endSessionByCas — the terminal transition lives with the table", () 
 		});
 
 		expect(emitted).toHaveLength(1);
-		expect(await readSession(db, "s-active")).toEqual(afterFirst);
+		expect(await readSession(runnerDb, "s-active")).toEqual(afterFirst);
 	});
 
-	test("returns the row as it stands after the write", async ({ db }) => {
+	test("returns the row as it stands after the write", async ({ db, runnerDb }) => {
 		await seedWorld(db);
-		await seedSession(db, { id: "s-readback", state: "active" });
+		await seedSession(runnerDb, { id: "s-readback", state: "active" });
 		const eventBus = new EventBus();
 		const now = new Date().toISOString();
 
-		const returned = await endSessionByCas(db, eventBus, {
+		const returned = await endSessionByCas(runnerDb, eventBus, {
 			sessionId: "s-readback",
 			agentId: AGENT_ID,
 			taskId: TASK_ID,
@@ -189,7 +193,7 @@ describe("endSessionByCas — the terminal transition lives with the table", () 
 			now,
 		});
 
-		expect(returned).toEqual(await readSession(db, "s-readback"));
+		expect(returned).toEqual(await readSession(runnerDb, "s-readback"));
 		expect(returned?.state).toBe("crashed");
 		expect(returned?.outcome).toBe("crashed");
 		expect(returned?.notes).toBe("ran out of budget");
@@ -197,13 +201,14 @@ describe("endSessionByCas — the terminal transition lives with the table", () 
 
 	test("persists the caller's outcome override while the event carries the derived one", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedWorld(db);
-		await seedSession(db, { id: "s-override", state: "active" });
+		await seedSession(runnerDb, { id: "s-override", state: "active" });
 		const eventBus = new EventBus();
 		const emitted = captureSessionEnded(eventBus);
 
-		const returned = await endSessionByCas(db, eventBus, {
+		const returned = await endSessionByCas(runnerDb, eventBus, {
 			sessionId: "s-override",
 			agentId: AGENT_ID,
 			taskId: TASK_ID,

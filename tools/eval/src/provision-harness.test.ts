@@ -7,13 +7,6 @@ import { runEvalSession } from "./provision-harness.js";
 const runSession = vi.fn();
 vi.mock("@hyperidle/agent-orchestration", () => ({
 	buildRunOrchestrationComposition: () => ({ runSession }),
-	bootAgentOrchestration: vi.fn(async () => ({
-		app: {},
-		registerPreAuthRoutes: vi.fn(),
-		inheritedReach: { refresh: vi.fn() },
-		dispose: vi.fn(),
-		joinLifecycleDrain: vi.fn(async () => {}),
-	})),
 }));
 
 /*
@@ -146,6 +139,7 @@ describe("eval harness provisioning", () => {
 		const result = await runEvalSession(
 			{
 				db: {} as HyperIdleDb,
+				runnerDb: {} as import("@hyperidle/runner-db").RunnerDb,
 				eventBus: {} as EventBus,
 			},
 			{ taskId: "task", agentId: "agent", teamId: "team" },
@@ -178,7 +172,11 @@ describe("eval harness provisioning", () => {
 		});
 
 		await runEvalSession(
-			{ db: {} as HyperIdleDb, eventBus: {} as EventBus },
+			{
+				db: {} as HyperIdleDb,
+				runnerDb: {} as import("@hyperidle/runner-db").RunnerDb,
+				eventBus: {} as EventBus,
+			},
 			{ taskId: "task", agentId: "agent", teamId: "team" },
 		);
 

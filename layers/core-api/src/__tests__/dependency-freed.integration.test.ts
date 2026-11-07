@@ -1,20 +1,13 @@
 /**
  * What happens when a task's last dependency finishes.
  *
- * An agent-owned task moves all the way into `in_progress` with no human
- * action — the existing chain (watcher hold->accepted, dispatch,
- * `session_started`, the promotion reaction) carries it the rest of the way.
- * An unowned task stops at `accepted` and waits for a human.
+ * An agent-owned task moves to `accepted` and gets a dispatch attempt — the
+ * watcher (hold->accepted) and dispatch bookkeeping inside `edit_task` handle
+ * that automatically. Promotion to `in_progress` happens in the runner layer
+ * (via `session_started`) and is out of scope here.
+ * An unowned task stops at `accepted` with no dispatch.
  *
- * re-pointed off the deleted `POST/PATCH /tasks` routes — both tasks
- * are created and edited through `POST /api/actions/edit_task` now.
- *
- * The "dispatch" and "session admission" steps are real production code
- * (`edit_task`'s own dispatch-attempt bookkeeping via the real
- * `agentOrchestration` seam) — only the actual session process is simulated
- * by emitting `session_started` directly, the exact same sanctioned pattern
- * `work-session-started-reactions.integration.test.ts` already uses for this
- * reaction (session admission itself is a different layer, out of scope).
+ * Both tasks are created and edited through `POST /api/actions/edit_task`.
  */
 
 import {
@@ -25,12 +18,9 @@ import {
 	users,
 	userTeams,
 } from "@hyperidle/db";
-import type { SessionStartedEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
-import { buildCoreActions } from "../actions/compose.js";
-import { registerWorkSessionStartedReactions } from "../services/work-session-started-reactions.js";
 
 const TEST_API_KEY = "test-key-dependency-freed";
 const NOW = new Date().toISOString();
@@ -111,12 +101,10 @@ async function seedRunnableAgent(db: HyperIdleDb, agentId: string, teamId: strin
 	await db.insert(userTeams).values({ userId: agentId, teamId });
 }
 
-describe("last dependency finishes, agent owns it -> in_progress with no human action", () => {
-	test("hold -> accepted (watcher) -> in_progress (session_started reaction), unattended", async ({
+describe("last dependency finishes, agent owns it -> accepted + dispatched", () => {
+	test("hold -> accepted (watcher) + dispatch attempt created, no human action", async ({
 		db,
 		app,
-		eventBus,
-		agentOrchestration,
 		asPerson,
 	}) => {
 		await seedTeam(db, "dep-freed-owned", asPerson);
@@ -138,40 +126,16 @@ describe("last dependency finishes, agent owns it -> in_progress with no human a
 		const dependent = dependentRes.json.data?.task;
 		expect(await readTaskState(db, dependent?.id ?? "")).toBe("hold");
 
-		const editTaskAction = buildCoreActions({
-			agentOrchestration,
-		}).find((a) => a.declaration.name === "edit_task");
-		if (!editTaskAction) throw new Error("edit_task action not found");
-		registerWorkSessionStartedReactions(
-			db,
-			eventBus,
-			editTaskAction.run as Parameters<typeof registerWorkSessionStartedReactions>[2],
-		);
-
 		// Finish the dependency — legal proposed -> done edge.
 		const finishRes = await editTaskRequest(app, { id: dep?.id, state: "done" });
 		expect(finishRes.status).toBe(200);
 
-		// The existing watcher unblocks hold -> accepted and dispatches.
+		// The watcher unblocks hold -> accepted and creates a dispatch attempt.
+		// Promotion to in_progress happens in the runner layer (session_started).
 		await vi.waitFor(async () => {
 			expect(await readTaskState(db, dependent?.id ?? "")).toBe("accepted");
 		});
-
-		// Simulate the session that dispatch requested having actually started —
-		// the real reaction promotes the task the rest of the way.
-		const sessionStarted: SessionStartedEvent = {
-			type: "session_started",
-			streamId: "dep-freed-session",
-			sessionId: "dep-freed-session",
-			agentId: "dep-freed-agent",
-			taskId: dependent?.id ?? "",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(sessionStarted);
-
-		await vi.waitFor(async () => {
-			expect(await readTaskState(db, dependent?.id ?? "")).toBe("in_progress");
-		});
+		expect(await hasDispatchAttempt(db, dependent?.id ?? "")).toBe(true);
 	});
 });
 

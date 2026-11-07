@@ -3,7 +3,6 @@ import type {
 	ActionResult,
 	DOCUMENT_ACTIONS,
 	PLATFORM_ACTIONS,
-	SESSION_ACTIONS,
 	TASK_ACTIONS,
 	THREAD_ACTIONS,
 	USER_ACTIONS,
@@ -14,7 +13,6 @@ type Actions = typeof THREAD_ACTIONS &
 	typeof TASK_ACTIONS &
 	typeof DOCUMENT_ACTIONS &
 	typeof USER_ACTIONS &
-	typeof SESSION_ACTIONS &
 	typeof PLATFORM_ACTIONS;
 export type ActionName = keyof Actions;
 type Parts<D> = D extends ActionDeclaration<infer I, infer O> ? { input: I; output: O } : never;
@@ -42,6 +40,13 @@ declare global {
 				stop(): Promise<void>;
 				/** In a huddle (`utterances`): the call's microphone sound, 16 kHz mono. */
 				audio(samples: Float32Array): void;
+			};
+			/** Desktop only: query and control the local runner that holds agent keys. */
+			readonly runner?: {
+				/** Null when runner is not wired to this window. */
+				state(agentId: string): Promise<{ held: boolean; movedAway: boolean } | null>;
+				/** Adopt this agent to the local runner; resolves with the new state once the take completes. */
+				moveHere(agentId: string): Promise<{ held: boolean; movedAway: boolean } | null>;
 			};
 		};
 	}

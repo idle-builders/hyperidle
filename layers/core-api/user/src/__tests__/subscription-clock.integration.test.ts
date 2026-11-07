@@ -66,6 +66,34 @@ describe("startSubscriptionClock", () => {
 		expect(new Date(nextRunAt).getUTCSeconds()).toBe(0);
 	});
 
+	test("a due schedule calls wsPush with user:<userId>", async ({ db }) => {
+		await seedTeam(db, "team-a");
+		await seedAgent(db, "agent-a", "team-a");
+		const past = new Date(Date.now() - 60_000).toISOString();
+		await insertSubscription(db, {
+			id: "sub-cron-push",
+			userId: "agent-a",
+			event: null,
+			schedule: "* * * * *",
+			paused: false,
+			nextRunAt: past,
+			createdAt: TS,
+			updatedAt: TS,
+		});
+		const pushed: string[] = [];
+		const clock = startSubscriptionClock(
+			db,
+			{ wsPush: (topic) => pushed.push(topic) },
+			{ tickIntervalMs: 25 },
+		);
+		try {
+			await new Promise((r) => setTimeout(r, 150));
+		} finally {
+			clock.stop();
+		}
+		expect(pushed).toContain("user:agent-a");
+	});
+
 	test("a paused schedule is never fired and next_run_at is untouched", async ({ db }) => {
 		await seedTeam(db, "team-a");
 		await seedAgent(db, "agent-a", "team-a");

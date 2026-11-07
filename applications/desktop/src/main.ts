@@ -13,6 +13,7 @@ import {
 	powerMonitor,
 	shell,
 	Tray,
+	utilityProcess,
 } from "electron";
 
 // @lore: Dirname — CJS output (esbuild) has __dirname; ESM (dev/tsx) requires fileURLToPath(import.meta.url)
@@ -30,6 +31,9 @@ import { keepPersonKey, readPersonKey } from "./safe-credentials.js";
 import { cancelSignIn, type Provider, SignInCancelled, signIn } from "./sign-in.js";
 import { registerSpeechHandlers } from "./speech.js";
 import { guardContents } from "./window-guard.js";
+
+/** Current runner child process; updated each time forkRunner succeeds. */
+let runnerChild: Electron.UtilityProcess | null = null;
 
 function log(message: string, data?: Record<string, unknown>): void {
 	const ts = new Date().toISOString();
@@ -353,11 +357,25 @@ function registerCommonIpcHandlers(ctx: BootContext): void {
 			if (!keepPersonKey(ctx.credentialsPath, body.key))
 				return { ok: false, problem: "The keychain is unavailable, so your key cannot be kept." };
 			saveClientConfig(ctx.configPath, { backendMode: "shared", serverUrl });
-			// A joined Mac runs nothing locally, so it has no reason to open at login.
-			if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: false });
 			app.relaunch();
 			app.exit(0);
 			return { ok: true };
+		},
+	);
+	ipcMain.handle(
+		"runner:state",
+		(_event: unknown, agentId: string): Promise<{ held: boolean; movedAway: boolean } | null> => {
+			const child = runnerChild;
+			if (!child) return Promise.resolve(null);
+			return askRunner(child, "state", agentId, 3_000);
+		},
+	);
+	ipcMain.handle(
+		"runner:move-here",
+		(_event: unknown, agentId: string): Promise<{ held: boolean; movedAway: boolean } | null> => {
+			const child = runnerChild;
+			if (!child) return Promise.resolve(null);
+			return askRunner(child, "take", agentId, 10_000);
 		},
 	);
 }
@@ -464,6 +482,112 @@ function createTrayIcon(): ReturnType<typeof nativeImage.createFromPath> {
 	const icon = nativeImage.createFromPath(iconPath);
 	icon.setTemplateImage(true);
 	return icon;
+}
+
+function askRunner(
+	child: Electron.UtilityProcess,
+	type: "state" | "take",
+	agentId: string,
+	timeoutMs: number,
+): Promise<{ held: boolean; movedAway: boolean } | null> {
+	return new Promise<{ held: boolean; movedAway: boolean } | null>((resolve) => {
+		const reqId = crypto.randomUUID();
+		let settled = false;
+		const done = (result: { held: boolean; movedAway: boolean } | null): void => {
+			if (settled) return;
+			settled = true;
+			child.off("message", handler);
+			child.off("exit", onExit);
+			clearTimeout(timer);
+			resolve(result);
+		};
+		const handler = (msg: unknown): void => {
+			const m = msg as {
+				type?: string;
+				reqId?: string;
+				held?: boolean;
+				movedAway?: boolean;
+			} | null;
+			if (m?.type === "state" && m.reqId === reqId) {
+				done({ held: m.held ?? false, movedAway: m.movedAway ?? false });
+			}
+		};
+		const onExit = (): void => done(null);
+		const timer = setTimeout(() => done(null), timeoutMs);
+		child.on("message", handler);
+		child.on("exit", onExit);
+		child.postMessage({ type, agentId, reqId });
+	});
+}
+
+// @lore: forkRunner — runner.cjs only exists after build:local; dev mode runs from TypeScript source via tsx.
+function forkRunner(serverUrl: string, apiKey: string, dataDir: string): (() => void) | null {
+	const runnerBundle = path.join(Dirname, "runner.cjs");
+	const runnerEntry = fs.existsSync(runnerBundle)
+		? runnerBundle
+		: IS_DEV
+			? path.resolve(Dirname, "../../runner/src/runner-entry.ts")
+			: null;
+
+	if (runnerEntry === null) {
+		log("runner bundle not found, skipping fork", { runnerBundle });
+		return null;
+	}
+
+	// Capture narrowed (non-null) value so the launch() closure sees string, not string|null.
+	const entry: string = runnerEntry;
+
+	const runnerDrizzleDir = app.isPackaged
+		? path.join(process.resourcesPath ?? "", "runner-drizzle")
+		: path.resolve(Dirname, "..", "..", "..", "framework", "runner-db", "drizzle");
+
+	let stopped = false;
+	let restartTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function launch(): void {
+		if (stopped) return;
+		const env: Record<string, string> = {};
+		for (const [k, v] of Object.entries(process.env)) {
+			if (v !== undefined) env[k] = v;
+		}
+		env.HYPERIDLE_SERVER_URL = serverUrl;
+		env.HYPERIDLE_API_KEY = apiKey;
+		env.HYPERIDLE_DATA_DIR = dataDir;
+		env.HYPERIDLE_RUNNER_DRIZZLE_DIR = runnerDrizzleDir;
+
+		const forkOptions: Electron.ForkOptions = { env };
+		if (entry.endsWith(".ts")) {
+			// In dev mode, tsx transforms TypeScript at runtime via the ESM loader.
+			const tsxEsm = path.resolve(Dirname, "../../../node_modules/tsx/dist/esm/index.mjs");
+			forkOptions.execArgv = ["--import", tsxEsm];
+		}
+
+		log("forkRunner launching", { entry, serverUrl, dataDir, runnerDrizzleDir });
+		const child = utilityProcess.fork(entry, [], forkOptions);
+		runnerChild = child;
+		child.on("exit", (code) => {
+			if (runnerChild === child) runnerChild = null;
+			log("runner process exited", { code });
+			if (!stopped && code !== 0) {
+				// Crashed; restart after 5 s.
+				restartTimer = setTimeout(() => {
+					restartTimer = null;
+					launch();
+				}, 5_000);
+			}
+		});
+	}
+
+	launch();
+
+	return () => {
+		stopped = true;
+		if (restartTimer !== null) {
+			clearTimeout(restartTimer);
+			restartTimer = null;
+		}
+		runnerChild?.kill();
+	};
 }
 
 async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
@@ -608,6 +732,8 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	}
 	log("boot:local health check passed");
 
+	const stopRunner = forkRunner(`http://127.0.0.1:${port}`, apiKey, ctx.userDataDir);
+
 	if (bootWindow && !bootWindow.isDestroyed()) {
 		log("boot:local loading app", { appUrl });
 		bootWindow.loadURL(appUrl);
@@ -636,6 +762,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	reopenHandler = reopen;
 
 	const stopServer = (): void => {
+		stopRunner?.();
 		void stopLocalServer(handle, logRotator);
 	};
 
@@ -683,38 +810,46 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 
 async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void> {
 	const clientConfig = loadClientConfig(ctx.configPath);
-	const windowState = clientConfig.windowState;
 	const preloadPath = path.join(Dirname, "preload.js");
+	const startedAtLogin = app.isPackaged && app.getLoginItemSettings().wasOpenedAtLogin;
 
-	const mainWindow = new BrowserWindow({
-		x: windowState.x,
-		y: windowState.y,
-		width: windowState.width,
-		height: windowState.height,
-		titleBarStyle: "hiddenInset",
-		trafficLightPosition: { x: 12, y: 11 },
-		backgroundColor: paperCanvas(),
-		webPreferences: {
-			preload: preloadPath,
-			contextIsolation: true,
-			sandbox: true,
-			// The person's own key, handed back at joining: every request is them.
-			additionalArguments: windowArguments(readPersonKey(ctx.credentialsPath) ?? ""),
-		},
-		show: false,
-	});
+	const newWindow = (): BrowserWindow => {
+		const state = loadClientConfig(ctx.configPath).windowState;
+		const win = new BrowserWindow({
+			x: state.x,
+			y: state.y,
+			width: state.width,
+			height: state.height,
+			titleBarStyle: "hiddenInset",
+			trafficLightPosition: { x: 12, y: 11 },
+			backgroundColor: paperCanvas(),
+			webPreferences: {
+				preload: preloadPath,
+				contextIsolation: true,
+				sandbox: true,
+				// The person's own key, handed back at joining: every request is them.
+				additionalArguments: windowArguments(readPersonKey(ctx.credentialsPath) ?? ""),
+			},
+			show: false,
+		});
+		guardContents(win.webContents, serverUrl, (url) => void shell.openExternal(url));
+		win.show();
+		if (state.isMaximized) win.maximize();
+		if (state.isFullScreen) win.setFullScreen(true);
+		bindWindowStatePersistence(win, ctx.configPath);
+		return win;
+	};
 
-	guardContents(mainWindow.webContents, serverUrl, (url) => void shell.openExternal(url));
-	const splashPath = path.join(Dirname, "splash.html");
-	mainWindow.loadFile(splashPath);
-	mainWindow.show();
-	if (windowState.isMaximized) mainWindow.maximize();
-	if (windowState.isFullScreen) mainWindow.setFullScreen(true);
-
-	if (!mainWindow.isDestroyed()) {
-		void mainWindow.webContents.executeJavaScript(
+	let bootWindow: BrowserWindow | null = null;
+	if (!startedAtLogin) {
+		bootWindow = newWindow();
+		const splashPath = path.join(Dirname, "splash.html");
+		bootWindow.loadFile(splashPath);
+		void bootWindow.webContents.executeJavaScript(
 			'window.updateStatus && window.updateStatus("Connecting to remote server...")',
 		);
+	} else {
+		app.dock?.hide();
 	}
 
 	try {
@@ -728,8 +863,56 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		return;
 	}
 
-	mainWindow.loadURL(serverUrl);
-	bindWindowStatePersistence(mainWindow, ctx.configPath);
+	if (bootWindow && !bootWindow.isDestroyed()) bootWindow.loadURL(serverUrl);
+
+	const sharedPersonKey = readPersonKey(ctx.credentialsPath);
+	const stopRunner = sharedPersonKey
+		? forkRunner(serverUrl, sharedPersonKey, ctx.userDataDir)
+		: null;
+
+	const createAppWindow = (): void => {
+		newWindow().loadURL(serverUrl);
+	};
+	const reopen = makeReopenWindowHandler(createAppWindow);
+	reopenHandler = reopen;
+
+	// Tray icon stays visible the whole time the runner runs.
+	const trayIcon = createTrayIcon();
+	const tray = new Tray(trayIcon);
+	tray.setToolTip("HyperIdle");
+
+	const stopAll = (): void => {
+		stopRunner?.();
+		logRotator?.detach();
+		app.exit(0);
+	};
+
+	tray.setContextMenu(
+		Menu.buildFromTemplate([
+			{ label: "HyperIdle is running", enabled: false },
+			{ label: "Open HyperIdle", click: reopen },
+			{ type: "separator" },
+			{ label: "Stop HyperIdle", click: stopAll },
+		]),
+	);
+	tray.on("double-click", reopen);
+
+	let systemShuttingDown = false;
+	app.on(
+		"before-quit",
+		makeLocalBeforeQuitHandler(
+			(): void => {
+				for (const win of BrowserWindow.getAllWindows()) win.close();
+				app.dock?.hide();
+			},
+			() => systemShuttingDown,
+		),
+	);
+	app.on("activate", reopen);
+	process.on("SIGTERM", stopAll);
+	powerMonitor.on("shutdown", (): void => {
+		systemShuttingDown = true;
+	});
 
 	registerCommonIpcHandlers(ctx);
 
@@ -739,10 +922,13 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		dataDir: ctx.userDataDir,
 	});
 	Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
-	app.on("before-quit", getBeforeQuitHandler(null, logRotator));
-	app.on("activate", (): void => {
-		if (BrowserWindow.getAllWindows().length === 0) void startApp();
-	});
+
+	if (shouldRegisterLoginItem(clientConfig, app.isPackaged)) {
+		app.setLoginItemSettings({ openAtLogin: true });
+		saveClientConfig(ctx.configPath, { loginItemSet: true });
+	}
+
+	log("boot:shared complete", { serverUrl });
 }
 
 async function startApp(): Promise<void> {

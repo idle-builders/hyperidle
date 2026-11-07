@@ -304,7 +304,7 @@ export function collectDoors(): Door[] {
 		});
 	};
 
-	for (const appFile of ["layers/core-api/src/app.ts", "layers/agent-orchestration/src/app.ts"]) {
+	for (const appFile of ["layers/core-api/src/app.ts"]) {
 		extractScope(appFile, parse(appFile), "/api", null);
 	}
 

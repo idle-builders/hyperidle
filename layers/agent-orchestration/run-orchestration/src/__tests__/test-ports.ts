@@ -15,7 +15,7 @@
  * `vi.mock("../session-provisioning.js")` stand-in for the same harness-
  * execution edge).
  */
-import type { AgentSessionRequest } from "@hyperidle/db";
+import type { AgentSessionRequest } from "@hyperidle/runner-db";
 import {
 	claimSessionRequest,
 	findSessionRequest,

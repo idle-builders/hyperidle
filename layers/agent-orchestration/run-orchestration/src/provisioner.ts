@@ -2,7 +2,6 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type {
 	AgentSessionSourceCorrelation,
@@ -28,6 +27,7 @@ import {
 	type SessionMetrics,
 	type SessionResult,
 } from "@hyperidle/harness-protocol";
+import { type AgentSessionRequest, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { and, desc, eq, isNotNull, isNull, like, ne, or, sql } from "drizzle-orm";
 import { readAgentRunConfig } from "./agent-run-config-store.js";
 import { deriveWorkingFolder, ensureAgentSpace } from "./agent-space.js";
@@ -240,7 +240,7 @@ interface SessionLifecycleMcpBridgeRegistry {
 }
 
 interface SessionLifecycleToolContext {
-	readonly db: HyperIdleDb;
+	readonly db: RunnerDb;
 	readonly eventBus: EventBus;
 	readonly agentId: string;
 	readonly sessionId: string;
@@ -371,19 +371,19 @@ interface SessionLifecycleContextAssembly {
 interface SessionLifecyclePorts {
 	readonly sessionRequests: {
 		findSessionRequest(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			query: { by: "id"; requestId: string },
 		): Promise<AgentSessionRequest | undefined>;
 		findSessionRequest(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			query: { by: "terminationReason"; requestId: string },
 		): Promise<string | null | undefined>;
 		listSessionRequests(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			filter: { status: "running" },
 		): Promise<AgentSessionRequest[]>;
 		transitionSessionRequest(
-			exec: HyperIdleDb,
+			exec: RunnerDb,
 			transition:
 				| { requestId: string; to: "termination-requested"; reason: string; requestedBy?: string }
 				| {
@@ -477,7 +477,7 @@ function requiresReturnStatusReturn(params: ProvisionSessionParams): boolean {
 }
 
 function assembleTaskFreePrompt(
-	_db: HyperIdleDb,
+	_db: RunnerDb,
 	params: ProvisionSessionParams,
 	systemPromptText: string,
 	toolSummaries: readonly SessionLifecycleToolSummary[],
@@ -691,7 +691,7 @@ export interface PluginMcpContributionsPort {
 }
 
 interface ProvisionSessionDeps {
-	readonly db: HyperIdleDb;
+	readonly db: RunnerDb;
 	readonly eventBus: EventBus;
 	readonly adapterPool: SessionLifecycleAdapterPool;
 	/** MCP bridge registry. When present, a bridge is created per session. */
@@ -743,12 +743,6 @@ interface ProvisionSessionDeps {
 	 * before the external harness session started.
 	 */
 	readonly onHarnessStarted?: () => void;
-	/**
-	 * Plugin MCP server contributions for this session's team scope.
-	 * When absent, no plugin MCP servers are merged into the session config.
-	 * Provided by the application via CoreApiBoot.pluginMcpContributions.
-	 */
-	readonly pluginMcpContributions?: PluginMcpContributionsPort;
 }
 
 interface ProvisionSessionParams {
@@ -1581,27 +1575,6 @@ async function runSession(
 			);
 		}
 	}
-	try {
-		const pluginCliConfigArgs = await mergePluginMcpContributions(
-			deps.pluginMcpContributions,
-			sandboxPath,
-			teamId ?? null,
-			adapterCapabilities.cliMcpDialect,
-			adapterCapabilities.cliMcpDialect
-				? (params) => ports.harnessRuntime.writePluginStdioMcpEntries(params)
-				: undefined,
-		);
-		if (pluginCliConfigArgs.length > 0) {
-			cliConfigArgs = [...cliConfigArgs, ...pluginCliConfigArgs];
-		}
-	} catch (mcpMergeErr) {
-		// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge
-		console.warn(
-			`[session-provisioning] plugin MCP merge failed for session ${sessionId}:`,
-			mcpMergeErr,
-		);
-	}
-
 	// ── Phase 8b-enforce: provision the return-enforcement hook for this adapter.
 	await ports.harnessRuntime.provisionReturnHook({
 		sandboxPath,

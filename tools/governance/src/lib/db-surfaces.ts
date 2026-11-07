@@ -59,6 +59,11 @@ export interface DbSurfaceIndex {
 	readonly rowTypes: ReadonlySet<string>;
 	/** Symbols that could not be placed, symbol → reason. Reported, never silently absorbed. */
 	readonly unplaced: ReadonlyMap<string, string>;
+	/**
+	 * Per-database-package unplaced symbol maps. Present only on a merged index built from multiple
+	 * database packages. Keys are `packageName` values from `DatabasePackageConfig`.
+	 */
+	readonly unplacedByPackage?: ReadonlyMap<string, ReadonlyMap<string, string>>;
 }
 
 const parse = (path: string, source: string): ts.SourceFile =>
@@ -208,4 +213,65 @@ export function buildDbSurfaceIndex(
 	};
 
 	return { resolve, tables, physicalNames, rowTypes, unplaced };
+}
+
+/**
+ * Build a merged index from multiple database package configs.
+ *
+ * The merged index presents a unified view of tables, physicalNames, and rowTypes across all
+ * database packages. Its `resolve()` delegates to the sub-index whose package owns the file
+ * being resolved (matched by sourceRoot prefix, barrel path, or schemaModule path).
+ *
+ * `unplacedByPackage` exposes each sub-index's `unplaced` map keyed by packageName. Because
+ * sub-index `unplaced` maps are populated lazily during `resolve()` calls, the references in
+ * `unplacedByPackage` stay live — callers that read them after resolution get accurate results.
+ */
+export function buildMergedDbSurfaceIndex(
+	configs: readonly DatabasePackageConfig[],
+	readFile: (path: string) => string,
+): DbSurfaceIndex {
+	const subIndexes = configs.map((config) => ({
+		config,
+		index: buildDbSurfaceIndex(config, readFile),
+	}));
+
+	const tables = new Set<string>();
+	const physicalNames = new Map<string, string>();
+	const rowTypes = new Set<string>();
+	for (const { index } of subIndexes) {
+		for (const t of index.tables) tables.add(t);
+		for (const [k, v] of index.physicalNames) physicalNames.set(k, v);
+		for (const r of index.rowTypes) rowTypes.add(r);
+	}
+
+	const mergedUnplaced = new Map<string, string>();
+	const unplacedByPackage = new Map<string, ReadonlyMap<string, string>>();
+	for (const { config, index } of subIndexes) {
+		unplacedByPackage.set(config.packageName, index.unplaced);
+	}
+
+	const resolve = (toFile: string, symbol: string, namespace: boolean): DbResolution => {
+		for (const { config, index } of subIndexes) {
+			const prefix = `${config.sourceRoot}/`;
+			if (toFile === config.barrel || toFile === config.schemaModule || toFile.startsWith(prefix)) {
+				const result = index.resolve(toFile, symbol, namespace);
+				// Sync any newly-added unplaced entries to the merged map.
+				for (const [k, v] of index.unplaced) {
+					if (!mergedUnplaced.has(k)) mergedUnplaced.set(k, v);
+				}
+				return result;
+			}
+		}
+		// File matches no known database package — classify as unknown.
+		mergedUnplaced.set(
+			`${toFile}:${symbol}`,
+			`file ${toFile} does not belong to any registered database package`,
+		);
+		return {
+			surface: "db:unknown",
+			unknownReason: `${toFile} is not in any registered database package`,
+		};
+	};
+
+	return { resolve, tables, physicalNames, rowTypes, unplaced: mergedUnplaced, unplacedByPackage };
 }

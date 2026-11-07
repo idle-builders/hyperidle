@@ -1,7 +1,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus, ObjectChangeEvent } from "@hyperidle/event-bus";
-import { list, listAncestorIds } from "./task-service.js";
+import { get, list, listAncestorIds } from "./task-service.js";
 
 const logger = createLogger({ pkg: "task.live-updates" });
 
@@ -48,6 +48,14 @@ export function registerTaskLiveUpdates(
 	const onTask = (event: ObjectChangeEvent): void => {
 		nudge(push, "tasks", event);
 		void nudgeChain(db, push, event.change.objectId, event).catch(failed(event));
+		// @lore: hold-lift must nudge the owner agent's runner — no new inbox row is created on resume, so without this the agent waits up to 30 s for the sweep.
+		if (event.type === "task.changed" && event.change.after.paused === null) {
+			void get(db, "task", event.change.objectId)
+				.then((task) => {
+					if (task?.ownerAgentId) nudge(push, `user:${task.ownerAgentId}`, event);
+				})
+				.catch(failed(event));
+		}
 	};
 	const onThread = (event: ObjectChangeEvent): void => {
 		void list(db, "task", { threadId: event.change.objectId })

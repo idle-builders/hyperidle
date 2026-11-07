@@ -1,20 +1,15 @@
 /**
  * The plugins that ship inside the app: `search_plugins` lists the ones a
  * viewer's team has not installed as available, and `edit_plugin` installs
- * one by name — per team, independently, its agents runnable at once.
+ * one by name — per team, independently, its agents active at once.
  *
- * Built through the layer's own `buildCoreActions`, so the bindings under
- * test are the production ones: the viewer's team (own, else the owner's),
- * the first ready harness off the adapter pool, and the orchestration
- * run-config port the harness is written through. The adapter pool is the
- * one stand-in — a reader answering two descriptors, the first not ready.
- * The bundled folder is the repo's own `plugins/`.
+ * Built through the layer's own `buildCoreActions`. The bundled folder is
+ * the repo's own `plugins/`.
  */
 
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, plugins, teams, users, userTeams } from "@hyperidle/db";
 import type {
 	ActionResult,
@@ -25,7 +20,6 @@ import type {
 	SearchPluginsInput,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { agentItemId } from "@hyperidle/settings";
 import { findUser, listUsers } from "@hyperidle/user";
 import { and, eq } from "drizzle-orm";
@@ -33,36 +27,9 @@ import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import type { ActionContext } from "../../actions/action.js";
 import { buildCoreActions } from "../../actions/compose.js";
-import type { HarnessCapabilityReader } from "../../services/harness-capability-reader.js";
 
 const NOW = "2026-09-25T00:00:00.000Z";
 const BUNDLED = resolve("plugins");
-
-const MISSING: HarnessCapabilityDescriptor = {
-	type: "codex",
-	name: "Codex",
-	authAction: { kind: "native_cli_login", label: "Log in" },
-	discovery: { state: "missing" },
-	models: [],
-	modelProviders: ["openai"],
-};
-
-const READY: HarnessCapabilityDescriptor = {
-	type: "claude-code",
-	name: "Claude Code",
-	authAction: { kind: "none", label: "Ready" },
-	discovery: { state: "ready" },
-	models: [
-		{ id: "claude-sonnet", label: "Sonnet", provider: "anthropic", selectable: true, options: [] },
-	],
-	modelProviders: ["anthropic"],
-};
-
-const pool: HarnessCapabilityReader = {
-	size: 2,
-	describe: () => [MISSING, READY],
-	refresh: async () => {},
-};
 
 const baseDirs: string[] = [];
 afterEach(() => {
@@ -78,11 +45,7 @@ interface Harness {
 	edit(actor: string, input: EditPluginInput): Promise<ActionResult<PluginView>>;
 }
 
-function actionsFor(
-	agentOrchestration: AgentOrchestrationPort,
-	db: HyperIdleDb,
-	eventBus: EventBus,
-): Harness {
+function actionsFor(db: HyperIdleDb, eventBus: EventBus): Harness {
 	const pluginsBaseDir = join(
 		tmpdir(),
 		`installed-plugins-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -90,10 +53,8 @@ function actionsFor(
 	mkdirSync(pluginsBaseDir, { recursive: true });
 	baseDirs.push(pluginsBaseDir);
 	const actions = buildCoreActions({
-		agentOrchestration,
 		pluginsBaseDir,
 		bundledPluginsDir: BUNDLED,
-		adapterPool: pool,
 	});
 	const run = (name: string) => {
 		const found = actions.find((a) => a.declaration.name === name);
@@ -198,10 +159,9 @@ describe("bundled plugins — listed as available per viewer", () => {
 	test("a person sees both bundled plugins available, each with its install scope", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedPeople(db);
-		const { search } = actionsFor(agentOrchestration, db, eventBus);
+		const { search } = actionsFor(db, eventBus);
 
 		const listing = await search("u-ada");
 		expect(available(listing)).toEqual(["document-management", "role-personas"]);
@@ -219,10 +179,9 @@ describe("bundled plugins — listed as available per viewer", () => {
 	test("an owned agent judges availability by its own team; a person in two teams until both have it; a no-team viewer only by factory", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedPeople(db);
-		const { search, edit } = actionsFor(agentOrchestration, db, eventBus);
+		const { search, edit } = actionsFor(db, eventBus);
 		expect(available(await search("u-ada-assistant"))).toEqual([
 			"document-management",
 			"role-personas",
@@ -240,13 +199,9 @@ describe("bundled plugins — listed as available per viewer", () => {
 });
 
 describe("bundled plugins — install by name, per team", () => {
-	test("a team install lands seven active agents on that team, each on the first ready harness", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
+	test("a team install lands seven active agents on that team", async ({ db, eventBus }) => {
 		await seedPeople(db);
-		const { edit, pluginsBaseDir } = actionsFor(agentOrchestration, db, eventBus);
+		const { edit, pluginsBaseDir } = actionsFor(db, eventBus);
 
 		const result = await edit("u-ada", teamInstall("role-personas", "team-a"));
 		if (!result.ok) throw new Error(JSON.stringify(result.problems));
@@ -260,35 +215,15 @@ describe("bundled plugins — install by name, per team", () => {
 		expect(agents).toHaveLength(7);
 		for (const agent of agents) {
 			expect(agent.status).toBe("active");
-			const runConfig = await agentOrchestration.runConfig.read(agent.id);
-			expect(runConfig.harnessType, agent.name).toBe("claude-code");
-			expect(runConfig.modelId, agent.name).toBe("claude-sonnet");
 		}
-	});
-
-	test("a reinstall never overwrites a harness a person chose since", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedPeople(db);
-		const { edit } = actionsFor(agentOrchestration, db, eventBus);
-		await edit("u-ada", teamInstall("role-personas", "team-a"));
-		const builder = agentItemId("role-personas", "builder", "team", "team-a");
-		await agentOrchestration.runConfig.write(builder, { harnessType: "opencode", modelId: null });
-
-		const again = await edit("u-ada", teamInstall("role-personas", "team-a"));
-		if (!again.ok) throw new Error(JSON.stringify(again.problems));
-		expect((await agentOrchestration.runConfig.read(builder)).harnessType).toBe("opencode");
 	});
 
 	test("two teams install independently; removing one leaves the other", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedPeople(db);
-		const { search, edit, pluginsBaseDir } = actionsFor(agentOrchestration, db, eventBus);
+		const { search, edit, pluginsBaseDir } = actionsFor(db, eventBus);
 
 		await edit("u-ada", teamInstall("role-personas", "team-a"));
 		expect(available(await search("u-bo"))).toContain("role-personas");
@@ -325,10 +260,9 @@ describe("bundled plugins — install by name, per team", () => {
 	test("the librarian's plugin installs factory-wide: no team, installed for every viewer", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedPeople(db);
-		const { search, edit } = actionsFor(agentOrchestration, db, eventBus);
+		const { search, edit } = actionsFor(db, eventBus);
 
 		const result = await edit("u-ada", {
 			source: {
@@ -344,7 +278,6 @@ describe("bundled plugins — install by name, per team", () => {
 		const row = await findUser(db, { id: librarian });
 		expect(row?.teamIds).toEqual([]);
 		expect(row?.status).toBe("active");
-		expect((await agentOrchestration.runConfig.read(librarian)).harnessType).toBe("claude-code");
 
 		for (const viewer of ["u-ada", "u-bo"]) {
 			const listing = await search(viewer);
@@ -356,10 +289,9 @@ describe("bundled plugins — install by name, per team", () => {
 	test("a name that is not one of the bundled folders is install_failed, never a path", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedPeople(db);
-		const { edit } = actionsFor(agentOrchestration, db, eventBus);
+		const { edit } = actionsFor(db, eventBus);
 
 		for (const name of ["../role-personas", "role-personas/", BUNDLED, "nothing-here"]) {
 			const result = await edit("u-ada", teamInstall(name, "team-a"));
@@ -369,13 +301,9 @@ describe("bundled plugins — install by name, per team", () => {
 		expect(await pluginAgents(db, "team-a")).toHaveLength(0);
 	});
 
-	test("a folder that does not exist is install_failed, not a crash", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
+	test("a folder that does not exist is install_failed, not a crash", async ({ db, eventBus }) => {
 		await seedPeople(db);
-		const { edit } = actionsFor(agentOrchestration, db, eventBus);
+		const { edit } = actionsFor(db, eventBus);
 
 		const result = await edit("u-ada", {
 			source: {

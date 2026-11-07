@@ -12,11 +12,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { sessions, tasks, teams, threads, users } from "@hyperidle/db";
-import { test } from "@hyperidle/db/test-fixtures";
+import { tasks, teams, threads, users } from "@hyperidle/db";
 import type { ActionResult, DocumentRow, DocumentView } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
+import { sessions } from "@hyperidle/runner-db";
 import { afterEach, beforeEach, describe, expect } from "vitest";
+import { test } from "../__testing__/test-fixtures.js";
 import { createWritebackProcessor } from "../writeback-processor.js";
 
 const writeback = createWritebackProcessor();
@@ -103,6 +104,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 
 	test("a task session parents its produced item to its task, as the session's own agent", async ({
 		db,
+		runnerDb,
 	}) => {
 		await db.insert(teams).values({ id: "wp-team", name: "T", createdAt: NOW });
 		await db.insert(users).values({
@@ -132,7 +134,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "wp-sess-task",
 			taskId: "wp-task",
 			agentId: "wp-agent",
@@ -141,7 +143,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 			startedAt: NOW,
 		});
 
-		const { document } = await runWriteback(db, "wp-sess-task");
+		const { document } = await runWriteback(runnerDb, "wp-sess-task");
 		expect(document.editCalls).toHaveLength(1);
 		expect(document.editCalls[0]).toMatchObject({
 			caller: { actor: "wp-agent", sessionId: "wp-sess-task", taskId: "wp-task", threadId: null },
@@ -151,6 +153,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 
 	test("a conversation session parents its produced item to its thread, as the session's own agent", async ({
 		db,
+		runnerDb,
 	}) => {
 		await db.insert(users).values({
 			id: "wp-agent-2",
@@ -160,7 +163,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 			status: "active",
 			createdAt: NOW,
 		});
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "wp-sess-conv",
 			taskId: null,
 			agentId: "wp-agent-2",
@@ -171,7 +174,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 			startedAt: NOW,
 		});
 
-		const { document } = await runWriteback(db, "wp-sess-conv");
+		const { document } = await runWriteback(runnerDb, "wp-sess-conv");
 		expect(document.editCalls).toHaveLength(1);
 		expect(document.editCalls[0]).toMatchObject({
 			caller: {
@@ -186,6 +189,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 
 	test("a page the agent writes as an .html file comes back as an app; anything else as markdown", async ({
 		db,
+		runnerDb,
 	}) => {
 		await db.insert(users).values({
 			id: "wp-agent-4",
@@ -195,7 +199,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 			status: "active",
 			createdAt: NOW,
 		});
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "wp-sess-app",
 			taskId: null,
 			agentId: "wp-agent-4",
@@ -205,16 +209,17 @@ describe("a written-back item hangs off what the session is working on, attribut
 			startedAt: NOW,
 		});
 
-		const app = await runWriteback(db, "wp-sess-app", "trial-price.html");
+		const app = await runWriteback(runnerDb, "wp-sess-app", "trial-price.html");
 		expect(app.document.editCalls[0]).toMatchObject({
 			input: { title: "trial price", format: "html" },
 		});
-		const note = await runWriteback(db, "wp-sess-app", "notes.md");
+		const note = await runWriteback(runnerDb, "wp-sess-app", "notes.md");
 		expect(note.document.editCalls[0]).toMatchObject({ input: { format: "markdown" } });
 	});
 
 	test("a session with neither writes a parentless item rather than guessing, still as its own agent", async ({
 		db,
+		runnerDb,
 	}) => {
 		await db.insert(users).values({
 			id: "wp-agent-3",
@@ -224,7 +229,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 			status: "active",
 			createdAt: NOW,
 		});
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "wp-sess-subscription",
 			taskId: null,
 			agentId: "wp-agent-3",
@@ -234,7 +239,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 			startedAt: NOW,
 		});
 
-		const { document } = await runWriteback(db, "wp-sess-subscription");
+		const { document } = await runWriteback(runnerDb, "wp-sess-subscription");
 		expect(document.editCalls).toHaveLength(1);
 		const call = document.editCalls[0] as {
 			readonly caller: { readonly actor: string };
@@ -245,9 +250,9 @@ describe("a written-back item hangs off what the session is working on, attribut
 	});
 
 	test("an unknown session writes nothing back — there is no real agent to attribute it to", async ({
-		db,
+		runnerDb,
 	}) => {
-		const { document } = await runWriteback(db, "wp-sess-nonexistent");
+		const { document } = await runWriteback(runnerDb, "wp-sess-nonexistent");
 		expect(document.editCalls).toHaveLength(0);
 	});
 });

@@ -11,7 +11,6 @@
  * verdict-race first-wins behavior lives in thread-actions.integration.test.ts.
  */
 
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import { getOrCreateUser, insertUser, updateUser } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
@@ -19,10 +18,8 @@ import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import type { ActionContext } from "../actions/action.js";
 import { buildCoreActions } from "../actions/compose.js";
 
-function buildTestActions(agentOrchestration: AgentOrchestrationPort) {
-	return buildCoreActions({
-		agentOrchestration,
-	});
+function buildTestActions() {
+	return buildCoreActions({});
 }
 
 const NOW = new Date().toISOString();
@@ -84,11 +81,10 @@ describe("conversation-store row writes", () => {
 	test("adjust_thread applies a typed pinned patch (was updateThread)", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await insertUser(db, userValues("u3"));
 		await db.insert(threads).values(threadValues("t3", "u3"));
-		const actions = buildTestActions(agentOrchestration);
+		const actions = buildTestActions();
 		const adjustThread = actions.find((a) => a.declaration.name === "adjust_thread");
 		if (!adjustThread) throw new Error("adjust_thread action not found");
 		const ctx: ActionContext = { actor: "u3", db, eventBus, now: new Date().toISOString() };
@@ -106,11 +102,10 @@ describe("conversation-store row writes", () => {
 	test("send_message reuses the same direct thread for the same sender+recipient", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await insertUser(db, userValues("u5a"));
 		await insertUser(db, userValues("u5b", { kind: "human" }));
-		const actions = buildTestActions(agentOrchestration);
+		const actions = buildTestActions();
 		const sendMessage = actions.find((a) => a.declaration.name === "send_message");
 		if (!sendMessage) throw new Error("send_message action not found");
 		const ctx: ActionContext = { actor: "u5a", db, eventBus, now: new Date().toISOString() };

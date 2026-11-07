@@ -21,12 +21,8 @@ const test = baseTest.extend<{
 		options: BuildToolRegistryOptions<HyperIdleDb>,
 	) => ToolRegistry<HyperIdleDb>;
 }>({
-	buildToolRegistry: async ({ agentOrchestration }, use) => {
-		const actionTools = actionsAsTools(
-			buildCoreActions({
-				agentOrchestration,
-			}),
-		);
+	buildToolRegistry: async ({}, use) => {
+		const actionTools = actionsAsTools(buildCoreActions({}));
 		await use((ctx, options) =>
 			buildToolRegistryFromDefinitions<HyperIdleDb>([...actionTools], ctx, options),
 		);
@@ -53,20 +49,11 @@ describe("buildToolRegistry", () => {
 	// document's own three (search/open/edit), platform's own two
 	// (search_plugins/edit_plugin), user's own three (search_users/open_user/
 	// edit_user) — fifteen.
-	test("returns exactly the composed action tools", ({
-		db,
-		eventBus,
-		agentOrchestration,
-		buildToolRegistry,
-	}) => {
+	test("returns exactly the composed action tools", ({ db, eventBus, buildToolRegistry }) => {
 		const registry = buildToolRegistry(makeContext(db, eventBus), {});
 		const names = new Set(registry.definitions.map((d) => d.name));
 
-		const composedActionNames = new Set(
-			buildCoreActions({
-				agentOrchestration,
-			}).map((a) => a.declaration.name),
-		);
+		const composedActionNames = new Set(buildCoreActions({}).map((a) => a.declaration.name));
 		// Set equality, never toContain: proves the registered set is EXACTLY
 		// the composed action list, with nothing extra and nothing missing.
 		expect(names).toEqual(composedActionNames);

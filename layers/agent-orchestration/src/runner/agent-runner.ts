@@ -1,7 +1,16 @@
-import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { InboxRowView, UserRow, UserView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
+import {
+	listSessions,
+	loadHeldAgentRunnerKeys,
+	loadMovedAwayAgentIds,
+	markAgentRunnerKeyMovedAway,
+	persistAgentRunnerKey,
+	stopSessionRun,
+} from "@hyperidle/run-orchestration";
+import type { RunnerDb } from "@hyperidle/runner-db";
+import { cancelAllPendingForAgent, sessionRunRegistry } from "@hyperidle/session-requests";
 import { type CoreDoor, DoorError } from "./core-door.js";
 import { actOnInboxRow, NotYet, postFailureNotice } from "./inbox-work.js";
 import { cleanupFinishedTaskWorktrees } from "./task-cleanup.js";
@@ -15,22 +24,27 @@ const RUNNABLE_STATUSES: ReadonlySet<string> = new Set(["active", "idle"]);
 const INBOX_PAGE = 50;
 
 export interface AgentRunnerDeps {
-	readonly db: HyperIdleDb;
+	readonly db: RunnerDb;
+	/** Event bus for session_ended nudges, so a finishing session re-sweeps the agent's inbox. */
 	readonly eventBus: EventBus;
 	readonly door: CoreDoor;
 	/** The key of the person this computer belongs to; undefined until there is one. */
 	readonly personKey: () => string | undefined;
 	/** Hear `user:<agentId>` nudges — each new inbox row. Returns how to stop hearing them. */
 	readonly subscribeInbox: (agentId: string, onNudge: () => void) => () => void;
-	/** How often the runner looks for new agents and missed rows. Default 30 s. */
-	readonly sweepMs?: number;
 }
 
 export interface AgentRunner {
 	/** The key this runner holds for an agent, for its tools to call the door with. */
 	keyFor(agentId: string): string | undefined;
+	/** All agent ids currently held by this runner. */
+	heldAgentIds(): readonly string[];
+	/** Agent ids that were 401'd — moved away; not re-taken until takeAgent() is called. */
+	movedAwayAgentIds(): readonly string[];
 	/** Take every agent this computer may hold and answer what waited for them. */
 	start(): Promise<void>;
+	/** Explicitly take a specific agent (clears moved-away). */
+	takeAgent(agentId: string): Promise<void>;
 	/** Stops taking work and waits for the passes under way. */
 	stop(): Promise<void>;
 }
@@ -39,12 +53,13 @@ export interface AgentRunner {
 const ROW_FAILURE_LIMIT = 3;
 
 /**
- * The agents' runner on this computer. It gets a fresh key for every agent the person here may
- * hold — the newest key wins, so the agent lives here now — then works through each agent's inbox
- * as that agent: once at start (what waited while it was off), on every nudge, and on a slow sweep.
+ * The agents' runner on this computer. Persists taken keys across restarts (agent_runner_keys).
+ * On a 401 the agent is marked moved-away and never re-taken on its own — only takeAgent() can
+ * re-claim it. This prevents the ping-pong between two runners both trying to claim the same agent.
  */
 export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 	const keys = new Map<string, string>();
+	const movedAway = new Set<string>();
 	const unsubscribers = new Map<string, () => void>();
 	const draining = new Map<string, Promise<void>>();
 	const again = new Set<string>();
@@ -52,6 +67,79 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 	const rowFailures = new Map<string, number>();
 	let timer: ReturnType<typeof setInterval> | undefined;
 	let stopped = false;
+
+	/** Persist a newly taken key. Best-effort — a failure only means no reuse after restart. */
+	async function persistKey(agentId: string, key: string): Promise<void> {
+		try {
+			await persistAgentRunnerKey(deps.db, agentId, key);
+		} catch (err) {
+			logger.warn("could not persist agent key; it will not survive restart", {
+				agentId,
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+	}
+
+	/**
+	 * Mark an agent as moved-away in the db.
+	 * `failedKey` is the key that received the 401; each write is guarded by checking the
+	 * key is still the failed one, so a concurrent takeAgent() cannot have its row marked
+	 * moved-away or its sessions stopped.
+	 */
+	async function markMovedAway(agentId: string, failedKey: string): Promise<void> {
+		movedAway.add(agentId);
+		const now = new Date().toISOString();
+		const stillFailed = () => keys.get(agentId) === failedKey;
+		try {
+			await markAgentRunnerKeyMovedAway(deps.db, agentId);
+		} catch (err) {
+			logger.warn("could not mark agent moved-away in db", {
+				agentId,
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+		if (!stillFailed()) return;
+		try {
+			const n = await cancelAllPendingForAgent(deps.db, agentId, now);
+			if (n > 0) logger.info("cancelled pending runs for moved-away agent", { agentId, n });
+		} catch (err) {
+			logger.warn("could not cancel pending runs for moved-away agent", {
+				agentId,
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+		if (!stillFailed()) return;
+		// Stop live harness sessions so they don't continue with an invalidated key.
+		try {
+			const live = await listSessions(deps.db, {
+				agentIds: [agentId],
+				state: "active",
+				limit: 1000,
+			});
+			for (const session of live) {
+				await stopSessionRun(deps.db, deps.eventBus, session.id, (sid) =>
+					sessionRunRegistry.abort(sid, "stop"),
+				);
+			}
+			if (live.length > 0)
+				logger.info("stopped live sessions for moved-away agent", { agentId, n: live.length });
+		} catch (err) {
+			logger.warn("could not stop live sessions for moved-away agent", {
+				agentId,
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+	}
+
+	function activateAgent(agentId: string, key: string): void {
+		keys.set(agentId, key);
+		movedAway.delete(agentId);
+		unsubscribers.set(
+			agentId,
+			deps.subscribeInbox(agentId, () => void drain(agentId)),
+		);
+		void drain(agentId);
+	}
 
 	function dropAgent(agentId: string): void {
 		keys.delete(agentId);
@@ -87,19 +175,22 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 		const agents = await deps.door.call<UserRow[]>(personKey, "search_users", { kind: "ai" });
 		if (!agents.ok) return;
 		for (const agent of agents.data) {
-			if (stopped || keys.has(agent.id) || !mayHold(agent, personId)) continue;
+			if (stopped) return;
+			// Already held by this runner.
+			if (keys.has(agent.id)) continue;
+			// Not eligible to hold.
+			if (!mayHold(agent, personId)) continue;
+			// Was 401'd — moved away; takeAgent() must be called explicitly to reclaim.
+			if (movedAway.has(agent.id)) continue;
+			// Another runner holds it; don't fight for it.
+			if (agent.hasKey === true) continue;
 			const given = await deps.door.call<UserView>(personKey, "edit_user", {
 				id: agent.id,
 				key: "new",
 			});
 			if (!(given.ok && given.data.key)) continue;
-			keys.set(agent.id, given.data.key);
-			unsubscribers.set(
-				agent.id,
-				deps.subscribeInbox(agent.id, () => void drain(agent.id)),
-			);
-			// What waited for it while no runner held it.
-			void drain(agent.id);
+			await persistKey(agent.id, given.data.key);
+			activateAgent(agent.id, given.data.key);
 		}
 	}
 
@@ -174,12 +265,24 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 		const pass = (async () => {
 			do {
 				again.delete(agentId);
+				// Snapshot the key before the pass so a concurrent takeAgent() can be detected.
+				const keyAtPassStart = keys.get(agentId);
 				try {
 					await workInbox(agentId);
 				} catch (error) {
 					if (error instanceof DoorError && error.status === 401) {
-						// The key was replaced elsewhere: drop it, and the next sweep takes the agent with a new one.
-						dropAgent(agentId);
+						// If takeAgent() updated the key concurrently, the new key is valid — run again
+						// (honour any pending nudge that arrived while the old pass was running).
+						if (keys.get(agentId) !== keyAtPassStart) continue;
+						// The key was not rotated by us: mark moved-away and drop.
+						// Never re-take on the sweep — only an explicit takeAgent() can reclaim it.
+						// keyAtPassStart is always set when we reach here: workInbox early-exits
+						// without throwing when the key is absent, so a 401 means the key was set.
+						if (!keyAtPassStart) return;
+						await markMovedAway(agentId, keyAtPassStart);
+						// A concurrent takeAgent() may have updated the key while markMovedAway awaited.
+						// Only drop if the key is still the one that failed.
+						if (keys.get(agentId) === keyAtPassStart) dropAgent(agentId);
 						return;
 					}
 					logger.error("inbox pass failed; the rows wait for the next one", {
@@ -211,17 +314,29 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 
 	return {
 		keyFor: (agentId) => keys.get(agentId),
+		heldAgentIds: () => [...keys.keys()],
+		movedAwayAgentIds: () => [...movedAway],
+
 		async start() {
-			// A new or changed agent may be one this computer now holds.
-			for (const event of ["user.created", "user.changed"] as const) {
-				const off = deps.eventBus.on(event, () => {
-					void takeAgents().catch((error) => {
-						logger.error("looking for agents failed", {
-							error: error instanceof Error ? error.message : String(error),
-						});
-					});
+			// Load persisted keys from previous run; reuse them without calling edit_user again.
+			const stored = await loadHeldAgentRunnerKeys(deps.db);
+			for (const row of stored) {
+				if (!keys.has(row.agentId)) {
+					activateAgent(row.agentId, row.agentKey);
+				}
+			}
+			// Also load moved-away set so we don't re-take them on the first sweep.
+			const away = await loadMovedAwayAgentIds(deps.db);
+			for (const agentId of away) {
+				movedAway.add(agentId);
+			}
+			// When a session ends, re-sweep that agent's inbox: rows that waited while
+			// the agent was busy (NotYet) may now be ready to queue.
+			{
+				const off = deps.eventBus.on("session_ended", (event) => {
+					if (keys.has(event.agentId)) void drain(event.agentId);
 				});
-				unsubscribers.set(event, off);
+				unsubscribers.set("session_ended", off);
 			}
 			await sweep();
 			timer = setInterval(() => {
@@ -230,9 +345,37 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 						error: error instanceof Error ? error.message : String(error),
 					});
 				});
-			}, deps.sweepMs ?? 30_000);
+			}, 30_000);
 			timer.unref();
 		},
+
+		async takeAgent(agentId: string) {
+			const personKey = deps.personKey();
+			if (!personKey) throw new Error("no person key to take agent with");
+			const given = await deps.door.call<UserView>(personKey, "edit_user", {
+				id: agentId,
+				key: "new",
+			});
+			if (!(given.ok && given.data.key)) {
+				throw new Error(`takeAgent ${agentId}: server refused — ${JSON.stringify(given)}`);
+			}
+			await persistKey(agentId, given.data.key);
+			movedAway.delete(agentId);
+			if (!keys.has(agentId)) {
+				activateAgent(agentId, given.data.key);
+			} else {
+				// Key rotated on a held agent: tear down the old WS subscription (it won't
+				// receive nudges with the new key) and re-activate so a fresh subscription is
+				// registered and an immediate inbox pass is scheduled.
+				const off = unsubscribers.get(agentId);
+				if (off) {
+					off();
+					unsubscribers.delete(agentId);
+				}
+				activateAgent(agentId, given.data.key);
+			}
+		},
+
 		async stop() {
 			stopped = true;
 			if (timer) clearInterval(timer);

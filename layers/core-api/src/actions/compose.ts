@@ -5,7 +5,6 @@
  * deps to the real Services, and returns the ONE composed list every
  * projection (HTTP, MCP, UI) reads.
  */
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { appendChange, listChanges } from "@hyperidle/changes";
 import type { HyperIdleDb, User, WriteExecutor } from "@hyperidle/db";
 import { createDocumentActions, type DocumentActionsDeps } from "@hyperidle/document";
@@ -16,13 +15,11 @@ import type {
 	DocumentView,
 	EditDocumentInput,
 	EditTaskInput,
-	HarnessDescriptor,
 	OpenThreadInput,
 	SearchDocumentsInput,
 	TaskView,
 	ThreadView,
 } from "@hyperidle/domain-model";
-import { derivePrimaryHarness } from "@hyperidle/harness-capability";
 import { createPlatformActions, markDetached, type PlatformActionsDeps } from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
 import { createThreadActions, listMessages, type ThreadActionsDeps } from "@hyperidle/thread";
@@ -43,11 +40,9 @@ import {
 	setAgentsStatus,
 	setSubscriptionsPaused,
 	tellUser,
-	type UserActionsDeps,
 	updateSubscription,
 	updateUser,
 } from "@hyperidle/user";
-import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import type { Action, ActionContext, SearchDocumentsRunFn } from "./action.js";
 
 /**
@@ -137,11 +132,10 @@ function buildTaskActionsDeps(
 }
 
 /**
- * Runner lookup by declaration name, structurally typed — same shape both
- * `createActionsRouter`/`actionCatalog` already loop over. Generic over both
- * the input and output type so every call site (`adjust_thread`/`open_thread`
- * sharing `ThreadView`, `open_task` returning `TaskView`) can be looked up
- * here through the one function.
+ * Runner lookup by declaration name, structurally typed — same shape
+ * `createActionsRouter` loops over. Generic over both the input and output type
+ * so every call site (`adjust_thread`/`open_thread` sharing `ThreadView`,
+ * `open_task` returning `TaskView`) can be looked up here through the one function.
  */
 export function runnerFor<I, O>(
 	actions: readonly Action[],
@@ -281,15 +275,9 @@ function buildDocumentActionsDeps(
  */
 function buildPlatformActionsDeps(
 	documentActions: readonly Action[],
-	agentOrchestration: AgentOrchestrationPort,
 	dirs: { readonly pluginsBaseDir?: string; readonly bundledPluginsDir?: string },
-	adapterPool?: HarnessCapabilityReader,
 ): PlatformActionsDeps {
 	return {
-		runConfig: agentOrchestration.runConfig,
-		...(adapterPool
-			? { firstAvailableHarness: (db: HyperIdleDb) => firstAvailableHarness(db, adapterPool) }
-			: {}),
 		teams: { exists: async (exec, teamId) => (await getTeam(exec, { id: teamId })) !== undefined },
 		viewerTeamIds: async (exec, actorId) => (await findUser(exec, { id: actorId }))?.teamIds ?? [],
 		agents: {
@@ -348,69 +336,14 @@ function buildPlatformActionsDeps(
 	};
 }
 
-/**
- * The harness a plugin's agents land on: the first ready one on this machine.
- */
-function firstAvailableHarness(
-	_db: HyperIdleDb,
-	adapterPool: HarnessCapabilityReader,
-): Promise<ReturnType<typeof derivePrimaryHarness> | null> {
-	const ready = adapterPool.describe().find((d) => d.discovery.state === "ready");
-	return Promise.resolve(ready ? derivePrimaryHarness(ready) : null);
-}
-
-/**
- * One audited cast: `HarnessCapabilityDescriptor` (the real pool's own type)
- * and `HarnessDescriptor` (`user-actions.ts`'s zod-mirrored dep shape, which
- * `@hyperidle/user` may not import `@hyperidle/harness-capability` to name
- * directly) differ only in array mutability, never in the values themselves.
- */
-function toHarnessDescriptors(
-	descriptors: readonly import("@hyperidle/harness-capability").HarnessCapabilityDescriptor[],
-): readonly HarnessDescriptor[] {
-	const widened: unknown = descriptors;
-	return widened as readonly HarnessDescriptor[];
-}
-
-/**
- * `user`'s deps: `runConfig`/`folders`/`connections`
- * come straight off `AgentOrchestrationPort` (the same port `runConfig`
- * already reaches through) — `@hyperidle/user` hand-types structural mirrors
- * of these three sub-ports rather than importing `@hyperidle/api-contract`
- * itself (governance: "a service talks through its own layer"), and this
- * assignment is where that mirror meets the real thing.
- * `editDocument`/`searchDocuments` are extracted from the already-built
- * `documentActions`, exactly like `platform`'s own deps above.
- * `harnesses` is absent when no adapter pool is wired (a
- * composition without agent execution) — `open_user`'s `runsOn` then answers
- * `[]` (no pool).
- */
 function buildUserActionsDeps(
 	documentActions: readonly Action[],
-	agentOrchestration: AgentOrchestrationPort,
-	adapterPool?: HarnessCapabilityReader,
-	onHarnessRedetect?: () => Promise<void>,
-	probeAgentLogin?: UserActionsDeps["probeAgentLogin"],
-): UserActionsDeps {
+): import("@hyperidle/user").UserActionsDeps {
 	return {
 		changes: {
 			appendChange,
 			listByIds: (db, ids) => listChanges(db, { ids }),
 		},
-		runConfig: agentOrchestration.runConfig,
-		spaceFolders: agentOrchestration.spaceFolders,
-		connections: agentOrchestration.connections,
-		...(adapterPool
-			? {
-					harnesses: {
-						describe: () => toHarnessDescriptors(adapterPool.describe()),
-						redetect: async () => {
-							await Promise.all([adapterPool.refresh(), onHarnessRedetect?.()]);
-						},
-					},
-				}
-			: {}),
-		...(probeAgentLogin ? { probeAgentLogin } : {}),
 		editDocument: runnerFor<EditDocumentInput, DocumentView>(documentActions, "edit_document"),
 		searchDocuments: runnerFor<SearchDocumentsInput, DocumentRow[]>(
 			documentActions,
@@ -435,13 +368,9 @@ function buildUserActionsDeps(
  * already real by then too. The returned array's own order is irrelevant.
  */
 export function buildCoreActions(bindings: {
-	readonly agentOrchestration: AgentOrchestrationPort;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
 	readonly pluginsBaseDir?: string;
 	readonly bundledPluginsDir?: string;
-	readonly adapterPool?: HarnessCapabilityReader;
-	readonly onHarnessRedetect?: () => Promise<void>;
-	readonly probeAgentLogin?: UserActionsDeps["probeAgentLogin"];
 }): readonly Action[] {
 	let documentActions: readonly Action[] = [];
 	let taskActionsForThread: readonly Action[] = [];
@@ -461,22 +390,9 @@ export function buildCoreActions(bindings: {
 		buildDocumentActionsDeps(taskActions, threadActions, bindings.wsPush),
 	) as readonly Action[];
 	const platformActions = createPlatformActions(
-		buildPlatformActionsDeps(
-			documentActions,
-			bindings.agentOrchestration,
-			bindings,
-			bindings.adapterPool,
-		),
+		buildPlatformActionsDeps(documentActions, bindings),
 	) as readonly Action[];
-	const userActions = createUserActions(
-		buildUserActionsDeps(
-			documentActions,
-			bindings.agentOrchestration,
-			bindings.adapterPool,
-			bindings.onHarnessRedetect,
-			bindings.probeAgentLogin,
-		),
-	) as readonly Action[];
+	const userActions = createUserActions(buildUserActionsDeps(documentActions)) as readonly Action[];
 	return [...taskActions, ...threadActions, ...documentActions, ...platformActions, ...userActions];
 }
 

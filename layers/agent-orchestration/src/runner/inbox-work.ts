@@ -1,4 +1,3 @@
-import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import {
 	type BakedAgentRunnableConfig,
@@ -18,12 +17,15 @@ import {
 	buildVerdictMessage,
 	endRunForHandoff,
 	listSessions,
+	readAgentRunConfig,
 	recordReviewVerdict,
 	requestRunStopForTasks,
 } from "@hyperidle/run-orchestration";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import {
 	type BakedRunRequest,
 	cancelPendingForTasks,
+	countPendingRunsForAgent,
 	listPendingByStream,
 	queueResume,
 	queueRun,
@@ -37,7 +39,7 @@ const logger = createLogger({ pkg: "agent-orchestration.runner" });
 const WORKABLE_TASK_STATES: ReadonlySet<string> = new Set(["ready", "accepted", "in_progress"]);
 
 export interface InboxWorkDeps {
-	readonly db: HyperIdleDb;
+	readonly db: RunnerDb;
 	readonly eventBus: EventBus;
 	readonly door: CoreDoor;
 }
@@ -66,6 +68,18 @@ function must<O>(
 function selfRow(agent: HeldAgent): UserRow {
 	if (!agent.self.user) throw new NothingToDo("the agent is gone");
 	return agent.self.user;
+}
+
+async function throwIfAtSessionLimit(deps: InboxWorkDeps, agentId: string): Promise<void> {
+	const { maxConcurrentSessions } = await readAgentRunConfig(deps.db, agentId);
+	const active = await listSessions(deps.db, {
+		agentIds: [agentId],
+		state: "active",
+		limit: maxConcurrentSessions,
+	});
+	const pendingCount = await countPendingRunsForAgent(deps.db, agentId);
+	if (active.length + pendingCount >= maxConcurrentSessions)
+		throw new NotYet("agent is at session limit");
 }
 
 async function agentConfigOf(
@@ -194,6 +208,7 @@ async function actOnMessage(
 	agent: HeldAgent,
 	row: InboxRowView,
 ): Promise<void> {
+	const me = selfRow(agent);
 	const threadId = row.objectId;
 	const senderId = row.change?.actor;
 	if (!(threadId && senderId)) throw new NothingToDo("the row names no thread");
@@ -203,12 +218,15 @@ async function actOnMessage(
 	if (message.type === "plain" && typeof text === "string") {
 		const sender = thread.members.find((m) => m.id === senderId)?.name ?? senderId;
 		const delivered = await sessionRunRegistry.deliverToConversation(
-			selfRow(agent).id,
+			me.id,
 			threadId,
 			`${sender} wrote in the conversation: ${text}`,
 		);
 		if (delivered === "delivered") return;
 	}
+	// Wait until the agent is free before queuing a new run, so the row stays unread
+	// if the agent moves to another runner before the run starts.
+	await throwIfAtSessionLimit(deps, me.id);
 	await queueThreadTurn(deps, agent, row, thread, message.id, senderId);
 }
 
@@ -258,6 +276,9 @@ async function actOnReviewAnswered(
 	);
 	if (outcome.status === "queued") return;
 	// No session can take it back, so the agent reads the answer in a new turn.
+	// Same hold-back rule as messages and task runs: don't start while at the limit.
+	const me = selfRow(agent);
+	await throwIfAtSessionLimit(deps, me.id);
 	logger.info("answer starts a new turn", { reviewMessageId, outcome: outcome.status });
 	// Core left an approved task open for the session that asked; with none coming back, the agent
 	// closes it here — by core's own rule, only when every line of it is met.
@@ -304,6 +325,9 @@ async function actOnTaskRun(
 	const queued = await listPendingByStream(deps.db, `task:${task.id}`);
 	if (queued.some((r) => r.agentId === me.id))
 		throw new NothingToDo("a run on the task is waiting");
+	// Do not queue while the agent is at its session limit: the row stays unread so
+	// another runner can pick it up after a move, or this runner retries once a slot frees.
+	await throwIfAtSessionLimit(deps, me.id);
 	const team = me.teams.find((t) => t.id === task.teamId);
 	const contextBundle: BakedContextBundle | undefined = team
 		? {
@@ -361,6 +385,8 @@ async function actOnSubscription(
 	const prompt = found.ok ? (found.data[0]?.body ?? null) : null;
 	const team = me.teams[0] ?? null;
 	const sourceId = row.change ? `${sub.id}:${row.change.id}` : `${sub.id}:${row.createdAt}`;
+	// Same hold-back rule as messages and task runs.
+	await throwIfAtSessionLimit(deps, me.id);
 	await queue(
 		deps,
 		{

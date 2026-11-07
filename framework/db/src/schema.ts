@@ -16,6 +16,10 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+// Run tables (sessions, agent_session_requests, review_sessions, agent_run_config) and
+// connections tables (service_connections, service_connection_withholds) live in
+// @hyperidle/runner-db — they are owned by the runner process, not the server.
+
 // --- Core tables ---
 
 export const teams = pgTable("teams", {
@@ -70,37 +74,6 @@ export const userTeams = pgTable(
 		primaryKey({ columns: [table.userId, table.teamId] }),
 		index("user_teams_team_idx").on(table.teamId),
 	],
-);
-
-/**
- * One agent's run configuration, keyed on its `users` row.
- *
- */
-export const agentRunConfig = pgTable(
-	"agent_run_config",
-	{
-		agentUserId: text("agent_user_id")
-			.primaryKey()
-			.references(() => users.id, { onDelete: "cascade" }),
-		harnessType: text("harness_type"),
-		modelId: text("model_id"),
-		modelProvider: text("model_provider"),
-		maxConcurrentSessions: integer("max_concurrent_sessions").notNull().default(1),
-		/**
-		 * The harness options this agent's model runs with, as a JSON object of the
-		 * option keys the harness declares for that model.
-		 *
-		 * Nullable with no default — reads as `{}` when not set. Sparse by design — only a value the user moved away from the
-		 * harness's own default is stored, so an absent key means "whatever the
-		 * harness does", not "unset".
-		 */
-		modelOptionsJson: text("model_options_json"),
-		/** The agent's space on this computer (`~/HyperIdle/<name>`), fixed the first time it is made. */
-		spacePath: text("space_path"),
-		/** Whose program login the agent runs with: its own, inside its space, or the computer owner's. */
-		login: text("login").notNull().default("owner"),
-	},
-	(table) => [check("agent_run_config_login_ck", sql`${table.login} in ('own', 'owner')`)],
 );
 
 // --- Process primitives ---
@@ -174,98 +147,6 @@ export const tasks = pgTable(
 	],
 );
 
-export const sessions = pgTable(
-	"sessions",
-	{
-		id: text("id").primaryKey(),
-		/**
-		 * Nullable because assistant/subscription/knowledge/decomposition runs are
-		 * real sessions without fabricated task rows. Task-backed sessions keep the FK.
-		 */
-		taskId: text("task_id").references(() => tasks.id, { onDelete: "restrict" }),
-		requestId: text("request_id"),
-		sourceKind: text("source_kind"),
-		sourceId: text("source_id"),
-		sourceCorrelationJson: text("source_correlation_json"),
-		agentId: text("agent_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "restrict" }),
-		modelTier: text("model_tier").notNull(),
-		startedAt: text("started_at").notNull(),
-		endedAt: text("ended_at"),
-		state: text("state").notNull(),
-		sandboxSnapshot: text("sandbox_snapshot"),
-		outcome: text("outcome"),
-		notes: text("notes"),
-		// Harness-assigned id for this session; null means the session cannot be resumed.
-		harnessSessionId: text("harness_session_id"),
-	},
-	(table) => [
-		index("sessions_task_id_idx").on(table.taskId),
-		uniqueIndex("sessions_request_id_uq").on(table.requestId),
-		index("sessions_source_idx").on(table.sourceKind, table.sourceId),
-		index("sessions_agent_id_idx").on(table.agentId),
-		index("sessions_state_idx").on(table.state),
-	],
-);
-
-export const agentSessionRequests = pgTable(
-	"agent_session_requests",
-	{
-		id: text("id").primaryKey(),
-		sourceKind: text("source_kind").notNull(),
-		sourceId: text("source_id").notNull(),
-		streamId: text("stream_id").notNull(),
-		taskId: text("task_id").references(() => tasks.id, { onDelete: "restrict" }),
-		agentId: text("agent_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "restrict" }),
-		teamId: text("team_id").references(() => teams.id, { onDelete: "restrict" }),
-		userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
-		promptMode: text("prompt_mode").notNull(),
-		payloadJson: text("payload_json"),
-		sourceCorrelationJson: text("source_correlation_json").notNull(),
-		idempotencyKey: text("idempotency_key").notNull(),
-		status: text("status").notNull(),
-		claimedBy: text("claimed_by"),
-		claimedAt: text("claimed_at"),
-		claimExpiresAt: text("claim_expires_at"),
-		claimToken: text("claim_token"),
-		sessionId: text("session_id"),
-		terminationReason: text("termination_reason"),
-		terminationRequestedAt: text("termination_requested_at"),
-		terminationRequestedBy: text("termination_requested_by"),
-		errorCode: text("error_code"),
-		errorMessage: text("error_message"),
-		createdAt: text("created_at").notNull(),
-		updatedAt: text("updated_at").notNull(),
-	},
-	(table) => [
-		uniqueIndex("agent_session_requests_idempotency_uq").on(
-			table.sourceKind,
-			table.sourceId,
-			table.idempotencyKey,
-		),
-		index("agent_session_requests_status_created_idx").on(table.status, table.createdAt),
-		index("agent_session_requests_source_idx").on(table.sourceKind, table.sourceId),
-		index("agent_session_requests_claim_expires_idx").on(table.claimExpiresAt),
-		// running requires a session; claimed requires the token+expiry pair; closed statuses forbid a live claim; pending is named explicitly (not a fallthrough)
-		check(
-			"agent_session_requests_correlation_ck",
-			sql`
-				(${table.status} = 'running' and ${table.sessionId} is not null)
-				or (${table.status} = 'claimed' and ${table.claimToken} is not null and ${table.claimExpiresAt} is not null)
-				or (${table.status} = 'pending')
-				or (${table.status} in ('completed', 'failed', 'cancelled') and ${table.claimToken} is null and ${table.claimExpiresAt} is null)
-			`,
-		),
-		check(
-			"agent_session_requests_termination_reason_ck",
-			sql`${table.terminationReason} is null or ${table.terminationReason} in ('user_done', 'user_crashed', 'handoff', 'shutdown')`,
-		),
-	],
-);
-
 // @lore: taskDispatchAttempts — task ID alone can't identify retries or handoffs; each dispatch is durable so replay reuses it without suppressing later attempts
 export const taskDispatchAttempts = pgTable(
 	"task_dispatch_attempts",
@@ -278,15 +159,8 @@ export const taskDispatchAttempts = pgTable(
 		agentId: text("agent_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "restrict" }),
-		predecessorSessionId: text("predecessor_session_id").references(() => sessions.id, {
-			onDelete: "restrict",
-		}),
 		ordinal: integer("ordinal").notNull(),
 		status: text("status").notNull().default("requested"),
-		requestId: text("request_id").references(() => agentSessionRequests.id, {
-			onDelete: "restrict",
-		}),
-		sessionId: text("session_id").references(() => sessions.id, { onDelete: "restrict" }),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 	},
@@ -714,18 +588,11 @@ export type NewSubscription = typeof subscriptions.$inferInsert;
 export type InboxRow = typeof inbox.$inferSelect;
 export type NewInboxRow = typeof inbox.$inferInsert;
 
-// `AgentRunConfigRow` is the raw table row (carries `agentUserId`); `@hyperidle/agent-run-config`'s `AgentRunConfig` is the keyless value object callers actually consume.
-export type NewAgentRunConfigRow = typeof agentRunConfig.$inferInsert;
-
 export type Task = typeof tasks.$inferSelect;
 export type NewTask = typeof tasks.$inferInsert;
 
 export type Change = typeof changes.$inferSelect;
 export type NewChange = typeof changes.$inferInsert;
-
-export type Session = typeof sessions.$inferSelect;
-
-export type AgentSessionRequest = typeof agentSessionRequests.$inferSelect;
 
 export type Thread = typeof threads.$inferSelect;
 export type NewThread = typeof threads.$inferInsert;
@@ -736,93 +603,3 @@ export type NewMessage = typeof messages.$inferInsert;
 export type DocumentRow = typeof documents.$inferSelect;
 
 export type PluginRow = typeof plugins.$inferSelect;
-
-// --- Service connections (per-user external tool connections) ---
-
-/**
- * Per-(user × service × authSource) connection record.
- *
- * Stores ONLY held connections (token | mcp). Inherited connections are
- * projected live from the harness descriptor and NEVER written here.
- *
- */
-export const serviceConnections = pgTable(
-	"service_connections",
-	{
-		/** sc-<uuid> — stable opaque server-issued id. */
-		id: text("id").primaryKey(),
-		userId: text("user_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "cascade" }),
-		/** Display name: "GitHub", "Stripe", … (open set, user-supplied). */
-		service: text("service").notNull(),
-		/** "token" | "mcp" — inherited NEVER stored (projected live). */
-		authSource: text("auth_source").notNull(),
-		/** AES-256-GCM base64(iv+ct+tag) — null for mcp (no stored secret). */
-		encryptedToken: text("encrypted_token"),
-		/** https:// URL — mcp only; null for token. */
-		serverUrl: text("server_url"),
-		/** "working" | "needs-attention" — set by validate endpoint. */
-		health: text("health").notNull().default("needs-attention"),
-		lastValidatedAt: text("last_validated_at"),
-		createdAt: text("created_at").notNull(),
-		updatedAt: text("updated_at").notNull(),
-	},
-	(t) => [
-		/** One (token|mcp) connection per (user × service × authSource). */
-		uniqueIndex("service_connections_user_service_source_idx").on(
-			t.userId,
-			t.service,
-			t.authSource,
-		),
-		index("service_connections_user_idx").on(t.userId),
-	],
-);
-
-export type ServiceConnectionRow = typeof serviceConnections.$inferSelect;
-export type NewServiceConnectionRow = typeof serviceConnections.$inferInsert;
-
-/** A service reaches every agent of its owner; a row here keeps it from one of them. */
-export const serviceConnectionWithholds = pgTable(
-	"service_connection_withholds",
-	{
-		connectionId: text("connection_id")
-			.notNull()
-			.references(() => serviceConnections.id, { onDelete: "cascade" }),
-		agentUserId: text("agent_user_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "cascade" }),
-		createdAt: text("created_at").notNull(),
-	},
-	(t) => [primaryKey({ columns: [t.connectionId, t.agentUserId] })],
-);
-
-// --- Action rules (scoped items for agent action approval) ---
-
-/**
- * The reviews a gate actually caused.
- *
- * A row is written only when an agent files a review while the gate is holding
- * a denial against its session. Approving that review clears the denied action,
- * once; approving any other review clears nothing.
- *
- * @lore: reviewSessions — review-to-gate-denial link prevents forged clearances; toolName keys the clearance to the action, not "the next tool call"
- */
-export const reviewSessions = pgTable(
-	"review_sessions",
-	{
-		id: text("id").primaryKey(),
-		/** The `messages` row of type "review" that the agent filed. */
-		reviewMessageId: text("review_message_id").notNull(),
-		/** The session the gate denied, and the one a verdict resumes. */
-		sessionId: text("session_id").notNull(),
-		createdAt: text("created_at").notNull(),
-	},
-	(table) => [
-		uniqueIndex("review_sessions_review_message_id_uq").on(table.reviewMessageId),
-		index("review_sessions_session_id_idx").on(table.sessionId),
-	],
-);
-
-export type ReviewSessionRow = typeof reviewSessions.$inferSelect;
-export type NewReviewSessionRow = typeof reviewSessions.$inferInsert;
