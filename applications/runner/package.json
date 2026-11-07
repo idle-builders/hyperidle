@@ -18,6 +18,7 @@
 		"@hyperidle/agent-execution": "*",
 		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/diagnostics": "*",
+		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
 		"@hyperidle/runner-db": "*",
 		"hono": "^4.12.27",
