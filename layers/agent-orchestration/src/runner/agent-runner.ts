@@ -30,8 +30,6 @@ export interface AgentRunnerDeps {
 	readonly personKey: () => string | undefined;
 	/** Hear `user:<agentId>` nudges — each new inbox row. Returns how to stop hearing them. */
 	readonly subscribeInbox: (agentId: string, onNudge: () => void) => () => void;
-	/** How often the runner looks for new agents and missed rows. Default 30 s. */
-	readonly sweepMs?: number;
 }
 
 export interface AgentRunner {
@@ -323,7 +321,7 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 						error: error instanceof Error ? error.message : String(error),
 					});
 				});
-			}, deps.sweepMs ?? 30_000);
+			}, 30_000);
 			timer.unref();
 		},
 

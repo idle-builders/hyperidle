@@ -187,25 +187,33 @@ describe("agent runner row failure limit", () => {
 
 		const eventBus = new EventBus();
 
+		// Capture the inbox nudge callback so the test can re-trigger drains without a sweep.
+		let triggerDrain: (() => void) | undefined;
 		const deps: AgentRunnerDeps = {
 			db: runnerDb,
 			eventBus,
 			door: fakeDoor,
 			personKey: () => undefined,
-			subscribeInbox: () => () => undefined,
-			sweepMs: 50,
+			subscribeInbox: (_agentId, onNudge) => {
+				triggerDrain = onNudge;
+				return () => {
+					triggerDrain = undefined;
+				};
+			},
 		};
 
 		const runner = createAgentRunner(deps);
 		await runner.start();
 
 		// Wait until both rows are marked read (meaning row-ok was acted on
-		// and row-fail was given up after 3 failures).
+		// and row-fail was given up after 3 failures). Nudge the drain on each
+		// poll iteration to replay failed rows without relying on the sweep timer.
 		const deadline = Date.now() + 15_000;
 		for (;;) {
 			const allRead = readRows.has("row-fail") && readRows.has("row-ok");
 			if (allRead) break;
 			if (Date.now() > deadline) throw new Error("timed out waiting for rows to be marked read");
+			triggerDrain?.();
 			await new Promise((resolve) => setTimeout(resolve, 25));
 		}
 

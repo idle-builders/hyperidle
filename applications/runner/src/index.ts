@@ -45,19 +45,13 @@ export interface StartRunnerDeps {
 	readonly personKey: string;
 	/** Directory where the runner stores its PGlite database and logs. */
 	readonly dataDir: string;
-	/** Spaces directory for agent sandboxes. When omitted, HYPERIDLE_SPACES_DIR is used. */
-	readonly spacesDir?: string;
 	/** The agent-execution boot to use. Caller is responsible for the lifecycle. */
 	readonly agentExecution: AgentExecutionBoot;
 	/**
 	 * The free port the caller resolved for the MCP bridge server. Must match the
-	 * port in the `mcpBaseUrl` that agentExecution was booted with. Callers that
-	 * use a stubbed agentExecution (tests) may omit this; startRunner will resolve
-	 * its own free port.
+	 * port in the `mcpBaseUrl` that agentExecution was booted with.
 	 */
-	readonly mcpPort?: number;
-	/** How often to sweep for new agents / missed inbox rows. Defaults to SWEEP_MS. */
-	readonly sweepMs?: number;
+	readonly mcpPort: number;
 }
 
 export interface RunnerHandle {
@@ -71,8 +65,6 @@ export interface RunnerHandle {
 	start(): Promise<void>;
 	/** Stop the runner and clean up. */
 	stop(): Promise<void>;
-	/** Path to the runner's PGlite database directory (for post-stop assertions). */
-	readonly dbDir: string;
 }
 
 const logger = createLogger({ pkg: "runner" });
@@ -209,10 +201,6 @@ function createWsSubscribeInbox(
 
 /** Start the runner program. Returns a handle to manage it. */
 export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> {
-	if (deps.spacesDir) {
-		process.env.HYPERIDLE_SPACES_DIR = deps.spacesDir;
-	}
-
 	// Boot runner-db — always create our own.
 	const runnerDbDir = path.join(deps.dataDir, "runner-pg");
 	fs.mkdirSync(runnerDbDir, { recursive: true });
@@ -222,7 +210,7 @@ export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> 
 	const runnerDb: RunnerDb = ownedRunnerDbHandle.db;
 
 	// Use the caller-provided MCP bridge port (must match agentExecution's mcpBaseUrl).
-	const mcpPort = deps.mcpPort ?? (await resolveFreePort());
+	const mcpPort = deps.mcpPort;
 	const agentExecution = deps.agentExecution;
 
 	// Runner's own MCP bridge HTTP server.
@@ -397,7 +385,6 @@ export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> 
 		eventBus,
 		door,
 		personKey: () => deps.personKey,
-		...(deps.sweepMs !== undefined ? { sweepMs: deps.sweepMs } : {}),
 		subscribeInbox: (agentId, onNudge) => {
 			const key = runner.keyFor(agentId);
 			if (!key) {
@@ -427,7 +414,6 @@ export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> 
 		heldAgentIds: () => runner.heldAgentIds(),
 		movedAwayAgentIds: () => runner.movedAwayAgentIds(),
 		start: doStart,
-		dbDir: runnerDbDir,
 		async stop() {
 			if (stopping) return;
 			stopping = true;

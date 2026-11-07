@@ -6,9 +6,6 @@
  *   HYPERIDLE_API_KEY     — the person's API key
  *   HYPERIDLE_DATA_DIR    — directory for runner-db and logs
  *
- * Optional:
- *   HYPERIDLE_SPACES_DIR  — base directory for agent sandboxes
- *
  * IPC (Electron utilityProcess.fork):
  *   Receives  { type: "take", agentId: string }
  *   Receives  { type: "state", agentId: string, reqId: string }
@@ -30,7 +27,6 @@ function needEnv(name: string): string {
 const serverUrl = needEnv("HYPERIDLE_SERVER_URL");
 const personKey = needEnv("HYPERIDLE_API_KEY");
 const dataDir = needEnv("HYPERIDLE_DATA_DIR");
-const spacesDir = process.env.HYPERIDLE_SPACES_DIR;
 
 // IPC channel for Electron utilityProcess.fork — handle messages from main.ts.
 // @lore: process.parentPort — injected by Electron utility process runtime; absent in CLI; not in @types/node.
@@ -53,7 +49,6 @@ void (async () => {
 		serverUrl,
 		personKey,
 		dataDir,
-		spacesDir,
 		agentExecution,
 		mcpPort,
 	});

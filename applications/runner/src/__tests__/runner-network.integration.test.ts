@@ -22,7 +22,7 @@ import { createServer } from "@hyperidle/remote-server/create-server";
 import { giveUserKey } from "@hyperidle/user";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { startRunner } from "../index.js";
+import { resolveFreePort, startRunner } from "../index.js";
 import { answersPong, makeScriptedBoot, type RunScript } from "./agent-runner-test-support.js";
 
 // ---- Minimal agentExecutionBoot stub ----
@@ -179,7 +179,7 @@ describe("runner network integration", () => {
 				personKey: PERSON_KEY,
 				dataDir: tempDataDir,
 				agentExecution: makeStubExecutionBoot(),
-				sweepMs: 300,
+				mcpPort: await resolveFreePort(),
 			});
 			await runner.start();
 			try {
@@ -209,7 +209,7 @@ describe("runner network integration", () => {
 				personKey: PERSON_KEY,
 				dataDir: tempDataDir,
 				agentExecution: makeStubExecutionBoot(),
-				sweepMs: 300,
+				mcpPort: await resolveFreePort(),
 			});
 			await runner1.start();
 			await waitFor("agent taken (run 1)", async () => {
@@ -229,7 +229,7 @@ describe("runner network integration", () => {
 				personKey: PERSON_KEY,
 				dataDir: tempDataDir,
 				agentExecution: makeStubExecutionBoot(),
-				sweepMs: 300,
+				mcpPort: await resolveFreePort(),
 			});
 			await runner2.start();
 			try {
@@ -265,7 +265,7 @@ describe("runner network integration", () => {
 				personKey: PERSON_KEY,
 				dataDir: tempDataDir,
 				agentExecution: makeStubExecutionBoot(),
-				sweepMs: 300,
+				mcpPort: await resolveFreePort(),
 			});
 			await runner1.start();
 			try {
@@ -281,7 +281,7 @@ describe("runner network integration", () => {
 					personKey: PERSON_KEY,
 					dataDir: r2DataDir,
 					agentExecution: makeStubExecutionBoot(),
-					sweepMs: 300,
+					mcpPort: await resolveFreePort(),
 				});
 				await runner2.start();
 				try {
@@ -345,7 +345,7 @@ describe("runner network integration", () => {
 				personKey: PERSON_KEY,
 				dataDir: tempDataDir,
 				agentExecution: makeStubExecutionBoot(),
-				sweepMs: 300,
+				mcpPort: await resolveFreePort(),
 			});
 			await runner.start();
 			try {
@@ -400,7 +400,7 @@ describe("runner network integration", () => {
 				personKey: PERSON_KEY,
 				dataDir: tempDataDir,
 				agentExecution: makeScriptedBoot(blockingScript, runsA),
-				sweepMs: 100,
+				mcpPort: await resolveFreePort(),
 			});
 			await runner1.start();
 			try {
@@ -438,7 +438,7 @@ describe("runner network integration", () => {
 					personKey: PERSON_KEY,
 					dataDir: r2DataDir,
 					agentExecution: makeScriptedBoot(answersPong, runsB),
-					sweepMs: 100,
+					mcpPort: await resolveFreePort(),
 				});
 				await runner2.start();
 				try {

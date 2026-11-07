@@ -16,7 +16,7 @@ import { type CoreDoor, createCoreDoor } from "@hyperidle/agent-orchestration";
 import { applyMigrations, type HyperIdleDb } from "@hyperidle/db";
 import { createServer } from "@hyperidle/remote-server/create-server";
 import { vi } from "vitest";
-import { type RunnerHandle, startRunner } from "../index.js";
+import { type RunnerHandle, resolveFreePort, startRunner } from "../index.js";
 
 // ---- Script types ----
 
@@ -219,12 +219,13 @@ export async function bootRunnerWorld(
 	const serverUrl = `http://127.0.0.1:${address.port}`;
 
 	// Boot the runner (not started — caller must call world.runner.start()).
+	const mcpPort = await resolveFreePort();
 	const runnerHandle = await startRunner({
 		serverUrl,
 		personKey,
 		dataDir,
 		agentExecution,
-		sweepMs: 100,
+		mcpPort,
 	});
 
 	// Door for the test to act as the person — calls the server directly.
@@ -236,7 +237,8 @@ export async function bootRunnerWorld(
 		runner: runnerHandle,
 		door,
 		nudge() {
-			// No-op: the runner polls every 100ms, so inbox rows are drained automatically.
+			// No-op: the server pushes `user:<agentId>` WS nudges when inbox rows are written,
+			// so the runner's WS subscription handles inbox triggers without a sweep.
 			// This method exists for ported test code that called world.nudge(...).
 		},
 		runs,
