@@ -127,7 +127,13 @@ async function withWorld(
 	const dbHandle = await makeCorePgDb(tempDataDir);
 	try {
 		await seedPeople(dbHandle.db);
-		const world = await bootRunnerWorld(dbHandle.db, PERSON_KEY, script, tempDataDir, agentExecutionOverride);
+		const world = await bootRunnerWorld(
+			dbHandle.db,
+			PERSON_KEY,
+			script,
+			tempDataDir,
+			agentExecutionOverride,
+		);
 		try {
 			await body(world, dbHandle.db);
 		} finally {
@@ -470,62 +476,76 @@ describe("an agent acts on its inbox", () => {
 
 	test("when a thread turn is refused admission, the agent posts a notice only when humans are in the thread", async () => {
 		// Use a failing boot so every session admission fails (PROVISIONING_FAILED).
-		await withWorld(answersPong, async (world, db) => {
-			await world.runner.start();
-			// Direct message to builder: thread has PERSON + BUILDER as members.
-			const sent = await asPerson<{ thread: { id: string } }>(world, "send_message", {
-				recipients: [BUILDER],
-				text: "hello",
-			});
+		await withWorld(
+			answersPong,
+			async (world, db) => {
+				await world.runner.start();
+				// Direct message to builder: thread has PERSON + BUILDER as members.
+				const sent = await asPerson<{ thread: { id: string } }>(world, "send_message", {
+					recipients: [BUILDER],
+					text: "hello",
+				});
 
-			await waitFor("admission-failed notice in thread", async () => {
-				const rows = await db
+				await waitFor("admission-failed notice in thread", async () => {
+					const rows = await db
+						.select()
+						.from(messages)
+						.where(and(eq(messages.senderId, BUILDER), eq(messages.threadId, sent.thread.id)));
+					return rows.length > 0 ? rows : undefined;
+				});
+
+				const notices = await db
 					.select()
 					.from(messages)
 					.where(and(eq(messages.senderId, BUILDER), eq(messages.threadId, sent.thread.id)));
-				return rows.length > 0 ? rows : undefined;
-			});
-
-			const notices = await db
-				.select()
-				.from(messages)
-				.where(and(eq(messages.senderId, BUILDER), eq(messages.threadId, sent.thread.id)));
-			const noticeText = (JSON.parse(notices[0]?.payload ?? "{}") as { text?: string }).text ?? "";
-			expect(noticeText).toContain("could not start");
-			// Idempotent: a second nudge posts no duplicate.
-			world.nudge(`user:${BUILDER}`, {});
-			await new Promise((r) => setTimeout(r, 300));
-			const after = await db
-				.select()
-				.from(messages)
-				.where(and(eq(messages.senderId, BUILDER), eq(messages.threadId, sent.thread.id)));
-			expect(after).toHaveLength(1);
-		}, makeFailingBoot());
+				const noticeText =
+					(JSON.parse(notices[0]?.payload ?? "{}") as { text?: string }).text ?? "";
+				expect(noticeText).toContain("could not start");
+				// Idempotent: a second nudge posts no duplicate.
+				world.nudge(`user:${BUILDER}`, {});
+				await new Promise((r) => setTimeout(r, 300));
+				const after = await db
+					.select()
+					.from(messages)
+					.where(and(eq(messages.senderId, BUILDER), eq(messages.threadId, sent.thread.id)));
+				expect(after).toHaveLength(1);
+			},
+			makeFailingBoot(),
+		);
 	}, 20_000);
 
 	test("when a task run is refused admission, the dispatch attempt is marked failed", async () => {
-		await withWorld(answersPong, async (world, db) => {
-			await world.runner.start();
-			const created = await asPerson<{ task: { id: string } }>(world, "edit_task", {
-				title: "Failing task",
-				teamId: TEAM,
-				ownerAgentId: BUILDER,
-			});
-			await asPerson(world, "edit_task", { id: created.task.id, state: "accepted" });
+		await withWorld(
+			answersPong,
+			async (world, db) => {
+				await world.runner.start();
+				const created = await asPerson<{ task: { id: string } }>(world, "edit_task", {
+					title: "Failing task",
+					teamId: TEAM,
+					ownerAgentId: BUILDER,
+				});
+				await asPerson(world, "edit_task", { id: created.task.id, state: "accepted" });
 
-			await waitFor("dispatch attempt marked failed", async () => {
+				await waitFor("dispatch attempt marked failed", async () => {
+					const [attempt] = await db
+						.select()
+						.from(taskDispatchAttempts)
+						.where(
+							and(
+								eq(taskDispatchAttempts.taskId, created.task.id),
+								eq(taskDispatchAttempts.status, "failed"),
+							),
+						);
+					return attempt ?? undefined;
+				});
+
 				const [attempt] = await db
 					.select()
 					.from(taskDispatchAttempts)
-					.where(and(eq(taskDispatchAttempts.taskId, created.task.id), eq(taskDispatchAttempts.status, "failed")));
-				return attempt ?? undefined;
-			});
-
-			const [attempt] = await db
-				.select()
-				.from(taskDispatchAttempts)
-				.where(eq(taskDispatchAttempts.taskId, created.task.id));
-			expect(attempt?.status).toBe("failed");
-		}, makeFailingBoot());
+					.where(eq(taskDispatchAttempts.taskId, created.task.id));
+				expect(attempt?.status).toBe("failed");
+			},
+			makeFailingBoot(),
+		);
 	}, 20_000);
 });

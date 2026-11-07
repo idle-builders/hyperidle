@@ -647,7 +647,10 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		// and return the current task view unchanged. No other side effects.
 		if (input.dispatchFailed === true) {
 			if (!prev) {
-				return { ok: false, problems: [{ code: "not_found", message: "task id required for dispatchFailed" }] };
+				return {
+					ok: false,
+					problems: [{ code: "not_found", message: "task id required for dispatchFailed" }],
+				};
 			}
 			await taskDispatchAttemptStore.markLatestRequestedFailed(ctx.db, prev.id);
 			return openTaskRun(ctx, { id: prev.id });

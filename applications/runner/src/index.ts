@@ -19,7 +19,13 @@ import {
 	createCoreDoor,
 } from "@hyperidle/agent-orchestration";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { ActionResult, DocumentRow, DocumentView, ThreadView, UserView } from "@hyperidle/domain-model";
+import type {
+	ActionResult,
+	DocumentRow,
+	DocumentView,
+	ThreadView,
+	UserView,
+} from "@hyperidle/domain-model";
 import {
 	DOCUMENT_ACTIONS,
 	PLATFORM_ACTIONS,
@@ -27,7 +33,7 @@ import {
 	THREAD_ACTIONS,
 	USER_ACTIONS,
 } from "@hyperidle/domain-model";
-import { EventBus, type AgentRunAdmissionFailureCode } from "@hyperidle/event-bus";
+import { type AgentRunAdmissionFailureCode, EventBus } from "@hyperidle/event-bus";
 import { applyRunnerMigrations, createPgliteRunnerDb, type RunnerDb } from "@hyperidle/runner-db";
 import { Hono } from "hono";
 import { WebSocket } from "ws";

@@ -404,8 +404,9 @@ describe("runner network integration", () => {
 			});
 			await runner1.start();
 			try {
-				await waitFor("R1 takes agent", async () =>
-					runner1.heldAgentIds().includes(AGENT_ID) || undefined,
+				await waitFor(
+					"R1 takes agent",
+					async () => runner1.heldAgentIds().includes(AGENT_ID) || undefined,
 				);
 
 				// Trigger a blocking run so the agent's session slot is occupied.
