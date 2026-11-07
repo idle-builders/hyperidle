@@ -178,6 +178,7 @@ describe("runner network integration", () => {
 				agentExecutionBoot: makeStubExecutionBoot(),
 				sweepMs: 300,
 			});
+			await runner.start();
 			try {
 				await waitFor("agent to be taken", async () => {
 					return runner.heldAgentIds().includes(AGENT_ID) || undefined;
@@ -207,6 +208,7 @@ describe("runner network integration", () => {
 				agentExecutionBoot: makeStubExecutionBoot(),
 				sweepMs: 300,
 			});
+			await runner1.start();
 			await waitFor("agent taken (run 1)", async () => {
 				return runner1.heldAgentIds().includes(AGENT_ID) || undefined;
 			});
@@ -226,6 +228,7 @@ describe("runner network integration", () => {
 				agentExecutionBoot: makeStubExecutionBoot(),
 				sweepMs: 300,
 			});
+			await runner2.start();
 			try {
 				await waitFor("agent active (run 2)", async () => {
 					return runner2.heldAgentIds().includes(AGENT_ID) || undefined;
@@ -263,6 +266,7 @@ describe("runner network integration", () => {
 				agentExecutionBoot: makeStubExecutionBoot(),
 				sweepMs: 300,
 			});
+			await runner.start();
 			try {
 				await waitFor("agent taken", async () => {
 					return runner.heldAgentIds().includes(AGENT_ID) || undefined;
@@ -335,6 +339,7 @@ describe("runner network integration", () => {
 				agentExecutionBoot: makeStubExecutionBoot(),
 				sweepMs: 300,
 			});
+			await runner.start();
 			try {
 				await waitFor("free agent taken", async () => {
 					return runner.heldAgentIds().includes(AGENT_ID) || undefined;

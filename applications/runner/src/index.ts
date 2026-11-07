@@ -51,21 +51,6 @@ export interface StartRunnerDeps {
 	readonly agentExecutionBoot?: AgentExecutionBoot;
 	/** How often to sweep for new agents / missed inbox rows. Default 30 s. For tests only. */
 	readonly sweepMs?: number;
-	/**
-	 * Pre-created runner-db handle — for tests only. When omitted, startRunner creates its own.
-	 * The caller owns the handle's lifecycle: startRunner will NOT close it on stop().
-	 */
-	readonly runnerDbHandle?: RunnerDbHandle;
-	/**
-	 * Intercept door requests — for tests only. Return a Response to override, null to pass through.
-	 * Mimics the fetch interceptor pattern used by bootRunnerWorld for failure injection.
-	 */
-	readonly fetchInterceptor?: (req: Request) => Promise<Response | null>;
-	/**
-	 * When true, do not call runner.start() automatically. The caller must call
-	 * handle.start() explicitly — used by bootRunnerWorld to test "runner off" scenarios.
-	 */
-	readonly noAutoStart?: boolean;
 }
 
 export interface RunnerHandle {
@@ -75,13 +60,12 @@ export interface RunnerHandle {
 	heldAgentIds(): readonly string[];
 	/** Agent ids that were 401'd — moved away. */
 	movedAwayAgentIds(): readonly string[];
-	/**
-	 * Start the runner (take agents, begin sweeping). No-op if already started.
-	 * Only needed when startRunner was called with noAutoStart: true.
-	 */
+	/** Start the runner (take agents, begin sweeping). No-op if already started. */
 	start(): Promise<void>;
 	/** Stop the runner and clean up. */
 	stop(): Promise<void>;
+	/** The runner's own DB — for test assertions about session requests. */
+	runnerDb: RunnerDb;
 }
 
 const logger = createLogger({ pkg: "runner" });
@@ -212,20 +196,13 @@ export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> 
 		process.env.HYPERIDLE_SPACES_DIR = deps.spacesDir;
 	}
 
-	// Boot runner-db — use pre-created handle if provided (test escape hatch), else create our own.
-	let ownedRunnerDbHandle: RunnerDbHandle | null = null;
-	let runnerDbHandle: RunnerDbHandle;
-	if (deps.runnerDbHandle) {
-		runnerDbHandle = deps.runnerDbHandle;
-	} else {
-		const runnerDbDir = path.join(deps.dataDir, "runner-pg");
-		fs.mkdirSync(runnerDbDir, { recursive: true });
-		const migrationsFolder = resolveMigrationsFolder();
-		await applyRunnerMigrations(runnerDbDir, migrationsFolder);
-		ownedRunnerDbHandle = await createPgliteRunnerDb(runnerDbDir);
-		runnerDbHandle = ownedRunnerDbHandle;
-	}
-	const runnerDb: RunnerDb = runnerDbHandle.db;
+	// Boot runner-db — always create our own.
+	const runnerDbDir = path.join(deps.dataDir, "runner-pg");
+	fs.mkdirSync(runnerDbDir, { recursive: true });
+	const migrationsFolder = resolveMigrationsFolder();
+	await applyRunnerMigrations(runnerDbDir, migrationsFolder);
+	const ownedRunnerDbHandle = await createPgliteRunnerDb(runnerDbDir);
+	const runnerDb: RunnerDb = ownedRunnerDbHandle.db;
 
 	// Boot agent-execution (harness discovery + MCP bridge on the runner's own server).
 	const mcpPort = await resolveFreePort();
@@ -262,16 +239,9 @@ export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> 
 		bridgeServer.once("error", onErr);
 	});
 
-	// Real network door — optional fetchInterceptor lets tests inject faults.
+	// Real network door.
 	const apiBase = `${deps.serverUrl.replace(/\/$/, "")}/api`;
-	const fetchInterceptor = deps.fetchInterceptor;
-	const coreFetch = fetchInterceptor
-		? async (req: Request): Promise<Response> => {
-				const intercepted = await fetchInterceptor(req);
-				return intercepted !== null ? intercepted : fetch(req);
-			}
-		: (req: Request): Promise<Response> => fetch(req);
-	const door = createCoreDoor(coreFetch, apiBase);
+	const door = createCoreDoor((req: Request) => fetch(req), apiBase);
 
 	// WS-based subscribeInbox: one connection per agent, using the agent's key.
 	const wsSubscribe = createWsSubscribeInbox(deps.serverUrl);
@@ -374,15 +344,12 @@ export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> 
 		await runner.start();
 	}
 
-	if (!deps.noAutoStart) {
-		await doStart();
-	}
-
 	return {
 		takeAgent: (agentId) => runner.takeAgent(agentId),
 		heldAgentIds: () => runner.heldAgentIds(),
 		movedAwayAgentIds: () => runner.movedAwayAgentIds(),
 		start: doStart,
+		runnerDb,
 		async stop() {
 			if (stopping) return;
 			stopping = true;
@@ -394,10 +361,7 @@ export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> 
 			await new Promise<void>((resolve, reject) => {
 				bridgeServer.close((err) => (err ? reject(err) : resolve()));
 			});
-			// Only close the runner-db if we own it (not externally provided).
-			if (ownedRunnerDbHandle) {
-				await ownedRunnerDbHandle.close();
-			}
+			await ownedRunnerDbHandle.close();
 		},
 	};
 }

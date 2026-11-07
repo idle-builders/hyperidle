@@ -45,6 +45,7 @@ void (async () => {
 	logger.info("runner starting", { serverUrl, dataDir });
 
 	const runner = await startRunner({ serverUrl, personKey, dataDir, spacesDir });
+	await runner.start();
 
 	logger.info("runner started", {
 		held: runner.heldAgentIds().length,

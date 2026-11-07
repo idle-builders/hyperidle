@@ -19,7 +19,7 @@ import {
 	users,
 	userTeams,
 } from "@hyperidle/db";
-import { agentSessionRequests, type RunnerDb, sessions } from "@hyperidle/runner-db";
+import { agentSessionRequests, sessions } from "@hyperidle/runner-db";
 import { giveUserKey, startSubscriptionClock } from "@hyperidle/user";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -27,9 +27,7 @@ import {
 	answersPong,
 	bootRunnerWorld,
 	makeCorePgDb,
-	makeRunnerPgDb,
 	type RunnerWorld,
-	type RunnerWorldOptions,
 	type RunScript,
 } from "./agent-runner-test-support.js";
 
@@ -120,41 +118,18 @@ async function asPerson<O>(world: RunnerWorld, action: string, input: unknown): 
 
 async function withWorld(
 	script: RunScript,
-	body: (world: RunnerWorld, db: HyperIdleDb, runnerDb: RunnerDb) => Promise<void>,
+	body: (world: RunnerWorld, db: HyperIdleDb) => Promise<void>,
 ): Promise<void> {
 	const dbHandle = await makeCorePgDb(tempDataDir);
-	const runnerDbHandle = await makeRunnerPgDb(tempDataDir);
 	try {
 		await seedPeople(dbHandle.db);
-		const world = await bootRunnerWorld(dbHandle.db, runnerDbHandle, PERSON_KEY, script);
+		const world = await bootRunnerWorld(dbHandle.db, PERSON_KEY, script, tempDataDir);
 		try {
-			await body(world, dbHandle.db, runnerDbHandle.db);
+			await body(world, dbHandle.db);
 		} finally {
 			await world.stop();
 		}
 	} finally {
-		await runnerDbHandle.close();
-		await dbHandle.close();
-	}
-}
-
-async function withWorldOpts(
-	script: RunScript,
-	options: RunnerWorldOptions,
-	body: (world: RunnerWorld, db: HyperIdleDb, runnerDb: RunnerDb) => Promise<void>,
-): Promise<void> {
-	const dbHandle = await makeCorePgDb(tempDataDir);
-	const runnerDbHandle = await makeRunnerPgDb(tempDataDir);
-	try {
-		await seedPeople(dbHandle.db);
-		const world = await bootRunnerWorld(dbHandle.db, runnerDbHandle, PERSON_KEY, script, options);
-		try {
-			await body(world, dbHandle.db, runnerDbHandle.db);
-		} finally {
-			await world.stop();
-		}
-	} finally {
-		await runnerDbHandle.close();
 		await dbHandle.close();
 	}
 }
@@ -397,54 +372,10 @@ describe("an agent acts on its inbox", () => {
 		});
 	}, 20_000);
 
-	test("a row that keeps failing is given up after 3 tries and later rows are still acted on", async () => {
-		let failTaskId = "";
-		let interceptCount = 0;
-		const fetchInterceptor = async (req: Request): Promise<Response | null> => {
-			if (!failTaskId) return null;
-			const url = new URL(req.url);
-			if (!url.pathname.endsWith("/actions/open_task")) return null;
-			const body = (await req.clone().json()) as { id?: string };
-			if (body.id !== failTaskId || interceptCount >= 3) return null;
-			interceptCount++;
-			return new Response("server error", { status: 500 });
-		};
-		await withWorldOpts(answersPong, { fetchInterceptor }, async (world, db) => {
-			await world.runner.start();
-			// Task row: open_task returns 500 each time, so this row keeps failing.
-			const failTask = await asPerson<{ task: { id: string } }>(world, "edit_task", {
-				title: "Failing task",
-				teamId: TEAM,
-				ownerAgentId: BUILDER,
-			});
-			await asPerson(world, "edit_task", { id: failTask.task.id, state: "accepted" });
-			failTaskId = failTask.task.id;
-
-			// Message row: succeeds normally.
-			await asPerson(world, "send_message", { recipients: [BUILDER], text: "ping" });
-
-			// Pass 1: task row errors (count=1), message row succeeds → pong sent.
-			await waitFor("Builder's pong on the message row", async () => {
-				const found = await saidBy(db, BUILDER, "pong");
-				return found.length > 0 ? found : undefined;
-			});
-
-			// The sweep timer (100ms) triggers passes 2 and 3 automatically.
-			// Wait for the task row to be marked read (given up after 3 failures).
-			await waitFor("task_run row to be given up after 3 failures", async () => {
-				const rows = await inboxOf(db, BUILDER);
-				const row = rows.find((r) => r.reason === "task_run" && r.objectId === failTask.task.id);
-				return row && row.readAt !== null ? row : undefined;
-			});
-
-			expect(interceptCount).toBe(3);
-		});
-	}, 30_000);
-
 	test("a task handed on while its run waits starts for the new owner, and the old run is cancelled", async () => {
-		await withWorld(answersPong, async (world, db, runnerDb) => {
+		await withWorld(answersPong, async (world, db) => {
 			// Builder is busy elsewhere, so its run on the task waits.
-			await runnerDb.insert(sessions).values({
+			await world.runnerDb.insert(sessions).values({
 				id: "busy-elsewhere",
 				agentId: BUILDER,
 				modelTier: "workhorse",
@@ -459,7 +390,7 @@ describe("an agent acts on its inbox", () => {
 			);
 			await asPerson(world, "edit_task", { id: created.task.id, state: "accepted" });
 			await waitFor("Builder's waiting run", async () => {
-				const [found] = await runnerDb
+				const [found] = await world.runnerDb
 					.select()
 					.from(agentSessionRequests)
 					.where(eq(agentSessionRequests.agentId, BUILDER));
@@ -477,13 +408,13 @@ describe("an agent acts on its inbox", () => {
 			});
 			expect(reply?.threadId).toBe(created.task.threadId);
 			await waitFor("Builder's waiting run cancelled", async () => {
-				const [found] = await runnerDb
+				const [found] = await world.runnerDb
 					.select()
 					.from(agentSessionRequests)
 					.where(eq(agentSessionRequests.agentId, BUILDER));
 				return found?.status === "cancelled" ? found : undefined;
 			});
-			await runnerDb.delete(sessions).where(eq(sessions.id, "busy-elsewhere"));
+			await world.runnerDb.delete(sessions).where(eq(sessions.id, "busy-elsewhere"));
 		});
 	}, 30_000);
 

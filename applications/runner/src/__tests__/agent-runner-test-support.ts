@@ -41,11 +41,6 @@ export const answersPong: RunScript = async (run) => {
 
 // ---- Network world ----
 
-export interface RunnerWorldOptions {
-	/** Intercept door requests. Return a Response to override, null to pass through. */
-	fetchInterceptor?: (req: Request) => Promise<Response | null>;
-}
-
 export interface RunnerWorld {
 	/** Start the runner. Some tests delay start to test "runner off" behavior. */
 	readonly runner: Pick<RunnerHandle, "start" | "stop">;
@@ -59,7 +54,7 @@ export interface RunnerWorld {
 	nudge(topic: string, envelope: unknown): void;
 	/** Every sessionId the scripted program was run for, in order. */
 	readonly runs: readonly string[];
-	/** The runner's own DB — exposed for test assertions about sessions/requests. */
+	/** The runner's own DB — for test assertions about session requests. */
 	readonly runnerDb: RunnerDb;
 	stop(): Promise<void>;
 }
@@ -180,10 +175,9 @@ const SERVER_KEY = "runner-inbox-test-server-key";
  */
 export async function bootRunnerWorld(
 	db: HyperIdleDb,
-	runnerDbHandle: RunnerDbHandle,
 	personKey: string,
 	script: RunScript,
-	options?: RunnerWorldOptions,
+	dataDir: string,
 ): Promise<RunnerWorld> {
 	vi.stubEnv("HYPERIDLE_API_KEY", SERVER_KEY);
 	const tempSpacesDir = fs.mkdtempSync(path.join(os.tmpdir(), "runner-world-spaces-"));
@@ -198,16 +192,13 @@ export async function bootRunnerWorld(
 	if (!address || typeof address === "string") throw new Error("server did not bind TCP address");
 	const serverUrl = `http://127.0.0.1:${address.port}`;
 
-	// Boot the runner (not started — noAutoStart: true).
+	// Boot the runner (not started — caller must call world.runner.start()).
 	const runnerHandle = await startRunner({
 		serverUrl,
 		personKey,
-		dataDir: os.tmpdir(), // runner-db is externally managed via runnerDbHandle
+		dataDir,
 		agentExecutionBoot,
 		sweepMs: 100,
-		noAutoStart: true,
-		runnerDbHandle,
-		...(options?.fetchInterceptor ? { fetchInterceptor: options.fetchInterceptor } : {}),
 	});
 
 	// Door for the test to act as the person — calls the server directly.
@@ -223,7 +214,7 @@ export async function bootRunnerWorld(
 			// This method exists for ported test code that called world.nudge(...).
 		},
 		runs,
-		runnerDb: runnerDbHandle.db,
+		runnerDb: runnerHandle.runnerDb,
 		async stop() {
 			if (stopped) return;
 			stopped = true;
