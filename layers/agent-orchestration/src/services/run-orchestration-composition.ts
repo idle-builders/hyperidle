@@ -12,17 +12,14 @@ import type {
 import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool, ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import {
-	findSessionById,
 	type RunOptions,
 	type RunResult,
 	type RunTransitionSpec,
 	type RuntimeDeps,
 	type RuntimePorts,
 	runSession as runSessionInternal,
-	type SessionActionsDeps,
 	startRuntime as startRuntimeInternal,
 	startWatcher,
-	stopSessionRun,
 	transitionRun as transitionRunInternal,
 } from "@hyperidle/run-orchestration";
 import type { RunnerDb } from "@hyperidle/runner-db";
@@ -324,11 +321,3 @@ export function buildRunOrchestrationComposition(config: {
 	};
 }
 
-// Build session action deps — sessions/stop bound to this boot's db/eventBus.
-export function buildSessionActionsDeps(db: RunnerDb, eventBus: EventBus): SessionActionsDeps {
-	return {
-		sessions: { getById: findSessionById },
-		stop: (sessionId) =>
-			stopSessionRun(db, eventBus, sessionId, (id) => sessionRunRegistry.abort(id, "stop")),
-	};
-}
