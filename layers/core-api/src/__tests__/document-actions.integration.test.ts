@@ -9,7 +9,6 @@
  * defaulting to the HTTP door and spot-checking the MCP one.
  */
 
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { listChanges } from "@hyperidle/changes";
 import {
 	documents,
@@ -138,10 +137,9 @@ async function callInternal<T>(
 		: { ok: false, problemCode: result.problems[0]?.code };
 }
 
-function buildRealActions(agentOrchestration: AgentOrchestrationPort): readonly Action[] {
+function buildRealActions(): readonly Action[] {
 	return buildCoreActions({
-		agentOrchestration,
-	});
+		});
 }
 
 async function callHumanAs<T>(
@@ -397,11 +395,10 @@ describe("case 1 — create a document, read it back with open_document, every f
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c1", asPerson);
 		await seedAgent(db, "c1-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c1-agent",
 			sessionId: "c1-sess",
@@ -469,11 +466,10 @@ describe('case 2 — create as:"memory"', () => {
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c2", asPerson);
 		await seedAgent(db, "c2-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c2-agent",
 			sessionId: "c2-sess",
@@ -504,11 +500,10 @@ describe("case 2b — a user-scoped document IN the tree is a private document, 
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c2b", asPerson);
 		await seedAgent(db, "c2b-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const agentIdentity: AgentIdentity = { agentId: "c2b-agent", sessionId: "c2b-sess" };
 
 		const folder = requireDoc(
@@ -588,11 +583,10 @@ describe("case 2b — a user-scoped document IN the tree is a private document, 
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c2bs", asPerson);
 		await seedAgent(db, "c2bs-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c2bs-agent",
 			sessionId: "c2bs-sess",
@@ -632,11 +626,10 @@ describe("case 2b — a user-scoped document IN the tree is a private document, 
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c2bm", asPerson);
 		await seedAgent(db, "c2bm-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c2bm-agent",
 			sessionId: "c2bm-sess",
@@ -670,13 +663,12 @@ describe("case 3 — an agent's memory is visible to its owner, not to a third p
 	test("owner opens it; a stranger gets not_found", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c3");
 		await seedHuman(db, "c3-owner");
 		await seedHuman(db, "c3-stranger");
 		await seedAgent(db, "c3-agent", { ownerUserId: "c3-owner" });
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 
 		const created = await callAgent<DocumentView>(
 			actions,
@@ -721,12 +713,11 @@ describe('case 4 — create as:"artifact" with no explicit parent', () => {
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c4", asPerson);
 		await seedTaskWithThread(db, "c4-task-1", "c4");
 		await seedAgent(db, "c4-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 
 		const agentResult = await callAgent<DocumentView>(
 			actions,
@@ -776,11 +767,10 @@ describe("case 5 — a tree: ancestors root-first, ordered children, siblings ex
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c5", asPerson);
 		await seedAgent(db, "c5-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 
 		const editHuman = (body: Record<string, unknown>) =>
 			callHuman<DocumentView>(app, "edit_document", body);
@@ -828,13 +818,12 @@ describe("case 5b — a person reads a document of a team they are not in", () =
 	test("open_document and search_documents both reach it, its team-B ancestor included", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c5b-a");
 		await seedTeam(db, "c5b-b");
 		await seedHuman(db, "c5b-b-owner", "c5b-b");
 		await seedHuman(db, "c5b-a-viewer", "c5b-a");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 
 		const parent = requireDoc(
 			await callHumanAs<DocumentView>(
@@ -893,12 +882,12 @@ describe("case 5b — a person reads a document of a team they are not in", () =
 // ---------------------------------------------------------------------------
 
 describe("case 6 — search_documents({inTree:true}) excludes artifacts and slotted documents", () => {
-	test("both doors", async ({ app, db, asPerson, eventBus, agentOrchestration }) => {
+	test("both doors", async ({ app, db, asPerson, eventBus }) => {
 		await seedTeam(db, "c6", asPerson);
 		await seedTaskWithThread(db, "c6-task-1", "c6");
 		await seedAgent(db, "c6-agent");
 		await seedSubscription(db, "c6-routine-1", "c6-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c6-agent",
 			sessionId: "c6-sess",
@@ -952,13 +941,12 @@ describe('case 7 — search_documents({as:"memory"}) returns only the caller\'s 
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c7", asPerson);
 		await seedHuman(db, "c7-other-human");
 		await seedAgent(db, "c7-agent");
 		await seedAgent(db, "c7-other-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 
 		const founderMemory = requireDoc(
 			await callHuman<DocumentView>(app, "edit_document", { title: "founder note", as: "memory" }),
@@ -1016,13 +1004,12 @@ describe("case 8 — a batched parent.ids search returns one row per subscriptio
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c8", asPerson);
 		await seedAgent(db, "c8-agent");
 		await seedSubscription(db, "c8-routine-a", "c8-agent");
 		await seedSubscription(db, "c8-routine-b", "c8-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c8-agent",
 			sessionId: "c8-sess",
@@ -1079,11 +1066,10 @@ describe("case 9 — an invariant refusal round-trips through both doors", () =>
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c9i1", asPerson);
 		await seedAgent(db, "c9i1-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c9i1-agent",
 			sessionId: "c9i1-sess",
@@ -1100,12 +1086,11 @@ describe("case 9 — an invariant refusal round-trips through both doors", () =>
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c9d8", asPerson);
 		await seedHuman(db, "c9d8-owner");
 		await seedAgent(db, "c9d8-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const memoryId = requireDoc(
 			await callHumanAs<DocumentView>(
 				actions,
@@ -1147,11 +1132,10 @@ describe("case 9b — forbidden_parent_kind refuses client doors, not the intern
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c9b1", asPerson);
 		await seedAgent(db, "c9b1-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c9b1-agent",
 			sessionId: "c9b1-sess",
@@ -1167,11 +1151,10 @@ describe("case 9b — forbidden_parent_kind refuses client doors, not the intern
 	test("the identity helper still creates an agent's identity document, unaffected by the client refusal", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c9b3");
 		await seedAgent(db, "c9b3-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const editDocument = actions.find((a) => a.declaration.name === "edit_document");
 		const searchDocuments = actions.find((a) => a.declaration.name === "search_documents");
 		if (!(editDocument && searchDocuments)) throw new Error("missing action");
@@ -1215,12 +1198,11 @@ describe("case 10 — the combined cases", () => {
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c10c2", asPerson);
 		await seedAgent(db, "c10c2-agent");
 		await seedSubscription(db, "c10c2-routine", "c10c2-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c10c2-agent",
 			sessionId: "c10c2-sess",
@@ -1248,13 +1230,12 @@ describe("case 10 — the combined cases", () => {
 	test('as:"artifact" + an explicit thread parent wins over the calling task\'s stamp', async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c10c3");
 		await seedTaskWithThread(db, "c10c3-task", "c10c3");
 		await seedThreadRow(db, "c10c3-thread", "c10c3");
 		await seedAgent(db, "c10c3-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const result = await callAgent<DocumentView>(
 			actions,
 			db,
@@ -1310,11 +1291,10 @@ describe("case 10 — the combined cases", () => {
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c10c5", asPerson);
 		await seedAgent(db, "c10c5-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c10c5-agent",
 			sessionId: "c10c5-sess",
@@ -1331,11 +1311,10 @@ describe("case 10 — the combined cases", () => {
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c10c6", asPerson);
 		await seedAgent(db, "c10c6-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		// Distinct explicit ids per door — the same id would make the door
 		// that runs second (`buildDoors`'s `both()` always human-then-agent)
 		// land on an EDIT of the first door's just-created row instead of its
@@ -1362,12 +1341,11 @@ describe("case 10 — the combined cases", () => {
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c10c7", asPerson);
 		await seedHuman(db, "c10c7-owner");
 		await seedAgent(db, "c10c7-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		await callHumanAs<DocumentView>(
 			actions,
 			db,
@@ -1413,14 +1391,13 @@ describe("case 10 — the combined cases", () => {
 	test("a shared task's artifact is readable across teams (successful half)", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c10c8-a");
 		await seedTeam(db, "c10c8-b");
 		await seedTaskWithThread(db, "c10c8-task", "c10c8-a");
 		await seedHuman(db, "c10c8-teammate-b", "c10c8-b");
 		await seedAgent(db, "c10c8-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const artifact = requireDoc(
 			await callAgent<DocumentView>(
 				actions,
@@ -1444,11 +1421,11 @@ describe("case 10 — the combined cases", () => {
 
 	// The refused (private-scope) half is pure-invariant-rejected before any
 	// DB write.
-	test("as:artifact + a private scope is refused", async ({ db, eventBus, agentOrchestration }) => {
+	test("as:artifact + a private scope is refused", async ({ db, eventBus }) => {
 		await seedTeam(db, "c10c8-a");
 		await seedTaskWithThread(db, "c10c8-task", "c10c8-a");
 		await seedAgent(db, "c10c8-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const refused = await callAgent<DocumentView>(
 			actions,
 			db,
@@ -1475,12 +1452,11 @@ describe("graduation — a task-parented artifact moves into the document tree v
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "cgrad-1", asPerson);
 		await seedTaskWithThread(db, "cgrad-1-task", "cgrad-1");
 		await seedAgent(db, "cgrad-1-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 
 		const artifact = requireDoc(
 			await callAgent<DocumentView>(
@@ -1515,12 +1491,11 @@ describe("graduation — a task-parented artifact moves into the document tree v
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "cgrad-2", asPerson);
 		await seedTaskWithThread(db, "cgrad-2-task", "cgrad-2");
 		await seedAgent(db, "cgrad-2-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 
 		const artifact = requireDoc(
 			await callAgent<DocumentView>(
@@ -1548,12 +1523,11 @@ describe("graduation — a task-parented artifact moves into the document tree v
 	test('as:"artifact" + explicit parent:null from a task session is refused — null means the top of the tree, and an artifact cannot be there', async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "cgrad-3");
 		await seedTaskWithThread(db, "cgrad-3-task", "cgrad-3");
 		await seedAgent(db, "cgrad-3-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 
 		// The tool door — the only one that ever carries `ctx.caller`, so this
 		// is the exact shape the bug needed: a task session naming `as:
@@ -1576,10 +1550,10 @@ describe("graduation — a task-parented artifact moves into the document tree v
 // ---------------------------------------------------------------------------
 
 describe("case 11 — every successful edit appends exactly one changes row; a failed edit appends none", () => {
-	test("both doors", async ({ app, db, asPerson, eventBus, agentOrchestration }) => {
+	test("both doors", async ({ app, db, asPerson, eventBus }) => {
 		await seedTeam(db, "c11", asPerson);
 		await seedAgent(db, "c11-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c11-agent",
 			sessionId: "c11-sess",
@@ -1621,10 +1595,10 @@ describe("case 11 — every successful edit appends exactly one changes row; a f
 // ---------------------------------------------------------------------------
 
 describe("case 12 — version bumps by exactly 1 on every successful edit, including an archive", () => {
-	test("both doors", async ({ app, db, asPerson, eventBus, agentOrchestration }) => {
+	test("both doors", async ({ app, db, asPerson, eventBus }) => {
 		await seedTeam(db, "c12", asPerson);
 		await seedAgent(db, "c12-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c12-agent",
 			sessionId: "c12-sess",
@@ -1658,10 +1632,10 @@ describe("case 12 — version bumps by exactly 1 on every successful edit, inclu
 // ---------------------------------------------------------------------------
 
 describe("case 13 — default-scope derivation: actor's team, else the calling task's team, else factory", () => {
-	test("an agent with a team gets team/teamId", async ({ db, eventBus, agentOrchestration }) => {
+	test("an agent with a team gets team/teamId", async ({ db, eventBus }) => {
 		await seedTeam(db, "c13-team");
 		await seedAgent(db, "c13-teamed-agent", { teamId: "c13-team" });
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const result = requireDoc(
 			await callAgent<DocumentView>(
 				actions,
@@ -1679,12 +1653,11 @@ describe("case 13 — default-scope derivation: actor's team, else the calling t
 	test("an agent with no team, called from a task session, gets the task's team", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c13-task-team");
 		await seedTaskWithThread(db, "c13-task", "c13-task-team");
 		await seedAgent(db, "c13-taskless-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const result = requireDoc(
 			await callAgent<DocumentView>(
 				actions,
@@ -1702,11 +1675,10 @@ describe("case 13 — default-scope derivation: actor's team, else the calling t
 	test("an agent with neither a team nor a calling task gets factory", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c13-none");
 		await seedAgent(db, "c13-bare-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const result = requireDoc(
 			await callAgent<DocumentView>(
 				actions,
@@ -1793,14 +1765,13 @@ describe("case 14 — the scope cascade family", () => {
 	test("1b widening never cascades: exactly one change row, children untouched", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		// A team member throughout — creating a child under a team-scoped
 		// parent needs to SEE that parent, which is a separate concern from the
 		// widening-never-cascades property this case proves.
 		await seedTeam(db, "c14b");
 		await seedHuman(db, "c14b-human", "c14b");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const parent = requireDoc(
 			await callHumanAs<DocumentView>(
 				actions,
@@ -1963,12 +1934,11 @@ describe("case 15 — open_document raises the read count and nothing else", () 
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c15", asPerson);
 		await seedHuman(db, "c15-stranger");
 		await seedAgent(db, "c15-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 
 		const humanDoc = requireDoc(
 			await callHuman<DocumentView>(app, "edit_document", { title: "x" }),
@@ -2048,10 +2018,10 @@ describe("case 15 — open_document raises the read count and nothing else", () 
 // ---------------------------------------------------------------------------
 
 describe("case 16 — search_documents raises nothing; edit_document is never a read", () => {
-	test("both doors", async ({ app, db, asPerson, eventBus, agentOrchestration }) => {
+	test("both doors", async ({ app, db, asPerson, eventBus }) => {
 		await seedTeam(db, "c16", asPerson);
 		await seedAgent(db, "c16-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c16-agent",
 			sessionId: "c16-sess",
@@ -2102,11 +2072,10 @@ describe('case 17 — unusedSince and sort:"least_used"', () => {
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c17", asPerson);
 		await seedAgent(db, "c17-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c17-agent",
 			sessionId: "c17-sess",
@@ -2143,11 +2112,10 @@ describe("cross-door proof — identical input yields deep-equal data, modulo id
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "cdp1", asPerson);
 		await seedAgent(db, "cdp1-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "cdp1-agent",
 			sessionId: "cdp1-sess",
@@ -2210,11 +2178,10 @@ describe("cross-door proof — onBodyChanged detaches a plugin contribution on a
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "cdp2", asPerson);
 		await seedAgent(db, "cdp2-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 
 		const humanDoc = requireDoc(
 			await callHuman<DocumentView>(app, "edit_document", { title: "contributed", body: "v1" }),
@@ -2312,14 +2279,13 @@ describe("case 18 — search_documents({parent}) must name exactly one of id/ids
 		asPerson,
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "c18-a", asPerson);
 		await seedTeam(db, "c18-b", asPerson);
 		await seedTaskWithThread(db, "c18-task", "c18-a");
 		await seedHuman(db, "c18-outsider", "c18-b");
 		await seedAgent(db, "c18-agent");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c18-agent",
 			sessionId: "c18-sess",

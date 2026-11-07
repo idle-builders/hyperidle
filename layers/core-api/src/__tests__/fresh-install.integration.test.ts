@@ -26,7 +26,6 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	changes,
 	documents,
@@ -49,7 +48,6 @@ import {
 	type UserView,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { listInboxRows } from "@hyperidle/user";
 import { eq, or } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -58,7 +56,6 @@ import { test } from "../__testing__/test-fixtures.js";
 import type { ActionContext } from "../actions/action.js";
 import { buildCoreActions } from "../actions/compose.js";
 import { applyFactoryCoreState } from "../bootstrap/factory-state.js";
-import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 
 const BUNDLED = fileURLToPath(new URL("../../../../plugins", import.meta.url));
 
@@ -111,7 +108,6 @@ interface PluginActions {
 }
 
 function pluginActions(
-	agentOrchestration: AgentOrchestrationPort,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 ): PluginActions {
@@ -122,7 +118,6 @@ function pluginActions(
 	mkdirSync(pluginsBaseDir, { recursive: true });
 	baseDirs.push(pluginsBaseDir);
 	const actions = buildCoreActions({
-		agentOrchestration,
 		pluginsBaseDir,
 		bundledPluginsDir: BUNDLED,
 		adapterPool: machineHarnesses,
@@ -187,17 +182,15 @@ describe("a fresh install, end to end", () => {
 		db,
 		app,
 		eventBus,
-		agentOrchestration,
 		asPerson,
 	}) => {
 		await applyFactoryCoreState(db);
-		const { search, edit, pluginsBaseDir } = pluginActions(agentOrchestration, db, eventBus);
+		const { search, edit, pluginsBaseDir } = pluginActions(db, eventBus);
 
 		// A person, and their own assistant.
 		// First start makes the person in-process as nobody (`routes/start.ts`); the HTTP door refuses nobody.
 		const bootstrapEditUser = buildCoreActions({
-			agentOrchestration,
-		}).find((a) => a.declaration.name === "edit_user");
+			}).find((a) => a.declaration.name === "edit_user");
 		if (!bootstrapEditUser) throw new Error("edit_user not found");
 		const adaResult = await bootstrapEditUser.run(
 			{ actor: "", db, eventBus, now: new Date().toISOString() },

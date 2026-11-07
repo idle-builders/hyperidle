@@ -12,7 +12,6 @@
  * `layers/core-api/thread/src/__tests__/thread-actions.integration.test.ts`.
  */
 
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	changes,
 	documents,
@@ -48,7 +47,7 @@ async function callAs<T>(
 	eventBus: EventBus,
 	agentOrchestration: AgentOrchestrationPort,
 ): Promise<{ readonly status: number; readonly body: ActionEnvelope<T> }> {
-	const actions = buildRealActions(agentOrchestration);
+	const actions = buildRealActions();
 	const action = actions.find((a) => a.declaration.name === name);
 	if (!action) throw new Error(`no "${name}" action`);
 	const ctx: ActionContext = { actor: actorId, db, eventBus, now: new Date().toISOString() };
@@ -245,10 +244,9 @@ async function readChanges(db: HyperIdleDb, threadId: string) {
  * `agentOrchestration` boot) so the wake/verdict-resume paths are the real
  * seam, not a stub of the thing under test.
  */
-function buildRealActions(agentOrchestration: AgentOrchestrationPort) {
+function buildRealActions() {
 	return buildCoreActions({
-		agentOrchestration,
-	});
+		});
 }
 
 function runnerFor<I, O>(actions: ReturnType<typeof buildRealActions>, name: string) {
@@ -265,8 +263,7 @@ describe("send_message — membership, read/write/join", () => {
 	test("a non-member send into a user-hosted DM returns not_a_member and writes nothing", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "sm-team-4");
 		await seedHuman(db, "sm-victim", "sm-team-4");
 		await seedHuman(db, "sm-stranger", "sm-team-4");
@@ -286,8 +283,7 @@ describe("send_message — membership, read/write/join", () => {
 			"sm-stranger",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(res.status).toBe(422);
 		expect((res.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("not_a_member");
 
@@ -298,8 +294,7 @@ describe("send_message — membership, read/write/join", () => {
 	test("a non-member send into a team-hosted thread succeeds, joins, and appends no thread.changed row", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "sm-team-5");
 		await seedHuman(db, "sm-newcomer", "sm-team-5");
 		await seedThreadRow(db, "sm-team-thread-1", {
@@ -315,8 +310,7 @@ describe("send_message — membership, read/write/join", () => {
 			"sm-newcomer",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(res.status).toBe(200);
 
 		const members = await readThreadMembers(db, "sm-team-thread-1");
@@ -336,8 +330,7 @@ describe("send_message — membership, read/write/join", () => {
 			"sm-newcomer",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		const membersAfter = await readThreadMembers(db, "sm-team-thread-1");
 		expect(membersAfter.filter((m) => m === "sm-newcomer")).toHaveLength(1);
 	});
@@ -345,8 +338,7 @@ describe("send_message — membership, read/write/join", () => {
 	test("two different non-members posting into the same team thread at once both end up members", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "sm-team-race");
 		await seedHuman(db, "sm-racer-a", "sm-team-race");
 		await seedHuman(db, "sm-racer-b", "sm-team-race");
@@ -364,16 +356,14 @@ describe("send_message — membership, read/write/join", () => {
 				"sm-racer-a",
 				db,
 				eventBus,
-				agentOrchestration,
-			),
+						),
 			callAs(
 				"send_message",
 				{ threadId: "sm-team-thread-race", text: "hi from b" },
 				"sm-racer-b",
 				db,
 				eventBus,
-				agentOrchestration,
-			),
+						),
 		]);
 
 		const members = await readThreadMembers(db, "sm-team-thread-race");
@@ -385,8 +375,7 @@ describe("send_message — membership, read/write/join", () => {
 		app,
 		asPerson,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "sm-team-6");
 		await asPerson(FOUNDER_ID);
 		await seedHuman(db, "sm-owner-6", "sm-team-6");
@@ -414,16 +403,14 @@ describe("send_message — membership, read/write/join", () => {
 			"sm-outsider-6",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		const deleted = await callAs(
 			"open_thread",
 			{ id: "sm-deleted-6" },
 			"sm-owner-6",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		const missing = await call(app, "open_thread", { id: "sm-does-not-exist" });
 
 		expect(nonMember.status).toBe(422);
@@ -439,8 +426,7 @@ describe("send_message — membership, read/write/join", () => {
 	test("a non-member CAN open a team-hosted and a document-hosted thread", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "sm-team-7");
 		await seedHuman(db, "sm-visitor-7", "sm-team-7");
 		await seedDocument(db, "sm-ki-7");
@@ -463,16 +449,14 @@ describe("send_message — membership, read/write/join", () => {
 			"sm-visitor-7",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		const kiRes = await callAs(
 			"open_thread",
 			{ id: "sm-ki-thread-7" },
 			"sm-visitor-7",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(teamRes.status).toBe(200);
 		expect(kiRes.status).toBe(200);
 	});
@@ -480,8 +464,7 @@ describe("send_message — membership, read/write/join", () => {
 	test("search_threads({ids}) returns [] for a stranger's DM; search_threads({host:{kind:'user'}}) returns []", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "sm-team-8");
 		await seedHuman(db, "sm-victim-8", "sm-team-8");
 		await seedHuman(db, "sm-stranger-8", "sm-team-8");
@@ -498,16 +481,14 @@ describe("send_message — membership, read/write/join", () => {
 			"sm-stranger-8",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		const byHost = await callAs(
 			"search_threads",
 			{ host: { kind: "user", id: "sm-victim-8" } },
 			"sm-stranger-8",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(byIds.body.data).toEqual([]);
 		expect(byHost.body.data).toEqual([]);
 	});
@@ -515,8 +496,7 @@ describe("send_message — membership, read/write/join", () => {
 	test("a non-member adjust_thread on a team thread succeeds and does not add them as a member; on a user-hosted DM it returns not_a_member", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "sm-team-9");
 		await seedHuman(db, "sm-editor-9", "sm-team-9");
 		await seedHuman(db, "sm-victim-9", "sm-team-9");
@@ -539,8 +519,7 @@ describe("send_message — membership, read/write/join", () => {
 			"sm-editor-9",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(teamAdjust.status).toBe(200);
 		const members = await readThreadMembers(db, "sm-team-thread-9");
 		expect(members).not.toContain("sm-editor-9");
@@ -551,8 +530,7 @@ describe("send_message — membership, read/write/join", () => {
 			"sm-editor-9",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(dmAdjust.status).toBe(422);
 		expect((dmAdjust.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("not_a_member");
 	});
@@ -562,8 +540,7 @@ describe("send_message — @mentions", () => {
 	test("an @mention adds the mentioned user as a member in the send's transaction; no changed row is appended", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "sm-mn-1");
 		await seedHuman(db, "sm-sender-1", "sm-mn-1");
 		await seedHuman(db, "sm-mentioned-1", "sm-mn-1");
@@ -576,8 +553,7 @@ describe("send_message — @mentions", () => {
 			"sm-sender-1",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(res.status).toBe(200);
 
 		const members = await readThreadMembers(db, threadId);
@@ -593,8 +569,7 @@ describe("send_message — @mentions", () => {
 	test("a multi-word agent name (`My Team Agent`) is @mentionable by typing it plainly", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "sm-mn-2");
 		await seedHuman(db, "sm-sender-2", "sm-mn-2");
 		const now = new Date().toISOString();
@@ -615,8 +590,7 @@ describe("send_message — @mentions", () => {
 			"sm-sender-2",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(res.status).toBe(200);
 
 		const members = await readThreadMembers(db, threadId);
@@ -655,8 +629,7 @@ describe("send_message — @mention pool is the whole organisation", () => {
 	test("a team-hosted thread's sole member (a human with no team) can @mention an agent of the HOST team", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "mn-host-1");
 		await seedHuman(db, "mn-human-1"); // no teamId
 		await seedAgent(db, "mn-builder-1", "mn-host-1");
@@ -673,8 +646,7 @@ describe("send_message — @mention pool is the whole organisation", () => {
 			"mn-human-1",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(res.status).toBe(200);
 
 		const members = await readThreadMembers(db, "mn-thread-1");
@@ -701,8 +673,7 @@ describe("send_message — @mention pool is the whole organisation", () => {
 	test("the same sole member can @mention their OWN agent the same way", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "mn-host-2");
 		await seedHuman(db, "mn-human-2"); // no teamId
 		const now = new Date().toISOString();
@@ -728,8 +699,7 @@ describe("send_message — @mention pool is the whole organisation", () => {
 			"mn-human-2",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(res.status).toBe(200);
 
 		const members = await readThreadMembers(db, "mn-thread-2");
@@ -756,8 +726,7 @@ describe("send_message — @mention pool is the whole organisation", () => {
 	test("anyone in the organisation is mentionable — another person's agent in a team the thread knows nothing of", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "mn-host-3");
 		await seedTeam(db, "mn-elsewhere-3");
 		await seedHuman(db, "mn-human-3"); // no teamId
@@ -786,8 +755,7 @@ describe("send_message — @mention pool is the whole organisation", () => {
 			"mn-human-3",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(res.status).toBe(200);
 
 		const members = await readThreadMembers(db, "mn-thread-3");
@@ -803,8 +771,7 @@ describe("send_message — the wake rule", () => {
 	test("a mention of an agent records one thread_turn intent for it; a two-member thread with one agent records one with no mention; a three-member thread with no mention records none", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "wk-1");
 		await seedHuman(db, "wk-human-1", "wk-1");
 		await seedAgent(db, "wk-agent-mentioned", "wk-1");
@@ -822,8 +789,7 @@ describe("send_message — the wake rule", () => {
 			"wk-human-1",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		const inboxRows = await listInboxRows(db, { userId: "wk-agent-mentioned" });
 		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(1);
 	});
@@ -851,8 +817,7 @@ describe("send_message — the wake rule", () => {
 	test("a stranger posting into a two-member team thread does not wake the agent sitting in it", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "wk-3");
 		await seedAgent(db, "wk-agent-3", "wk-3");
 		await seedHuman(db, "wk-stranger-3", "wk-3");
@@ -869,8 +834,7 @@ describe("send_message — the wake rule", () => {
 			"wk-stranger-3",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		const inboxRows = await listInboxRows(db, { userId: "wk-agent-3" });
 		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(0);
 	});
@@ -878,8 +842,7 @@ describe("send_message — the wake rule", () => {
 	test("two mentioned agents produce two dispatches, not two rows — drained, two session requests exist, one per agent", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "wk-4");
 		await seedHuman(db, "wk-human-4", "wk-4");
 		await seedAgent(db, "wk-agent-a", "wk-4");
@@ -896,8 +859,7 @@ describe("send_message — the wake rule", () => {
 			"wk-human-4",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		const inboxA = await listInboxRows(db, { userId: "wk-agent-a" });
 		const inboxB = await listInboxRows(db, { userId: "wk-agent-b" });
 		expect(inboxA.filter((r) => r.reason === "message")).toHaveLength(1);
@@ -907,8 +869,7 @@ describe("send_message — the wake rule", () => {
 	test("a mention of an agent already a member records one thread_turn intent and appends no changed row", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "wk-5");
 		await seedHuman(db, "wk-human-5a", "wk-5");
 		await seedHuman(db, "wk-human-5b", "wk-5");
@@ -925,8 +886,7 @@ describe("send_message — the wake rule", () => {
 			"wk-human-5a",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 
 		const inboxRows = await listInboxRows(db, { userId: "wk-agent-5" });
 		expect(inboxRows.filter((r) => r.reason === "message")).toHaveLength(1);
@@ -937,8 +897,7 @@ describe("send_message — the wake rule", () => {
 
 	test("two mentioned agents each get one inbox row for the message", async ({
 		db,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "wk-6");
 		await seedHuman(db, "wk-human-6", "wk-6");
@@ -956,8 +915,7 @@ describe("send_message — the wake rule", () => {
 			"wk-human-6",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(result.status).toBe(200);
 
 		const inboxA = await listInboxRows(db, { userId: "wk-agent-a-6" });
@@ -981,7 +939,7 @@ describe("send_message — the agent fallback via ctx.caller", () => {
 			initiatorId: FOUNDER_ID,
 			members: [FOUNDER_ID, "cf-agent-1"],
 		});
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const run = runnerFor<SendMessageInput, { message: { id: string }; thread: { id: string } }>(
 			actions,
 			"send_message",
@@ -1002,13 +960,12 @@ describe("send_message — the agent fallback via ctx.caller", () => {
 
 	test("with no caller.threadId, posts to a direct thread with its team's human", async ({
 		db,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "cf-2");
 		await seedAgent(db, "cf-agent-2", "cf-2");
 		await seedHuman(db, "cf-human-2", "cf-2");
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const run = runnerFor<
 			SendMessageInput,
 			{ message: { id: string }; thread: { id: string; members: string[] } }
@@ -1032,15 +989,14 @@ describe("send_message — the agent fallback via ctx.caller", () => {
 
 	test("with neither and no human, returns no_reply_recipient", async ({
 		db,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "cf-3");
 		await seedAgent(db, "cf-agent-3", "cf-3");
 		// delete the founder so no human exists at all — the fixture's own
 		// migration/setup rows must not leak a human into this team's ladder.
 		await db.delete(users).where(eq(users.id, FOUNDER_ID));
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const run = runnerFor<SendMessageInput, unknown>(actions, "send_message");
 		const result = await run(
 			{
@@ -1072,8 +1028,7 @@ describe("send_message — the agent fallback via ctx.caller", () => {
 describe("send_message — review link and verdict resume", () => {
 	test("a review with caller.sessionId links the session; a verdict on it calls the recorder", async ({
 		db,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "rl-1");
 		await seedAgent(db, "rl-agent-1", "rl-1");
@@ -1085,7 +1040,7 @@ describe("send_message — review link and verdict resume", () => {
 			.set({ participants: JSON.stringify(["rl-agent-1", FOUNDER_ID]) })
 			.where(eq(threads.id, threadId));
 
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
 			actions,
 			"send_message",
@@ -1105,8 +1060,7 @@ describe("send_message — review link and verdict resume", () => {
 
 	test("an agent asker gets a review_answered inbox row after approve, no notice posted", async ({
 		db,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "rl-2");
 		await seedAgent(db, "rl-agent-2", "rl-2");
@@ -1119,8 +1073,7 @@ describe("send_message — review link and verdict resume", () => {
 			.where(eq(threads.id, threadId));
 
 		const stubbedActions = buildCoreActions({
-			agentOrchestration,
-		});
+				});
 		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
 			stubbedActions,
 			"send_message",
@@ -1153,8 +1106,7 @@ describe("send_message — review taskId stamping", () => {
 		db,
 		app,
 		asPerson,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "tid-1");
 		await asPerson(FOUNDER_ID);
@@ -1167,7 +1119,7 @@ describe("send_message — review taskId stamping", () => {
 			.set({ participants: JSON.stringify(["tid-agent-1", FOUNDER_ID]) })
 			.where(eq(threads.id, threadId));
 
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
 			actions,
 			"send_message",
@@ -1226,8 +1178,7 @@ describe("send_message — review taskId stamping", () => {
 describe("send_message — clientKey dedupe survives the server's own taskId stamp", () => {
 	test("the same review + same clientKey + ctx.caller.taskId sent twice returns the same message id and writes one row", async ({
 		db,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "ck-1");
 		await seedAgent(db, "ck-agent-1", "ck-1");
@@ -1239,7 +1190,7 @@ describe("send_message — clientKey dedupe survives the server's own taskId sta
 			.set({ participants: JSON.stringify(["ck-agent-1", FOUNDER_ID]) })
 			.where(eq(threads.id, threadId));
 
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
 			actions,
 			"send_message",
@@ -1274,8 +1225,7 @@ describe("send_message — clientKey dedupe survives the server's own taskId sta
 describe("send_message — produced-item ownership", () => {
 	test("a review.producedItemId not parented to the calling task returns produced_item_not_owned", async ({
 		db,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "pi-1");
 		await seedAgent(db, "pi-agent-1", "pi-1");
@@ -1288,7 +1238,7 @@ describe("send_message — produced-item ownership", () => {
 			.set({ participants: JSON.stringify(["pi-agent-1"]) })
 			.where(eq(threads.id, threadId));
 
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const run = runnerFor<SendMessageInput, unknown>(actions, "send_message");
 		const result = await run(
 			{
@@ -1334,8 +1284,7 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 	test("a handed-off agent that was never seeded posts in its task's thread and is a member afterwards", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "hp-1");
 		await seedAgent(db, "hp-new-owner", "hp-1");
 		const threadId = await seedTaskWithThread(db, "hp1-task", "hp-1");
@@ -1346,8 +1295,7 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 			"hp-new-owner",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(res.status).toBe(200);
 		const members = await readThreadMembers(db, threadId);
 		expect(members).toContain("hp-new-owner");
@@ -1356,8 +1304,7 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 	test("a human who is not on the task posts a verdict on a review in it — the verdict trio decides, not not_a_member", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "hp-2");
 		await seedAgent(db, "hp-agent-2", "hp-2");
 		await seedHuman(db, "hp-reviewer-2", "hp-2");
@@ -1375,8 +1322,7 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 			"hp-agent-2",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		const reviewMessageId = review.body.data?.message.id as string;
 
 		const verdict = await callAs(
@@ -1385,8 +1331,7 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 			"hp-reviewer-2",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(verdict.status).toBe(200);
 		const members = await readThreadMembers(db, threadId);
 		expect(members).toContain("hp-reviewer-2");
@@ -1395,8 +1340,7 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 	test("a visitor posts into a document thread they did not create", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "hp-3");
 		await seedHuman(db, "hp-visitor-3", "hp-3");
 		await seedDocument(db, "hp-ki-3");
@@ -1412,8 +1356,7 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 			"hp-visitor-3",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(res.status).toBe(200);
 		const members = await readThreadMembers(db, "hp-ki-thread-3");
 		expect(members).toContain("hp-visitor-3");
@@ -1422,8 +1365,7 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 	test("system:propagation posts a second stalled-knowledge-action review into the thread it made on the first", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "hp-4");
 		await seedDocument(db, "hp-ki-4");
 		const firstRes = await callAs<{ thread: { id: string } }>(
@@ -1432,8 +1374,7 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 			"system:propagation",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(firstRes.status).toBe(200);
 		const threadId = firstRes.body.data?.thread.id as string;
 
@@ -1443,8 +1384,7 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 			"system:propagation",
 			db,
 			eventBus,
-			agentOrchestration,
-		);
+				);
 		expect(secondRes.status).toBe(200);
 		const rows = await db.select().from(messages).where(eq(messages.threadId, threadId));
 		expect(rows).toHaveLength(2);
@@ -1588,8 +1528,7 @@ describe("invariant wiring", () => {
 describe("the MCP door — actionsAsTools fills caller for every actor", () => {
 	test("a non-member send into a DM through the tool adapter returns not_a_member, same as HTTP", async ({
 		db,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "mcp-1");
 		await seedHuman(db, "mcp-victim-1", "mcp-1");
@@ -1601,7 +1540,7 @@ describe("the MCP door — actionsAsTools fills caller for every actor", () => {
 			members: [FOUNDER_ID, "mcp-victim-1"],
 		});
 
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const { actionsAsTools } = await import("../__testing__/actions-test-tools.js");
 		const tools = actionsAsTools(actions);
 		const sendTool = tools.find((t) => t.name === "send_message");
@@ -1642,8 +1581,7 @@ describe("HTTP door — 422 problem lists", () => {
 describe("send_message — review requires a task for agents", () => {
 	test("an agent (ctx.caller set, no taskId) sending a review without naming a task is refused", async ({
 		db,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "rgt-1");
 		await seedAgent(db, "rgt-agent-1", "rgt-1");
@@ -1655,7 +1593,7 @@ describe("send_message — review requires a task for agents", () => {
 			.set({ participants: JSON.stringify(["rgt-agent-1", FOUNDER_ID]) })
 			.where(eq(threads.id, threadId));
 
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
 			actions,
 			"send_message",
@@ -1680,8 +1618,7 @@ describe("send_message — review requires a task for agents", () => {
 
 	test("an agent in a task run sends a review and the task moves to review state", async ({
 		db,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "rgt-2");
 		await seedAgent(db, "rgt-agent-2", "rgt-2");
@@ -1693,7 +1630,7 @@ describe("send_message — review requires a task for agents", () => {
 			.set({ participants: JSON.stringify(["rgt-agent-2", FOUNDER_ID]) })
 			.where(eq(threads.id, threadId));
 
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
 			actions,
 			"send_message",
@@ -1719,8 +1656,7 @@ describe("send_message — review requires a task for agents", () => {
 
 	test("an agent in a conversation turn naming a valid taskId moves that task to review", async ({
 		db,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "rgt-3");
 		await seedAgent(db, "rgt-agent-3", "rgt-3");
@@ -1734,7 +1670,7 @@ describe("send_message — review requires a task for agents", () => {
 			members: ["rgt-agent-3", FOUNDER_ID],
 		});
 
-		const actions = buildRealActions(agentOrchestration);
+		const actions = buildRealActions();
 		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
 			actions,
 			"send_message",
@@ -1764,8 +1700,7 @@ describe("send_message — review requires a task for agents", () => {
 	test("approving a review an agent's session asked brings that session back carrying the task", async ({
 		db,
 		runnerDb,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "rsm-1");
 		await seedAgent(db, "rsm-agent", "rsm-1");
@@ -1787,7 +1722,7 @@ describe("send_message — review requires a task for agents", () => {
 			sandboxSnapshot: "/tmp/sandbox",
 		});
 		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
-			buildRealActions(agentOrchestration),
+			buildRealActions(),
 			"send_message",
 		);
 		const sent = await sendRun(
@@ -1817,13 +1752,12 @@ describe("send_message — review requires a task for agents", () => {
 
 	test("a person's verdict alone settles the task: approve closes it and ticks the review line, reject sends it back", async ({
 		db,
-		agentOrchestration,
-		eventBus,
+			eventBus,
 	}) => {
 		await seedTeam(db, "vrd-1");
 		await seedAgent(db, "vrd-agent", "vrd-1");
 		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
-			buildRealActions(agentOrchestration),
+			buildRealActions(),
 			"send_message",
 		);
 		const doneWhen = JSON.stringify([
