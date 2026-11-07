@@ -19,7 +19,7 @@ import {
 	createCoreDoor,
 } from "@hyperidle/agent-orchestration";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { ActionResult, DocumentRow, DocumentView } from "@hyperidle/domain-model";
+import type { ActionResult, DocumentRow, DocumentView, ThreadView, UserView } from "@hyperidle/domain-model";
 import {
 	DOCUMENT_ACTIONS,
 	PLATFORM_ACTIONS,
@@ -27,7 +27,7 @@ import {
 	THREAD_ACTIONS,
 	USER_ACTIONS,
 } from "@hyperidle/domain-model";
-import { EventBus } from "@hyperidle/event-bus";
+import { EventBus, type AgentRunAdmissionFailureCode } from "@hyperidle/event-bus";
 import { applyRunnerMigrations, createPgliteRunnerDb, type RunnerDb } from "@hyperidle/runner-db";
 import { Hono } from "hono";
 import { WebSocket } from "ws";
@@ -308,22 +308,63 @@ export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> 
 	// Uses runner-db only — no core DB needed here.
 	const eventBus = new EventBus();
 
-	// When admission fails (the program is not ready, quota exceeded, etc.), post a notice
-	// to the conversation thread so the person knows the run did not start.
+	/** What a person reads when a run could not start. */
+	const ADMISSION_FAILURE_REASON: Record<AgentRunAdmissionFailureCode, string> = {
+		TARGET_AGENT_NOT_RUNNABLE: "It is switched off right now.",
+		PROVISIONING_FAILED:
+			"No agent program is signed in on this computer. Sign in to one under [Agent programs](/people/me), then send your message again.",
+	};
+
 	eventBus.on("agent_run_admission_failed", (event) => {
-		const { agentId, threadId } = event;
-		if (!threadId) return;
+		const { agentId, threadId, taskId, sourceKind, failureCode, streamId, sourceId } = event;
 		const key = runner.keyFor(agentId);
 		if (!key) return;
-		door
-			.call(key, "send_message", { threadId, text: "The run could not be started." })
-			.catch((err: unknown) => {
-				logger.warn("could not post admission-failed notice", {
+
+		if (taskId !== null && sourceKind === "task") {
+			// Mark the task's latest dispatch attempt failed so the task surface shows it.
+			door.call(key, "edit_task", { id: taskId, dispatchFailed: true }).catch((err: unknown) => {
+				logger.warn("could not mark dispatch attempt failed", {
 					agentId,
-					threadId,
+					taskId,
 					error: err instanceof Error ? err.message : String(err),
 				});
 			});
+			return;
+		}
+
+		if (threadId !== null && sourceKind === "assistant") {
+			// Post a notice only when the thread has at least one human member;
+			// an agent-only thread has nobody to tell and posting would wake other agents.
+			void (async () => {
+				try {
+					const threadResult = await door.call<ThreadView>(key, "open_thread", { id: threadId });
+					if (!threadResult.ok) return;
+					const hasHumans = threadResult.data.members.some((m) => !m.isAgent);
+					if (!hasHumans) return;
+					const selfResult = await door.call<UserView>(key, "open_user", {});
+					const displayName = selfResult.ok ? (selfResult.data.user?.name ?? agentId) : agentId;
+					await door.call(key, "send_message", {
+						threadId,
+						clientKey: `run-admission-failed:${streamId}:${sourceId}:${agentId}`,
+						text: `${displayName} could not start. ${ADMISSION_FAILURE_REASON[failureCode]}`,
+					});
+				} catch (err) {
+					logger.warn("could not post admission-failed notice", {
+						agentId,
+						threadId,
+						error: err instanceof Error ? err.message : String(err),
+					});
+				}
+			})();
+			return;
+		}
+
+		logger.warn("agent run refused admission", {
+			agentId,
+			sourceKind,
+			sourceId,
+			failureCode,
+		});
 	});
 
 	const composition = buildRunOrchestrationComposition({

@@ -38,6 +38,39 @@ export const answersPong: RunScript = async (run) => {
 	await run.call("send_message", { text: "pong" });
 };
 
+/** Boot where every session admission fails (pool returns nothing). */
+export function makeFailingBoot(): AgentExecutionBoot {
+	const enforcementRegistry = {
+		register: vi.fn(),
+		get: vi.fn(),
+		incrementForce: vi.fn(),
+		unregister: vi.fn(),
+	};
+	return {
+		mountMcpRouter: () => undefined,
+		dispose: () => undefined,
+		probeAgentLoginStatus: async () => ({ state: "unavailable" as const }),
+		adapters: {
+			pool: {
+				select: () => null,
+				release: vi.fn(),
+				describeSelectFailure: () => "no program available",
+			} as never,
+			harnessRuntime: {
+				enforcementRegistry,
+				createReturnGate: () => ({ observe: vi.fn(), returned: false }),
+				evaluateReturn: () => "not_returned" as const,
+				provisionReturnHook: vi.fn(async () => undefined),
+				writeCliMcpConfig: vi.fn(async () => ({})),
+				writePluginStdioMcpEntries: vi.fn(() => []),
+				openMcpBridge: vi.fn(async () => ({ token: "stub-token", url: "http://stub" })),
+				closeMcpBridge: vi.fn(async () => undefined),
+			} as never,
+			returnStatusTool: { forRegistry: () => ({ name: "return_status" }) as never },
+		},
+	};
+}
+
 // ---- Network world ----
 
 export interface RunnerWorld {
@@ -163,19 +196,21 @@ const SERVER_KEY = "runner-inbox-test-server-key";
 /**
  * Boot a network runner world: a real server + a runner that talks to it via HTTP.
  * The runner is NOT started yet — call `world.runner.start()` from the test.
+ * Pass `agentExecution` to override the scripted boot (e.g. for admission-failure tests).
  */
 export async function bootRunnerWorld(
 	db: HyperIdleDb,
 	personKey: string,
 	script: RunScript,
 	dataDir: string,
+	agentExecutionOverride?: AgentExecutionBoot,
 ): Promise<RunnerWorld> {
 	vi.stubEnv("HYPERIDLE_API_KEY", SERVER_KEY);
 	const tempSpacesDir = fs.mkdtempSync(path.join(os.tmpdir(), "runner-world-spaces-"));
 	vi.stubEnv("HYPERIDLE_SPACES_DIR", tempSpacesDir);
 
 	const runs: string[] = [];
-	const agentExecution = makeScriptedBoot(script, runs);
+	const agentExecution = agentExecutionOverride ?? makeScriptedBoot(script, runs);
 
 	// Boot the server.
 	const serverHandle = await createServer(0, { db });

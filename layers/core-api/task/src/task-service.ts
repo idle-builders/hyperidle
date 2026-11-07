@@ -63,6 +63,21 @@ export const taskDispatchAttemptStore = {
 			.limit(1);
 		return row;
 	},
+	markLatestRequestedFailed: async (exec: WriteExecutor, taskId: string): Promise<void> => {
+		const [row] = await exec
+			.select({ id: taskDispatchAttempts.id })
+			.from(taskDispatchAttempts)
+			.where(
+				and(eq(taskDispatchAttempts.taskId, taskId), eq(taskDispatchAttempts.status, "requested")),
+			)
+			.orderBy(desc(taskDispatchAttempts.ordinal))
+			.limit(1);
+		if (!row) return;
+		await exec
+			.update(taskDispatchAttempts)
+			.set({ status: "failed", updatedAt: new Date().toISOString() })
+			.where(eq(taskDispatchAttempts.id, row.id));
+	},
 	reapTerminal: async (exec: WriteExecutor, cutoff: string, batchSize: number) => {
 		const rows = await exec
 			.delete(taskDispatchAttempts)
