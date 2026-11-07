@@ -80,10 +80,16 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 		}
 	}
 
-	/** Mark an agent as moved-away in the db. */
-	async function markMovedAway(agentId: string): Promise<void> {
+	/**
+	 * Mark an agent as moved-away in the db.
+	 * `failedKey` is the key that received the 401; each write is guarded by checking the
+	 * key is still the failed one, so a concurrent takeAgent() cannot have its row marked
+	 * moved-away or its sessions stopped.
+	 */
+	async function markMovedAway(agentId: string, failedKey: string): Promise<void> {
 		movedAway.add(agentId);
 		const now = new Date().toISOString();
+		const stillFailed = () => keys.get(agentId) === failedKey;
 		try {
 			await markAgentRunnerKeyMovedAway(deps.db, agentId);
 		} catch (err) {
@@ -92,6 +98,7 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 				error: err instanceof Error ? err.message : String(err),
 			});
 		}
+		if (!stillFailed()) return;
 		try {
 			const n = await cancelAllPendingForAgent(deps.db, agentId, now);
 			if (n > 0) logger.info("cancelled pending runs for moved-away agent", { agentId, n });
@@ -101,9 +108,14 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 				error: err instanceof Error ? err.message : String(err),
 			});
 		}
+		if (!stillFailed()) return;
 		// Stop live harness sessions so they don't continue with an invalidated key.
 		try {
-			const live = await listSessions(deps.db, { agentIds: [agentId], state: "active", limit: 10 });
+			const live = await listSessions(deps.db, {
+				agentIds: [agentId],
+				state: "active",
+				limit: 1000,
+			});
 			for (const session of live) {
 				await stopSessionRun(deps.db, deps.eventBus, session.id, (sid) =>
 					sessionRunRegistry.abort(sid, "stop"),
@@ -251,7 +263,7 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 			return running;
 		}
 		const pass = (async () => {
-			do {
+			outer: do {
 				again.delete(agentId);
 				// Snapshot the key before the pass so a concurrent takeAgent() can be detected.
 				const keyAtPassStart = keys.get(agentId);
@@ -259,12 +271,15 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 					await workInbox(agentId);
 				} catch (error) {
 					if (error instanceof DoorError && error.status === 401) {
-						// Only act on the 401 when the key that failed is still the current one.
-						// If takeAgent() updated it concurrently, the new key is valid — keep going.
-						if (keys.get(agentId) !== keyAtPassStart) return;
-						// The key was replaced elsewhere: mark moved-away and drop.
+						// If takeAgent() updated the key concurrently, the new key is valid — run again
+						// (honour any pending nudge that arrived while the old pass was running).
+						if (keys.get(agentId) !== keyAtPassStart) continue outer;
+						// The key was not rotated by us: mark moved-away and drop.
 						// Never re-take on the sweep — only an explicit takeAgent() can reclaim it.
-						await markMovedAway(agentId);
+						// keyAtPassStart is always set when we reach here: workInbox early-exits
+						// without throwing when the key is absent, so a 401 means the key was set.
+						if (!keyAtPassStart) return;
+						await markMovedAway(agentId, keyAtPassStart);
 						// A concurrent takeAgent() may have updated the key while markMovedAway awaited.
 						// Only drop if the key is still the one that failed.
 						if (keys.get(agentId) === keyAtPassStart) dropAgent(agentId);
