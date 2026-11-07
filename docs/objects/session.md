@@ -10,7 +10,7 @@ Four: `active`, `done`, `stopped`, `crashed`. Declared in `SESSION_STATES` (`act
 
 - `active` — process is running.
 - `done` — completed normally.
-- `stopped` — stopped by `stop_session`.
+- `stopped` — harness was interrupted: the task was killed, or the agent moved to another runner.
 - `crashed` — harness process exited unexpectedly, or the reaper swept it.
 
 ## Where a session comes from
@@ -48,10 +48,6 @@ The working folder contains four named zones and the agent's space folders:
 ## Token counts
 
 `sessions.modelTier` is set at session start. Token usage per tier is tracked on the task (`tasks.tokensActualJson`) and merged at session end.
-
-## Watching a session
-
-The session activity buffer holds tool calls, reasoning, and answer deltas while the session runs. The buffer is evicted when the session ends.
 
 ## Stopping a session
 
