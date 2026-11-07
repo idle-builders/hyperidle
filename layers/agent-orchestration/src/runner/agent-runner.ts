@@ -347,7 +347,15 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 			if (!keys.has(agentId)) {
 				activateAgent(agentId, given.data.key);
 			} else {
-				keys.set(agentId, given.data.key);
+				// Key rotated on a held agent: tear down the old WS subscription (it won't
+				// receive nudges with the new key) and re-activate so a fresh subscription is
+				// registered and an immediate inbox pass is scheduled.
+				const off = unsubscribers.get(agentId);
+				if (off) {
+					off();
+					unsubscribers.delete(agentId);
+				}
+				activateAgent(agentId, given.data.key);
 			}
 		},
 
