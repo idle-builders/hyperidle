@@ -237,10 +237,15 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 		const pass = (async () => {
 			do {
 				again.delete(agentId);
+				// Snapshot the key before the pass so a concurrent takeAgent() can be detected.
+				const keyAtPassStart = keys.get(agentId);
 				try {
 					await workInbox(agentId);
 				} catch (error) {
 					if (error instanceof DoorError && error.status === 401) {
+						// Only act on the 401 when the key that failed is still the current one.
+						// If takeAgent() updated it concurrently, the new key is valid — keep going.
+						if (keys.get(agentId) !== keyAtPassStart) return;
 						// The key was replaced elsewhere: mark moved-away and drop.
 						// Never re-take on the sweep — only an explicit takeAgent() can reclaim it.
 						await markMovedAway(agentId);
