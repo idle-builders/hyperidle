@@ -220,7 +220,10 @@ async function applyLaptopMigrations(
 ): Promise<void> {
 	const { applyMigrations, createPgliteDb } = await import("@hyperidle/db");
 	const { applyRunnerMigrations, createPgliteRunnerDb } = await import("@hyperidle/runner-db");
-	const runnerDataDir = `${dataDir}-runner`;
+	// runner DB lives next to the core DB: same parent, sibling "runner-pg" dir.
+	// This matches what startRunner reads: path.join(deps.dataDir, "runner-pg")
+	// where dataDir = the app's user-data folder (parent of hyperidle-pg).
+	const runnerDataDir = path.join(path.dirname(dataDir), "runner-pg");
 	const runnerMigrationsFolder = path.resolve(
 		Dirname,
 		"..",

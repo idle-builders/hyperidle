@@ -245,7 +245,7 @@ describe("--demo flag behavior", () => {
 		}
 
 		// agent_run_config lives in runner-db — open it separately
-		const runnerClient = new PGlite(`${dataDir}-runner`);
+		const runnerClient = new PGlite(path.join(path.dirname(dataDir), "runner-pg"));
 		await runnerClient.waitReady;
 		try {
 			// Each agent's space directory holds a git-repo symlink created by the demo seeder.
