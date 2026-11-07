@@ -746,4 +746,29 @@ describe("edit_user — key minting security rules", () => {
 		if (result.ok) return;
 		expect(result.problems[0]?.code).toBe("key_alone");
 	});
+
+	test("key:new emits user.changed for the agent on the event bus", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+		const agent = await editUser(ctxFor(db, "u-founder"), {
+			kind: "ai",
+			name: "Bot",
+			teams: ["Alpha"],
+		});
+		expect(agent.ok).toBe(true);
+		if (!agent.ok) return;
+		const agentId = agent.data.user?.id;
+		if (!agentId) return;
+
+		const eventBus = new EventBus();
+		const changedIds: string[] = [];
+		eventBus.on("user.changed", (e) => changedIds.push(e.change.objectId));
+
+		const result = await editUser({ actor: "u-founder", db, eventBus, now: NOW }, {
+			id: agentId,
+			key: "new",
+		});
+		expect(result.ok).toBe(true);
+		expect(changedIds).toStrictEqual([agentId]);
+	});
 });
