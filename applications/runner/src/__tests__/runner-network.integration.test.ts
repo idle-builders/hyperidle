@@ -134,7 +134,7 @@ interface TestServer {
 
 async function bootTestServer(db: HyperIdleDb): Promise<TestServer> {
 	vi.stubEnv("HYPERIDLE_API_KEY", SERVER_KEY);
-	const handle = await createServer(0, { db, topology: "disabled" });
+	const handle = await createServer(0, { db });
 	const address = handle.httpServer.address();
 	if (!address || typeof address === "string") throw new Error("server did not bind TCP");
 	const url = `http://127.0.0.1:${address.port}`;

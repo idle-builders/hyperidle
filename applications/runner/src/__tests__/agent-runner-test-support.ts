@@ -193,7 +193,7 @@ export async function bootRunnerWorld(
 	const agentExecutionBoot = makeScriptedBoot(script, runs);
 
 	// Boot the server.
-	const serverHandle = await createServer(0, { db, topology: "disabled" });
+	const serverHandle = await createServer(0, { db });
 	const address = serverHandle.httpServer.address();
 	if (!address || typeof address === "string") throw new Error("server did not bind TCP address");
 	const serverUrl = `http://127.0.0.1:${address.port}`;

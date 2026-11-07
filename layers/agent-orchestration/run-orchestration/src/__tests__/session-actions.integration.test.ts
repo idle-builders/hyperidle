@@ -10,7 +10,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import type { SessionRow, StopSessionInput, StopSessionOutput } from "@hyperidle/domain-model";
+import type { StopSessionInput, StopSessionOutput } from "@hyperidle/domain-model";
 import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { type RunnerDb, sessions } from "@hyperidle/runner-db";
