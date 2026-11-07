@@ -166,3 +166,29 @@ if (danglingRequires.length > 0) {
 // drivers.
 
 process.stdout.write("Desktop bundle complete. Validation passed.\n");
+
+// Bundle runner process (Electron utilityProcess.fork target)
+// @lore: runner bundle — forked via utilityProcess.fork; standalone Node process, so electron is not an external.
+const RUNNER_DIR = path.resolve(import.meta.dirname, "..", "..", "runner");
+await esbuild.build({
+	entryPoints: [path.join(RUNNER_DIR, "src/runner-entry.ts")],
+	bundle: true,
+	platform: "node",
+	target: "node24",
+	format: "cjs",
+	outfile: path.join(DIST_DIR, "runner.cjs"),
+	external: ["@electric-sql/pglite"],
+	plugins: [pgStubPlugin],
+	define: {
+		"import.meta.url": "__IMPORT_META_URL__",
+		"import.meta.dirname": "__IMPORT_META_DIRNAME__",
+	},
+	banner: {
+		js: [
+			'var __IMPORT_META_URL__ = require("url").pathToFileURL(__filename).href;',
+			'var __IMPORT_META_DIRNAME__ = require("path").dirname(require("url").fileURLToPath(__IMPORT_META_URL__));',
+		].join("\n"),
+	},
+	sourcemap: true,
+	minify: false,
+});

@@ -13,6 +13,7 @@ import {
 	powerMonitor,
 	shell,
 	Tray,
+	utilityProcess,
 } from "electron";
 
 // @lore: Dirname — CJS output (esbuild) has __dirname; ESM (dev/tsx) requires fileURLToPath(import.meta.url)
@@ -466,6 +467,63 @@ function createTrayIcon(): ReturnType<typeof nativeImage.createFromPath> {
 	return icon;
 }
 
+// @lore: forkRunner — runner.cjs only exists after build:local; dev mode skips the fork and the runner runs separately.
+function forkRunner(serverUrl: string, apiKey: string, dataDir: string): (() => void) | null {
+	const runnerBundle = path.join(Dirname, "runner.cjs");
+	if (!fs.existsSync(runnerBundle)) {
+		log("runner bundle not found, skipping fork", { runnerBundle });
+		return null;
+	}
+	const runnerDrizzleDir = app.isPackaged
+		? path.join(process.resourcesPath ?? "", "runner-drizzle")
+		: path.resolve(Dirname, "..", "..", "..", "framework", "runner-db", "drizzle");
+	const env: Record<string, string> = {};
+	for (const [k, v] of Object.entries(process.env)) {
+		if (v !== undefined) env[k] = v;
+	}
+	env.HYPERIDLE_SERVER_URL = serverUrl;
+	env.HYPERIDLE_API_KEY = apiKey;
+	env.HYPERIDLE_DATA_DIR = dataDir;
+	env.HYPERIDLE_RUNNER_DRIZZLE_DIR = runnerDrizzleDir;
+	log("forkRunner", { runnerBundle, serverUrl, dataDir, runnerDrizzleDir });
+	const child = utilityProcess.fork(runnerBundle, [], { env });
+	child.on("exit", (code) => {
+		log("runner process exited", { code });
+	});
+	ipcMain.handle("runner:take", (_event: unknown, agentId: string) => {
+		child.postMessage({ type: "take", agentId });
+	});
+	ipcMain.handle("runner:held", () => {
+		return new Promise<string[]>((resolve) => {
+			const handler = (msg: unknown) => {
+				const m = msg as { type?: string; ids?: string[] } | null;
+				if (m?.type === "held") {
+					child.off("message", handler);
+					resolve(m.ids ?? []);
+				}
+			};
+			child.on("message", handler);
+			child.postMessage({ type: "held" });
+		});
+	});
+	ipcMain.handle("runner:movedAway", () => {
+		return new Promise<string[]>((resolve) => {
+			const handler = (msg: unknown) => {
+				const m = msg as { type?: string; ids?: string[] } | null;
+				if (m?.type === "movedAway") {
+					child.off("message", handler);
+					resolve(m.ids ?? []);
+				}
+			};
+			child.on("message", handler);
+			child.postMessage({ type: "movedAway" });
+		});
+	});
+	return () => {
+		child.kill();
+	};
+}
+
 async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	log("boot:local start", { userDataDir: ctx.userDataDir, isDev: IS_DEV });
 
@@ -608,6 +666,8 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	}
 	log("boot:local health check passed");
 
+	const stopRunner = forkRunner(`http://127.0.0.1:${port}`, apiKey, ctx.userDataDir);
+
 	if (bootWindow && !bootWindow.isDestroyed()) {
 		log("boot:local loading app", { appUrl });
 		bootWindow.loadURL(appUrl);
@@ -636,6 +696,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	reopenHandler = reopen;
 
 	const stopServer = (): void => {
+		stopRunner?.();
 		void stopLocalServer(handle, logRotator);
 	};
 
@@ -731,6 +792,9 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 	mainWindow.loadURL(serverUrl);
 	bindWindowStatePersistence(mainWindow, ctx.configPath);
 
+	const sharedPersonKey = readPersonKey(ctx.credentialsPath) ?? "";
+	const stopRunner = forkRunner(serverUrl, sharedPersonKey, ctx.userDataDir);
+
 	registerCommonIpcHandlers(ctx);
 
 	const menuTemplate = buildAppMenuTemplate({
@@ -739,7 +803,10 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		dataDir: ctx.userDataDir,
 	});
 	Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
-	app.on("before-quit", getBeforeQuitHandler(null, logRotator));
+	app.on("before-quit", () => {
+		stopRunner?.();
+		return getBeforeQuitHandler(null, logRotator)();
+	});
 	app.on("activate", (): void => {
 		if (BrowserWindow.getAllWindows().length === 0) void startApp();
 	});
