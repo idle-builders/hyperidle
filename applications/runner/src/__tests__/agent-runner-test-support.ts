@@ -78,12 +78,6 @@ export interface RunnerWorld {
 	readonly runner: Pick<RunnerHandle, "start" | "stop">;
 	/** Door for the test to act as the person — calls the server directly. */
 	readonly door: CoreDoor;
-	/**
-	 * Trigger a fake inbox nudge for the given agent. In the network world
-	 * the runner's sweep timer handles retries, so this is a no-op; the method
-	 * exists so test code ported from the in-process world compiles unchanged.
-	 */
-	nudge(topic: string, envelope: unknown): void;
 	/** Every sessionId the scripted program was run for, in order. */
 	readonly runs: readonly string[];
 	stop(): Promise<void>;
@@ -236,17 +230,6 @@ export async function bootRunnerWorld(
 	return {
 		runner: runnerHandle,
 		door,
-		nudge(topic: string, envelope: unknown): void {
-			// Push a real WS nudge so the runner's subscriber calls onNudge() immediately.
-			// Normalize to { type:"update", topic, ...envelope } — the runner only triggers
-			// on type:"update" messages.
-			const base =
-				typeof envelope === "object" && envelope !== null
-					? (envelope as Record<string, unknown>)
-					: {};
-			const msg = { type: "update", topic, ...base };
-			serverHandle.wsHub.broadcast(topic, JSON.stringify(msg));
-		},
 		runs,
 		async stop() {
 			if (stopped) return;
