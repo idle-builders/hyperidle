@@ -116,7 +116,6 @@ export function Start() {
 					<Join onBack={() => setJoining(false)} />
 				) : (
 					<>
-						<p className="first-lead">Agents already on this computer can start right away.</p>
 						<label className="first-field">
 							<span>Your name</span>
 							<input
