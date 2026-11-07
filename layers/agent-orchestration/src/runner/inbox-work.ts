@@ -273,6 +273,7 @@ async function actOnReviewAnswered(
 	if (outcome.status === "queued") return;
 	// No session can take it back, so the agent reads the answer in a new turn.
 	// Same hold-back rule as messages and task runs: don't start while at the limit.
+	const me = selfRow(agent);
 	const { maxConcurrentSessions } = await readAgentRunConfig(deps.db, me.id);
 	const active = await listSessions(deps.db, {
 		agentIds: [me.id],

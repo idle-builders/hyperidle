@@ -144,7 +144,7 @@ function makeAgent(): HeldAgent {
 		subscriptions: [
 			{
 				id: SUB_ID,
-				event: "task_updated",
+				event: "task.changed",
 				objectId: null,
 				schedule: null,
 				paused: false,
@@ -193,7 +193,7 @@ const subscriptionRow: InboxRowView = {
 		id: "change-sub-busycheck",
 		object: "task",
 		objectId: TASK_ID,
-		kind: "updated",
+		kind: "changed",
 		actor: "person-busycheck",
 		before: null,
 		after: { state: "ready" },
@@ -211,9 +211,9 @@ const reviewAnsweredRow: InboxRowView = {
 	reason: "review_answered",
 	change: {
 		id: "change-review-busycheck",
-		object: "message",
+		object: "thread",
 		objectId: THREAD_ID,
-		kind: "created",
+		kind: "message",
 		actor: "person-busycheck",
 		before: null,
 		after: {
@@ -325,9 +325,9 @@ describe("inbox busy check", () => {
 		// Default limit 1 → hold back; no review session in DB → falls through to new-turn path
 
 		const deps: InboxWorkDeps = { db: runnerDb, eventBus, door: makeDoor() };
-		await expect(
-			actOnInboxRow(deps, makeAgent(), reviewAnsweredRow),
-		).rejects.toBeInstanceOf(NotYet);
+		await expect(actOnInboxRow(deps, makeAgent(), reviewAnsweredRow)).rejects.toBeInstanceOf(
+			NotYet,
+		);
 		expect(await countQueuedRequests(runnerDb)).toBe(0);
 	});
 });

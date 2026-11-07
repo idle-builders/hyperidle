@@ -3,21 +3,18 @@
  * on this runner so they do not keep going with a stale key.
  */
 
-import { EventBus } from "@hyperidle/event-bus";
-import {
-	loadHeldAgentRunnerKeys,
-	persistAgentRunnerKey,
-} from "@hyperidle/run-orchestration";
-import { agentRunnerKeys, sessions, type RunnerDb } from "@hyperidle/runner-db";
+import type { EventBus } from "@hyperidle/event-bus";
+import { persistAgentRunnerKey } from "@hyperidle/run-orchestration";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
-import { describe, vi } from "vitest";
+import { describe } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";
 import {
 	type AgentRunner,
 	type AgentRunnerDeps,
 	createAgentRunner,
 } from "../runner/agent-runner.js";
-import { DoorError } from "../runner/core-door.js";
+import { DoorError, type DoorResult } from "../runner/core-door.js";
 
 const AGENT_ID = "agent-401stop";
 const AGENT_KEY = "key-401stop";
@@ -35,8 +32,16 @@ async function setup(runnerDb: RunnerDb, eventBus: EventBus): Promise<AgentRunne
 	});
 
 	const door: AgentRunnerDeps["door"] = {
-		call(_key, _action, _input) {
-			throw new DoorError("key invalidated", 401);
+		call<O>(_key: string, _action: string, _input: unknown): Promise<DoorResult<O>> {
+			// Person key calls get a not-found so lookForAgents exits without taking new agents.
+			// Agent key calls throw 401 to simulate the key being invalidated on another runner.
+			if (_key === AGENT_KEY) {
+				throw new DoorError("key invalidated", 401);
+			}
+			return Promise.resolve({
+				ok: false,
+				problems: [{ code: "not_found", message: "not found" }],
+			});
 		},
 	};
 	const runner = createAgentRunner({
