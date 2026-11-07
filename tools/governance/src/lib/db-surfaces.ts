@@ -230,7 +230,10 @@ export function buildMergedDbSurfaceIndex(
 	configs: readonly DatabasePackageConfig[],
 	readFile: (path: string) => string,
 ): DbSurfaceIndex {
-	const subIndexes = configs.map((config) => ({ config, index: buildDbSurfaceIndex(config, readFile) }));
+	const subIndexes = configs.map((config) => ({
+		config,
+		index: buildDbSurfaceIndex(config, readFile),
+	}));
 
 	const tables = new Set<string>();
 	const physicalNames = new Map<string, string>();
@@ -250,11 +253,7 @@ export function buildMergedDbSurfaceIndex(
 	const resolve = (toFile: string, symbol: string, namespace: boolean): DbResolution => {
 		for (const { config, index } of subIndexes) {
 			const prefix = `${config.sourceRoot}/`;
-			if (
-				toFile === config.barrel ||
-				toFile === config.schemaModule ||
-				toFile.startsWith(prefix)
-			) {
+			if (toFile === config.barrel || toFile === config.schemaModule || toFile.startsWith(prefix)) {
 				const result = index.resolve(toFile, symbol, namespace);
 				// Sync any newly-added unplaced entries to the merged map.
 				for (const [k, v] of index.unplaced) {
@@ -264,8 +263,14 @@ export function buildMergedDbSurfaceIndex(
 			}
 		}
 		// File matches no known database package — classify as unknown.
-		mergedUnplaced.set(`${toFile}:${symbol}`, `file ${toFile} does not belong to any registered database package`);
-		return { surface: "db:unknown", unknownReason: `${toFile} is not in any registered database package` };
+		mergedUnplaced.set(
+			`${toFile}:${symbol}`,
+			`file ${toFile} does not belong to any registered database package`,
+		);
+		return {
+			surface: "db:unknown",
+			unknownReason: `${toFile} is not in any registered database package`,
+		};
 	};
 
 	return { resolve, tables, physicalNames, rowTypes, unplaced: mergedUnplaced, unplacedByPackage };

@@ -30,9 +30,10 @@ import {
 	listConnections,
 	resolveHeldToken,
 } from "@hyperidle/connections";
-import { serviceConnections, users } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/domain-model";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";
+import { serviceConnections } from "@hyperidle/runner-db";
 import {
 	afterEach,
 	beforeEach,
@@ -61,6 +62,7 @@ afterEach(() => {
 describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPort calls of any kind at provisioning time", () => {
 	test("live in-layer read -> buildProvisioningPlan -> applyProvisioningPlan completes fully with `app.fetch` (the ONE choke point every in-process CoreApiPort call goes through) NEVER invoked", async ({
 		db,
+		runnerDb,
 		app,
 	}) => {
 		await db
@@ -86,7 +88,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 			})
 			.onConflictDoNothing();
 		const encryptedToken = encryptCredentialValue("sk_test_edge_closed");
-		await db.insert(serviceConnections).values({
+		await runnerDb.insert(serviceConnections).values({
 			id: "sc-edge-closed-stripe",
 			userId: USER_HUMAN_ID,
 			service: "stripe",
@@ -109,7 +111,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 			agentId: "agent",
 			connections: {
 				listHeldForProvisioning: () =>
-					listConnections(db, { userId: USER_HUMAN_ID }).then((rows) =>
+					listConnections(runnerDb, { userId: USER_HUMAN_ID }).then((rows) =>
 						rows
 							.filter((r) => (HELD_AUTH_SOURCES as readonly string[]).includes(r.authSource))
 							.map((r) => ({
@@ -123,7 +125,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 			},
 			resolver: {
 				resolve: (userId: string, connectionId: string) =>
-					resolveHeldToken(db, userId, connectionId, decryptCredentialValue),
+					resolveHeldToken(runnerDb, userId, connectionId, decryptCredentialValue),
 			},
 		});
 		const result = await applyProvisioningPlan({
@@ -149,7 +151,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 	// holding is the empty one: a deployment with no held connections must
 	// still reach zero seam calls, rather than quietly taking some other path.
 	test("the same proof holds when there is no held connection at all — still zero CoreApiPort calls", async ({
-		db,
+		runnerDb,
 		app,
 	}) => {
 		const fetchSpy = vi.spyOn(app, "fetch");
@@ -158,7 +160,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 			agentId: "agent",
 			connections: {
 				listHeldForProvisioning: () =>
-					listConnections(db, { userId: USER_HUMAN_ID }).then((rows) =>
+					listConnections(runnerDb, { userId: USER_HUMAN_ID }).then((rows) =>
 						rows
 							.filter((r) => (HELD_AUTH_SOURCES as readonly string[]).includes(r.authSource))
 							.map((r) => ({
@@ -172,7 +174,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 			},
 			resolver: {
 				resolve: (userId: string, connectionId: string) =>
-					resolveHeldToken(db, userId, connectionId, decryptCredentialValue),
+					resolveHeldToken(runnerDb, userId, connectionId, decryptCredentialValue),
 			},
 		});
 		await applyProvisioningPlan({

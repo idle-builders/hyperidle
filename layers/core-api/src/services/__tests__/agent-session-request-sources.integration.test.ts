@@ -1,17 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	agentRunConfig,
-	agentSessionRequests,
-	type HyperIdleDb,
-	messages,
-	tasks,
-	teams,
-	threads,
-	users,
-	userTeams,
-} from "@hyperidle/db";
+import { type HyperIdleDb, messages, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
 import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
 import type { DomainEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
@@ -24,6 +14,7 @@ import type {
 	SessionResult,
 } from "@hyperidle/harness-protocol";
 import { AdapterPool } from "@hyperidle/harness-registry";
+import { agentRunConfig, agentSessionRequests, type RunnerDb } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
 import { test as fixtureTest } from "../../__testing__/test-fixtures.js";
@@ -59,7 +50,7 @@ class RecordingHarnessAdapter implements HarnessAdapter {
 	}
 }
 
-async function seedWork(db: HyperIdleDb): Promise<void> {
+async function seedWork(db: HyperIdleDb, runnerDb: RunnerDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "team-src", name: "Agent Sources Team", createdAt: now });
 	await db.insert(users).values([
@@ -81,7 +72,7 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 		},
 	]);
 	await db.insert(userTeams).values({ userId: "agent-src", teamId: "team-src" });
-	await db.insert(agentRunConfig).values({
+	await runnerDb.insert(agentRunConfig).values({
 		agentUserId: "agent-src",
 		harnessType: "recording",
 		modelProvider: "test",
@@ -162,9 +153,9 @@ describe("agent session request sources", () => {
 		}
 	});
 
-	fixtureTest("all execution sources enter real session provisioning", async ({ db }) => {
+	fixtureTest("all execution sources enter real session provisioning", async ({ db, runnerDb }) => {
 		const composition = buildTestRunOrchestrationComposition();
-		await seedWork(db);
+		await seedWork(db, runnerDb);
 		const eventBus = new EventBus();
 		const events: DomainEvent[] = [];
 		eventBus.on("*", (event) => {
@@ -186,7 +177,7 @@ describe("agent session request sources", () => {
 		tmpDirs.push(sandboxBasePath);
 		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxBasePath);
 		const deps = {
-			db,
+			db: runnerDb,
 			eventBus,
 			adapterPool,
 			onBeforeTeardown: async ({
@@ -288,7 +279,7 @@ describe("agent session request sources", () => {
 		for (const source of sources) {
 			const now = new Date().toISOString();
 			const sourceRecord = source as Record<string, unknown>;
-			const [request] = await db
+			const [request] = await runnerDb
 				.insert(agentSessionRequests)
 				.values({
 					id: `test-request-${source.idempotencyKey}`,
@@ -333,10 +324,10 @@ describe("agent session request sources", () => {
 		expect(started.some((event) => event.sourceKind === "subscription")).toBe(true);
 		expect(ended.some((event) => event.sourceKind === "subscription")).toBe(true);
 
-		const rows = await db.select().from(agentSessionRequests);
+		const rows = await runnerDb.select().from(agentSessionRequests);
 		expect(rows.map((row) => row.status).sort()).toEqual(["completed", "completed", "completed"]);
 		for (const row of rows) {
-			const [stored] = await db
+			const [stored] = await runnerDb
 				.select()
 				.from(agentSessionRequests)
 				.where(eq(agentSessionRequests.id, row.id));

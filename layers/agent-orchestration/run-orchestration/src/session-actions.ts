@@ -1,6 +1,5 @@
 /** Session actions: search_sessions, watch_session, stop_session. */
 
-import type { RunnerDb, Session } from "@hyperidle/runner-db";
 import {
 	type ActionDeclaration,
 	type ActionResult,
@@ -19,6 +18,7 @@ import {
 	watchSession as watchSessionDeclaration,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
+import type { RunnerDb, Session } from "@hyperidle/runner-db";
 import type { SessionSearchFilter } from "./session-store.js";
 
 /** Local structural mirror of the layer's ActionContext/Action — nested Service may not import the layer's own package. */

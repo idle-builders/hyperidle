@@ -11,9 +11,9 @@
  * compile time on the wire's own side.
  */
 
-import { type RunnerDb, type Session, sessions } from "@hyperidle/runner-db";
 import type { SessionOutcome } from "@hyperidle/domain-model";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/event-bus";
+import { type RunnerDb, type Session, sessions } from "@hyperidle/runner-db";
 import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 
 /** Full row by id; `undefined` on a miss. */
@@ -42,10 +42,7 @@ export interface SessionSearchFilter {
 }
 
 /** Full rows, filtered by whichever fields the caller supplies. Newest first. */
-export async function listSessions(
-	db: RunnerDb,
-	filter: SessionSearchFilter,
-): Promise<Session[]> {
+export async function listSessions(db: RunnerDb, filter: SessionSearchFilter): Promise<Session[]> {
 	const conditions = [];
 	if (filter.ids && filter.ids.length > 0) conditions.push(inArray(sessions.id, [...filter.ids]));
 	if (filter.taskId) conditions.push(eq(sessions.taskId, filter.taskId));

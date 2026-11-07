@@ -10,8 +10,8 @@ import {
 	listWithholds,
 	setWithhold,
 } from "@hyperidle/connections";
-import type { RunnerDb } from "@hyperidle/runner-db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/domain-model";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { z } from "zod";
 import { isPrivateHostLiteral } from "../ssrf.js";
 

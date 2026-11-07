@@ -9,18 +9,12 @@
  * which this test never seeds a row for).
  */
 
-import {
-	agentSessionRequests,
-	type HyperIdleDb,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import type { HarnessAdapter, SessionHandle } from "@hyperidle/harness-protocol";
+import { agentSessionRequests, type RunnerDb } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import {
 	cancelPendingForTasks,
 	claimSessionRequest,
@@ -32,7 +26,12 @@ import {
 	transitionSessionRequest,
 } from "../index.js";
 
-async function createAssistantRequest(db: HyperIdleDb, suffix: string, payloadJson?: string) {
+async function createAssistantRequest(
+	db: HyperIdleDb,
+	runnerDb: RunnerDb,
+	suffix: string,
+	payloadJson?: string,
+) {
 	const now = new Date().toISOString();
 	await db.insert(users).values([
 		{
@@ -52,7 +51,7 @@ async function createAssistantRequest(db: HyperIdleDb, suffix: string, payloadJs
 			createdAt: now,
 		},
 	]);
-	const [row] = await db
+	const [row] = await runnerDb
 		.insert(agentSessionRequests)
 		.values({
 			id: `request-${suffix}`,
@@ -84,7 +83,10 @@ describe("agent session request repository", () => {
 		if (!row?.claimToken) throw new Error("Expected an actively claimed request");
 		return row.claimToken;
 	}
-	test("claimNextAgentSessionRequest claims exactly one pending request", async ({ db }) => {
+	test("claimNextAgentSessionRequest claims exactly one pending request", async ({
+		db,
+		runnerDb,
+	}) => {
 		const now = new Date().toISOString();
 		await db.insert(teams).values({ id: "team-3", name: "Team", createdAt: now });
 		await db.insert(users).values([
@@ -106,7 +108,7 @@ describe("agent session request repository", () => {
 			},
 		]);
 
-		await db.insert(agentSessionRequests).values({
+		await runnerDb.insert(agentSessionRequests).values({
 			id: "request-msg-3",
 			sourceKind: "assistant",
 			sourceId: "msg-3",
@@ -128,12 +130,12 @@ describe("agent session request repository", () => {
 
 		const [claimed, second] = await Promise.all([
 			claimSessionRequest(
-				db,
+				runnerDb,
 				{ next: true },
 				{ workerId: "worker-1", now: new Date("2026-07-08T12:00:00.000Z"), leaseMs: 30_000 },
 			),
 			claimSessionRequest(
-				db,
+				runnerDb,
 				{ next: true },
 				{ workerId: "worker-2", now: new Date("2026-07-08T12:00:00.000Z"), leaseMs: 30_000 },
 			),
@@ -146,7 +148,7 @@ describe("agent session request repository", () => {
 		if (!winner) throw new Error("Expected one concurrent claim winner");
 
 		await transitionSessionRequest(
-			db,
+			runnerDb,
 			{
 				to: "running",
 				requestId: winner.id,
@@ -155,7 +157,7 @@ describe("agent session request repository", () => {
 			},
 			{ now: new Date("2026-07-08T12:00:00.000Z") },
 		);
-		const [row] = await db
+		const [row] = await runnerDb
 			.select()
 			.from(agentSessionRequests)
 			.where(eq(agentSessionRequests.id, winner.id));
@@ -165,19 +167,28 @@ describe("agent session request repository", () => {
 
 	test("claim custody is token-fenced across concurrent claim, renew, expiry, and reclaim", async ({
 		db,
+		runnerDb,
 	}) => {
-		const request = await createAssistantRequest(db, "lease");
+		const request = await createAssistantRequest(db, runnerDb, "lease");
 		const now = new Date("2026-07-08T12:00:00.000Z");
 		const [first, second] = await Promise.all([
-			claimSessionRequest(db, { id: request.id }, { workerId: "worker-a", now, leaseMs: 1_000 }),
-			claimSessionRequest(db, { id: request.id }, { workerId: "worker-b", now, leaseMs: 1_000 }),
+			claimSessionRequest(
+				runnerDb,
+				{ id: request.id },
+				{ workerId: "worker-a", now, leaseMs: 1_000 },
+			),
+			claimSessionRequest(
+				runnerDb,
+				{ id: request.id },
+				{ workerId: "worker-b", now, leaseMs: 1_000 },
+			),
 		]);
 		const winner = [first, second].find((row) => row !== null);
 		if (!winner) throw new Error("Expected one concurrent claim winner");
 		const token = claimedToken(winner);
 		expect([first, second].filter(Boolean)).toHaveLength(1);
 		expect(
-			await findSessionRequest(db, {
+			await findSessionRequest(runnerDb, {
 				by: "claimActive",
 				requestId: request.id,
 				claimToken: "wrong-token",
@@ -185,19 +196,19 @@ describe("agent session request repository", () => {
 			}),
 		).toBe(false);
 		expect(
-			await renewClaim(db, request.id, "wrong-token", {
+			await renewClaim(runnerDb, request.id, "wrong-token", {
 				now,
 				leaseMs: 5_000,
 			}),
 		).toBe(false);
 		expect(
-			await renewClaim(db, request.id, token, {
+			await renewClaim(runnerDb, request.id, token, {
 				now,
 				leaseMs: 5_000,
 			}),
 		).toBe(true);
 		expect(
-			await findSessionRequest(db, {
+			await findSessionRequest(runnerDb, {
 				by: "claimActive",
 				requestId: request.id,
 				claimToken: token,
@@ -205,7 +216,7 @@ describe("agent session request repository", () => {
 			}),
 		).toBe(true);
 		expect(
-			await findSessionRequest(db, {
+			await findSessionRequest(runnerDb, {
 				by: "claimActive",
 				requestId: request.id,
 				claimToken: token,
@@ -213,7 +224,7 @@ describe("agent session request repository", () => {
 			}),
 		).toBe(false);
 		const reclaimed = await claimSessionRequest(
-			db,
+			runnerDb,
 			{ id: request.id },
 			{ workerId: "worker-c", now: new Date("2026-07-08T12:00:05.001Z"), leaseMs: 1_000 },
 		);
@@ -223,24 +234,25 @@ describe("agent session request repository", () => {
 
 	test("release ignores a stale token and returns the matching claim to pending", async ({
 		db,
+		runnerDb,
 	}) => {
-		const request = await createAssistantRequest(db, "release");
+		const request = await createAssistantRequest(db, runnerDb, "release");
 		const claimed = await claimSessionRequest(
-			db,
+			runnerDb,
 			{ id: request.id },
 			{ workerId: "worker-a", now: new Date("2026-07-08T12:00:00.000Z"), leaseMs: 30_000 },
 		);
-		await releaseClaim(db, request.id, "wrong-token");
-		expect((await findSessionRequest(db, { by: "id", requestId: request.id }))?.status).toBe(
+		await releaseClaim(runnerDb, request.id, "wrong-token");
+		expect((await findSessionRequest(runnerDb, { by: "id", requestId: request.id }))?.status).toBe(
 			"claimed",
 		);
 		const token = claimedToken(claimed);
-		await releaseClaim(db, request.id, token);
-		const released = await findSessionRequest(db, { by: "id", requestId: request.id });
+		await releaseClaim(runnerDb, request.id, token);
+		const released = await findSessionRequest(runnerDb, { by: "id", requestId: request.id });
 		expect(released?.status).toBe("pending");
 		expect(released?.claimExpiresAt).toBeNull();
 		const reclaimed = await claimSessionRequest(
-			db,
+			runnerDb,
 			{ id: request.id },
 			{ workerId: "worker-b", now: new Date("2026-07-08T12:00:01.000Z"), leaseMs: 30_000 },
 		);
@@ -248,59 +260,64 @@ describe("agent session request repository", () => {
 		expect(reclaimed?.claimToken).not.toBe(claimed?.claimToken);
 	});
 
-	test("parameterized reads preserve payloads and source/running filters", async ({ db }) => {
-		const request = await createAssistantRequest(db, "reads", '{"mode":"deep"}');
-		expect((await findSessionRequest(db, { by: "id", requestId: request.id }))?.payloadJson).toBe(
-			'{"mode":"deep"}',
-		);
+	test("parameterized reads preserve payloads and source/running filters", async ({
+		db,
+		runnerDb,
+	}) => {
+		const request = await createAssistantRequest(db, runnerDb, "reads", '{"mode":"deep"}');
 		expect(
-			await listSessionRequests(db, { source: { kind: "assistant", id: "message-reads" } }),
+			(await findSessionRequest(runnerDb, { by: "id", requestId: request.id }))?.payloadJson,
+		).toBe('{"mode":"deep"}');
+		expect(
+			await listSessionRequests(runnerDb, { source: { kind: "assistant", id: "message-reads" } }),
 		).toHaveLength(1);
-		expect(await listSessionRequests(db, { source: { kind: "assistant", id: "other" } })).toEqual(
-			[],
-		);
+		expect(
+			await listSessionRequests(runnerDb, { source: { kind: "assistant", id: "other" } }),
+		).toEqual([]);
 		const claimed = await claimSessionRequest(
-			db,
+			runnerDb,
 			{ id: request.id },
 			{ workerId: "worker", now: new Date(), leaseMs: 30_000 },
 		);
-		await transitionSessionRequest(db, {
+		await transitionSessionRequest(runnerDb, {
 			to: "running",
 			requestId: request.id,
 			sessionId: "session-reads",
 			claimToken: claimedToken(claimed),
 		});
 		expect(
-			(await findSessionRequest(db, { by: "sessionId", sessionId: "session-reads" }))?.id,
+			(await findSessionRequest(runnerDb, { by: "sessionId", sessionId: "session-reads" }))?.id,
 		).toBe(request.id);
 		expect(
-			(await listSessionRequests(db, { status: "running" })).map((row: { id: string }) => row.id),
+			(await listSessionRequests(runnerDb, { status: "running" })).map(
+				(row: { id: string }) => row.id,
+			),
 		).toContain(request.id);
 	});
 
-	test("lifecycle transitions are CAS-guarded", async ({ db }) => {
-		const request = await createAssistantRequest(db, "terminal");
+	test("lifecycle transitions are CAS-guarded", async ({ db, runnerDb }) => {
+		const request = await createAssistantRequest(db, runnerDb, "terminal");
 		const claimed = await claimSessionRequest(
-			db,
+			runnerDb,
 			{ id: request.id },
 			{ workerId: "worker", now: new Date(), leaseMs: 30_000 },
 		);
 		await expect(
-			transitionSessionRequest(db, {
+			transitionSessionRequest(runnerDb, {
 				to: "running",
 				requestId: request.id,
 				sessionId: "session-terminal",
 				claimToken: "stale",
 			}),
 		).rejects.toThrow("Lost request custody");
-		await transitionSessionRequest(db, {
+		await transitionSessionRequest(runnerDb, {
 			to: "running",
 			requestId: request.id,
 			sessionId: "session-terminal",
 			claimToken: claimedToken(claimed),
 		});
 		expect(
-			await transitionSessionRequest(db, {
+			await transitionSessionRequest(runnerDb, {
 				to: "termination-requested",
 				requestId: request.id,
 				reason: "user_done",
@@ -308,27 +325,27 @@ describe("agent session request repository", () => {
 			}),
 		).toBe("accepted");
 		expect(
-			await transitionSessionRequest(db, {
+			await transitionSessionRequest(runnerDb, {
 				to: "termination-requested",
 				requestId: request.id,
 				reason: "user_done",
 			}),
 		).toBe("idempotent");
 		expect(
-			await transitionSessionRequest(db, {
+			await transitionSessionRequest(runnerDb, {
 				to: "termination-requested",
 				requestId: request.id,
 				reason: "shutdown",
 			}),
 		).toBe("conflict");
 		const results = await Promise.all([
-			transitionSessionRequest(db, {
+			transitionSessionRequest(runnerDb, {
 				to: "cancelled",
 				precondition: "running",
 				requestId: request.id,
 				sessionId: "session-terminal",
 			}),
-			transitionSessionRequest(db, {
+			transitionSessionRequest(runnerDb, {
 				to: "failed",
 				precondition: "running",
 				requestId: request.id,
@@ -341,6 +358,7 @@ describe("agent session request repository", () => {
 
 	test("stopping a task cancels its runs that have not started, and leaves the others", async ({
 		db,
+		runnerDb,
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(teams).values({ id: "team-stop", name: "Stop", createdAt: now });
@@ -362,16 +380,16 @@ describe("agent session request repository", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
-		const waiting = await createAssistantRequest(db, "stop-waiting");
-		const elsewhere = await createAssistantRequest(db, "stop-elsewhere");
-		await db
+		const waiting = await createAssistantRequest(db, runnerDb, "stop-waiting");
+		const elsewhere = await createAssistantRequest(db, runnerDb, "stop-elsewhere");
+		await runnerDb
 			.update(agentSessionRequests)
 			.set({ taskId: "task-stop" })
 			.where(eq(agentSessionRequests.id, waiting.id));
 
-		expect(await cancelPendingForTasks(db, ["task-stop"], now)).toBe(1);
+		expect(await cancelPendingForTasks(runnerDb, ["task-stop"], now)).toBe(1);
 
-		const rows = await db.select().from(agentSessionRequests);
+		const rows = await runnerDb.select().from(agentSessionRequests);
 		expect(Object.fromEntries(rows.map((r) => [r.id, r.status]))).toEqual({
 			[waiting.id]: "cancelled",
 			[elsewhere.id]: "pending",

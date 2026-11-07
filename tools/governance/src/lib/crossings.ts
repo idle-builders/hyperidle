@@ -241,7 +241,9 @@ function detectManifests(input: CrossingsInput): DetectedCrossing[] {
 				if (target === undefined) continue; // an external dependency is not a boundary crossing
 				if (target.dir === pkg.dir) continue;
 
-				const surface = dbPackageNames.has(target.name) ? `framework/${target.name}` : frameworkSurfaces.get(target.name);
+				const surface = dbPackageNames.has(target.name)
+					? `framework/${target.name}`
+					: frameworkSurfaces.get(target.name);
 				out.push({
 					crossing: {
 						kind: "manifest",

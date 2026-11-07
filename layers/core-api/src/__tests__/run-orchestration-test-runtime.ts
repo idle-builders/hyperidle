@@ -14,6 +14,7 @@ import {
 } from "@hyperidle/harness-registry";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { buildStandaloneDocumentRunners } from "../actions/compose.js";
 
@@ -167,21 +168,22 @@ export function buildTestRunOrchestrationComposition(): ReturnType<
 /** Starts the public runtime with inert peripheral adapters and an injectable execution edge. */
 export function startTestRuntime(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	eventBus: EventBus,
 	runtime: ProvisionSessionDeps,
 	sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]>,
 ) {
 	const composition = buildTestRunOrchestrationComposition();
-	const base = composition.runtimeDeps(db, eventBus);
+	const base = composition.runtimeDeps(runnerDb, eventBus);
 	if (!base.ports) throw new Error("runtimeDeps did not provide production ports");
 	return composition.startRuntime(
-		composition.runtimeDeps(db, eventBus, {
+		composition.runtimeDeps(runnerDb, eventBus, {
 			runtime,
 			ports: { ...base.ports, sessionProvisioner },
 			composition: {
 				...base.composition,
 				writeback: {
-					db,
+					db: runnerDb,
 					document: realDocumentWritebackPort(db, eventBus),
 				},
 			},

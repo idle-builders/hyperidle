@@ -6,7 +6,6 @@
  */
 
 import {
-	agentRunConfig,
 	documents,
 	type HyperIdleDb,
 	messages,
@@ -16,7 +15,6 @@ import {
 	users,
 	userTeams,
 } from "@hyperidle/db";
-import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import type {
 	DocumentRow,
 	EditTaskInput,
@@ -32,10 +30,10 @@ import {
 	type SupportedHarnessName,
 	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
+import { agentRunConfig, type RunnerDb } from "@hyperidle/runner-db";
 import type { SubscriptionFireDeps } from "@hyperidle/user";
 import { giveUserKey, registerSubscriptionFire } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
-import { afterEach, describe, expect } from "vitest";
 import {
 	assertSessionRowDone,
 	HARNESS_TYPE,
@@ -44,6 +42,7 @@ import {
 	waitForEffect,
 	waitForSessionCompleted,
 } from "../__testing__/live-harness-test-support.js";
+import { afterEach, describe, expect, test } from "../__testing__/test-fixtures.js";
 import type { Action } from "../actions/action.js";
 
 const NOW = "2026-09-23T00:00:00.000Z";
@@ -55,6 +54,7 @@ const WAKE_TOKEN = "SUBSCRIPTION_WAKE_OK";
 
 async function seedFounderTeamAgentAndDocument(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	opts: {
 		readonly founderId: string;
 		readonly agentId: string;
@@ -86,7 +86,7 @@ async function seedFounderTeamAgentAndDocument(
 		createdAt: NOW,
 	});
 	await db.insert(userTeams).values({ userId: opts.agentId, teamId: opts.teamId });
-	await db.insert(agentRunConfig).values({
+	await runnerDb.insert(agentRunConfig).values({
 		agentUserId: opts.agentId,
 		harnessType: opts.harnessType,
 		modelId: opts.modelId,
@@ -192,6 +192,7 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 	async function runSubscriptionWakeProof(
 		harness: SupportedHarnessName,
 		db: HyperIdleDb,
+		runnerDb: RunnerDb,
 		variant: WakeVariant = "instructed",
 	): Promise<void> {
 		const suffix = `${harness}${VARIANT_ID_SUFFIX[variant]}`;
@@ -204,7 +205,7 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 		const personKey = `person-key-sub-wake-${suffix}`;
 		const harnessType = HARNESS_TYPE[harness];
 
-		await seedFounderTeamAgentAndDocument(db, {
+		await seedFounderTeamAgentAndDocument(db, runnerDb, {
 			founderId,
 			agentId,
 			teamId,
@@ -216,7 +217,7 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 		});
 		await giveUserKey(db, founderId, personKey);
 
-		const run = await setUpLiveHarnessRun(db, `subscription-wake-${suffix}`, personKey);
+		const run = await setUpLiveHarnessRun(db, runnerDb, `subscription-wake-${suffix}`, personKey);
 		const disposeFire = registerSubscriptionFire(db, run.eventBus, buildFireDeps(db, run.actions));
 
 		try {
@@ -265,8 +266,8 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 
 			// The persisted session row is the independent proof that the provisioner
 			// wrote the same verdict as the in-memory effect above.
-			const sessionId = await waitForSessionCompleted(db, agentId, harness, 180_000);
-			await assertSessionRowDone(db, sessionId, harness);
+			const sessionId = await waitForSessionCompleted(runnerDb, agentId, harness, 180_000);
+			await assertSessionRowDone(runnerDb, sessionId, harness);
 		} finally {
 			disposeFire();
 			await run.teardown();
@@ -322,72 +323,72 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 
 	describe("[harness:claude]", () => {
 		requireHarness("claude");
-		dbTest(
+		test(
 			"a subscription wake on claude-code ends with the named document edited",
-			async ({ db }) => runSubscriptionWakeProof("claude", db),
+			async ({ db, runnerDb }) => runSubscriptionWakeProof("claude", db, runnerDb),
 			180_000,
 		);
 	});
 
 	describe("[harness:codex]", () => {
 		requireHarness("codex");
-		dbTest(
+		test(
 			"a subscription wake on codex ends with the named document edited",
-			async ({ db }) => runSubscriptionWakeProof("codex", db),
+			async ({ db, runnerDb }) => runSubscriptionWakeProof("codex", db, runnerDb),
 			180_000,
 		);
 	});
 
 	describe("[harness:opencode]", () => {
 		requireHarness("opencode");
-		dbTest(
+		test(
 			"a subscription wake on opencode ends with the named document edited",
-			async ({ db }) => runSubscriptionWakeProof("opencode", db),
+			async ({ db, runnerDb }) => runSubscriptionWakeProof("opencode", db, runnerDb),
 			180_000,
 		);
 	});
 
 	describe("[harness:cursor-agent]", () => {
 		requireHarness("cursor-agent");
-		dbTest(
+		test(
 			"a subscription wake on cursor-agent ends with the named document edited",
-			async ({ db }) => runSubscriptionWakeProof("cursor-agent", db),
+			async ({ db, runnerDb }) => runSubscriptionWakeProof("cursor-agent", db, runnerDb),
 			180_000,
 		);
 	});
 
 	describe("[harness:claude] no instruction", () => {
 		requireHarness("claude");
-		dbTest(
+		test(
 			"a subscription wake with no instruction on claude-code decides for itself and ends returned",
-			async ({ db }) => runSubscriptionWakeProof("claude", db, "empty"),
+			async ({ db, runnerDb }) => runSubscriptionWakeProof("claude", db, runnerDb, "empty"),
 			180_000,
 		);
 	});
 
 	describe("[harness:codex] no instruction", () => {
 		requireHarness("codex");
-		dbTest(
+		test(
 			"a subscription wake with no instruction on codex decides for itself and ends returned",
-			async ({ db }) => runSubscriptionWakeProof("codex", db, "empty"),
+			async ({ db, runnerDb }) => runSubscriptionWakeProof("codex", db, runnerDb, "empty"),
 			180_000,
 		);
 	});
 
 	describe("[harness:opencode] no instruction", () => {
 		requireHarness("opencode");
-		dbTest(
+		test(
 			"a subscription wake with no instruction on opencode decides for itself and ends returned",
-			async ({ db }) => runSubscriptionWakeProof("opencode", db, "empty"),
+			async ({ db, runnerDb }) => runSubscriptionWakeProof("opencode", db, runnerDb, "empty"),
 			180_000,
 		);
 	});
 
 	describe("[harness:cursor-agent] no instruction", () => {
 		requireHarness("cursor-agent");
-		dbTest(
+		test(
 			"a subscription wake with no instruction on cursor-agent decides for itself and ends returned",
-			async ({ db }) => runSubscriptionWakeProof("cursor-agent", db, "empty"),
+			async ({ db, runnerDb }) => runSubscriptionWakeProof("cursor-agent", db, runnerDb, "empty"),
 			180_000,
 		);
 	});

@@ -9,22 +9,16 @@
 
 import { bootAgentExecution } from "@hyperidle/agent-execution";
 import { encryptCredentialValue } from "@hyperidle/connections";
+import { type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
+import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
+import { EventBus } from "@hyperidle/event-bus";
 import {
-	type HyperIdleDb,
+	type RunnerDb,
 	serviceConnections,
 	serviceConnectionWithholds,
-	teams,
-	users,
-	userTeams,
-} from "@hyperidle/db";
-import {
-	describe,
-	expect,
-	registerFixtureOrchestrationCleanup,
-	test,
-} from "@hyperidle/db/test-fixtures";
-import { EventBus } from "@hyperidle/event-bus";
+} from "@hyperidle/runner-db";
 import { afterEach, beforeEach, vi } from "vitest";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { bootAgentOrchestration } from "../boot.js";
 
 const SERVER_SECRET = "provisioning-wiring-provisioning-wiring-secret";
@@ -42,7 +36,7 @@ afterEach(() => {
 	vi.unstubAllEnvs();
 });
 
-async function seed(db: HyperIdleDb): Promise<void> {
+async function seed(db: HyperIdleDb, runnerDb: RunnerDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: TEAM_ID, name: "Provisioning Wiring Team", createdAt: OWNER_CREATED_AT });
@@ -75,7 +69,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	await db.insert(userTeams).values({ userId: OWNER_ID, teamId: TEAM_ID });
 	await db.insert(userTeams).values({ userId: OTHER_HUMAN_ID, teamId: TEAM_ID });
 	await db.insert(userTeams).values({ userId: AGENT_ID, teamId: TEAM_ID });
-	await db.insert(serviceConnections).values([
+	await runnerDb.insert(serviceConnections).values([
 		{
 			id: "sc-provisioning-wiring-owner",
 			userId: OWNER_ID,
@@ -103,7 +97,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	]);
 }
 
-async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
+async function bootOrchestrationWithProvisioning(db: HyperIdleDb, runnerDb: RunnerDb) {
 	const eventBus = new EventBus();
 	// The real execution face — this test proves provisioning wiring, not
 	// session execution, so a "disabled" topology (no local sandbox) is enough.
@@ -113,6 +107,7 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 	});
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
+		runnerDb,
 		eventBus,
 		runtime: {
 			harnessRuntime: agentExecution.adapters.harnessRuntime,
@@ -130,7 +125,7 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 			searchDocuments: async () => {
 				throw new Error("searchDocuments should not be dialled by this provisioning-only test");
 			},
-			session: { db, eventBus, adapterPool: agentExecution.adapters.pool },
+			session: { db: runnerDb, eventBus, adapterPool: agentExecution.adapters.pool },
 			// This test proves ONE owning human's wiring — the resolver itself,
 			// not cross-layer owner resolution (that is
 			// `bootCoreApi.resolveProvisioningOwnerUserId`'s own concern).
@@ -147,9 +142,13 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 describe("bootAgentOrchestration wires the real session-provisioning ports", () => {
 	test("the wired serviceConnectionResolver decrypts a held connection for its owner (a CredentialResolver here returns null)", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seed(db);
-		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(db);
+		await seed(db, runnerDb);
+		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(
+			db,
+			runnerDb,
+		);
 		try {
 			expect(agentOrchestration.provisioning?.serviceConnectionResolver).toBeDefined();
 			// The two-argument call the provisioner makes. This is the exact
@@ -176,9 +175,13 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 
 	test("the wired held-connection reader reads live and carries ONLY the owning human's connections", async ({
 		db,
+		runnerDb,
 	}) => {
-		await seed(db);
-		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(db);
+		await seed(db, runnerDb);
+		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(
+			db,
+			runnerDb,
+		);
 		try {
 			const rows =
 				(await agentOrchestration.provisioning?.heldConnections?.listHeldForProvisioning(
@@ -189,7 +192,7 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 
 			// Live, not a boot-time snapshot: a connection added after the
 			// server booted is in the very next read.
-			await db.insert(serviceConnections).values({
+			await runnerDb.insert(serviceConnections).values({
 				id: "sc-provisioning-wiring-added-after-boot",
 				userId: OWNER_ID,
 				service: "linear",
@@ -213,7 +216,7 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 			expect(afterAdd.some((row) => row.userId === OTHER_HUMAN_ID)).toBe(false);
 
 			// Taken from this agent: it is no longer in its sessions.
-			await db.insert(serviceConnectionWithholds).values({
+			await runnerDb.insert(serviceConnectionWithholds).values({
 				connectionId: "sc-provisioning-wiring-owner",
 				agentUserId: AGENT_ID,
 				createdAt: OWNER_CREATED_AT,
@@ -230,9 +233,12 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 		}
 	}, 20_000);
 
-	test("the wired gitRunnerFactory creates a runner with worktreeAdd", async ({ db }) => {
-		await seed(db);
-		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(db);
+	test("the wired gitRunnerFactory creates a runner with worktreeAdd", async ({ db, runnerDb }) => {
+		await seed(db, runnerDb);
+		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(
+			db,
+			runnerDb,
+		);
 		try {
 			const factory = agentOrchestration.provisioning?.gitRunnerFactory;
 			// Not just defined: the factory must produce a git runner with the

@@ -1,18 +1,11 @@
-import {
-	type HyperIdleDb,
-	tasks,
-	teams,
-	threads,
-	users,
-	userTeams,
-} from "@hyperidle/db";
-import { agentSessionRequests, sessions, type RunnerDb } from "@hyperidle/runner-db";
-import { expect, test } from "../__testing__/test-fixtures.js";
+import { type HyperIdleDb, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
 import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
 import type { AgentRunAdmissionFailedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
+import { agentSessionRequests, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import { ConcurrencyLimitError, TargetAgentNotRunnableError } from "../errors.js";
 import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";
@@ -263,7 +256,11 @@ describe("agent session runtime consumer", () => {
 		});
 
 		await runSession(
-			{ db: runnerDb, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+			{
+				db: runnerDb,
+				eventBus: new EventBus(),
+				ports,
+			} as unknown as import("../contracts.js").RuntimeDeps,
 			{ mode: "durable", request },
 		);
 
@@ -371,7 +368,11 @@ describe("agent session runtime consumer", () => {
 		});
 
 		await runSession(
-			{ db: runnerDb, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+			{
+				db: runnerDb,
+				eventBus: new EventBus(),
+				ports,
+			} as unknown as import("../contracts.js").RuntimeDeps,
 			{ mode: "durable", request },
 		);
 	});
@@ -423,7 +424,11 @@ describe("agent session runtime consumer", () => {
 
 		await expect(
 			runSession(
-				{ db: runnerDb, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+				{
+					db: runnerDb,
+					eventBus: new EventBus(),
+					ports,
+				} as unknown as import("../contracts.js").RuntimeDeps,
 				{ mode: "durable", request },
 			),
 		).rejects.toThrow("harness crashed");
@@ -521,10 +526,13 @@ describe("agent session runtime consumer", () => {
 		eventBus.on("agent_run_admission_failed", (event) => emitted.push(event));
 
 		await expect(
-			runSession({ db: runnerDb, eventBus, ports } as unknown as import("../contracts.js").RuntimeDeps, {
-				mode: "durable",
-				request,
-			}),
+			runSession(
+				{ db: runnerDb, eventBus, ports } as unknown as import("../contracts.js").RuntimeDeps,
+				{
+					mode: "durable",
+					request,
+				},
+			),
 		).rejects.toThrow();
 
 		expect(emitted).toHaveLength(1);
@@ -546,7 +554,10 @@ describe("agent session runtime consumer", () => {
 		expect(stored?.sessionId).toBeNull();
 	});
 
-	test("ConcurrencyLimitError at admission ends the reserved session row", async ({ db, runnerDb }) => {
+	test("ConcurrencyLimitError at admission ends the reserved session row", async ({
+		db,
+		runnerDb,
+	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values([
 			{
@@ -588,7 +599,11 @@ describe("agent session runtime consumer", () => {
 
 		await expect(
 			runSession(
-				{ db: runnerDb, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+				{
+					db: runnerDb,
+					eventBus: new EventBus(),
+					ports,
+				} as unknown as import("../contracts.js").RuntimeDeps,
 				{
 					mode: "durable",
 					request,
@@ -612,7 +627,10 @@ describe("agent session runtime consumer", () => {
 		expect(stored?.status).toBe("pending");
 	});
 
-	test("all source kinds can enter the boundary from a durable request", async ({ db, runnerDb }) => {
+	test("all source kinds can enter the boundary from a durable request", async ({
+		db,
+		runnerDb,
+	}) => {
 		await seedBoundaryFixture(db);
 		const ports = buildTestPorts();
 		const eventBus = new EventBus();
@@ -629,7 +647,10 @@ describe("agent session runtime consumer", () => {
 			forceReturnCount: 0,
 		}));
 		for (const sourceKind of ["task", "assistant", "subscription", "knowledge"] as const) {
-			const request = await createRequestForTest(runnerDb, boundarySourceInput(sourceKind, "boundary"));
+			const request = await createRequestForTest(
+				runnerDb,
+				boundarySourceInput(sourceKind, "boundary"),
+			);
 			await runSession(
 				{ db: runnerDb, eventBus, ports } as unknown as import("../contracts.js").RuntimeDeps,
 				{ mode: "durable", request },

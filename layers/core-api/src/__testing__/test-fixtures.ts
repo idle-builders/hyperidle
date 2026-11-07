@@ -11,6 +11,8 @@ import {
 } from "@hyperidle/db/test-fixtures";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { EventBus } from "@hyperidle/event-bus";
+import type { RunnerDb } from "@hyperidle/runner-db";
+import { checkin, checkout } from "@hyperidle/runner-db/test-fixtures";
 import { findUserByKey, giveUserKey, newUserKey } from "@hyperidle/user";
 import type { Hono } from "hono";
 import { buildCoreActions } from "../actions/compose.js";
@@ -55,6 +57,8 @@ function createFixtureAgentOrchestrationTransport(
 }
 
 export interface IntegrationFixtures extends DbFixtures {
+	/** Runner-owned DB (sessions, agentSessionRequests, agentRunConfig, serviceConnections). */
+	runnerDb: RunnerDb;
 	app: Hono;
 	/** Send a request without the fixture's default API key for auth rejection tests. */
 	requestWithoutAuth: Hono["request"];
@@ -66,7 +70,7 @@ export interface IntegrationFixtures extends DbFixtures {
 	eventBus: EventBus;
 	/**
 	 * AU31 §3.2 — a real `AgentOrchestrationPort` over a throwaway
-	 * `bootAgentOrchestration({db, eventBus})`, for any test that needs to call
+	 * `bootAgentOrchestration({db, runnerDb, eventBus})`, for any test that needs to call
 	 * production code requiring the seam's port WITHOUT needing the full `app`
 	 * fixture.
 	 */
@@ -91,12 +95,14 @@ export function withoutServiceTestAuth(
 
 export async function createServiceTestApp(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	eventBus: EventBus,
 	pluginsBaseDir?: string,
 ): Promise<{ app: Hono; authApiKey: string }> {
 	const authApiKey = `hyperidle-service-test-${++nextFixtureAppId}`;
 	const app = await createTestApp({
 		db,
+		runnerDb,
 		eventBus,
 		authApiKey,
 		registerExtraRoutes: registerTestRoutes,
@@ -115,12 +121,19 @@ export async function createServiceTestApp(
 }
 
 export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
-	//
-	//
-	eventBus: async ({ db }, use) => {
+	runnerDb: async ({}, use) => {
+		const instance = await checkout();
+		try {
+			await use(instance.db);
+		} finally {
+			checkin(instance);
+		}
+	},
+	eventBus: async ({ db, runnerDb }, use) => {
 		const eventBus = new EventBus();
 		const orchestrationBoot = await bootAgentOrchestration({
 			db,
+			runnerDb,
 			eventBus,
 		});
 		registerFixtureOrchestrationCleanup(db, () => {
@@ -150,9 +163,10 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	// AU31 §3.2 — an independent throwaway boot (not shared with the
 	// `eventBus` fixture's own): cheap wiring, no I/O, and keeps this fixture
 	// usable whether or not a test also requests `eventBus`/`app`.
-	agentOrchestration: async ({ db, eventBus }, use) => {
+	agentOrchestration: async ({ db, runnerDb, eventBus }, use) => {
 		const orchestrationBoot = await bootAgentOrchestration({
 			db,
+			runnerDb,
 			eventBus,
 		});
 		registerFixtureOrchestrationCleanup(db, () => {
@@ -165,8 +179,8 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		await use(port);
 		orchestrationBoot.dispose();
 	},
-	app: async ({ db, eventBus }, use) => {
-		const { app } = await createServiceTestApp(db, eventBus);
+	app: async ({ db, runnerDb, eventBus }, use) => {
+		const { app } = await createServiceTestApp(db, runnerDb, eventBus);
 		await use(app);
 		disposeApp(app);
 	},
@@ -187,13 +201,13 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 			await giveUserKey(db, userId, key);
 		});
 	},
-	pluginsApp: async ({ db, eventBus }, use) => {
+	pluginsApp: async ({ db, runnerDb, eventBus }, use) => {
 		const pluginsBaseDir = join(
 			tmpdir(),
 			`plugins-fixture-${Date.now()}-${Math.random().toString(36).slice(2)}`,
 		);
 		mkdirSync(pluginsBaseDir, { recursive: true });
-		const { app } = await createServiceTestApp(db, eventBus, pluginsBaseDir);
+		const { app } = await createServiceTestApp(db, runnerDb, eventBus, pluginsBaseDir);
 		await use(app);
 		disposeApp(app);
 		try {

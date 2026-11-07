@@ -21,9 +21,10 @@ import {
 	listConnections,
 	resolveHeldToken,
 } from "@hyperidle/connections";
-import { serviceConnections, users } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/domain-model";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";
+import { type RunnerDb, serviceConnections } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import {
 	afterEach,
@@ -51,14 +52,14 @@ afterEach(() => {
 });
 
 /** Builds the real end-to-end deps: the LIVE in-layer held-connection read against the real db + a real decrypt resolver. */
-function buildRealDeps(db: import("@hyperidle/db").HyperIdleDb): {
+function buildRealDeps(runnerDb: RunnerDb): {
 	connections: NonNullable<Parameters<typeof buildProvisioningPlan>[0]["connections"]>;
 	resolver: Parameters<typeof buildProvisioningPlan>[0]["resolver"];
 } {
 	return {
 		connections: {
 			listHeldForProvisioning: () =>
-				listConnections(db, { userId: USER_HUMAN_ID }).then((rows) =>
+				listConnections(runnerDb, { userId: USER_HUMAN_ID }).then((rows) =>
 					rows
 						.filter((r) => (HELD_AUTH_SOURCES as readonly string[]).includes(r.authSource))
 						.map((r) => ({
@@ -72,7 +73,7 @@ function buildRealDeps(db: import("@hyperidle/db").HyperIdleDb): {
 		},
 		resolver: {
 			resolve: (userId: string, connectionId: string) =>
-				resolveHeldToken(db, userId, connectionId, decryptCredentialValue),
+				resolveHeldToken(runnerDb, userId, connectionId, decryptCredentialValue),
 		},
 	};
 }
@@ -106,7 +107,7 @@ async function seedAgentCaller(db: import("@hyperidle/db").HyperIdleDb): Promise
 }
 
 async function seedConnection(
-	db: import("@hyperidle/db").HyperIdleDb,
+	runnerDb: RunnerDb,
 	opts: {
 		id: string;
 		service: string;
@@ -116,7 +117,7 @@ async function seedConnection(
 	},
 ): Promise<void> {
 	const encryptedToken = opts.token ? encryptCredentialValue(opts.token) : null;
-	await db.insert(serviceConnections).values({
+	await runnerDb.insert(serviceConnections).values({
 		id: opts.id,
 		userId: USER_HUMAN_ID,
 		service: opts.service,
@@ -135,10 +136,11 @@ async function seedConnection(
 describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at spawn) -> buildProvisioningPlan -> applyProvisioningPlan", () => {
 	test("claude-native: .mcp.json written with held MCP-bearer entry, token decrypted through the real resolver", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
-		await seedConnection(db, {
+		await seedConnection(runnerDb, {
 			id: "sc-e2e-stripe",
 			service: "stripe",
 			authSource: "token",
@@ -146,7 +148,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 			token: "sk_test_e2e_stripe",
 		});
 
-		const { connections, resolver } = buildRealDeps(db);
+		const { connections, resolver } = buildRealDeps(runnerDb);
 		const plan = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 		const result = await applyProvisioningPlan({
 			plan,
@@ -165,17 +167,18 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 
 	test("respawn idempotent: same cliConfigArgs on a fresh sandbox after destroying the first", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
-		await seedConnection(db, {
+		await seedConnection(runnerDb, {
 			id: "sc-respawn",
 			service: "stripe",
 			authSource: "token",
 			serverUrl: "https://mcp.stripe.com",
 			token: "sk_idempotent_e2e",
 		});
-		const { connections, resolver } = buildRealDeps(db);
+		const { connections, resolver } = buildRealDeps(runnerDb);
 
 		const plan1 = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "respawn-a-"));
@@ -204,24 +207,25 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 
 	test("two services (stripe token + figma mcp) both provisioned from one generic path", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
-		await seedConnection(db, {
+		await seedConnection(runnerDb, {
 			id: "sc-two-services-stripe",
 			service: "stripe",
 			authSource: "token",
 			serverUrl: "https://mcp.stripe.com",
 			token: "sk_two_services",
 		});
-		await seedConnection(db, {
+		await seedConnection(runnerDb, {
 			id: "sc-two-services-figma",
 			service: "figma",
 			authSource: "mcp",
 			serverUrl: "https://mcp.figma.com",
 		});
 
-		const { connections, resolver } = buildRealDeps(db);
+		const { connections, resolver } = buildRealDeps(runnerDb);
 		const plan = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 		await applyProvisioningPlan({
 			plan,
@@ -239,16 +243,17 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 
 	test("disconnect removes entry on next spawn (real DELETE-equivalent row removal)", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
-		await seedConnection(db, {
+		await seedConnection(runnerDb, {
 			id: "sc-disconnect",
 			service: "stripe",
 			authSource: "mcp",
 			serverUrl: "https://mcp.stripe.com",
 		});
-		const { connections, resolver } = buildRealDeps(db);
+		const { connections, resolver } = buildRealDeps(runnerDb);
 
 		const sandbox1 = fs.mkdtempSync(path.join(os.tmpdir(), "disconnect-1-"));
 		const plan1 = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
@@ -264,13 +269,13 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		expect(mcpJson1.mcpServers.stripe).toBeDefined();
 		fs.rmSync(sandbox1, { recursive: true, force: true });
 
-		await db.delete(serviceConnections).where(eq(serviceConnections.id, "sc-disconnect"));
+		await runnerDb.delete(serviceConnections).where(eq(serviceConnections.id, "sc-disconnect"));
 
 		// The reader is live, so the SAME deps object honors the disconnect on
 		// the next spawn — no re-bake, nothing to refresh. Kept re-built here
 		// only to mirror how a real second spawn composes.
 		const { connections: connectionsAfterDisconnect, resolver: resolverAfterDisconnect } =
-			buildRealDeps(db);
+			buildRealDeps(runnerDb);
 		const sandbox2 = fs.mkdtempSync(path.join(os.tmpdir(), "disconnect-2-"));
 		const plan2 = await buildProvisioningPlan({
 			agentId: "agent",
@@ -295,16 +300,17 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 
 	test("secret never written into cliConfigArgs; envInjections + mcpTokenEnv carry the CLI-key AND MCP-bearer tokens", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
-		await seedConnection(db, {
+		await seedConnection(runnerDb, {
 			id: "sc-e2e-clikey-gh",
 			service: "github",
 			authSource: "token",
 			token: "ghs_e2e_github_pat",
 		});
-		await seedConnection(db, {
+		await seedConnection(runnerDb, {
 			id: "sc-e2e-mcpbearer-stripe",
 			service: "stripe",
 			authSource: "token",
@@ -312,7 +318,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 			token: "sk_test_e2e_secret",
 		});
 
-		const { connections, resolver } = buildRealDeps(db);
+		const { connections, resolver } = buildRealDeps(runnerDb);
 		const plan = await buildProvisioningPlan({ agentId: "agent", connections, resolver });
 
 		// CLI-key envInjections populated for github.

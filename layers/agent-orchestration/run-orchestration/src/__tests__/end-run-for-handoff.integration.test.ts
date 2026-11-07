@@ -9,9 +9,9 @@
  */
 
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
-import { sessions, type RunnerDb } from "@hyperidle/runner-db";
-import { describe, expect, test } from "../__testing__/test-fixtures.js";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { endRunForHandoff } from "../end-run-for-handoff.js";
 
 const NOW = "2026-08-04T10:00:00.000Z";
@@ -76,7 +76,10 @@ async function seedRun(db: HyperIdleDb, runnerDb: RunnerDb, state: string): Prom
 }
 
 describe("endRunForHandoff", () => {
-	test("leaves the run terminal with the caller's endedAt and no outcome", async ({ db, runnerDb }) => {
+	test("leaves the run terminal with the caller's endedAt and no outcome", async ({
+		db,
+		runnerDb,
+	}) => {
 		await seedRun(db, runnerDb, "active");
 
 		await endRunForHandoff(runnerDb, "session-1", ENDED_AT);
@@ -99,7 +102,10 @@ describe("endRunForHandoff", () => {
 		expect(row?.endedAt).toBe(ENDED_AT);
 	});
 
-	test("writes inside the caller's transaction and rolls back with it", async ({ db, runnerDb }) => {
+	test("writes inside the caller's transaction and rolls back with it", async ({
+		db,
+		runnerDb,
+	}) => {
 		await seedRun(db, runnerDb, "active");
 
 		await expect(

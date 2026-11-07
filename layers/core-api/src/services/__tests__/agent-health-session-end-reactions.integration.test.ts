@@ -27,9 +27,10 @@
  */
 
 import { listChanges } from "@hyperidle/changes";
-import { agentRunConfig, type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import type { SessionOutcome } from "@hyperidle/domain-model";
 import type { SessionEndedEvent } from "@hyperidle/event-bus";
+import { agentRunConfig, type RunnerDb } from "@hyperidle/runner-db";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import type { EditUserRunFn } from "../../actions/action.js";
 import { buildCoreActions } from "../../actions/compose.js";
@@ -43,6 +44,7 @@ const NOW = new Date().toISOString();
 /** team -> agent. The reactor resolves the agent's name and team for the note. */
 async function seedAgent(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	id: string,
 ): Promise<{ readonly agentId: string; readonly agentName: string; readonly teamName: string }> {
 	const teamId = `${id}-team`;
@@ -59,7 +61,7 @@ async function seedAgent(
 		createdAt: NOW,
 	});
 	await db.insert(userTeams).values({ userId: agentId, teamId });
-	await db.insert(agentRunConfig).values({ agentUserId: agentId, maxConcurrentSessions: 2 });
+	await runnerDb.insert(agentRunConfig).values({ agentUserId: agentId, maxConcurrentSessions: 2 });
 	return { agentId, agentName, teamName };
 }
 
@@ -94,10 +96,11 @@ function buildEditUser(
 describe("registerAgentHealthSessionEndReactions writes health, not a queue row", () => {
 	test("a crashed session writes the agent's health and a user.changed", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		const { agentId, agentName, teamName } = await seedAgent(db, "ahr-crash");
+		const { agentId, agentName, teamName } = await seedAgent(db, runnerDb, "ahr-crash");
 		const editUser = buildEditUser(agentOrchestration);
 		const changeEvents: string[] = [];
 		eventBus.on("user.changed", (e) => changeEvents.push(e.change.objectId));
@@ -119,9 +122,14 @@ describe("registerAgentHealthSessionEndReactions writes health, not a queue row"
 		expect(changes.length).toBeGreaterThan(0);
 	});
 
-	test("a non-crashed outcome writes nothing", async ({ db, eventBus, agentOrchestration }) => {
-		const { agentId } = await seedAgent(db, "ahr-completed");
-		const barrier = await seedAgent(db, "ahr-barrier");
+	test("a non-crashed outcome writes nothing", async ({
+		db,
+		runnerDb,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		const { agentId } = await seedAgent(db, runnerDb, "ahr-completed");
+		const barrier = await seedAgent(db, runnerDb, "ahr-barrier");
 		const editUser = buildEditUser(agentOrchestration);
 		const changeEvents: string[] = [];
 		eventBus.on("user.changed", (e) => changeEvents.push(e.change.objectId));
@@ -148,10 +156,11 @@ describe("registerAgentHealthSessionEndReactions writes health, not a queue row"
 
 	test("consecutive crashes raise the count each time", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		const { agentId } = await seedAgent(db, "ahr-count");
+		const { agentId } = await seedAgent(db, runnerDb, "ahr-count");
 		const editUser = buildEditUser(agentOrchestration);
 		const changeEvents: string[] = [];
 		eventBus.on("user.changed", (e) => changeEvents.push(e.change.objectId));
@@ -188,10 +197,11 @@ describe("registerAgentHealthSessionEndReactions writes health, not a queue row"
 	// crashes must not inflate it.
 	test("a rename between crashes does not count toward the crash total", async ({
 		db,
+		runnerDb,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		const { agentId } = await seedAgent(db, "ahr-rename");
+		const { agentId } = await seedAgent(db, runnerDb, "ahr-rename");
 		const editUser = buildEditUser(agentOrchestration);
 		const changeEvents: string[] = [];
 		eventBus.on("user.changed", (e) => changeEvents.push(e.change.objectId));

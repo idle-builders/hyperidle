@@ -2,7 +2,6 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type AgentSessionRequest, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type {
 	AgentSessionSourceCorrelation,
@@ -28,6 +27,7 @@ import {
 	type SessionMetrics,
 	type SessionResult,
 } from "@hyperidle/harness-protocol";
+import { type AgentSessionRequest, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { and, desc, eq, isNotNull, isNull, like, ne, or, sql } from "drizzle-orm";
 import { readAgentRunConfig } from "./agent-run-config-store.js";
 import { deriveWorkingFolder, ensureAgentSpace } from "./agent-space.js";

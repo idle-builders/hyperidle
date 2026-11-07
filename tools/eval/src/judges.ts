@@ -12,8 +12,9 @@
  * W6 resolution: fewer_tool_calls uses DB side-effect count as proxy (not in-memory buffer).
  */
 
-import { documents, messages, sessions, tasks } from "@hyperidle/db";
+import { documents, messages, tasks } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
+import { sessions } from "@hyperidle/runner-db";
 import { and, eq, like, ne } from "drizzle-orm";
 import type { DimensionScore, JudgeContext, RubricDimension } from "./types.js";
 
@@ -27,7 +28,7 @@ export function judgeSessionCompleted(): RubricDimension {
 		id: "session_completed",
 		label: "Session Completed",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [session] = await ctx.db
+			const [session] = await ctx.runnerDb
 				.select({ outcome: sessions.outcome })
 				.from(sessions)
 				.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -404,7 +405,7 @@ export function judgeSessionNotesReferencePrior(): RubricDimension {
 		id: "session_notes_reference_prior",
 		label: "Session Notes Reference Prior Work",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [session] = await ctx.db
+			const [session] = await ctx.runnerDb
 				.select({ notes: sessions.notes })
 				.from(sessions)
 				.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -482,7 +483,7 @@ export function judgeSessionNotesContain(expectedString: string, label: string):
 		id: "session_notes_contain",
 		label,
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [session] = await ctx.db
+			const [session] = await ctx.runnerDb
 				.select({ notes: sessions.notes })
 				.from(sessions)
 				.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -565,7 +566,7 @@ export function judgeSessionNotesWritten(): RubricDimension {
 		id: "notes_written",
 		label: "Session Notes Written",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [session] = await ctx.db
+			const [session] = await ctx.runnerDb
 				.select({ notes: sessions.notes })
 				.from(sessions)
 				.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -595,7 +596,7 @@ export function judgePlanningEvidence(): RubricDimension {
 		id: "planning_evidence",
 		label: "Planning Evidence in Session Notes",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [session] = await ctx.db
+			const [session] = await ctx.runnerDb
 				.select({ notes: sessions.notes })
 				.from(sessions)
 				.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -654,7 +655,7 @@ export function judgeSessionRowValid(): RubricDimension {
 		id: "session_row_valid",
 		label: "Session Row Valid",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [session] = await ctx.db
+			const [session] = await ctx.runnerDb
 				.select({ state: sessions.state, startedAt: sessions.startedAt, endedAt: sessions.endedAt })
 				.from(sessions)
 				.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -683,7 +684,7 @@ export function judgeInboxChecked(): RubricDimension {
 		label: "Inbox Checked (read_inbox called)",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 			// read_inbox is read-only; observable via session notes referencing received messages
-			const [session] = await ctx.db
+			const [session] = await ctx.runnerDb
 				.select({ notes: sessions.notes })
 				.from(sessions)
 				.where(eq(sessions.id, ctx.triggerResult.sessionId))

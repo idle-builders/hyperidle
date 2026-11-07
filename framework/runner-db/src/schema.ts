@@ -1,13 +1,5 @@
 import { sql } from "drizzle-orm";
-import {
-	check,
-	index,
-	integer,
-	pgTable,
-	primaryKey,
-	text,
-	uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { check, index, integer, pgTable, primaryKey, text, uniqueIndex } from "drizzle-orm/pg-core";
 
 // --- Run tables (no FK to server tables: users/tasks/teams/threads live on the server) ---
 

@@ -23,7 +23,7 @@ import {
 	createCoreDoor,
 } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
-import { agentSessionRequests, type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { ActionResult } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import type { EnforcementRegistry } from "@hyperidle/harness-registry";
@@ -34,6 +34,7 @@ import {
 } from "@hyperidle/harness-registry/test-fixtures";
 import type { SupportedHarnessName } from "@hyperidle/harness-registry/test-utils";
 import { findSessionById } from "@hyperidle/run-orchestration";
+import { agentSessionRequests, type RunnerDb } from "@hyperidle/runner-db";
 import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { expect, vi } from "vitest";
@@ -104,6 +105,7 @@ const LIVE_HARNESS_TEAM_KEY = "live-harness-test-team-key";
  */
 export async function setUpLiveHarnessRun(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	sandboxPrefix: string,
 	personKey: string,
 ): Promise<LiveHarnessRun> {
@@ -136,7 +138,7 @@ export async function setUpLiveHarnessRun(
 	}, "http://hyperidle.local/api");
 
 	const runner = createAgentRunner({
-		db,
+		db: runnerDb,
 		eventBus,
 		door,
 		personKey: () => personKey,
@@ -166,6 +168,7 @@ export async function setUpLiveHarnessRun(
 	// Boot orchestration with the real runtime — sessions run automatically once the runner queues them.
 	const orchestrationBoot = await bootAgentOrchestration({
 		db,
+		runnerDb,
 		eventBus,
 		runtime: {
 			harnessRuntime: execution.adapters.harnessRuntime,
@@ -174,7 +177,7 @@ export async function setUpLiveHarnessRun(
 			editDocument: coreApi.editDocument,
 			searchDocuments: coreApi.searchDocuments,
 			session: {
-				db,
+				db: runnerDb,
 				eventBus,
 				adapterPool: execution.adapters.pool,
 				pluginMcpContributions: coreApi.pluginMcpContributions,
@@ -207,7 +210,7 @@ export async function setUpLiveHarnessRun(
 			// Let any sessions still in-flight finish before tearing down the runtime.
 			const deadline = Date.now() + 10_000;
 			while (Date.now() < deadline) {
-				const open = await db
+				const open = await runnerDb
 					.select({ id: agentSessionRequests.id })
 					.from(agentSessionRequests)
 					.where(inArray(agentSessionRequests.status, ["pending", "claimed", "running"]));
@@ -236,14 +239,14 @@ export async function setUpLiveHarnessRun(
  * failed instead of completing.
  */
 export async function waitForSessionCompleted(
-	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	agentId: string,
 	harness: SupportedHarnessName,
 	timeoutMs = 30_000,
 ): Promise<string> {
 	const deadline = Date.now() + timeoutMs;
 	for (;;) {
-		const [req] = await db
+		const [req] = await runnerDb
 			.select()
 			.from(agentSessionRequests)
 			.where(
@@ -292,11 +295,11 @@ export async function waitForEffect<T>(
 
 /** Asserts the session row for `sessionId` is `done` and `completed`. */
 export async function assertSessionRowDone(
-	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	sessionId: string,
 	harness: SupportedHarnessName,
 ): Promise<void> {
-	const sessionRow = await findSessionById(db, sessionId);
+	const sessionRow = await findSessionById(runnerDb, sessionId);
 	expect(
 		sessionRow?.state,
 		`session row for ${harness} (session ${sessionId}) was not marked done`,

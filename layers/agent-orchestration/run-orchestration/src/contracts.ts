@@ -1,4 +1,3 @@
-import type { AgentSessionRequest, RunnerDb } from "@hyperidle/runner-db";
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
@@ -10,6 +9,7 @@ import type {
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ConversationMessage, SessionMetrics } from "@hyperidle/harness-protocol";
+import type { AgentSessionRequest, RunnerDb } from "@hyperidle/runner-db";
 
 /** Deps `HarnessPort`'s two methods need. `TDb` is the composition root's real DB type. */
 export interface HarnessPortDeps<TDb = unknown> {

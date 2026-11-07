@@ -4,7 +4,7 @@
  * Tests the session lifecycle: full lifecycle, model tier resolution, workspace cleanup.
  */
 
-import { sessions } from "@hyperidle/db";
+import { sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
@@ -31,7 +31,7 @@ const sessLifecycleGrowthSales: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const { teamId } = await seedTeam(ctx.db);
 		await seedFounder(ctx.db);
-		const { agentId } = await seedAgent(ctx.db, {
+		const { agentId } = await seedAgent(ctx.db, ctx.runnerDb, {
 			name: "Growth Agent",
 			role: "growth",
 			teamId,
@@ -72,6 +72,7 @@ Use write_session_notes to document your analysis.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -89,7 +90,7 @@ Use write_session_notes to document your analysis.`,
 				id: "session_row_valid",
 				label: "Session Row Has Valid State After Completion",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({
 							outcome: sessions.outcome,
 							endedAt: sessions.endedAt,
@@ -129,7 +130,7 @@ const sessModelTierBuilderDevops: EvalScenario = {
 		await seedFounder(ctx.db);
 
 		// Seed agent with reasoning tier preference
-		const { agentId } = await seedAgent(ctx.db, {
+		const { agentId } = await seedAgent(ctx.db, ctx.runnerDb, {
 			name: "DevOps Builder",
 			role: "builder",
 			teamId,
@@ -163,6 +164,7 @@ const sessModelTierBuilderDevops: EvalScenario = {
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -181,7 +183,7 @@ const sessModelTierBuilderDevops: EvalScenario = {
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					// The session was created and completed — the model tier is resolved
 					// by the harness the agent is configured with. We verify the session completed.
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ outcome: sessions.outcome })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -211,7 +213,7 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const { teamId } = await seedTeam(ctx.db);
 		await seedFounder(ctx.db);
-		const { agentId } = await seedAgent(ctx.db, {
+		const { agentId } = await seedAgent(ctx.db, ctx.runnerDb, {
 			name: "Frontend Builder",
 			role: "builder",
 			teamId,
@@ -245,6 +247,7 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{

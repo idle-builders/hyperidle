@@ -5,17 +5,16 @@
  */
 
 import {
-	agentSessionRequests,
 	type HyperIdleDb,
 	inbox,
 	messages,
-	sessions,
 	subscriptions,
 	tasks,
 	teams,
 	users,
 	userTeams,
 } from "@hyperidle/db";
+import { agentSessionRequests, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { giveUserKey, startSubscriptionClock } from "@hyperidle/user";
 import { and, eq } from "drizzle-orm";
 import {
@@ -93,12 +92,13 @@ async function asPerson<O>(world: RunnerWorld, action: string, input: unknown): 
 
 async function withWorld(
 	db: HyperIdleDb,
-	eventBus: Parameters<typeof bootRunnerWorld>[1],
+	runnerDb: RunnerDb,
+	eventBus: Parameters<typeof bootRunnerWorld>[2],
 	script: RunScript,
 	body: (world: RunnerWorld) => Promise<void>,
 ): Promise<void> {
 	await seedPeople(db);
-	const world = await bootRunnerWorld(db, eventBus, PERSON_KEY, script);
+	const world = await bootRunnerWorld(db, runnerDb, eventBus, PERSON_KEY, script);
 	try {
 		await body(world);
 	} finally {
@@ -108,13 +108,14 @@ async function withWorld(
 
 async function withWorldOpts(
 	db: HyperIdleDb,
-	eventBus: Parameters<typeof bootRunnerWorld>[1],
+	runnerDb: RunnerDb,
+	eventBus: Parameters<typeof bootRunnerWorld>[2],
 	script: RunScript,
 	options: RunnerWorldOptions,
 	body: (world: RunnerWorld) => Promise<void>,
 ): Promise<void> {
 	await seedPeople(db);
-	const world = await bootRunnerWorld(db, eventBus, PERSON_KEY, script, options);
+	const world = await bootRunnerWorld(db, runnerDb, eventBus, PERSON_KEY, script, options);
 	try {
 		await body(world);
 	} finally {
@@ -125,9 +126,10 @@ async function withWorldOpts(
 describe("an agent acts on its inbox", () => {
 	test("a mention is a row for the agent named, and its runner answers in the thread", async ({
 		db,
+		runnerDb,
 		eventBus,
 	}) => {
-		await withWorld(db, eventBus, answersPong, async (world) => {
+		await withWorld(db, runnerDb, eventBus, answersPong, async (world) => {
 			await world.runner.start();
 			const sent = await asPerson<{ thread: { id: string } }>(world, "send_message", {
 				recipients: [BUILDER, OTHER],
@@ -149,9 +151,10 @@ describe("an agent acts on its inbox", () => {
 
 	test("a task started for the agent is a row, and its run answers on the task", async ({
 		db,
+		runnerDb,
 		eventBus,
 	}) => {
-		await withWorld(db, eventBus, answersPong, async (world) => {
+		await withWorld(db, runnerDb, eventBus, answersPong, async (world) => {
 			await world.runner.start();
 			const created = await asPerson<{ task: { id: string; threadId: string } }>(
 				world,
@@ -172,9 +175,10 @@ describe("an agent acts on its inbox", () => {
 
 	test("a schedule firing is a row with no change, and the agent answers it", async ({
 		db,
+		runnerDb,
 		eventBus,
 	}) => {
-		await withWorld(db, eventBus, answersPong, async (world) => {
+		await withWorld(db, runnerDb, eventBus, answersPong, async (world) => {
 			await world.runner.start();
 			await asPerson(world, "edit_user", {
 				id: BUILDER,
@@ -204,6 +208,7 @@ describe("an agent acts on its inbox", () => {
 
 	test("a verdict on the agent's review is a row for it, and the agent answers it", async ({
 		db,
+		runnerDb,
 		eventBus,
 	}) => {
 		const filesReviewFirst: RunScript = async (run) => {
@@ -213,7 +218,7 @@ describe("an agent acts on its inbox", () => {
 			}
 			await run.call("send_message", { text: "pong" });
 		};
-		await withWorld(db, eventBus, filesReviewFirst, async (world) => {
+		await withWorld(db, runnerDb, eventBus, filesReviewFirst, async (world) => {
 			await world.runner.start();
 			const created = await asPerson<{ task: { id: string; threadId: string } }>(
 				world,
@@ -254,6 +259,7 @@ describe("an agent acts on its inbox", () => {
 
 	test("an approval leaves the task open while another of its lines is not met", async ({
 		db,
+		runnerDb,
 		eventBus,
 	}) => {
 		const filesReviewFirst: RunScript = async (run) => {
@@ -263,7 +269,7 @@ describe("an agent acts on its inbox", () => {
 			}
 			await run.call("send_message", { text: "pong" });
 		};
-		await withWorld(db, eventBus, filesReviewFirst, async (world) => {
+		await withWorld(db, runnerDb, eventBus, filesReviewFirst, async (world) => {
 			await world.runner.start();
 			const created = await asPerson<{ task: { id: string } }>(world, "edit_task", {
 				title: "Write the notes",
@@ -299,6 +305,7 @@ describe("an agent acts on its inbox", () => {
 
 	test("a rejection's note reaches the agent in the run that answers it", async ({
 		db,
+		runnerDb,
 		eventBus,
 	}) => {
 		const prompts: string[] = [];
@@ -310,7 +317,7 @@ describe("an agent acts on its inbox", () => {
 			}
 			await run.call("send_message", { text: "pong" });
 		};
-		await withWorld(db, eventBus, filesReviewFirst, async (world) => {
+		await withWorld(db, runnerDb, eventBus, filesReviewFirst, async (world) => {
 			await world.runner.start();
 			const created = await asPerson<{ task: { id: string } }>(world, "edit_task", {
 				title: "Write the notes",
@@ -345,9 +352,10 @@ describe("an agent acts on its inbox", () => {
 
 	test("what waited while the runner was off is answered when it starts", async ({
 		db,
+		runnerDb,
 		eventBus,
 	}) => {
-		await withWorld(db, eventBus, answersPong, async (world) => {
+		await withWorld(db, runnerDb, eventBus, answersPong, async (world) => {
 			await asPerson(world, "send_message", { recipients: [BUILDER], text: "are you there?" });
 			const [waiting] = await inboxOf(db, BUILDER);
 			expect([waiting?.reason, waiting?.readAt]).toEqual(["message", null]);
@@ -366,6 +374,7 @@ describe("an agent acts on its inbox", () => {
 
 	test("a row that keeps failing is given up after 3 tries and later rows are still acted on", async ({
 		db,
+		runnerDb,
 		eventBus,
 	}) => {
 		let failTaskId = "";
@@ -380,49 +389,57 @@ describe("an agent acts on its inbox", () => {
 			interceptCount++;
 			return new Response("server error", { status: 500 });
 		};
-		await withWorldOpts(db, eventBus, answersPong, { fetchInterceptor }, async (world) => {
-			// Task row: open_task returns 500 each time, so this row keeps failing
-			const failTask = await asPerson<{ task: { id: string } }>(world, "edit_task", {
-				title: "Failing task",
-				teamId: TEAM,
-				ownerAgentId: BUILDER,
-			});
-			await asPerson(world, "edit_task", { id: failTask.task.id, state: "accepted" });
-			failTaskId = failTask.task.id;
+		await withWorldOpts(
+			db,
+			runnerDb,
+			eventBus,
+			answersPong,
+			{ fetchInterceptor },
+			async (world) => {
+				// Task row: open_task returns 500 each time, so this row keeps failing
+				const failTask = await asPerson<{ task: { id: string } }>(world, "edit_task", {
+					title: "Failing task",
+					teamId: TEAM,
+					ownerAgentId: BUILDER,
+				});
+				await asPerson(world, "edit_task", { id: failTask.task.id, state: "accepted" });
+				failTaskId = failTask.task.id;
 
-			// Message row: succeeds normally
-			await asPerson(world, "send_message", { recipients: [BUILDER], text: "ping" });
+				// Message row: succeeds normally
+				await asPerson(world, "send_message", { recipients: [BUILDER], text: "ping" });
 
-			await world.runner.start();
+				await world.runner.start();
 
-			// Pass 1: task row errors (count=1), message row succeeds → pong sent
-			await waitFor("Builder's pong on the message row", async () => {
-				const found = await saidBy(db, BUILDER, "pong");
-				return found.length > 0 ? found : undefined;
-			});
+				// Pass 1: task row errors (count=1), message row succeeds → pong sent
+				await waitFor("Builder's pong on the message row", async () => {
+					const found = await saidBy(db, BUILDER, "pong");
+					return found.length > 0 ? found : undefined;
+				});
 
-			// Trigger 2 more passes to reach the failure limit (count=3)
-			world.nudge(`user:${BUILDER}`, {});
-			world.nudge(`user:${BUILDER}`, {});
+				// Trigger 2 more passes to reach the failure limit (count=3)
+				world.nudge(`user:${BUILDER}`, {});
+				world.nudge(`user:${BUILDER}`, {});
 
-			// Wait for the task row to be marked read (given up after 3 failures)
-			await waitFor("task_run row to be given up after 3 failures", async () => {
-				const rows = await inboxOf(db, BUILDER);
-				const row = rows.find((r) => r.reason === "task_run" && r.objectId === failTask.task.id);
-				return row && row.readAt !== null ? row : undefined;
-			});
+				// Wait for the task row to be marked read (given up after 3 failures)
+				await waitFor("task_run row to be given up after 3 failures", async () => {
+					const rows = await inboxOf(db, BUILDER);
+					const row = rows.find((r) => r.reason === "task_run" && r.objectId === failTask.task.id);
+					return row && row.readAt !== null ? row : undefined;
+				});
 
-			expect(interceptCount).toBe(3);
-		});
+				expect(interceptCount).toBe(3);
+			},
+		);
 	});
 
 	test("a task handed on while its run waits starts for the new owner, and the old run is cancelled", async ({
 		db,
+		runnerDb,
 		eventBus,
 	}) => {
-		await withWorld(db, eventBus, answersPong, async (world) => {
+		await withWorld(db, runnerDb, eventBus, answersPong, async (world) => {
 			// Builder is busy elsewhere, so its run on the task waits.
-			await db.insert(sessions).values({
+			await runnerDb.insert(sessions).values({
 				id: "busy-elsewhere",
 				agentId: BUILDER,
 				modelTier: "workhorse",
@@ -437,7 +454,7 @@ describe("an agent acts on its inbox", () => {
 			);
 			await asPerson(world, "edit_task", { id: created.task.id, state: "accepted" });
 			await waitFor("Builder's waiting run", async () => {
-				const [found] = await db
+				const [found] = await runnerDb
 					.select()
 					.from(agentSessionRequests)
 					.where(eq(agentSessionRequests.agentId, BUILDER));
@@ -452,21 +469,22 @@ describe("an agent acts on its inbox", () => {
 			});
 			expect(reply?.threadId).toBe(created.task.threadId);
 			await waitFor("Builder's waiting run cancelled", async () => {
-				const [found] = await db
+				const [found] = await runnerDb
 					.select()
 					.from(agentSessionRequests)
 					.where(eq(agentSessionRequests.agentId, BUILDER));
 				return found?.status === "cancelled" ? found : undefined;
 			});
-			await db.delete(sessions).where(eq(sessions.id, "busy-elsewhere"));
+			await runnerDb.delete(sessions).where(eq(sessions.id, "busy-elsewhere"));
 		});
 	});
 
 	test("a task started while on hold waits, and runs once the hold is lifted", async ({
 		db,
+		runnerDb,
 		eventBus,
 	}) => {
-		await withWorld(db, eventBus, answersPong, async (world) => {
+		await withWorld(db, runnerDb, eventBus, answersPong, async (world) => {
 			const created = await asPerson<{ task: { id: string } }>(world, "edit_task", {
 				title: "Held work",
 				teamId: TEAM,

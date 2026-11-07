@@ -35,14 +35,14 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { documents, users } from "@hyperidle/db";
-import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import { type BakedContextBundle, toBakedContextDocuments } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { createWritebackProcessor } from "@hyperidle/run-orchestration";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
-import { describe, expect } from "vitest";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import {
 	buildTestRunOrchestrationComposition,
 	realDocumentWritebackPort,
@@ -268,6 +268,7 @@ function diffDocumentFiles(root: string, before: Set<string>, after: Set<string>
 
 async function assembleIntoSandbox(
 	db: import("@hyperidle/db").HyperIdleDb,
+	runnerDb: RunnerDb,
 	sandboxPath: string,
 	sessionId: string,
 ): Promise<void> {
@@ -294,7 +295,7 @@ async function assembleIntoSandbox(
 	};
 
 	const assembled = await buildTestRunOrchestrationComposition().runSession(
-		{ db, eventBus: new EventBus() },
+		{ db: runnerDb, eventBus: new EventBus() },
 		{
 			mode: "assemble",
 			input: {
@@ -350,339 +351,327 @@ for (const harness of HARNESSES) {
 		// 1 + 2: materialisation (incl. unselected-ancestor index-only) and
 		// team-scope isolation, proven by a real agent reading its sandbox.
 		// -------------------------------------------------------------------
-		dbTest(
-			"materialises a nested tree with an index-only unselected ancestor, and hides another team's branch entirely — proven by the real binary reading its own sandbox",
-			async ({ db }) => {
-				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), `nkt-${harness}-read-`));
-				const leafSecret = `LEAF-${randomUUID().slice(0, 8).toUpperCase()}`;
-				const teamSecret = `TEAM-${randomUUID().slice(0, 8).toUpperCase()}`;
-				const rivalSecret = `RIVAL-${randomUUID().slice(0, 8).toUpperCase()}`;
-				const parentBodySecret = `PARENTBODY-${randomUUID().slice(0, 8).toUpperCase()}`;
-				const childOfParentSecret = `CHILDOFPARENT-${randomUUID().slice(0, 8).toUpperCase()}`;
+		test("materialises a nested tree with an index-only unselected ancestor, and hides another team's branch entirely — proven by the real binary reading its own sandbox", async ({
+			db,
+			runnerDb,
+		}) => {
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), `nkt-${harness}-read-`));
+			const leafSecret = `LEAF-${randomUUID().slice(0, 8).toUpperCase()}`;
+			const teamSecret = `TEAM-${randomUUID().slice(0, 8).toUpperCase()}`;
+			const rivalSecret = `RIVAL-${randomUUID().slice(0, 8).toUpperCase()}`;
+			const parentBodySecret = `PARENTBODY-${randomUUID().slice(0, 8).toUpperCase()}`;
+			const childOfParentSecret = `CHILDOFPARENT-${randomUUID().slice(0, 8).toUpperCase()}`;
 
-				// Ancestor NOT independently selected: it belongs to a different
-				// user, so fetchOrdinaryItemsByScope("user", AGENT_ID) never fetches
-				// it directly — it is only reachable through resolveParentChain's
-				// ancestor walk, which has no ownership filter. This is the real,
-				// natural condition under which architecture.md §5's "index written
-				// anyway" case fires in production.
-				const ancestor = await seedDocument(db, {
-					title: "Findings Archive",
-					body: "Ancestor real body text — must NEVER appear verbatim in the materialised index.md.",
-					format: "markdown",
-					status: "active",
-					updatedBy: "seed",
-					scopeKind: "user",
-					scopeId: OTHER_USER_ID,
-				});
-				const leaf = await seedDocument(db, {
-					title: "Deploy Checklist",
-					body: `Deploy checklist body.\nSECRET: ${leafSecret}`,
-					format: "markdown",
-					status: "active",
-					updatedBy: "seed",
-					scopeKind: "user",
-					scopeId: AGENT_ID,
-					parentKind: "document",
-					parentId: ancestor.id,
-				});
-				await seedDocument(db, {
-					title: "Team Rituals",
-					body: `Team-only info.\nTEAM_TOKEN: ${teamSecret}`,
-					format: "markdown",
-					status: "active",
-					updatedBy: "seed",
-					scopeKind: "team",
-					scopeId: TEAM_ID,
-				});
-				await seedDocument(db, {
-					title: "Rival Team Secrets",
-					body: `Must never leave this team.\nRIVAL_TOKEN: ${rivalSecret}`,
-					format: "markdown",
-					status: "active",
-					updatedBy: "seed",
-					scopeKind: "team",
-					scopeId: OTHER_TEAM_ID,
-				});
+			// Ancestor NOT independently selected: it belongs to a different
+			// user, so fetchOrdinaryItemsByScope("user", AGENT_ID) never fetches
+			// it directly — it is only reachable through resolveParentChain's
+			// ancestor walk, which has no ownership filter. This is the real,
+			// natural condition under which architecture.md §5's "index written
+			// anyway" case fires in production.
+			const ancestor = await seedDocument(db, {
+				title: "Findings Archive",
+				body: "Ancestor real body text — must NEVER appear verbatim in the materialised index.md.",
+				format: "markdown",
+				status: "active",
+				updatedBy: "seed",
+				scopeKind: "user",
+				scopeId: OTHER_USER_ID,
+			});
+			const leaf = await seedDocument(db, {
+				title: "Deploy Checklist",
+				body: `Deploy checklist body.\nSECRET: ${leafSecret}`,
+				format: "markdown",
+				status: "active",
+				updatedBy: "seed",
+				scopeKind: "user",
+				scopeId: AGENT_ID,
+				parentKind: "document",
+				parentId: ancestor.id,
+			});
+			await seedDocument(db, {
+				title: "Team Rituals",
+				body: `Team-only info.\nTEAM_TOKEN: ${teamSecret}`,
+				format: "markdown",
+				status: "active",
+				updatedBy: "seed",
+				scopeKind: "team",
+				scopeId: TEAM_ID,
+			});
+			await seedDocument(db, {
+				title: "Rival Team Secrets",
+				body: `Must never leave this team.\nRIVAL_TOKEN: ${rivalSecret}`,
+				format: "markdown",
+				status: "active",
+				updatedBy: "seed",
+				scopeKind: "team",
+				scopeId: OTHER_TEAM_ID,
+			});
 
-				const selectedParent = await seedDocument(db, {
-					title: "Roadmap",
-					body: `Roadmap parent body.\nPARENT_TOKEN: ${parentBodySecret}`,
-					format: "markdown",
-					status: "active",
-					updatedBy: "seed",
-					scopeKind: "team",
-					scopeId: TEAM_ID,
-				});
-				const childOfParent = await seedDocument(db, {
-					title: "Q3 Plan",
-					body: `Child under selected parent.\nCHILD_TOKEN: ${childOfParentSecret}`,
-					format: "markdown",
-					status: "active",
-					updatedBy: "seed",
-					scopeKind: "team",
-					scopeId: TEAM_ID,
-					parentKind: "document",
-					parentId: selectedParent.id,
-				});
+			const selectedParent = await seedDocument(db, {
+				title: "Roadmap",
+				body: `Roadmap parent body.\nPARENT_TOKEN: ${parentBodySecret}`,
+				format: "markdown",
+				status: "active",
+				updatedBy: "seed",
+				scopeKind: "team",
+				scopeId: TEAM_ID,
+			});
+			const childOfParent = await seedDocument(db, {
+				title: "Q3 Plan",
+				body: `Child under selected parent.\nCHILD_TOKEN: ${childOfParentSecret}`,
+				format: "markdown",
+				status: "active",
+				updatedBy: "seed",
+				scopeKind: "team",
+				scopeId: TEAM_ID,
+				parentKind: "document",
+				parentId: selectedParent.id,
+			});
 
-				await assembleIntoSandbox(db, sandboxPath, `sess-${harness}-read`);
+			await assembleIntoSandbox(db, runnerDb, sandboxPath, `sess-${harness}-read`);
 
-				// --- Deterministic, sanity-break-sensitive assertions ---------
-				const ancestorIndexPath = path.join(
-					sandboxPath,
-					"knowledge",
-					"Findings_Archive",
-					"index.md",
-				);
-				expect(fs.existsSync(ancestorIndexPath)).toBe(true);
-				const ancestorIndexBody = fs.readFileSync(ancestorIndexPath, "utf8");
-				expect(ancestorIndexBody).toBe("# Findings Archive\n");
-				expect(ancestorIndexBody).not.toContain("Ancestor real body");
+			// --- Deterministic, sanity-break-sensitive assertions ---------
+			const ancestorIndexPath = path.join(sandboxPath, "knowledge", "Findings_Archive", "index.md");
+			expect(fs.existsSync(ancestorIndexPath)).toBe(true);
+			const ancestorIndexBody = fs.readFileSync(ancestorIndexPath, "utf8");
+			expect(ancestorIndexBody).toBe("# Findings Archive\n");
+			expect(ancestorIndexBody).not.toContain("Ancestor real body");
 
-				const leafDirEntries = fs.readdirSync(
-					path.join(sandboxPath, "knowledge", "Findings_Archive"),
-				);
-				const leafFilename = leafDirEntries.find((f) =>
-					f.startsWith(`Deploy_Checklist_${leaf.id.slice(0, 8)}`),
-				);
-				expect(leafFilename).toBeDefined();
-				const leafPath = path.join(
-					sandboxPath,
-					"knowledge",
-					"Findings_Archive",
-					leafFilename as string,
-				);
-				expect(fs.readFileSync(leafPath, "utf8")).toContain(leafSecret);
+			const leafDirEntries = fs.readdirSync(
+				path.join(sandboxPath, "knowledge", "Findings_Archive"),
+			);
+			const leafFilename = leafDirEntries.find((f) =>
+				f.startsWith(`Deploy_Checklist_${leaf.id.slice(0, 8)}`),
+			);
+			expect(leafFilename).toBeDefined();
+			const leafPath = path.join(
+				sandboxPath,
+				"knowledge",
+				"Findings_Archive",
+				leafFilename as string,
+			);
+			expect(fs.readFileSync(leafPath, "utf8")).toContain(leafSecret);
 
-				// Own team branch present; rival team branch absent EVERYWHERE
-				// under the sandbox — not just filtered from one card.
-				const allFiles = [...listFilesUnder(sandboxPath)];
-				const teamFile = allFiles.find((p) => p.startsWith("knowledge/Team_Rituals_"));
-				expect(teamFile).toBeDefined();
-				expect(fs.readFileSync(path.join(sandboxPath, teamFile as string), "utf8")).toContain(
-					teamSecret,
-				);
-				const rivalFile = allFiles.find((p) => p.includes("Rival"));
-				expect(rivalFile).toBeUndefined();
-				for (const p of allFiles) {
-					expect(fs.readFileSync(path.join(sandboxPath, p), "utf8")).not.toContain(rivalSecret);
-				}
+			// Own team branch present; rival team branch absent EVERYWHERE
+			// under the sandbox — not just filtered from one card.
+			const allFiles = [...listFilesUnder(sandboxPath)];
+			const teamFile = allFiles.find((p) => p.startsWith("knowledge/Team_Rituals_"));
+			expect(teamFile).toBeDefined();
+			expect(fs.readFileSync(path.join(sandboxPath, teamFile as string), "utf8")).toContain(
+				teamSecret,
+			);
+			const rivalFile = allFiles.find((p) => p.includes("Rival"));
+			expect(rivalFile).toBeUndefined();
+			for (const p of allFiles) {
+				expect(fs.readFileSync(path.join(sandboxPath, p), "utf8")).not.toContain(rivalSecret);
+			}
 
-				// A selected parent WITH a body AND selected children: its real
-				// body lands in its own directory's index.md...
-				const roadmapDir = path.join(sandboxPath, "knowledge", "Roadmap");
-				const roadmapIndexBody = fs.readFileSync(path.join(roadmapDir, "index.md"), "utf8");
-				expect(roadmapIndexBody).toContain(parentBodySecret);
-				// ...no stray sibling leaf file next to its own directory...
-				const knowledgeRootEntries = fs.readdirSync(path.join(sandboxPath, "knowledge"));
-				const strayParentLeaf = knowledgeRootEntries.find((f) =>
-					f.startsWith(`Roadmap_${selectedParent.id.slice(0, 8)}`),
-				);
-				expect(strayParentLeaf).toBeUndefined();
-				// ...and its selected child still lands inside its directory.
-				const roadmapEntries = fs.readdirSync(roadmapDir);
-				const childOfParentFilename = roadmapEntries.find((f) =>
-					f.startsWith(`Q3_Plan_${childOfParent.id.slice(0, 8)}`),
-				);
-				expect(childOfParentFilename).toBeDefined();
-				expect(
-					fs.readFileSync(path.join(roadmapDir, childOfParentFilename as string), "utf8"),
-				).toContain(childOfParentSecret);
+			// A selected parent WITH a body AND selected children: its real
+			// body lands in its own directory's index.md...
+			const roadmapDir = path.join(sandboxPath, "knowledge", "Roadmap");
+			const roadmapIndexBody = fs.readFileSync(path.join(roadmapDir, "index.md"), "utf8");
+			expect(roadmapIndexBody).toContain(parentBodySecret);
+			// ...no stray sibling leaf file next to its own directory...
+			const knowledgeRootEntries = fs.readdirSync(path.join(sandboxPath, "knowledge"));
+			const strayParentLeaf = knowledgeRootEntries.find((f) =>
+				f.startsWith(`Roadmap_${selectedParent.id.slice(0, 8)}`),
+			);
+			expect(strayParentLeaf).toBeUndefined();
+			// ...and its selected child still lands inside its directory.
+			const roadmapEntries = fs.readdirSync(roadmapDir);
+			const childOfParentFilename = roadmapEntries.find((f) =>
+				f.startsWith(`Q3_Plan_${childOfParent.id.slice(0, 8)}`),
+			);
+			expect(childOfParentFilename).toBeDefined();
+			expect(
+				fs.readFileSync(path.join(roadmapDir, childOfParentFilename as string), "utf8"),
+			).toContain(childOfParentSecret);
 
-				// --- Real agent injection proof --------------------------------
-				const prompt =
-					`Inside the "knowledge" directory of your current working directory, find a nested document ` +
-					`about a "Deploy Checklist" and report the exact value after "SECRET:". Also find a document ` +
-					`about "Team Rituals" and report the exact value after "TEAM_TOKEN:". Also find the "Roadmap" ` +
-					`document itself (its own index file, not one of its children) and report the exact value after ` +
-					`"PARENT_TOKEN:". Finally, search the ENTIRE knowledge directory tree for the exact string ` +
-					`"RIVAL_TOKEN" and state YES if you find it or NO if you do not. Respond with exactly four ` +
-					`lines, in this format and nothing else:\n` +
-					`SECRET=<value>\nTEAM_TOKEN=<value>\nPARENT_TOKEN=<value>\nRIVAL_TOKEN_FOUND=<YES or NO>`;
+			// --- Real agent injection proof --------------------------------
+			const prompt =
+				`Inside the "knowledge" directory of your current working directory, find a nested document ` +
+				`about a "Deploy Checklist" and report the exact value after "SECRET:". Also find a document ` +
+				`about "Team Rituals" and report the exact value after "TEAM_TOKEN:". Also find the "Roadmap" ` +
+				`document itself (its own index file, not one of its children) and report the exact value after ` +
+				`"PARENT_TOKEN:". Finally, search the ENTIRE knowledge directory tree for the exact string ` +
+				`"RIVAL_TOKEN" and state YES if you find it or NO if you do not. Respond with exactly four ` +
+				`lines, in this format and nothing else:\n` +
+				`SECRET=<value>\nTEAM_TOKEN=<value>\nPARENT_TOKEN=<value>\nRIVAL_TOKEN_FOUND=<YES or NO>`;
 
-				const stdout =
-					harness === "opencode"
-						? await runOpencodeWithModel(
-								prompt,
-								sandboxPath,
-								OPENCODE_READ_MODEL,
-								TIMEOUT_MS.opencode,
-							)
-						: await runHarness(harness, prompt, sandboxPath, TIMEOUT_MS[harness]);
+			const stdout =
+				harness === "opencode"
+					? await runOpencodeWithModel(
+							prompt,
+							sandboxPath,
+							OPENCODE_READ_MODEL,
+							TIMEOUT_MS.opencode,
+						)
+					: await runHarness(harness, prompt, sandboxPath, TIMEOUT_MS[harness]);
 
-				expect(stdout).toContain(leafSecret);
-				expect(stdout).toContain(teamSecret);
-				expect(stdout).toContain(parentBodySecret);
-				expect(stdout).not.toContain(rivalSecret);
+			expect(stdout).toContain(leafSecret);
+			expect(stdout).toContain(teamSecret);
+			expect(stdout).toContain(parentBodySecret);
+			expect(stdout).not.toContain(rivalSecret);
 
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
-			},
-		);
+			fs.rmSync(sandboxPath, { recursive: true, force: true });
+		});
 
 		// -------------------------------------------------------------------
 		// 3: round trip — a real agent creates a nested folder + file.
 		// -------------------------------------------------------------------
-		dbTest(
-			"a real agent creating a nested folder with a file in it produces a real document with the right parent, and the new folder becomes its own scope-inheriting item",
-			{ retry: 0 },
-			async ({ db }) => {
-				await seedActorAgent(db);
-				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), `nkt-${harness}-create-`));
-				const writeback = createWritebackProcessor();
-				const documentPort = realDocumentWritebackPort(db, new EventBus());
+		test("a real agent creating a nested folder with a file in it produces a real document with the right parent, and the new folder becomes its own scope-inheriting item", {
+			retry: 0,
+		}, async ({ db, runnerDb }) => {
+			await seedActorAgent(db);
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), `nkt-${harness}-create-`));
+			const writeback = createWritebackProcessor();
+			const documentPort = realDocumentWritebackPort(db, new EventBus());
 
-				// A trivial factory item so the sandbox is a real, non-empty
-				// materialised tree — not the substitute of a hand-built manifest.
-				await seedDocument(db, {
-					title: "Welcome",
-					body: "Welcome to the team.",
-					format: "markdown",
-					status: "active",
-					updatedBy: "seed",
-					scopeKind: "factory",
-				});
-				await assembleIntoSandbox(db, sandboxPath, `sess-${harness}-create`);
+			// A trivial factory item so the sandbox is a real, non-empty
+			// materialised tree — not the substitute of a hand-built manifest.
+			await seedDocument(db, {
+				title: "Welcome",
+				body: "Welcome to the team.",
+				format: "markdown",
+				status: "active",
+				updatedBy: "seed",
+				scopeKind: "factory",
+			});
+			await assembleIntoSandbox(db, runnerDb, sandboxPath, `sess-${harness}-create`);
 
-				const before = listFilesUnder(sandboxPath);
-				const marker = `CREATE-${randomUUID().slice(0, 8).toUpperCase()}`;
-				const content = `Roadmap notes.\nMARKER: ${marker}`;
+			const before = listFilesUnder(sandboxPath);
+			const marker = `CREATE-${randomUUID().slice(0, 8).toUpperCase()}`;
+			const content = `Roadmap notes.\nMARKER: ${marker}`;
 
-				const prompt =
-					`Create a new file at the exact relative path "knowledge/newideas/roadmap.md" from your current ` +
-					`working directory. Create the "newideas" directory first if it does not already exist. The file's ` +
-					`content must be EXACTLY the following, with no extra text before or after it:\n\n${content}`;
+			const prompt =
+				`Create a new file at the exact relative path "knowledge/newideas/roadmap.md" from your current ` +
+				`working directory. Create the "newideas" directory first if it does not already exist. The file's ` +
+				`content must be EXACTLY the following, with no extra text before or after it:\n\n${content}`;
 
-				await runHarness(harness, prompt, sandboxPath, TIMEOUT_MS[harness]);
+			await runHarness(harness, prompt, sandboxPath, TIMEOUT_MS[harness]);
 
-				const after = listFilesUnder(sandboxPath);
-				const changes = diffDocumentFiles(sandboxPath, before, after);
-				const created = changes.filter((c) => c.type === "create");
-				expect(created.length).toBeGreaterThan(0);
+			const after = listFilesUnder(sandboxPath);
+			const changes = diffDocumentFiles(sandboxPath, before, after);
+			const created = changes.filter((c) => c.type === "create");
+			expect(created.length).toBeGreaterThan(0);
 
-				await writeback.process(
-					{
-						db,
-						sandboxPath,
-						sessionId: `sess-${harness}-create`,
-						manifestPath: manifestPathFor(sandboxPath),
-						document: documentPort,
-						actor: AGENT_ID,
-					},
-					created,
-				);
+			await writeback.process(
+				{
+					db: runnerDb,
+					sandboxPath,
+					sessionId: `sess-${harness}-create`,
+					manifestPath: manifestPathFor(sandboxPath),
+					document: documentPort,
+					actor: AGENT_ID,
+				},
+				created,
+			);
 
-				const roadmapRows = await db.select().from(documents).where(eq(documents.title, "roadmap"));
-				expect(roadmapRows).toHaveLength(1);
-				// @lore: a real agent's file-write tool commonly appends a trailing newline — the exact-content assertion trims only the end.
-				expect(roadmapRows[0]?.body.trimEnd()).toBe(content);
-				expect(roadmapRows[0]?.body).toContain(marker);
-				expect(roadmapRows[0]?.parentKind).toBe("document");
+			const roadmapRows = await db.select().from(documents).where(eq(documents.title, "roadmap"));
+			expect(roadmapRows).toHaveLength(1);
+			// @lore: a real agent's file-write tool commonly appends a trailing newline — the exact-content assertion trims only the end.
+			expect(roadmapRows[0]?.body.trimEnd()).toBe(content);
+			expect(roadmapRows[0]?.body).toContain(marker);
+			expect(roadmapRows[0]?.parentKind).toBe("document");
 
-				const folderRows = await db.select().from(documents).where(eq(documents.title, "newideas"));
-				expect(folderRows).toHaveLength(1);
-				expect(folderRows[0]?.parentId).toBeNull();
-				// A new directory at the knowledge/ root inherits the implicit
-				// root scope, "factory" — and the created leaf inherits ITS scope.
-				expect(folderRows[0]?.scopeKind).toBe("factory");
-				expect(roadmapRows[0]?.parentId).toBe(folderRows[0]?.id);
-				expect(roadmapRows[0]?.scopeKind).toBe("factory");
+			const folderRows = await db.select().from(documents).where(eq(documents.title, "newideas"));
+			expect(folderRows).toHaveLength(1);
+			expect(folderRows[0]?.parentId).toBeNull();
+			// A new directory at the knowledge/ root inherits the implicit
+			// root scope, "factory" — and the created leaf inherits ITS scope.
+			expect(folderRows[0]?.scopeKind).toBe("factory");
+			expect(roadmapRows[0]?.parentId).toBe(folderRows[0]?.id);
+			expect(roadmapRows[0]?.scopeKind).toBe("factory");
 
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
-			},
-		);
+			fs.rmSync(sandboxPath, { recursive: true, force: true });
+		});
 
 		// -------------------------------------------------------------------
 		// 4: move — a real agent moves an ALREADY-MATERIALISED file (id
 		// suffix intact) into a different directory.
 		// -------------------------------------------------------------------
-		dbTest(
-			"a real agent moving an existing materialised file reparents the same item by its id suffix — no duplicate, body untouched",
-			{ retry: 0 },
-			async ({ db }) => {
-				await seedActorAgent(db);
-				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), `nkt-${harness}-move-`));
-				const writeback = createWritebackProcessor();
-				const documentPort = realDocumentWritebackPort(db, new EventBus());
+		test("a real agent moving an existing materialised file reparents the same item by its id suffix — no duplicate, body untouched", {
+			retry: 0,
+		}, async ({ db, runnerDb }) => {
+			await seedActorAgent(db);
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), `nkt-${harness}-move-`));
+			const writeback = createWritebackProcessor();
+			const documentPort = realDocumentWritebackPort(db, new EventBus());
 
-				// Same "different owner" trick as the read test, so the folder
-				// with a child does not also get independently selected.
-				const folder = await seedDocument(db, {
-					title: "Folder A",
-					body: "folder body — never independently selected",
-					format: "markdown",
-					status: "active",
-					updatedBy: "seed",
-					scopeKind: "user",
-					scopeId: OTHER_USER_ID,
-				});
-				const originalBody = "The original roadmap body. Do not change this text.";
-				const doc = await seedDocument(db, {
-					title: "Roadmap Doc",
-					body: originalBody,
-					format: "markdown",
-					status: "active",
-					updatedBy: "seed",
-					scopeKind: "user",
-					scopeId: AGENT_ID,
-					parentKind: "document",
-					parentId: folder.id,
-				});
+			// Same "different owner" trick as the read test, so the folder
+			// with a child does not also get independently selected.
+			const folder = await seedDocument(db, {
+				title: "Folder A",
+				body: "folder body — never independently selected",
+				format: "markdown",
+				status: "active",
+				updatedBy: "seed",
+				scopeKind: "user",
+				scopeId: OTHER_USER_ID,
+			});
+			const originalBody = "The original roadmap body. Do not change this text.";
+			const doc = await seedDocument(db, {
+				title: "Roadmap Doc",
+				body: originalBody,
+				format: "markdown",
+				status: "active",
+				updatedBy: "seed",
+				scopeKind: "user",
+				scopeId: AGENT_ID,
+				parentKind: "document",
+				parentId: folder.id,
+			});
 
-				await assembleIntoSandbox(db, sandboxPath, `sess-${harness}-move`);
+			await assembleIntoSandbox(db, runnerDb, sandboxPath, `sess-${harness}-move`);
 
-				const docFilename = fs
-					.readdirSync(path.join(sandboxPath, "knowledge", "Folder_A"))
-					.find((f) => f.startsWith(`Roadmap_Doc_${doc.id.slice(0, 8)}`));
-				expect(docFilename).toBeDefined();
+			const docFilename = fs
+				.readdirSync(path.join(sandboxPath, "knowledge", "Folder_A"))
+				.find((f) => f.startsWith(`Roadmap_Doc_${doc.id.slice(0, 8)}`));
+			expect(docFilename).toBeDefined();
 
-				const before = listFilesUnder(sandboxPath);
+			const before = listFilesUnder(sandboxPath);
 
-				const prompt =
-					`Move the file at the exact relative path "knowledge/Folder_A/${docFilename}" to the exact relative ` +
-					`path "knowledge/Reviewed/${docFilename}" from your current working directory. Create the ` +
-					`"Reviewed" directory if it does not already exist. Preserve the filename EXACTLY — do not rename ` +
-					`it — and do not change the file's content.`;
+			const prompt =
+				`Move the file at the exact relative path "knowledge/Folder_A/${docFilename}" to the exact relative ` +
+				`path "knowledge/Reviewed/${docFilename}" from your current working directory. Create the ` +
+				`"Reviewed" directory if it does not already exist. Preserve the filename EXACTLY — do not rename ` +
+				`it — and do not change the file's content.`;
 
-				await runHarness(harness, prompt, sandboxPath, TIMEOUT_MS[harness]);
+			await runHarness(harness, prompt, sandboxPath, TIMEOUT_MS[harness]);
 
-				const after = listFilesUnder(sandboxPath);
-				const changes = diffDocumentFiles(sandboxPath, before, after);
-				expect(changes.some((c) => c.type === "delete")).toBe(true);
-				expect(changes.some((c) => c.type === "create")).toBe(true);
+			const after = listFilesUnder(sandboxPath);
+			const changes = diffDocumentFiles(sandboxPath, before, after);
+			expect(changes.some((c) => c.type === "delete")).toBe(true);
+			expect(changes.some((c) => c.type === "create")).toBe(true);
 
-				await writeback.process(
-					{
-						db,
-						sandboxPath,
-						sessionId: `sess-${harness}-move`,
-						manifestPath: manifestPathFor(sandboxPath),
-						document: documentPort,
-						actor: AGENT_ID,
-					},
-					changes,
-				);
+			await writeback.process(
+				{
+					db: runnerDb,
+					sandboxPath,
+					sessionId: `sess-${harness}-move`,
+					manifestPath: manifestPathFor(sandboxPath),
+					document: documentPort,
+					actor: AGENT_ID,
+				},
+				changes,
+			);
 
-				const rows = await db.select().from(documents).where(eq(documents.id, doc.id));
-				expect(rows).toHaveLength(1);
-				expect(rows[0]?.body).toBe(originalBody);
+			const rows = await db.select().from(documents).where(eq(documents.id, doc.id));
+			expect(rows).toHaveLength(1);
+			expect(rows[0]?.body).toBe(originalBody);
 
-				const reviewedRows = await db
-					.select()
-					.from(documents)
-					.where(eq(documents.title, "Reviewed"));
-				expect(reviewedRows).toHaveLength(1);
-				expect(rows[0]?.parentId).toBe(reviewedRows[0]?.id);
-				expect(rows[0]?.parentId).not.toBe(folder.id);
+			const reviewedRows = await db.select().from(documents).where(eq(documents.title, "Reviewed"));
+			expect(reviewedRows).toHaveLength(1);
+			expect(rows[0]?.parentId).toBe(reviewedRows[0]?.id);
+			expect(rows[0]?.parentId).not.toBe(folder.id);
 
-				const allRoadmapDocs = await db
-					.select()
-					.from(documents)
-					.where(eq(documents.title, "Roadmap Doc"));
-				expect(allRoadmapDocs).toHaveLength(1);
+			const allRoadmapDocs = await db
+				.select()
+				.from(documents)
+				.where(eq(documents.title, "Roadmap Doc"));
+			expect(allRoadmapDocs).toHaveLength(1);
 
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
-			},
-		);
+			fs.rmSync(sandboxPath, { recursive: true, force: true });
+		});
 	});
 }

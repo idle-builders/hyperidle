@@ -11,19 +11,22 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { installPluginOutsideServer } from "@hyperidle/core-api";
 import {
-	agentRunConfig,
 	documents,
 	type HyperIdleDb,
 	orgEdges,
 	pluginContributions,
-	serviceConnections,
-	serviceConnectionWithholds,
 	subscriptions,
 	users,
 	userTeams,
 } from "@hyperidle/db";
 import { type HarnessType, PERSON_REASONS } from "@hyperidle/domain-model";
 import { addSpaceFolder, ensureAgentSpace } from "@hyperidle/run-orchestration";
+import {
+	agentRunConfig,
+	type RunnerDb,
+	serviceConnections,
+	serviceConnectionWithholds,
+} from "@hyperidle/runner-db";
 import { and, eq, isNotNull } from "drizzle-orm";
 import {
 	BUILDER_ID,
@@ -193,14 +196,24 @@ function makeRepo(dir: string, readme: string): void {
  * Creates a space directory for each agent under `spacesDir/<agentId>` and symlinks
  * the repo there using `addSpaceFolder` from run-orchestration.
  */
-async function seedFolders(db: HyperIdleDb, foldersDir: string, spacesDir: string): Promise<void> {
+async function seedFolders(
+	runnerDb: RunnerDb,
+	foldersDir: string,
+	spacesDir: string,
+): Promise<void> {
 	const agentNameById = new Map(AGENTS.map((a) => [a.id, a.name]));
 	for (const folder of FOLDERS) {
 		const repo = path.join(foldersDir, folder.name);
 		makeRepo(repo, folder.readme);
 		const agentName = agentNameById.get(folder.agent);
 		if (!agentName) continue;
-		const spacePath = await ensureAgentSpace(db, folder.agent, agentName, undefined, spacesDir);
+		const spacePath = await ensureAgentSpace(
+			runnerDb,
+			folder.agent,
+			agentName,
+			undefined,
+			spacesDir,
+		);
 		const result = addSpaceFolder(spacePath, repo, folder.name);
 		if (!result.ok && result.code !== "CONFLICT") {
 			throw new Error(
@@ -263,6 +276,7 @@ const PLUGIN_EDITS = [
 
 export async function seedCast(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	clock: DemoClock,
 	opts: DemoWorldPlaces,
 ): Promise<void> {
@@ -334,7 +348,7 @@ export async function seedCast(
 	}
 
 	for (const service of SERVICES) {
-		await db
+		await runnerDb
 			.insert(serviceConnections)
 			.values({
 				id: service.id,
@@ -369,29 +383,30 @@ export async function seedCast(
 			.insert(userTeams)
 			.values({ userId: agent.id, teamId: agent.team })
 			.onConflictDoNothing();
-		await setRunConfig(db, agent.id, agent.harness, agent.sessions);
+		await setRunConfig(runnerDb, agent.id, agent.harness, agent.sessions);
 	}
 
-	if (opts.foldersDir && opts.spacesDir) await seedFolders(db, opts.foldersDir, opts.spacesDir);
+	if (opts.foldersDir && opts.spacesDir)
+		await seedFolders(runnerDb, opts.foldersDir, opts.spacesDir);
 
 	for (const service of SERVICES)
 		for (const agentUserId of service.keptFrom)
-			await db
+			await runnerDb
 				.insert(serviceConnectionWithholds)
 				.values({ connectionId: service.id, agentUserId, createdAt: clock.daysAgo(60) })
 				.onConflictDoNothing();
 
 	await seedGrowthsMonday(db, clock);
-	await seedTeamHabits(db, clock, opts.pluginsBaseDir);
+	await seedTeamHabits(db, runnerDb, clock, opts.pluginsBaseDir);
 }
 
 async function setRunConfig(
-	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	agentId: string,
 	harnessType: HarnessType,
 	maxConcurrentSessions: number,
 ): Promise<void> {
-	await db
+	await runnerDb
 		.insert(agentRunConfig)
 		.values({ agentUserId: agentId, harnessType, maxConcurrentSessions })
 		.onConflictDoUpdate({
@@ -443,6 +458,7 @@ async function seedGrowthsMonday(db: HyperIdleDb, clock: DemoClock): Promise<voi
  */
 async function seedTeamHabits(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	clock: DemoClock,
 	pluginsBaseDir: string | undefined,
 ): Promise<void> {
@@ -452,7 +468,7 @@ async function seedTeamHabits(
 		now: clock.daysAgo(98),
 		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
 	});
-	await setRunConfig(db, FACILITATION_ID, "claude-code", 1);
+	await setRunConfig(runnerDb, FACILITATION_ID, "claude-code", 1);
 	// The install counts the next Friday from its own date, long past; the
 	// Fridays since then have run, so the next one is still to come.
 	const daysToFriday = (4 - clock.daysSinceMonday + 7) % 7 || 7;

@@ -14,8 +14,9 @@
  */
 
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
-import { type HyperIdleDb, sessions, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
 import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { createCoreApiApp } from "../app.js";
@@ -29,7 +30,7 @@ function authHeaders(): Record<string, string> {
 
 const NOW = "2026-08-04T00:00:00.000Z";
 
-async function seed(db: HyperIdleDb): Promise<void> {
+async function seed(db: HyperIdleDb, runnerDb: RunnerDb): Promise<void> {
 	await db.insert(teams).values({ id: "prod-1", name: "P", createdAt: NOW });
 	await db.insert(users).values({
 		id: "agent-1",
@@ -88,7 +89,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	await db.insert(sessions).values({
+	await runnerDb.insert(sessions).values({
 		id: "sess-1",
 		agentId: "agent-1",
 		taskId: "task-1",
@@ -118,8 +119,12 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("the plumbing session route 401s without auth", async ({ db, requestWithoutAuth }) => {
-		await seed(db);
+	test("the plumbing session route 401s without auth", async ({
+		db,
+		runnerDb,
+		requestWithoutAuth,
+	}) => {
+		await seed(db, runnerDb);
 		const res = await requestWithoutAuth("/api/agent-orchestration/sessions/sess-1", {
 			method: "GET",
 		});
@@ -128,9 +133,10 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 
 	test("the two apps do not shadow each other — zero duplicate method+path", async ({
 		db,
+		runnerDb,
 		eventBus,
 	}) => {
-		const orchestration = await bootAgentOrchestration({ db, eventBus });
+		const orchestration = await bootAgentOrchestration({ db, runnerDb, eventBus });
 		registerFixtureOrchestrationCleanup(db, () => {
 			orchestration.dispose();
 			return orchestration.joinLifecycleDrain();

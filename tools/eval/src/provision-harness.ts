@@ -67,6 +67,7 @@ import {
 	type McpToolBridge,
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import * as work from "@hyperidle/task";
 import { getTeam, requireRunnableAgent } from "@hyperidle/user";
 import type { TriggerResult } from "./types.js";
@@ -130,7 +131,11 @@ interface EvalLiveServer {
  * calling this function so the auth middleware (which reads it at boot time)
  * and `withActorTransport` (which reads it at call time) agree on the key.
  */
-async function startEvalLiveServer(db: HyperIdleDb, eventBus: EventBus): Promise<EvalLiveServer> {
+async function startEvalLiveServer(
+	db: HyperIdleDb,
+	runnerDb: RunnerDb,
+	eventBus: EventBus,
+): Promise<EvalLiveServer> {
 	const mcpBridgeRegistry = createMcpToolBridge({ enforcement: createReturnEnforcement() });
 
 	// Deferred transport — the composed app does not exist yet.
@@ -144,7 +149,7 @@ async function startEvalLiveServer(db: HyperIdleDb, eventBus: EventBus): Promise
 	};
 	const agentOrchestrationPort = buildAgentOrchestrationPort(agentOrchestrationTransport);
 
-	const agentOrchestrationBoot = await bootAgentOrchestration({ db, eventBus });
+	const agentOrchestrationBoot = await bootAgentOrchestration({ db, runnerDb, eventBus });
 	const coreApiBoot = await bootCoreApi({
 		db,
 		eventBus,
@@ -241,6 +246,7 @@ const evalReturnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter = {
 
 export interface EvalProvisionDeps {
 	readonly db: HyperIdleDb;
+	readonly runnerDb: RunnerDb;
 	readonly eventBus: EventBus;
 }
 
@@ -293,7 +299,7 @@ export async function runEvalSession(
 	const prevSpacesDir = process.env.HYPERIDLE_SPACES_DIR;
 	process.env.HYPERIDLE_SPACES_DIR = evalSpacesDir;
 
-	const liveServer = await startEvalLiveServer(deps.db, deps.eventBus);
+	const liveServer = await startEvalLiveServer(deps.db, deps.runnerDb, deps.eventBus);
 
 	try {
 		const pool = await createLocalAdapterPool();
@@ -358,7 +364,7 @@ export async function runEvalSession(
 		});
 		const result = await composition.runSession(
 			{
-				db: deps.db,
+				db: deps.runnerDb,
 				eventBus: deps.eventBus,
 				adapterPool: pool,
 			},

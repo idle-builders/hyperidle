@@ -39,7 +39,7 @@ const wmIncidentWriteupBuilderDevops: EvalScenario = {
 	feature: "edit_document_memory",
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent in a DevOps team.
 Always use edit_document (as:"memory") to capture important technical knowledge.`,
@@ -62,6 +62,7 @@ the root cause, and the fix.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -103,7 +104,7 @@ const wmReflectionBrandvoiceMarketing: EvalScenario = {
 	feature: "edit_document_memory",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "brand_voice",
 			agentSystemPrompt: `You are the brand voice agent. Your identity IS the brand.
 You observe how the brand is expressed and capture brand consistency learnings using edit_document (as:"memory").
@@ -123,6 +124,7 @@ This reflection will help the team maintain brand consistency going forward.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{

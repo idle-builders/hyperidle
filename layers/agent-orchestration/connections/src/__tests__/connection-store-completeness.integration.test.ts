@@ -1,6 +1,6 @@
-import { serviceConnections, users } from "@hyperidle/db";
-import { test } from "@hyperidle/db/test-fixtures";
-import { describe, expect } from "vitest";
+import { users } from "@hyperidle/db";
+import { serviceConnections } from "@hyperidle/runner-db";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import {
 	deleteConnection,
 	insertConnection,
@@ -14,6 +14,7 @@ const LATER = "2026-01-02T00:00:00.000Z";
 describe("connection store completeness contract", () => {
 	test("connection store composes auth-source/user/id filters and persists updates", async ({
 		db,
+		runnerDb,
 	}) => {
 		await db.insert(users).values([
 			{
@@ -39,7 +40,7 @@ describe("connection store completeness contract", () => {
 			{ id: "contract-a-mcp", userId: "connections-contract-a", authSource: "mcp" },
 			{ id: "contract-b-token", userId: "connections-contract-b", authSource: "token" },
 		]) {
-			await insertConnection(db, {
+			await insertConnection(runnerDb, {
 				...row,
 				service: "github",
 				encryptedToken: row.authSource === "token" ? "encrypted" : null,
@@ -51,28 +52,27 @@ describe("connection store completeness contract", () => {
 			});
 		}
 
-		expect((await listConnections(db, { authSource: "token" })).map((row) => row.id)).toEqual([
-			"contract-a-token",
-			"contract-b-token",
-		]);
+		expect((await listConnections(runnerDb, { authSource: "token" })).map((row) => row.id)).toEqual(
+			["contract-a-token", "contract-b-token"],
+		);
 		expect(
-			await listConnections(db, {
+			await listConnections(runnerDb, {
 				id: "contract-a-token",
 				userId: "connections-contract-b",
 			}),
 		).toEqual([]);
 
 		await updateConnection(
-			db,
+			runnerDb,
 			{ id: "contract-a-token", userId: "connections-contract-b" },
 			{ health: "healthy", lastValidatedAt: LATER, updatedAt: LATER },
 		);
-		expect(await listConnections(db, { id: "contract-a-token" })).toMatchObject([
+		expect(await listConnections(runnerDb, { id: "contract-a-token" })).toMatchObject([
 			{ health: "needs-attention", lastValidatedAt: null, updatedAt: NOW },
 		]);
 
 		await updateConnection(
-			db,
+			runnerDb,
 			{ id: "contract-a-token", userId: "connections-contract-a" },
 			{
 				health: "healthy",
@@ -80,12 +80,12 @@ describe("connection store completeness contract", () => {
 				updatedAt: LATER,
 			},
 		);
-		expect(await listConnections(db, { id: "contract-a-token" })).toMatchObject([
+		expect(await listConnections(runnerDb, { id: "contract-a-token" })).toMatchObject([
 			{ health: "healthy", lastValidatedAt: LATER, updatedAt: LATER },
 		]);
 	});
 
-	test("connection deletion remains scoped to the owning user", async ({ db }) => {
+	test("connection deletion remains scoped to the owning user", async ({ db, runnerDb }) => {
 		await db.insert(users).values({
 			id: "connections-delete-owner",
 			kind: "human",
@@ -94,7 +94,7 @@ describe("connection store completeness contract", () => {
 			status: "active",
 			createdAt: NOW,
 		});
-		await db.insert(serviceConnections).values({
+		await runnerDb.insert(serviceConnections).values({
 			id: "connections-delete-row",
 			userId: "connections-delete-owner",
 			service: "github",
@@ -107,16 +107,16 @@ describe("connection store completeness contract", () => {
 			updatedAt: NOW,
 		});
 
-		await deleteConnection(db, {
+		await deleteConnection(runnerDb, {
 			id: "connections-delete-row",
 			userId: "not-the-owner",
 		});
-		expect(await listConnections(db, { id: "connections-delete-row" })).toHaveLength(1);
+		expect(await listConnections(runnerDb, { id: "connections-delete-row" })).toHaveLength(1);
 
-		await deleteConnection(db, {
+		await deleteConnection(runnerDb, {
 			id: "connections-delete-row",
 			userId: "connections-delete-owner",
 		});
-		expect(await listConnections(db, { id: "connections-delete-row" })).toEqual([]);
+		expect(await listConnections(runnerDb, { id: "connections-delete-row" })).toEqual([]);
 	});
 });

@@ -8,12 +8,17 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { type RunnerDb, type ReviewSessionRow, reviewSessions, sessions } from "@hyperidle/runner-db";
 import type {
 	BakedAgentRunnableConfig,
 	BakedSessionResumeRequest,
 	SessionResumeReply,
 } from "@hyperidle/domain-model";
+import {
+	type ReviewSessionRow,
+	type RunnerDb,
+	reviewSessions,
+	sessions,
+} from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { buildVerdictMessage } from "./verdict-message.js";
 

@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import {
-	agentRunConfig,
 	changes,
 	type DocumentRow as DbDocumentRow,
 	documents,
@@ -8,7 +7,6 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import type { EditTaskInput, TaskView } from "@hyperidle/domain-model";
 import {
 	HARNESS_TEST_MODELS,
@@ -16,9 +14,9 @@ import {
 	type SupportedHarnessName,
 	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
+import { agentRunConfig, type RunnerDb } from "@hyperidle/runner-db";
 import { giveUserKey } from "@hyperidle/user";
 import { and, eq } from "drizzle-orm";
-import { afterEach, describe, expect } from "vitest";
 import {
 	assertSessionRowDone,
 	HARNESS_TYPE,
@@ -26,6 +24,7 @@ import {
 	setUpLiveHarnessRun,
 	waitForSessionCompleted,
 } from "../__testing__/live-harness-test-support.js";
+import { afterEach, describe, expect, test } from "../__testing__/test-fixtures.js";
 
 const NOW = "2026-09-22T00:00:00.000Z";
 
@@ -36,6 +35,7 @@ afterEach(() => {
 
 async function seedFounderAgentAndTeam(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	opts: {
 		readonly founderId: string;
 		readonly agentId: string;
@@ -65,7 +65,7 @@ async function seedFounderAgentAndTeam(
 		name: "Document Tools Live Harness Team",
 		createdAt: NOW,
 	});
-	await db.insert(agentRunConfig).values({
+	await runnerDb.insert(agentRunConfig).values({
 		agentUserId: opts.agentId,
 		harnessType: opts.harnessType,
 		modelId: opts.modelId,
@@ -117,6 +117,7 @@ describe("a real agent writes a memory, writes a task artifact, and reads a docu
 	async function runDocumentToolsProof(
 		harness: SupportedHarnessName,
 		db: HyperIdleDb,
+		runnerDb: RunnerDb,
 	): Promise<void> {
 		const founderId = `founder-doc-tools-${harness}`;
 		const agentId = `agent-doc-tools-${harness}`;
@@ -124,7 +125,7 @@ describe("a real agent writes a memory, writes a task artifact, and reads a docu
 		const personKey = `person-key-doc-tools-${harness}`;
 		const harnessType = HARNESS_TYPE[harness];
 
-		await seedFounderAgentAndTeam(db, {
+		await seedFounderAgentAndTeam(db, runnerDb, {
 			founderId,
 			agentId,
 			teamId,
@@ -162,7 +163,7 @@ describe("a real agent writes a memory, writes a task artifact, and reads a docu
 			`4. Call search_tasks with text="${taskTitle}" to find this task, then call edit_task with its id and state="done" to finish.`,
 		].join("\n");
 
-		const run = await setUpLiveHarnessRun(db, `doc-tools-${harness}`, personKey);
+		const run = await setUpLiveHarnessRun(db, runnerDb, `doc-tools-${harness}`, personKey);
 
 		try {
 			await run.runner.start();
@@ -185,7 +186,7 @@ describe("a real agent writes a memory, writes a task artifact, and reads a docu
 			const taskId = editResult.data.task.id;
 
 			// Wait for the session to complete (the agent finishes by calling edit_task(state=done)).
-			const sessionId = await waitForSessionCompleted(db, agentId, harness, 180_000);
+			const sessionId = await waitForSessionCompleted(runnerDb, agentId, harness, 180_000);
 
 			// -- (a) the memory ---------------------------------------------------
 			const [memoryDoc] = await db.select().from(documents).where(eq(documents.title, memoryTitle));
@@ -238,7 +239,7 @@ describe("a real agent writes a memory, writes a task artifact, and reads a docu
 				`the distractor document's read_count moved on ${harness} — the agent opened the wrong document`,
 			).toBe(distractor.readCount);
 
-			await assertSessionRowDone(db, sessionId, harness);
+			await assertSessionRowDone(runnerDb, sessionId, harness);
 		} finally {
 			await run.teardown();
 		}
@@ -246,36 +247,36 @@ describe("a real agent writes a memory, writes a task artifact, and reads a docu
 
 	describe("[harness:claude]", () => {
 		requireHarness("claude");
-		dbTest(
+		test(
 			"a real agent on claude-code writes a memory, writes a task artifact, and reads a seeded document back",
-			async ({ db }) => runDocumentToolsProof("claude", db),
+			async ({ db, runnerDb }) => runDocumentToolsProof("claude", db, runnerDb),
 			180_000,
 		);
 	});
 
 	describe("[harness:codex]", () => {
 		requireHarness("codex");
-		dbTest(
+		test(
 			"a real agent on codex writes a memory, writes a task artifact, and reads a seeded document back",
-			async ({ db }) => runDocumentToolsProof("codex", db),
+			async ({ db, runnerDb }) => runDocumentToolsProof("codex", db, runnerDb),
 			180_000,
 		);
 	});
 
 	describe("[harness:opencode]", () => {
 		requireHarness("opencode");
-		dbTest(
+		test(
 			"a real agent on opencode writes a memory, writes a task artifact, and reads a seeded document back",
-			async ({ db }) => runDocumentToolsProof("opencode", db),
+			async ({ db, runnerDb }) => runDocumentToolsProof("opencode", db, runnerDb),
 			180_000,
 		);
 	});
 
 	describe("[harness:cursor-agent]", () => {
 		requireHarness("cursor-agent");
-		dbTest(
+		test(
 			"a real agent on cursor-agent writes a memory, writes a task artifact, and reads a seeded document back",
-			async ({ db }) => runDocumentToolsProof("cursor-agent", db),
+			async ({ db, runnerDb }) => runDocumentToolsProof("cursor-agent", db, runnerDb),
 			180_000,
 		);
 	});

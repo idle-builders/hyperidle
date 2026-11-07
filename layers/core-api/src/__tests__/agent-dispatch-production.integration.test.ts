@@ -3,7 +3,6 @@
  * inbox wake; an assistant message command stores the message and creates the inbox row.
  */
 import {
-	agentRunConfig,
 	type HyperIdleDb,
 	messages,
 	taskDispatchAttempts,
@@ -13,6 +12,7 @@ import {
 	users,
 	userTeams,
 } from "@hyperidle/db";
+import { agentRunConfig } from "@hyperidle/runner-db";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import { listInboxRows } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
@@ -100,7 +100,10 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 	});
 }
 
-async function seedAssistantThread(db: HyperIdleDb) {
+async function seedAssistantThread(
+	db: HyperIdleDb,
+	runnerDb: import("@hyperidle/runner-db").RunnerDb,
+) {
 	const now = new Date().toISOString();
 	await db.insert(users).values([
 		{
@@ -121,7 +124,7 @@ async function seedAssistantThread(db: HyperIdleDb) {
 		},
 	]);
 	// The run config lives in its own table (agent_run_config).
-	await db.insert(agentRunConfig).values({
+	await runnerDb.insert(agentRunConfig).values({
 		agentUserId: "ast-prodintent-assistant-human",
 		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
@@ -204,10 +207,11 @@ describe("atomic production handoffs", () => {
 
 	test("real assistant message command: the message is stored and an inbox row is created for the agent", async ({
 		db,
+		runnerDb,
 		app,
 		asPerson,
 	}) => {
-		await seedAssistantThread(db);
+		await seedAssistantThread(db, runnerDb);
 		await asPerson("prodintent-assistant-human");
 
 		const response = await app.request("/api/actions/send_message", {

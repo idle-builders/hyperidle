@@ -1,7 +1,7 @@
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
-import { Hono } from "hono";
 import type { RunnerDb } from "@hyperidle/runner-db";
+import { Hono } from "hono";
 import type { Action } from "./action.js";
 
 export function createActionsRouter(

@@ -24,8 +24,8 @@ import {
 import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
 import { bootCoreApi } from "@hyperidle/core-api/boot";
 import { createPgliteDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
-import { createPgliteRunnerDb, type RunnerDb, type RunnerDbHandle } from "@hyperidle/runner-db";
 import { EventBus } from "@hyperidle/event-bus";
+import { createPgliteRunnerDb, type RunnerDb, type RunnerDbHandle } from "@hyperidle/runner-db";
 import { WebSocketServer } from "ws";
 // @lore: ws — ships no type declarations; @types/ws must be in devDependencies alongside ws; stale local dist masks missing @types on a clean npm ci
 
@@ -217,7 +217,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		return appFetch(req);
 	}, "http://hyperidle.local/api");
 	const runner = createAgentRunner({
-		db,
+		db: runnerDb,
 		eventBus,
 		door,
 		personKey: () => process.env.HYPERIDLE_API_KEY,

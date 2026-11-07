@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { type AgentSessionRequest, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type {
 	BakedAgentRunnableConfig,
@@ -12,6 +11,7 @@ import {
 	agentSessionRequestInputSchema,
 } from "@hyperidle/domain-model";
 import type { ConversationMessage } from "@hyperidle/harness-protocol";
+import { type AgentSessionRequest, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { and, eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
 import type {

@@ -31,10 +31,11 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, sessions, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { giveUserKey } from "@hyperidle/user";
 import { afterEach, vi } from "vitest";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { createServer, type ServerHandle } from "../create-server.js";
 
 interface Booted {
@@ -48,12 +49,13 @@ interface HttpResult {
 	readonly json: Record<string, unknown>;
 }
 
-async function boot(db: HyperIdleDb): Promise<Booted> {
+async function boot(db: HyperIdleDb, runnerDb: RunnerDb): Promise<Booted> {
 	const apiKey = `e2e-key-${Math.random().toString(36).slice(2)}`;
 	vi.stubEnv("HYPERIDLE_API_KEY", apiKey);
 	vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "session-platform-seam-test-secret-32-chars!!");
 	const server = await createServer(0, {
 		db,
+		runnerDb,
 		topology: "disabled",
 	});
 	const addr = server.httpServer.address();
@@ -226,7 +228,7 @@ async function seedTaskWithThread(
 }
 
 async function seedSession(
-	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	options: {
 		readonly id: string;
 		readonly agentId: string;
@@ -235,7 +237,7 @@ async function seedSession(
 		readonly startedAt: string;
 	},
 ): Promise<void> {
-	await db.insert(sessions).values({
+	await runnerDb.insert(sessions).values({
 		id: options.id,
 		agentId: options.agentId,
 		taskId: options.taskId ?? null,
@@ -293,19 +295,22 @@ describe("session-platform seam — the five entries answer the same to a person
 	});
 
 	describe("search_sessions", () => {
-		test("HTTP door returns the session list in reverse chronological order", async ({ db }) => {
-			const handle = await boot(db);
+		test("HTTP door returns the session list in reverse chronological order", async ({
+			db,
+			runnerDb,
+		}) => {
+			const handle = await boot(db, runnerDb);
 			try {
 				await seedTeam(db, "seam-team-search");
 				await seedHuman(db, "seam-founder-search", "seam-team-search");
 				await seedAgent(db, "seam-agent-search", "seam-founder-search");
-				await seedSession(db, {
+				await seedSession(runnerDb, {
 					id: "seam-sess-search-a",
 					agentId: "seam-agent-search",
 					state: "active",
 					startedAt: "2026-01-01T00:00:00.000Z",
 				});
-				await seedSession(db, {
+				await seedSession(runnerDb, {
 					id: "seam-sess-search-b",
 					agentId: "seam-agent-search",
 					state: "done",
@@ -324,13 +329,13 @@ describe("session-platform seam — the five entries answer the same to a person
 	});
 
 	describe("watch_session", () => {
-		test("HTTP door returns the session row and activity buffer", async ({ db }) => {
-			const handle = await boot(db);
+		test("HTTP door returns the session row and activity buffer", async ({ db, runnerDb }) => {
+			const handle = await boot(db, runnerDb);
 			try {
 				await seedTeam(db, "seam-team-watch");
 				await seedHuman(db, "seam-founder-watch", "seam-team-watch");
 				await seedAgent(db, "seam-agent-watch", "seam-founder-watch");
-				await seedSession(db, {
+				await seedSession(runnerDb, {
 					id: "seam-sess-watch",
 					agentId: "seam-agent-watch",
 					state: "active",
@@ -349,8 +354,9 @@ describe("session-platform seam — the five entries answer the same to a person
 	describe("stop_session — the CAS path (no live registry entry)", () => {
 		test("HTTP door stops the session; the row reads stopped/stopped; the task is untouched", async ({
 			db,
+			runnerDb,
 		}) => {
-			const handle = await boot(db);
+			const handle = await boot(db, runnerDb);
 			try {
 				await seedTeam(db, "seam-team-stop");
 				await seedHuman(db, "seam-founder-stop", "seam-team-stop");
@@ -362,7 +368,7 @@ describe("session-platform seam — the five entries answer the same to a person
 					agentId: "seam-agent-stop",
 					state: "in_progress",
 				});
-				await seedSession(db, {
+				await seedSession(runnerDb, {
 					id: "seam-sess-stop-http",
 					agentId: "seam-agent-stop",
 					taskId: "seam-task-stop",
@@ -386,7 +392,7 @@ describe("session-platform seam — the five entries answer the same to a person
 				// Plain JS filtering, not `drizzle-orm`'s `eq` — an `applications/*`
 				// package declares no direct dependency on it (it only ever reaches
 				// the ORM through `@hyperidle/db`).
-				const allSessions = await db.select().from(sessions);
+				const allSessions = await runnerDb.select().from(sessions);
 				const httpRow = allSessions.find((r) => r.id === "seam-sess-stop-http");
 				expect(httpRow?.state).toBe("stopped");
 				expect(httpRow?.outcome).toBe("stopped");
@@ -401,8 +407,8 @@ describe("session-platform seam — the five entries answer the same to a person
 	});
 
 	describe("search_plugins", () => {
-		test("HTTP door returns the installed plugin", async ({ db }) => {
-			const handle = await boot(db);
+		test("HTTP door returns the installed plugin", async ({ db, runnerDb }) => {
+			const handle = await boot(db, runnerDb);
 			try {
 				await seedHuman(db, "seam-founder-search-plugins");
 				await giveUserKey(db, "seam-founder-search-plugins", handle.apiKey);
@@ -429,8 +435,8 @@ describe("session-platform seam — the five entries answer the same to a person
 	});
 
 	describe("edit_plugin", () => {
-		test("state disabled — HTTP door disables the plugin", async ({ db }) => {
-			const handle = await boot(db);
+		test("state disabled — HTTP door disables the plugin", async ({ db, runnerDb }) => {
+			const handle = await boot(db, runnerDb);
 			try {
 				await seedHuman(db, "seam-founder-disable");
 				await giveUserKey(db, "seam-founder-disable", handle.apiKey);
@@ -457,8 +463,9 @@ describe("session-platform seam — the five entries answer the same to a person
 
 		test("a refused edit (no change named) — HTTP door returns one_change problem", async ({
 			db,
+			runnerDb,
 		}) => {
-			const handle = await boot(db);
+			const handle = await boot(db, runnerDb);
 			try {
 				await seedHuman(db, "seam-founder-refused");
 				await giveUserKey(db, "seam-founder-refused", handle.apiKey);
@@ -477,13 +484,14 @@ describe("session-platform seam — the five entries answer the same to a person
 	describe("one websocket — the session activity nudge", () => {
 		test("a stop_session session_ended event produces exactly one session:<id> frame on the subscribed socket", async ({
 			db,
+			runnerDb,
 		}) => {
-			const handle = await boot(db);
+			const handle = await boot(db, runnerDb);
 			try {
 				await seedTeam(db, "seam-team-nudge");
 				await seedHuman(db, "seam-founder-nudge", "seam-team-nudge");
 				await seedAgent(db, "seam-agent-nudge", "seam-founder-nudge");
-				await seedSession(db, {
+				await seedSession(runnerDb, {
 					id: "seam-sess-nudge",
 					agentId: "seam-agent-nudge",
 					state: "active",
@@ -526,8 +534,11 @@ describe("session-platform seam — the five entries answer the same to a person
 	});
 
 	describe("the second websocket is gone", () => {
-		test("GET /api/agent-orchestration/ws is refused with the canonical 404", async ({ db }) => {
-			const handle = await boot(db);
+		test("GET /api/agent-orchestration/ws is refused with the canonical 404", async ({
+			db,
+			runnerDb,
+		}) => {
+			const handle = await boot(db, runnerDb);
 			try {
 				const res = await fetch(`http://127.0.0.1:${handle.port}/api/agent-orchestration/ws`, {
 					headers: { "X-API-Key": handle.apiKey },
