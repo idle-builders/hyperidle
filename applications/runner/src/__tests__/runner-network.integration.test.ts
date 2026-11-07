@@ -5,7 +5,7 @@
  * Tests:
  *  1. Runner connects to a real server and takes the person's agents.
  *  2. Restart reuses the persisted key (no new edit_user call).
- *  3. 401 from the server marks the agent moved-away; it isn't re-taken on the next sweep.
+ *  3. takeAgent from a second runner (move-here) invalidates the first runner's key; it marks the agent moved-away and doesn't re-take it.
  *  4. An agent that already has a key (hasKey=true) is not taken.
  */
 
@@ -249,65 +249,70 @@ describe("runner network integration", () => {
 		}
 	}, 20_000);
 
-	test("401 response marks agent moved-away; not re-taken on next sweep", async () => {
+	test("takeAgent from a second runner invalidates the key; first runner marks agent moved-away (move-here)", async () => {
+		const r2DataDir = fs.mkdtempSync(path.join(os.tmpdir(), "runner-integration-r2-"));
 		const dbHandle = await makeCorePgDb(tempDataDir);
 		const db = dbHandle.db;
 		await seedBase(db);
-		let shouldReturn401 = false;
 		const server = await bootTestServer(db);
 		try {
-			// Inject a fetch interceptor: once armed, door calls return 401.
-			// We achieve this by invalidating the agent's key in the DB
-			// (the server will then reject calls that use the stale key).
-			const runner = await startRunner({
+			// R1 takes the agent via the normal sweep.
+			const runner1 = await startRunner({
 				serverUrl: server.url,
 				personKey: PERSON_KEY,
 				dataDir: tempDataDir,
 				agentExecution: makeStubExecutionBoot(),
 				sweepMs: 300,
 			});
-			await runner.start();
+			await runner1.start();
 			try {
-				await waitFor("agent taken", async () => {
-					return runner.heldAgentIds().includes(AGENT_ID) || undefined;
+				await waitFor("R1 takes agent", async () => {
+					return runner1.heldAgentIds().includes(AGENT_ID) || undefined;
 				});
 
-				// Invalidate the agent's key: change the keyHash in the DB to something
-				// else. The runner still thinks it holds the old key, but the server
-				// will reject it (401). We also change the key so it effectively
-				// "moved away" from this runner's perspective.
-				shouldReturn401 = true;
-				await db
-					.update(users)
-					.set({ keyHash: "invalid-hash-to-trigger-401" })
-					.where(eq(users.id, AGENT_ID));
+				// R2 "Move here": explicitly takes the agent with a fresh runner-db.
+				// takeAgent calls edit_user { key: "new" } with the person key — it always
+				// issues a new key regardless of hasKey — so R1's key becomes stale.
+				const runner2 = await startRunner({
+					serverUrl: server.url,
+					personKey: PERSON_KEY,
+					dataDir: r2DataDir,
+					agentExecution: makeStubExecutionBoot(),
+					sweepMs: 300,
+				});
+				await runner2.start();
+				try {
+					await runner2.takeAgent(AGENT_ID);
+					// R2 immediately holds the agent.
+					expect(runner2.heldAgentIds()).toContain(AGENT_ID);
+					expect(runner2.movedAwayAgentIds()).not.toContain(AGENT_ID);
 
-				// Wait for the runner to detect the 401 (via inbox drain or next sweep).
-				// The runner's sweep will drain the inbox with the stale key → 401 → moved-away.
-				// We poll the in-memory set rather than the runner-db (which is internal to the runner).
-				await waitFor(
-					"agent moved away",
-					async () => {
-						return runner.movedAwayAgentIds().includes(AGENT_ID) || undefined;
-					},
-					10_000,
-				);
-				expect(runner.movedAwayAgentIds()).toContain(AGENT_ID);
-				expect(runner.heldAgentIds()).not.toContain(AGENT_ID);
+					// R1's next inbox pass uses its now-stale key → server returns 401 →
+					// DoorError(401) → markMovedAway + dropAgent.
+					await waitFor(
+						"R1 marks agent moved-away after 401",
+						async () => runner1.movedAwayAgentIds().includes(AGENT_ID) || undefined,
+						10_000,
+					);
+					expect(runner1.movedAwayAgentIds()).toContain(AGENT_ID);
+					expect(runner1.heldAgentIds()).not.toContain(AGENT_ID);
 
-				// Extra sweep — agent should stay moved-away (not re-taken).
-				await new Promise((r) => setTimeout(r, 400));
-				expect(runner.movedAwayAgentIds()).toContain(AGENT_ID);
-				expect(runner.heldAgentIds()).not.toContain(AGENT_ID);
+					// Extra sweep — R1 stays moved-away; only an explicit takeAgent can reclaim.
+					await new Promise((r) => setTimeout(r, 400));
+					expect(runner1.movedAwayAgentIds()).toContain(AGENT_ID);
+					expect(runner1.heldAgentIds()).not.toContain(AGENT_ID);
+				} finally {
+					await runner2.stop();
+					fs.rmSync(r2DataDir, { recursive: true, force: true });
+				}
 			} finally {
-				await runner.stop();
-				void shouldReturn401; // suppress unused var lint
+				await runner1.stop();
 			}
 		} finally {
 			await server.dispose();
 			await dbHandle.close();
 		}
-	}, 20_000);
+	}, 25_000);
 
 	test("agent with hasKey=true is not taken (held by another runner)", async () => {
 		const dbHandle = await makeCorePgDb(tempDataDir);
