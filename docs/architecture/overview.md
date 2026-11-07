@@ -28,7 +28,7 @@ core-ui           — React + Vite front end, plain CSS
 
 **`core-ui`** is the browser client: plain React and plain CSS with tokens. It reads and writes through one client, `call(action, input)` in `layers/core-ui/src/api.ts`, and one hook, `useAction` (`layers/core-ui/src/useAction.ts`), which asks again when a WebSocket topic it listens on changes. The only other requests are the WebSocket token, cross-object search and first start (below). How the screens look is in [interface/ui-design.md](../interface/ui-design.md).
 
-## The 16 actions
+## The 15 actions
 
 Every capability is declared once as an `ActionDeclaration` in `framework/domain-model/src/actions/`:
 
@@ -38,18 +38,17 @@ Every capability is declared once as an `ActionDeclaration` in `framework/domain
 | `thread.ts` | `search_threads` · `open_thread` · `send_message` · `adjust_thread` |
 | `document.ts` | `search_documents` · `open_document` · `edit_document` |
 | `user.ts` | `search_users` · `open_user` · `edit_user` |
-| `session.ts` | `stop_session` |
 | `platform.ts` | `search_plugins` · `edit_plugin` |
 
 Each declaration carries a name, a sentence description, a Zod input schema, a set of pure invariant functions, and a `run` handler. The same list is projected three ways without duplication:
 
 - **HTTP routes** — `createActionsRouter` (`layers/core-api/src/actions/actions-router.ts`) mounts `POST /api/actions/<name>` for every action.
-- **MCP tools** — `actionToolsThroughDoor` (`layers/agent-orchestration/src/runner/action-tools.ts`) makes each of core's actions an agent's tool. A tool calls `POST /api/actions/<name>` with the agent's own key and names its run in the `X-HyperIdle-Run` header. `stop_session` goes through the same door.
+- **MCP tools** — `actionToolsThroughDoor` (`layers/agent-orchestration/src/runner/action-tools.ts`) makes each of core's actions an agent's tool. A tool calls `POST /api/actions/<name>` with the agent's own key and names its run in the `X-HyperIdle-Run` header.
 - **UI client** — `call` in `layers/core-ui/src/api.ts` posts to `POST /api/actions/<name>`; its types come from the same declarations.
 
 One governance lint rule verifies that every declared action is projected onto all three surfaces.
 
-Alongside the 16 actions, agents have one extra tool: `return_status` (`layers/agent-execution/harness-registry/src/return-status-tool.ts`), which lets an agent ask whether it has satisfied the return gate.
+Alongside the 15 actions, agents have one extra tool: `return_status` (`layers/agent-execution/harness-registry/src/return-status-tool.ts`), which lets an agent ask whether it has satisfied the return gate.
 
 ## Plumbing routes
 
@@ -58,8 +57,7 @@ The routes that fall outside the action loop remain as explicit Hono route files
 - **Auth** — `POST /api/auth/ws-token` (one-time token for the browser's socket at `/api/ws`)
 - **Health** — `GET /api/health` (no key), `GET /api/health/auth` (with the key)
 - **Cross-object search** — `GET /api/search` (hand-written; queries task, thread, document, user in one response)
-- **First start** — `POST /api/start/look` (look for the agent programs on this computer again), `POST /api/start` (make the first person, team, agent and conversation)
-- **Agent-orchestration intake** — `/api/agent-orchestration/*` routes: run config, space-folders, connections
+- **First start** — `POST /api/start` (make the first person, team, agent and conversation)
 
 The MCP bridge (`POST /api/mcp/:token`, `POST /api/mcp/:token/return-status`) is served by the runner process, not the core server — `agent-execution` mounts it on the runner's own HTTP port.
 
@@ -128,15 +126,13 @@ What each reason does (`inbox-work.ts`):
 
 **The agent's tools** for core's actions call the same door, with the agent's key and an `X-HyperIdle-Run` header naming its session, task and thread (`action-tools.ts`). That run becomes the action's `caller`; the actions check the task or thread, never the run ([Security](./security.md#trust-mode)). When an agent files a review or a question, the runner records which session filed it (`review_sessions`), so the answer can bring that session back.
 
-**A run that never starts.** The run side emits `agent_run_admission_failed`. The runner reacts: for a thread turn it posts "<agent> could not start …" into the thread (only if a person is in it); for a task run it marks the dispatch attempt failed so the task shows it in the UI.
+**A run that never starts.** The run side emits `agent_run_admission_failed`. The runner reacts: for a thread turn it posts "<agent> could not start …" into the thread (only if a person is in it); for a task run it logs the refusal.
 
 ## Core and orchestration
 
-`core-api` never calls agent-orchestration to start work; work reaches the runner only through inboxes.
+`core-api` never calls agent-orchestration to start work; work reaches the runner only through inboxes. Run configuration (`agent_run_config`), space-folders, and connections live in the runner's own database (`framework/runner-db`) — the server never reads them.
 
-**Calling orchestration** — when a core-api handler must read or change something agent-orchestration owns (run config, space-folders, connections), it goes through `AgentOrchestrationPort` (`layers/core-api/src/services/agent-orchestration-port-composition.ts`), an in-process HTTP client (`hc<AppType>`) built over the `/api/agent-orchestration/*` plumbing routes.
-
-**Signalling back** — agent-orchestration emits bus events (`session_started`, `session_ended`, `propagation_applied`, etc.) that core-api subscribers react to. Session lifecycle changes reach task state through these reactions, not through a direct database write.
+**Signalling back** — the runner changes task state via the action door (`edit_task`), the same path any other caller uses. Core-api's own bus carries object events only; `session_started` and `session_ended` are runner-process events on the runner's bus and are not visible to the server.
 
 ## Session path
 

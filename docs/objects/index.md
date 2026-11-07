@@ -10,7 +10,7 @@ The six things everything else is built on, plus plugins.
 - **[Documents in sessions](documents-in-sessions.md)** — how documents reach the agent: selection, scoring, the sandbox `knowledge/` tree, manifest, watcher, writeback.
 - **[Folders](folders.md)** — per-agent space symlinks pointing at directories on this computer, mounted into the working folder at session start.
 
-Actions: `search_tasks open_task edit_task` | `search_threads open_thread send_message adjust_thread` | `search_documents open_document edit_document` | `search_users open_user edit_user` | `search_sessions watch_session stop_session` | `search_plugins edit_plugin`.
+Actions: `search_tasks open_task edit_task` | `search_threads open_thread send_message adjust_thread` | `search_documents open_document edit_document` | `search_users open_user edit_user` | `search_plugins edit_plugin`.
 Plus the agent-only `return_status`.
 
 Source: `framework/domain-model/src/actions/`.
