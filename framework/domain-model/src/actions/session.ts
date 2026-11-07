@@ -27,13 +27,3 @@ export const SessionRowSchema = z.object({
 });
 export type SessionRow = z.infer<typeof SessionRowSchema>;
 
-// stop_session answers with the row as read BEFORE the stop, not a second re-read.
-
-export const StopSessionInputSchema = z.object({ id: z.string().min(1) }).strict();
-export type StopSessionInput = z.infer<typeof StopSessionInputSchema>;
-
-export const StopSessionOutputSchema = z.object({
-	session: SessionRowSchema,
-	stopped: z.boolean(),
-});
-export type StopSessionOutput = z.infer<typeof StopSessionOutputSchema>;

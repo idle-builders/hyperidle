@@ -57,18 +57,8 @@ export {
 	SearchPluginsInputSchema,
 	searchPlugins,
 } from "./actions/platform.js";
-export type {
-	SessionRow,
-	SessionState,
-	StopSessionInput,
-	StopSessionOutput,
-} from "./actions/session.js";
-export {
-	SESSION_STATES,
-	SessionRowSchema,
-	StopSessionInputSchema,
-	StopSessionOutputSchema,
-} from "./actions/session.js";
+export type { SessionRow, SessionState } from "./actions/session.js";
+export { SESSION_STATES, SessionRowSchema } from "./actions/session.js";
 export type {
 	DoneWhenLine,
 	EditTaskInput,

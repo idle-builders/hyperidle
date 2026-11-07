@@ -4,11 +4,6 @@
  *
  * These are deliberately not a repository: each one is a specific question the
  * layer above already asked.
- *
- * The wire contract does NOT move with them. Nothing here imports
- * `@hyperidle/api-contract`; the routes keep their `satisfies AgentRun*Response`
- * assertions, so a divergence between an accessor's shape and the wire fails at
- * compile time on the wire's own side.
  */
 
 import type { SessionOutcome } from "@hyperidle/domain-model";

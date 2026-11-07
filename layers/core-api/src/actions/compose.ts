@@ -132,11 +132,10 @@ function buildTaskActionsDeps(
 }
 
 /**
- * Runner lookup by declaration name, structurally typed — same shape both
- * `createActionsRouter`/`actionCatalog` already loop over. Generic over both
- * the input and output type so every call site (`adjust_thread`/`open_thread`
- * sharing `ThreadView`, `open_task` returning `TaskView`) can be looked up
- * here through the one function.
+ * Runner lookup by declaration name, structurally typed — same shape
+ * `createActionsRouter` loops over. Generic over both the input and output type
+ * so every call site (`adjust_thread`/`open_thread` sharing `ThreadView`,
+ * `open_task` returning `TaskView`) can be looked up here through the one function.
  */
 export function runnerFor<I, O>(
 	actions: readonly Action[],

@@ -3,9 +3,9 @@
 import type { HarnessAdapter, SessionHandle } from "@hyperidle/harness-protocol";
 
 /**
- * Why a runtime is being aborted: `"stop"` is a genuine ask — `stop_session`
- * or a task-kill cascade — the only reason a stopped session's row may read
- * "stopped". `"return"` is an adapter reporting its own turn is over (an
+ * Why a runtime is being aborted: `"stop"` is a genuine ask — a task-kill
+ * cascade or an external stop — the only reason a stopped session's row may
+ * read "stopped". `"return"` is an adapter reporting its own turn is over (an
  * opencode session's own return tool call schedules this as a defensive
  * real-kill in case the process is still running); the harness ending its
  * own turn is not the same event as someone asking it to stop, so it must

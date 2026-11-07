@@ -102,9 +102,9 @@ function widenToToolContext(ctx: SessionLifecycleToolContext): ToolContext<Runne
 }
 
 /**
- * The locked shape `CoreApiBoot.editDocument`/`searchDocuments` expose,
- * threaded through this composition exactly like `actionTools`. Typed only
- * through `@hyperidle/domain-model` — this Layer may not import `core-api`.
+ * The edit_document/search_documents runner shape threaded through this
+ * composition exactly like `actionTools`. Typed only through
+ * `@hyperidle/domain-model` — this Layer may not import `core-api`.
  */
 type RunOrchestrationEditDocument = (
 	caller: {

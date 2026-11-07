@@ -1,23 +1,14 @@
 /**
  * Pure-schema unit tests for the session module's declarations —
- * `StopSessionInputSchema`, `SessionRowSchema`, `SESSION_STATES`.
+ * `SessionRowSchema`, `SESSION_STATES`.
  */
 
 import { describe, expect, it } from "vitest";
-import { SESSION_STATES, SessionRowSchema, StopSessionInputSchema } from "../actions/session.js";
+import { SESSION_STATES, SessionRowSchema } from "../actions/session.js";
 
 describe("SESSION_STATES", () => {
 	it("is exactly the set the real writers use: active, done, stopped, crashed — no 'failed', that value belongs to agent_session_requests, a different table", () => {
 		expect(SESSION_STATES).toEqual(["active", "done", "stopped", "crashed"]);
-	});
-});
-
-describe("StopSessionInputSchema", () => {
-	it("requires a non-empty id and carries no authorization field — anyone signed in may stop any session", () => {
-		expect(StopSessionInputSchema.safeParse({ id: "" }).success).toBe(false);
-		const result = StopSessionInputSchema.safeParse({ id: "s1" });
-		expect(result.success).toBe(true);
-		expect(result.success && Object.keys(result.data)).toEqual(["id"]);
 	});
 });
 

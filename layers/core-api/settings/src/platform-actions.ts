@@ -60,8 +60,7 @@ import { type PluginManifest, parseMcpJson, parsePluginManifest } from "./plugin
 /**
  * Local structural mirror of `layers/core-api/src/actions/action.ts`'s
  * `ActionContext`/`Action` — same idiom `@hyperidle/document`'s
- * `action-types.ts` and `@hyperidle/run-orchestration`'s `session-actions.ts`
- * use and explain at length.
+ * `action-types.ts` uses and explains at length.
  */
 export interface ActionContext {
 	readonly actor: string;
@@ -797,8 +796,7 @@ async function removeRun(
 
 	// The pre-remove state — `state: "removed"` is not a member of
 	// `PluginListState`, so there is no valid view to build AFTER removing;
-	// the answer is the row as it stood the moment asked, the same idiom
-	// `stop_session` uses for its pre-stop row.
+	// the answer is the row as it stood the moment asked.
 	const preView = await assemblePluginView(ctx, deps, id);
 
 	await removePlugin(ctx.db, id, ctx.now);

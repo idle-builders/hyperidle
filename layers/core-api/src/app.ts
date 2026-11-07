@@ -107,28 +107,8 @@ interface AppOptions {
 }
 
 const APP_DISPOSERS = new WeakMap<Hono, Array<() => void>>();
-/** Raw action list — exposed so `boot.ts` can build `CoreApiBoot.callActionAs` and the agents' tool list without re-constructing the actions. */
+/** Raw action list — exposed so `boot.ts` can build `CoreApiBoot.callActionAs` without re-constructing the actions. */
 const APP_ACTIONS = new WeakMap<Hono, readonly Action[]>();
-// @lore: APP_DOCUMENT_RUNNERS — boot.ts needs raw edit_document/search_documents runners, not MCP-wrapped; separate WeakMap keeps different consumer shapes apart
-const APP_DOCUMENT_RUNNERS = new WeakMap<
-	Hono,
-	{
-		readonly editDocument: (
-			ctx: ActionContext,
-			input: import("@hyperidle/domain-model").EditDocumentInput,
-		) => Promise<
-			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").DocumentView>
-		>;
-		readonly searchDocuments: (
-			ctx: ActionContext,
-			input: import("@hyperidle/domain-model").SearchDocumentsInput,
-		) => Promise<
-			import("@hyperidle/domain-model").ActionResult<
-				import("@hyperidle/domain-model").DocumentRow[]
-			>
-		>;
-	}
->();
 const appLogger = createLogger({ pkg: "server.app" });
 
 // Token store resolved by the caller (not createCoreApiApp) — same instance needed on both sides of auth middleware.
@@ -294,22 +274,6 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			{ readonly ids: readonly string[] },
 			readonly { readonly id: string; readonly members: readonly string[] }[]
 		>(actions, "search_threads");
-		// edit_plugin writes documents through edit_document action — never document repository functions directly
-		const editDocumentAction = actions.find((a) => a.declaration.name === "edit_document");
-		if (!editDocumentAction) {
-			throw new Error("buildCoreActions did not produce an edit_document action");
-		}
-		const editDocumentRun = editDocumentAction.run as (
-			ctx: ActionContext,
-			input: import("@hyperidle/domain-model").EditDocumentInput,
-		) => Promise<
-			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").DocumentView>
-		>;
-		// raw runners (not MCP-wrapped) for boot.ts to build CoreApiBoot document ports
-		APP_DOCUMENT_RUNNERS.set(api, {
-			editDocument: editDocumentRun,
-			searchDocuments: searchDocumentsRun,
-		});
 		// user module: search_users/open_user/edit_user under /api/actions/<name>
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
 		api.route("/start", createStartRoutes(options.db, eventBus, actions));
@@ -382,17 +346,6 @@ export function takeAppActions(hono: Hono): readonly Action[] | undefined {
 	const actions = APP_ACTIONS.get(hono);
 	APP_ACTIONS.delete(hono);
 	return actions;
-}
-
-/**
- * §8.4 — detach and return the composed `edit_document`/`search_documents`
- * runners. `undefined` when `db` was never supplied (no actions were built).
- * Read exactly once, by `bootCoreApi`.
- */
-export function takeAppDocumentRunners(hono: Hono): ReturnType<typeof APP_DOCUMENT_RUNNERS.get> {
-	const runners = APP_DOCUMENT_RUNNERS.get(hono);
-	APP_DOCUMENT_RUNNERS.delete(hono);
-	return runners;
 }
 
 /**
