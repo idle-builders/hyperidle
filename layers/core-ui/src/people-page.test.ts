@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	agentJobs,
 	agentStand,
+	applyMoveHereResult,
 	crewOf,
 	cronOf,
 	cronWords,
@@ -241,5 +242,26 @@ describe("runnerButtonState", () => {
 
 	it("returns null when this runner already holds the agent", () => {
 		expect(runnerButtonState({ hasRunner: true, held: true, movedAway: false })).toBeNull();
+	});
+});
+
+describe("applyMoveHereResult", () => {
+	it("null reply → not ok, problem uses agent name, button stays (runnerState not updated)", () => {
+		const r = applyMoveHereResult(null, "Claude");
+		expect(r.ok).toBe(false);
+		if (!r.ok) expect(r.problem).toBe("Could not move Claude here. Try again.");
+	});
+
+	it("held:false reply → not ok, problem uses agent name", () => {
+		const r = applyMoveHereResult({ held: false, movedAway: false }, "Claude");
+		expect(r.ok).toBe(false);
+		if (!r.ok) expect(r.problem).toBe("Could not move Claude here. Try again.");
+	});
+
+	it("held:true reply → ok, state carried through, no problem (error line cleared)", () => {
+		const state = { held: true, movedAway: false };
+		const r = applyMoveHereResult(state, "Claude");
+		expect(r.ok).toBe(true);
+		if (r.ok) expect(r.state).toBe(state);
 	});
 });

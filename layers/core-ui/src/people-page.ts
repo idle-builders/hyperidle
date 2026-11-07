@@ -362,3 +362,20 @@ export function pluginName(name: string): string {
 	const words = name.replace(/[-_]+/g, " ").trim();
 	return words.charAt(0).toUpperCase() + words.slice(1);
 }
+
+export type RunnerHeldState = { held: boolean; movedAway: boolean };
+
+/**
+ * Maps the raw moveHere reply to a state update or an error message.
+ * Returns `{ ok: true, state }` on a successful hold, or `{ ok: false, problem }` to show inline.
+ * Does NOT update runnerState on failure — the button stays visible.
+ */
+export function applyMoveHereResult(
+	result: RunnerHeldState | null | undefined,
+	agentName: string,
+): { ok: true; state: RunnerHeldState } | { ok: false; problem: string } {
+	if (result?.held === true) {
+		return { ok: true, state: result };
+	}
+	return { ok: false, problem: `Could not move ${agentName} here. Try again.` };
+}

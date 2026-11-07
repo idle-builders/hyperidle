@@ -25,6 +25,7 @@ import {
 	type Job,
 	joinWords,
 	type Pair,
+	applyMoveHereResult,
 	personStand,
 	pluginName,
 	reasonWords,
@@ -811,10 +812,12 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 										className="btn"
 										onClick={() => {
 											void window.__HYPERIDLE__?.runner?.moveHere(u.id).then((s) => {
-												if (s !== undefined) {
-													setRunnerState(s);
+												const outcome = applyMoveHereResult(s, u.name);
+												if (outcome.ok) {
+													setRunnerState(outcome.state);
+													setProblem(null);
 												} else {
-													setProblem("Could not move Builder here. Try again.");
+													setProblem(outcome.problem);
 												}
 											});
 										}}
