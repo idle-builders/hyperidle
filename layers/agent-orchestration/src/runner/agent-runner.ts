@@ -265,7 +265,9 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 						// The key was replaced elsewhere: mark moved-away and drop.
 						// Never re-take on the sweep — only an explicit takeAgent() can reclaim it.
 						await markMovedAway(agentId);
-						dropAgent(agentId);
+						// A concurrent takeAgent() may have updated the key while markMovedAway awaited.
+						// Only drop if the key is still the one that failed.
+						if (keys.get(agentId) === keyAtPassStart) dropAgent(agentId);
 						return;
 					}
 					logger.error("inbox pass failed; the rows wait for the next one", {
