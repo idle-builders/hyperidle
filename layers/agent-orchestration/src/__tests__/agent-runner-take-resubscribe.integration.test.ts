@@ -31,9 +31,13 @@ async function setup(runnerDb: RunnerDb, eventBus: EventBus) {
 		return unsubscribeSpy;
 	});
 
+	/** Keys used in open_user inbox drain calls (unread: true). Used to assert KEY2 after takeAgent. */
+	const inboxDrainKeys: string[] = [];
+
 	const door: AgentRunnerDeps["door"] = {
-		call<O>(_key: string, action: string, _input: unknown): Promise<DoorResult<O>> {
+		call<O>(key: string, action: string, input: unknown): Promise<DoorResult<O>> {
 			if (action === "open_user") {
+				if ((input as Record<string, unknown>)?.unread === true) inboxDrainKeys.push(key);
 				return Promise.resolve({
 					ok: true,
 					data: {
@@ -61,7 +65,6 @@ async function setup(runnerDb: RunnerDb, eventBus: EventBus) {
 				});
 			}
 			if (action === "edit_user") {
-				// takeAgent requests a new key
 				return Promise.resolve({
 					ok: true,
 					data: {
@@ -104,7 +107,7 @@ async function setup(runnerDb: RunnerDb, eventBus: EventBus) {
 		subscribeInbox,
 	});
 
-	return { runner, unsubscribeSpy, subscribeCallCount: () => subscribeCallCount };
+	return { runner, unsubscribeSpy, subscribeCallCount: () => subscribeCallCount, inboxDrainKeys };
 }
 
 describe("agent runner takeAgent re-subscribe", () => {
@@ -112,7 +115,10 @@ describe("agent runner takeAgent re-subscribe", () => {
 		runnerDb,
 		eventBus,
 	}) => {
-		const { runner, unsubscribeSpy, subscribeCallCount } = await setup(runnerDb, eventBus);
+		const { runner, unsubscribeSpy, subscribeCallCount, inboxDrainKeys } = await setup(
+			runnerDb,
+			eventBus,
+		);
 
 		// start() loads the persisted key and activates the agent (1st subscribe call).
 		await runner.start();
@@ -133,5 +139,8 @@ describe("agent runner takeAgent re-subscribe", () => {
 		expect(runner.keyFor(AGENT_ID)).toBe(KEY2);
 
 		await runner.stop();
+		// stop() awaits all in-flight drains, so the drain triggered by activateAgent(KEY2)
+		// is now complete. Assert that the last inbox pass used KEY2 (not the old KEY1).
+		expect(inboxDrainKeys.at(-1)).toBe(KEY2);
 	});
 });
