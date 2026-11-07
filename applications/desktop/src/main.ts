@@ -550,23 +550,45 @@ function forkRunner(serverUrl: string, apiKey: string, dataDir: string): (() => 
 	const runnerDrizzleDir = app.isPackaged
 		? path.join(process.resourcesPath ?? "", "runner-drizzle")
 		: path.resolve(Dirname, "..", "..", "..", "framework", "runner-db", "drizzle");
-	const env: Record<string, string> = {};
-	for (const [k, v] of Object.entries(process.env)) {
-		if (v !== undefined) env[k] = v;
+
+	let stopped = false;
+	let restartTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function launch(): void {
+		if (stopped) return;
+		const env: Record<string, string> = {};
+		for (const [k, v] of Object.entries(process.env)) {
+			if (v !== undefined) env[k] = v;
+		}
+		env.HYPERIDLE_SERVER_URL = serverUrl;
+		env.HYPERIDLE_API_KEY = apiKey;
+		env.HYPERIDLE_DATA_DIR = dataDir;
+		env.HYPERIDLE_RUNNER_DRIZZLE_DIR = runnerDrizzleDir;
+		log("forkRunner launching", { runnerBundle, serverUrl, dataDir, runnerDrizzleDir });
+		const child = utilityProcess.fork(runnerBundle, [], { env });
+		runnerChild = child;
+		child.on("exit", (code) => {
+			if (runnerChild === child) runnerChild = null;
+			log("runner process exited", { code });
+			if (!stopped && code !== 0) {
+				// Crashed; restart after 5 s.
+				restartTimer = setTimeout(() => {
+					restartTimer = null;
+					launch();
+				}, 5_000);
+			}
+		});
 	}
-	env.HYPERIDLE_SERVER_URL = serverUrl;
-	env.HYPERIDLE_API_KEY = apiKey;
-	env.HYPERIDLE_DATA_DIR = dataDir;
-	env.HYPERIDLE_RUNNER_DRIZZLE_DIR = runnerDrizzleDir;
-	log("forkRunner", { runnerBundle, serverUrl, dataDir, runnerDrizzleDir });
-	const child = utilityProcess.fork(runnerBundle, [], { env });
-	runnerChild = child;
-	child.on("exit", (code) => {
-		if (runnerChild === child) runnerChild = null;
-		log("runner process exited", { code });
-	});
+
+	launch();
+
 	return () => {
-		child.kill();
+		stopped = true;
+		if (restartTimer !== null) {
+			clearTimeout(restartTimer);
+			restartTimer = null;
+		}
+		runnerChild?.kill();
 	};
 }
 
