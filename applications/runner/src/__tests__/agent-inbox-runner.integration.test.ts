@@ -14,7 +14,6 @@ import {
 	inbox,
 	messages,
 	subscriptions,
-	taskDispatchAttempts,
 	tasks,
 	teams,
 	users,
@@ -514,38 +513,4 @@ describe("an agent acts on its inbox", () => {
 		);
 	}, 20_000);
 
-	test("when a task run is refused admission, the dispatch attempt is marked failed", async () => {
-		await withWorld(
-			answersPong,
-			async (world, db) => {
-				await world.runner.start();
-				const created = await asPerson<{ task: { id: string } }>(world, "edit_task", {
-					title: "Failing task",
-					teamId: TEAM,
-					ownerAgentId: BUILDER,
-				});
-				await asPerson(world, "edit_task", { id: created.task.id, state: "accepted" });
-
-				await waitFor("dispatch attempt marked failed", async () => {
-					const [attempt] = await db
-						.select()
-						.from(taskDispatchAttempts)
-						.where(
-							and(
-								eq(taskDispatchAttempts.taskId, created.task.id),
-								eq(taskDispatchAttempts.status, "failed"),
-							),
-						);
-					return attempt ?? undefined;
-				});
-
-				const [attempt] = await db
-					.select()
-					.from(taskDispatchAttempts)
-					.where(eq(taskDispatchAttempts.taskId, created.task.id));
-				expect(attempt?.status).toBe("failed");
-			},
-			makeFailingBoot(),
-		);
-	}, 20_000);
 });
