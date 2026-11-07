@@ -189,7 +189,6 @@ describe("an agent acts on its inbox", () => {
 
 	test("a schedule firing is a row with no change, and the agent answers it", async () => {
 		await withWorld(answersPong, async (world, db) => {
-			await world.runner.start();
 			await asPerson(world, "edit_user", {
 				id: BUILDER,
 				subscriptions: { add: [{ schedule: "0 9 * * *", prompt: "Say pong." }] },
@@ -198,14 +197,17 @@ describe("an agent acts on its inbox", () => {
 				.update(subscriptions)
 				.set({ nextRunAt: new Date(Date.now() - 1_000).toISOString() })
 				.where(eq(subscriptions.userId, BUILDER));
-			const clock = startSubscriptionClock(
-				db,
-				{
-					wsPush: (topic: string, envelope: unknown) => world.nudge(topic, envelope),
-				},
-				{ tickIntervalMs: 20 },
-			);
+			// Clock writes the inbox row with no wsPush — no nudge is sent.
+			const clock = startSubscriptionClock(db, {}, { tickIntervalMs: 20 });
 			try {
+				// Wait for the row to appear, then start the runner so its startup
+				// sweep finds the unread row without needing a nudge.
+				await waitFor("subscription inbox row", async () => {
+					const rows = await inboxOf(db, BUILDER);
+					return rows.length > 0 ? rows : undefined;
+				});
+				clock.stop();
+				await world.runner.start();
 				await waitFor("Builder's reply to its schedule", async () => {
 					const found = await saidBy(db, BUILDER, "pong");
 					return found.length > 0 ? found : undefined;
@@ -505,8 +507,8 @@ describe("an agent acts on its inbox", () => {
 				const noticeText =
 					(JSON.parse(notices[0]?.payload ?? "{}") as { text?: string }).text ?? "";
 				expect(noticeText).toContain("could not start");
-				// Idempotent: a second nudge posts no duplicate.
-				world.nudge(`user:${BUILDER}`, {});
+				// Idempotent: a second drain (triggered naturally by user.changed after
+				// the row is marked read) posts no duplicate.
 				await new Promise((r) => setTimeout(r, 300));
 				const after = await db
 					.select()

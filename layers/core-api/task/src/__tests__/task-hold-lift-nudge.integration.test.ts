@@ -3,14 +3,7 @@
  * ownerAgentId, registerTaskLiveUpdates must push user:<ownerAgentId> so the
  * agent's runner wakes immediately without waiting for its 30 s sweep.
  */
-import {
-	type HyperIdleDb,
-	tasks,
-	teams,
-	threads,
-	userTeams,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users, userTeams } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus, objectEvent } from "@hyperidle/event-bus";
 import { registerTaskLiveUpdates } from "../task-live-updates.js";
