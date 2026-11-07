@@ -2,13 +2,15 @@ import { createLogger } from "@hyperidle/diagnostics";
 import type { InboxRowView, UserRow, UserView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
+	listSessions,
 	loadHeldAgentRunnerKeys,
 	loadMovedAwayAgentIds,
 	markAgentRunnerKeyMovedAway,
 	persistAgentRunnerKey,
+	stopSessionRun,
 } from "@hyperidle/run-orchestration";
 import type { RunnerDb } from "@hyperidle/runner-db";
-import { cancelAllPendingForAgent } from "@hyperidle/session-requests";
+import { cancelAllPendingForAgent, sessionRunRegistry } from "@hyperidle/session-requests";
 import { type CoreDoor, DoorError } from "./core-door.js";
 import { actOnInboxRow, NotYet, postFailureNotice } from "./inbox-work.js";
 import { cleanupFinishedTaskWorktrees } from "./task-cleanup.js";
@@ -95,6 +97,22 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 			if (n > 0) logger.info("cancelled pending runs for moved-away agent", { agentId, n });
 		} catch (err) {
 			logger.warn("could not cancel pending runs for moved-away agent", {
+				agentId,
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+		// Stop live harness sessions so they don't continue with an invalidated key.
+		try {
+			const live = await listSessions(deps.db, { agentIds: [agentId], state: "active", limit: 10 });
+			for (const session of live) {
+				await stopSessionRun(deps.db, deps.eventBus, session.id, (sid) =>
+					sessionRunRegistry.abort(sid, "stop"),
+				);
+			}
+			if (live.length > 0)
+				logger.info("stopped live sessions for moved-away agent", { agentId, n: live.length });
+		} catch (err) {
+			logger.warn("could not stop live sessions for moved-away agent", {
 				agentId,
 				error: err instanceof Error ? err.message : String(err),
 			});

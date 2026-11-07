@@ -272,6 +272,16 @@ async function actOnReviewAnswered(
 	);
 	if (outcome.status === "queued") return;
 	// No session can take it back, so the agent reads the answer in a new turn.
+	// Same hold-back rule as messages and task runs: don't start while at the limit.
+	const { maxConcurrentSessions } = await readAgentRunConfig(deps.db, me.id);
+	const active = await listSessions(deps.db, {
+		agentIds: [me.id],
+		state: "active",
+		limit: maxConcurrentSessions,
+	});
+	const pendingCount = await countPendingRunsForAgent(deps.db, me.id);
+	if (active.length + pendingCount >= maxConcurrentSessions)
+		throw new NotYet("agent is at session limit");
 	logger.info("answer starts a new turn", { reviewMessageId, outcome: outcome.status });
 	// Core left an approved task open for the session that asked; with none coming back, the agent
 	// closes it here — by core's own rule, only when every line of it is met.
@@ -386,6 +396,16 @@ async function actOnSubscription(
 	const prompt = found.ok ? (found.data[0]?.body ?? null) : null;
 	const team = me.teams[0] ?? null;
 	const sourceId = row.change ? `${sub.id}:${row.change.id}` : `${sub.id}:${row.createdAt}`;
+	// Same hold-back rule as messages and task runs.
+	const { maxConcurrentSessions } = await readAgentRunConfig(deps.db, me.id);
+	const active = await listSessions(deps.db, {
+		agentIds: [me.id],
+		state: "active",
+		limit: maxConcurrentSessions,
+	});
+	const pendingCount = await countPendingRunsForAgent(deps.db, me.id);
+	if (active.length + pendingCount >= maxConcurrentSessions)
+		throw new NotYet("agent is at session limit");
 	await queue(
 		deps,
 		{
