@@ -40,9 +40,16 @@ function connect(handle: Booted): WebSocket {
 function waitForOpen(ws: WebSocket): Promise<void> {
 	return new Promise((resolve, reject) => {
 		ws.addEventListener("open", () => resolve(), { once: true });
-		ws.addEventListener("error", (evt) => reject(new Error(`ws error: ${String(evt)}`)), {
-			once: true,
-		});
+		ws.addEventListener(
+			"error",
+			(evt) => {
+				const e = evt as ErrorEvent;
+				const underlying = e.error instanceof Error ? e.error.message : String(e.error ?? "");
+				const detail = underlying ? ` (${underlying})` : "";
+				reject(new Error(`ws error: ${e.message ?? "unknown"}${detail}`));
+			},
+			{ once: true },
+		);
 	});
 }
 
