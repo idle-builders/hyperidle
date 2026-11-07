@@ -128,7 +128,7 @@ export async function countPendingRunsForAgent(db: RunnerDb, agentId: string): P
 	return Number(row?.count ?? 0);
 }
 
-/** Cancel all pending requests for a given agent — called when the agent moves away (401). */
+/** Cancel all pending and claimed requests for a given agent — called when the agent moves away (401). */
 export async function cancelAllPendingForAgent(
 	db: RunnerDb,
 	agentId: string,
@@ -136,9 +136,12 @@ export async function cancelAllPendingForAgent(
 ): Promise<number> {
 	const cancelled = await db
 		.update(agentSessionRequests)
-		.set({ status: "cancelled", updatedAt: now })
+		.set({ status: "cancelled", claimToken: null, claimExpiresAt: null, claimedBy: null, claimedAt: null, updatedAt: now })
 		.where(
-			and(eq(agentSessionRequests.agentId, agentId), eq(agentSessionRequests.status, "pending")),
+			and(
+				eq(agentSessionRequests.agentId, agentId),
+				inArray(agentSessionRequests.status, ["pending", "claimed"]),
+			),
 		)
 		.returning({ id: agentSessionRequests.id });
 	return cancelled.length;

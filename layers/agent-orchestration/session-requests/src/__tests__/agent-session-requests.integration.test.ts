@@ -16,6 +16,7 @@ import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";
 import {
+	cancelAllPendingForAgent,
 	cancelPendingForTasks,
 	claimSessionRequest,
 	findSessionRequest,
@@ -438,5 +439,57 @@ describe("agent session request repository", () => {
 		sessionRunRegistry.deregister("registry-session");
 		expect(sessionRunRegistry.has("registry-session")).toBe(false);
 		expect(await sessionRunRegistry.abort("registry-session", "stop")).toBe(false);
+	});
+
+	test("cancelAllPendingForAgent cancels both pending and claimed rows, leaves others untouched (S7)", async ({
+		db,
+		runnerDb,
+	}) => {
+		const now = new Date().toISOString();
+		// First request for the agent under test.
+		const req1 = await createAssistantRequest(db, runnerDb, "s7a");
+		const agentId = req1.agentId;
+
+		// Second request for the same agent — inserted directly to avoid duplicate user rows.
+		await runnerDb.insert(agentSessionRequests).values({
+			id: "request-s7b",
+			sourceKind: "assistant",
+			sourceId: "message-s7b",
+			streamId: "thread:s7b",
+			agentId,
+			userId: `user-s7a`,
+			promptMode: "conversation",
+			idempotencyKey: "assistant:s7b",
+			sourceCorrelationJson: JSON.stringify({ threadId: "thread-s7b", messageId: "message-s7b" }),
+			status: "pending",
+			createdAt: now,
+			updatedAt: now,
+		});
+
+		// Claim the second request so it transitions to 'claimed'.
+		const claimed = await claimSessionRequest(
+			runnerDb,
+			{ id: "request-s7b" },
+			{ workerId: "worker-s7", now: new Date(), leaseMs: 60_000 },
+		);
+
+		// A third request for a different agent — must not be touched.
+		const otherAgent = await createAssistantRequest(db, runnerDb, "s7-other");
+
+		const n = await cancelAllPendingForAgent(runnerDb, agentId, now);
+		expect(n).toBe(2);
+
+		const rows = await runnerDb.select().from(agentSessionRequests);
+		const statusById = Object.fromEntries(
+			rows.map((r) => [r.id, { status: r.status, claimToken: r.claimToken }]),
+		);
+		expect(statusById[req1.id]?.status).toBe("cancelled");
+		expect(statusById["request-s7b"]?.status).toBe("cancelled");
+		// Claim fields nulled out when a claimed row is cancelled.
+		expect(statusById["request-s7b"]?.claimToken).toBeNull();
+		// Other agent's request not touched.
+		expect(statusById[otherAgent.id]?.status).toBe("pending");
+
+		expect(claimed).not.toBeNull();
 	});
 });
