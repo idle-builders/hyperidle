@@ -161,10 +161,6 @@ export const taskDispatchAttempts = pgTable(
 			.references(() => users.id, { onDelete: "restrict" }),
 		ordinal: integer("ordinal").notNull(),
 		status: text("status").notNull().default("requested"),
-		/** The runner's session-request ID for this attempt. Plain text — no FK into runner-db. */
-		requestId: text("request_id"),
-		/** The session ID once running. Plain text — no FK into runner-db. */
-		sessionId: text("session_id"),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 	},
