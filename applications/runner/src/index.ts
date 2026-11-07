@@ -44,7 +44,7 @@ export interface StartRunnerDeps {
 	readonly spacesDir?: string;
 	/** Injected agent-execution boot — for tests only. When omitted, the real one is booted. */
 	readonly agentExecutionBoot?: AgentExecutionBoot;
-	/** How often to sweep for new agents / missed inbox rows. Default 30 s. For tests only. */
+	/** How often to sweep for new agents / missed inbox rows. Default 30 s. */
 	readonly sweepMs?: number;
 }
 
@@ -206,8 +206,11 @@ export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> 
 		deps.agentExecutionBoot ?? (await bootAgentExecution({ topology: "local", mcpBaseUrl }));
 
 	// Runner's own MCP bridge HTTP server.
+	// @lore: bridge /api prefix — mountMcpRouter places routes at /mcp/:token; config URLs use /api/mcp/:token; sub-router at /api aligns the paths.
 	const bridgeApp = new Hono();
-	agentExecution.mountMcpRouter(bridgeApp);
+	const bridgeApi = new Hono();
+	agentExecution.mountMcpRouter(bridgeApi);
+	bridgeApp.route("/api", bridgeApi);
 
 	const bridgeServer: ServerType = serve({
 		fetch: bridgeApp.fetch,
