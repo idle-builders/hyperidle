@@ -263,7 +263,7 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 			return running;
 		}
 		const pass = (async () => {
-			outer: do {
+			do {
 				again.delete(agentId);
 				// Snapshot the key before the pass so a concurrent takeAgent() can be detected.
 				const keyAtPassStart = keys.get(agentId);
@@ -273,7 +273,7 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 					if (error instanceof DoorError && error.status === 401) {
 						// If takeAgent() updated the key concurrently, the new key is valid — run again
 						// (honour any pending nudge that arrived while the old pass was running).
-						if (keys.get(agentId) !== keyAtPassStart) continue outer;
+						if (keys.get(agentId) !== keyAtPassStart) continue;
 						// The key was not rotated by us: mark moved-away and drop.
 						// Never re-take on the sweep — only an explicit takeAgent() can reclaim it.
 						// keyAtPassStart is always set when we reach here: workInbox early-exits

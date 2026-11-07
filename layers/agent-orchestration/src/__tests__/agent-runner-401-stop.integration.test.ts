@@ -117,7 +117,13 @@ describe("agent runner on 401", () => {
 				if (key === PERSON_KEY && action === "edit_user") {
 					return {
 						ok: true,
-						data: { key: KEY2, user: fakeAgentUser, documentIds: [], subscriptions: [], inbox: null } as O,
+						data: {
+							key: KEY2,
+							user: fakeAgentUser,
+							documentIds: [],
+							subscriptions: [],
+							inbox: null,
+						} as O,
 					};
 				}
 				if (action === "search_users") {
@@ -175,7 +181,9 @@ describe("agent runner on 401", () => {
 			promptMode: "message",
 			idempotencyKey: "req-s2",
 			sourceCorrelationJson: JSON.stringify({ threadId: "thr-s2", teamId: "team-s2" }),
-			payloadJson: JSON.stringify({ agentConfig: { kind: "ai", status: "active", role: "builder", teamId: "team-s2" } }),
+			payloadJson: JSON.stringify({
+				agentConfig: { kind: "ai", status: "active", role: "builder", teamId: "team-s2" },
+			}),
 			status: "pending",
 			createdAt: NOW,
 			updatedAt: NOW,
@@ -189,7 +197,13 @@ describe("agent runner on 401", () => {
 				if (key === PERSON_KEY && action === "edit_user") {
 					return Promise.resolve({
 						ok: true,
-						data: { key: KEY2, user: fakeAgentUser, documentIds: [], subscriptions: [], inbox: null } as O,
+						data: {
+							key: KEY2,
+							user: fakeAgentUser,
+							documentIds: [],
+							subscriptions: [],
+							inbox: null,
+						} as O,
 					});
 				}
 				if (action === "search_users") {

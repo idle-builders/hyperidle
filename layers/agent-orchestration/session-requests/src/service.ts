@@ -136,7 +136,14 @@ export async function cancelAllPendingForAgent(
 ): Promise<number> {
 	const cancelled = await db
 		.update(agentSessionRequests)
-		.set({ status: "cancelled", claimToken: null, claimExpiresAt: null, claimedBy: null, claimedAt: null, updatedAt: now })
+		.set({
+			status: "cancelled",
+			claimToken: null,
+			claimExpiresAt: null,
+			claimedBy: null,
+			claimedAt: null,
+			updatedAt: now,
+		})
 		.where(
 			and(
 				eq(agentSessionRequests.agentId, agentId),

@@ -26,4 +26,3 @@ export const SessionRowSchema = z.object({
 	sourceKind: z.enum(AGENT_SESSION_SOURCE_KINDS).nullable(),
 });
 export type SessionRow = z.infer<typeof SessionRowSchema>;
-
