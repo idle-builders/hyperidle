@@ -482,6 +482,20 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 		if (!(hasRunner && agent)) return;
 		void window.__HYPERIDLE__?.runner?.state(u.id).then((s) => setRunnerState(s));
 	}, [hasRunner, agent, u.id]);
+
+	// Refresh runner state when the window regains focus or becomes visible.
+	useEffect(() => {
+		if (!(hasRunner && agent)) return;
+		const refresh = () => {
+			void window.__HYPERIDLE__?.runner?.state(u.id).then((s) => setRunnerState(s));
+		};
+		window.addEventListener("focus", refresh);
+		document.addEventListener("visibilitychange", refresh);
+		return () => {
+			window.removeEventListener("focus", refresh);
+			document.removeEventListener("visibilitychange", refresh);
+		};
+	}, [hasRunner, agent, u.id]);
 	const runnerBtn =
 		mine && agent && hasRunner && runnerState !== null
 			? runnerButtonState({
@@ -797,7 +811,11 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 										className="btn"
 										onClick={() => {
 											void window.__HYPERIDLE__?.runner?.moveHere(u.id).then((s) => {
-												if (s !== undefined) setRunnerState(s);
+												if (s !== undefined) {
+													setRunnerState(s);
+												} else {
+													setProblem("Could not move Builder here. Try again.");
+												}
 											});
 										}}
 									>
