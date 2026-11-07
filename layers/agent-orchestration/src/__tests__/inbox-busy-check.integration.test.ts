@@ -230,6 +230,17 @@ const reviewAnsweredRow: InboxRowView = {
 	readAt: null,
 };
 
+const taskStopRow: InboxRowView = {
+	id: "row-stop-busycheck",
+	reason: "task_stop",
+	change: null,
+	subscriptionId: null,
+	objectId: TASK_ID,
+	createdAt: NOW,
+	seenAt: null,
+	readAt: null,
+};
+
 describe("inbox busy check", () => {
 	test("holds back a task_run row when the agent has one active session and limit is 1", async ({
 		runnerDb,
@@ -329,5 +340,17 @@ describe("inbox busy check", () => {
 			NotYet,
 		);
 		expect(await countQueuedRequests(runnerDb)).toBe(0);
+	});
+
+	test("task_stop row is never held back even when the agent is at its session limit", async ({
+		runnerDb,
+		eventBus,
+	}) => {
+		await seedActiveSession(runnerDb, "session-stop-active");
+		// Default limit 1 → at limit for task_run/subscription, but task_stop bypasses it.
+
+		const deps: InboxWorkDeps = { db: runnerDb, eventBus, door: makeDoor() };
+		// Must not throw NotYet.
+		await expect(actOnInboxRow(deps, makeAgent(), taskStopRow)).resolves.toBeUndefined();
 	});
 });
