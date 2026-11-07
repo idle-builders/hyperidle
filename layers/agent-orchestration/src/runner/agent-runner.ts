@@ -23,7 +23,7 @@ const INBOX_PAGE = 50;
 
 export interface AgentRunnerDeps {
 	readonly db: RunnerDb;
-	/** Event bus for in-process nudges when user.created / user.changed fire. */
+	/** Event bus for session_ended nudges, so a finishing session re-sweeps the agent's inbox. */
 	readonly eventBus: EventBus;
 	readonly door: CoreDoor;
 	/** The key of the person this computer belongs to; undefined until there is one. */
@@ -294,17 +294,6 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 			const away = await loadMovedAwayAgentIds(deps.db);
 			for (const agentId of away) {
 				movedAway.add(agentId);
-			}
-			// In-process bus: a new or changed agent may be one this computer now holds.
-			for (const event of ["user.created", "user.changed"] as const) {
-				const off = deps.eventBus.on(event, () => {
-					void takeAgents().catch((error) => {
-						logger.error("looking for agents failed", {
-							error: error instanceof Error ? error.message : String(error),
-						});
-					});
-				});
-				unsubscribers.set(event, off);
 			}
 			// When a session ends, re-sweep that agent's inbox: rows that waited while
 			// the agent was busy (NotYet) may now be ready to queue.

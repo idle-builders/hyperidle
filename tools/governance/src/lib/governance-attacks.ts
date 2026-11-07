@@ -135,7 +135,7 @@ export const ATTACK_ANCHORS = {
 	 * A SECOND framework package's source root — a framework source that is NOT the database package,
 	 * so an import of `@hyperidle/db` from it is a real crossing rather than a package naming itself.
 	 */
-	otherFrameworkDir: "framework/api-contract/src",
+	otherFrameworkDir: "framework/harness-protocol/src",
 	/**
 	 * A service that IS in `framework/harness-protocol`'s declared audience — the control twin for the
 	 * narrow-audience refusal, which is only a test of the audience if the same import from inside the
@@ -543,10 +543,10 @@ export const ATTACKS: readonly Attack[] = [
 	{
 		id: "reexport-narrow-surface",
 		detail:
-			"a layer barrel re-exporting a `framework/api-contract` symbol (reach: [layer]), whose audience is narrower than everyone",
+			"a layer barrel re-exporting a `framework/harness-protocol` symbol (reach: named audience), whose audience is narrower than everyone",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
-			[`${a.layerDir}/attack-reexport-contract.ts`]: `export type { AgentOrchestrationPort } from "@hyperidle/api-contract";\n`,
+			[`${a.layerDir}/attack-reexport-contract.ts`]: `export type { HarnessAdapter } from "@hyperidle/harness-protocol";\n`,
 		},
 		expect: {
 			sort: "finding",
@@ -575,8 +575,8 @@ export const ATTACKS: readonly Attack[] = [
 		rules: ["no-laundered-re-exports"],
 		overlay: {
 			[`${a.layerDir}/attack-import-contract.ts`]:
-				`import type { AgentOrchestrationPort } from "@hyperidle/api-contract";\n` +
-				`export type Wrapped = { readonly value: AgentOrchestrationPort };\n`,
+				`import type { HarnessAdapter } from "@hyperidle/harness-protocol";\n` +
+				`export type Wrapped = { readonly value: HarnessAdapter };\n`,
 		},
 		expect: { sort: "clean", file: `${a.layerDir}/attack-import-contract.ts` },
 	},
@@ -1010,8 +1010,8 @@ export const ATTACKS: readonly Attack[] = [
 		rules: ["crossing-import"],
 		overlay: {
 			[`${a.frameworkDir}/attack-framework-names-framework.ts`]:
-				`import type { AgentOrchestrationPort } from "@hyperidle/api-contract";\n` +
-				`export type AttackWrapped = { readonly value: AgentOrchestrationPort };\n`,
+				`import type { HarnessAdapter } from "@hyperidle/harness-protocol";\n` +
+				`export type AttackWrapped = { readonly value: HarnessAdapter };\n`,
 		},
 		expect: { sort: "clean", file: `${a.frameworkDir}/attack-framework-names-framework.ts` },
 	},

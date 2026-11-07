@@ -76,10 +76,6 @@
 			"reach": "everyone",
 			"why": "the manifest-level dependency on the runner database package. Which surface INSIDE it you may touch is decided per surface below, so declaring the dependency is not itself a decision."
 		},
-		"framework/api-contract": {
-			"reach": ["layer"],
-			"why": "the request/response shapes two layers agree on. A service talks through its own layer, so it has no business naming the contract directly."
-		},
 		"db:client": {
 			"reach": "everyone",
 			"why": "holding a database handle is not the same as touching a table"

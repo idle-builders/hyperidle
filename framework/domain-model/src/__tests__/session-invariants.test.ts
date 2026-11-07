@@ -1,15 +1,10 @@
 /**
  * Pure-schema unit tests for the session module's declarations —
- * `StopSessionInputSchema`, `SessionRowSchema`, `SESSION_STATES`, `SESSION_ACTIONS`.
+ * `StopSessionInputSchema`, `SessionRowSchema`, `SESSION_STATES`.
  */
 
 import { describe, expect, it } from "vitest";
-import {
-	SESSION_ACTIONS,
-	SESSION_STATES,
-	SessionRowSchema,
-	StopSessionInputSchema,
-} from "../actions/session.js";
+import { SESSION_STATES, SessionRowSchema, StopSessionInputSchema } from "../actions/session.js";
 
 describe("SESSION_STATES", () => {
 	it("is exactly the set the real writers use: active, done, stopped, crashed — no 'failed', that value belongs to agent_session_requests, a different table", () => {
@@ -52,17 +47,5 @@ describe("SessionRowSchema", () => {
 
 	it("rejects a modelTier outside MODEL_TIERS", () => {
 		expect(SessionRowSchema.safeParse({ ...row, modelTier: "genius" }).success).toBe(false);
-	});
-});
-
-describe("SESSION_ACTIONS", () => {
-	it("names exactly stop_session", () => {
-		expect(Object.keys(SESSION_ACTIONS)).toEqual(["stop_session"]);
-	});
-
-	it("each declaration's own name matches its map key", () => {
-		for (const [key, declaration] of Object.entries(SESSION_ACTIONS)) {
-			expect(declaration.name).toBe(key);
-		}
 	});
 });

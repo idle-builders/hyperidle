@@ -3,7 +3,6 @@ import { createLogger } from "@hyperidle/diagnostics";
 import { SYSTEM_ACTOR_ID } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { checkAndUnblockDependents, registerTaskLiveUpdates } from "@hyperidle/task";
-import { registerThreadSessionLiveUpdates } from "@hyperidle/thread";
 import {
 	createUpgradeTokenStore,
 	registerSubscriptionFire,
@@ -214,11 +213,7 @@ function registerSubscriptionServices(
 		unsubSubscriptionFire,
 		subscriptionClock.stop,
 		...(wsPush
-			? [
-					registerTaskLiveUpdates(db, eventBus, wsPush),
-					registerUserLiveUpdates(eventBus, wsPush),
-					registerThreadSessionLiveUpdates(eventBus, wsPush),
-				]
+			? [registerTaskLiveUpdates(db, eventBus, wsPush), registerUserLiveUpdates(eventBus, wsPush)]
 			: []),
 	];
 }

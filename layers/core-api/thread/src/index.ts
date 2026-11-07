@@ -24,4 +24,3 @@ export {
 	searchAppMessages,
 	searchConversations,
 } from "./thread-service.js";
-export { registerThreadSessionLiveUpdates } from "./thread-session-live-updates.js";

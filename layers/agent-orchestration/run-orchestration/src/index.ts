@@ -61,12 +61,6 @@ export {
 } from "./review-sessions.js";
 export { runSession } from "./runtime.js";
 export { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";
-export {
-	type Action as SessionAction,
-	type ActionContext as SessionActionContext,
-	createSessionActions,
-	type SessionActionsDeps,
-} from "./session-actions.js";
 // -- `sessions`: this Service owns the table, so these are its only doors --
 export {
 	endSessionByCas,

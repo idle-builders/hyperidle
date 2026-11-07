@@ -64,12 +64,10 @@ export type {
 	StopSessionOutput,
 } from "./actions/session.js";
 export {
-	SESSION_ACTIONS,
 	SESSION_STATES,
 	SessionRowSchema,
 	StopSessionInputSchema,
 	StopSessionOutputSchema,
-	stopSession,
 } from "./actions/session.js";
 export type {
 	DoneWhenLine,

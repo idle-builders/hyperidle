@@ -3,7 +3,6 @@ import type {
 	ActionResult,
 	DOCUMENT_ACTIONS,
 	PLATFORM_ACTIONS,
-	SESSION_ACTIONS,
 	TASK_ACTIONS,
 	THREAD_ACTIONS,
 	USER_ACTIONS,
@@ -14,7 +13,6 @@ type Actions = typeof THREAD_ACTIONS &
 	typeof TASK_ACTIONS &
 	typeof DOCUMENT_ACTIONS &
 	typeof USER_ACTIONS &
-	typeof SESSION_ACTIONS &
 	typeof PLATFORM_ACTIONS;
 export type ActionName = keyof Actions;
 type Parts<D> = D extends ActionDeclaration<infer I, infer O> ? { input: I; output: O } : never;

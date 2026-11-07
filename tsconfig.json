@@ -29,9 +29,6 @@
 			"path": "tools/eslint-plugin-authz"
 		},
 		{
-			"path": "framework/api-contract"
-		},
-		{
 			"path": "applications/desktop"
 		},
 		{

@@ -1,6 +1,4 @@
 /**
- * The session action list. `createSessionActions` against a hand-built `SessionActionsDeps`
- * for the no-live-entry and terminal-row halves of `stop_session`;
  * `stopSessionRun` against the REAL `sessionRunRegistry` and a real
  * `provisioner.run` for the live-entry half — the only way to prove the
  * teardown fix that makes a stopped session's row read state "stopped", not
@@ -10,7 +8,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import type { StopSessionInput, StopSessionOutput } from "@hyperidle/domain-model";
 import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { type RunnerDb, sessions } from "@hyperidle/runner-db";
@@ -28,8 +25,7 @@ import {
 	vi,
 } from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
-import { type Action, createSessionActions, type SessionActionsDeps } from "../session-actions.js";
-import { findSessionById, stopSessionRun } from "../session-store.js";
+import { stopSessionRun } from "../session-store.js";
 
 const NOW = "2026-09-01T00:00:00.000Z";
 
@@ -58,82 +54,6 @@ async function seedSession(
 		outcome: options.outcome ?? null,
 	});
 }
-
-/** A deps bag with `stop` stubbed — `sessions.getById` is the real store accessor. */
-function buildDeps(overrides: Partial<SessionActionsDeps> = {}): SessionActionsDeps {
-	return {
-		sessions: { getById: findSessionById },
-		stop: vi.fn(async () => "already_ended" as const),
-		...overrides,
-	};
-}
-
-/** The declared action, typed against its real input/output shapes. */
-function typedStop(deps: SessionActionsDeps): Action<StopSessionInput, StopSessionOutput> {
-	const [stop] = createSessionActions(deps);
-	if (!stop) throw new Error("createSessionActions: expected stop action");
-	return stop as Action<StopSessionInput, StopSessionOutput>;
-}
-
-describe("createSessionActions", () => {
-	describe("stop_session", () => {
-		test("no live entry: stopped true, the row the answer carries is the pre-stop row", async ({
-			db,
-			runnerDb,
-		}) => {
-			await seedAgent(db, "agent-stop-marked");
-			await seedSession(runnerDb, {
-				id: "s-marked",
-				agentId: "agent-stop-marked",
-				state: "active",
-			});
-			const stop = typedStop(buildDeps({ stop: async () => "marked" }));
-
-			const result = await stop.run(
-				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
-				{ id: "s-marked" },
-			);
-
-			if (!result.ok) throw new Error("expected ok");
-			expect(result.data.stopped).toBe(true);
-			// The action reads the row BEFORE calling stop — this is the pre-stop
-			// answer, not a second re-read after the CAS.
-			expect(result.data.session.state).toBe("active");
-		});
-
-		test("a terminal row answers stopped: false", async ({ db, runnerDb }) => {
-			await seedAgent(db, "agent-stop-terminal");
-			await seedSession(runnerDb, {
-				id: "s-terminal",
-				agentId: "agent-stop-terminal",
-				state: "done",
-				outcome: "completed",
-			});
-			const stop = typedStop(buildDeps({ stop: async () => "already_ended" }));
-
-			const result = await stop.run(
-				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
-				{ id: "s-terminal" },
-			);
-
-			if (!result.ok) throw new Error("expected ok");
-			expect(result.data.stopped).toBe(false);
-		});
-
-		test("an unknown id is not_found", async ({ runnerDb }) => {
-			const stop = typedStop(buildDeps());
-
-			const result = await stop.run(
-				{ actor: "u1", db: runnerDb, eventBus: new EventBus(), now: NOW },
-				{ id: "nope" },
-			);
-
-			expect(result.ok).toBe(false);
-			if (result.ok) throw new Error("expected refusal");
-			expect(result.problems[0]?.code).toBe("not_found");
-		});
-	});
-});
 
 describe("stopSessionRun — no live runtime entry", () => {
 	test("CAS-marks stopped/stopped and emits session_ended once", async ({ db, runnerDb }) => {

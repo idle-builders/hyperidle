@@ -1,8 +1,8 @@
 /**
  * The compact architecture model must reproduce every verdict in `tools/governance/decided-rules.json`
- * — 139 role-pair x crossing-kind rows the founder decided one at a time, each with a separate
+ * — 137 role-pair x crossing-kind rows the founder decided one at a time, each with a separate
  * production-world and development-world answer. `governance-model.ts`'s clauses must *derive* all
- * 278 answers; a clause tuned to fix one crossing can silently flip another, so this asserts the
+ * 274 answers; a clause tuned to fix one crossing can silently flip another, so this asserts the
  * derivation against the decided set, not a hand-picked sample.
  *
  * Stays in `framework/db` (not `tools/governance`) because it needs this package's live `schema.js`
@@ -238,17 +238,17 @@ const label = (row: DecidedRow): string => `${row.source} → ${row.target} [${r
 // -------------------------------------------------------------------------------------------
 
 describe("the decided rule set is intact", () => {
-	it("holds exactly the 139 decided rows with the decided totals", () => {
-		expect(decided.rows).toHaveLength(139);
-		expect(decided.totals.rows).toBe(139);
+	it("holds exactly the 137 decided rows with the decided totals", () => {
+		expect(decided.rows).toHaveLength(137);
+		expect(decided.totals.rows).toBe(137);
 		const count = (world: "production" | "development", verdict: string): number =>
 			decided.rows.filter((r) => r[world] === verdict).length;
 		// These four numbers are the founder's decisions, read from decided-rules.json — never
 		// re-derived. A regeneration that moves any of them has re-derived what was decided
 		// instead of reading it, which happened once and cost hours.
-		expect(count("production", "allowed")).toBe(77);
+		expect(count("production", "allowed")).toBe(75);
 		expect(count("production", "forbidden")).toBe(62);
-		expect(count("development", "allowed")).toBe(133);
+		expect(count("development", "allowed")).toBe(131);
 		expect(count("development", "forbidden")).toBe(6);
 	});
 
@@ -258,7 +258,7 @@ describe("the decided rule set is intact", () => {
 	});
 });
 
-describe("fifteen clauses derive all 358 decided verdicts", () => {
+describe("fifteen clauses derive all 274 decided verdicts", () => {
 	// W-TEST-2: `expect(wrong).toEqual([])` over a `.filter()` passes vacuously when `rows` is empty
 	// — a mis-parsed or emptied decided-rules.json would read as a total green. The counter is what
 	// makes the loop assert that it RAN, and it is the reason the row count is stated twice.
@@ -274,7 +274,7 @@ describe("fifteen clauses derive all 358 decided verdicts", () => {
 				return `${label(row)} — decided ${row.production}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(139);
+		expect(checked, "the loop must actually iterate every decided row").toBe(137);
 	});
 
 	it("reproduces every development verdict", () => {
@@ -289,7 +289,7 @@ describe("fifteen clauses derive all 358 decided verdicts", () => {
 				return `${label(row)} — decided ${row.development}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(139);
+		expect(checked, "the loop must actually iterate every decided row").toBe(137);
 	});
 
 	it("names a clause and a reason for every decision — no unexplained verdict", () => {
