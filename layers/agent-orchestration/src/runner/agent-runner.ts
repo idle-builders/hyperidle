@@ -303,6 +303,14 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 				});
 				unsubscribers.set(event, off);
 			}
+			// When a session ends, re-sweep that agent's inbox: rows that waited while
+			// the agent was busy (NotYet) may now be ready to queue.
+			{
+				const off = deps.eventBus.on("session_ended", (event) => {
+					if (keys.has(event.agentId)) void drain(event.agentId);
+				});
+				unsubscribers.set("session_ended", off);
+			}
 			await sweep();
 			timer = setInterval(() => {
 				void sweep().catch((error) => {

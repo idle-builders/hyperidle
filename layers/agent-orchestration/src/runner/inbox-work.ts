@@ -194,6 +194,7 @@ async function actOnMessage(
 	agent: HeldAgent,
 	row: InboxRowView,
 ): Promise<void> {
+	const me = selfRow(agent);
 	const threadId = row.objectId;
 	const senderId = row.change?.actor;
 	if (!(threadId && senderId)) throw new NothingToDo("the row names no thread");
@@ -203,12 +204,16 @@ async function actOnMessage(
 	if (message.type === "plain" && typeof text === "string") {
 		const sender = thread.members.find((m) => m.id === senderId)?.name ?? senderId;
 		const delivered = await sessionRunRegistry.deliverToConversation(
-			selfRow(agent).id,
+			me.id,
 			threadId,
 			`${sender} wrote in the conversation: ${text}`,
 		);
 		if (delivered === "delivered") return;
 	}
+	// Wait until the agent is free before queuing a new run, so the row stays unread
+	// if the agent moves to another runner before the run starts.
+	const active = await listSessions(deps.db, { agentIds: [me.id], state: "active", limit: 1 });
+	if (active.length > 0) throw new NotYet("agent has an active session");
 	await queueThreadTurn(deps, agent, row, thread, message.id, senderId);
 }
 
@@ -304,6 +309,10 @@ async function actOnTaskRun(
 	const queued = await listPendingByStream(deps.db, `task:${task.id}`);
 	if (queued.some((r) => r.agentId === me.id))
 		throw new NothingToDo("a run on the task is waiting");
+	// Do not queue while the agent is busy: the row stays unread so another runner can
+	// pick it up after a move, or this runner retries once the slot is free.
+	const active = await listSessions(deps.db, { agentIds: [me.id], state: "active", limit: 1 });
+	if (active.length > 0) throw new NotYet("agent has an active session");
 	const team = me.teams.find((t) => t.id === task.teamId);
 	const contextBundle: BakedContextBundle | undefined = team
 		? {
