@@ -15,8 +15,6 @@
  * max-based, or dropped the per-task predicate, would have shipped green.
  *
  * @lore: the store computes the ordinal itself — the caller's transaction, not a separate count-then-insert, must observe one snapshot to avoid a race.
- *
- * @lore: a second unique index outside schema.ts guards one dispatch per (task, occasion, predecessor, agent) — each fixture attempt needs a distinct predecessor.
  */
 
 import {
@@ -120,13 +118,7 @@ async function ordinalsFor(db: HyperIdleDb, taskId: string): Promise<number[]> {
 	return rows.map((row) => row.ordinal);
 }
 
-/**
- * B1 fix: `insertAttempt` returns `id: string | undefined` now — `undefined`
- * means the unique-index conflict swallowed the insert (architecture doc §5
- * step 4). None of these fixtures hit that conflict (each attempt gets its
- * own predecessor session), so a defined id is the invariant this helper
- * asserts before handing callers a plain `string`.
- */
+/** Asserts insertAttempt returned an id (all fixture attempts are distinct). */
 function requireId(inserted: { readonly id: string | undefined }): string {
 	if (!inserted.id)
 		throw new Error("insertAttempt did not return an id — the insert was swallowed");

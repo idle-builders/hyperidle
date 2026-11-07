@@ -982,7 +982,6 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					agentId: next.ownerAgentId,
 					now,
 				});
-				// A unique-index conflict leaves `inserted.id` undefined — no dispatch rather than a fabricated id.
 				if (inserted.id) {
 					dispatch = { attemptId: inserted.id, ownerAgentId: next.ownerAgentId, occasion };
 				}
@@ -999,7 +998,6 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					agentId: input.ownerAgentId,
 					now,
 				});
-				// A swallowed conflict means no row — no dispatch.
 				if (inserted.id) {
 					dispatch = {
 						attemptId: inserted.id,
