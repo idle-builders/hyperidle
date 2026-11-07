@@ -224,12 +224,6 @@ export const EditTaskInputSchema = z
 		version: z.string().optional(),
 		/** Absent on create ⇒ edit_task creates one via adjustThread hosted on the task's own team. */
 		threadId: z.string().optional(),
-		/**
-		 * Runner-only: mark the task's latest "requested" dispatch attempt as failed.
-		 * No other task fields are changed. Used when session admission fails so the
-		 * task surface shows the attempt did not start.
-		 */
-		dispatchFailed: z.boolean().optional(),
 	})
 	.strict();
 

@@ -315,13 +315,10 @@ export async function startRunner(deps: StartRunnerDeps): Promise<RunnerHandle> 
 		if (!key) return;
 
 		if (taskId !== null && sourceKind === "task") {
-			// Mark the task's latest dispatch attempt failed so the task surface shows it.
-			door.call(key, "edit_task", { id: taskId, dispatchFailed: true }).catch((err: unknown) => {
-				logger.warn("could not mark dispatch attempt failed", {
-					agentId,
-					taskId,
-					error: err instanceof Error ? err.message : String(err),
-				});
+			logger.warn("agent run refused admission for task", {
+				agentId,
+				taskId,
+				failureCode,
 			});
 			return;
 		}

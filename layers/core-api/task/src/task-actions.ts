@@ -643,19 +643,6 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			};
 		}
 
-		// Runner dispatch-failed shortcut: mark the latest "requested" attempt failed
-		// and return the current task view unchanged. No other side effects.
-		if (input.dispatchFailed === true) {
-			if (!prev) {
-				return {
-					ok: false,
-					problems: [{ code: "not_found", message: "task id required for dispatchFailed" }],
-				};
-			}
-			await taskDispatchAttemptStore.markLatestRequestedFailed(ctx.db, prev.id);
-			return openTaskRun(ctx, { id: prev.id });
-		}
-
 		let teamId = input.teamId ?? prev?.teamId;
 		/** A new part of a paused task is paused with it. */
 		let parentPaused: DomainTask["paused"] = null;
