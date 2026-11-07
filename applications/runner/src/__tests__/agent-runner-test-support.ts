@@ -62,7 +62,7 @@ interface ToolRegistryLike {
 	invoke(name: string, rawArgs: unknown): Promise<unknown>;
 }
 
-function makeScriptedBoot(script: RunScript, runs: string[]): AgentExecutionBoot {
+export function makeScriptedBoot(script: RunScript, runs: string[]): AgentExecutionBoot {
 	const registries = new Map<string, ToolRegistryLike>();
 	const enforcementRegistry = {
 		register: vi.fn(),

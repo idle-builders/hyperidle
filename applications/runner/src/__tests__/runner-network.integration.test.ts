@@ -7,6 +7,7 @@
  *  2. Restart reuses the persisted key (no new edit_user call).
  *  3. takeAgent from a second runner (move-here) invalidates the first runner's key; it marks the agent moved-away and doesn't re-take it.
  *  4. An agent that already has a key (hasKey=true) is not taken.
+ *  5. Message sent while runner A is busy is answered by runner B after taking the agent.
  */
 
 import * as fs from "node:fs";
@@ -14,13 +15,15 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AgentExecutionBoot } from "@hyperidle/agent-execution";
+import { createCoreDoor } from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { applyMigrations, teams, users, userTeams } from "@hyperidle/db";
+import { applyMigrations, messages, teams, users, userTeams } from "@hyperidle/db";
 import { createServer } from "@hyperidle/remote-server/create-server";
 import { giveUserKey } from "@hyperidle/user";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { startRunner } from "../index.js";
+import { answersPong, makeScriptedBoot, type RunScript } from "./agent-runner-test-support.js";
 
 // ---- Minimal agentExecutionBoot stub ----
 // Tests that only exercise key-taking never trigger session execution,
@@ -363,4 +366,119 @@ describe("runner network integration", () => {
 			await dbHandle.close();
 		}
 	}, 15_000);
+
+	test("message sent while runner A is busy is answered by runner B after taking the agent", async () => {
+		const r2DataDir = fs.mkdtempSync(path.join(os.tmpdir(), "runner-two-msg-r2-"));
+		const dbHandle = await makeCorePgDb(tempDataDir);
+		const db = dbHandle.db;
+		await seedBase(db);
+		const server = await bootTestServer(db);
+
+		let resolveBuilderStarted!: () => void;
+		const builderStarted = new Promise<void>((r) => {
+			resolveBuilderStarted = r;
+		});
+		let releaseBuilderRun: (() => void) | undefined;
+
+		const blockingScript: RunScript = async (run) => {
+			if (run.index === 0) {
+				resolveBuilderStarted();
+				await new Promise<void>((r) => {
+					releaseBuilderRun = r;
+				});
+				return;
+			}
+			await run.call("send_message", { text: "pong" });
+		};
+
+		const runsA: string[] = [];
+		const door = createCoreDoor(fetch, `${server.url}/api`);
+
+		try {
+			const runner1 = await startRunner({
+				serverUrl: server.url,
+				personKey: PERSON_KEY,
+				dataDir: tempDataDir,
+				agentExecution: makeScriptedBoot(blockingScript, runsA),
+				sweepMs: 100,
+			});
+			await runner1.start();
+			try {
+				await waitFor("R1 takes agent", async () =>
+					runner1.heldAgentIds().includes(AGENT_ID) || undefined,
+				);
+
+				// Trigger a blocking run so the agent's session slot is occupied.
+				await door.call(PERSON_KEY, "send_message", {
+					recipients: [AGENT_ID],
+					text: "Start blocking",
+				});
+
+				// Wait until the blocking run is active (slot occupied).
+				await builderStarted;
+
+				// Send the message runner B should answer. With the slot occupied,
+				// runner A's actOnMessage sees an active session and throws NotYet —
+				// the row stays unread for runner B to pick up.
+				const sentMsg = await door.call<{ thread: { id: string } }>(PERSON_KEY, "send_message", {
+					recipients: [AGENT_ID],
+					text: "ping while busy",
+				});
+				if (!sentMsg.ok) throw new Error(`send_message: ${JSON.stringify(sentMsg.problems)}`);
+				const thread2Id = sentMsg.data.thread.id;
+
+				// Give runner A time to drain and get NotYet on the row.
+				await new Promise((r) => setTimeout(r, 300));
+
+				// Runner B takes the agent.
+				const runsB: string[] = [];
+				const runner2 = await startRunner({
+					serverUrl: server.url,
+					personKey: PERSON_KEY,
+					dataDir: r2DataDir,
+					agentExecution: makeScriptedBoot(answersPong, runsB),
+					sweepMs: 100,
+				});
+				await runner2.start();
+				try {
+					await runner2.takeAgent(AGENT_ID);
+
+					// Runner B must answer the message runner A could not.
+					await waitFor("runner B's pong in second thread", async () => {
+						const rows = await db
+							.select()
+							.from(messages)
+							.where(and(eq(messages.senderId, AGENT_ID), eq(messages.threadId, thread2Id)));
+						const pong = rows.find(
+							(m) => (JSON.parse(m.payload) as { text?: unknown }).text === "pong",
+						);
+						return pong ?? undefined;
+					});
+
+					// Release blocking run so runner A's session completes cleanly.
+					releaseBuilderRun?.();
+					releaseBuilderRun = undefined;
+					await new Promise((r) => setTimeout(r, 300));
+
+					// Only one pong in the second thread: runner A never answered it.
+					const pongsInThread2 = (
+						await db
+							.select()
+							.from(messages)
+							.where(and(eq(messages.senderId, AGENT_ID), eq(messages.threadId, thread2Id)))
+					).filter((m) => (JSON.parse(m.payload) as { text?: unknown }).text === "pong");
+					expect(pongsInThread2).toHaveLength(1);
+				} finally {
+					await runner2.stop();
+					fs.rmSync(r2DataDir, { recursive: true, force: true });
+				}
+			} finally {
+				releaseBuilderRun?.();
+				await runner1.stop();
+			}
+		} finally {
+			await server.dispose();
+			await dbHandle.close();
+		}
+	}, 25_000);
 });
