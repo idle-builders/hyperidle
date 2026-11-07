@@ -6,12 +6,12 @@ import {
 	resolveHeldToken,
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	type ActionResult,
-	type DocumentRow,
-	type DocumentView,
-	type EditDocumentInput,
-	type SearchDocumentsInput,
+import type {
+	ActionResult,
+	DocumentRow,
+	DocumentView,
+	EditDocumentInput,
+	SearchDocumentsInput,
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";

@@ -325,10 +325,7 @@ export function buildRunOrchestrationComposition(config: {
 }
 
 // Build session action deps — sessions/stop bound to this boot's db/eventBus.
-export function buildSessionActionsDeps(
-	db: RunnerDb,
-	eventBus: EventBus,
-): SessionActionsDeps {
+export function buildSessionActionsDeps(db: RunnerDb, eventBus: EventBus): SessionActionsDeps {
 	return {
 		sessions: { getById: findSessionById },
 		stop: (sessionId) =>

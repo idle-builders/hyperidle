@@ -15,7 +15,7 @@ import type { AgentExecutionBoot } from "@hyperidle/agent-execution";
 import { type CoreDoor, createCoreDoor } from "@hyperidle/agent-orchestration";
 import { applyMigrations, type HyperIdleDb } from "@hyperidle/db";
 import { createServer } from "@hyperidle/remote-server/create-server";
-import { createAndMigrateRunnerDb, type RunnerDb, type RunnerDbHandle } from "@hyperidle/runner-db";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { vi } from "vitest";
 import { type RunnerHandle, startRunner } from "../index.js";
 
@@ -157,12 +157,6 @@ export async function makeCorePgDb(
 	await applyMigrations(corePgDir, CORE_MIGRATIONS_FOLDER);
 	const { createPgliteDb } = await import("@hyperidle/db");
 	return createPgliteDb(corePgDir);
-}
-
-/** Create a migrated PGlite runner DB in `<dataDir>/runner-pg`. */
-export function makeRunnerPgDb(dataDir: string): Promise<RunnerDbHandle> {
-	const runnerPgDir = path.join(dataDir, "runner-pg");
-	return createAndMigrateRunnerDb(runnerPgDir);
 }
 
 // ---- World boot ----

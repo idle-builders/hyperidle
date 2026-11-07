@@ -369,16 +369,32 @@ function registerCommonIpcHandlers(ctx: BootContext): void {
 		(_event: unknown, agentId: string): Promise<{ held: boolean; movedAway: boolean } | null> => {
 			const child = runnerChild;
 			if (!child) return Promise.resolve(null);
-			return new Promise<{ held: boolean; movedAway: boolean }>((resolve) => {
+			return new Promise<{ held: boolean; movedAway: boolean } | null>((resolve) => {
 				const reqId = crypto.randomUUID();
+				let settled = false;
+				const done = (result: { held: boolean; movedAway: boolean } | null): void => {
+					if (settled) return;
+					settled = true;
+					child.off("message", handler);
+					child.off("exit", onExit);
+					clearTimeout(timer);
+					resolve(result);
+				};
 				const handler = (msg: unknown): void => {
-					const m = msg as { type?: string; reqId?: string; held?: boolean; movedAway?: boolean } | null;
+					const m = msg as {
+						type?: string;
+						reqId?: string;
+						held?: boolean;
+						movedAway?: boolean;
+					} | null;
 					if (m?.type === "state" && m.reqId === reqId) {
-						child.off("message", handler);
-						resolve({ held: m.held ?? false, movedAway: m.movedAway ?? false });
+						done({ held: m.held ?? false, movedAway: m.movedAway ?? false });
 					}
 				};
+				const onExit = (): void => done(null);
+				const timer = setTimeout(() => done(null), 3_000);
 				child.on("message", handler);
+				child.on("exit", onExit);
 				child.postMessage({ type: "state", agentId, reqId });
 			});
 		},

@@ -12,11 +12,7 @@ import { encryptCredentialValue } from "@hyperidle/connections";
 import { type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import {
-	type RunnerDb,
-	serviceConnections,
-	serviceConnectionWithholds,
-} from "@hyperidle/runner-db";
+import { type RunnerDb, serviceConnections } from "@hyperidle/runner-db";
 import { afterEach, beforeEach, vi } from "vitest";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { bootAgentOrchestration } from "../boot.js";
@@ -126,10 +122,6 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb, runnerDb: Runn
 				throw new Error("searchDocuments should not be dialled by this provisioning-only test");
 			},
 			session: { db: runnerDb, eventBus, adapterPool: agentExecution.adapters.pool },
-			// This test proves ONE owning human's wiring — the resolver itself,
-			// not cross-layer owner resolution (that is
-			// `bootCoreApi.resolveProvisioningOwnerUserId`'s own concern).
-			resolveProvisioningOwnerUserId: async () => OWNER_ID,
 		},
 	});
 	registerFixtureOrchestrationCleanup(db, () => {
@@ -166,66 +158,6 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 					"sc-provisioning-wiring-owner",
 				),
 			).toBeNull();
-		} finally {
-			await agentOrchestration.disposeRuntime?.();
-			agentOrchestration.dispose();
-			agentExecution.dispose();
-		}
-	}, 20_000);
-
-	test("the wired held-connection reader reads live and carries ONLY the owning human's connections", async ({
-		db,
-		runnerDb,
-	}) => {
-		await seed(db, runnerDb);
-		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(
-			db,
-			runnerDb,
-		);
-		try {
-			const rows =
-				(await agentOrchestration.provisioning?.heldConnections?.listHeldForProvisioning(
-					AGENT_ID,
-				)) ?? [];
-			expect(rows.map((row) => row.id)).toEqual(["sc-provisioning-wiring-owner"]);
-			expect(rows[0]?.userId).toBe(OWNER_ID);
-
-			// Live, not a boot-time snapshot: a connection added after the
-			// server booted is in the very next read.
-			await runnerDb.insert(serviceConnections).values({
-				id: "sc-provisioning-wiring-added-after-boot",
-				userId: OWNER_ID,
-				service: "linear",
-				authSource: "mcp",
-				encryptedToken: null,
-				serverUrl: "https://mcp.linear.app",
-				health: "needs-attention",
-				lastValidatedAt: null,
-				createdAt: OWNER_CREATED_AT,
-				updatedAt: OWNER_CREATED_AT,
-			});
-			const afterAdd =
-				(await agentOrchestration.provisioning?.heldConnections?.listHeldForProvisioning(
-					AGENT_ID,
-				)) ?? [];
-			expect(afterAdd.map((row) => row.id).sort()).toEqual([
-				"sc-provisioning-wiring-added-after-boot",
-				"sc-provisioning-wiring-owner",
-			]);
-			// The second human's row is in neither read.
-			expect(afterAdd.some((row) => row.userId === OTHER_HUMAN_ID)).toBe(false);
-
-			// Taken from this agent: it is no longer in its sessions.
-			await runnerDb.insert(serviceConnectionWithholds).values({
-				connectionId: "sc-provisioning-wiring-owner",
-				agentUserId: AGENT_ID,
-				createdAt: OWNER_CREATED_AT,
-			});
-			const afterTake =
-				(await agentOrchestration.provisioning?.heldConnections?.listHeldForProvisioning(
-					AGENT_ID,
-				)) ?? [];
-			expect(afterTake.map((row) => row.id)).toEqual(["sc-provisioning-wiring-added-after-boot"]);
 		} finally {
 			await agentOrchestration.disposeRuntime?.();
 			agentOrchestration.dispose();

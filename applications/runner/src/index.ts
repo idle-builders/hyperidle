@@ -29,12 +29,7 @@ import {
 	USER_ACTIONS,
 } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
-import {
-	applyRunnerMigrations,
-	createPgliteRunnerDb,
-	type RunnerDb,
-	type RunnerDbHandle,
-} from "@hyperidle/runner-db";
+import { applyRunnerMigrations, createPgliteRunnerDb, type RunnerDb } from "@hyperidle/runner-db";
 import { Hono } from "hono";
 import { WebSocket } from "ws";
 

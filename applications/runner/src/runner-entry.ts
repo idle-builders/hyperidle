@@ -11,8 +11,6 @@
  *
  * IPC (Electron utilityProcess.fork):
  *   Receives  { type: "take", agentId: string }
- *   Receives  { type: "held" }     → replies { type: "held", ids: string[] }
- *   Receives  { type: "movedAway" } → replies { type: "movedAway", ids: string[] }
  *   Receives  { type: "state", agentId: string, reqId: string }
  *             → replies { type: "state", reqId: string, held: boolean, movedAway: boolean }
  */
@@ -61,11 +59,11 @@ void (async () => {
 				runner.takeAgent(msg.agentId).catch((err: unknown) => {
 					logger.error("runner.takeAgent failed", { agentId: msg.agentId, error: String(err) });
 				});
-			} else if (msg.type === "held") {
-				parentPort.postMessage({ type: "held", ids: runner.heldAgentIds() });
-			} else if (msg.type === "movedAway") {
-				parentPort.postMessage({ type: "movedAway", ids: runner.movedAwayAgentIds() });
-			} else if (msg.type === "state" && typeof msg.agentId === "string" && typeof msg.reqId === "string") {
+			} else if (
+				msg.type === "state" &&
+				typeof msg.agentId === "string" &&
+				typeof msg.reqId === "string"
+			) {
 				const agentId = msg.agentId;
 				const reqId = msg.reqId;
 				parentPort.postMessage({
