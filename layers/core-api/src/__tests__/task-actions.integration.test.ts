@@ -4,7 +4,6 @@
  * architecture doc §11.
  */
 
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	changes,
 	type HyperIdleDb,
@@ -33,10 +32,9 @@ function ctxFor(actor: string, db: HyperIdleDb, eventBus: EventBus): ActionConte
 	return { actor, db, eventBus, now: new Date().toISOString() };
 }
 
-function buildTestActions(agentOrchestration: AgentOrchestrationPort) {
+function buildTestActions() {
 	return buildCoreActions({
-		agentOrchestration,
-	});
+		});
 }
 
 interface ActionEnvelope<T> {
@@ -156,8 +154,7 @@ describe("edit_task — create, human and agent", () => {
 		app,
 		asPerson,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "ta-team-1", asPerson);
 		await seedAgent(db, "ta-agent-1", "ta-team-1");
 
@@ -168,7 +165,7 @@ describe("edit_task — create, human and agent", () => {
 		expect(human.status).toBe(200);
 		expect(human.body.ok).toBe(true);
 
-		const actions = buildTestActions(agentOrchestration);
+		const actions = buildTestActions();
 		const editTask = actions.find((a) => a.declaration.name === "edit_task");
 		if (!editTask) throw new Error("edit_task action not found");
 		const agentCtx = ctxFor("ta-agent-1", db, eventBus);
@@ -386,13 +383,12 @@ describe("edit_task — thread membership on create-with-threadId", () => {
 		app,
 		asPerson,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "ta-thr-1", asPerson);
 		await seedAgent(db, "ta-thr1-agentA", "ta-thr-1");
 		await seedAgent(db, "ta-thr1-agentB", "ta-thr-1");
 
-		const dmActions = buildTestActions(agentOrchestration);
+		const dmActions = buildTestActions();
 		const sendMessage = dmActions.find((a) => a.declaration.name === "send_message");
 		if (!sendMessage) throw new Error("send_message action not found");
 		const dmCtx = ctxFor("ta-thr1-agentA", db, eventBus);
@@ -430,12 +426,11 @@ describe("edit_task — thread membership on create-with-threadId", () => {
 		app,
 		asPerson,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "ta-thr-2", asPerson);
 		await seedAgent(db, "ta-thr2-agentA", "ta-thr-2");
 
-		const dmActions = buildTestActions(agentOrchestration);
+		const dmActions = buildTestActions();
 		const sendMessage2 = dmActions.find((a) => a.declaration.name === "send_message");
 		if (!sendMessage2) throw new Error("send_message action not found");
 		const dmCtx2 = ctxFor("ta-thr2-agentA", db, eventBus);
@@ -831,8 +826,7 @@ describe("edit_task — state:review guard", () => {
 	test("setting state:review via edit_task is refused for external callers (requires a review card)", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "ta-rv-team-1");
 		await seedAgent(db, "ta-rv-agent-1", "ta-rv-team-1");
 
@@ -853,7 +847,7 @@ describe("edit_task — state:review guard", () => {
 
 		// Try to move task to review via edit_task — must be refused
 		const ctx = ctxFor(FOUNDER_ID, db, eventBus);
-		const actions = buildTestActions(agentOrchestration);
+		const actions = buildTestActions();
 		const editTask = actions.find((a) => a.declaration.name === "edit_task");
 		if (!editTask) throw new Error("edit_task not found");
 
@@ -867,8 +861,7 @@ describe("edit_task — state:review guard", () => {
 	test("setting state:review via edit_task is refused for an agent caller (requires a review card)", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedTeam(db, "ta-rv-team-2");
 		await seedAgent(db, "ta-rv-agent-2", "ta-rv-team-2");
 
@@ -888,7 +881,7 @@ describe("edit_task — state:review guard", () => {
 
 		// Agent calls edit_task state:review — must be refused just like a person
 		const ctx = ctxFor("ta-rv-agent-2", db, eventBus);
-		const actions = buildTestActions(agentOrchestration);
+		const actions = buildTestActions();
 		const editTask = actions.find((a) => a.declaration.name === "edit_task");
 		if (!editTask) throw new Error("edit_task not found");
 

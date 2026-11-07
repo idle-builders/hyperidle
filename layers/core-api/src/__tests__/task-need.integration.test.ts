@@ -3,7 +3,6 @@
  * and that open_task's TaskNode.openBelow counts descendant needs.
  */
 
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, messages, teams, users, userTeams } from "@hyperidle/db";
 import type {
 	ActionResult,
@@ -28,10 +27,9 @@ function makeCtx(db: HyperIdleDb, eventBus: EventBus): ActionContext {
 	return { actor: ACTOR, db, eventBus, now: new Date().toISOString() };
 }
 
-function makeRunners(agentOrchestration: AgentOrchestrationPort) {
+function makeRunners() {
 	const actions = buildCoreActions({
-		agentOrchestration,
-	});
+		});
 	const editTask = actions.find((a) => a.declaration.name === "edit_task")!.run as (
 		ctx: ActionContext,
 		input: EditTaskInput,
@@ -93,11 +91,10 @@ describe("task need computation — search_tasks and open_task", () => {
 	test("questionnaire message → need:input; resolving clears it", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedActor(db);
 		const ctx = makeCtx(db, eventBus);
-		const { editTask, searchTasks, openTask } = makeRunners(agentOrchestration);
+		const { editTask, searchTasks, openTask } = makeRunners();
 
 		// Create a task (edit_task auto-creates a thread).
 		const created = await editTask(ctx, { title: "Need test task", teamId: TEAM_ID });
@@ -141,8 +138,7 @@ describe("task need computation — search_tasks and open_task", () => {
 	test("an agent's question sent through send_message makes need:input; the person picking an option clears it", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedActor(db);
 		await db.insert(users).values({
 			id: AGENT,
@@ -153,7 +149,7 @@ describe("task need computation — search_tasks and open_task", () => {
 			createdAt: new Date().toISOString(),
 		});
 		await db.insert(userTeams).values({ userId: AGENT, teamId: TEAM_ID });
-		const { editTask, searchTasks, sendMessage } = makeRunners(agentOrchestration);
+		const { editTask, searchTasks, sendMessage } = makeRunners();
 		const created = await editTask(makeCtx(db, eventBus), { title: "Ask me", teamId: TEAM_ID });
 		if (!created.ok) throw new Error(JSON.stringify(created.problems));
 		const { task, threadId } = created.data;
@@ -188,7 +184,7 @@ describe("task need computation — search_tasks and open_task", () => {
 	test("review message → need:review", async ({ db, eventBus, agentOrchestration }) => {
 		await seedActor(db);
 		const ctx = makeCtx(db, eventBus);
-		const { editTask, searchTasks } = makeRunners(agentOrchestration);
+		const { editTask, searchTasks } = makeRunners();
 
 		const created = await editTask(ctx, { title: "Review task", teamId: TEAM_ID });
 		expect(created.ok).toBe(true);
@@ -207,7 +203,7 @@ describe("task need computation — search_tasks and open_task", () => {
 	test("state:blocked → need:stuck", async ({ db, eventBus, agentOrchestration }) => {
 		await seedActor(db);
 		const ctx = makeCtx(db, eventBus);
-		const { editTask, searchTasks } = makeRunners(agentOrchestration);
+		const { editTask, searchTasks } = makeRunners();
 
 		const created = await editTask(ctx, {
 			title: "Blocked task",
@@ -230,11 +226,10 @@ describe("task need computation — search_tasks and open_task", () => {
 	test("child questionnaire → parent openBelow.input:1", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedActor(db);
 		const ctx = makeCtx(db, eventBus);
-		const { editTask, openTask } = makeRunners(agentOrchestration);
+		const { editTask, openTask } = makeRunners();
 
 		// Parent task.
 		const parentResult = await editTask(ctx, { title: "Parent task", teamId: TEAM_ID });
@@ -267,10 +262,9 @@ describe("task need computation — search_tasks and open_task", () => {
 	test("open_task keeps parts in their set order after one of them changes", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedActor(db);
-		const { editTask, openTask } = makeRunners(agentOrchestration);
+		const { editTask, openTask } = makeRunners();
 		const ctx = makeCtx(db, eventBus);
 		const parent = await editTask(ctx, { title: "Parent", teamId: TEAM_ID });
 		expect(parent.ok).toBe(true);

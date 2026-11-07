@@ -1,4 +1,3 @@
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import type { ActionResult, EditTaskInput, TaskState, TaskView } from "@hyperidle/domain-model";
 import { checkAndUnblockDependents } from "@hyperidle/task";
@@ -9,12 +8,9 @@ import { buildCoreActions } from "../actions/compose.js";
 
 // §6 row 2: `checkAndUnblockDependents` writes through `edit_task` now —
 // see dependency-watcher.integration.test.ts for the same helper shape.
-function makeEditTask(
-	agentOrchestration: AgentOrchestrationPort,
-): (ctx: ActionContext, input: EditTaskInput) => Promise<ActionResult<TaskView>> {
+function makeEditTask(): (ctx: ActionContext, input: EditTaskInput) => Promise<ActionResult<TaskView>> {
 	const editTaskAction = buildCoreActions({
-		agentOrchestration,
-	}).find((a) => a.declaration.name === "edit_task");
+		}).find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
 	return editTaskAction.run as (
 		ctx: ActionContext,
@@ -112,8 +108,7 @@ describe("dependency-watcher SQL filter benchmark", () => {
 	test("completes in <50ms with 500 tasks (1 dependent, 499 unrelated)", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedPrerequisites(db);
 		// Target task that just completed.
 		await insertTask(db, "target", "done");
@@ -136,7 +131,7 @@ describe("dependency-watcher SQL filter benchmark", () => {
 		await checkAndUnblockDependents(
 			makeCtx(db, eventBus),
 			"target",
-			makeEditTask(agentOrchestration),
+			makeEditTask(),
 		);
 		const elapsedMs = performance.now() - start;
 
@@ -150,8 +145,7 @@ describe("dependency-watcher SQL filter benchmark", () => {
 	test("does NOT load unrelated tasks into memory (proxy: row-read counter)", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedPrerequisites(db);
 		// We can't directly observe Drizzle row-reads from the test, but we
 		// can inspect SQLite's per-statement scan count via PRAGMA stats.
@@ -190,7 +184,7 @@ describe("dependency-watcher SQL filter benchmark", () => {
 		});
 
 		await expect(
-			checkAndUnblockDependents(makeCtx(db, eventBus), "target", makeEditTask(agentOrchestration)),
+			checkAndUnblockDependents(makeCtx(db, eventBus), "target", makeEditTask()),
 		).resolves.not.toThrow();
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 		expect(dependent?.state).toBe("accepted");
@@ -201,8 +195,7 @@ describe("dependency-watcher LIKE prefix-collision guard", () => {
 	test("completing 'dep-1' does NOT unblock a task waiting on 'dep-12'", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedPrerequisites(db);
 		// dep-1 just finished.
 		await insertTask(db, "dep-1", "done");
@@ -213,7 +206,7 @@ describe("dependency-watcher LIKE prefix-collision guard", () => {
 		await checkAndUnblockDependents(
 			makeCtx(db, eventBus),
 			"dep-1",
-			makeEditTask(agentOrchestration),
+			makeEditTask(),
 		);
 
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
@@ -224,8 +217,7 @@ describe("dependency-watcher LIKE prefix-collision guard", () => {
 	test("completing 'dep-1' does not falsely unblock a sibling whose deps array contains 'dep-100'", async ({
 		db,
 		eventBus,
-		agentOrchestration,
-	}) => {
+		}) => {
 		await seedPrerequisites(db);
 		await insertTask(db, "dep-1", "done");
 		await insertTask(db, "dep-100", "in_progress");
@@ -234,7 +226,7 @@ describe("dependency-watcher LIKE prefix-collision guard", () => {
 		await checkAndUnblockDependents(
 			makeCtx(db, eventBus),
 			"dep-1",
-			makeEditTask(agentOrchestration),
+			makeEditTask(),
 		);
 
 		const [sibling] = await db.select().from(tasks).where(eq(tasks.id, "sibling"));
