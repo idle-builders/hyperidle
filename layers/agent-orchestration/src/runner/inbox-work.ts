@@ -17,6 +17,7 @@ import {
 	buildVerdictMessage,
 	endRunForHandoff,
 	listSessions,
+	readAgentRunConfig,
 	recordReviewVerdict,
 	requestRunStopForTasks,
 } from "@hyperidle/run-orchestration";
@@ -24,6 +25,7 @@ import type { RunnerDb } from "@hyperidle/runner-db";
 import {
 	type BakedRunRequest,
 	cancelPendingForTasks,
+	countPendingRunsForAgent,
 	listPendingByStream,
 	queueResume,
 	queueRun,
@@ -212,8 +214,15 @@ async function actOnMessage(
 	}
 	// Wait until the agent is free before queuing a new run, so the row stays unread
 	// if the agent moves to another runner before the run starts.
-	const active = await listSessions(deps.db, { agentIds: [me.id], state: "active", limit: 1 });
-	if (active.length > 0) throw new NotYet("agent has an active session");
+	const { maxConcurrentSessions } = await readAgentRunConfig(deps.db, me.id);
+	const active = await listSessions(deps.db, {
+		agentIds: [me.id],
+		state: "active",
+		limit: maxConcurrentSessions,
+	});
+	const pendingCount = await countPendingRunsForAgent(deps.db, me.id);
+	if (active.length + pendingCount >= maxConcurrentSessions)
+		throw new NotYet("agent is at session limit");
 	await queueThreadTurn(deps, agent, row, thread, message.id, senderId);
 }
 
@@ -309,10 +318,17 @@ async function actOnTaskRun(
 	const queued = await listPendingByStream(deps.db, `task:${task.id}`);
 	if (queued.some((r) => r.agentId === me.id))
 		throw new NothingToDo("a run on the task is waiting");
-	// Do not queue while the agent is busy: the row stays unread so another runner can
-	// pick it up after a move, or this runner retries once the slot is free.
-	const active = await listSessions(deps.db, { agentIds: [me.id], state: "active", limit: 1 });
-	if (active.length > 0) throw new NotYet("agent has an active session");
+	// Do not queue while the agent is at its session limit: the row stays unread so
+	// another runner can pick it up after a move, or this runner retries once a slot frees.
+	const { maxConcurrentSessions } = await readAgentRunConfig(deps.db, me.id);
+	const active = await listSessions(deps.db, {
+		agentIds: [me.id],
+		state: "active",
+		limit: maxConcurrentSessions,
+	});
+	const pendingCount = await countPendingRunsForAgent(deps.db, me.id);
+	if (active.length + pendingCount >= maxConcurrentSessions)
+		throw new NotYet("agent is at session limit");
 	const team = me.teams.find((t) => t.id === task.teamId);
 	const contextBundle: BakedContextBundle | undefined = team
 		? {

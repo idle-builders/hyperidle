@@ -4,6 +4,7 @@ export {
 	cancelAllPendingForAgent,
 	cancelPendingForTasks,
 	claimSessionRequest,
+	countPendingRunsForAgent,
 	type FindQuery,
 	findSessionRequest,
 	listPendingByStream,

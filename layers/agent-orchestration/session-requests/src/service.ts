@@ -113,6 +113,21 @@ export async function cancelPendingForTasks(
 	return cancelled.length;
 }
 
+/** Count the pending or claimed (waiting to start) requests for an agent — used for the concurrency hold-back check. */
+export async function countPendingRunsForAgent(db: RunnerDb, agentId: string): Promise<number> {
+	const [row] = await db
+		.select({ count: sql<number>`count(*)` })
+		.from(agentSessionRequests)
+		.where(
+			and(
+				eq(agentSessionRequests.agentId, agentId),
+				inArray(agentSessionRequests.status, ["pending", "claimed"]),
+			),
+		)
+		.limit(1);
+	return Number(row?.count ?? 0);
+}
+
 /** Cancel all pending requests for a given agent — called when the agent moves away (401). */
 export async function cancelAllPendingForAgent(
 	db: RunnerDb,
