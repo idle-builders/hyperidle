@@ -786,8 +786,14 @@ async function editExistingUserRun(
 		(input.subscriptions?.add?.length ?? 0) > 0 ||
 		(input.subscriptions?.change?.length ?? 0) > 0 ||
 		(input.subscriptions?.remove?.length ?? 0) > 0;
+	// @lore: key rotation must emit user.changed — the old runner's WS subscriber gets a nudge, drains, hits 401, and marks away; no 30 s sweep needed.
+	const touchesKey = input.key !== undefined;
 	const appendsChange =
-		touchesIdentityFields(input) || touchesTeams || touchesEdges || touchesSubscriptions;
+		touchesIdentityFields(input) ||
+		touchesTeams ||
+		touchesEdges ||
+		touchesSubscriptions ||
+		touchesKey;
 
 	const before: Record<string, unknown> = {};
 	const after: Record<string, unknown> = {};
@@ -797,6 +803,7 @@ async function editExistingUserRun(
 			after[f] = input[f];
 		}
 	}
+	if (touchesKey) after.keyRotated = true;
 	if (touchesEdges) after.edges = true;
 	if (touchesSubscriptions) after.subscriptions = true;
 
