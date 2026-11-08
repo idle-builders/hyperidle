@@ -89,9 +89,9 @@ describe("migration 0118: global team + factory plugin deletion — brownfield",
 		expect(plugins.rows).toHaveLength(0);
 
 		// plugin_contributions for the factory plugin are gone (cascaded)
-		const contributions = (await db.execute(
-			sql`SELECT id FROM plugin_contributions`,
-		)) as { rows: Array<{ id: string }> };
+		const contributions = (await db.execute(sql`SELECT id FROM plugin_contributions`)) as {
+			rows: Array<{ id: string }>;
+		};
 		expect(contributions.rows).toHaveLength(0);
 
 		// Contributed agent is gone
