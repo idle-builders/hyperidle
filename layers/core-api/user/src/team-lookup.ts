@@ -1,6 +1,6 @@
 import type { Team, WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Team reads
@@ -173,4 +173,24 @@ export async function repairDefaultRunner(db: HyperIdleDb, teamId: string): Prom
 		.update(userTeams)
 		.set({ isDefaultRunner: true })
 		.where(and(eq(userTeams.teamId, teamId), eq(userTeams.userId, candidate.userId)));
+}
+
+/**
+ * Clear the keyHash of every unowned team agent in a team.
+ * Called when the team's default runner changes so the old runner is refused
+ * on its next API call and lets go; the new default runner's sweep then
+ * claims the agents.
+ */
+export async function clearUnownedTeamAgentKeys(
+	db: HyperIdleDb,
+	teamId: string,
+): Promise<void> {
+	const agentRows = await db
+		.select({ id: userTeams.userId })
+		.from(userTeams)
+		.innerJoin(users, eq(users.id, userTeams.userId))
+		.where(and(eq(userTeams.teamId, teamId), eq(users.kind, "ai"), isNull(users.ownerUserId)));
+	if (agentRows.length === 0) return;
+	const agentIds = agentRows.map((r) => r.id);
+	await db.update(users).set({ keyHash: null }).where(inArray(users.id, agentIds));
 }

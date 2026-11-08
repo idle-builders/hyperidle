@@ -1090,3 +1090,48 @@ describe("global team membership invariant", () => {
 		expect(finnMemberships.map((m) => m.teamId)).toContain("team-company");
 	});
 });
+
+describe("defaultRunnerFor clears unowned agent keys", () => {
+	test("becoming a team's default runner clears unowned agents' keys", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates Acme (Finn = default runner); Ada joins Acme.
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+		const teamId = finnResult.data.user?.teams?.find((t) => t.name === "Acme")?.id ?? "";
+
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["Acme"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+
+		// Add an unowned agent to Acme with a key hash.
+		const agentId = "test-agent-acme";
+		await db.insert(users).values({
+			id: agentId,
+			kind: "ai",
+			name: "Bot",
+			role: "agent",
+			status: "active",
+			createdAt: NOW,
+			keyHash: "some-hash-value",
+		});
+		await db.insert(userTeams).values({ userId: agentId, teamId, isDefaultRunner: false });
+
+		// Ada becomes the default runner of Acme; agent keys should be cleared.
+		const result = await editUser(ctxFor(db, finnId), { id: adaId, defaultRunnerFor: teamId });
+		expect(result.ok).toBe(true);
+
+		const [agentRow] = await db.select().from(users).where(eq(users.id, agentId));
+		expect(agentRow?.keyHash).toBeNull();
+	});
+});

@@ -54,6 +54,7 @@ import {
 	updateSubscription,
 } from "./subscriptions-store.js";
 import {
+	clearUnownedTeamAgentKeys,
 	createTeam,
 	ensureDefaultRunner,
 	getGlobalTeam,
@@ -928,6 +929,8 @@ async function editExistingUserRun(
 
 		if (input.defaultRunnerFor !== undefined) {
 			await setDefaultRunner(tx, input.defaultRunnerFor, id);
+			// Clear unowned agent keys so the old runner is refused and the new default runner claims them.
+			await clearUnownedTeamAgentKeys(tx, input.defaultRunnerFor);
 		}
 
 		const patch: Partial<NewUser> = {};
