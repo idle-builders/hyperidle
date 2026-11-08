@@ -131,6 +131,38 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 		}
 	}
 
+	/**
+	 * CAS-mark any `active` sessions for the agent as `stopped` before activating
+	 * it with a new key. Guards against the race where `markMovedAway`'s
+	 * `stopSessionRun` returned "aborted" (provisioner still running) and the
+	 * provisioner hasn't cleaned up the row yet — leaving a stale `active` row
+	 * that the concurrency check would count, crashing the first new run.
+	 */
+	async function endStaleActiveSessions(agentId: string): Promise<void> {
+		try {
+			const live = await listSessions(deps.db, {
+				agentIds: [agentId],
+				state: "active",
+				limit: 1000,
+			});
+			for (const session of live) {
+				// abort=false: the provisioner already received an abort signal via
+				// markMovedAway; we only need the DB row cleaned up here.
+				await stopSessionRun(deps.db, deps.eventBus, session.id, async () => false);
+			}
+			if (live.length > 0)
+				logger.info("cleared stale active sessions before retaking agent", {
+					agentId,
+					n: live.length,
+				});
+		} catch (err) {
+			logger.warn("could not clear stale active sessions before retaking agent", {
+				agentId,
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+	}
+
 	function activateAgent(agentId: string, key: string): void {
 		keys.set(agentId, key);
 		movedAway.delete(agentId);
@@ -195,6 +227,7 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 				key: "new",
 			});
 			if (!(given.ok && given.data.key)) continue;
+			await endStaleActiveSessions(agent.id);
 			await persistKey(agent.id, given.data.key);
 			activateAgent(agent.id, given.data.key);
 		}
@@ -368,6 +401,7 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 			await persistKey(agentId, given.data.key);
 			movedAway.delete(agentId);
 			if (!keys.has(agentId)) {
+				await endStaleActiveSessions(agentId);
 				activateAgent(agentId, given.data.key);
 			} else {
 				// Key rotated on a held agent: tear down the old WS subscription (it won't

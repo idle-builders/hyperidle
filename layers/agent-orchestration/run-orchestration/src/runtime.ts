@@ -353,6 +353,11 @@ async function runClaimedRequest(
 		return { mode: "completed", ...result };
 	} catch (err) {
 		if (err instanceof ConcurrencyLimitError) {
+			logger.error("Agent run rejected: concurrency limit reached", {
+				requestId: request.id,
+				agentId: request.agentId,
+				limit: err.limit,
+			});
 			await endReservedSessionAfterFailedAdmission(deps.db, request.id);
 			if (request.claimToken) {
 				await ports.sessionRequests.releaseClaim(deps.db, request.id, request.claimToken);
