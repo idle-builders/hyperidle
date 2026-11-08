@@ -1,7 +1,7 @@
 -- Team default-runner and global team.
 -- - teams gains is_global (one per company, everyone is in it; the oldest team is global).
 -- - user_teams gains is_default_runner (one per team; the first person to join that team).
--- - plugins.scope_kind loses 'factory'; factory installs are promoted to the global team.
+-- - plugins.scope_kind loses 'factory'; factory installs are deleted along with their contributions.
 
 -- Add is_global to teams
 ALTER TABLE "teams" ADD COLUMN "is_global" boolean NOT NULL DEFAULT false;
@@ -49,55 +49,44 @@ CREATE UNIQUE INDEX "user_teams_default_runner_uq" ON "user_teams" ("team_id")
 WHERE "is_default_runner" = TRUE;
 --> statement-breakpoint
 
--- ── Plugins: retire factory scope ───────────────────────────────────────────
+-- ── Plugins: delete factory-scope installs ───────────────────────────────────
 
--- Guard: factory-scope plugins with no global team = NULL-PK disaster; fail loudly.
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM "plugins" WHERE "scope_kind" = 'factory')
-     AND NOT EXISTS (SELECT 1 FROM "teams" WHERE "is_global" = TRUE)
-  THEN
-    RAISE EXCEPTION
-      'migration 0118: factory-scope plugins exist but no global team is present. '
-      'Create at least one team before running this migration.';
-  END IF;
-END $$;
+-- Delete factory-contributed subscriptions.
+DELETE FROM "subscriptions"
+WHERE "id" IN (
+    SELECT pc."entity_id"
+    FROM "plugin_contributions" pc
+    JOIN "plugins" p ON p."id" = pc."plugin_id"
+    WHERE p."scope_kind" = 'factory'
+      AND pc."kind" = 'subscription'
+);
 --> statement-breakpoint
 
--- Move factory-scope plugin agents into the global team (they had no team).
--- @lore: factory-scope agent IDs embed 'factory' in their SHA256 hash — cannot be recomputed in pure SQL; the install id (plugins.id) is renamed below and cascades; entity IDs keep their old hashes but gain team membership
-INSERT INTO "user_teams" ("user_id", "team_id")
-SELECT pc."entity_id", t."id"
-FROM "plugin_contributions" pc
-JOIN "plugins" p ON p."id" = pc."plugin_id"
-JOIN "teams" t ON t."is_global" = TRUE
-WHERE p."scope_kind" = 'factory'
-  AND pc."kind" = 'agent'
-ON CONFLICT DO NOTHING;
+-- Delete factory-contributed documents.
+DELETE FROM "documents"
+WHERE "id" IN (
+    SELECT pc."entity_id"
+    FROM "plugin_contributions" pc
+    JOIN "plugins" p ON p."id" = pc."plugin_id"
+    WHERE p."scope_kind" = 'factory'
+      AND pc."kind" = 'document'
+);
 --> statement-breakpoint
 
--- Update factory-scope skill documents to the global team scope
-UPDATE "documents"
-SET "scope_kind" = 'team',
-    "scope_id"   = (SELECT "id" FROM "teams" WHERE "is_global" = TRUE LIMIT 1)
-WHERE "scope_kind" = 'factory'
-  AND "id" IN (
-      SELECT pc."entity_id"
-      FROM "plugin_contributions" pc
-      JOIN "plugins" p ON p."id" = pc."plugin_id"
-      WHERE p."scope_kind" = 'factory'
-        AND pc."kind" = 'document'
-  );
+-- Delete factory-contributed agents (users).
+-- If changes.actor (ON DELETE RESTRICT) blocks a row, the migration fails rather than silently skipping.
+DELETE FROM "users"
+WHERE "id" IN (
+    SELECT pc."entity_id"
+    FROM "plugin_contributions" pc
+    JOIN "plugins" p ON p."id" = pc."plugin_id"
+    WHERE p."scope_kind" = 'factory'
+      AND pc."kind" = 'agent'
+);
 --> statement-breakpoint
 
--- Rename the factory-scope plugin install ids to the team-scoped form (<name>@<globalTeamId>)
--- and move them to the global team.  ON UPDATE CASCADE on plugin_contributions.plugin_id
--- keeps the contribution rows in sync automatically.
-UPDATE "plugins"
-SET "id"             = "name" || '@' || (SELECT "id" FROM "teams" WHERE "is_global" = TRUE LIMIT 1),
-    "scope_kind"     = 'team',
-    "scope_team_id"  = (SELECT "id" FROM "teams" WHERE "is_global" = TRUE LIMIT 1)
-WHERE "scope_kind" = 'factory';
+-- Delete factory-scope plugin installs; ON DELETE CASCADE removes their plugin_contributions rows.
+DELETE FROM "plugins" WHERE "scope_kind" = 'factory';
 --> statement-breakpoint
 
 -- Drop the old scope_kind check and replace it with the team-only version
