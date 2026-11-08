@@ -191,6 +191,7 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 	const tasks = useTasks();
 	const [adding, setAdding] = useState(false);
 	const [addingPlugin, setAddingPlugin] = useState(false);
+	const [runnerProblem, setRunnerProblem] = useState<string | null>(null);
 	const location = useLocation();
 	const removed = (location.state as { removed?: { id: string; name: string } } | null)?.removed;
 
@@ -311,14 +312,17 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 										Runs its agents:{" "}
 										{yours ? (
 											<select
+												className="in"
+												aria-label="Runs its agents"
 												value={team?.defaultRunnerId ?? ""}
 												onChange={async (e) => {
 													const newId = e.currentTarget.value;
-													await call("edit_user", {
+													const result = await call("edit_user", {
 														id: newId,
 														defaultRunnerFor: team?.id ?? "",
 													});
-													users.reload();
+													setRunnerProblem(problemOf(result));
+													if (result.ok) users.reload();
 												}}
 											>
 												{people.map((p) => (
@@ -330,6 +334,7 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 										) : (
 											runnerName
 										)}
+										{runnerProblem && <p className="composer-problem">{runnerProblem}</p>}
 									</li>
 								);
 							})()}

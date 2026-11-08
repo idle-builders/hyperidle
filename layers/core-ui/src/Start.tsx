@@ -55,7 +55,7 @@ function Join({ onBack }: { onBack: () => void }) {
 						Your browser opens to sign in. Whoever runs the server lets you in there.
 					</p>
 					{company !== null &&
-						field("Name your company", company, setCompany, { placeholder: "e.g. Product" })}
+						field("Name your company", company, setCompany, { placeholder: "e.g. Acme" })}
 					{problem && <p className="composer-problem">{problem}</p>}
 				</>
 			) : (
@@ -130,7 +130,7 @@ export function Start() {
 							<span>Name your company</span>
 							<input
 								value={company}
-								placeholder="e.g. Product"
+								placeholder="e.g. Acme"
 								aria-label="Company name"
 								onChange={(e) => setCompany(e.target.value)}
 							/>
