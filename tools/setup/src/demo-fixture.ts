@@ -30,7 +30,7 @@ import { createDemoClock } from "./demo-world/time.js";
  * `founderKey` is the key the window will send — the desktop app's
  * `secrets.json` key, or the laptop server's own key when none is given.
  *
- * @returns the Product team id and the founder's user id.
+ * @returns the global team id (Olsen Labs) and the founder's user id.
  */
 export async function seedDemoWorld(
 	db: HyperIdleDb,
@@ -53,5 +53,5 @@ export async function seedDemoWorld(
 		FOUNDER_ID,
 		opts.founderKey ?? process.env.HYPERIDLE_API_KEY ?? "hyperidle-dev-local",
 	);
-	return { teamId: PRODUCT_TEAM_ID, founderId: FOUNDER_ID };
+	return { teamId: OLSEN_LABS_TEAM_ID, founderId: FOUNDER_ID };
 }
