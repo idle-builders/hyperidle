@@ -341,6 +341,24 @@ export function personStand(waiting: readonly Job[], you: boolean): string {
 }
 
 /**
+ * Whether the viewer may ask the runner to take this agent — the same rule
+ * as the server's key guard: the viewer owns the agent, or the agent is
+ * unowned and shares at least one team with the viewer. An agent with no
+ * owner and no teams runs nowhere.
+ */
+export function viewerMayTake(
+	agent: UserRow,
+	viewerId: string,
+	viewerTeams: readonly { id: string; name: string }[],
+): boolean {
+	if (agent.ownerUserId === viewerId) return true;
+	if (agent.ownerUserId !== null) return false;
+	if (agent.teams.length === 0) return false;
+	const viewerTeamIds = new Set(viewerTeams.map((t) => t.id));
+	return agent.teams.some((t) => viewerTeamIds.has(t.id));
+}
+
+/**
  * Whether the Move-here button should show on an agent's page.
  * Returns "move-here" when the runner is present but doesn't hold this agent,
  * "moved-away" when the runner reports the agent has moved to another computer,
