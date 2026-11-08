@@ -154,7 +154,7 @@ export function Start() {
 							className="first-other first-other--start"
 							onClick={() => setJoining(true)}
 						>
-							Join a team on a server instead
+							Join a shared workspace instead
 						</button>
 					</>
 				)}

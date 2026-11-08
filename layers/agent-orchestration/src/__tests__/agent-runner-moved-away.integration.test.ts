@@ -4,11 +4,8 @@
  * hasKey === false means the previous key is gone — moved-away is stale.
  */
 
-import {
-	markAgentRunnerKeyMovedAway,
-	persistAgentRunnerKey,
-} from "@hyperidle/run-orchestration";
 import type { EventBus } from "@hyperidle/event-bus";
+import { markAgentRunnerKeyMovedAway, persistAgentRunnerKey } from "@hyperidle/run-orchestration";
 import type { RunnerDb } from "@hyperidle/runner-db";
 import { describe } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";
@@ -41,7 +38,9 @@ function buildDoor(agentHasKey: { value: boolean }): AgentRunnerDeps["door"] {
 							discipline: null,
 							what: null,
 							hasKey: true,
-							teams: [{ id: "team-ma", name: "Alpha", isGlobal: false, defaultRunnerId: PERSON_ID }],
+							teams: [
+								{ id: "team-ma", name: "Alpha", isGlobal: false, defaultRunnerId: PERSON_ID },
+							],
 							edges: [],
 						},
 						documentIds: [],

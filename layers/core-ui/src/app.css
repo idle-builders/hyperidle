@@ -3378,7 +3378,7 @@ button.tv-where:hover {
 	gap: var(--sp-2);
 	margin-top: var(--sp-5);
 }
-/* a team: a group inside the organisation, with its people and their agents */
+/* a team: a group with its people and their agents */
 .crew-team {
 	display: flex;
 	flex-direction: column;
@@ -3979,7 +3979,7 @@ select.in {
 .first-other--start {
 	align-self: flex-start;
 }
-/* who a document is for: every agent, or the agents of one discipline */
+/* who a document is for: all agents, or the agents of one discipline */
 .for {
 	position: relative;
 	flex: none;

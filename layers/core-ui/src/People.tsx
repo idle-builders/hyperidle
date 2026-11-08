@@ -51,7 +51,7 @@ import { useAction } from "./useAction";
  * conversation with them, what they run on, where they work, what they can reach, when they start
  * working or what they are told about, and what makes them who they are (instructions, skills,
  * memory). There is no separate settings screen: your own page is where your settings live, and it
- * is one click away at the bottom of the sidebar. A team is a group inside the one organisation —
+ * is one click away at the bottom of the sidebar. A team is a group —
  * a product team, a function, or both; a person can be in several, an agent is in one. A team's
  * page is reached from Work: its people and agents, and in its box its plugins. Changing any of it
  * happens in a small dialog over the page. Anything long is a document: a new agent, or a new

@@ -29,8 +29,8 @@ import { useAction } from "./useAction";
 /**
  * The one sidebar on every screen: find-or-ask, the three spines stacked, a separator, then the
  * chosen spine's list — one evenly spaced run in priority order, status in words on each row.
- * There is one organisation, so nothing names it. Work can be narrowed to one team; conversations
- * are across all teams, and in knowledge each team is a space of its own. Clicking a row goes to
+ * Work can be narrowed to one team; conversations are across all teams, and in knowledge each team
+ * is a space of its own. Clicking a row goes to
  * its address, so back, forward and reload keep the place.
  */
 type Spine = "conversations" | "work" | "knowledge";

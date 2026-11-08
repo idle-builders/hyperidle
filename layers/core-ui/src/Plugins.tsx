@@ -16,7 +16,7 @@ import { useAction } from "./useAction";
  * PLUGINS — a plugin is a ready-made pack: agents, skills, reasons to start and services. It has
  * no world of its own. What it adds are ordinary agents and documents in the team, yours to
  * change, so a plugin's page is mostly a list of links to them. A plugin is added for one team or
- * for every team, and listed in the box on the page of each team it is for.
+ * for one team or globally, and listed in the box on the page of each team it is for.
  */
 
 const STATE_WORDS: Record<PluginStand, string> = { on: "On", off: "Off", new: "Not installed" };

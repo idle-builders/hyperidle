@@ -181,10 +181,7 @@ export async function repairDefaultRunner(db: HyperIdleDb, teamId: string): Prom
  * on its next API call and lets go; the new default runner's sweep then
  * claims the agents.
  */
-export async function clearUnownedTeamAgentKeys(
-	db: HyperIdleDb,
-	teamId: string,
-): Promise<void> {
+export async function clearUnownedTeamAgentKeys(db: HyperIdleDb, teamId: string): Promise<void> {
 	const agentRows = await db
 		.select({ id: userTeams.userId })
 		.from(userTeams)
