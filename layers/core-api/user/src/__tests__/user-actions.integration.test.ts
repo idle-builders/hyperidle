@@ -893,3 +893,130 @@ describe("edit_user — key minting security rules", () => {
 		expect(changedIds).toStrictEqual([agentId]);
 	});
 });
+
+describe("edit_user defaultRunnerFor", () => {
+	test("member moves the default runner to themselves; old holder loses it", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates the team (is default runner); Ada joins it
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+		const teamId = finnResult.data.user?.teams?.[0]?.id ?? "";
+		expect(teamId).not.toBe("");
+
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["Acme"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+		expect(adaId).not.toBe("");
+
+		// Finn is default runner (joined first)
+		const membershipsBefore = await db
+			.select()
+			.from(userTeams)
+			.where(eq(userTeams.teamId, teamId));
+		expect(membershipsBefore.find((m) => m.userId === finnId)?.isDefaultRunner).toBe(true);
+
+		// Ada moves herself to default runner
+		const result = await editUser(ctxFor(db, adaId), { id: adaId, defaultRunnerFor: teamId });
+		expect(result.ok).toBe(true);
+
+		const membershipsAfter = await db
+			.select()
+			.from(userTeams)
+			.where(eq(userTeams.teamId, teamId));
+		expect(membershipsAfter.find((m) => m.userId === finnId)?.isDefaultRunner).toBe(false);
+		expect(membershipsAfter.find((m) => m.userId === adaId)?.isDefaultRunner).toBe(true);
+		expect(membershipsAfter.filter((m) => m.isDefaultRunner)).toHaveLength(1);
+	});
+
+	test("non-member of the team is refused with not_in_team", async ({ db }) => {
+		await seedFounder(db);
+		// Pre-seed a global team so TeamA and TeamB are non-global (otherwise the first team
+		// created becomes global and everyone auto-joins it, making Bo a member of TeamA).
+		await db.insert(teams).values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+		const { editUser } = actionsFor(buildDeps());
+
+		// Ada in TeamA, Bo in TeamB
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["TeamA"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+		const teamAId = adaResult.data.user?.teams?.[0]?.id ?? "";
+		const boResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Bo",
+			teams: ["TeamB"],
+		});
+		if (!boResult.ok) throw new Error("bo create failed");
+		const boId = boResult.data.user?.id ?? "";
+
+		// Bo tries to set Ada as default runner of TeamA — Bo is not in TeamA
+		const result = await editUser(ctxFor(db, boId), { id: adaId, defaultRunnerFor: teamAId });
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.problems[0]?.code).toBe("not_in_team");
+	});
+
+	test("target not in team is refused with not_in_team", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["TeamA", "TeamB"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+		const teamBId = adaResult.data.user?.teams?.find((t) => t.name === "TeamB")?.id ?? "";
+		const boResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Bo",
+			teams: ["TeamA"],
+		});
+		if (!boResult.ok) throw new Error("bo create failed");
+		const boId = boResult.data.user?.id ?? "";
+
+		// Ada tries to make Bo default runner of TeamB — Bo is not in TeamB
+		const result = await editUser(ctxFor(db, adaId), { id: boId, defaultRunnerFor: teamBId });
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.problems[0]?.code).toBe("not_in_team");
+	});
+
+	test("target is an agent — refused with person_only", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["Acme"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+		const teamId = adaResult.data.user?.teams?.[0]?.id ?? "";
+		const agentResult = await editUser(ctxFor(db, adaId), {
+			kind: "ai",
+			name: "Bot",
+			teams: ["Acme"],
+		});
+		if (!agentResult.ok) throw new Error("agent create failed");
+		const agentId = agentResult.data.user?.id ?? "";
+
+		const result = await editUser(ctxFor(db, adaId), { id: agentId, defaultRunnerFor: teamId });
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.problems[0]?.code).toBe("person_only");
+	});
+});

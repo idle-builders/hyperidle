@@ -832,51 +832,33 @@ async function editExistingUserRun(
 		}
 	}
 
-	// setDefaultRunner: validate before the transaction
-	if (input.setDefaultRunner !== undefined) {
-		const { teamId, userId: targetUserId } = input.setDefaultRunner;
-		// Actor must be in the team
-		const actorTeamIds = new Set(existing.teamIds);
-		if (!actorTeamIds.has(teamId) && ctx.actor !== id) {
-			// Allow the target person themselves to be changed by a team member; check actor is in team
-			const actorRow = await findUser(ctx.db, { id: ctx.actor });
-			if (!actorRow?.teamIds.includes(teamId)) {
-				return problem(
-					"not_in_team",
-					"Only a member of the team may change its default runner.",
-					"setDefaultRunner.teamId",
-				);
-			}
-		} else if (!actorTeamIds.has(teamId)) {
+	// defaultRunnerFor: validate before the transaction
+	if (input.defaultRunnerFor !== undefined) {
+		const teamId = input.defaultRunnerFor;
+		// Actor must be in the team (check ACTOR's memberships, not the target's)
+		const actorRow = await findUser(ctx.db, { id: ctx.actor });
+		if (!actorRow?.teamIds.includes(teamId)) {
 			return problem(
 				"not_in_team",
 				"Only a member of the team may change its default runner.",
-				"setDefaultRunner.teamId",
+				"defaultRunnerFor",
 			);
 		}
-		// Target must be a person in the team
-		const targetRow = await findUser(ctx.db, { id: targetUserId });
-		if (!targetRow) {
-			return problem("not_found", `No user with id '${targetUserId}'.`, "setDefaultRunner.userId");
+		// Target (the person being edited) must be a human in the team
+		if (existing.kind !== "human") {
+			return problem("person_only", "The default runner must be a person.", "defaultRunnerFor");
 		}
-		if (targetRow.kind !== "human") {
-			return problem(
-				"person_only",
-				"The default runner must be a person.",
-				"setDefaultRunner.userId",
-			);
-		}
-		if (!targetRow.teamIds.includes(teamId)) {
+		if (!existing.teamIds.includes(teamId)) {
 			return problem(
 				"not_in_team",
 				"The new default runner must be a member of that team.",
-				"setDefaultRunner.userId",
+				"defaultRunnerFor",
 			);
 		}
 	}
 
 	const touchesTeams = input.teams !== undefined;
-	const touchesDefaultRunner = input.setDefaultRunner !== undefined;
+	const touchesDefaultRunner = input.defaultRunnerFor !== undefined;
 	const touchesEdges =
 		(input.edges?.add?.length ?? 0) > 0 || (input.edges?.remove?.length ?? 0) > 0;
 	const touchesSubscriptions =
@@ -904,7 +886,7 @@ async function editExistingUserRun(
 	if (touchesKey) after.keyRotated = true;
 	if (touchesEdges) after.edges = true;
 	if (touchesSubscriptions) after.subscriptions = true;
-	if (touchesDefaultRunner) after.defaultRunner = input.setDefaultRunner;
+	if (touchesDefaultRunner) after.defaultRunner = { teamId: input.defaultRunnerFor, userId: id };
 
 	let teams: Array<{ id: string; name: string }> | undefined;
 	const addedSubscriptions: Array<{
@@ -937,9 +919,8 @@ async function editExistingUserRun(
 			}
 		}
 
-		if (input.setDefaultRunner !== undefined) {
-			const { teamId, userId: targetUserId } = input.setDefaultRunner;
-			await setDefaultRunner(tx, teamId, targetUserId);
+		if (input.defaultRunnerFor !== undefined) {
+			await setDefaultRunner(tx, input.defaultRunnerFor, id);
 		}
 
 		const patch: Partial<NewUser> = {};

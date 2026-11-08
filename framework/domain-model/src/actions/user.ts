@@ -299,11 +299,11 @@ export const EditUserInputSchema = z
 		/** An agent only: a fresh key, returned once. The agent's older key stops working. */
 		key: z.literal("new").optional(),
 		/**
-		 * Move the default runner of a team to this person. The actor must be in that team;
-		 * the target must be a person (kind human) in that team.
+		 * Move the default runner of a team to this person (the person being edited).
+		 * The actor must be a member of that team; the target must be a person (kind human) in that team.
 		 * Setting it on one member moves it off whoever held it before.
 		 */
-		setDefaultRunner: z.object({ teamId: z.string().min(1), userId: z.string().min(1) }).optional(),
+		defaultRunnerFor: z.string().min(1).optional(),
 	})
 	.strict();
 export type EditUserInput = z.infer<typeof EditUserInputSchema>;
