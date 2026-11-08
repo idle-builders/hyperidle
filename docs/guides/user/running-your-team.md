@@ -8,7 +8,7 @@ A team is a group inside your organisation: a product team, a function such as s
 
 In the sidebar, open **Work**, pick a team in the team switch, then press **The team ›**.
 
-The page lists the team's people, each with the agents that work for them, then the agents that work for the whole team and those that work for every team. Each row says what that person or agent is doing now; click it to open their [page](./agents.md).
+The page lists the team's people, each with the agents that work for them, then the agents that work for the whole team. Each row says what that person or agent is doing now; click it to open their [page](./agents.md).
 
 The box on the right shows **Runs its agents: &lt;name&gt;** — the person whose computer runs the team's shared agents. Any member can change it from the same box.
 

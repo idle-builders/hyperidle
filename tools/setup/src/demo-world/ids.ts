@@ -8,8 +8,8 @@ import { fileURLToPath } from "node:url";
 import { pluginAgentId } from "@hyperidle/core-api";
 
 // ── Teams and people ────────────────────────────────────────────────────────
-// One organisation, two teams. Finn is in both, Maya in Support; each owned
-// agent is in one of its owner's teams; the plugin's agent works for everyone.
+// Two teams: Product and Support. Finn is in both, Maya in Support; each owned
+// agent is in one of its owner's teams; the plugin's agent is in its installing team.
 export const PRODUCT_TEAM_ID = "demo-team-product";
 export const SUPPORT_TEAM_ID = "demo-team-support";
 export const FOUNDER_ID = "demo-founder";
@@ -18,7 +18,7 @@ export const BUILDER_ID = "demo-agent-builder";
 export const GROWTH_ID = "demo-agent-growth";
 export const DESIGNER_ID = "demo-agent-designer";
 
-/** The Team habits plugin is installed from this folder, for the global team (Product). */
+/** The Team habits plugin is installed from this folder, for the Product team. */
 export const TEAM_HABITS_DIR = fileURLToPath(new URL("./team-habits", import.meta.url));
 export const FACILITATION_ID = pluginAgentId("team-habits", "facilitation", {
 	kind: "team",

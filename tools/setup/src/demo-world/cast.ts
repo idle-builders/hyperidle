@@ -2,7 +2,7 @@
  * The demo world's people and agents. Finn Olsen founded the company and is in
  * Product and Support; Maya Chen runs support. Builder and Growth work for
  * Finn in Product, Designer for Maya in Support, and Facilitation comes from
- * the Team habits plugin and works for everyone. Finn holds the computer's key
+ * the Team habits plugin installed on the Product team. Finn holds the computer's key
  * (`demo-fixture.ts`), so he is who lands in the app.
  */
 
@@ -472,9 +472,9 @@ async function seedGrowthsMonday(db: HyperIdleDb, clock: DemoClock): Promise<voi
 }
 
 /**
- * Team habits, installed for everyone through the real install path the day
- * the company started; Facilitation runs on Claude Code. Two of its documents
- * were edited by a person since, which detaches them from the plugin.
+ * Team habits, installed for the Product team through the real install path
+ * the day the company started; Facilitation runs on Claude Code. Two of its
+ * documents were edited by a person since, which detaches them from the plugin.
  */
 async function seedTeamHabits(
 	db: HyperIdleDb,
