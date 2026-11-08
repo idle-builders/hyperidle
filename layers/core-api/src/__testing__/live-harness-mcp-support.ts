@@ -49,7 +49,7 @@ export interface LiveHarnessMcpServer {
 export async function setUpLiveHarnessMcpServer(sessionId: string): Promise<LiveHarnessMcpServer> {
 	const port = await getFreePort();
 	const serverUrl = `http://127.0.0.1:${port}`;
-	const execution = await bootAgentExecution({ topology: "local", mcpBaseUrl: serverUrl });
+	const execution = await bootAgentExecution({ mcpBaseUrl: serverUrl });
 
 	const bridgeApp = new Hono();
 	const bridgeApi = new Hono();

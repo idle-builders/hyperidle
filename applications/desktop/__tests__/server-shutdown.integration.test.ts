@@ -8,10 +8,7 @@ describe("server shutdown", () => {
 		const apiKey = `shutdown-key-${Math.random().toString(36).slice(2)}`;
 		vi.stubEnv("HYPERIDLE_API_KEY", apiKey);
 		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "server-shutdown-test-secret-32-chars!");
-		const server = await createServer(0, {
-			db,
-			topology: "disabled",
-		});
+		const server = await createServer(0, { db });
 		const addr = server.httpServer.address();
 		const port = typeof addr === "object" && addr !== null ? addr.port : 0;
 		const res = await fetch(`http://127.0.0.1:${port}/api/auth/ws-token`, {

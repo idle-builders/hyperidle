@@ -351,7 +351,7 @@ left. That gap has to be closed here, before Batch 6, not discovered after it.
 - **The browser is not a harness surface at all.** The web version exists to command remote workers;
   it does not run local harnesses and is not supposed to. So the cassette lane is **not** replaced by
   a real-CLI browser lane — it is deleted, and browser tests stop making model calls, because in the
-  web version there is no model call to make. `topology: "disabled"` was never the bug it looked like.
+  web version there is no model call to make.
 - **The eval harness is one setting for the run** — whatever is simplest. Run-scoped state the runner
   sets once, not a codemod over 77 call sites.
 - **Any harness test runs against every harness. Anything that existed purely for the built-in one

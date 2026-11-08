@@ -1,5 +1,5 @@
 /**
- * startServer() calls createServer(0, deps) with topology:"local" and the loopback hostname —
+ * startServer() calls createServer(0, deps) with the loopback hostname —
  * desktop's own composition root, never importing another application. getPort() extracts the
  * OS-assigned port from a listening handle; waitForHealth() resolves on 200 and times out otherwise.
  */

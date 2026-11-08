@@ -155,10 +155,7 @@ export class AdapterPool {
 	 */
 	describeSelectFailure(requirements?: SelectRequirements): string {
 		if (this.entries.size === 0) {
-			// Covers both ways a pool ends up empty: a `local`-topology deployment
-			// discovered no CLI on this host, and a `disabled`-topology one (the
-			// `remote-server` Application) runs no agents at all.
-			return "no harness adapters are registered — no local harness was discovered on this host, or this server runs no agents";
+			return "no harness adapters are registered — no local harness was discovered on this host";
 		}
 		const live = [...this.entries.values()];
 		const availableTypes = [...new Set(live.map((entry) => entry.meta.type ?? "untyped"))];
