@@ -2,7 +2,7 @@
  * The demo world's people and agents. Finn Olsen founded the company and is in
  * Product and Support; Maya Chen runs support. Builder and Growth work for
  * Finn in Product, Designer for Maya in Support, and Facilitation comes from
- * the Team habits plugin installed on the Product team. Finn holds the computer's key
+ * the Team habits plugin installed on the Olsen Labs global team. Finn holds the computer's key
  * (`demo-fixture.ts`), so he is who lands in the app.
  */
 
@@ -35,6 +35,7 @@ import {
 	FOUNDER_ID,
 	GROWTH_ID,
 	MAYA_ID,
+	OLSEN_LABS_TEAM_ID,
 	PRODUCT_TEAM_ID,
 	SUPPORT_TEAM_ID,
 	TEAM_HABITS_DIR,
@@ -72,7 +73,7 @@ const PEOPLE: readonly PersonSpec[] = [
 		name: "Finn Olsen",
 		role: "founder",
 		discipline: "Product",
-		teams: [PRODUCT_TEAM_ID, SUPPORT_TEAM_ID],
+		teams: [OLSEN_LABS_TEAM_ID, PRODUCT_TEAM_ID, SUPPORT_TEAM_ID],
 		sinceDays: 98,
 		what: "Founder. Product and pricing.",
 		about: `# About Finn
@@ -88,7 +89,7 @@ Founder. I decide what gets built and what customers see.
 		name: "Maya Chen",
 		role: "member",
 		discipline: "Support",
-		teams: [PRODUCT_TEAM_ID, SUPPORT_TEAM_ID],
+		teams: [OLSEN_LABS_TEAM_ID, PRODUCT_TEAM_ID, SUPPORT_TEAM_ID],
 		sinceDays: 97,
 		what: "Support and ops.",
 		about: `# About Maya
@@ -472,8 +473,8 @@ async function seedGrowthsMonday(db: HyperIdleDb, clock: DemoClock): Promise<voi
 }
 
 /**
- * Team habits, installed for the Product team through the real install path
- * the day the company started; Facilitation runs on Claude Code. Two of its
+ * Team habits, installed for the Olsen Labs global team through the real install
+ * path the day the company started; Facilitation runs on Claude Code. Two of its
  * documents were edited by a person since, which detaches them from the plugin.
  */
 async function seedTeamHabits(
@@ -486,7 +487,7 @@ async function seedTeamHabits(
 		source: {
 			kind: "folder",
 			path: TEAM_HABITS_DIR,
-			scope: { kind: "team", teamId: PRODUCT_TEAM_ID },
+			scope: { kind: "team", teamId: OLSEN_LABS_TEAM_ID },
 		},
 		actor: FOUNDER_ID,
 		now: clock.daysAgo(98),

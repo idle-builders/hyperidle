@@ -15,7 +15,12 @@ import { type HyperIdleDb, teams } from "@hyperidle/db";
 import type { RunnerDb } from "@hyperidle/runner-db";
 import { giveUserKey } from "@hyperidle/user";
 import type { DemoWorldPlaces } from "./demo-world/cast.js";
-import { FOUNDER_ID, PRODUCT_TEAM_ID, SUPPORT_TEAM_ID } from "./demo-world/ids.js";
+import {
+	FOUNDER_ID,
+	OLSEN_LABS_TEAM_ID,
+	PRODUCT_TEAM_ID,
+	SUPPORT_TEAM_ID,
+} from "./demo-world/ids.js";
 import { seedDemoWorldContent } from "./demo-world/index.js";
 import { createDemoClock } from "./demo-world/time.js";
 
@@ -36,7 +41,8 @@ export async function seedDemoWorld(
 	await db
 		.insert(teams)
 		.values([
-			{ id: PRODUCT_TEAM_ID, name: "Product", createdAt: clock.daysAgo(98), isGlobal: true },
+			{ id: OLSEN_LABS_TEAM_ID, name: "Olsen Labs", createdAt: clock.daysAgo(100), isGlobal: true },
+			{ id: PRODUCT_TEAM_ID, name: "Product", createdAt: clock.daysAgo(98) },
 			{ id: SUPPORT_TEAM_ID, name: "Support", createdAt: clock.daysAgo(98) },
 		])
 		.onConflictDoNothing();

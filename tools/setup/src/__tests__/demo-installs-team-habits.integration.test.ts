@@ -1,7 +1,7 @@
 /**
  * Facilitation arrives the way a person's plugin would: the demo installs Team
- * habits for everyone through the real install path, and two of its documents
- * carry a person's later edit.
+ * habits for the Olsen Labs global team through the real install path, and two
+ * of its documents carry a person's later edit.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -16,8 +16,8 @@ async function rows<T extends Record<string, unknown>>(db: HyperIdleDb, q: strin
 	return (result as { rows: T[] }).rows;
 }
 
-describe("the demo installs Team habits for everyone", () => {
-	test("one install, for everyone, enabled — and the bundled Roles plugin is not installed", async ({
+describe("the demo installs Team habits for the Olsen Labs global team", () => {
+	test("one install, for Olsen Labs, enabled — and the bundled Roles plugin is not installed", async ({
 		db,
 		runnerDb,
 	}) => {
@@ -29,11 +29,11 @@ describe("the demo installs Team habits for everyone", () => {
 			"SELECT id, scope_kind, state FROM plugins ORDER BY id",
 		);
 		expect(installs).toEqual([
-			{ id: "team-habits@demo-team-product", scope_kind: "team", state: "enabled" },
+			{ id: "team-habits@demo-team-olsen-labs", scope_kind: "team", state: "enabled" },
 		]);
 	});
 
-	test("Facilitation is the plugin's agent, in the Product team, with two reasons to start", async ({
+	test("Facilitation is the plugin's agent, in the Olsen Labs team, with two reasons to start", async ({
 		db,
 		runnerDb,
 	}) => {
@@ -49,7 +49,7 @@ describe("the demo installs Team habits for everyone", () => {
 			db,
 			`SELECT team_id FROM user_teams WHERE user_id = '${FACILITATION_ID}'`,
 		);
-		expect(teamRows).toEqual([{ team_id: "demo-team-product" }]);
+		expect(teamRows).toEqual([{ team_id: "demo-team-olsen-labs" }]);
 
 		const reasons = await rows<{ event: string | null; schedule: string | null }>(
 			db,
