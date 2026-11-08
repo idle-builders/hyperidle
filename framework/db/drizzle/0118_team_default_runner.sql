@@ -51,6 +51,19 @@ WHERE "is_default_runner" = TRUE;
 
 -- ── Plugins: retire factory scope ───────────────────────────────────────────
 
+-- Guard: factory-scope plugins with no global team = NULL-PK disaster; fail loudly.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM "plugins" WHERE "scope_kind" = 'factory')
+     AND NOT EXISTS (SELECT 1 FROM "teams" WHERE "is_global" = TRUE)
+  THEN
+    RAISE EXCEPTION
+      'migration 0118: factory-scope plugins exist but no global team is present. '
+      'Create at least one team before running this migration.';
+  END IF;
+END $$;
+--> statement-breakpoint
+
 -- Move factory-scope plugin agents into the global team (they had no team).
 -- @lore: factory-scope agent IDs embed 'factory' in their SHA256 hash — cannot be recomputed in pure SQL; the install id (plugins.id) is renamed below and cascades; entity IDs keep their old hashes but gain team membership
 INSERT INTO "user_teams" ("user_id", "team_id")
