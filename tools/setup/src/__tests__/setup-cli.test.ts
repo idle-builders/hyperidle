@@ -59,8 +59,8 @@ describe("`bun run setup --profile laptop`", () => {
 		const client = new PGlite(dataDir);
 		await client.waitReady;
 		try {
-			// applyFactoryBootstrap does NOT insert teams — teams are created at
-			// onboarding, not at setup time. Assert factory agents present.
+			// applyFactoryBootstrap does NOT insert teams — the global team is created
+			// when the user first names their company. Assert factory actors present.
 			const usersResult = await client.query<{ id: string }>("SELECT id FROM users");
 			expect(usersResult.rows.length).toBeGreaterThan(0);
 
@@ -182,7 +182,7 @@ describe("--db-path validation", () => {
 });
 
 describe("--demo flag behavior", () => {
-	it("without --demo: setup produces only the global team (factory only)", {
+	it("without --demo: setup produces no teams (factory bootstrap creates none; teams come from onboarding)", {
 		timeout: 60_000,
 	}, async () => {
 		const dataDir = path.join(tmpdir, "hyperidle-pg-nodemo");
@@ -194,11 +194,11 @@ describe("--demo flag behavior", () => {
 		const client = new PGlite(dataDir);
 		await client.waitReady;
 		try {
-			// Only the global team (factory bootstrap creates it; no demo world)
+			// No teams — the global team is created when the user first names their company
 			const teamsResult = await client.query<{ count: string }>(
 				"SELECT COUNT(*) AS count FROM teams",
 			);
-			expect(Number(teamsResult.rows[0]?.count)).toBe(1);
+			expect(Number(teamsResult.rows[0]?.count)).toBe(0);
 
 			// No human users (factory has no humans)
 			const humanResult = await client.query<{ count: string }>(

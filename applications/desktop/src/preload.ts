@@ -6,10 +6,10 @@ let onSpeech: ((_event: IpcRendererEvent, text: SpeechText) => void) | null = nu
 
 contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 	apiKey: process.argv.find((a: string) => a.startsWith("--api-key="))?.split("=")[1] ?? "",
-	/** Sign in to a team's server and join it; on success the app reopens there as them. */
+	/** Sign in to a company's server and join it; on success the app reopens there as them. */
 	join: (form: {
 		address: string;
-		team?: string;
+		company?: string;
 	}): Promise<{ ok: boolean; problem?: string; needsTeam?: boolean; cancelled?: boolean }> =>
 		ipcRenderer.invoke("backend:join", form),
 	/** Stops a sign-in that is still waiting for the browser. */

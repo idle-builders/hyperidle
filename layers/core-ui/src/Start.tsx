@@ -4,34 +4,34 @@ import { post } from "./api";
 import { useAction } from "./useAction";
 
 /**
- * First start, on a fresh install: your name and your team's, and Start talking — which makes you,
- * your team and your first agent, and opens your first conversation. A team that already runs on a
- * server is joined instead, in the desktop app.
+ * First start, on a fresh install: your name and your company's, and Start talking — which makes
+ * you, your company team and your first agent, and opens your first conversation. A company that
+ * already runs on a server is joined instead, in the desktop app.
  */
 
 /**
  * Joining happens in the desktop app: you sign in in your browser, and the server hands back your
- * own key; the app keeps it and reopens there as you. A new server also asks for its team.
+ * own key; the app keeps it and reopens there as you. A new server also asks for its company name.
  */
 function Join({ onBack }: { onBack: () => void }) {
 	const bridge = window.__HYPERIDLE__;
 	const [address, setAddress] = useState("");
-	const [team, setTeam] = useState<string | null>(null);
+	const [company, setCompany] = useState<string | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
 	const [joining, setJoining] = useState(false);
 	const join = async () => {
 		if (!bridge?.join) return;
 		if (!address.trim()) return setProblem("Give the server's address.");
-		if (team !== null && !team.trim()) return setProblem("Name your team, please.");
+		if (company !== null && !company.trim()) return setProblem("Name your company, please.");
 		setJoining(true);
 		setProblem(null);
 		const joined = await bridge.join({
 			address,
-			...(team?.trim() ? { team: team.trim() } : {}),
+			...(company?.trim() ? { company: company.trim() } : {}),
 		});
 		setJoining(false);
 		if (joined.ok || joined.cancelled) return;
-		if (joined.needsTeam && team === null) setTeam("");
+		if (joined.needsTeam && company === null) setCompany("");
 		setProblem(joined.problem ?? "That did not work.");
 	};
 	const field = (
@@ -47,14 +47,15 @@ function Join({ onBack }: { onBack: () => void }) {
 	);
 	return (
 		<>
-			<p className="first-lead">Join a team that already runs on a server.</p>
+			<p className="first-lead">Join a company that already runs on a server.</p>
 			{bridge?.join ? (
 				<>
 					{field("Server address", address, setAddress, { placeholder: "e.g. team.example.com" })}
 					<p className="first-note">
 						Your browser opens to sign in. Whoever runs the server lets you in there.
 					</p>
-					{team !== null && field("Name your team", team, setTeam, { placeholder: "e.g. Product" })}
+					{company !== null &&
+						field("Name your company", company, setCompany, { placeholder: "e.g. Product" })}
 					{problem && <p className="composer-problem">{problem}</p>}
 				</>
 			) : (
@@ -92,16 +93,17 @@ export function Start() {
 	const me = useAction("open_user", {});
 	const [joining, setJoining] = useState(false);
 	const [name, setName] = useState("");
-	const [team, setTeam] = useState("");
+	const [company, setCompany] = useState("");
 	const [problem, setProblem] = useState<string | null>(null);
 	const [starting, setStarting] = useState(false);
 
 	if (me.data?.user) return <Navigate to="/conversations" replace />;
 
 	const start = async () => {
-		if (!(name.trim() && team.trim())) return setProblem("Your name and your team's, please.");
+		if (!(name.trim() && company.trim()))
+			return setProblem("Your name and your company's, please.");
 		setStarting(true);
-		const res = await post("/api/start", { name: name.trim(), team: team.trim() });
+		const res = await post("/api/start", { name: name.trim(), company: company.trim() });
 		const body = (await res.json()) as { threadId?: string; error?: string };
 		setStarting(false);
 		if (!body.threadId) return setProblem(body.error ?? "It did not start.");
@@ -125,12 +127,12 @@ export function Start() {
 							/>
 						</label>
 						<label className="first-field">
-							<span>Name your team</span>
+							<span>Name your company</span>
 							<input
-								value={team}
+								value={company}
 								placeholder="e.g. Product"
-								aria-label="Team name"
-								onChange={(e) => setTeam(e.target.value)}
+								aria-label="Company name"
+								onChange={(e) => setCompany(e.target.value)}
 							/>
 						</label>
 						<p className="first-note">

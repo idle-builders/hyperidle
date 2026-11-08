@@ -91,13 +91,13 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 		expect(product[0]?.name).toBe("Product");
 	});
 
-	test("runFactoryBootstrap alone produces no demo data — only global team, no human users, no plugins", async ({
+	test("runFactoryBootstrap alone produces no demo data — no teams, no human users, no plugins", async ({
 		db,
 	}) => {
 		await runFactoryBootstrap(db);
 
 		const teamRows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
-		expect(Number(teamRows[0]?.count)).toBe(1);
+		expect(Number(teamRows[0]?.count)).toBe(0);
 
 		const humanRows = await queryRows<{ count: string }>(
 			db,

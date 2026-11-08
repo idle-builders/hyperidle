@@ -6,7 +6,7 @@ import {
 	type UserView,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { findPersonByEmail, giveUserKey, listTeams, newUserKey } from "@hyperidle/user";
+import { findPersonByEmail, getGlobalTeam, giveUserKey, newUserKey } from "@hyperidle/user";
 import { Hono } from "hono";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import z from "zod";
@@ -28,7 +28,7 @@ const PROVIDER_SCHEMA = z.object({
 });
 type Provider = z.infer<typeof PROVIDER_SCHEMA>;
 
-const JOIN_SCHEMA = z.object({ team: z.string().trim().min(1).max(80).optional() });
+const JOIN_SCHEMA = z.object({ company: z.string().trim().min(1).max(80).optional() });
 
 /** No person exists yet when someone joins. */
 const NOBODY = "";
@@ -36,7 +36,7 @@ const NOBODY = "";
 /**
  * Joining a shared backend: a person signs in with the sign-in service, and the ID token it hands
  * them proves their email. They get their own key back — signing in again from another computer
- * hands that person a new key. A joiner is in every team; the first one on a new server names it.
+ * hands that person a new key. The first joiner names the company (the global team); later joiners land in the global team automatically.
  */
 export function createJoinRoutes(
 	db: HyperIdleDb,
@@ -102,7 +102,7 @@ export function createJoinRoutes(
 				API_ERROR_CODES.UNAUTHORIZED,
 			);
 		const parsed = JOIN_SCHEMA.safeParse(await c.req.json().catch(() => ({})));
-		if (!parsed.success) return no(400, "Name your team.", API_ERROR_CODES.VALIDATION_ERROR);
+		if (!parsed.success) return no(400, "Name your company.", API_ERROR_CODES.VALIDATION_ERROR);
 
 		const known = await findPersonByEmail(db, email.toLowerCase());
 		if (known) {
@@ -110,12 +110,16 @@ export function createJoinRoutes(
 			await giveUserKey(db, known, key);
 			return c.json({ key });
 		}
-		const existing = (await listTeams(db)).map((t) => t.name);
-		const teams = existing.length > 0 ? existing : parsed.data.team ? [parsed.data.team] : null;
-		if (!teams)
-			return no(409, "This server is new: name your team.", API_ERROR_CODES.CONFLICT, {
+		// A global team exists means the company has already been named.
+		// First joiner: must name the company (creates the global team).
+		// Later joiners: land in the global team only.
+		const globalTeam = await getGlobalTeam(db);
+		const teamName = globalTeam?.name ?? parsed.data.company;
+		if (!teamName)
+			return no(409, "This server is new: name your company.", API_ERROR_CODES.CONFLICT, {
 				needsTeam: true,
 			});
+		const teams: string[] = [teamName];
 
 		const made = await editUser(
 			{ actor: NOBODY, db, eventBus, now: new Date().toISOString() },

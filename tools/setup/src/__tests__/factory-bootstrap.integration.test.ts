@@ -52,17 +52,13 @@ describe("runFactoryBootstrap creates the complete factory layer", () => {
 
 	// Bootstrap does not seed documents.
 
-	test("bootstrap creates exactly the one global team", async ({ db }) => {
+	test("bootstrap creates no teams — the global team is made when the company is first named", async ({
+		db,
+	}) => {
 		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
-		expect(Number(rows[0]?.count)).toBe(1);
-
-		const globalRows = await queryRows<{ count: string }>(
-			db,
-			"SELECT COUNT(*) AS count FROM teams WHERE is_global = true",
-		);
-		expect(Number(globalRows[0]?.count)).toBe(1);
+		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
 	// Factory bootstrap creates factory-scoped system identities, never a team or a

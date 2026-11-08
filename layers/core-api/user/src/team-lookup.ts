@@ -65,6 +65,7 @@ export interface CreateTeamInput {
 	readonly createdAt: string;
 }
 
+// @lore: the first team ever created is the global team (the company); every person joins it automatically
 /** Insert a `teams` row. The first team ever created is marked as the global team. */
 export async function createTeam(db: WriteExecutor, input: CreateTeamInput): Promise<void> {
 	const [existingGlobal] = await db
