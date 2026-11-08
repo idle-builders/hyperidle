@@ -190,7 +190,7 @@ export function pluginPage(
 			.filter((p) => p.slot === "skill")
 			.map((s) => ({
 				what: s.label,
-				why: forTeam ? `For every agent in ${forTeam}` : "For every agent",
+				why: forTeam ? `For every agent in ${forTeam}` : "",
 			})),
 		reasons: parts
 			.filter((p) => p.kind === "subscription")
@@ -199,7 +199,7 @@ export function pluginPage(
 			.filter((p) => p.kind === "mcp_server")
 			.map((s) => ({ what: s.label, why: "An MCP server that comes with the plugin" })),
 		from: fromWords(listing),
-		forWhom: forTeam ? `For the ${forTeam} team` : "For every team",
+		forWhom: forTeam ? `For the ${forTeam} team` : "",
 		installed:
 			listing.state === "available"
 				? null

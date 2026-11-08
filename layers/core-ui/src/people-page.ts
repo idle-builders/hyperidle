@@ -60,12 +60,12 @@ export function forWords(iso: string, now: number): string {
 	return days === 1 ? "1 day" : `${days} days`;
 }
 
-/** The people in a team, each with the agents that work for them in it; then the agents that work for every team. */
+/** The people in a team, each with the agents that work for them in it. */
 export function crewOf(
 	users: readonly UserRow[],
 	teamId: string,
 	you: string,
-): { crews: { person: UserRow; agents: UserRow[] }[]; wholeTeam: UserRow[]; everyTeam: UserRow[] } {
+): { crews: { person: UserRow; agents: UserRow[] }[]; wholeTeam: UserRow[] } {
 	const here = users.filter(live);
 	const people = here
 		.filter((u) => u.kind === "human" && inTeam(u, teamId))
@@ -77,7 +77,6 @@ export function crewOf(
 			agents: agents.filter((a) => a.ownerUserId === person.id),
 		})),
 		wholeTeam: agents.filter((a) => a.ownerUserId === null),
-		everyTeam: here.filter((u) => u.kind === "ai" && u.teams.length === 0 && u.role !== "system"),
 	};
 }
 

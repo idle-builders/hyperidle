@@ -70,14 +70,13 @@ const task = (id: string, t: Partial<Task> = {}): Task => ({
 });
 
 describe("a team's page", () => {
-	it("lists each person with the agents that work for them there, you last, and the agents of every team", () => {
+	it("lists each person with the agents that work for them there, you last", () => {
 		const users = [
 			user("finn", { name: "Finn", teams: [product, support] }),
 			user("maya", { name: "Maya", teams: [support] }),
 			user("builder", { kind: "ai", ownerUserId: "finn", teams: [product] }),
 			user("designer", { kind: "ai", ownerUserId: "maya", teams: [support] }),
 			user("old", { kind: "ai", ownerUserId: "finn", teams: [product], status: "retired" }),
-			user("facilitation", { kind: "ai", teams: [] }),
 		];
 		const inSupport = crewOf(users, support.id, "finn");
 		expect(inSupport.crews.map((c) => [c.person.id, c.agents.map((a) => a.id)])).toEqual([
@@ -88,7 +87,6 @@ describe("a team's page", () => {
 		expect(inProduct.crews.map((c) => [c.person.id, c.agents.map((a) => a.id)])).toEqual([
 			["finn", ["builder"]],
 		]);
-		expect(inProduct.everyTeam.map((a) => a.id)).toEqual(["facilitation"]);
 	});
 });
 

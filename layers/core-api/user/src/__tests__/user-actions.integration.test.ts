@@ -1023,7 +1023,9 @@ describe("default runner repair on team exit", () => {
 	}) => {
 		await seedFounder(db);
 		// Pre-seed the global team so Acme is not global and Finn can leave it.
-		await db.insert(teams).values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+		await db
+			.insert(teams)
+			.values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
 		const { editUser } = actionsFor(buildDeps());
 
 		// Finn creates Acme (Finn = default runner)
@@ -1065,7 +1067,9 @@ describe("global team membership invariant", () => {
 	test("a person always stays in the global team when their teams are changed", async ({ db }) => {
 		await seedFounder(db);
 		// Pre-seed the global team so the next team (Acme) is not global.
-		await db.insert(teams).values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+		await db
+			.insert(teams)
+			.values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
 
 		const { editUser } = actionsFor(buildDeps());
 

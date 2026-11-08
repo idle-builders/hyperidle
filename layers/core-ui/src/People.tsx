@@ -213,7 +213,7 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 				</div>
 			</section>
 		);
-	const { crews, wholeTeam, everyTeam } = crewOf(everyone, team?.id ?? "", you);
+	const { crews, wholeTeam } = crewOf(everyone, team?.id ?? "", you);
 	const agents = crews.flatMap((c) => c.agents).length + wholeTeam.length;
 	const stand = (u: UserRow) =>
 		agentStand({
@@ -276,19 +276,6 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 								</div>
 							</section>
 						)}
-						{everyTeam.length > 0 && (
-							<section className="crew-team" aria-label="Works for every team">
-								<h3>
-									Also here <span>works for every team</span>
-								</h3>
-								<div className="crew-agents">
-									{everyTeam.map((a) => (
-										<Row key={a.id} u={a} stand={stand(a)} />
-									))}
-								</div>
-							</section>
-						)}
-
 						<div className="crew-add">
 							<button type="button" className="btn" onClick={() => setAdding(true)}>
 								Add someone to {name}
@@ -1011,7 +998,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 								: owner.name
 							: home
 								? `The ${home.name} team`
-								: "Every team",
+								: "Unassigned",
 						file: fileDoc
 							? {
 									title: fileDoc.title,
