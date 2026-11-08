@@ -950,7 +950,7 @@ describe("edit_user defaultRunnerFor", () => {
 		});
 		if (!adaResult.ok) throw new Error("ada create failed");
 		const adaId = adaResult.data.user?.id ?? "";
-		const teamAId = adaResult.data.user?.teams?.[0]?.id ?? "";
+		const teamAId = adaResult.data.user?.teams?.find((t) => t.name === "TeamA")?.id ?? "";
 		const boResult = await editUser(ctxFor(db, ""), {
 			kind: "human",
 			name: "Bo",
