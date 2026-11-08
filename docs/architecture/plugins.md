@@ -6,7 +6,9 @@ Plugins are how the product gains opinions it does not ship with. The install it
 
 ## One install per team
 
-A plugin is installed for a scope: **factory** (once, for everyone) or a **team**. Each install is its own `plugins` row, and the row id is the install id — the manifest name for a factory install, `<name>@<teamId>` for a team install (a manifest name never contains `@`). Two teams can each install the same plugin: each gets its own agents, subscriptions and documents, and removing, disabling or enabling one team's install leaves the other's alone. `edit_plugin`'s `id` is always an install id.
+A plugin is installed for a **team**. Each install is its own `plugins` row, and the row id is the install id — `<name>@<teamId>` (a manifest name never contains `@`). Two teams can each install the same plugin: each gets its own agents, subscriptions and documents, and removing, disabling or enabling one team's install leaves the other's alone. `edit_plugin`'s `id` is always an install id.
+
+Installing for the global team (the company-wide team) makes the plugin available to everyone's agents.
 
 Contributed row ids hash the manifest name and the scope, so every install's rows are distinct.
 
@@ -59,11 +61,11 @@ Nothing about a server is stored at install: the folder is the only copy, so an 
 
 `plugins/` in the repository holds the plugins that ship with the app. The desktop build copies it into the app's resources beside the migrations (`electron-builder.yml`), and the desktop shell points the server at it with `HYPERIDLE_BUNDLED_PLUGINS_DIR`; the server image finds it in the repository it carries. Nothing is installed by default.
 
-`search_plugins` answers two kinds of rows: every install, and — as `state: "available"` — each bundled plugin not yet installed for every team the viewer is in. A factory install makes a plugin installed for everyone; a removed install makes it available again. A team's page (`/teams/:name`) lists its plugins, the available ones too; an available plugin's page (`/plugins/:id`) has an Install button. "Add a plugin" on the team page installs one from a git address, a folder or a zip file.
+`search_plugins` answers two kinds of rows: every install, and — as `state: "available"` — each bundled plugin not yet installed for every team the viewer is in. A removed install makes it available again. A team's page (`/teams/:name`) lists its plugins, the available ones too; an available plugin's page (`/plugins/:id`) has an Install button. "Add a plugin" on the team page installs one from a git address, a folder or a zip file.
 
-`edit_plugin` installs one with `source: { kind: "bundled", name, scope }`. The name is matched exactly against the manifest names the server read from its own bundled folder; the caller never supplies a path. The manifest's `extensions["io.hyperidle"].installScope` (`team` by default, or `factory`) decides the scope.
+`edit_plugin` installs one with `source: { kind: "bundled", name, scope }`. The name is matched exactly against the manifest names the server read from its own bundled folder; the caller never supplies a path.
 
 The two that ship today:
 
-- `document-management` — the Document Librarian agent, decay/triage/retro subscriptions, and three skills. Installs factory-wide.
+- `document-management` — the Document Librarian agent, decay/triage/retro subscriptions, and three skills.
 - `role-personas` — Builder, Designer, Product Manager, QA Engineer, Growth, Ops and Facilitator, each with its identity.

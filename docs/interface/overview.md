@@ -39,7 +39,7 @@ The sidebar and the page addresses are in [navigation.md](navigation.md).
   plugin's version back". Plugins are added from the team page: from a git address, a folder or a
   zip file; ones that come with the app show Install. See [plugins.md](../architecture/plugins.md).
 - **First start** — on a fresh install: the agent programs found on this computer and how to make
-  one ready, your name and your team's name, Start talking. The desktop app can instead join a team
+  one ready, your name and your company's name, Start talking. The desktop app can instead join a team
   that runs on a server. Then the first conversation opens with the first agent's hello.
 
 ## Rules every page keeps

@@ -28,7 +28,7 @@ Every AI agent has exactly one category, stored in `users.agentCategory`:
 | Category | Binding | Typical source |
 |---|---|---|
 | `team` | Works for a team | You or a plugin |
-| `individual` | Owned by a person (`ownerUserId` non-null), or a factory-wide plugin agent | Per-user at registration, or a plugin |
+| `individual` | Owned by a person (`ownerUserId` non-null) | Per-user at registration, or a plugin |
 
 Every agent is in exactly one team — an owned agent in one of its owner's teams. A person may be in several. The only agents in no team are the ones a plugin brings for everyone. `edit_user` keeps these rules (see [User](../objects/user.md#teams)).
 
