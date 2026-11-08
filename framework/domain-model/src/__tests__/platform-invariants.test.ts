@@ -14,7 +14,6 @@ import {
 	SearchPluginsInputSchema,
 } from "../actions/platform.js";
 
-const factoryScope = { kind: "factory" as const, teamId: null };
 const teamScope = { kind: "team" as const, teamId: "team-1" };
 
 describe("editPluginInvariants", () => {
@@ -35,14 +34,14 @@ describe("editPluginInvariants", () => {
 	it("id_with_source: a source install names an id", () => {
 		const problems = editPluginInvariants({
 			id: "p1",
-			source: { kind: "folder", path: "/plugins/x", scope: factoryScope },
+			source: { kind: "folder", path: "/plugins/x", scope: teamScope },
 		});
 		expect(problems[0]?.code).toBe("id_with_source");
 	});
 
 	it("id_with_source does not fire on a source install with no id", () => {
 		const problems = editPluginInvariants({
-			source: { kind: "folder", path: "/plugins/x", scope: factoryScope },
+			source: { kind: "folder", path: "/plugins/x", scope: teamScope },
 		});
 		expect(problems.map((p) => p.code)).not.toContain("id_with_source");
 	});
@@ -86,11 +85,7 @@ describe("editPluginInvariants", () => {
 	});
 });
 
-describe("PluginScopeSchema — scope nested inside source, not a bare field", () => {
-	it("accepts factory scope with a null teamId", () => {
-		expect(PluginScopeSchema.safeParse(factoryScope).success).toBe(true);
-	});
-
+describe("PluginScopeSchema — only team scope is valid", () => {
 	it("accepts team scope with a teamId", () => {
 		expect(PluginScopeSchema.safeParse(teamScope).success).toBe(true);
 	});
@@ -99,14 +94,15 @@ describe("PluginScopeSchema — scope nested inside source, not a bare field", (
 		expect(PluginScopeSchema.safeParse({ kind: "team", teamId: null }).success).toBe(false);
 	});
 
-	it("rejects factory scope with a non-null teamId", () => {
+	it("rejects factory scope (retired kind)", () => {
+		expect(PluginScopeSchema.safeParse({ kind: "factory", teamId: null }).success).toBe(false);
 		expect(PluginScopeSchema.safeParse({ kind: "factory", teamId: "t1" }).success).toBe(false);
 	});
 });
 
 describe("EditPluginInputSchema", () => {
 	it("scope without source is unrepresentable — there is no top-level scope field", () => {
-		const result = EditPluginInputSchema.safeParse({ id: "p1", scope: factoryScope });
+		const result = EditPluginInputSchema.safeParse({ id: "p1", scope: teamScope });
 		expect(result.success).toBe(false);
 	});
 
@@ -119,7 +115,7 @@ describe("EditPluginInputSchema", () => {
 
 	it("a git source carries no ref field on the wire", () => {
 		const result = EditPluginInputSchema.safeParse({
-			source: { kind: "git", url: "https://x/y.git", ref: "main", scope: factoryScope },
+			source: { kind: "git", url: "https://x/y.git", ref: "main", scope: teamScope },
 		});
 		expect(result.success).toBe(false);
 	});
@@ -143,7 +139,7 @@ describe("PluginViewSchema", () => {
 			version: "1.0.0",
 			description: null,
 			state: "enabled",
-			scope: factoryScope,
+			scope: teamScope,
 			source: { kind: "bundled", address: "document-management", found: true },
 			installedBy: null,
 			installedAt: "2026-09-22T00:00:00.000Z",

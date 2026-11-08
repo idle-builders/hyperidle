@@ -115,7 +115,6 @@ export interface NewPlatformSubscription {
  */
 export interface PlatformActionsDeps {
 	readonly agents: {
-		/** A team install's agents are in that team; a factory install's in none. */
 		insertIfAbsent(exec: WriteExecutor, values: NewUser, teamId: string | null): Promise<void>;
 		setStatus(
 			exec: WriteExecutor,
@@ -182,9 +181,10 @@ export interface PlatformActionsDeps {
 // ---------------------------------------------------------------------------
 
 function toDeclaredScope(scope: InstallerPluginScope): DeclaredPluginScope {
-	return scope.kind === "team" && scope.teamId
-		? { kind: "team", teamId: scope.teamId }
-		: { kind: "factory", teamId: null };
+	// After migration 0118 all stored plugins have team scope; scope_team_id is always set.
+	if (!scope.teamId)
+		throw new Error("platform-actions: unexpected factory-scope plugin after migration 0118");
+	return { kind: "team", teamId: scope.teamId };
 }
 
 /** `listInstalledPlugins`/`getInstalledPlugin` already exclude `state:
@@ -590,8 +590,8 @@ async function installRun(
 	deps: PlatformActionsDeps,
 	source: EditPluginSource,
 ): Promise<ActionResult<PluginView>> {
-	// @lore: team install folder is <name>@<teamId>; a non-existent teamId could escape the install root via remove-and-copy, so refused before any write
-	if (source.scope.kind === "team" && !(await deps.teams.exists(ctx.db, source.scope.teamId))) {
+	// @lore: install folder is <name>@<teamId>; a non-existent teamId could escape the install root via remove-and-copy, so refused before any write
+	if (!(await deps.teams.exists(ctx.db, source.scope.teamId))) {
 		return problem(
 			"unknown_team",
 			`No team "${source.scope.teamId}" to install the plugin for.`,
@@ -694,7 +694,7 @@ async function installRun(
 					agentCategory: agentSpec.agentCategory,
 					createdAt: installTs,
 				},
-				scopeKind === "team" ? scopeId : null,
+				scopeId,
 			);
 		}
 
@@ -943,13 +943,12 @@ function availableBundledPlugins(
 	viewerTeamIds: readonly string[],
 ): AvailablePluginView[] {
 	const installedFor = (name: string, teamId: string): boolean =>
-		installed.some((p) => p.name === name && p.scope.kind === "team" && p.scope.teamId === teamId);
-	const covered = (name: string, installScope: "team" | "factory"): boolean =>
-		installed.some((p) => p.name === name && p.scope.kind === "factory") ||
-		(installScope === "team" && viewerTeamIds.every((teamId) => installedFor(name, teamId)));
+		installed.some((p) => p.name === name && p.scope.teamId === teamId);
+	const covered = (name: string): boolean =>
+		viewerTeamIds.every((teamId) => installedFor(name, teamId));
 	return listBundledPlugins(bundledPluginsDir)
-		.filter(({ manifest }) => manifest.installScope === "factory" || viewerTeamIds.length > 0)
-		.filter(({ manifest }) => !covered(manifest.name, manifest.installScope))
+		.filter(() => viewerTeamIds.length > 0)
+		.filter(({ manifest }) => !covered(manifest.name))
 		.map(({ manifest, path }) => ({
 			id: manifest.name,
 			name: manifest.name,
@@ -976,11 +975,19 @@ export function createPlatformActions(deps: PlatformActionsDeps): readonly Actio
 		ctx: ActionContext,
 		input: SearchPluginsInput,
 	): Promise<ActionResult<PluginListing[]>> {
-		const installed = await listInstalledPlugins(ctx.db);
+		const viewerTeamIds = await deps.viewerTeamIds(ctx.db, ctx.actor);
+		const allInstalled = await listInstalledPlugins(ctx.db);
+		// Only show installs for the viewer's own teams — another team's install is not theirs.
+		const installed = allInstalled.filter(
+			(p) =>
+				p.scope.kind === "team" &&
+				p.scope.teamId !== null &&
+				viewerTeamIds.includes(p.scope.teamId),
+		);
 		const available = availableBundledPlugins(
 			deps.bundledPluginsDir,
 			installed,
-			await deps.viewerTeamIds(ctx.db, ctx.actor),
+			viewerTeamIds,
 		).filter((p) => matchesSearchFilter(p, input));
 		const filtered = installed.filter((p) => matchesSearchFilter(p, input));
 		if (filtered.length === 0) return { ok: true, data: available };

@@ -11,7 +11,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { documents, type HyperIdleDb, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -23,6 +23,10 @@ import { test } from "../../__testing__/test-fixtures.js";
  * `onConflictDoNothing` so a second install in the same test is safe. */
 async function seedFounder(db: HyperIdleDb): Promise<void> {
 	await db
+		.insert(teams)
+		.values({ id: T, name: "Test Team", createdAt: "2026-01-01T00:00:00Z" })
+		.onConflictDoNothing();
+	await db
 		.insert(users)
 		.values({
 			id: "u-founder",
@@ -33,10 +37,13 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 			createdAt: "2026-01-01T00:00:00Z",
 		})
 		.onConflictDoNothing();
+	await db.insert(userTeams).values({ userId: "u-founder", teamId: T }).onConflictDoNothing();
 }
 
 const API_KEY = "test-agent-identity";
 const PLUGIN_ID = "personas-under-test";
+const T = "t-test";
+const INSTALLED_ID = `${PLUGIN_ID}@${T}`;
 
 function auth(): Record<string, string> {
 	return { "X-API-Key": API_KEY, "Content-Type": "application/json" };
@@ -101,7 +108,7 @@ async function install(db: HyperIdleDb, app: Hono, asPerson: () => Promise<void>
 	await seedFounder(db);
 	await asPerson();
 	const res = await editPlugin(app, {
-		source: { kind: "folder", path: makePlugin(), scope: { kind: "factory", teamId: null } },
+		source: { kind: "folder", path: makePlugin(), scope: { kind: "team", teamId: T } },
 	});
 	if (res.status !== 200) {
 		throw new Error(`Install failed: ${JSON.stringify(await res.json())}`);
@@ -145,7 +152,7 @@ describe("a plugin's agent comes with an identity", () => {
 		const body = (await res.json()) as {
 			data: Array<{ id: string; contributions: Array<{ kind: string; label: string }> }>;
 		};
-		const contributions = body.data.find((p) => p.id === PLUGIN_ID)?.contributions ?? [];
+		const contributions = body.data.find((p) => p.id === INSTALLED_ID)?.contributions ?? [];
 
 		expect(contributions.some((c) => c.kind === "agent" && c.label === "Builder")).toBe(true);
 		expect(
@@ -158,7 +165,7 @@ describe("a plugin's agent comes with an identity", () => {
 		await install(db, app, () => asPerson("u-founder"));
 		const [agent] = await db.select().from(users).where(eq(users.discipline, "builder"));
 
-		const del = await editPlugin(app, { id: PLUGIN_ID, remove: true });
+		const del = await editPlugin(app, { id: INSTALLED_ID, remove: true });
 		expect(del.status).toBe(200);
 
 		const [identity] = await db
@@ -194,7 +201,7 @@ describe("a plugin's agent comes with an identity", () => {
 		});
 
 		const res = await editPlugin(app, {
-			id: PLUGIN_ID,
+			id: INSTALLED_ID,
 			restore: { contribution: identity?.id },
 		});
 		expect(res.status, "restore must reach the plugin's own file").toBe(200);
@@ -242,7 +249,7 @@ describe("a plugin's agent comes with an identity", () => {
 		tempDirs.push(dir);
 
 		const res = await editPlugin(app, {
-			source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+			source: { kind: "folder", path: dir, scope: { kind: "team", teamId: T } },
 		});
 		expect(res.status).toBe(200);
 
@@ -284,7 +291,7 @@ describe("a plugin's agent comes with an identity", () => {
 		tempDirs.push(dir);
 
 		const res = await editPlugin(app, {
-			source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+			source: { kind: "folder", path: dir, scope: { kind: "team", teamId: T } },
 		});
 		expect(res.status).toBe(200);
 

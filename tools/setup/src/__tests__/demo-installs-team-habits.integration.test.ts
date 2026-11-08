@@ -28,10 +28,12 @@ describe("the demo installs Team habits for everyone", () => {
 			db,
 			"SELECT id, scope_kind, state FROM plugins ORDER BY id",
 		);
-		expect(installs).toEqual([{ id: "team-habits", scope_kind: "factory", state: "enabled" }]);
+		expect(installs).toEqual([
+			{ id: "team-habits@demo-team-product", scope_kind: "team", state: "enabled" },
+		]);
 	});
 
-	test("Facilitation is the plugin's agent, in no team, with two reasons to start", async ({
+	test("Facilitation is the plugin's agent, in the Product team, with two reasons to start", async ({
 		db,
 		runnerDb,
 	}) => {
@@ -43,11 +45,11 @@ describe("the demo installs Team habits for everyone", () => {
 			"SELECT entity_id FROM plugin_contributions WHERE kind = 'agent'",
 		);
 		expect(agents.map((a) => a.entity_id)).toEqual([FACILITATION_ID]);
-		const teams = await rows<{ team_id: string }>(
+		const teamRows = await rows<{ team_id: string }>(
 			db,
 			`SELECT team_id FROM user_teams WHERE user_id = '${FACILITATION_ID}'`,
 		);
-		expect(teams).toEqual([]);
+		expect(teamRows).toEqual([{ team_id: "demo-team-product" }]);
 
 		const reasons = await rows<{ event: string | null; schedule: string | null }>(
 			db,

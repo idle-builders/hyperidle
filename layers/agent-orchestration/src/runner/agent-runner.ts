@@ -156,8 +156,9 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 		if (!RUNNABLE_STATUSES.has(agent.status)) return false;
 		// Directly assigned to this person.
 		if (agent.ownerUserId === personId) return true;
-		// Unowned but in one of the person's teams.
-		if (agent.ownerUserId === null) return agent.teams.some((t) => personTeamIds.has(t.id));
+		// Unowned: in one of the person's teams AND the person is that team's default runner.
+		if (agent.ownerUserId === null)
+			return agent.teams.some((t) => personTeamIds.has(t.id) && t.defaultRunnerId === personId);
 		return false;
 	}
 

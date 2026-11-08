@@ -10,8 +10,8 @@
  * after that arrives from a plugin: the plugins that ship inside the app are
  * listed as available, a team installs one by name and its agents land on
  * that team on the first ready harness, a second team installs the same
- * plugin independently, and the librarian's plugin installs once for
- * everyone with its agent on no team.
+ * plugin independently, and a team installs the librarian plugin whose
+ * agent lands on that team.
  *
  * People, messages, tasks and agents go through the fixture `app`, whose
  * subscription fire mechanism is the one production registers. The plugin
@@ -20,7 +20,8 @@
  * own `plugins/` as the bundled folder, and the machine's harnesses — the one
  * stand-in, a reader answering a single ready descriptor. Both share the
  * fixture's database and event bus, so a plugin's agents are the same rows
- * the app reads back.
+ * the app reads back. All plugins install with team scope — factory scope
+ * no longer exists.
  */
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -146,12 +147,12 @@ function installsIn(listing: readonly PluginListing[]): string[] {
 		.sort();
 }
 
-function bundled(name: string, teamId: string | null): Record<string, unknown> {
+function bundled(name: string, teamId: string): Record<string, unknown> {
 	return {
 		source: {
 			kind: "bundled",
 			name,
-			scope: teamId ? { kind: "team", teamId } : { kind: "factory", teamId: null },
+			scope: { kind: "team", teamId },
 		},
 	};
 }
@@ -177,7 +178,7 @@ describe("a fresh install, end to end", () => {
 		if (!adaResult.ok) throw new Error(`edit_user failed: ${JSON.stringify(adaResult)}`);
 		const ada = adaResult.data as UserView;
 		const adaId = ada.user?.id ?? "";
-		const teamA = ada.user?.teams[0]?.id ?? "";
+		const teamA = (ada.user?.teams.find((t) => !t.isGlobal) ?? ada.user?.teams[0])?.id ?? "";
 		expect(adaId).not.toBe("");
 		expect(teamA).not.toBe("");
 		await asPerson(adaId);
@@ -303,7 +304,7 @@ describe("a fresh install, end to end", () => {
 			teams: ["Bo's Team"],
 		});
 		const boId = bo.user?.id ?? "";
-		const teamB = bo.user?.teams[0]?.id ?? "";
+		const teamB = (bo.user?.teams.find((t) => !t.isGlobal) ?? bo.user?.teams[0])?.id ?? "";
 		expect(teamB).not.toBe("");
 		expect(teamB).not.toBe(teamA);
 
@@ -362,21 +363,19 @@ describe("a fresh install, end to end", () => {
 		expect(availableIn(await search(adaId))).toContain("role-personas");
 		expect(availableIn(await search(boId))).not.toContain("role-personas");
 
-		// document-management installs once, for everyone; its librarian has no team.
-		const factory = await installed(edit(adaId, bundled("document-management", null)));
-		expect(factory.id).toBe("document-management");
-		for (const viewer of [adaId, boId]) {
-			const listing = await search(viewer);
-			expect(installsIn(listing), viewer).toContain("document-management");
-			expect(availableIn(listing), viewer).not.toContain("document-management");
-		}
+		// Ada's team installs document-management; its librarian lands on that team.
+		const dmInstall = await installed(edit(adaId, bundled("document-management", teamA)));
+		expect(dmInstall.id).toBe(`document-management@${teamA}`);
+		// Ada sees it as installed; Bo still sees it as available (Bo's team hasn't installed it).
+		expect(installsIn(await search(adaId))).toContain(`document-management@${teamA}`);
+		expect(availableIn(await search(boId))).toContain("document-management");
 		const librarians = await call<UserRow[]>(app, "search_users", {
 			kind: "ai",
 			name: "Document Librarian",
 		});
 		expect(librarians).toHaveLength(1);
 		expect(librarians[0]?.status).toBe("active");
-		expect(librarians[0]?.teams).toEqual([]);
+		expect(librarians[0]?.teams[0]?.id).toBe(teamA);
 		const librarian = await call<UserView>(app, "open_user", { id: librarians[0]?.id });
 		expect(librarian.user?.id).toBe(librarians[0]?.id);
 	});

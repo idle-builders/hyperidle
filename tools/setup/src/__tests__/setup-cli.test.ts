@@ -182,7 +182,7 @@ describe("--db-path validation", () => {
 });
 
 describe("--demo flag behavior", () => {
-	it("without --demo: setup produces no demo team (factory only)", {
+	it("without --demo: setup produces only the global team (factory only)", {
 		timeout: 60_000,
 	}, async () => {
 		const dataDir = path.join(tmpdir, "hyperidle-pg-nodemo");
@@ -194,11 +194,11 @@ describe("--demo flag behavior", () => {
 		const client = new PGlite(dataDir);
 		await client.waitReady;
 		try {
-			// No teams inserted (factory bootstrap only, no demo world)
+			// Only the global team (factory bootstrap creates it; no demo world)
 			const teamsResult = await client.query<{ count: string }>(
 				"SELECT COUNT(*) AS count FROM teams",
 			);
-			expect(Number(teamsResult.rows[0]?.count)).toBe(0);
+			expect(Number(teamsResult.rows[0]?.count)).toBe(1);
 
 			// No human users (factory has no humans)
 			const humanResult = await client.query<{ count: string }>(

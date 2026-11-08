@@ -1,8 +1,7 @@
 /**
  * Installing the document-management plugin materializes the librarian agent
- * (users row) and three subscription rows. A second factory install is
- * idempotent. Global upkeep runs once, not once per team — guaranteed by
- * scope-aware ids: two teams installing at team scope each compute their own
+ * (users row) and three subscription rows. A second install for the same team
+ * is idempotent. Two teams installing independently each compute their own
  * deterministic id from `scopeKind`/`scopeId` in the hash, so each team's
  * install is its own `plugins` row and its own skill documents, and neither
  * overwrites the other (`not_found` under the visibility rule, if it tried).
@@ -28,6 +27,8 @@ import { buildCoreActions } from "../../actions/compose.js";
 const API_KEY = "test-km-plugin";
 const PLUGIN_ROOT = resolve("plugins/document-management");
 const PLUGIN_ID = "document-management";
+const T = "t-test";
+const INSTALLED_ID = `${PLUGIN_ID}@${T}`;
 const SKILL_DIR = "post-task-retro";
 
 interface ActionEnvelope<T> {
@@ -87,6 +88,10 @@ function copyPluginToTemp(): string {
  * `onConflictDoNothing` so a second install in the same test is safe. */
 async function seedFounder(db: HyperIdleDb): Promise<void> {
 	await db
+		.insert(teams)
+		.values({ id: T, name: "Test Team", createdAt: "2026-01-01T00:00:00Z" })
+		.onConflictDoNothing();
+	await db
 		.insert(users)
 		.values({
 			id: "u-founder",
@@ -116,7 +121,7 @@ async function installKmPlugin(
 	await asPerson();
 	const pluginDir = copyPluginToTemp();
 	return editPlugin(app, {
-		source: { kind: "folder", path: pluginDir, scope: { kind: "factory", teamId: null } },
+		source: { kind: "folder", path: pluginDir, scope: { kind: "team", teamId: T } },
 	});
 }
 
@@ -143,18 +148,18 @@ describe("document-management plugin install", () => {
 		const res = await installKmPlugin(db, app, () => asPerson("u-founder"));
 		expect(res.status).toBe(200);
 		const body = await res.json();
-		expect(body.data.id).toBe(PLUGIN_ID);
+		expect(body.data.id).toBe(INSTALLED_ID);
 
-		const agentId = agentItemId(PLUGIN_ID, "librarian", "factory", null);
+		const agentId = agentItemId(PLUGIN_ID, "librarian", "team", T);
 		const agent = await findUser(db, { id: agentId });
 		expect(agent?.name).toBe("Document Librarian");
 		expect(agent?.kind).toBe("ai");
-		expect(agent?.teamIds).toEqual([]); // factory-scoped — global, no team
+		expect(agent?.teamIds).toEqual([T]);
 		expect(agent?.status).toBe("active");
 
-		const decayId = subscriptionItemId(PLUGIN_ID, "document-decay", "factory", null);
-		const promotionId = subscriptionItemId(PLUGIN_ID, "document-triage", "factory", null);
-		const retroId = subscriptionItemId(PLUGIN_ID, "post-task-retro", "factory", null);
+		const decayId = subscriptionItemId(PLUGIN_ID, "document-decay", "team", T);
+		const promotionId = subscriptionItemId(PLUGIN_ID, "document-triage", "team", T);
+		const retroId = subscriptionItemId(PLUGIN_ID, "post-task-retro", "team", T);
 		const [decay] = await db.select().from(subscriptions).where(eq(subscriptions.id, decayId));
 		const [promotion] = await db
 			.select()
@@ -198,7 +203,7 @@ describe("document-management plugin install", () => {
 		tempDirs.push(emptyDir);
 
 		const res = await editPlugin(app, {
-			source: { kind: "folder", path: emptyDir, scope: { kind: "factory", teamId: null } },
+			source: { kind: "folder", path: emptyDir, scope: { kind: "team", teamId: T } },
 		});
 
 		expect(res.status).not.toBe(200);

@@ -9,14 +9,15 @@
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type HyperIdleDb, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
 const API_KEY = "test-contributions";
 const PLUGIN_ROOT = resolve("plugins/document-management");
-const PLUGIN_ID = "document-management";
+const T = "t-test";
+const PLUGIN_ID = `document-management@${T}`;
 
 function auth(): Record<string, string> {
 	return { "X-API-Key": API_KEY };
@@ -37,6 +38,7 @@ afterEach(() => {
  * real actor for the `changes` row it appends — the auth middleware's
  * API-key fallback resolves to this id when no human is seeded. */
 async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db.insert(teams).values({ id: T, name: "Test Team", createdAt: "2026-01-01T00:00:00Z" });
 	await db.insert(users).values({
 		id: "u-founder",
 		kind: "human",
@@ -45,6 +47,7 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 		status: "active",
 		createdAt: "2026-01-01T00:00:00Z",
 	});
+	await db.insert(userTeams).values({ userId: "u-founder", teamId: T });
 }
 
 async function editPlugin(app: Hono, body: unknown): Promise<Response> {
@@ -64,7 +67,7 @@ async function install(db: HyperIdleDb, app: Hono, asPerson: () => Promise<void>
 	tempDirs.push(dir);
 
 	const res = await editPlugin(app, {
-		source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+		source: { kind: "folder", path: dir, scope: { kind: "team", teamId: T } },
 	});
 	if (res.status !== 200) {
 		throw new Error(`Install failed: ${JSON.stringify(await res.json())}`);

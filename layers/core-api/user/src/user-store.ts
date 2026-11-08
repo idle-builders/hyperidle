@@ -8,7 +8,7 @@ import {
 	userTeams,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import { and, eq, getTableColumns, inArray, ne, type SQL, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, ne, notInArray, type SQL, sql } from "drizzle-orm";
 
 /** Per-column patch that also admits SQL expressions (e.g. cost coalesce). */
 type UserPatch = Partial<{ [K in keyof NewUser]: NewUser[K] | SQL }>;
@@ -127,16 +127,26 @@ export async function insertUser(exec: WriteExecutor, values: NewUser): Promise<
 	await exec.insert(users).values(values);
 }
 
-/** Put a user in exactly these teams, replacing whatever they were in. */
+/** Put a user in exactly these teams, replacing whatever they were in.
+ * Preserves `isDefaultRunner` on memberships the user stays in; new memberships start false. */
 export async function setUserTeams(
 	exec: WriteExecutor,
 	userId: string,
 	teamIds: readonly string[],
 ): Promise<void> {
-	await exec.delete(userTeams).where(eq(userTeams.userId, userId));
 	const unique = [...new Set(teamIds)];
-	if (unique.length > 0) {
-		await exec.insert(userTeams).values(unique.map((teamId) => ({ userId, teamId })));
+	if (unique.length === 0) {
+		await exec.delete(userTeams).where(eq(userTeams.userId, userId));
+	} else {
+		// Delete only the memberships being removed (preserves isDefaultRunner on kept ones)
+		await exec
+			.delete(userTeams)
+			.where(and(eq(userTeams.userId, userId), notInArray(userTeams.teamId, unique)));
+		// Insert new memberships; skip if already exists (preserves existing isDefaultRunner)
+		await exec
+			.insert(userTeams)
+			.values(unique.map((teamId) => ({ userId, teamId, isDefaultRunner: false })))
+			.onConflictDoNothing();
 	}
 }
 

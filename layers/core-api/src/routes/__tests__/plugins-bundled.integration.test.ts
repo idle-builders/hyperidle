@@ -169,14 +169,14 @@ describe("bundled plugins — listed as available per viewer", () => {
 		const rolePersonas = byId.get("role-personas") as AvailablePluginView;
 		expect(rolePersonas.installScope).toBe("team");
 		expect(rolePersonas.description).toContain("builder");
-		expect((byId.get("document-management") as AvailablePluginView).installScope).toBe("factory");
+		expect((byId.get("document-management") as AvailablePluginView).installScope).toBe("team");
 
 		const onlyAvailable = await search("u-ada", { state: "available", text: "role" });
 		expect(onlyAvailable.map((p) => p.id)).toEqual(["role-personas"]);
 		expect(await search("u-ada", { state: "enabled" })).toEqual([]);
 	});
 
-	test("an owned agent judges availability by its own team; a person in two teams until both have it; a no-team viewer only by factory", async ({
+	test("an owned agent judges availability by its own team; a person in two teams until both have it; a no-team viewer sees nothing", async ({
 		db,
 		eventBus,
 	}) => {
@@ -192,9 +192,9 @@ describe("bundled plugins — listed as available per viewer", () => {
 		expect(available(await search("u-ada-assistant"))).toEqual(["document-management"]);
 		expect(available(await search("u-bo"))).toEqual(["document-management", "role-personas"]);
 		expect(available(await search("u-both"))).toEqual(["document-management", "role-personas"]);
-		expect(available(await search("u-loner"))).toEqual(["document-management"]);
-		// Installed rows are everyone's to see; the row's scope says whose.
-		expect(installed(await search("u-bo"))).toEqual(["role-personas@team-a"]);
+		expect(available(await search("u-loner"))).toEqual([]);
+		// Installed rows are only visible to members of the installing team.
+		expect(installed(await search("u-bo"))).toEqual([]);
 	});
 });
 
@@ -257,7 +257,7 @@ describe("bundled plugins — install by name, per team", () => {
 		expect(available(await search("u-bo"))).not.toContain("role-personas");
 	});
 
-	test("the librarian's plugin installs factory-wide: no team, installed for every viewer", async ({
+	test("installing document-management for a team makes it installed for that team only", async ({
 		db,
 		eventBus,
 	}) => {
@@ -268,22 +268,26 @@ describe("bundled plugins — install by name, per team", () => {
 			source: {
 				kind: "bundled",
 				name: "document-management",
-				scope: { kind: "factory", teamId: null },
+				scope: { kind: "team", teamId: "team-a" },
 			},
 		});
 		if (!result.ok) throw new Error(JSON.stringify(result.problems));
-		expect(result.data.id).toBe("document-management");
+		expect(result.data.id).toBe("document-management@team-a");
 
-		const librarian = agentItemId("document-management", "librarian", "factory", null);
+		const librarian = agentItemId("document-management", "librarian", "team", "team-a");
 		const row = await findUser(db, { id: librarian });
-		expect(row?.teamIds).toEqual([]);
+		expect(row?.teamIds).toEqual(["team-a"]);
 		expect(row?.status).toBe("active");
 
-		for (const viewer of ["u-ada", "u-bo"]) {
-			const listing = await search(viewer);
-			expect(available(listing)).toEqual(["role-personas"]);
-			expect(installed(listing)).toEqual(["document-management"]);
-		}
+		// u-ada (team-a) sees it installed; role-personas is still available.
+		const adaListing = await search("u-ada");
+		expect(available(adaListing)).toEqual(["role-personas"]);
+		expect(installed(adaListing)).toEqual(["document-management@team-a"]);
+
+		// u-bo (team-b) still sees document-management as available.
+		const boListing = await search("u-bo");
+		expect(available(boListing)).toContain("document-management");
+		expect(installed(boListing)).not.toContain("document-management@team-a");
 	});
 
 	test("a name that is not one of the bundled folders is install_failed, never a path", async ({

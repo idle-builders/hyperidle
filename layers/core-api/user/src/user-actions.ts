@@ -53,7 +53,16 @@ import {
 	markInboxSeen,
 	updateSubscription,
 } from "./subscriptions-store.js";
-import { createTeam, getTeam, listTeams } from "./team-lookup.js";
+import {
+	createTeam,
+	ensureDefaultRunner,
+	getGlobalTeam,
+	getTeam,
+	listDefaultRunners,
+	listTeams,
+	repairDefaultRunner,
+	setDefaultRunner,
+} from "./team-lookup.js";
 import { giveUserKey, newUserKey } from "./user-key.js";
 import {
 	findUser,
@@ -167,10 +176,10 @@ async function membershipProblemsFor(
  * in a fixed number of queries regardless of how many rows. */
 async function toUserRows(db: HyperIdleDb, rows: readonly UserWithTeams[]): Promise<UserRow[]> {
 	if (rows.length === 0) return [];
-	const teamRows: Team[] = await listTeams(db, {
-		ids: [...new Set(rows.flatMap((r) => r.teamIds))],
-	});
+	const allTeamIds = [...new Set(rows.flatMap((r) => r.teamIds))];
+	const teamRows: Team[] = await listTeams(db, { ids: allTeamIds });
 	const teamById = new Map(teamRows.map((t) => [t.id, t] as const));
+	const defaultRunnerById = await listDefaultRunners(db, allTeamIds);
 
 	const edgeRows = await listOrgEdges(db, { fromUserIds: rows.map((r) => r.id) });
 	const disciplineTargets = [
@@ -202,7 +211,15 @@ async function toUserRows(db: HyperIdleDb, rows: readonly UserWithTeams[]): Prom
 	return rows.map((r) => {
 		const teams = r.teamIds.flatMap((id) => {
 			const team = teamById.get(id);
-			return team ? [{ id: team.id, name: team.name }] : [];
+			if (!team) return [];
+			return [
+				{
+					id: team.id,
+					name: team.name,
+					isGlobal: team.isGlobal,
+					defaultRunnerId: defaultRunnerById.get(team.id) ?? null,
+				},
+			];
 		});
 		return {
 			id: r.id,
@@ -574,12 +591,28 @@ async function createUserRun(
 	await ctx.db.transaction(async (txRaw) => {
 		const tx = txRaw as HyperIdleDb;
 		teams = await findOrCreateTeams(tx, teamNamesIn, now);
+
+		// Every new person auto-joins the global team.
+		if (kind === "human") {
+			const globalTeam = await getGlobalTeam(tx);
+			if (globalTeam && !teams.some((t) => t.id === globalTeam.id)) {
+				teams = [...teams, { id: globalTeam.id, name: globalTeam.name }];
+			}
+		}
+
 		await insertUser(tx, values);
 		await setUserTeams(
 			tx,
 			id,
 			teams.map((t) => t.id),
 		);
+
+		// Ensure each team has a default runner; set this person if none exists.
+		if (kind === "human") {
+			for (const team of teams) {
+				await ensureDefaultRunner(tx, team.id, id);
+			}
+		}
 
 		for (const e of input.edges?.add ?? []) {
 			await upsertOrgEdge(tx, { fromUserId: id, mechanism: e.mechanism, target: e.target });
@@ -799,7 +832,51 @@ async function editExistingUserRun(
 		}
 	}
 
+	// setDefaultRunner: validate before the transaction
+	if (input.setDefaultRunner !== undefined) {
+		const { teamId, userId: targetUserId } = input.setDefaultRunner;
+		// Actor must be in the team
+		const actorTeamIds = new Set(existing.teamIds);
+		if (!actorTeamIds.has(teamId) && ctx.actor !== id) {
+			// Allow the target person themselves to be changed by a team member; check actor is in team
+			const actorRow = await findUser(ctx.db, { id: ctx.actor });
+			if (!actorRow?.teamIds.includes(teamId)) {
+				return problem(
+					"not_in_team",
+					"Only a member of the team may change its default runner.",
+					"setDefaultRunner.teamId",
+				);
+			}
+		} else if (!actorTeamIds.has(teamId)) {
+			return problem(
+				"not_in_team",
+				"Only a member of the team may change its default runner.",
+				"setDefaultRunner.teamId",
+			);
+		}
+		// Target must be a person in the team
+		const targetRow = await findUser(ctx.db, { id: targetUserId });
+		if (!targetRow) {
+			return problem("not_found", `No user with id '${targetUserId}'.`, "setDefaultRunner.userId");
+		}
+		if (targetRow.kind !== "human") {
+			return problem(
+				"person_only",
+				"The default runner must be a person.",
+				"setDefaultRunner.userId",
+			);
+		}
+		if (!targetRow.teamIds.includes(teamId)) {
+			return problem(
+				"not_in_team",
+				"The new default runner must be a member of that team.",
+				"setDefaultRunner.userId",
+			);
+		}
+	}
+
 	const touchesTeams = input.teams !== undefined;
+	const touchesDefaultRunner = input.setDefaultRunner !== undefined;
 	const touchesEdges =
 		(input.edges?.add?.length ?? 0) > 0 || (input.edges?.remove?.length ?? 0) > 0;
 	const touchesSubscriptions =
@@ -811,6 +888,7 @@ async function editExistingUserRun(
 	const appendsChange =
 		touchesIdentityFields(input) ||
 		touchesTeams ||
+		touchesDefaultRunner ||
 		touchesEdges ||
 		touchesSubscriptions ||
 		touchesKey;
@@ -826,6 +904,7 @@ async function editExistingUserRun(
 	if (touchesKey) after.keyRotated = true;
 	if (touchesEdges) after.edges = true;
 	if (touchesSubscriptions) after.subscriptions = true;
+	if (touchesDefaultRunner) after.defaultRunner = input.setDefaultRunner;
 
 	let teams: Array<{ id: string; name: string }> | undefined;
 	const addedSubscriptions: Array<{
@@ -840,13 +919,27 @@ async function editExistingUserRun(
 		const tx = txRaw as HyperIdleDb;
 		if (input.teams !== undefined) {
 			teams = await findOrCreateTeams(tx, input.teams, now);
-			await setUserTeams(
-				tx,
-				id,
-				teams.map((t) => t.id),
-			);
+			const newTeamIds = new Set(teams.map((t) => t.id));
+			const oldTeamIds = new Set(existing.teamIds);
+			await setUserTeams(tx, id, [...newTeamIds]);
 			before.teamIds = existing.teamIds;
-			after.teamIds = teams.map((t) => t.id);
+			after.teamIds = [...newTeamIds];
+
+			// For teams the person left, repair the default runner in case they held it.
+			for (const teamId of oldTeamIds) {
+				if (!newTeamIds.has(teamId)) await repairDefaultRunner(tx, teamId);
+			}
+			// For teams the person joined, ensure there is a default runner.
+			if (existing.kind === "human") {
+				for (const teamId of newTeamIds) {
+					if (!oldTeamIds.has(teamId)) await ensureDefaultRunner(tx, teamId, id);
+				}
+			}
+		}
+
+		if (input.setDefaultRunner !== undefined) {
+			const { teamId, userId: targetUserId } = input.setDefaultRunner;
+			await setDefaultRunner(tx, teamId, targetUserId);
 		}
 
 		const patch: Partial<NewUser> = {};

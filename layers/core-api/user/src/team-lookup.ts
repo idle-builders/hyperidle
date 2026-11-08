@@ -1,6 +1,6 @@
 import type { Team, WriteExecutor } from "@hyperidle/db";
-import { type HyperIdleDb, teams } from "@hyperidle/db";
-import { asc, eq, inArray } from "drizzle-orm";
+import { type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Team reads
@@ -65,11 +65,115 @@ export interface CreateTeamInput {
 	readonly createdAt: string;
 }
 
-/** Insert a `teams` row. */
+/** Insert a `teams` row. The first team ever created is marked as the global team. */
 export async function createTeam(db: WriteExecutor, input: CreateTeamInput): Promise<void> {
+	const [existingGlobal] = await db
+		.select({ id: teams.id })
+		.from(teams)
+		.where(eq(teams.isGlobal, true))
+		.limit(1);
 	await db.insert(teams).values({
 		id: input.id,
 		name: input.name,
 		createdAt: input.createdAt,
+		isGlobal: !existingGlobal,
 	});
+}
+
+/**
+ * Return the global team (the company-wide team every person belongs to), or `undefined`
+ * when no team has been marked global yet (pre-migration state).
+ */
+export async function getGlobalTeam(db: HyperIdleDb): Promise<Team | undefined> {
+	const [row] = await db.select().from(teams).where(eq(teams.isGlobal, true)).limit(1);
+	return row;
+}
+
+/**
+ * Read the default runner id for each of the given team ids.
+ * Returns a map from teamId → userId (only entries where a default runner exists).
+ */
+export async function listDefaultRunners(
+	db: HyperIdleDb,
+	teamIds: readonly string[],
+): Promise<Map<string, string>> {
+	if (teamIds.length === 0) return new Map();
+	const rows = await db
+		.select({ teamId: userTeams.teamId, userId: userTeams.userId })
+		.from(userTeams)
+		.where(eq(userTeams.isDefaultRunner, true));
+	const map = new Map<string, string>();
+	for (const row of rows) {
+		if (teamIds.includes(row.teamId)) map.set(row.teamId, row.userId);
+	}
+	return map;
+}
+
+/**
+ * Move the default runner of a team to a specific person.
+ * Clears the previous default runner then sets the new one.
+ * The person must already be a member (caller is responsible for that check).
+ */
+export async function setDefaultRunner(
+	db: HyperIdleDb,
+	teamId: string,
+	userId: string,
+): Promise<void> {
+	// Clear the old default runner for this team
+	await db.update(userTeams).set({ isDefaultRunner: false }).where(eq(userTeams.teamId, teamId));
+	// Set the new one
+	await db
+		.update(userTeams)
+		.set({ isDefaultRunner: true })
+		.where(and(eq(userTeams.teamId, teamId), eq(userTeams.userId, userId)));
+}
+
+/**
+ * If the team has no default runner yet, make the given person the default runner.
+ * No-op when a default runner already exists for that team.
+ */
+export async function ensureDefaultRunner(
+	db: HyperIdleDb,
+	teamId: string,
+	userId: string,
+): Promise<void> {
+	const [existing] = await db
+		.select({ userId: userTeams.userId })
+		.from(userTeams)
+		.where(and(eq(userTeams.teamId, teamId), eq(userTeams.isDefaultRunner, true)))
+		.limit(1);
+	if (!existing) {
+		await db
+			.update(userTeams)
+			.set({ isDefaultRunner: true })
+			.where(and(eq(userTeams.teamId, teamId), eq(userTeams.userId, userId)));
+	}
+}
+
+/**
+ * After a membership change, restore the default runner for a team that may have
+ * lost theirs. Picks the first remaining person (by users.created_at then id).
+ * No-op when the team already has a default runner or has no persons.
+ */
+export async function repairDefaultRunner(db: HyperIdleDb, teamId: string): Promise<void> {
+	const [existing] = await db
+		.select({ userId: userTeams.userId })
+		.from(userTeams)
+		.where(and(eq(userTeams.teamId, teamId), eq(userTeams.isDefaultRunner, true)))
+		.limit(1);
+	if (existing) return; // already has one
+
+	// Pick the earliest person in this team as the new default runner
+	const [candidate] = await db
+		.select({ userId: userTeams.userId })
+		.from(userTeams)
+		.innerJoin(users, eq(users.id, userTeams.userId))
+		.where(and(eq(userTeams.teamId, teamId), eq(users.kind, "human")))
+		.orderBy(asc(users.createdAt), asc(users.id))
+		.limit(1);
+	if (!candidate) return; // no persons left in team
+	await db
+		.update(userTeams)
+		.set({ isDefaultRunner: true })
+		.where(and(eq(userTeams.teamId, teamId), eq(userTeams.userId, candidate.userId)));
 }

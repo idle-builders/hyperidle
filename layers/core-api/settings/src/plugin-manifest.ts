@@ -118,11 +118,11 @@ export interface PluginManifest {
 	readonly version: string;
 	readonly description: string | null;
 	/**
-	 * Where the Install button puts it: `team` (the default) or `factory`, from
+	 * Where the Install button puts it: always `team`, from
 	 * `extensions["io.hyperidle"].installScope`. A folder, repository or zip
 	 * install names its scope itself; this only picks a bundled plugin's.
 	 */
-	readonly installScope: "team" | "factory";
+	readonly installScope: "team";
 	readonly warnings: ManifestWarning[];
 	/** Skills discovered from the plugin's skills/ directory. */
 	readonly skills: ParsedSkill[];
@@ -218,7 +218,7 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 	// Extract agents and subscriptions from our namespace
 	const agents: ParsedPluginAgent[] = [];
 	const subscriptions: ParsedPluginSubscription[] = [];
-	let installScope: "team" | "factory" = "team";
+	let installScope: "team" = "team";
 	if (ourExtension !== undefined) {
 		if (typeof ourExtension === "object" && ourExtension !== null && !Array.isArray(ourExtension)) {
 			const ext = ourExtension as Record<string, unknown>;
@@ -265,13 +265,12 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 	};
 }
 
-/** Absent → `team`; anything but `team` or `factory` is a warning and `team`. */
-function parseInstallScope(value: unknown, warnings: ManifestWarning[]): "team" | "factory" {
+/** Absent → `team`; anything else is a warning and `team`. */
+function parseInstallScope(value: unknown, warnings: ManifestWarning[]): "team" {
 	if (value === undefined || value === "team") return "team";
-	if (value === "factory") return "factory";
 	warnings.push({
 		code: "INVALID_INSTALL_SCOPE",
-		message: `installScope must be "team" or "factory" (got: ${JSON.stringify(value)}) — installing per team`,
+		message: `installScope must be "team" (got: ${JSON.stringify(value)}) — installing per team`,
 	});
 	return "team";
 }

@@ -36,7 +36,7 @@ export async function seedDemoWorld(
 	await db
 		.insert(teams)
 		.values([
-			{ id: PRODUCT_TEAM_ID, name: "Product", createdAt: clock.daysAgo(98) },
+			{ id: PRODUCT_TEAM_ID, name: "Product", createdAt: clock.daysAgo(98), isGlobal: true },
 			{ id: SUPPORT_TEAM_ID, name: "Support", createdAt: clock.daysAgo(98) },
 		])
 		.onConflictDoNothing();

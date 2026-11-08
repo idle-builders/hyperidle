@@ -178,7 +178,7 @@ function useTasks(): readonly Task[] {
 }
 
 const forTeam = (p: PluginListing, teamId: string): boolean =>
-	p.state === "available" || p.scope.kind === "factory" || p.scope.teamId === teamId;
+	p.state === "available" || p.scope.teamId === teamId;
 
 export function TeamScreen({ name }: { name: string }): React.ReactElement {
 	const navigate = useNavigate();
@@ -300,6 +300,12 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 						</div>
 						<ul className="tbox-facts">
 							<li>{countWords(crews.length, agents)}</li>
+							{team?.defaultRunnerId && (
+								<li>
+									Runs its agents:{" "}
+									{everyone.find((u) => u.id === team.defaultRunnerId)?.name ?? "someone"}
+								</li>
+							)}
 						</ul>
 						<section className="tbox-sec">
 							<h4>
@@ -600,14 +606,14 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 	);
 	const facts = [
 		agent
-			? `Agent · works for ${owner ? nameOf(owner.id) : home ? `the ${home.name} team` : "everyone in the organisation"}`
+			? `Agent · works for ${owner ? nameOf(owner.id) : home ? `the ${home.name} team` : "the team"}`
 			: isMe
 				? "Person · you"
 				: "Person",
 		agent
 			? home
 				? `Team ${home.name}`
-				: "In every team"
+				: "In no team yet"
 			: u.teams.length > 0
 				? `${u.teams.length === 1 ? "Team" : "Teams"} ${joinWords(u.teams.map((t) => t.name))}`
 				: "In no team yet",

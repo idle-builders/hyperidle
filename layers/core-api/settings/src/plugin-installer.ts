@@ -11,7 +11,7 @@ import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { type HyperIdleDb, type PluginRow, plugins } from "@hyperidle/db";
 import type { PluginScopeKind, PluginSourceKind, PluginState } from "@hyperidle/domain-model";
-import { and, asc, eq, isNotNull, ne, or } from "drizzle-orm";
+import { and, asc, eq, isNotNull, ne } from "drizzle-orm";
 import type { FetchedPlugin, PluginSource } from "./plugin-fetch.js";
 import { fetchPlugin } from "./plugin-fetch.js";
 import type {
@@ -103,13 +103,9 @@ function sha256(data: string): string {
 	return createHash("sha256").update(data).digest("hex");
 }
 
-/**
- * The `plugins` row id of one install: the manifest name for a factory
- * install, `<name>@<teamId>` for a team install. A manifest name never
- * contains `@`, so the two forms cannot collide.
- */
+/** The `plugins` row id of one install: `<name>@<teamId>`. */
 function pluginInstallId(name: string, scope: PluginScope): string {
-	return scope.kind === "team" && scope.teamId ? `${name}@${scope.teamId}` : name;
+	return `${name}@${scope.teamId}`;
 }
 
 function recordOf(source: PluginSource): RecordedPluginSource {
@@ -188,21 +184,15 @@ export interface PluginMcpContributionRow {
 }
 
 /**
- * The MCP servers of every enabled plugin in scope for the given team (factory
- * installs always, a team install only for its own team), read from each
+ * The MCP servers of every enabled plugin for the given team, read from each
  * install's `mcp.json` at the moment a session is provisioned.
  */
-//
 export async function getPluginMcpContributions(
 	db: HyperIdleDb,
 	teamId: string | null,
 ): Promise<readonly PluginMcpContributionRow[]> {
-	const scopeFilter = teamId
-		? or(
-				eq(plugins.scopeKind, "factory"),
-				and(eq(plugins.scopeKind, "team"), eq(plugins.scopeTeamId, teamId)),
-			)
-		: eq(plugins.scopeKind, "factory");
+	if (!teamId) return [];
+	const scopeFilter = and(eq(plugins.scopeKind, "team"), eq(plugins.scopeTeamId, teamId));
 
 	const installs = await db
 		.select({ name: plugins.name, installPath: plugins.installPath })

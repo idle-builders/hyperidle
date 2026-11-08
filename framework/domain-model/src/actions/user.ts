@@ -91,7 +91,16 @@ export const UserRowSchema = z.object({
 	what: z.string().nullable(),
 	/** True when this agent currently has a key — meaning a runner holds it. Never the hash itself. */
 	hasKey: z.boolean().optional(),
-	teams: z.array(z.object({ id: z.string(), name: z.string() })),
+	teams: z.array(
+		z.object({
+			id: z.string(),
+			name: z.string(),
+			/** Whether this is the company-wide global team. */
+			isGlobal: z.boolean(),
+			/** The person currently set as default runner for this team, or null when the team has no person. */
+			defaultRunnerId: z.string().nullable(),
+		}),
+	),
 	edges: z.array(
 		z.object({
 			id: z.string(),
@@ -289,6 +298,12 @@ export const EditUserInputSchema = z
 		inbox: EditUserInboxSchema.optional(),
 		/** An agent only: a fresh key, returned once. The agent's older key stops working. */
 		key: z.literal("new").optional(),
+		/**
+		 * Move the default runner of a team to this person. The actor must be in that team;
+		 * the target must be a person (kind human) in that team.
+		 * Setting it on one member moves it off whoever held it before.
+		 */
+		setDefaultRunner: z.object({ teamId: z.string().min(1), userId: z.string().min(1) }).optional(),
 	})
 	.strict();
 export type EditUserInput = z.infer<typeof EditUserInputSchema>;

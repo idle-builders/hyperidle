@@ -34,8 +34,8 @@ const user = (id: string, u: Partial<UserRow> = {}): UserRow => ({
 	edges: [],
 	...u,
 });
-const product = { id: "t-product", name: "Product" };
-const support = { id: "t-support", name: "Support" };
+const product = { id: "t-product", name: "Product", isGlobal: false, defaultRunnerId: null };
+const support = { id: "t-support", name: "Support", isGlobal: false, defaultRunnerId: null };
 
 const task = (id: string, t: Partial<Task> = {}): Task => ({
 	id,
@@ -270,8 +270,8 @@ describe("applyMoveHereResult", () => {
 });
 
 describe("viewerMayTake", () => {
-	const teamA = { id: "t-a", name: "Alpha" };
-	const teamB = { id: "t-b", name: "Beta" };
+	const teamA = { id: "t-a", name: "Alpha", isGlobal: false, defaultRunnerId: null };
+	const teamB = { id: "t-b", name: "Beta", isGlobal: false, defaultRunnerId: null };
 
 	it("viewer owns the agent → true", () => {
 		const agent = user("bot", { kind: "ai", ownerUserId: "viewer", teams: [teamA] });

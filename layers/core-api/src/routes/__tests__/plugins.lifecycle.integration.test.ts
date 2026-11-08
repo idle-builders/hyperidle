@@ -11,6 +11,7 @@ import {
 	type HyperIdleDb,
 	pluginContributions,
 	subscriptions,
+	teams,
 	users,
 } from "@hyperidle/db";
 import { and, eq, inArray } from "drizzle-orm";
@@ -21,6 +22,8 @@ import { test } from "../../__testing__/test-fixtures.js";
 const API_KEY = "test-plugin-lifecycle";
 const PLUGIN_ROOT = resolve("plugins/document-management");
 const PLUGIN_ID = "document-management";
+const T = "t-test";
+const INSTALLED_ID = `${PLUGIN_ID}@${T}`;
 
 function auth(): Record<string, string> {
 	return { "X-API-Key": API_KEY, "Content-Type": "application/json" };
@@ -49,6 +52,7 @@ function copyPlugin(): string {
  * real actor for the `changes` row it appends — the auth middleware's
  * API-key fallback resolves to this id when no human is seeded. */
 async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db.insert(teams).values({ id: T, name: "Test Team", createdAt: "2026-01-01T00:00:00Z" });
 	await db.insert(users).values({
 		id: "u-founder",
 		kind: "human",
@@ -71,7 +75,7 @@ async function installKmPlugin(
 		method: "POST",
 		headers: auth(),
 		body: JSON.stringify({
-			source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+			source: { kind: "folder", path: dir, scope: { kind: "team", teamId: T } },
 		}),
 	});
 	if (res.status !== 200) {
@@ -84,7 +88,7 @@ async function disableKmPlugin(app: Hono): Promise<Response> {
 	return app.request("/api/actions/edit_plugin", {
 		method: "POST",
 		headers: auth(),
-		body: JSON.stringify({ id: PLUGIN_ID, state: "disabled" }),
+		body: JSON.stringify({ id: INSTALLED_ID, state: "disabled" }),
 	});
 }
 
@@ -92,7 +96,7 @@ async function enableKmPlugin(app: Hono): Promise<Response> {
 	return app.request("/api/actions/edit_plugin", {
 		method: "POST",
 		headers: auth(),
-		body: JSON.stringify({ id: PLUGIN_ID, state: "enabled" }),
+		body: JSON.stringify({ id: INSTALLED_ID, state: "enabled" }),
 	});
 }
 
@@ -100,7 +104,7 @@ async function removeKmPlugin(app: Hono): Promise<Response> {
 	return app.request("/api/actions/edit_plugin", {
 		method: "POST",
 		headers: auth(),
-		body: JSON.stringify({ id: PLUGIN_ID, remove: true }),
+		body: JSON.stringify({ id: INSTALLED_ID, remove: true }),
 	});
 }
 
@@ -112,7 +116,7 @@ async function contributed(
 	const rows = await db
 		.select({ entityId: pluginContributions.entityId })
 		.from(pluginContributions)
-		.where(and(eq(pluginContributions.pluginId, PLUGIN_ID), eq(pluginContributions.kind, kind)));
+		.where(and(eq(pluginContributions.pluginId, INSTALLED_ID), eq(pluginContributions.kind, kind)));
 	return rows.map((r) => r.entityId);
 }
 

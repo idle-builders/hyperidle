@@ -50,6 +50,8 @@ export interface Doc {
 export interface Team {
 	id: string;
 	name: string;
+	isGlobal: boolean;
+	defaultRunnerId: string | null;
 }
 
 type InboxRow = NonNullable<UserView["inbox"]>[number];

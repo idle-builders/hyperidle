@@ -92,11 +92,8 @@ export function PluginScreen({ id }: { id: string }): React.ReactElement {
 		return result;
 	};
 	const install = async (l: PluginListing) => {
-		if (l.state !== "available") return;
-		const scope: EditPluginSource["scope"] =
-			l.installScope === "team" && team
-				? { kind: "team", teamId: team.id }
-				: { kind: "factory", teamId: null };
+		if (l.state !== "available" || !team) return;
+		const scope: EditPluginSource["scope"] = { kind: "team", teamId: team.id };
 		const result = await changeThen(() =>
 			call("edit_plugin", { source: { kind: "bundled", name: l.id, scope } }),
 		);
@@ -275,9 +272,7 @@ const WHERE: Record<SourceWords, { placeholder: string; hint: string }> = {
 		hint: "A zip file on the computer HyperIdle runs on.",
 	},
 };
-const EVERY_TEAM = "Every team";
-
-/** Add a plugin from elsewhere: a git address, a folder or a zip file, for one team or every team. */
+/** Add a plugin from elsewhere: a git address, a folder or a zip file, for one team. */
 export function AddPluginDialog({
 	teams,
 	team,
@@ -299,16 +294,15 @@ export function AddPluginDialog({
 		const address = where.trim();
 		if (!address) return setProblem("Say where the plugin is.");
 		const chosen = teams.find((t) => t.name === forWhom);
-		const scope: EditPluginSource["scope"] = chosen
-			? { kind: "team", teamId: chosen.id }
-			: { kind: "factory", teamId: null };
+		if (!chosen) return setProblem("Pick a team to install the plugin for.");
+		const scope: EditPluginSource["scope"] = { kind: "team", teamId: chosen.id };
 		const source: EditPluginSource =
 			from === "A git address"
 				? { kind: "git", url: address, scope }
 				: { kind: from === "A folder" ? "folder" : "zip", path: address, scope };
 		const result = await call("edit_plugin", { source });
 		if (!result.ok) return setProblem(problemWords(result.problems));
-		onAdded(result.data.id, chosen?.name ?? team);
+		onAdded(result.data.id, chosen.name);
 	};
 
 	return (
@@ -332,16 +326,8 @@ export function AddPluginDialog({
 					onChange={(e) => setWhere(e.target.value)}
 				/>
 			</Field>
-			<Field
-				label="For"
-				hint="A plugin's agents join the team it is added for. Every team: added once, for the whole organisation."
-			>
-				<Seg
-					label="For"
-					options={[...teams.map((t) => t.name), EVERY_TEAM]}
-					value={forWhom}
-					onChange={setForWhom}
-				/>
+			<Field label="For" hint="A plugin's agents join the team it is added for.">
+				<Seg label="For" options={teams.map((t) => t.name)} value={forWhom} onChange={setForWhom} />
 			</Field>
 		</Dialog>
 	);

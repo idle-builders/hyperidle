@@ -34,6 +34,7 @@ import {
 	insertUserIfAbsent,
 	isRunnableAgent,
 	listSubscriptions,
+	listTeams,
 	listUsers,
 	nextCronMatch,
 	parseCron,
@@ -279,7 +280,14 @@ function buildPlatformActionsDeps(
 ): PlatformActionsDeps {
 	return {
 		teams: { exists: async (exec, teamId) => (await getTeam(exec, { id: teamId })) !== undefined },
-		viewerTeamIds: async (exec, actorId) => (await findUser(exec, { id: actorId }))?.teamIds ?? [],
+		viewerTeamIds: async (exec, actorId) => {
+			const user = await findUser(exec, { id: actorId });
+			const allIds = user?.teamIds ?? [];
+			if (allIds.length === 0) return [];
+			// Exclude global teams — global teams are for runner assignment, not plugins.
+			const teamRows = await listTeams(exec as HyperIdleDb, { ids: allIds });
+			return teamRows.filter((t) => !t.isGlobal).map((t) => t.id);
+		},
 		agents: {
 			insertIfAbsent: (exec, values, teamId) => insertUserIfAbsent(exec, values, teamId),
 			setStatus: (exec, ids, status) => setAgentsStatus(exec, ids, status),

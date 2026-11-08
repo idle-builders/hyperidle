@@ -118,6 +118,6 @@ describe("a fresh install", () => {
 		).toEqual([...PERSON_REASONS].sort());
 
 		expect(await db.select().from(documents)).toEqual([]);
-		expect(await db.select().from(teams)).toHaveLength(1);
+		expect(await db.select().from(teams)).toHaveLength(2);
 	});
 });

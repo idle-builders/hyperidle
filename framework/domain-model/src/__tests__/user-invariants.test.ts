@@ -405,7 +405,7 @@ describe("UserRowSchema", () => {
 		health: null,
 		discipline: null,
 		what: null,
-		teams: [{ id: "t1", name: "Core" }],
+		teams: [{ id: "t1", name: "Core", isGlobal: false, defaultRunnerId: null }],
 		edges: [{ id: "e1", mechanism: "direct" as const, target: "u0", resolvedUserIds: [] }],
 	};
 

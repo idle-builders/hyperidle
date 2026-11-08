@@ -52,7 +52,7 @@ const habits = (p: Partial<PluginView> = {}): PluginView => ({
 	version: "1.2.0",
 	description: "An agent that keeps how the team works written down.",
 	state: "enabled",
-	scope: { kind: "factory", teamId: null },
+	scope: { kind: "team", teamId: "t1" },
 	source: { kind: "folder", address: "/plugins/team-habits", found: true },
 	installedBy: "me",
 	installedAt: daysAgo(98),
@@ -131,7 +131,7 @@ describe("a plugin's page", () => {
 	});
 
 	it.each([
-		[habits(), "For every team", "Installed 15 July by you"],
+		[habits(), "For the Product team", "Installed 15 July by you"],
 		[
 			habits({ scope: { kind: "team", teamId: "t1" }, installedBy: "maya" }),
 			"For the Product team",

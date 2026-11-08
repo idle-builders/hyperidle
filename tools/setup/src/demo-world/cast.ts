@@ -295,7 +295,12 @@ export async function seedCast(
 			})
 			.onConflictDoNothing();
 		for (const teamId of person.teams) {
-			await db.insert(userTeams).values({ userId: person.id, teamId }).onConflictDoNothing();
+			// The founder is the default runner for every team they are in.
+			const isDefaultRunner = person.role === "founder";
+			await db
+				.insert(userTeams)
+				.values({ userId: person.id, teamId, isDefaultRunner })
+				.onConflictDoNothing();
 			// The setup flow's team creation records the same edge for a real team.
 			await db
 				.insert(orgEdges)
@@ -463,7 +468,11 @@ async function seedTeamHabits(
 	pluginsBaseDir: string | undefined,
 ): Promise<void> {
 	const view = await installPluginOutsideServer(db, {
-		source: { kind: "folder", path: TEAM_HABITS_DIR, scope: { kind: "factory", teamId: null } },
+		source: {
+			kind: "folder",
+			path: TEAM_HABITS_DIR,
+			scope: { kind: "team", teamId: PRODUCT_TEAM_ID },
+		},
 		actor: FOUNDER_ID,
 		now: clock.daysAgo(98),
 		...(pluginsBaseDir ? { pluginsBaseDir } : {}),

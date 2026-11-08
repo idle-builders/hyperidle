@@ -18,11 +18,11 @@ export const BUILDER_ID = "demo-agent-builder";
 export const GROWTH_ID = "demo-agent-growth";
 export const DESIGNER_ID = "demo-agent-designer";
 
-/** The Team habits plugin is installed from this folder, for everyone. */
+/** The Team habits plugin is installed from this folder, for the global team (Product). */
 export const TEAM_HABITS_DIR = fileURLToPath(new URL("./team-habits", import.meta.url));
 export const FACILITATION_ID = pluginAgentId("team-habits", "facilitation", {
-	kind: "factory",
-	teamId: null,
+	kind: "team",
+	teamId: PRODUCT_TEAM_ID,
 });
 
 // ── Work ────────────────────────────────────────────────────────────────────

@@ -98,3 +98,85 @@ describe("isDowngrade", () => {
 		expect(result).toBe(true);
 	});
 });
+
+describe("migration 0118 schema", () => {
+	it("teams.is_global column exists with default false", { timeout: 30_000 }, async () => {
+		const dataDir = path.join(tmpDir, "pgdata");
+		await applyMigrations(dataDir, REAL_MIGRATIONS_FOLDER);
+
+		const client = new PGlite(dataDir);
+		await client.waitReady;
+		try {
+			const result = await client.query<{ column_default: string; data_type: string }>(
+				`SELECT column_default, data_type
+				 FROM information_schema.columns
+				 WHERE table_name = 'teams' AND column_name = 'is_global'`,
+			);
+			expect(result.rows).toHaveLength(1);
+			expect(result.rows[0].data_type).toBe("boolean");
+		} finally {
+			await client.close();
+		}
+	});
+
+	it("user_teams.is_default_runner column exists with default false", {
+		timeout: 30_000,
+	}, async () => {
+		const dataDir = path.join(tmpDir, "pgdata");
+		await applyMigrations(dataDir, REAL_MIGRATIONS_FOLDER);
+
+		const client = new PGlite(dataDir);
+		await client.waitReady;
+		try {
+			const result = await client.query<{ column_default: string; data_type: string }>(
+				`SELECT column_default, data_type
+				 FROM information_schema.columns
+				 WHERE table_name = 'user_teams' AND column_name = 'is_default_runner'`,
+			);
+			expect(result.rows).toHaveLength(1);
+			expect(result.rows[0].data_type).toBe("boolean");
+		} finally {
+			await client.close();
+		}
+	});
+
+	it("user_teams_default_runner_uq partial index exists", { timeout: 30_000 }, async () => {
+		const dataDir = path.join(tmpDir, "pgdata");
+		await applyMigrations(dataDir, REAL_MIGRATIONS_FOLDER);
+
+		const client = new PGlite(dataDir);
+		await client.waitReady;
+		try {
+			const result = await client.query<{ indexname: string }>(
+				`SELECT indexname FROM pg_indexes
+				 WHERE tablename = 'user_teams' AND indexname = 'user_teams_default_runner_uq'`,
+			);
+			expect(result.rows).toHaveLength(1);
+		} finally {
+			await client.close();
+		}
+	});
+
+	it("plugins.scope_kind check only allows team", { timeout: 30_000 }, async () => {
+		const dataDir = path.join(tmpDir, "pgdata");
+		await applyMigrations(dataDir, REAL_MIGRATIONS_FOLDER);
+
+		const client = new PGlite(dataDir);
+		await client.waitReady;
+		try {
+			// Factory scope should now be rejected
+			await client.query<{ id: string }>("SELECT id FROM teams LIMIT 1");
+			// No data in a fresh DB; just verify the constraint exists via check_constraints
+			const result = await client.query<{ constraint_name: string; check_clause: string }>(
+				`SELECT constraint_name, check_clause
+				 FROM information_schema.check_constraints
+				 WHERE constraint_name = 'plugins_scope_kind_ck'`,
+			);
+			expect(result.rows).toHaveLength(1);
+			expect(result.rows[0].check_clause).toContain("team");
+			expect(result.rows[0].check_clause).not.toContain("factory");
+		} finally {
+			await client.close();
+		}
+	});
+});

@@ -38,7 +38,11 @@ import { markDetached } from "../plugin-contributions.js";
 
 const NOW = "2026-01-01T00:00:00.000Z";
 
+// Team id used throughout — seeded with the founder so plugin agents can join it.
+const T = "t-test";
+
 async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db.insert(teams).values({ id: T, name: "Test Team", createdAt: NOW }).onConflictDoNothing();
 	await db
 		.insert(users)
 		.values({
@@ -202,7 +206,7 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 		},
 		editDocument: runnerFor(documentActions, "edit_document"),
 		searchDocuments: runnerFor(documentActions, "search_documents"),
-		viewerTeamIds: async () => [],
+		viewerTeamIds: async () => [T],
 		teams: {
 			exists: async (exec, teamId) => {
 				const [row] = await exec
@@ -297,13 +301,13 @@ describe("createPlatformActions", () => {
 			);
 			const dir = makePlugin("source-under-test");
 			const installed = await edit.run(ctxFor(db), {
-				source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+				source: { kind: "folder", path: dir, scope: { kind: "team", teamId: T } },
 			});
 			if (!installed.ok) throw new Error(`install failed: ${JSON.stringify(installed.problems)}`);
 			const found = async () => {
 				const result = await search.run(ctxFor(db), {});
 				if (!result.ok) throw new Error("expected ok");
-				const plugin = result.data.find((p) => p.id === "source-under-test");
+				const plugin = result.data.find((p) => p.id === `source-under-test@${T}`);
 				return plugin && "source" in plugin ? plugin.source.found : undefined;
 			};
 
@@ -319,13 +323,13 @@ describe("createPlatformActions", () => {
 			);
 			const dir = makePlugin("search-under-test");
 			const installed = await edit.run(ctxFor(db), {
-				source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+				source: { kind: "folder", path: dir, scope: { kind: "team", teamId: T } },
 			});
 			if (!installed.ok) throw new Error(`install failed: ${JSON.stringify(installed.problems)}`);
 
 			const result = await search.run(ctxFor(db), {});
 			if (!result.ok) throw new Error("expected ok");
-			const plugin = result.data.find((p) => p.id === "search-under-test");
+			const plugin = result.data.find((p) => p.id === `search-under-test@${T}`);
 			expect(plugin, "the installed plugin is listed").toBeDefined();
 			expect(plugin?.state).toBe("enabled");
 			const kinds = plugin?.contributions.map((c) => c.kind) ?? [];
@@ -345,25 +349,25 @@ describe("createPlatformActions", () => {
 				source: {
 					kind: "folder",
 					path: makePlugin("alpha-plugin"),
-					scope: { kind: "factory", teamId: null },
+					scope: { kind: "team", teamId: T },
 				},
 			});
 			await edit.run(ctxFor(db), {
 				source: {
 					kind: "folder",
 					path: makePlugin("beta-plugin"),
-					scope: { kind: "factory", teamId: null },
+					scope: { kind: "team", teamId: T },
 				},
 			});
-			await edit.run(ctxFor(db), { id: "beta-plugin", state: "disabled" });
+			await edit.run(ctxFor(db), { id: `beta-plugin@${T}`, state: "disabled" });
 
 			const enabledOnly = await search.run(ctxFor(db), { state: "enabled" });
 			if (!enabledOnly.ok) throw new Error("expected ok");
-			expect(enabledOnly.data.map((p) => p.id)).toEqual(["alpha-plugin"]);
+			expect(enabledOnly.data.map((p) => p.id)).toEqual([`alpha-plugin@${T}`]);
 
 			const byText = await search.run(ctxFor(db), { text: "beta" });
 			if (!byText.ok) throw new Error("expected ok");
-			expect(byText.data.map((p) => p.id)).toEqual(["beta-plugin"]);
+			expect(byText.data.map((p) => p.id)).toEqual([`beta-plugin@${T}`]);
 		});
 	});
 
@@ -374,10 +378,10 @@ describe("createPlatformActions", () => {
 			const dir = makePlugin("install-under-test");
 
 			const result = await edit.run(ctxFor(db), {
-				source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+				source: { kind: "folder", path: dir, scope: { kind: "team", teamId: T } },
 			});
 			if (!result.ok) throw new Error(`install failed: ${JSON.stringify(result.problems)}`);
-			expect(result.data.id).toBe("install-under-test");
+			expect(result.data.id).toBe(`install-under-test@${T}`);
 			expect(result.data.state).toBe("enabled");
 
 			const agentContribution = result.data.contributions.find((c) => c.kind === "agent");
@@ -421,7 +425,7 @@ describe("createPlatformActions", () => {
 				}),
 			);
 			const result = await edit.run(ctxFor(db), {
-				source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+				source: { kind: "folder", path: dir, scope: { kind: "team", teamId: T } },
 			});
 			expect(result.ok).toBe(false);
 			if (result.ok) throw new Error("expected refusal");
@@ -439,13 +443,16 @@ describe("createPlatformActions", () => {
 				source: {
 					kind: "folder",
 					path: makePlugin("toggle-under-test"),
-					scope: { kind: "factory", teamId: null },
+					scope: { kind: "team", teamId: T },
 				},
 			});
 			if (!install.ok) throw new Error("install failed");
 			const agentId = install.data.contributions.find((c) => c.kind === "agent")?.entityId ?? "";
 
-			const disabled = await edit.run(ctxFor(db), { id: "toggle-under-test", state: "disabled" });
+			const disabled = await edit.run(ctxFor(db), {
+				id: `toggle-under-test@${T}`,
+				state: "disabled",
+			});
 			if (!disabled.ok) throw new Error("disable failed");
 			expect(disabled.data.state).toBe("disabled");
 			const [agentAfterDisable] = await db.select().from(users).where(eq(users.id, agentId));
@@ -458,7 +465,10 @@ describe("createPlatformActions", () => {
 				expect(row?.status, `document ${id} must be archived`).toBe("archived");
 			}
 
-			const enabled = await edit.run(ctxFor(db), { id: "toggle-under-test", state: "enabled" });
+			const enabled = await edit.run(ctxFor(db), {
+				id: `toggle-under-test@${T}`,
+				state: "enabled",
+			});
 			if (!enabled.ok) throw new Error("enable failed");
 			expect(enabled.data.state).toBe("enabled");
 			const [agentAfterEnable] = await db.select().from(users).where(eq(users.id, agentId));
@@ -480,14 +490,14 @@ describe("createPlatformActions", () => {
 				source: {
 					kind: "folder",
 					path: makePlugin("remove-under-test"),
-					scope: { kind: "factory", teamId: null },
+					scope: { kind: "team", teamId: T },
 				},
 			});
 			if (!install.ok) throw new Error("install failed");
 			const subscriptionId =
 				install.data.contributions.find((c) => c.kind === "subscription")?.entityId ?? "";
 
-			const result = await edit.run(ctxFor(db), { id: "remove-under-test", remove: true });
+			const result = await edit.run(ctxFor(db), { id: `remove-under-test@${T}`, remove: true });
 			if (!result.ok) throw new Error(`remove failed: ${JSON.stringify(result.problems)}`);
 			// The pre-remove state — "removed" is not a member of PluginListState.
 			expect(result.data.state).toBe("enabled");
@@ -499,7 +509,7 @@ describe("createPlatformActions", () => {
 			expect(subRow.map((r) => r.paused)).toEqual([true]);
 
 			// Removing the now-removed plugin again answers plugin_removed.
-			const again = await edit.run(ctxFor(db), { id: "remove-under-test", remove: true });
+			const again = await edit.run(ctxFor(db), { id: `remove-under-test@${T}`, remove: true });
 			expect(again.ok).toBe(false);
 			if (again.ok) throw new Error("expected refusal");
 			expect(again.problems[0]?.code).toBe("plugin_removed");
@@ -517,7 +527,7 @@ describe("createPlatformActions", () => {
 			});
 			const { edit } = typedActions(deps);
 			const install = await edit.run(ctxFor(db), {
-				source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+				source: { kind: "folder", path: dir, scope: { kind: "team", teamId: T } },
 			});
 			if (!install.ok) throw new Error(`install failed: ${JSON.stringify(install.problems)}`);
 			const skillId = install.data.contributions.find(
@@ -542,7 +552,7 @@ describe("createPlatformActions", () => {
 			expect(edited.data.document.body).toBe("My own version.");
 
 			const restored = await edit.run(ctxFor(db), {
-				id: "restore-under-test",
+				id: `restore-under-test@${T}`,
 				restore: { contribution: skillId as string },
 			});
 			if (!restored.ok) throw new Error(`restore failed: ${JSON.stringify(restored.problems)}`);
@@ -564,7 +574,7 @@ describe("createPlatformActions", () => {
 				source: {
 					kind: "folder",
 					path: makePlugin("no-install-path-under-test"),
-					scope: { kind: "factory", teamId: null },
+					scope: { kind: "team", teamId: T },
 				},
 			});
 			if (!install.ok) throw new Error("install failed");
@@ -573,7 +583,7 @@ describe("createPlatformActions", () => {
 			)?.entityId;
 
 			const result = await edit.run(ctxFor(db), {
-				id: "no-install-path-under-test",
+				id: `no-install-path-under-test@${T}`,
 				restore: { contribution: skillId as string },
 			});
 			expect(result.ok).toBe(false);
@@ -590,13 +600,13 @@ describe("createPlatformActions", () => {
 				source: {
 					kind: "folder",
 					path: makePlugin("unknown-contribution-under-test"),
-					scope: { kind: "factory", teamId: null },
+					scope: { kind: "team", teamId: T },
 				},
 			});
 			if (!install.ok) throw new Error("install failed");
 
 			const result = await edit.run(ctxFor(db), {
-				id: "unknown-contribution-under-test",
+				id: `unknown-contribution-under-test@${T}`,
 				restore: { contribution: "not-a-real-contribution" },
 			});
 			expect(result.ok).toBe(false);

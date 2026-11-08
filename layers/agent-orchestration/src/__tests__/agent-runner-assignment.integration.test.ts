@@ -32,13 +32,13 @@ const baseAgent = {
 const agents = [
 	// 1. Directly owned by this person → should be taken.
 	{ ...baseAgent, id: "agent-own", name: "Own", ownerUserId: PERSON_ID, teams: [] },
-	// 2. Unowned but in one of the person's teams → should be taken.
+	// 2. Unowned but in one of the person's teams, person is default runner → should be taken.
 	{
 		...baseAgent,
 		id: "agent-team",
 		name: "Team",
 		ownerUserId: null,
-		teams: [{ id: "team-1", name: "Alpha" }],
+		teams: [{ id: "team-1", name: "Alpha", isGlobal: false, defaultRunnerId: PERSON_ID }],
 	},
 	// 3. Unowned but in a different team → should NOT be taken.
 	{
@@ -46,7 +46,7 @@ const agents = [
 		id: "agent-other",
 		name: "Other",
 		ownerUserId: null,
-		teams: [{ id: "team-2", name: "Beta" }],
+		teams: [{ id: "team-2", name: "Beta", isGlobal: false, defaultRunnerId: null }],
 	},
 	// 4. Unowned with no team → should NOT be taken.
 	{ ...baseAgent, id: "agent-none", name: "None", ownerUserId: null, teams: [] },
@@ -73,7 +73,7 @@ function buildDoor(): AgentRunnerDeps["door"] {
 							discipline: null,
 							what: null,
 							hasKey: true,
-							teams: [{ id: "team-1", name: "Alpha" }],
+							teams: [{ id: "team-1", name: "Alpha", isGlobal: false, defaultRunnerId: PERSON_ID }],
 							edges: [],
 						},
 						documentIds: [],

@@ -27,6 +27,7 @@ describe("createTestDb", () => {
 				id: "t-default",
 				name: "Default",
 				createdAt: now,
+				isGlobal: false,
 			});
 		} finally {
 			await close();
