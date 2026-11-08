@@ -32,18 +32,8 @@ const emptyToolRegistry: ToolRegistry = {
 
 describe("bootAgentExecution", () => {
 	describe("adapter pool + sandbox construction", () => {
-		it("disabled topology: starts with an empty adapter pool", async () => {
+		it("registers only real CLI harnesses, nothing always-present", async () => {
 			const boot = await bootAgentExecution({
-				topology: "disabled",
-				mcpBaseUrl: "http://localhost:9999",
-			});
-
-			expect(boot.adapters.pool.size).toBe(0);
-		});
-
-		it("local topology: registers only real CLI harnesses, nothing always-present", async () => {
-			const boot = await bootAgentExecution({
-				topology: "local",
 				mcpBaseUrl: "http://localhost:9999",
 				discoveryDeps: noDiscovery,
 				availabilityDeps: noBinaries,
@@ -63,8 +53,9 @@ describe("bootAgentExecution", () => {
 	describe("MCP bridge + router", () => {
 		it("mounts the router so an opened session is dialable, and the returned URL carries mcpBaseUrl", async () => {
 			const boot = await bootAgentExecution({
-				topology: "disabled",
 				mcpBaseUrl: "http://localhost:4242",
+				discoveryDeps: noDiscovery,
+				availabilityDeps: noBinaries,
 			});
 			const api = new Hono();
 			boot.mountMcpRouter(api);
@@ -85,8 +76,9 @@ describe("bootAgentExecution", () => {
 
 		it("rejects a token before it is opened", async () => {
 			const boot = await bootAgentExecution({
-				topology: "disabled",
 				mcpBaseUrl: "http://localhost:4242",
+				discoveryDeps: noDiscovery,
+				availabilityDeps: noBinaries,
 			});
 			const api = new Hono();
 			boot.mountMcpRouter(api);
@@ -98,8 +90,9 @@ describe("bootAgentExecution", () => {
 
 		it("closeMcpBridge revokes a token that openMcpBridge minted", async () => {
 			const boot = await bootAgentExecution({
-				topology: "disabled",
 				mcpBaseUrl: "http://localhost:4242",
+				discoveryDeps: noDiscovery,
+				availabilityDeps: noBinaries,
 			});
 			const api = new Hono();
 			boot.mountMcpRouter(api);
@@ -118,8 +111,9 @@ describe("bootAgentExecution", () => {
 	describe("return-enforcement gate", () => {
 		it("evaluates 'returned' once the gate observes a member of the closed return set", async () => {
 			const boot = await bootAgentExecution({
-				topology: "disabled",
 				mcpBaseUrl: "http://localhost:9999",
+				discoveryDeps: noDiscovery,
+				availabilityDeps: noBinaries,
 			});
 			const gate = boot.adapters.harnessRuntime.createReturnGate();
 
@@ -130,8 +124,9 @@ describe("bootAgentExecution", () => {
 
 		it("evaluates 'not_returned' when no return action was observed and the session completed", async () => {
 			const boot = await bootAgentExecution({
-				topology: "disabled",
 				mcpBaseUrl: "http://localhost:9999",
+				discoveryDeps: noDiscovery,
+				availabilityDeps: noBinaries,
 			});
 			const gate = boot.adapters.harnessRuntime.createReturnGate();
 
@@ -140,8 +135,9 @@ describe("bootAgentExecution", () => {
 
 		it("narrows to a required subset: an unrequired return action does not satisfy the gate", async () => {
 			const boot = await bootAgentExecution({
-				topology: "disabled",
 				mcpBaseUrl: "http://localhost:9999",
+				discoveryDeps: noDiscovery,
+				availabilityDeps: noBinaries,
 			});
 			const gate = boot.adapters.harnessRuntime.createReturnGate(["edit_task"]);
 

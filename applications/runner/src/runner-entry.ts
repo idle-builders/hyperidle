@@ -43,7 +43,7 @@ void (async () => {
 	// the port the bridge server will actually listen on.
 	const mcpPort = await resolveFreePort();
 	const mcpBaseUrl = `http://127.0.0.1:${mcpPort}`;
-	const agentExecution = await bootAgentExecution({ topology: "local", mcpBaseUrl });
+	const agentExecution = await bootAgentExecution({ mcpBaseUrl });
 
 	const runner = await startRunner({
 		serverUrl,
