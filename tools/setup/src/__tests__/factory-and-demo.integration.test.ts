@@ -112,22 +112,22 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 		expect(Number(pluginRows[0]?.count)).toBe(0);
 	});
 
-	test("seedDemoWorld alone produces Product team + demo founder + demo agents", async ({
+	test("seedDemoWorld alone produces global team + demo founder + demo agents", async ({
 		db,
 		runnerDb,
 	}) => {
 		await runFactoryBootstrap(db);
 		const { teamId, founderId } = await seedDemoWorld(db, runnerDb);
 
-		expect(teamId).toBe("demo-team-product");
+		expect(teamId).toBe("demo-team-olsen-labs");
 		expect(founderId).toBe("demo-founder");
 
-		const product = await queryRows<{ id: string; name: string }>(
+		const globalTeam = await queryRows<{ id: string; name: string }>(
 			db,
 			`SELECT id, name FROM teams WHERE id = '${teamId}'`,
 		);
-		expect(product).toHaveLength(1);
-		expect(product[0]?.name).toBe("Product");
+		expect(globalTeam).toHaveLength(1);
+		expect(globalTeam[0]?.name).toBe("Olsen Labs");
 
 		const founder = await queryRows<{ id: string; kind: string }>(
 			db,
