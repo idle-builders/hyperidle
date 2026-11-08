@@ -346,8 +346,6 @@ export interface TeamMembershipSubject {
 	readonly teams: readonly string[];
 	/** An owned agent's owner's teams; `null` for a person or an agent no one owns. */
 	readonly ownerTeams: readonly string[] | null;
-	/** A person's owned agents' teams — each must stay one of theirs. */
-	readonly ownedAgentTeams: readonly string[];
 }
 
 /** `belonging_required`, `agent_one_team`, `agent_team_not_owners` — every user is in at
@@ -362,16 +360,6 @@ export function teamMembershipProblems(subject: TeamMembershipSubject): Problem[
 			{
 				code: "agent_team_not_owners",
 				message: "An owned agent is in one of its owner's teams.",
-				path: "teams",
-			},
-		];
-	}
-	if (subject.ownedAgentTeams.some((t) => !teams.has(t))) {
-		return [
-			{
-				code: "agent_team_not_owners",
-				message:
-					"One of this person's agents is in a team they would leave — move the agent first.",
 				path: "teams",
 			},
 		];

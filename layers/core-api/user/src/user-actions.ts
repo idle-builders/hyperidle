@@ -153,23 +153,20 @@ async function teamNames(db: HyperIdleDb, ids: readonly string[]): Promise<strin
 }
 
 /** `teamMembershipProblems` for a user about to be in `teams` (names) — read what the
- * input alone cannot say: the owner's teams, and a person's own agents' teams. */
+ * input alone cannot say: the owner's teams. */
 async function membershipProblemsFor(
 	db: HyperIdleDb,
 	subject: {
-		readonly id: string | null;
 		readonly kind: string;
 		readonly ownerUserId: string | null;
 	},
 	teams: readonly string[],
 ): Promise<Problem[]> {
 	const owner = subject.ownerUserId ? await findUser(db, { id: subject.ownerUserId }) : undefined;
-	const owned = subject.id !== null ? await listUsers(db, { ownerUserId: subject.id }) : [];
 	return teamMembershipProblems({
 		kind: subject.kind,
 		teams,
 		ownerTeams: owner ? await teamNames(db, owner.teamIds) : null,
-		ownedAgentTeams: await teamNames(db, [...new Set(owned.flatMap((a) => a.teamIds))]),
 	});
 }
 
@@ -538,7 +535,7 @@ async function createUserRun(
 	const teamNamesIn = input.teams ?? [];
 	const membership = await membershipProblemsFor(
 		ctx.db,
-		{ id: null, kind, ownerUserId: input.ownerUserId ?? null },
+		{ kind, ownerUserId: input.ownerUserId ?? null },
 		teamNamesIn,
 	);
 	if (membership.length > 0) return { ok: false, problems: membership };
@@ -903,11 +900,9 @@ async function editExistingUserRun(
 		if (input.teams !== undefined) {
 			teams = await findOrCreateTeams(tx, input.teams, now);
 			// A person is always in the global team — silently re-add it when removed.
-			if (existing.kind === "human") {
-				const globalTeam = await getGlobalTeam(tx);
-				if (globalTeam && !teams.some((t) => t.id === globalTeam.id)) {
-					teams = [...teams, { id: globalTeam.id, name: globalTeam.name }];
-				}
+			const globalTeam = existing.kind === "human" ? await getGlobalTeam(tx) : undefined;
+			if (globalTeam && !teams.some((t) => t.id === globalTeam.id)) {
+				teams = [...teams, { id: globalTeam.id, name: globalTeam.name }];
 			}
 			const newTeamIds = new Set(teams.map((t) => t.id));
 			const oldTeamIds = new Set(existing.teamIds);
@@ -917,7 +912,22 @@ async function editExistingUserRun(
 
 			// For teams the person left, repair the default runner in case they held it.
 			for (const teamId of oldTeamIds) {
-				if (!newTeamIds.has(teamId)) await repairDefaultRunner(tx, teamId);
+				if (!newTeamIds.has(teamId)) {
+					await repairDefaultRunner(tx, teamId);
+					// Ruling A: clear unowned agent keys so the outgoing runner releases agents.
+					await clearUnownedTeamAgentKeys(tx, teamId);
+					// Ruling B: owned agents follow the person — move them to the global team.
+					if (globalTeam) {
+						const ownedInLeft = await listUsers(tx, {
+							ownerUserId: id,
+							teamIds: [teamId],
+							kind: "ai",
+						});
+						for (const agent of ownedInLeft) {
+							await setUserTeams(tx, agent.id, [globalTeam.id]);
+						}
+					}
+				}
 			}
 			// For teams the person joined, ensure there is a default runner.
 			if (existing.kind === "human") {
