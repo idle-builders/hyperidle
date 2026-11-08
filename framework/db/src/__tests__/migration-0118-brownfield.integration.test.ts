@@ -106,4 +106,69 @@ describe("migration 0118: global team + factory plugin deletion — brownfield",
 		)) as { rows: Array<{ id: string }> };
 		expect(subs.rows).toHaveLength(0);
 	});
+
+	it("sets global team on oldest, default runner on first person, adds humans to global team", async () => {
+		const client = new PGlite();
+		clients.push(client);
+		await client.waitReady;
+		const db = drizzle(client);
+		const before = migrationsUpTo(117);
+		tempDirs.push(before);
+		await migrate(db, { migrationsFolder: before });
+
+		// Seed: system user + three humans + one agent
+		await db.execute(sql`
+			INSERT INTO users (id, kind, name, role, status, created_at)
+			VALUES
+				('system:propagation', 'ai', 'system', 'system', 'active', '2025-01-01T00:00:00.000Z'),
+				('u-founder', 'human', 'Founder', 'founder', 'active', '2025-01-01T00:01:00.000Z'),
+				('u-ada',     'human', 'Ada',     'member',  'active', '2025-01-01T00:02:00.000Z'),
+				('u-bo',      'human', 'Bo',      'member',  'active', '2025-01-01T00:03:00.000Z'),
+				('u-agent',   'ai',    'Bot',     'agent',   'active', '2025-01-01T00:04:00.000Z')`);
+
+		// Seed: two teams — 'Oldest' created first (should become global)
+		await db.execute(sql`
+			INSERT INTO teams (id, name, created_at)
+			VALUES
+				('team-oldest', 'Oldest', '2025-01-01T00:00:00.000Z'),
+				('team-newer',  'Newer',  '2025-01-02T00:00:00.000Z')`);
+
+		// Memberships: founder in both; Ada only in Newer; agent in Newer only.
+		// (Bo is not in any team — the global team step in 0118 must add them.)
+		await db.execute(sql`
+			INSERT INTO user_teams (user_id, team_id)
+			VALUES
+				('u-founder', 'team-oldest'),
+				('u-founder', 'team-newer'),
+				('u-ada',     'team-newer'),
+				('u-agent',   'team-newer')`);
+
+		const after = migrationsUpTo(118);
+		tempDirs.push(after);
+		await expect(migrate(db, { migrationsFolder: after })).resolves.not.toThrow();
+
+		// Oldest team is the global team; newer is not.
+		const globalRows = (await db.execute(sql`SELECT id FROM teams WHERE is_global = TRUE`)) as {
+			rows: Array<{ id: string }>;
+		};
+		expect(globalRows.rows).toHaveLength(1);
+		expect(globalRows.rows[0]?.id).toBe("team-oldest");
+
+		// Bo (not in any team before migration) is now in the global team.
+		const boMemberships = (await db.execute(
+			sql`SELECT team_id FROM user_teams WHERE user_id = 'u-bo'`,
+		)) as { rows: Array<{ team_id: string }> };
+		expect(boMemberships.rows.map((r) => r.team_id)).toContain("team-oldest");
+
+		// Exactly one default runner per team.
+		const runnerRows = (await db.execute(
+			sql`SELECT team_id, user_id FROM user_teams WHERE is_default_runner = TRUE`,
+		)) as { rows: Array<{ team_id: string; user_id: string }> };
+		const runnerByTeam = new Map(runnerRows.rows.map((r) => [r.team_id, r.user_id]));
+		expect(runnerByTeam.size).toBe(2);
+		// Oldest team's default runner is the founder (only human member).
+		expect(runnerByTeam.get("team-oldest")).toBe("u-founder");
+		// Newer team's default runner is the founder (joined first, by created_at).
+		expect(runnerByTeam.get("team-newer")).toBe("u-founder");
+	});
 });
