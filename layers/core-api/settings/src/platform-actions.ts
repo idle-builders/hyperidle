@@ -955,7 +955,6 @@ function availableBundledPlugins(
 			version: manifest.version,
 			description: manifest.description,
 			state: "available",
-			installScope: manifest.installScope,
 			adds: manifestAdds(manifest, path),
 		}));
 }

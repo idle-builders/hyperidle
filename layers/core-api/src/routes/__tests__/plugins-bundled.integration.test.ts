@@ -167,9 +167,7 @@ describe("bundled plugins — listed as available per viewer", () => {
 		expect(available(listing)).toEqual(["document-management", "role-personas"]);
 		const byId = new Map(listing.map((p) => [p.id, p]));
 		const rolePersonas = byId.get("role-personas") as AvailablePluginView;
-		expect(rolePersonas.installScope).toBe("team");
 		expect(rolePersonas.description).toContain("builder");
-		expect((byId.get("document-management") as AvailablePluginView).installScope).toBe("team");
 
 		const onlyAvailable = await search("u-ada", { state: "available", text: "role" });
 		expect(onlyAvailable.map((p) => p.id)).toEqual(["role-personas"]);

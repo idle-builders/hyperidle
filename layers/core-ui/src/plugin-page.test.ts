@@ -155,7 +155,6 @@ describe("a plugin's page", () => {
 			version: "1.0.0",
 			description: "A team of agents.",
 			state: "available",
-			installScope: "team",
 			adds: [
 				{ kind: "agent", slot: null, label: "Ops", agent: null, what: "Keeps deploys healthy." },
 				{ kind: "document", slot: "agent_file", label: "Ops — identity", agent: "Ops", what: null },

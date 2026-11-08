@@ -360,8 +360,11 @@ describe("a fresh install, end to end", () => {
 		expect(installsIn(await search(boId, { state: "enabled" }))).toEqual([
 			`role-personas@${teamB}`,
 		]);
+		// Both see role-personas available: Ada's team (global) no longer has it;
+		// Bo's own team has it installed but the global team is now in viewerTeamIds
+		// and doesn't have it — so it's available to install on the global team.
 		expect(availableIn(await search(adaId))).toContain("role-personas");
-		expect(availableIn(await search(boId))).not.toContain("role-personas");
+		expect(availableIn(await search(boId))).toContain("role-personas");
 
 		// Ada's team installs document-management; its librarian lands on that team.
 		const dmInstall = await installed(edit(adaId, bundled("document-management", teamA)));

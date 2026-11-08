@@ -158,9 +158,7 @@ export function pluginPage(
 			?.name ?? "";
 	const forTeam =
 		listing.state === "available"
-			? listing.installScope === "team"
-				? (ctx.team?.name ?? null)
-				: null
+			? (ctx.team?.name ?? null)
 			: listing.scope.kind === "team"
 				? teamName(listing.scope.teamId)
 				: null;

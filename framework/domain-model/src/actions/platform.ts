@@ -15,13 +15,6 @@ export type PluginListState = (typeof PLUGIN_LIST_STATES)[number];
  */
 const PLUGIN_SEARCH_STATES = [...PLUGIN_LIST_STATES, "available"] as const;
 
-/**
- * Where a plugin's Install button puts it, read from the manifest's
- * `extensions["io.hyperidle"].installScope`: `team` — the viewer's team, one
- * install per team.
- */
-const PLUGIN_INSTALL_SCOPES = ["team"] as const;
-
 export const PluginScopeSchema = z.object({ kind: z.literal("team"), teamId: z.string().min(1) });
 export type PluginScope = z.infer<typeof PluginScopeSchema>;
 
@@ -89,7 +82,6 @@ const AvailablePluginViewSchema = z.object({
 	version: z.string(),
 	description: z.string().nullable(),
 	state: z.literal("available"),
-	installScope: z.enum(PLUGIN_INSTALL_SCOPES),
 	adds: z.array(PluginAddViewSchema),
 });
 export type AvailablePluginView = z.infer<typeof AvailablePluginViewSchema>;

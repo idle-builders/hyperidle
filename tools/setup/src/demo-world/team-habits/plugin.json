@@ -5,7 +5,6 @@
 	"description": "An agent that keeps how the team works written down.",
 	"extensions": {
 		"io.hyperidle": {
-			"installScope": "team",
 			"agents": [
 				{
 					"id": "facilitation",
