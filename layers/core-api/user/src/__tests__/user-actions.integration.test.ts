@@ -920,20 +920,14 @@ describe("edit_user defaultRunnerFor", () => {
 		expect(adaId).not.toBe("");
 
 		// Finn is default runner (joined first)
-		const membershipsBefore = await db
-			.select()
-			.from(userTeams)
-			.where(eq(userTeams.teamId, teamId));
+		const membershipsBefore = await db.select().from(userTeams).where(eq(userTeams.teamId, teamId));
 		expect(membershipsBefore.find((m) => m.userId === finnId)?.isDefaultRunner).toBe(true);
 
 		// Ada moves herself to default runner
 		const result = await editUser(ctxFor(db, adaId), { id: adaId, defaultRunnerFor: teamId });
 		expect(result.ok).toBe(true);
 
-		const membershipsAfter = await db
-			.select()
-			.from(userTeams)
-			.where(eq(userTeams.teamId, teamId));
+		const membershipsAfter = await db.select().from(userTeams).where(eq(userTeams.teamId, teamId));
 		expect(membershipsAfter.find((m) => m.userId === finnId)?.isDefaultRunner).toBe(false);
 		expect(membershipsAfter.find((m) => m.userId === adaId)?.isDefaultRunner).toBe(true);
 		expect(membershipsAfter.filter((m) => m.isDefaultRunner)).toHaveLength(1);
@@ -943,7 +937,9 @@ describe("edit_user defaultRunnerFor", () => {
 		await seedFounder(db);
 		// Pre-seed a global team so TeamA and TeamB are non-global (otherwise the first team
 		// created becomes global and everyone auto-joins it, making Bo a member of TeamA).
-		await db.insert(teams).values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+		await db
+			.insert(teams)
+			.values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
 		const { editUser } = actionsFor(buildDeps());
 
 		// Ada in TeamA, Bo in TeamB
