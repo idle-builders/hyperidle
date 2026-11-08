@@ -17,11 +17,13 @@ import { Avatar } from "./Msg";
 import { NeedIcon } from "./NeedIcon";
 import { AddPluginDialog } from "./Plugins";
 import {
+	agentAssignmentLine,
 	agentJobs,
 	agentStand,
 	applyMoveHereResult,
 	countWords,
 	crewOf,
+	defaultRunnerName,
 	forWords,
 	type Job,
 	joinWords,
@@ -300,12 +302,37 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 						</div>
 						<ul className="tbox-facts">
 							<li>{countWords(crews.length, agents)}</li>
-							{team?.defaultRunnerId && (
-								<li>
-									Runs its agents:{" "}
-									{everyone.find((u) => u.id === team.defaultRunnerId)?.name ?? "someone"}
-								</li>
-							)}
+							{(() => {
+								const runnerName = defaultRunnerName(team?.defaultRunnerId, everyone);
+								if (!runnerName) return null;
+								const people = crews.map((c) => c.person);
+								return (
+									<li>
+										Runs its agents:{" "}
+										{yours ? (
+											<select
+												value={team?.defaultRunnerId ?? ""}
+												onChange={async (e) => {
+													const newId = e.currentTarget.value;
+													await call("edit_user", {
+														id: newId,
+														defaultRunnerFor: team?.id ?? "",
+													});
+													users.reload();
+												}}
+											>
+												{people.map((p) => (
+													<option key={p.id} value={p.id}>
+														{p.name}
+													</option>
+												))}
+											</select>
+										) : (
+											runnerName
+										)}
+									</li>
+								);
+							})()}
 						</ul>
 						<section className="tbox-sec">
 							<h4>
@@ -604,16 +631,14 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 			p.state !== "available" &&
 			p.contributions.some((c) => c.kind === "agent" && c.entityId === u.id),
 	);
+	const { who: agentWho, where: agentWhere } = agentAssignmentLine(
+		owner ? nameOf(owner.id) : null,
+		home?.name ?? null,
+	);
 	const facts = [
+		agent ? agentWho : isMe ? "Person · you" : "Person",
 		agent
-			? `Agent · works for ${owner ? nameOf(owner.id) : home ? `the ${home.name} team` : "the team"}`
-			: isMe
-				? "Person · you"
-				: "Person",
-		agent
-			? home
-				? `Team ${home.name}`
-				: "In no team yet"
+			? agentWhere
 			: u.teams.length > 0
 				? `${u.teams.length === 1 ? "Team" : "Teams"} ${joinWords(u.teams.map((t) => t.name))}`
 				: "In no team yet",

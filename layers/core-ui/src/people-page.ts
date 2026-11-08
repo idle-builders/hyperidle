@@ -397,3 +397,36 @@ export function applyMoveHereResult(
 	}
 	return { ok: false, problem: `Could not move ${agentName} here. Try again.` };
 }
+
+/**
+ * The two assignment facts for an agent's info box.
+ * An agent with no owner and no team is unassigned and cannot run;
+ * the second fact carries the nudge to assign it.
+ */
+export function agentAssignmentLine(
+	ownerName: string | null,
+	homeName: string | null,
+): { who: string; where: string } {
+	if (!(ownerName || homeName))
+		return {
+			who: "Agent",
+			where: "Not assigned to anyone. Assign it to a person or a team so it can run.",
+		};
+	return {
+		who: `Agent · works for ${ownerName ?? `the ${homeName} team`}`,
+		where: homeName ? `Team ${homeName}` : "In no team yet",
+	};
+}
+
+/**
+ * The name of a team's default runner to show in the info box, or null when
+ * either there is no default runner or the person cannot be found in the list.
+ * Never returns an invented fallback.
+ */
+export function defaultRunnerName(
+	defaultRunnerId: string | null | undefined,
+	users: readonly { id: string; name: string }[],
+): string | null {
+	if (!defaultRunnerId) return null;
+	return users.find((u) => u.id === defaultRunnerId)?.name ?? null;
+}
