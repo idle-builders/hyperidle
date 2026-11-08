@@ -206,7 +206,7 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 		},
 		editDocument: runnerFor(documentActions, "edit_document"),
 		searchDocuments: runnerFor(documentActions, "search_documents"),
-		viewerTeamIds: async () => [T],
+		viewerTeamIds: async () => [],
 		teams: {
 			exists: async (exec, teamId) => {
 				const [row] = await exec

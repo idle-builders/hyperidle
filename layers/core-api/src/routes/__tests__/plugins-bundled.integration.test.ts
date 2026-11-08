@@ -191,8 +191,8 @@ describe("bundled plugins — listed as available per viewer", () => {
 		expect(available(await search("u-bo"))).toEqual(["document-management", "role-personas"]);
 		expect(available(await search("u-both"))).toEqual(["document-management", "role-personas"]);
 		expect(available(await search("u-loner"))).toEqual([]);
-		// Installed rows are only visible to members of the installing team.
-		expect(installed(await search("u-bo"))).toEqual([]);
+		// All installs are visible — a person in team-b sees team-a's install too.
+		expect(installed(await search("u-bo"))).toEqual(["role-personas@team-a"]);
 	});
 });
 
@@ -285,7 +285,7 @@ describe("bundled plugins — install by name, per team", () => {
 		// u-bo (team-b) still sees document-management as available.
 		const boListing = await search("u-bo");
 		expect(available(boListing)).toContain("document-management");
-		expect(installed(boListing)).not.toContain("document-management@team-a");
+		expect(installed(boListing)).toContain("document-management@team-a");
 	});
 
 	test("a name that is not one of the bundled folders is install_failed, never a path", async ({

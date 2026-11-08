@@ -973,19 +973,12 @@ export function createPlatformActions(deps: PlatformActionsDeps): readonly Actio
 	): Promise<ActionResult<PluginListing[]>> {
 		const viewerTeamIds = await deps.viewerTeamIds(ctx.db, ctx.actor);
 		const allInstalled = await listInstalledPlugins(ctx.db);
-		// Only show installs for the viewer's own teams — another team's install is not theirs.
-		const installed = allInstalled.filter(
-			(p) =>
-				p.scope.kind === "team" &&
-				p.scope.teamId !== null &&
-				viewerTeamIds.includes(p.scope.teamId),
-		);
 		const available = availableBundledPlugins(
 			deps.bundledPluginsDir,
-			installed,
+			allInstalled,
 			viewerTeamIds,
 		).filter((p) => matchesSearchFilter(p, input));
-		const filtered = installed.filter((p) => matchesSearchFilter(p, input));
+		const filtered = allInstalled.filter((p) => matchesSearchFilter(p, input));
 		if (filtered.length === 0) return { ok: true, data: available };
 
 		const data: PluginListing[] = [];
