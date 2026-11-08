@@ -78,13 +78,12 @@ describe("editUserInvariants — create", () => {
 		expect(problems.map((p) => p.code)).toContain("person_has_no_owner");
 	});
 
-	it("agent_fields_for_agents: a person create with agentCategory/runConfig", () => {
+	it("agent_fields_for_agents: a person create with agentCategory", () => {
 		const problems = editUserInvariants({
 			kind: "human",
 			name: "Ada",
 			teams: ["Core"],
 			agentCategory: "individual",
-			runConfig: { harnessType: "claude-code" },
 		});
 		expect(problems.map((p) => p.code)).toContain("agent_fields_for_agents");
 	});
@@ -108,7 +107,6 @@ describe("editUserInvariants — create", () => {
 			teams: ["Core"],
 			identity: "You help.",
 			agentCategory: "individual",
-			runConfig: { harnessType: "claude-code" },
 		});
 		expect(problems.map((p) => p.code)).not.toContain("agent_fields_for_agents");
 	});
@@ -388,47 +386,8 @@ describe("EditUserInputSchema", () => {
 		expect(result.success).toBe(false);
 	});
 
-	it("parses folders.add with a path", () => {
-		const result = EditUserInputSchema.safeParse({
-			id: "u1",
-			folders: {
-				add: [{ path: "~/code/org-repo" }],
-			},
-		});
-		expect(result.success).toBe(true);
-	});
-
 	it("parses inbox.seen as the literal 'all'", () => {
 		expect(EditUserInputSchema.safeParse({ id: "u1", inbox: { seen: "all" } }).success).toBe(true);
-	});
-
-	// A create (no `id`) carries `folders`/`connections` too — nothing in
-	// the schema, nor in `editUserInvariants`, is create-only for them, so a
-	// welcome-screen call that picks a folder is never silently ignored.
-	it("parses folders and connections on a create — no id required for either", () => {
-		const result = EditUserInputSchema.safeParse({
-			kind: "human",
-			name: "Ada",
-			teams: ["Core"],
-			folders: {
-				add: [{ path: "/home/ada" }],
-			},
-			connections: { add: [{ authSource: "mcp", serverUrl: "https://example.com/mcp" }] },
-		});
-		expect(result.success).toBe(true);
-	});
-
-	it("editUserInvariants raises no problem for a create carrying folders/connections", () => {
-		const problems = editUserInvariants({
-			kind: "human",
-			name: "Ada",
-			teams: ["Core"],
-			folders: {
-				add: [{ path: "/home/ada" }],
-			},
-			connections: { add: [{ authSource: "mcp", serverUrl: "https://example.com/mcp" }] },
-		});
-		expect(problems).toEqual([]);
 	});
 });
 

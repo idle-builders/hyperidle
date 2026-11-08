@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import type { AgentSessionRequest, HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import { agentSessionRequests } from "@hyperidle/db";
 import type {
 	AgentSessionRequestInput,
 	AgentSessionSourceCorrelation,
@@ -10,6 +8,12 @@ import type {
 	BakedSessionResumeRequest,
 } from "@hyperidle/domain-model";
 import { agentSessionRequestInputSchema } from "@hyperidle/domain-model";
+import {
+	type AgentSessionRequest,
+	agentSessionRequests,
+	type RunnerDb,
+	type RunnerWriteExecutor,
+} from "@hyperidle/runner-db";
 import { and, asc, eq, gt, inArray, lt, notInArray, or, sql } from "drizzle-orm";
 
 type TerminalInput =
@@ -37,7 +41,7 @@ function nowIso() {
 function rowToRequest(row: AgentSessionRequest): AgentSessionRequest {
 	return row;
 }
-async function findRequestSessionInternal(db: HyperIdleDb, sessionId: string) {
+async function findRequestSessionInternal(db: RunnerDb, sessionId: string) {
 	const [row] = await db
 		.select({ id: agentSessionRequests.id })
 		.from(agentSessionRequests)
@@ -45,7 +49,7 @@ async function findRequestSessionInternal(db: HyperIdleDb, sessionId: string) {
 		.limit(1);
 	return row;
 }
-async function findRequestIdInternal(db: HyperIdleDb, requestId: string) {
+async function findRequestIdInternal(db: RunnerDb, requestId: string) {
 	const [row] = await db
 		.select()
 		.from(agentSessionRequests)
@@ -54,7 +58,7 @@ async function findRequestIdInternal(db: HyperIdleDb, requestId: string) {
 	return row;
 }
 function listRequestsSourceInternal(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	sourceKind: AgentSessionSourceKind,
 	sourceId: string,
 ) {
@@ -69,10 +73,10 @@ function listRequestsSourceInternal(
 		)
 		.orderBy(asc(agentSessionRequests.createdAt), asc(agentSessionRequests.id));
 }
-function listRunningRequestsInternal(db: HyperIdleDb) {
+function listRunningRequestsInternal(db: RunnerDb) {
 	return db.select().from(agentSessionRequests).where(eq(agentSessionRequests.status, "running"));
 }
-function listPendingByStreamInternal(db: HyperIdleDb, streamId: string) {
+function listPendingByStreamInternal(db: RunnerDb, streamId: string) {
 	return db
 		.select()
 		.from(agentSessionRequests)
@@ -83,13 +87,13 @@ function listPendingByStreamInternal(db: HyperIdleDb, streamId: string) {
 			),
 		);
 }
-export function listPendingByStream(db: HyperIdleDb, streamId: string) {
+export function listPendingByStream(db: RunnerDb, streamId: string) {
 	return listPendingByStreamInternal(db, streamId);
 }
 
 /** Cancel the runs still waiting to start on these tasks — one agent's, or everyone's — so a stop also stops what has not begun. */
 export async function cancelPendingForTasks(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	taskIds: readonly string[],
 	now: string,
 	agentId?: string,
@@ -108,8 +112,49 @@ export async function cancelPendingForTasks(
 		.returning({ id: agentSessionRequests.id });
 	return cancelled.length;
 }
+
+/** Count the pending or claimed (waiting to start) requests for an agent — used for the concurrency hold-back check. */
+export async function countPendingRunsForAgent(db: RunnerDb, agentId: string): Promise<number> {
+	const [row] = await db
+		.select({ count: sql<number>`count(*)` })
+		.from(agentSessionRequests)
+		.where(
+			and(
+				eq(agentSessionRequests.agentId, agentId),
+				inArray(agentSessionRequests.status, ["pending", "claimed"]),
+			),
+		)
+		.limit(1);
+	return Number(row?.count ?? 0);
+}
+
+/** Cancel all pending and claimed requests for a given agent — called when the agent moves away (401). */
+export async function cancelAllPendingForAgent(
+	db: RunnerDb,
+	agentId: string,
+	now: string,
+): Promise<number> {
+	const cancelled = await db
+		.update(agentSessionRequests)
+		.set({
+			status: "cancelled",
+			claimToken: null,
+			claimExpiresAt: null,
+			claimedBy: null,
+			claimedAt: null,
+			updatedAt: now,
+		})
+		.where(
+			and(
+				eq(agentSessionRequests.agentId, agentId),
+				inArray(agentSessionRequests.status, ["pending", "claimed"]),
+			),
+		)
+		.returning({ id: agentSessionRequests.id });
+	return cancelled.length;
+}
 async function hasActiveRequestClaimInternal(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	input: { readonly requestId: string; readonly claimToken: string; readonly now: Date },
 ) {
 	const [owned] = await db
@@ -126,7 +171,7 @@ async function hasActiveRequestClaimInternal(
 		.limit(1);
 	return Boolean(owned);
 }
-async function insertRequestInternal(db: HyperIdleDb, input: AgentSessionRequestInput) {
+async function insertRequestInternal(db: RunnerDb, input: AgentSessionRequestInput) {
 	const parsed = agentSessionRequestInputSchema.parse(input);
 	const existing = await db
 		.select()
@@ -187,7 +232,7 @@ async function insertRequestInternal(db: HyperIdleDb, input: AgentSessionRequest
 	return rowToRequest(racedExisting);
 }
 async function claimNextRequestInternal(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	workerId: string,
 	skipAgentIds: readonly string[],
 	options: Pick<ClaimOptions, "now" | "leaseMs">,
@@ -217,7 +262,7 @@ async function claimNextRequestInternal(
 	return claimRequestIdInternal(db, candidate.id, workerId, options);
 }
 async function claimRequestIdInternal(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	requestId: string,
 	workerId: string,
 	options: Pick<ClaimOptions, "now" | "leaseMs">,
@@ -261,7 +306,7 @@ async function claimRequestIdInternal(
 	return updated[0] ? rowToRequest(updated[0]) : null;
 }
 async function extendRequestClaimInternal(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	input: Pick<ClaimOptions, "now" | "leaseMs"> & {
 		readonly requestId: string;
 		readonly claimToken: string;
@@ -286,7 +331,7 @@ async function extendRequestClaimInternal(
 	return renewed.length === 1;
 }
 async function admitClaimedRequestInternal(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	requestId: string,
 	sessionId: string,
 	claimToken: string,
@@ -313,11 +358,7 @@ async function admitClaimedRequestInternal(
 		.returning({ id: agentSessionRequests.id });
 	if (updated.length !== 1) throw new Error(`Lost request custody before admission: ${requestId}`);
 }
-async function requeueClaimedRequestInternal(
-	db: HyperIdleDb,
-	requestId: string,
-	claimToken: string,
-) {
+async function requeueClaimedRequestInternal(db: RunnerDb, requestId: string, claimToken: string) {
 	const released = await db
 		.update(agentSessionRequests)
 		.set({
@@ -338,7 +379,7 @@ async function requeueClaimedRequestInternal(
 		.returning({ id: agentSessionRequests.id });
 	return released.length === 1;
 }
-async function finishRequestInTxInternal(tx: WriteExecutor, input: TerminalInput) {
+async function finishRequestInTxInternal(tx: RunnerWriteExecutor, input: TerminalInput) {
 	const now = nowIso();
 	const baseSet = {
 		status: input.state,
@@ -373,10 +414,10 @@ async function finishRequestInTxInternal(tx: WriteExecutor, input: TerminalInput
 	if (!winner) return null;
 	return winner;
 }
-function finishRequestInternal(db: HyperIdleDb, input: TerminalInput) {
-	return db.transaction((tx: WriteExecutor) => finishRequestInTxInternal(tx, input));
+function finishRequestInternal(db: RunnerDb, input: TerminalInput) {
+	return db.transaction((tx: RunnerWriteExecutor) => finishRequestInTxInternal(tx, input));
 }
-async function findTerminationInternal(tx: WriteExecutor, requestId: string) {
+async function findTerminationInternal(tx: RunnerWriteExecutor, requestId: string) {
 	const [current] = await tx
 		.select({ terminationReason: agentSessionRequests.terminationReason })
 		.from(agentSessionRequests)
@@ -385,7 +426,7 @@ async function findTerminationInternal(tx: WriteExecutor, requestId: string) {
 	return current?.terminationReason;
 }
 async function requestTerminationInternal(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	input: { readonly requestId: string; readonly reason: string; readonly requestedBy?: string },
 ) {
 	const [request] = await db
@@ -419,7 +460,7 @@ async function requestTerminationInternal(
 
 /** Turn a baked resume into the session request that carries it. Resume takes the same provisioning path; sourceKind of its own so it's not mistaken for a new start. */
 function queueResumeInternal(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	reviewMessageId: string,
 	resume: BakedSessionResumeRequest,
 	idempotencyKey: string,
@@ -449,7 +490,7 @@ function queueResumeInternal(
 
 /** Queue a run the runner built from an inbox row; the same key twice is one request. */
 function queueRunInternal(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	baked: BakedRunRequest,
 	idempotencyKey: string,
 ): Promise<AgentSessionRequest> {
@@ -484,7 +525,7 @@ function queueRunInternal(
 	});
 	return insertRequestInternal(db, requestInput);
 }
-function queryRequestInternal(exec: HyperIdleDb, query: FindQuery) {
+function queryRequestInternal(exec: RunnerDb, query: FindQuery) {
 	switch (query.by) {
 		case "id":
 			return findRequestIdInternal(exec, query.requestId);
@@ -501,7 +542,7 @@ function queryRequestInternal(exec: HyperIdleDb, query: FindQuery) {
 	}
 }
 function mutateRequestInternal(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	spec: TransitionSpec,
 	options: { readonly now?: Date; readonly existingTransaction?: boolean } = {},
 ) {
@@ -621,11 +662,11 @@ export interface ClaimOptions {
 	readonly leaseMs: number;
 }
 
-export function queueRun(db: HyperIdleDb, baked: BakedRunRequest, idempotencyKey: string) {
+export function queueRun(db: RunnerDb, baked: BakedRunRequest, idempotencyKey: string) {
 	return queueRunInternal(db, baked, idempotencyKey);
 }
 export function queueResume(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	input: {
 		readonly reviewMessageId: string;
 		readonly resume: BakedSessionResumeRequest;
@@ -635,26 +676,26 @@ export function queueResume(
 	return queueResumeInternal(db, input.reviewMessageId, input.resume, input.idempotencyKey);
 }
 export function findSessionRequest(
-	exec: HyperIdleDb,
+	exec: RunnerDb,
 	query: Extract<FindQuery, { by: "id" }>,
 ): Promise<AgentSessionRequest | undefined>;
 export function findSessionRequest(
-	exec: HyperIdleDb,
+	exec: RunnerDb,
 	query: Extract<FindQuery, { by: "sessionId" }>,
 ): Promise<Pick<AgentSessionRequest, "id"> | undefined>;
 export function findSessionRequest(
-	exec: HyperIdleDb,
+	exec: RunnerDb,
 	query: Extract<FindQuery, { by: "terminationReason" }>,
 ): Promise<string | null | undefined>;
 export function findSessionRequest(
-	exec: HyperIdleDb,
+	exec: RunnerDb,
 	query: Extract<FindQuery, { by: "claimActive" }>,
 ): Promise<boolean>;
-export function findSessionRequest(exec: HyperIdleDb, query: FindQuery) {
+export function findSessionRequest(exec: RunnerDb, query: FindQuery) {
 	return queryRequestInternal(exec, query);
 }
 export function listSessionRequests(
-	exec: HyperIdleDb,
+	exec: RunnerDb,
 	filter:
 		| { readonly source: { readonly kind: AgentSessionSourceKind; readonly id: string } }
 		| { readonly status: "running" },
@@ -664,7 +705,7 @@ export function listSessionRequests(
 		: listRunningRequestsInternal(exec);
 }
 export function claimSessionRequest(
-	exec: HyperIdleDb,
+	exec: RunnerDb,
 	selector:
 		| { readonly next: true; readonly skipAgentIds?: readonly string[] }
 		| { readonly id: string },
@@ -676,28 +717,28 @@ export function claimSessionRequest(
 		: claimNextRequestInternal(exec, options.workerId, selector.skipAgentIds ?? [], claim);
 }
 export function renewClaim(
-	exec: HyperIdleDb,
+	exec: RunnerDb,
 	requestId: string,
 	claimToken: string,
 	options: Pick<ClaimOptions, "now" | "leaseMs">,
 ) {
 	return extendRequestClaimInternal(exec, { requestId, claimToken, ...options });
 }
-export function releaseClaim(exec: HyperIdleDb, requestId: string, claimToken: string) {
+export function releaseClaim(exec: RunnerDb, requestId: string, claimToken: string) {
 	return requeueClaimedRequestInternal(exec, requestId, claimToken);
 }
 export function transitionSessionRequest(
-	exec: WriteExecutor,
+	exec: RunnerWriteExecutor,
 	transition: SessionRequestTransition & { readonly transaction: "existing" },
 	options?: { readonly now?: Date },
 ): ReturnType<typeof mutateRequestInternal>;
 export function transitionSessionRequest(
-	exec: HyperIdleDb,
+	exec: RunnerDb,
 	transition: SessionRequestTransition,
 	options?: { readonly now?: Date },
 ): ReturnType<typeof mutateRequestInternal>;
 export function transitionSessionRequest(
-	exec: HyperIdleDb | WriteExecutor,
+	exec: RunnerDb | RunnerWriteExecutor,
 	transition: SessionRequestTransition,
 	options?: { readonly now?: Date },
 ) {

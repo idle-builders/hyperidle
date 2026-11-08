@@ -7,7 +7,8 @@
  * and the `send_message` escalation path.
  */
 
-import { messages, sessions } from "@hyperidle/db";
+import { messages } from "@hyperidle/db";
+import { sessions } from "@hyperidle/runner-db";
 import { and, eq } from "drizzle-orm";
 import { judgeLlmQuality, judgeSessionCompleted } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
@@ -32,7 +33,7 @@ const htToAgentBuilderDevops: EvalScenario = {
 	feature: "edit_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMultiAgentWorld(ctx.db, {
+		const world = await seedMultiAgentWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on infrastructure migration.
 When you need to transfer work to a specific teammate, use edit_task with id set to your
@@ -67,6 +68,7 @@ Use edit_task with:
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -83,7 +85,7 @@ Use edit_task with:
 				id: "handoff_called",
 				label: "Handoff Called (Session Ended)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ outcome: sessions.outcome, endedAt: sessions.endedAt })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -101,7 +103,7 @@ Use edit_task with:
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					// The handoff sets the task state — check that task wasn't set to "done"
 					// (it should be in_progress since we're handing off mid-work)
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ outcome: sessions.outcome })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -120,7 +122,7 @@ Use edit_task with:
 				id: "context_quality",
 				label: "Handoff Context Quality",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -143,7 +145,7 @@ const htToRoleBuilderConsulting: EvalScenario = {
 	feature: "edit_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMultiAgentWorld(ctx.db, {
+		const world = await seedMultiAgentWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on consulting analysis.
 When your analysis is complete and needs stakeholder communication, hand off to the team's
@@ -172,6 +174,7 @@ Hand off to the team product manager for stakeholder communication using edit_ta
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -188,7 +191,7 @@ Hand off to the team product manager for stakeholder communication using edit_ta
 				id: "handoff_called",
 				label: "Handoff Called",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ outcome: sessions.outcome })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -206,7 +209,7 @@ Hand off to the team product manager for stakeholder communication using edit_ta
 				id: "context_quality",
 				label: "Handoff Includes Analysis Context",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -229,7 +232,7 @@ const htToHumanBuilderHealthcare: EvalScenario = {
 	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on a healthcare patient data system.
 When you encounter a question requiring human judgment on patient privacy or HIPAA compliance,
@@ -257,6 +260,7 @@ This creates a review message a human compliance expert can see and respond to.`
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -273,7 +277,7 @@ This creates a review message a human compliance expert can see and respond to.`
 				id: "escalation_message_sent",
 				label: "Human Escalation Executed",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ outcome: sessions.outcome })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -311,7 +315,7 @@ This creates a review message a human compliance expert can see and respond to.`
 				id: "reason_quality",
 				label: "Escalation Reason Explains HIPAA Question",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -334,7 +338,7 @@ const htContextQualityPmFinance: EvalScenario = {
 	feature: "edit_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMultiAgentWorld(ctx.db, {
+		const world = await seedMultiAgentWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager coordinating a financial audit engagement.
 When handing off work, provide complete context so the receiver can continue without questions.
@@ -370,6 +374,7 @@ Use edit_task with:
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -386,7 +391,7 @@ Use edit_task with:
 				id: "handoff_called",
 				label: "Handoff Called",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ outcome: sessions.outcome })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -404,7 +409,7 @@ Use edit_task with:
 				id: "remaining_work_present",
 				label: "Remaining Work Specified",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -417,7 +422,7 @@ Use edit_task with:
 				id: "artifacts_present",
 				label: "Completed Artifacts Listed",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -440,7 +445,7 @@ const htToBuilderDesignerFrontend: EvalScenario = {
 	feature: "edit_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMultiAgentWorld(ctx.db, {
+		const world = await seedMultiAgentWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "designer",
 			agentSystemPrompt: `You are a product designer on the frontend team.
 When your design specification is complete, hand off to the builder for implementation.
@@ -478,6 +483,7 @@ Hand off using edit_task:
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -494,7 +500,7 @@ Hand off using edit_task:
 				id: "handoff_called",
 				label: "Handoff Called (Session Ended)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ outcome: sessions.outcome, endedAt: sessions.endedAt })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -510,7 +516,7 @@ Hand off using edit_task:
 				id: "context_quality",
 				label: "Handoff Includes Design Context for Builder",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -534,7 +540,7 @@ const htToBuilderOpsDevops: EvalScenario = {
 	feature: "edit_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMultiAgentWorld(ctx.db, {
+		const world = await seedMultiAgentWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "ops",
 			agentSystemPrompt: `You are an ops agent responsible for production reliability.
 When you investigate a production incident and determine the root cause is application code (not infrastructure),
@@ -573,6 +579,7 @@ Hand off to the builder using edit_task:
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -589,7 +596,7 @@ Hand off to the builder using edit_task:
 				id: "handoff_called",
 				label: "Handoff Called (Session Ended)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ outcome: sessions.outcome })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -605,7 +612,7 @@ Hand off to the builder using edit_task:
 				id: "status_correct",
 				label: "Handoff Status Indicates Blocked (ops cannot fix code)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ outcome: sessions.outcome })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -623,7 +630,7 @@ Hand off to the builder using edit_task:
 				id: "context_quality",
 				label: "Handoff Includes Diagnosis and Affected Component",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))

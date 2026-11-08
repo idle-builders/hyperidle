@@ -1,6 +1,5 @@
-import type { HarnessDescriptor, SubscriptionEventName } from "@hyperidle/domain-model";
+import type { SubscriptionEventName } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
-import { programsAt } from "./api";
 import { cronOf, cronWords, EVENT_CHOICES, type Often, type Pair } from "./people-page";
 import { Seg } from "./Seg";
 
@@ -107,259 +106,12 @@ export function Field({
 	);
 }
 
-/** One of a list, each on its own line with a few words beside it. */
-function Pick({
-	name,
-	options,
-	value,
-	onChange,
-}: {
-	name: string;
-	options: { value: string; what: string; why: string; off?: boolean }[];
-	value: string;
-	onChange: (v: string) => void;
-}) {
-	return (
-		<div className="picks">
-			{options.map((o) => (
-				<label key={o.value} className="pick" aria-disabled={o.off}>
-					<input
-						type="radio"
-						name={name}
-						checked={value === o.value}
-						disabled={o.off}
-						onChange={() => onChange(o.value)}
-					/>
-					<span>{o.what}</span>
-					<span className="pick-why">{o.why}</span>
-				</label>
-			))}
-		</div>
-	);
-}
-
-/** Several of a few, each ticked on its own. */
-function Ticks({
-	options,
-	off,
-	onFlip,
-}: {
-	options: readonly { id: string; name: string }[];
-	off: ReadonlySet<string>;
-	onFlip: (id: string) => void;
-}) {
-	return (
-		<div className="ticks">
-			{options.map((a) => (
-				<label key={a.id} className="pick">
-					<input type="checkbox" checked={!off.has(a.id)} onChange={() => onFlip(a.id)} />
-					<span>{a.name}</span>
-				</label>
-			))}
-		</div>
-	);
-}
-
 const flipIn = (all: ReadonlySet<string>, x: string): Set<string> => {
 	const next = new Set(all);
 	if (next.has(x)) next.delete(x);
 	else next.add(x);
 	return next;
 };
-
-/* ---------- where someone works (folders) and what they can reach (services) ---------- */
-
-/** One folder or service in the list: on an agent's page, ticked when the agent has it. */
-export interface ReachRow {
-	id: string;
-	name: string;
-	how: string;
-	/** On an agent's page: it has it. */
-	given: boolean;
-	/** On your page: who it is given to. */
-	givenTo: string;
-	/** Cannot be unticked here, such as a service signed in on this computer. */
-	locked?: boolean;
-}
-
-export type NewReach =
-	| { kind: "folder"; where: string }
-	| { kind: "service"; name: string; key?: string; address?: string };
-
-export interface ReachSave {
-	/** Rows whose tick changed: id → now given. */
-	ticks: Map<string, boolean>;
-	added: NewReach | null;
-	/** Your agents unticked under "Who gets it". */
-	keepFrom: string[];
-}
-
-const SIGN_IN = ["A key", "An MCP server"] as const;
-
-export function ReachDialog({
-	who,
-	kind,
-	rows,
-	yourAgents,
-	onClose,
-	onSave,
-}: {
-	who: Subject;
-	kind: "folder" | "service";
-	rows: readonly ReachRow[];
-	yourAgents: readonly { id: string; name: string }[];
-	onClose: () => void;
-	onSave: (save: ReachSave) => Promise<string | null>;
-}) {
-	const agent = who.agent;
-	const folder = kind === "folder";
-	const [ticks, setTicks] = useState<Map<string, boolean>>(new Map());
-	const [signIn, setSignIn] = useState<(typeof SIGN_IN)[number]>("A key");
-	const [where, setWhere] = useState("");
-	const [name, setName] = useState("");
-	const [key, setKey] = useState("");
-	const [address, setAddress] = useState("");
-	const [off, setOff] = useState<ReadonlySet<string>>(new Set());
-	const [problem, setProblem] = useState<string | null>(null);
-
-	const title = folder
-		? agent
-			? `Where ${who.name} works`
-			: "Where you and your agents work"
-		: agent
-			? `What ${who.name} can reach`
-			: "What you and your agents can reach";
-	const sub = folder
-		? agent
-			? `${who.name} works in the folders ticked here. Untick one to take it out of ${who.name}'s space; the real folder stays.`
-			: "Pick a folder on this computer and which of your agents get it. Each one gets a link to it in its space."
-		: agent
-			? `${who.name} reaches only the services ticked here. A service is connected once; every agent of yours gets it unless you untick it.`
-			: "Connect a service once. Every agent of yours gets it; untick it on an agent's page to keep it away from that one.";
-	const added: NewReach | null = folder
-		? where.trim()
-			? { kind: "folder", where: where.trim() }
-			: null
-		: (signIn === "A key" ? name.trim() && key : address.trim())
-			? {
-					kind: "service",
-					name: name.trim(),
-					...(signIn === "A key" ? { key } : { address: address.trim() }),
-				}
-			: null;
-	const save = async () => {
-		const failed = await onSave({ ticks, added, keepFrom: [...off] });
-		if (failed) setProblem(failed);
-	};
-	return (
-		<Dialog
-			title={title}
-			sub={sub}
-			done="Save"
-			problem={problem}
-			onClose={onClose}
-			onDone={() => void save()}
-		>
-			<div className="reach">
-				{rows.length === 0 && (
-					<p className="tbox-none">
-						{folder ? "No folder yet." : "No service yet."} Add the first one below.
-					</p>
-				)}
-				{rows.map((t) => (
-					<div key={t.id} className="reach-row">
-						{agent && (
-							<input
-								type="checkbox"
-								checked={ticks.get(t.id) ?? t.given}
-								disabled={t.locked}
-								aria-label={t.name}
-								onChange={(e) => setTicks(new Map(ticks).set(t.id, e.target.checked))}
-							/>
-						)}
-						<span className="reach-name">{t.name}</span>
-						<span className="reach-how">{t.how}</span>
-						{!(agent || folder) && <span className="reach-side">Given to {t.givenTo}</span>}
-					</div>
-				))}
-			</div>
-
-			<div className="dlg-part">
-				<div className="dlg-part-h">{folder ? "Add a folder" : "Connect a service"}</div>
-				{folder ? (
-					<Field
-						label="Where"
-						hint="A folder on this computer, such as ~/code/project. A git repository gets a branch per task or conversation."
-					>
-						<input
-							className="in"
-							value={where}
-							placeholder="~/code/project"
-							aria-label="Where"
-							onChange={(e) => setWhere(e.target.value)}
-						/>
-					</Field>
-				) : (
-					<>
-						<Field label="Service">
-							<input
-								className="in"
-								value={name}
-								placeholder="The service's name"
-								aria-label="Service"
-								onChange={(e) => setName(e.target.value)}
-							/>
-						</Field>
-						<Field label="Sign in with">
-							<Seg label="Sign in with" options={SIGN_IN} value={signIn} onChange={setSignIn} />
-						</Field>
-						{signIn === "A key" ? (
-							<Field
-								key="key"
-								label="Key"
-								hint="Kept encrypted. Nobody sees it again, not even you."
-							>
-								<input
-									className="in"
-									type="password"
-									value={key}
-									aria-label="Key"
-									onChange={(e) => setKey(e.target.value)}
-								/>
-							</Field>
-						) : (
-							<Field
-								key="address"
-								label="Address"
-								hint="Where the MCP server is. If it asks for a key, add one."
-							>
-								<input
-									className="in"
-									value={address}
-									placeholder="https://"
-									aria-label="Address"
-									onChange={(e) => setAddress(e.target.value)}
-								/>
-							</Field>
-						)}
-						<p className="dlg-note">
-							Already signed in to a service on this computer? Then it is in the list by itself,
-							with nothing to type.
-						</p>
-					</>
-				)}
-				{!agent && yourAgents.length > 0 && (
-					<Field
-						label={folder ? "Who works in it" : "Who gets it"}
-						hint="All of your agents, unless you untick one. An agent works best with only what it needs."
-					>
-						<Ticks options={yourAgents} off={off} onFlip={(id) => setOff(flipIn(off, id))} />
-					</Field>
-				)}
-			</div>
-		</Dialog>
-	);
-}
 
 /* ---------- the reasons someone starts working, or is told ---------- */
 
@@ -600,12 +352,6 @@ export interface Editing {
 	me: boolean;
 	what: string;
 	discipline: string;
-	/** The agent program it runs on, and its model; null is the program's default. */
-	harness: string | null;
-	model: string | null;
-	/** Whose login folder the agent uses. Only supported for claude-code and codex. */
-	login: "own" | "owner";
-	sessions: number;
 	/** Who it works for, in words. */
 	worksFor: string;
 	/** The name of its instructions (an agent) or About (a person), and when it was last changed. */
@@ -616,33 +362,12 @@ export interface UserSave {
 	name: string;
 	what: string;
 	discipline: string;
-	harness: string | null;
-	model: string | null;
-	/** Whose login folder the agent uses. */
-	login: "own" | "owner";
-	sessions: number;
 	/** Adding: "You", or the name of a team it works for. */
 	worksFor: string;
 }
 
-/** The agent programs where the server runs, as choices: the ones signed in can be picked. */
-function programChoices(programs: readonly HarnessDescriptor[]) {
-	return programs.map((p) => ({
-		value: p.type,
-		what: p.name,
-		why:
-			p.discovery.state === "ready"
-				? `signed in ${programsAt()}`
-				: p.discovery.state === "missing"
-					? "not installed"
-					: "not signed in",
-		off: p.discovery.state !== "ready" || p.discovery.disabled === true,
-	}));
-}
-
 export function UserDialog({
 	user,
-	programs,
 	disciplines,
 	owners,
 	onClose,
@@ -651,7 +376,6 @@ export function UserDialog({
 }: {
 	/** Absent: adding someone. */
 	user?: Editing;
-	programs: readonly HarnessDescriptor[];
 	/** The disciplines already in use, offered as you type. */
 	disciplines: readonly string[];
 	/** Who a new agent can work for: "You", then teams. */
@@ -662,21 +386,13 @@ export function UserDialog({
 	onFile?: () => void;
 }) {
 	const agent = user ? user.agent : true;
-	const ready = programs.find((p) => p.discovery.state === "ready")?.type ?? null;
 	const [name, setName] = useState(user?.name ?? "");
 	const [what, setWhat] = useState(user?.what ?? "");
 	const [discipline, setDiscipline] = useState(user?.discipline ?? "");
 	const [picked, setOwner] = useState<string | null>(null);
 	// The choices can arrive after the form opens; until one is picked, the first is meant.
 	const owner = picked !== null && owners.includes(picked) ? picked : (owners[0] ?? "You");
-	const [harness, setHarness] = useState<string | null>(user ? user.harness : ready);
-	const [model, setModel] = useState<string | null>(user?.model ?? null);
-	const [login, setLogin] = useState<"own" | "owner">(user?.login ?? "owner");
-	const [sessions, setSessions] = useState(user?.sessions ?? 1);
 	const [problem, setProblem] = useState<string | null>(null);
-	const models = (programs.find((p) => p.type === harness)?.models ?? []).filter(
-		(m) => m.selectable,
-	);
 	const whatLabel = user?.me ? "What you do" : agent ? "What it does" : "What they do";
 	const save = async () => {
 		if (!name.trim()) {
@@ -687,10 +403,6 @@ export function UserDialog({
 			name: name.trim(),
 			what: what.trim(),
 			discipline: discipline.trim(),
-			harness,
-			model,
-			login,
-			sessions,
 			worksFor: owner,
 		});
 		if (failed) setProblem(failed);
@@ -748,85 +460,13 @@ export function UserDialog({
 					))}
 				</datalist>
 			</Field>
-			{agent && (
-				<>
-					<Field
-						label="Works for"
-						hint={
-							user
-								? undefined
-								: "A team: anyone in it can hand it work and change how it is set up."
-						}
-					>
-						{user ? (
-							<span className="field-fixed">{user.worksFor}</span>
-						) : (
-							<Seg label="Works for" options={owners} value={owner} onChange={setOwner} />
-						)}
-					</Field>
-					<Field label="Runs on">
-						{programs.length === 0 ? (
-							<span className="field-fixed">No agent program found {programsAt()}.</span>
-						) : (
-							<Pick
-								name="program"
-								options={programChoices(programs)}
-								value={harness ?? ""}
-								onChange={(v) => {
-									setHarness(v);
-									setModel(null);
-								}}
-							/>
-						)}
-					</Field>
-					{user && (harness === "claude-code" || harness === "codex") && (
-						<Field
-							label="Login"
-							hint={
-								login === "own"
-									? `Uses its own login folder inside its space. Set it up with: ${harness === "codex" ? `CODEX_HOME="<space>/.codex" codex login` : `CLAUDE_CONFIG_DIR="<space>/.claude" claude auth login`}`
-									: "Uses your login — the same account the program is signed in to on this computer."
-							}
-						>
-							<Seg
-								label="Login"
-								options={["Your login", "Its own login"]}
-								value={login === "own" ? "Its own login" : "Your login"}
-								onChange={(v) => setLogin(v === "Its own login" ? "own" : "owner")}
-							/>
-						</Field>
-					)}
-					<Field label="Model">
-						<select
-							className="in"
-							aria-label="Model"
-							value={model ?? ""}
-							onChange={(e) => setModel(e.target.value || null)}
-						>
-							<option value="">The default</option>
-							{models.map((m) => (
-								<option key={m.id} value={m.id}>
-									{m.label}
-								</option>
-							))}
-						</select>
-					</Field>
-					{user && (
-						<Field label="At a time" hint="How many tasks it works on at once.">
-							<div className="in-row in-row--words">
-								<input
-									className="in in--time"
-									type="number"
-									min={1}
-									value={sessions}
-									aria-label="Sessions at a time"
-									onChange={(e) => setSessions(Math.max(1, Number(e.target.value) || 1))}
-								/>
-								<span>sessions</span>
-							</div>
-						</Field>
-					)}
-				</>
+			{agent && !user && (
+				<Field
+					label="Works for"
+					hint="A team: anyone in it can hand it work and change how it is set up."
+				>
+					<Seg label="Works for" options={owners} value={owner} onChange={setOwner} />
+				</Field>
 			)}
 			{user && (
 				<Field

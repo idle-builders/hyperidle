@@ -11,7 +11,7 @@ import {
 	type NewSubscription,
 	subscriptions,
 } from "@hyperidle/db";
-import { and, asc, desc, eq, inArray, isNotNull, isNull, lt } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 
 export type NewSubscriptionRow = NewSubscription;
 
@@ -108,11 +108,11 @@ export async function deleteSubscription(db: HyperIdleDb, id: string): Promise<v
 export interface InboxRowFilter {
 	readonly userId: string;
 	readonly limit?: number;
-	/** Only the rows not yet read, oldest first — what an agent's runner works through. */
+	/** Only the rows not yet read — task_stop rows first, then oldest — what an agent's runner works through. */
 	readonly unread?: boolean;
 }
 
-/** Newest first — `open_user`'s "newest 50" — or, `unread`, oldest unread first. */
+/** Newest first — `open_user`'s "newest 50" — or, `unread`, task_stop rows first then oldest. */
 export function listInboxRows(
 	db: HyperIdleDb,
 	filter: InboxRowFilter,
@@ -122,7 +122,12 @@ export function listInboxRows(
 				.select()
 				.from(inbox)
 				.where(and(eq(inbox.userId, filter.userId), isNull(inbox.readAt)))
-				.orderBy(asc(inbox.createdAt), asc(inbox.id))
+				// @lore: task_stop rows — always sort first; inbox page 1 always contains them even when other rows are held back.
+				.orderBy(
+					sql<number>`case when ${inbox.reason} = 'task_stop' then 0 else 1 end`,
+					asc(inbox.createdAt),
+					asc(inbox.id),
+				)
 		: db
 				.select()
 				.from(inbox)

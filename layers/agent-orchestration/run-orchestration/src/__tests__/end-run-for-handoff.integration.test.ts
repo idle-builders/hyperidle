@@ -8,15 +8,16 @@
  * spurious review item on every handoff via `review/session-review-creator.ts`.
  */
 
-import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { endRunForHandoff } from "../end-run-for-handoff.js";
 
 const NOW = "2026-08-04T10:00:00.000Z";
 const ENDED_AT = "2026-08-04T11:00:00.000Z";
 
-async function seedRun(db: HyperIdleDb, state: string): Promise<void> {
+async function seedRun(db: HyperIdleDb, runnerDb: RunnerDb, state: string): Promise<void> {
 	await db.insert(teams).values({ id: "team-1", name: "T", createdAt: NOW });
 	await db.insert(users).values({
 		id: "agent-1",
@@ -64,7 +65,7 @@ async function seedRun(db: HyperIdleDb, state: string): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	await db.insert(sessions).values({
+	await runnerDb.insert(sessions).values({
 		id: "session-1",
 		taskId: "task-1",
 		agentId: "agent-1",
@@ -75,12 +76,15 @@ async function seedRun(db: HyperIdleDb, state: string): Promise<void> {
 }
 
 describe("endRunForHandoff", () => {
-	test("leaves the run terminal with the caller's endedAt and no outcome", async ({ db }) => {
-		await seedRun(db, "active");
+	test("leaves the run terminal with the caller's endedAt and no outcome", async ({
+		db,
+		runnerDb,
+	}) => {
+		await seedRun(db, runnerDb, "active");
 
-		await endRunForHandoff(db, "session-1", ENDED_AT);
+		await endRunForHandoff(runnerDb, "session-1", ENDED_AT);
 
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, "session-1"));
+		const [row] = await runnerDb.select().from(sessions).where(eq(sessions.id, "session-1"));
 		expect(row?.state).toBe("done");
 		expect(row?.endedAt).toBe(ENDED_AT);
 		// A handoff records no session-end outcome — that is what keeps the
@@ -88,27 +92,30 @@ describe("endRunForHandoff", () => {
 		expect(row?.outcome).toBeNull();
 	});
 
-	test("is unconditional — a run that is not `active` is still ended", async ({ db }) => {
-		await seedRun(db, "paused");
+	test("is unconditional — a run that is not `active` is still ended", async ({ db, runnerDb }) => {
+		await seedRun(db, runnerDb, "paused");
 
-		await endRunForHandoff(db, "session-1", ENDED_AT);
+		await endRunForHandoff(runnerDb, "session-1", ENDED_AT);
 
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, "session-1"));
+		const [row] = await runnerDb.select().from(sessions).where(eq(sessions.id, "session-1"));
 		expect(row?.state).toBe("done");
 		expect(row?.endedAt).toBe(ENDED_AT);
 	});
 
-	test("writes inside the caller's transaction and rolls back with it", async ({ db }) => {
-		await seedRun(db, "active");
+	test("writes inside the caller's transaction and rolls back with it", async ({
+		db,
+		runnerDb,
+	}) => {
+		await seedRun(db, runnerDb, "active");
 
 		await expect(
-			db.transaction(async (tx) => {
+			runnerDb.transaction(async (tx) => {
 				await endRunForHandoff(tx, "session-1", ENDED_AT);
 				throw new Error("caller aborted after the run-end write");
 			}),
 		).rejects.toThrow("caller aborted after the run-end write");
 
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, "session-1"));
+		const [row] = await runnerDb.select().from(sessions).where(eq(sessions.id, "session-1"));
 		expect(row?.state).toBe("active");
 		expect(row?.endedAt).toBeNull();
 	});

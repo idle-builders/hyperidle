@@ -49,7 +49,7 @@ const ssScheduleFire: EvalScenario = {
 	feature: "subscription_schedule",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
+		const world = await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			taskTitle: "Weekly practice meeting task",
 		});

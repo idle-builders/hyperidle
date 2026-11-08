@@ -1,10 +1,10 @@
-import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import type {
 	AgentSessionSourceKind,
 	ModelTier,
 	SessionLifecycleCorrelation,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
+import { type AgentSessionRequest, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { and, eq } from "drizzle-orm";
 import type { createProvisioner } from "./provisioner.js";
 
@@ -27,7 +27,7 @@ const TERMINATION_DISPOSITIONS = {
 } as const;
 
 function requestAgentTermination(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	input: { requestId: string; reason: AgentTerminationReason; requestedBy?: string },
 	ports: TransitionPorts,
 ): Promise<"accepted" | "idempotent" | "conflict" | "terminal"> {
@@ -40,7 +40,7 @@ function requestAgentTermination(
 }
 
 async function transitionAgentRunLifecycle(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	eventBus: EventBus,
 	input: {
 		readonly requestId: string;
@@ -53,7 +53,7 @@ async function transitionAgentRunLifecycle(
 	ports: TransitionPorts,
 ): Promise<void> {
 	const row = await db.transaction(async (tx) => {
-		const txDb = tx as HyperIdleDb;
+		const txDb = tx as RunnerDb;
 		const current = await ports.sessionRequests.findSessionRequest(txDb, {
 			by: "terminationReason",
 			requestId: input.requestId,
@@ -112,7 +112,7 @@ async function transitionAgentRunLifecycle(
 }
 
 async function recoverRequestedTerminations(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	eventBus: EventBus,
 	ports: TransitionPorts,
 ): Promise<number> {
@@ -152,7 +152,7 @@ interface SessionContext {
 	readonly requestContext?: SessionLifecycleCorrelation;
 }
 async function endSession(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	eventBus: EventBus,
 	context: SessionContext,
 	terminalOutcome: "completed" | "not_returned" | "stopped" = "completed",
@@ -194,7 +194,7 @@ async function endSession(
  * with try-catch around ingestion.dispose().
  */
 async function crashSession(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	eventBus: EventBus,
 	context: SessionContext,
 	tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>,
@@ -241,7 +241,7 @@ async function crashSession(
 /** Single public transition operation for durable requests and admitted sessions. */
 export function transitionRun(
 	deps: {
-		readonly db: HyperIdleDb;
+		readonly db: RunnerDb;
 		readonly eventBus: EventBus;
 		readonly ports: TransitionPorts;
 	},
@@ -296,7 +296,7 @@ export function transitionRun(
 // ---------------------------------------------------------------------------
 
 async function updateSessionRow(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	sessionId: string,
 	state: "done" | "crashed" | "stopped",
 	outcome: "completed" | "not_returned" | "crashed" | "stopped",

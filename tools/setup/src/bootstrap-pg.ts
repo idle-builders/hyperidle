@@ -1,4 +1,5 @@
 import { createPostgresDb } from "@hyperidle/db";
+import { createPostgresRunnerDb } from "@hyperidle/runner-db";
 import { seedDemoWorld } from "./demo-fixture.js";
 import { runFactoryBootstrap } from "./factory-bootstrap-runner.js";
 
@@ -26,14 +27,16 @@ async function main(): Promise<number> {
 		return 0;
 	}
 	const { db, close } = createPostgresDb(url);
+	const { db: runnerDb, close: closeRunner } = createPostgresRunnerDb(url);
 	try {
 		// Ensure factory state is present before seeding demo rows.
 		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
+		await seedDemoWorld(db, runnerDb);
 		process.stdout.write("[bootstrap:pg] Demo world seeded (--demo).\n");
 		return 0;
 	} finally {
 		await close();
+		await closeRunner();
 	}
 }
 

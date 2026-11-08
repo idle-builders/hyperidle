@@ -7,7 +7,6 @@
  * concurrent sends through the real door, never a hand-built `Error`.
  */
 
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import type { SendMessageOutput } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -24,11 +23,8 @@ async function sendMessageAs(
 	body: Record<string, unknown>,
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	agentOrchestration: AgentOrchestrationPort,
 ): Promise<{ readonly ok: boolean; readonly data?: SendMessageOutput }> {
-	const actions = buildCoreActions({
-		agentOrchestration,
-	});
+	const actions = buildCoreActions({});
 	const sendMessage = actions.find((a) => a.declaration.name === "send_message");
 	if (!sendMessage) throw new Error("send_message action not found");
 	const ctx: ActionContext = { actor: actorId, db, eventBus, now: new Date().toISOString() };
@@ -51,20 +47,13 @@ describe("send_message — concurrent direct-thread create", () => {
 	test("five concurrent first sends to the same pair land in exactly one thread with five messages", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedHuman(db, "dc-a", "A");
 		await seedHuman(db, "dc-b", "B");
 
 		const results = await Promise.all(
 			Array.from({ length: 5 }, (_, i) =>
-				sendMessageAs(
-					"dc-a",
-					{ recipients: ["dc-b"], text: `send ${i}` },
-					db,
-					eventBus,
-					agentOrchestration,
-				),
+				sendMessageAs("dc-a", { recipients: ["dc-b"], text: `send ${i}` }, db, eventBus),
 			),
 		);
 

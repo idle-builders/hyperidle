@@ -114,9 +114,11 @@ function buildRules(
 		}),
 		noPerFileAllowances({ readFile }),
 		dbSymbolsAllPlaced({
-			unplacedDbSymbols: detected.unplacedDbSymbols,
-			dbSourceRoot: architecture.databasePackage.sourceRoot,
-			dbBarrel: architecture.databasePackage.barrel,
+			packages: architecture.databasePackages.map((pkg) => ({
+				dbSourceRoot: pkg.sourceRoot,
+				dbBarrel: pkg.barrel,
+				unplacedDbSymbols: detected.unplacedDbSymbolsByPackage.get(pkg.packageName) ?? new Map(),
+			})),
 		}),
 		layerExportsResolveInsideTheLayer({ locate: buildPackageLocator(census.packages), readFile }),
 		serviceValuesDoNotEscapeTheFace({ locate: buildPackageLocator(census.packages), readFile }),
@@ -227,9 +229,11 @@ function runLive(): number {
 		}),
 		noPerFileAllowances({ readFile: readRepoFile }),
 		dbSymbolsAllPlaced({
-			unplacedDbSymbols: detected.unplacedDbSymbols,
-			dbSourceRoot: architecture.databasePackage.sourceRoot,
-			dbBarrel: architecture.databasePackage.barrel,
+			packages: architecture.databasePackages.map((pkg) => ({
+				dbSourceRoot: pkg.sourceRoot,
+				dbBarrel: pkg.barrel,
+				unplacedDbSymbols: detected.unplacedDbSymbolsByPackage.get(pkg.packageName) ?? new Map(),
+			})),
 		}),
 		layerExportsResolveInsideTheLayer({
 			locate: buildPackageLocator(census.packages),

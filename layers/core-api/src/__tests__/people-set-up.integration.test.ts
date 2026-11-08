@@ -1,16 +1,11 @@
 /**
- * Setting someone up through `edit_user` and reading it back through `open_user`, over the real
- * orchestration port: a folder added to an agent stays on that agent only; a service reaches every
- * agent of an owner until taken; a new person is told about the four reasons; a person's About and
- * an agent's reasons are documents.
+ * Setting someone up through `edit_user` and reading it back through `open_user`: what someone
+ * does is kept apart from their role; a person's About is made once, never overwritten; a reason
+ * belongs to a person, not an agent.
  */
 
-import { mkdtempSync, realpathSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { documents, type HyperIdleDb, teams, users, userTeams } from "@hyperidle/db";
-import { type EditUserInput, PERSON_REASONS, type UserView } from "@hyperidle/domain-model";
+import type { EditUserInput, UserView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -20,10 +15,8 @@ import { buildCoreActions } from "../actions/compose.js";
 const NOW = "2026-01-01T00:00:00.000Z";
 const TEAM = "team-people";
 
-function actionsOf(agentOrchestration: AgentOrchestrationPort) {
-	const actions = buildCoreActions({
-		agentOrchestration,
-	});
+function actionsOf() {
+	const actions = buildCoreActions({});
 	const run = async <T>(
 		name: string,
 		actor: string,
@@ -89,154 +82,17 @@ describe("setting someone up", () => {
 	beforeEach(() => vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "test-credential-encryption-key"));
 	afterEach(() => vi.unstubAllEnvs());
 
-	test("adding a folder to an agent that has no space yet auto-creates the space", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
+	test("what someone does is kept apart from their role", async ({ db, eventBus }) => {
 		await seedPeople(db);
-		const spacesRoot = mkdtempSync(join(tmpdir(), "spaces-test-fresh-"));
-		const folderSource = realpathSync(mkdtempSync(join(tmpdir(), "fresh-src-")));
-		vi.stubEnv("HYPERIDLE_SPACES_DIR", spacesRoot);
-		try {
-			const { edit, open } = actionsOf(agentOrchestration);
-
-			// No ensureSpace call — space_path is null; route must auto-create it.
-			const added = await edit(
-				"finn",
-				{ id: "builder", folders: { add: [{ path: folderSource }] } },
-				db,
-				eventBus,
-			);
-			expect(added.ok).toBe(true);
-
-			const folders = (await open("finn", "builder", db, eventBus)).folders;
-			expect(folders.map((f) => f.path)).toEqual([folderSource]);
-		} finally {
-			vi.unstubAllEnvs();
-			rmSync(spacesRoot, { recursive: true, force: true });
-			rmSync(folderSource, { recursive: true, force: true });
-		}
-	});
-
-	test("a folder added to an agent stays on that agent only", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedPeople(db);
-		const spacesRoot = mkdtempSync(join(tmpdir(), "spaces-test-"));
-		const folderSource = realpathSync(mkdtempSync(join(tmpdir(), "billing-src-")));
-		vi.stubEnv("HYPERIDLE_SPACES_DIR", spacesRoot);
-		try {
-			const { edit, open } = actionsOf(agentOrchestration);
-
-			// Give the agent a space directory first so spaceFolders.add can proceed.
-			await agentOrchestration.runConfig.ensureSpace("builder", "builder");
-
-			const added = await edit(
-				"finn",
-				{ id: "builder", folders: { add: [{ path: folderSource }] } },
-				db,
-				eventBus,
-			);
-			expect(added.ok).toBe(true);
-
-			const foldersOf = async (id: string) =>
-				(await open("finn", id, db, eventBus)).folders.map((f) => f.path);
-
-			expect(await foldersOf("builder")).toEqual([folderSource]);
-			expect(await foldersOf("growth")).toEqual([]);
-			expect(await foldersOf("designer")).toEqual([]);
-		} finally {
-			vi.unstubAllEnvs();
-			rmSync(spacesRoot, { recursive: true, force: true });
-			rmSync(folderSource, { recursive: true, force: true });
-		}
-	});
-
-	test("a service reaches every agent of its owner until it is taken from one", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedPeople(db);
-		const { edit, open } = actionsOf(agentOrchestration);
-		const added = await edit(
-			"finn",
-			{
-				id: "finn",
-				connections: {
-					add: [{ authSource: "mcp", service: "Linear", serverUrl: "https://mcp.linear.app/mcp" }],
-				},
-			},
-			db,
-			eventBus,
-		);
-		if (!added.ok) throw new Error("adding the service failed");
-		const linear = added.data.connections?.connections.find((c) => c.service === "Linear");
-		if (!linear) throw new Error("no Linear");
-		const reach = async (id: string) =>
-			(await open("finn", id, db, eventBus)).connections?.connections.map((c) => [
-				c.service,
-				c.withheldFrom,
-			]);
-
-		expect(await reach("growth")).toEqual([["Linear", []]]);
-
-		const taken = await edit(
-			"finn",
-			{ id: "growth", connections: { take: [linear.id] } },
-			db,
-			eventBus,
-		);
-		expect(taken.ok).toBe(true);
-		expect(await reach("growth")).toEqual([["Linear", ["growth"]]]);
-		expect(await reach("finn")).toEqual([["Linear", ["growth"]]]);
-		expect(await reach("designer")).toEqual([]);
-
-		await edit("finn", { id: "growth", connections: { give: [linear.id] } }, db, eventBus);
-		expect(await reach("growth")).toEqual([["Linear", []]]);
-	});
-
-	test("what someone does is kept apart from their role", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedPeople(db);
-		const { edit, open } = actionsOf(agentOrchestration);
+		const { edit, open } = actionsOf();
 		await edit("finn", { id: "builder", what: "Builds and ships." }, db, eventBus);
 		const builder = (await open("finn", "builder", db, eventBus)).user;
 		expect([builder?.what, builder?.role]).toEqual(["Builds and ships.", "agent"]);
 	});
 
-	test("a new person is told about the four reasons", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
+	test("a reason belongs to a person, not an agent", async ({ db, eventBus }) => {
 		await seedPeople(db);
-		const { edit } = actionsOf(agentOrchestration);
-		const made = await edit(
-			"finn",
-			{ kind: "human", name: "Sam", teams: ["Product"] },
-			db,
-			eventBus,
-		);
-		if (!made.ok) throw new Error("create failed");
-		expect(made.data.subscriptions.map((s) => [s.event, s.paused]).sort()).toEqual(
-			PERSON_REASONS.map((reason) => [reason, false]).sort(),
-		);
-	});
-
-	test("a reason belongs to a person, not an agent", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedPeople(db);
-		const { edit } = actionsOf(agentOrchestration);
+		const { edit } = actionsOf();
 		const refused = await edit(
 			"finn",
 			{ id: "builder", subscriptions: { add: [{ event: "mention.of_me" }] } },
@@ -246,13 +102,9 @@ describe("setting someone up", () => {
 		expect(refused.ok ? null : refused.problems[0]?.code).toBe("reason_for_people_only");
 	});
 
-	test("a person's About is made on first ask and never overwritten", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
+	test("a person's About is made on first ask and never overwritten", async ({ db, eventBus }) => {
 		await seedPeople(db);
-		const { edit } = actionsOf(agentOrchestration);
+		const { edit } = actionsOf();
 		await edit(
 			"finn",
 			{ id: "finn", identity: "Ask me before anything reaches customers." },
@@ -268,30 +120,5 @@ describe("setting someone up", () => {
 			"About finn",
 			"Ask me before anything reaches customers.",
 		]);
-	});
-
-	test("a reason added with a name makes its empty what-to-do document under that name", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedPeople(db);
-		const { edit } = actionsOf(agentOrchestration);
-		const added = await edit(
-			"finn",
-			{
-				id: "growth",
-				subscriptions: {
-					add: [{ schedule: "0 8 * * 4", prompt: "", title: "Pricing page check" }],
-				},
-			},
-			db,
-			eventBus,
-		);
-		if (!added.ok) throw new Error("adding the reason failed");
-		const documentId = added.data.subscriptions[0]?.documentId;
-		if (!documentId) throw new Error("no what-to-do document");
-		const [row] = await db.select().from(documents).where(eq(documents.id, documentId));
-		expect([row?.title, row?.body]).toEqual(["Pricing page check", ""]);
 	});
 });

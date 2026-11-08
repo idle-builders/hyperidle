@@ -1,0 +1,36 @@
+{
+	"name": "@hyperidle/runner",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"main": "src/index.ts",
+	"scripts": {
+		"check": "tsc --noEmit",
+		"dev": "tsx watch src/runner-entry.ts",
+		"start": "node --import tsx src/runner-entry.ts",
+		"test": "vitest run"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@hono/node-server": "^2.0.6",
+		"@hyperidle/agent-execution": "*",
+		"@hyperidle/agent-orchestration": "*",
+		"@hyperidle/diagnostics": "*",
+		"@hyperidle/domain-model": "*",
+		"@hyperidle/event-bus": "*",
+		"@hyperidle/runner-db": "*",
+		"hono": "^4.12.27",
+		"ws": "^8.20.0"
+	},
+	"devDependencies": {
+		"@hyperidle/db": "*",
+		"@hyperidle/remote-server": "*",
+		"@hyperidle/user": "*",
+		"@types/node": "^24",
+		"@types/ws": "^8.18.1",
+		"drizzle-orm": "^0.45.2",
+		"vitest": "^4.1.9"
+	}
+}

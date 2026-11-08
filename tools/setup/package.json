@@ -10,6 +10,7 @@
 	"dependencies": {
 		"@hyperidle/core-api": "*",
 		"@hyperidle/db": "*",
+		"@hyperidle/runner-db": "*",
 		"@hyperidle/run-orchestration": "*",
 		"@hyperidle/user": "*",
 		"drizzle-orm": "^0.45.2"

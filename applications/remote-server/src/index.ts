@@ -15,7 +15,6 @@ const port = Number(process.env.PORT) || 3001;
 const issuer = process.env.HYPERIDLE_SIGN_IN_ISSUER;
 const clientId = process.env.HYPERIDLE_SIGN_IN_CLIENT_ID;
 const handle = await createServer(port, {
-	topology: "disabled",
 	...(issuer && clientId ? { signIn: { issuer, clientId } } : {}),
 });
 log.info(`remote-server running on http://localhost:${port}`);

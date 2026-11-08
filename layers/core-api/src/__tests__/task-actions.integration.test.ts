@@ -4,12 +4,9 @@
  * architecture doc §11.
  */
 
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
-	agentSessionRequests,
 	changes,
 	type HyperIdleDb,
-	sessions,
 	taskDispatchAttempts,
 	tasks,
 	teams,
@@ -20,27 +17,10 @@ import {
 import type { EventBus, ObjectChangeEvent } from "@hyperidle/event-bus";
 import { listInboxRows } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
-import { describe, expect, vi } from "vitest";
+import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import type { ActionContext } from "../actions/action.js";
 import { buildCoreActions } from "../actions/compose.js";
-import { registerWorkSessionStartedReactions } from "../services/work-session-started-reactions.js";
-
-/**
- * `edit_task`'s own bound `run`, for registering the started reaction
- * inline — the only way this seam test can drive a real `session_started`
- * event through `markRunning` instead of hand-seeding
- * `taskDispatchAttempts.sessionId`.
- */
-function editTaskFrom(
-	agentOrchestration: AgentOrchestrationPort,
-): Parameters<typeof registerWorkSessionStartedReactions>[2] {
-	const editTaskAction = buildCoreActions({
-		agentOrchestration,
-	}).find((a) => a.declaration.name === "edit_task");
-	if (!editTaskAction) throw new Error("edit_task action not found");
-	return editTaskAction.run as Parameters<typeof registerWorkSessionStartedReactions>[2];
-}
 
 const TEST_API_KEY = "test-key-task-actions";
 
@@ -52,10 +32,8 @@ function ctxFor(actor: string, db: HyperIdleDb, eventBus: EventBus): ActionConte
 	return { actor, db, eventBus, now: new Date().toISOString() };
 }
 
-function buildTestActions(agentOrchestration: AgentOrchestrationPort) {
-	return buildCoreActions({
-		agentOrchestration,
-	});
+function buildTestActions() {
+	return buildCoreActions({});
 }
 
 interface ActionEnvelope<T> {
@@ -175,7 +153,6 @@ describe("edit_task — create, human and agent", () => {
 		app,
 		asPerson,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedTeam(db, "ta-team-1", asPerson);
 		await seedAgent(db, "ta-agent-1", "ta-team-1");
@@ -187,7 +164,7 @@ describe("edit_task — create, human and agent", () => {
 		expect(human.status).toBe(200);
 		expect(human.body.ok).toBe(true);
 
-		const actions = buildTestActions(agentOrchestration);
+		const actions = buildTestActions();
 		const editTask = actions.find((a) => a.declaration.name === "edit_task");
 		if (!editTask) throw new Error("edit_task action not found");
 		const agentCtx = ctxFor("ta-agent-1", db, eventBus);
@@ -405,13 +382,12 @@ describe("edit_task — thread membership on create-with-threadId", () => {
 		app,
 		asPerson,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedTeam(db, "ta-thr-1", asPerson);
 		await seedAgent(db, "ta-thr1-agentA", "ta-thr-1");
 		await seedAgent(db, "ta-thr1-agentB", "ta-thr-1");
 
-		const dmActions = buildTestActions(agentOrchestration);
+		const dmActions = buildTestActions();
 		const sendMessage = dmActions.find((a) => a.declaration.name === "send_message");
 		if (!sendMessage) throw new Error("send_message action not found");
 		const dmCtx = ctxFor("ta-thr1-agentA", db, eventBus);
@@ -449,12 +425,11 @@ describe("edit_task — thread membership on create-with-threadId", () => {
 		app,
 		asPerson,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedTeam(db, "ta-thr-2", asPerson);
 		await seedAgent(db, "ta-thr2-agentA", "ta-thr-2");
 
-		const dmActions = buildTestActions(agentOrchestration);
+		const dmActions = buildTestActions();
 		const sendMessage2 = dmActions.find((a) => a.declaration.name === "send_message");
 		if (!sendMessage2) throw new Error("send_message action not found");
 		const dmCtx2 = ctxFor("ta-thr2-agentA", db, eventBus);
@@ -744,8 +719,6 @@ describe("dispatch", () => {
 		db,
 		app,
 		asPerson,
-		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedTeam(db, "ta-team-10", asPerson);
 		await seedAgent(db, "ta-agent-10a", "ta-team-10");
@@ -763,32 +736,6 @@ describe("dispatch", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
-		await db.insert(sessions).values({
-			id: "ta-handoff-session",
-			taskId: "ta-handoff-task",
-			agentId: "ta-agent-10a",
-			modelTier: "workhorse",
-			startedAt: now,
-			state: "active",
-		});
-		await db.insert(agentSessionRequests).values({
-			id: "ta-handoff-req",
-			sourceKind: "task",
-			sourceId: "ta-handoff-task",
-			streamId: "task:ta-handoff-task",
-			taskId: "ta-handoff-task",
-			agentId: "ta-agent-10a",
-			promptMode: "task",
-			sourceCorrelationJson: "{}",
-			idempotencyKey: "ta-handoff-req",
-			status: "pending",
-			createdAt: now,
-			updatedAt: now,
-		});
-		// The predecessor's live dispatch attempt, seeded the way `insertAttempt`
-		// really leaves it — no `requestId`/`sessionId` yet. Those fields are
-		// filled by a REAL `session_started` event through `markRunning`, never
-		// hand-seeded.
 		await db.insert(taskDispatchAttempts).values({
 			id: "ta-handoff-attempt-1",
 			taskId: "ta-handoff-task",
@@ -798,24 +745,6 @@ describe("dispatch", () => {
 			status: "requested",
 			createdAt: now,
 			updatedAt: now,
-		});
-		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
-		eventBus.emit({
-			type: "session_started",
-			streamId: "ta-handoff-session",
-			sessionId: "ta-handoff-session",
-			agentId: "ta-agent-10a",
-			taskId: "ta-handoff-task",
-			requestId: "ta-handoff-req",
-			timestamp: Date.now(),
-		});
-		await vi.waitFor(async () => {
-			const [row] = await db
-				.select()
-				.from(taskDispatchAttempts)
-				.where(eq(taskDispatchAttempts.id, "ta-handoff-attempt-1"));
-			expect(row?.status).toBe("running");
-			expect(row?.sessionId).toBe("ta-handoff-session");
 		});
 
 		const res = await call<TaskViewBody>(app, "edit_task", {
@@ -831,7 +760,6 @@ describe("dispatch", () => {
 		expect(attempts).toHaveLength(2);
 		const handoffAttempt = attempts.find((a) => a.occasion === "owner_handoff");
 		expect(handoffAttempt).toBeDefined();
-		expect(handoffAttempt?.predecessorSessionId).toBe("ta-handoff-session");
 		expect(handoffAttempt?.agentId).toBe("ta-agent-10b");
 
 		const inboxRows = await listInboxRows(db, { userId: "ta-agent-10b" });
@@ -875,15 +803,6 @@ describe("dispatch", () => {
 				updatedAt: now,
 			},
 		]);
-		await db.insert(sessions).values({
-			id: "ta-kill-session",
-			taskId: "ta-kill-live-child",
-			agentId: "ta-agent-11",
-			modelTier: "workhorse",
-			startedAt: now,
-			state: "active",
-		});
-
 		const res = await call<TaskViewBody>(app, "edit_task", {
 			id: "ta-kill-done-root",
 			state: "killed",
@@ -906,7 +825,6 @@ describe("edit_task — state:review guard", () => {
 	test("setting state:review via edit_task is refused for external callers (requires a review card)", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedTeam(db, "ta-rv-team-1");
 		await seedAgent(db, "ta-rv-agent-1", "ta-rv-team-1");
@@ -928,7 +846,7 @@ describe("edit_task — state:review guard", () => {
 
 		// Try to move task to review via edit_task — must be refused
 		const ctx = ctxFor(FOUNDER_ID, db, eventBus);
-		const actions = buildTestActions(agentOrchestration);
+		const actions = buildTestActions();
 		const editTask = actions.find((a) => a.declaration.name === "edit_task");
 		if (!editTask) throw new Error("edit_task not found");
 
@@ -942,7 +860,6 @@ describe("edit_task — state:review guard", () => {
 	test("setting state:review via edit_task is refused for an agent caller (requires a review card)", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedTeam(db, "ta-rv-team-2");
 		await seedAgent(db, "ta-rv-agent-2", "ta-rv-team-2");
@@ -963,7 +880,7 @@ describe("edit_task — state:review guard", () => {
 
 		// Agent calls edit_task state:review — must be refused just like a person
 		const ctx = ctxFor("ta-rv-agent-2", db, eventBus);
-		const actions = buildTestActions(agentOrchestration);
+		const actions = buildTestActions();
 		const editTask = actions.find((a) => a.declaration.name === "edit_task");
 		if (!editTask) throw new Error("edit_task not found");
 

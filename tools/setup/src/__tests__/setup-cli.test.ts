@@ -240,9 +240,16 @@ describe("--demo flag behavior", () => {
 			);
 			expect(founderResult.rows.length).toBe(1);
 			expect(founderResult.rows[0]?.kind).toBe("human");
+		} finally {
+			await client.close();
+		}
 
+		// agent_run_config lives in runner-db — open it separately
+		const runnerClient = new PGlite(path.join(path.dirname(dataDir), "runner-pg"));
+		await runnerClient.waitReady;
+		try {
 			// Each agent's space directory holds a git-repo symlink created by the demo seeder.
-			const spaceCfgs = await client.query<{ agent_user_id: string; space_path: string }>(
+			const spaceCfgs = await runnerClient.query<{ agent_user_id: string; space_path: string }>(
 				`SELECT agent_user_id, space_path FROM agent_run_config
 				 WHERE agent_user_id IN ('demo-agent-builder', 'demo-agent-designer')
 				   AND space_path IS NOT NULL
@@ -268,7 +275,7 @@ describe("--demo flag behavior", () => {
 				{ agent: "demo-agent-designer", main: "main" },
 			]);
 		} finally {
-			await client.close();
+			await runnerClient.close();
 		}
 	});
 

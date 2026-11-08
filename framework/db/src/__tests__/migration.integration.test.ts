@@ -19,7 +19,6 @@ describe("migrations bring a fresh database to the current schema", () => {
 				"documents",
 				"messages",
 				"subscriptions",
-				"sessions",
 				"tasks",
 				"teams",
 				"threads",

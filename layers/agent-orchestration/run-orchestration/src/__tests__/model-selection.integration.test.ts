@@ -22,15 +22,17 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { afterEach, describe, vi } from "vitest";
 import {
 	buildRunningHarnessPorts,
+	expect,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
 	rejectingHarnessAdapter,
+	test,
 } from "../__testing__/test-fixtures.js";
 import { writeAgentRunConfig } from "../agent-run-config-store.js";
 import { createProvisioner } from "../provisioner.js";
@@ -110,11 +112,11 @@ describe("the model an agent is configured with reaches its session", () => {
 	}
 
 	function buildDeps(
-		db: HyperIdleDb,
+		runnerDb: RunnerDb,
 		captured: { sessionConfig?: SessionConfig },
 	): ProvisionSessionDeps {
 		return {
-			db,
+			db: runnerDb,
 			eventBus: new EventBus(),
 			adapterPool: {
 				select: () => ({
@@ -151,7 +153,10 @@ describe("the model an agent is configured with reaches its session", () => {
 		} as ProvisionSessionParams;
 	}
 
-	test("the configured model reaches the session with no credential resolved", async ({ db }) => {
+	test("the configured model reaches the session with no credential resolved", async ({
+		db,
+		runnerDb,
+	}) => {
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "model-selection-"));
 		sandboxDirs.push(sandboxPath);
 		vi.stubEnv("HYPERIDLE_SPACES_DIR", sandboxPath);
@@ -161,11 +166,11 @@ describe("the model an agent is configured with reaches its session", () => {
 		await seedTask(db, taskId);
 		// The person picked `haiku` for this agent — a name claude accepts, in
 		// claude's own vocabulary, that no gateway provider union contains.
-		await writeAgentRunConfig(db, agentId, { modelId: "haiku", modelProvider: "anthropic" });
+		await writeAgentRunConfig(runnerDb, agentId, { modelId: "haiku", modelProvider: "anthropic" });
 
 		const captured: { sessionConfig?: SessionConfig } = {};
 		const provisioner = createProvisioner(buildHarnessPorts());
-		const deps = buildDeps(db, captured);
+		const deps = buildDeps(runnerDb, captured);
 		const params = baseParams(agentId, taskId);
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
@@ -175,6 +180,7 @@ describe("the model an agent is configured with reaches its session", () => {
 
 	test("an agent that chose no model carries none, leaving the harness its own default", async ({
 		db,
+		runnerDb,
 	}) => {
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "model-selection-"));
 		sandboxDirs.push(sandboxPath);
@@ -186,7 +192,7 @@ describe("the model an agent is configured with reaches its session", () => {
 
 		const captured: { sessionConfig?: SessionConfig } = {};
 		const provisioner = createProvisioner(buildHarnessPorts());
-		const deps = buildDeps(db, captured);
+		const deps = buildDeps(runnerDb, captured);
 		const params = baseParams(agentId, taskId);
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
@@ -198,6 +204,7 @@ describe("the model an agent is configured with reaches its session", () => {
 
 	test("a model whose provider the gateway never supported still reaches the session", async ({
 		db,
+		runnerDb,
 	}) => {
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "model-selection-"));
 		sandboxDirs.push(sandboxPath);
@@ -208,14 +215,14 @@ describe("the model an agent is configured with reaches its session", () => {
 		await seedTask(db, taskId);
 		// `resolveModel` rejects openai-compatible outright on the per-agent path.
 		// An opencode model id is exactly that shape, and must survive anyway.
-		await writeAgentRunConfig(db, agentId, {
+		await writeAgentRunConfig(runnerDb, agentId, {
 			modelId: "openrouter/z-ai/glm-4.7-flash",
 			modelProvider: "openai-compatible",
 		});
 
 		const captured: { sessionConfig?: SessionConfig } = {};
 		const provisioner = createProvisioner(buildHarnessPorts());
-		const deps = buildDeps(db, captured);
+		const deps = buildDeps(runnerDb, captured);
 		const params = baseParams(agentId, taskId);
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);

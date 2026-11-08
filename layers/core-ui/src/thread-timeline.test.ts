@@ -1,11 +1,5 @@
 /** How a thread reads top to bottom, and how its work item says where it is. */
-import type {
-	DocumentRow,
-	HuddlePayload,
-	Message,
-	SessionRow,
-	Task,
-} from "@hyperidle/domain-model";
+import type { DocumentRow, HuddlePayload, Message, Task } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
 import {
 	clock,
@@ -60,19 +54,6 @@ const task = (t: Partial<Task>): Task => ({
 	startedBy: null,
 	...t,
 });
-const session = (start: string, end: string): SessionRow => ({
-	id: `s-${start}`,
-	agentId: "builder",
-	taskId: "task",
-	threadId: null,
-	startedAt: at(start),
-	endedAt: at(end),
-	state: "done",
-	outcome: "completed",
-	notes: null,
-	modelTier: "workhorse",
-	sourceKind: null,
-});
 const who = (id: string) => (id === "me" ? "You" : id === "maya" ? "Maya" : "Builder");
 const made = (id: string, hhmm: string): DocumentRow => ({
 	id,
@@ -100,7 +81,7 @@ const made = (id: string, hhmm: string): DocumentRow => ({
 });
 
 describe("timeline", () => {
-	test("runs, events, the work item where it was minted, and one event per stretch of work", () => {
+	test("events, the work item where it was minted, answers and verdicts as events", () => {
 		const entries = timeline(
 			[
 				msg("1", "maya", "08:12", "plain", { text: "Three tickets" }),
@@ -122,7 +103,6 @@ describe("timeline", () => {
 				msg("9", "maya", "15:30", "verdict", { decision: "approve", resolvesMessageId: "7" }),
 			],
 			[task({})],
-			[session("08:14", "12:30"), session("13:00", "13:20")],
 			who,
 		);
 		expect(
@@ -142,11 +122,9 @@ describe("timeline", () => {
 			"me: 2",
 			"builder: 3",
 			"strip task",
-			"Worked 4h 16m · 1 session",
 			"builder: 4",
 			"You went with Your first bill",
 			"builder: 6,7",
-			"Worked 20m · 1 session",
 			"You rejected Trial-end explainer",
 			"Maya approved Trial-end explainer",
 		]);
@@ -159,7 +137,6 @@ describe("timeline", () => {
 				msg("2", "builder", "09:30", "plain", { text: "Here it is" }),
 			],
 			[],
-			[],
 			who,
 			[made("app", "09:29")],
 		);
@@ -167,13 +144,6 @@ describe("timeline", () => {
 			"1",
 			"made app",
 			"2",
-		]);
-	});
-
-	test("back-to-back sessions read as one stretch of work", () => {
-		const entries = timeline([], [], [session("08:00", "08:30"), session("08:40", "09:00")], who);
-		expect(entries).toEqual([
-			{ kind: "event", key: `worked-${at("08:30")}`, text: "Worked 50m · 2 sessions" },
 		]);
 	});
 });
@@ -193,7 +163,6 @@ describe("huddle fold", () => {
 				msg("p2", "maya", "10:02", "plain", { text: "and another", huddle: "h1" }),
 			],
 			[],
-			[],
 			who,
 		);
 		expect(entries).toHaveLength(1);
@@ -209,7 +178,6 @@ describe("huddle fold", () => {
 				msg("p1", "maya", "10:01", "plain", { text: "in call", huddle: "h1" }),
 				msg("p2", "maya", "10:02", "plain", { text: "outside" }),
 			],
-			[],
 			[],
 			who,
 		);

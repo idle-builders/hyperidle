@@ -6,7 +6,7 @@ HyperIdle ships as a signed, notarized macOS desktop app (Electron). The Hono se
 
 Install via DMG, or via Homebrew after adding the tap (`brew tap idle-builders/tap && brew install --cask hyperidle`). Node ≥ 24 required for dev.
 
-**Joining a team's server.** At first start the desktop app can instead join a team that runs on a server: "Join a team on a server", then the server's address and **Sign in and join**. Your browser opens the server's sign-in page (`applications/desktop/src/sign-in.ts`); the server checks what the sign-in proves about you, makes you a person named by your email and hands back your own key; the app keeps that key encrypted on this computer (`person_key`, Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`) and reopens on the server's address as you. The first person on a new server also names its team. From then on it starts no server and runs no agents of its own. To leave the server, delete `config.json` in the app's data folder (Help → Open Data Folder).
+**Joining a team's server.** At first start the desktop app can instead join a team that runs on a server: "Join a team on a server", then the server's address and **Sign in and join**. Your browser opens the server's sign-in page (`applications/desktop/src/sign-in.ts`); the server checks what the sign-in proves about you, makes you a person named by your email and hands back your own key; the app keeps that key encrypted on this computer (`person_key`, Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`) and reopens on the server's address as you. The first person on a new server also names its team. From then on it starts no server of its own; it forks a runner connected to the shared server. To leave the server, delete `config.json` in the app's data folder (Help → Open Data Folder).
 
 | Profile | Database | How to start |
 |---|---|---|
@@ -17,7 +17,7 @@ Install via DMG, or via Homebrew after adding the tap (`brew tap idle-builders/t
 
 Dev setup steps and the command reference live in [guides/developer/getting-started](../guides/developer/getting-started.md).
 
-**Where agents run.** Only the desktop app on its own database runs agents: its runner works each agent's inbox and starts runs on the agent programs on this computer ([how an agent gets work](../architecture/overview.md#how-an-agent-gets-work)). A server started with `npm run dev`, `npm start` or the server image runs none. So a shared server, and a desktop app joined to it, run no agents; the rows in a shared server's agents' inboxes wait there unread.
+**Where agents run.** The desktop app — whether running its own server or joined to a shared one — always forks a runner: a separate process that works each agent's inbox and starts runs on the agent programs on this computer ([how an agent gets work](../architecture/overview.md#how-an-agent-gets-work)). A server started with `npm run dev`, `npm start` or the server image forks no runner. The shared server's agents run because the desktop app connected to it forks one.
 
 ---
 

@@ -11,21 +11,17 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/api-contract": "*",
-		"@hyperidle/connections": "*",
-		"@hyperidle/db": "*",
+		"@hyperidle/runner-db": "*",
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
 		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/run-orchestration": "*",
 		"@hyperidle/session-requests": "*",
-		"@hyperidle/tool-handlers": "*",
-		"hono": "^4.12.27",
-		"zod": "^4.3.6"
+		"@hyperidle/tool-handlers": "*"
 	},
 	"devDependencies": {
-		"@hyperidle/agent-execution": "*",
+		"@hyperidle/db": "*",
 		"@types/node": "^24",
 		"drizzle-orm": "^0.45.2",
 		"vitest": "^4.1.9"

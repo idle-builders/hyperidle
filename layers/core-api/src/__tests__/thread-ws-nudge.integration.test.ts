@@ -13,7 +13,6 @@
  * optional `hub?.broadcast(topic, json)` shape — no hub, no push, no throw.
  */
 
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, teams, threads, users, userTeams } from "@hyperidle/db";
 import type {
 	ActionResult,
@@ -48,12 +47,8 @@ interface CapturedBroadcast {
 	};
 }
 
-function buildActionsWithHub(
-	agentOrchestration: AgentOrchestrationPort,
-	broadcasts: CapturedBroadcast[],
-) {
+function buildActionsWithHub(broadcasts: CapturedBroadcast[]) {
 	return buildCoreActions({
-		agentOrchestration,
 		wsPush: (topic: string, envelope: unknown) => {
 			broadcasts.push({ topic, envelope: envelope as CapturedBroadcast["envelope"] });
 		},
@@ -134,13 +129,12 @@ describe("send_message — the websocket nudge", () => {
 	test("a new-thread send broadcasts created+message on both topics, redacted on conversations", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedTeam(db, "nudge-team-1");
 		await seedHuman(db, "nudge-human-1", "nudge-team-1");
 
 		const broadcasts: CapturedBroadcast[] = [];
-		const actions = buildActionsWithHub(agentOrchestration, broadcasts);
+		const actions = buildActionsWithHub(broadcasts);
 		const sendMessage = runnerFor<SendMessageInput, SendMessageOutput>(actions, "send_message");
 
 		const result = await sendMessage(ctxFor(db, eventBus, FOUNDER_ID), {
@@ -185,11 +179,7 @@ describe("send_message — the websocket nudge", () => {
 		expect(after.senderId).toBe(FOUNDER_ID);
 	});
 
-	test("a refused send (not a member) broadcasts nothing", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
+	test("a refused send (not a member) broadcasts nothing", async ({ db, eventBus }) => {
 		await seedTeam(db, "nudge-team-2");
 		await seedHuman(db, "nudge-victim", "nudge-team-2");
 		await seedHuman(db, "nudge-stranger", "nudge-team-2");
@@ -201,7 +191,7 @@ describe("send_message — the websocket nudge", () => {
 		});
 
 		const broadcasts: CapturedBroadcast[] = [];
-		const actions = buildActionsWithHub(agentOrchestration, broadcasts);
+		const actions = buildActionsWithHub(broadcasts);
 		const sendMessage = runnerFor<SendMessageInput, SendMessageOutput>(actions, "send_message");
 
 		const result = await sendMessage(ctxFor(db, eventBus, "nudge-stranger"), {
@@ -215,15 +205,12 @@ describe("send_message — the websocket nudge", () => {
 	test("with no hub wired, send_message pushes nothing and does not throw", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedTeam(db, "nudge-team-3");
 		await seedHuman(db, "nudge-human-3", "nudge-team-3");
 
 		// no `wsPush` in the bindings — the dep is optional.
-		const actions = buildCoreActions({
-			agentOrchestration,
-		});
+		const actions = buildCoreActions({});
 		const sendMessage = runnerFor<SendMessageInput, SendMessageOutput>(actions, "send_message");
 
 		const result = await sendMessage(ctxFor(db, eventBus, FOUNDER_ID), {
@@ -236,7 +223,6 @@ describe("send_message — the websocket nudge", () => {
 	test("an overwrite broadcasts thread.message with no payload in before or after on conversations; thread:<id> still carries both", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedTeam(db, "nudge-team-6");
 		await seedThreadRow(db, "nudge-thread-6", {
@@ -247,7 +233,7 @@ describe("send_message — the websocket nudge", () => {
 		});
 
 		const broadcasts: CapturedBroadcast[] = [];
-		const actions = buildActionsWithHub(agentOrchestration, broadcasts);
+		const actions = buildActionsWithHub(broadcasts);
 		const sendMessage = runnerFor<SendMessageInput, SendMessageOutput>(actions, "send_message");
 
 		const created = await sendMessage(ctxFor(db, eventBus, FOUNDER_ID), {
@@ -292,7 +278,6 @@ describe("adjust_thread — the websocket nudge", () => {
 	test("a resolve broadcasts thread.changed on both topics, unredacted", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
 		await seedTeam(db, "nudge-team-4");
 		await seedThreadRow(db, "nudge-thread-4", {
@@ -303,7 +288,7 @@ describe("adjust_thread — the websocket nudge", () => {
 		});
 
 		const broadcasts: CapturedBroadcast[] = [];
-		const actions = buildActionsWithHub(agentOrchestration, broadcasts);
+		const actions = buildActionsWithHub(broadcasts);
 		const adjustThread = runnerFor<AdjustThreadInput, ThreadView>(actions, "adjust_thread");
 
 		const result = await adjustThread(ctxFor(db, eventBus, FOUNDER_ID), {
@@ -323,11 +308,7 @@ describe("adjust_thread — the websocket nudge", () => {
 		}
 	});
 
-	test("a no-op adjust (nothing actually changes) broadcasts nothing", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
+	test("a no-op adjust (nothing actually changes) broadcasts nothing", async ({ db, eventBus }) => {
 		await seedTeam(db, "nudge-team-5");
 		await seedThreadRow(db, "nudge-thread-5", {
 			hostKind: "team",
@@ -338,7 +319,7 @@ describe("adjust_thread — the websocket nudge", () => {
 		});
 
 		const broadcasts: CapturedBroadcast[] = [];
-		const actions = buildActionsWithHub(agentOrchestration, broadcasts);
+		const actions = buildActionsWithHub(broadcasts);
 		const adjustThread = runnerFor<AdjustThreadInput, ThreadView>(actions, "adjust_thread");
 
 		// `resolved: false` on an already-unresolved thread changes nothing.

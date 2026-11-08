@@ -41,7 +41,7 @@ import {
 	buildCleanEnv,
 	createHarnessSandbox,
 	setUpLiveHarnessMcpServer,
-} from "../__testing__/live-harness-test-support.js";
+} from "../__testing__/live-harness-mcp-support.js";
 
 const execFileAsync = promisify(execFile);
 const provisionReturnHook = (options: {

@@ -2,7 +2,6 @@ import { join } from "node:path";
 import { defineConfig } from "vitest/config";
 
 const PROJECTS = [
-	"framework/api-contract",
 	"framework/db",
 	"applications/desktop",
 	"applications/website",

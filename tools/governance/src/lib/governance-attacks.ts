@@ -39,7 +39,7 @@ import { frameworkSurfacesDeclared } from "../rules/framework-surfaces-declared.
 import { noPerFileAllowances } from "../rules/no-per-file-allowances.js";
 import { noStaleBuildArtifacts } from "../rules/no-stale-build-artifacts.js";
 import { type CrossingsResult, type DetectorKind, detectCrossings } from "./crossings.js";
-import { buildDbSurfaceIndex, type DatabasePackageConfig } from "./db-surfaces.js";
+import { buildMergedDbSurfaceIndex, type DatabasePackageConfig } from "./db-surfaces.js";
 import { type Architecture, decide, type World } from "./governance-model.js";
 import type { TableOwners } from "./governance-registry.js";
 import type { Finding, Rule } from "./governance-rules.js";
@@ -135,7 +135,7 @@ export const ATTACK_ANCHORS = {
 	 * A SECOND framework package's source root — a framework source that is NOT the database package,
 	 * so an import of `@hyperidle/db` from it is a real crossing rather than a package naming itself.
 	 */
-	otherFrameworkDir: "framework/api-contract/src",
+	otherFrameworkDir: "framework/harness-protocol/src",
 	/**
 	 * A service that IS in `framework/harness-protocol`'s declared audience — the control twin for the
 	 * narrow-audience refusal, which is only a test of the audience if the same import from inside the
@@ -543,10 +543,10 @@ export const ATTACKS: readonly Attack[] = [
 	{
 		id: "reexport-narrow-surface",
 		detail:
-			"a layer barrel re-exporting a `framework/api-contract` symbol (reach: [layer]), whose audience is narrower than everyone",
+			"a layer barrel re-exporting a `framework/harness-protocol` symbol (reach: named audience), whose audience is narrower than everyone",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
-			[`${a.layerDir}/attack-reexport-contract.ts`]: `export type { AgentOrchestrationPort } from "@hyperidle/api-contract";\n`,
+			[`${a.layerDir}/attack-reexport-contract.ts`]: `export type { HarnessAdapter } from "@hyperidle/harness-protocol";\n`,
 		},
 		expect: {
 			sort: "finding",
@@ -575,8 +575,8 @@ export const ATTACKS: readonly Attack[] = [
 		rules: ["no-laundered-re-exports"],
 		overlay: {
 			[`${a.layerDir}/attack-import-contract.ts`]:
-				`import type { AgentOrchestrationPort } from "@hyperidle/api-contract";\n` +
-				`export type Wrapped = { readonly value: AgentOrchestrationPort };\n`,
+				`import type { HarnessAdapter } from "@hyperidle/harness-protocol";\n` +
+				`export type Wrapped = { readonly value: HarnessAdapter };\n`,
 		},
 		expect: { sort: "clean", file: `${a.layerDir}/attack-import-contract.ts` },
 	},
@@ -663,17 +663,16 @@ export const ATTACKS: readonly Attack[] = [
 	{
 		id: "composition-handoff-inline",
 		detail:
-			"a composition root calling one layer's boot INLINE, as an argument into another layer's boot — the identifier-spelled crossing the census's DI provenance model catches",
+			"a composition root calling one layer's boot INLINE, as an argument into another layer's composition root — the identifier-spelled crossing the census's DI provenance model catches",
 		rules: ["crossing-di"],
 		overlay: {
 			[`${a.applicationDir}/attack-composition-inline.ts`]:
 				`import { bootAgentExecution } from "@hyperidle/agent-execution";\n` +
-				`import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";\n` +
+				`import { buildRunOrchestrationComposition } from "@hyperidle/agent-orchestration";\n` +
 				`export const composeInline = () =>\n` +
-				`\tbootAgentOrchestration({\n` +
-				`\t\tdb: undefined as never,\n` +
-				`\t\teventBus: undefined as never,\n` +
-				`\t\truntime: { adapterPool: bootAgentExecution(undefined as never) } as never,\n` +
+				`\tbuildRunOrchestrationComposition({\n` +
+				`\t\tharnessRuntime: bootAgentExecution(undefined as never) as never,\n` +
+				`\t\treturnStatusTool: undefined as never,\n` +
 				`\t});\n`,
 		},
 		expect: {
@@ -690,13 +689,12 @@ export const ATTACKS: readonly Attack[] = [
 		overlay: {
 			[`${a.applicationDir}/attack-composition-mediated.ts`]:
 				`import { bootAgentExecution } from "@hyperidle/agent-execution";\n` +
-				`import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";\n` +
+				`import { buildRunOrchestrationComposition } from "@hyperidle/agent-orchestration";\n` +
 				`export const composeMediated = async () => {\n` +
 				`\tconst execution = await bootAgentExecution(undefined as never);\n` +
-				`\treturn bootAgentOrchestration({\n` +
-				`\t\tdb: undefined as never,\n` +
-				`\t\teventBus: undefined as never,\n` +
-				`\t\truntime: { adapterPool: execution } as never,\n` +
+				`\treturn buildRunOrchestrationComposition({\n` +
+				`\t\tharnessRuntime: execution as never,\n` +
+				`\t\treturnStatusTool: undefined as never,\n` +
 				`\t});\n` +
 				`};\n`,
 		},
@@ -1012,8 +1010,8 @@ export const ATTACKS: readonly Attack[] = [
 		rules: ["crossing-import"],
 		overlay: {
 			[`${a.frameworkDir}/attack-framework-names-framework.ts`]:
-				`import type { AgentOrchestrationPort } from "@hyperidle/api-contract";\n` +
-				`export type AttackWrapped = { readonly value: AgentOrchestrationPort };\n`,
+				`import type { HarnessAdapter } from "@hyperidle/harness-protocol";\n` +
+				`export type AttackWrapped = { readonly value: HarnessAdapter };\n`,
 		},
 		expect: { sort: "clean", file: `${a.frameworkDir}/attack-framework-names-framework.ts` },
 	},
@@ -1241,7 +1239,7 @@ export interface AttackTree {
 	readonly readFile: (path: string) => string;
 	readonly architecture: Architecture & {
 		readonly roles: { readonly byWorkspacePattern: readonly WorkspaceRoleRule[] };
-		readonly databasePackage: DatabasePackageConfig;
+		readonly databasePackages: readonly DatabasePackageConfig[];
 	};
 	readonly tableOwners: TableOwners;
 	readonly kinds: readonly DetectorKind[];
@@ -1398,9 +1396,10 @@ function runOnePass(tree: AttackTree, attacks: readonly Attack[]): PassOutcome {
 				readFile: overlaid.readFile,
 				mcpRouterHost: tree.architecture.endpoints.mcpRouter.host,
 				eventTypesModule: tree.architecture.eventBus.typesModule,
-				db: buildDbSurfaceIndex(tree.architecture.databasePackage, overlaid.readFile),
+				db: buildMergedDbSurfaceIndex(tree.architecture.databasePackages, overlaid.readFile),
 				tableOwners: tree.tableOwners,
 				frameworkSurfaces: frameworkSurfacesOf(census),
+				dbPackageNames: new Set(tree.architecture.databasePackages.map((c) => c.packageName)),
 			},
 			tree.kinds,
 		);

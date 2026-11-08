@@ -1,21 +1,8 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { getDocument } from "@hyperidle/document";
-import type {
-	ActionResult,
-	DocumentRow,
-	DocumentView,
-	EditDocumentInput,
-	SearchDocumentsInput,
-} from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
-import { getPluginMcpContributions } from "@hyperidle/settings";
 import { findThread } from "@hyperidle/thread";
-import {
-	connectionOwnerFor,
-	createUpgradeTokenStore,
-	listUsers,
-	type UpgradeTokenStore,
-} from "@hyperidle/user";
+import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/user";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import type { ActionContext } from "./actions/action.js";
@@ -25,7 +12,6 @@ export type { SignIn };
 
 import { createLogger } from "@hyperidle/diagnostics";
 import { canRelayHuddleSignal, endLiveHuddles, findLiveHuddlesForPerson } from "@hyperidle/thread";
-import { type ActionToolDeclaration, actionCatalog } from "./actions/action-catalog.js";
 import { type ApiMiddlewareStack, createApiMiddlewareStack } from "./api-middleware-stack.js";
 import {
 	type AppOptions,
@@ -33,7 +19,6 @@ import {
 	registerCoreApiPreAuthRoutes,
 	takeAppActions,
 	takeAppDisposers,
-	takeAppDocumentRunners,
 } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { WsConnectionHub } from "./ws-connection-hub.js";
@@ -65,32 +50,6 @@ export interface CoreApiBoot {
 	readonly wsHub: WsConnectionHub;
 	/** Present whenever WS support is being wired. */
 	readonly upgradeTokenStore: UpgradeTokenStore | null;
-	/** Present whenever `db` is provided. */
-	readonly resolveProvisioningOwnerUserId?: (agentId: string) => Promise<string | null>;
-	readonly pluginMcpContributions?: {
-		getContributions(teamId: string | null): Promise<
-			readonly {
-				readonly key: string;
-				readonly defaultValueJson: string;
-				readonly installPath: string | null;
-			}[]
-		>;
-	};
-	/** Every action as an agent's tool; empty when `db` is not provided. The runner calls each through the door. */
-	readonly actionCatalog: readonly ActionToolDeclaration[];
-	readonly editDocument: (
-		caller: {
-			readonly actor: string;
-			readonly sessionId: string;
-			readonly taskId: string | null;
-			readonly threadId: string | null;
-		},
-		input: EditDocumentInput,
-	) => Promise<ActionResult<DocumentView>>;
-	readonly searchDocuments: (
-		caller: { readonly actor: string },
-		input: SearchDocumentsInput,
-	) => Promise<ActionResult<readonly DocumentRow[]>>;
 	/**
 	 * Call any registered action in-process as a specific actor — used by the
 	 * remote-server integration tests to drive multi-actor scenarios without an
@@ -111,12 +70,6 @@ export interface CoreApiBoot {
 	 * non-default user. Present whenever WS support was wired.
 	 */
 	readonly mintWsTokenFor?: (actorId: string) => string;
-}
-
-function resolveProvisioningOwnerUserIdFor(
-	db: NonNullable<AppOptions["db"]>,
-): (agentId: string) => Promise<string | null> {
-	return (agentId) => connectionOwnerFor(db, agentId);
 }
 
 export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApiBoot> {
@@ -223,47 +176,6 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 
 	const disposers: Array<() => void> = [...takeAppDisposers(app)];
 	const rawActions = takeAppActions(app);
-	const actionTools = actionCatalog(rawActions ?? []);
-
-	const documentRunners = takeAppDocumentRunners(app);
-	const documentRunnerEventBus = options?.eventBus ?? new EventBus();
-	const editDocument: CoreApiBoot["editDocument"] = documentRunners
-		? (caller, input) =>
-				documentRunners.editDocument(
-					{
-						actor: caller.actor,
-						db: db as HyperIdleDb,
-						eventBus: documentRunnerEventBus,
-						now: new Date().toISOString(),
-						caller: {
-							sessionId: caller.sessionId,
-							taskId: caller.taskId,
-							threadId: caller.threadId,
-						},
-					},
-					input,
-				)
-		: () => {
-				throw new Error(
-					"CoreApiBoot.editDocument: no db was provided at boot — the composed document actions were never built.",
-				);
-			};
-	const searchDocuments: CoreApiBoot["searchDocuments"] = documentRunners
-		? (caller, input) =>
-				documentRunners.searchDocuments(
-					{
-						actor: caller.actor,
-						db: db as HyperIdleDb,
-						eventBus: documentRunnerEventBus,
-						now: new Date().toISOString(),
-					},
-					input,
-				)
-		: () => {
-				throw new Error(
-					"CoreApiBoot.searchDocuments: no db was provided at boot — the composed document actions were never built.",
-				);
-			};
 
 	const callActionEventBus = options?.eventBus ?? new EventBus();
 	const callActionAs: CoreApiBoot["callActionAs"] =
@@ -308,20 +220,9 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 		}),
 		disposers,
 		disposeWebSocket,
-		actionCatalog: actionTools,
-		editDocument,
-		searchDocuments,
 		wsHub,
 		upgradeTokenStore: tokenStore,
 		...(callActionAs ? { callActionAs } : {}),
 		...(mintWsTokenFor ? { mintWsTokenFor } : {}),
-		...(db ? { resolveProvisioningOwnerUserId: resolveProvisioningOwnerUserIdFor(db) } : {}),
-		...(db
-			? {
-					pluginMcpContributions: {
-						getContributions: (teamId: string | null) => getPluginMcpContributions(db, teamId),
-					},
-				}
-			: {}),
 	};
 }

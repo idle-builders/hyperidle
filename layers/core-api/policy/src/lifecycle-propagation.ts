@@ -8,7 +8,6 @@ import type {
 	EventByType,
 	PropagationAppliedEvent,
 	PropagationFailedEvent,
-	SessionEndedEvent,
 } from "@hyperidle/event-bus";
 import { TaskInvalidTransitionError } from "./errors.js";
 import type { PolicyDeps } from "./ports.js";
@@ -70,64 +69,6 @@ const TERMINAL_TASK_STATES = new Set(["done", "killed"]);
 
 // @lore: `review` in SKIP_ANCESTOR_STATES — a second sibling completing would try review→review, throw, and abort the walk
 const SKIP_ANCESTOR_STATES = new Set(["done", "killed", "review"]);
-
-// ─── Session -> Task propagation ─────────────────────────────────────────────
-
-async function propagateSessionToTask(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	sessionId: string,
-	taskId: string,
-	outcome: string,
-	deps: LifecyclePropagationDeps,
-): Promise<void> {
-	// Only propagate on completed outcome. crashed and stopped do not trigger transitions.
-	if (outcome !== "completed") return;
-
-	// @lore: no "is another run still active" guard — two simultaneous runs recoverable; first flips in_progress→review, second sees non-in_progress and skips
-
-	// DB reads and transition inside the catch so any read error is reported via
-	// propagation_failed (not an unhandled rejection).
-	try {
-		// Check task exists and is in_progress
-		const task = await deps.work.getTaskById(db, taskId);
-		if (!task) return;
-		if (task.state !== "in_progress") return;
-
-		// @lore: review line leaves task in_progress — propagation stops; an agent sends the review card and that card moves the task to review
-		if (needsHumanReview(task.doneWhen)) return;
-
-		await transitionTask(db, eventBus, taskId, "done", deps);
-
-		// Emit propagation_applied event
-		const appliedEvent: PropagationAppliedEvent = {
-			type: "propagation_applied",
-			streamId: taskId,
-			sourceLevel: "session",
-			sourceId: sessionId,
-			targetLevel: "task",
-			targetId: taskId,
-			targetTransition: "in_progress -> done",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(appliedEvent);
-	} catch (err) {
-		// InvalidTransitionError from a race condition — silently skip.
-		if (isInvalidTransitionError(err)) return;
-		// Unexpected error — emit propagation_failed for extension subscribers.
-		const failedEvent: PropagationFailedEvent = {
-			type: "propagation_failed",
-			streamId: taskId,
-			sourceLevel: "session",
-			sourceId: sessionId,
-			targetLevel: "task",
-			targetId: taskId,
-			failureReason: err instanceof Error ? err.message : String(err),
-			timestamp: Date.now(),
-		};
-		eventBus.emit(failedEvent);
-	}
-}
 
 // ─── Task -> Parent propagation (recursive rollup) ───────────────────────────
 
@@ -295,22 +236,7 @@ export function registerLifecyclePropagation(
 	eventBus: EventBus,
 	deps: LifecyclePropagationDeps,
 ): () => void {
-	// Handler 1: session_ended -> evaluate task transition
-	const unsubSessionEnded = eventBus.on("session_ended", (event: SessionEndedEvent) => {
-		void (async () => {
-			if (!event.taskId) return;
-			await propagateSessionToTask(
-				db,
-				eventBus,
-				event.sessionId,
-				event.taskId,
-				event.outcome,
-				deps,
-			);
-		})();
-	});
-
-	// Handler 2: task.changed -> evaluate parent transition (recursive rollup).
+	// task.changed -> evaluate parent transition (recursive rollup).
 	// Fires for every terminal state so that a kill also propagates upward.
 	// `change.after.state` is present only when the edit moved the state (the
 	// diff-only shape `edit_task` writes) — a title-only edit's `task.changed`
@@ -326,8 +252,5 @@ export function registerLifecyclePropagation(
 		}
 	});
 
-	return () => {
-		unsubSessionEnded();
-		unsubTaskChanged();
-	};
+	return unsubTaskChanged;
 }

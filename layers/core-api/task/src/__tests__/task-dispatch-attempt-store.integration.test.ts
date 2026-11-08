@@ -15,13 +15,10 @@
  * max-based, or dropped the per-task predicate, would have shipped green.
  *
  * @lore: the store computes the ordinal itself — the caller's transaction, not a separate count-then-insert, must observe one snapshot to avoid a race.
- *
- * @lore: a second unique index outside schema.ts guards one dispatch per (task, occasion, predecessor, agent) — each fixture attempt needs a distinct predecessor.
  */
 
 import {
 	type HyperIdleDb,
-	sessions,
 	taskDispatchAttempts,
 	tasks,
 	teams,
@@ -33,7 +30,6 @@ import { asc, eq } from "drizzle-orm";
 import { taskDispatchAttemptStore } from "../task-service.js";
 
 const AGENT_ID = "agent-dispatch-ordinal";
-const SESSION_IDS = ["session-ord-1", "session-ord-2", "session-ord-3", "session-ord-4"] as const;
 const TEAM_ID = "team-dispatch-ordinal";
 const ROOT_TASK_ID = "bet-dispatch-ordinal";
 
@@ -69,15 +65,6 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 		updatedAt: now,
 	});
-	for (const id of SESSION_IDS) {
-		await db.insert(sessions).values({
-			id,
-			agentId: AGENT_ID,
-			modelTier: "standard",
-			startedAt: now,
-			state: "active",
-		});
-	}
 }
 
 async function seedTask(db: HyperIdleDb, taskId: string): Promise<void> {
@@ -105,21 +92,16 @@ async function seedTask(db: HyperIdleDb, taskId: string): Promise<void> {
 	});
 }
 
-function attemptInput(
-	taskId: string,
-	predecessorIndex = 0,
-): {
+function attemptInput(taskId: string): {
 	readonly taskId: string;
 	readonly occasion: string;
 	readonly agentId: string;
-	readonly predecessorSessionId: string;
 	readonly now: string;
 } {
 	return {
 		taskId,
 		occasion: "owner_handoff",
 		agentId: AGENT_ID,
-		predecessorSessionId: SESSION_IDS[predecessorIndex] ?? SESSION_IDS[0],
 		now: new Date().toISOString(),
 	};
 }
@@ -136,13 +118,7 @@ async function ordinalsFor(db: HyperIdleDb, taskId: string): Promise<number[]> {
 	return rows.map((row) => row.ordinal);
 }
 
-/**
- * B1 fix: `insertAttempt` returns `id: string | undefined` now — `undefined`
- * means the unique-index conflict swallowed the insert (architecture doc §5
- * step 4). None of these fixtures hit that conflict (each attempt gets its
- * own predecessor session), so a defined id is the invariant this helper
- * asserts before handing callers a plain `string`.
- */
+/** Asserts insertAttempt returned an id (all fixture attempts are distinct). */
 function requireId(inserted: { readonly id: string | undefined }): string {
 	if (!inserted.id)
 		throw new Error("insertAttempt did not return an id — the insert was swallowed");
@@ -164,13 +140,13 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 		await seedTask(db, "task-a1");
 
 		const first = requireId(
-			await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1", 0)),
+			await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1")),
 		);
 		const second = requireId(
-			await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1", 1)),
+			await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1")),
 		);
 		const third = requireId(
-			await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1", 2)),
+			await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1")),
 		);
 
 		expect(await ordinalsFor(db, "task-a1")).toEqual([1, 2, 3]);
@@ -186,7 +162,6 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 		expect(row?.status).toBe("requested");
 		expect(row?.occasion).toBe("owner_handoff");
 		expect(row?.agentId).toBe(AGENT_ID);
-		expect(row?.predecessorSessionId).toBe(SESSION_IDS[0]);
 	});
 
 	test("the count is scoped to one task — task B's first attempt is 1, not 4", async ({ db }) => {
@@ -194,11 +169,11 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 		await seedTask(db, "task-a2-a");
 		await seedTask(db, "task-a2-b");
 
-		await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a2-a", 0));
-		await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a2-a", 1));
-		await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a2-a", 2));
+		await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a2-a"));
+		await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a2-a"));
+		await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a2-a"));
 
-		await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a2-b", 0));
+		await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a2-b"));
 
 		expect(await ordinalsFor(db, "task-a2-a")).toEqual([1, 2, 3]);
 		expect(await ordinalsFor(db, "task-a2-b")).toEqual([1]);
@@ -238,8 +213,8 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 		await seedTask(db, "task-a4");
 
 		const seen = await db.transaction(async (tx) => {
-			const first = await taskDispatchAttemptStore.insertAttempt(tx, attemptInput("task-a4", 0));
-			const second = await taskDispatchAttemptStore.insertAttempt(tx, attemptInput("task-a4", 1));
+			const first = await taskDispatchAttemptStore.insertAttempt(tx, attemptInput("task-a4"));
+			const second = await taskDispatchAttemptStore.insertAttempt(tx, attemptInput("task-a4"));
 			const rows = await tx
 				.select({ id: taskDispatchAttempts.id, ordinal: taskDispatchAttempts.ordinal })
 				.from(taskDispatchAttempts)

@@ -31,7 +31,7 @@ const srWithProducedItemBuilderDevops: EvalScenario = {
 	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
+		const world = await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure.
 When you complete work and have produced a document, submit a review using send_message with type "review".
@@ -83,6 +83,7 @@ Your reasoning should mention: what was changed and what the reviewer should che
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -168,7 +169,7 @@ const srPlainFallbackBuilderMarketing: EvalScenario = {
 	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on marketing automation.
 When you complete analysis work (not implementation), submit a review without an artifact.
@@ -196,6 +197,7 @@ The review will be posted as a plain message (the fallback path).`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -259,7 +261,7 @@ const srReviewQualityPmHealthcare: EvalScenario = {
 	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager reviewing healthcare compliance work.
 Healthcare reviews require thorough, multi-point reasoning covering: regulatory compliance, patient safety, data privacy.
@@ -286,6 +288,7 @@ Use send_message with type "review" and:
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -361,7 +364,7 @@ const srBetThreadTargetingBuilderFrontend: EvalScenario = {
 	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
+		const world = await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on frontend component development.
 When you complete a component and want it reviewed, use send_message with type "review".
@@ -396,6 +399,7 @@ No artifactRef needed for this review.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -471,7 +475,7 @@ const srQaGatekeeperQaDevops: EvalScenario = {
 	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
+		const world = await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "qa_engineer",
 			agentSystemPrompt: `You are a QA engineer on a DevOps team responsible for quality gatekeeper reviews.
 When reviewing another agent's work, submit a thorough quality assessment using send_message with type "review".
@@ -508,6 +512,7 @@ Use send_message with type "review" and:
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{

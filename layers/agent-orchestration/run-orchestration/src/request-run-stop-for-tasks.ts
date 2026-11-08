@@ -1,6 +1,5 @@
-import type { HyperIdleDb } from "@hyperidle/db";
-import { sessions } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { and, eq, inArray } from "drizzle-orm";
 import { stopSessionRun } from "./session-store.js";
 
@@ -15,7 +14,7 @@ export interface StoppedRun {
  * connection), matching every other `session-store.ts` accessor.
  */
 export async function requestRunStopForTasks(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	eventBus: EventBus,
 	taskIds: readonly string[],
 	abort: (sessionId: string) => Promise<boolean>,

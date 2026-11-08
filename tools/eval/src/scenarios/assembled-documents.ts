@@ -4,7 +4,7 @@
  * Tests document context assembly: multi-layer utilization, relevance ranking, read-only enforcement.
  */
 
-import { sessions } from "@hyperidle/db";
+import { sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import {
 	judgeLlmQuality,
@@ -33,7 +33,7 @@ const mkUtilizationBuilderHealthcare: EvalScenario = {
 	feature: "assembled_knowledge",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
+		const world = await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on a healthcare patient portal.
 Your workspace contains assembled documents from multiple layers. Read and use these documents.
@@ -91,6 +91,7 @@ Write session notes that:
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -108,7 +109,7 @@ Write session notes that:
 				id: "knowledge_referenced",
 				label: "Multiple Document Layers Referenced in Notes",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -121,7 +122,7 @@ Write session notes that:
 				id: "session_notes_quality",
 				label: "Notes Describe Implementation Approach Using Context",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -144,7 +145,7 @@ const mkRankingPmDevops: EvalScenario = {
 	feature: "assembled_knowledge",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
+		const world = await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager working on infrastructure capacity planning.
 Your document context contains many items — some relevant to your task, some not.
@@ -216,6 +217,7 @@ Do not reference or be distracted by the irrelevant items.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -233,7 +235,7 @@ Do not reference or be distracted by the irrelevant items.`,
 				id: "relevant_knowledge_used",
 				label: "Relevant Documents Referenced (Infrastructure)",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -246,7 +248,7 @@ Do not reference or be distracted by the irrelevant items.`,
 				id: "irrelevant_knowledge_ignored",
 				label: "Irrelevant Documents Not Distracted By",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -269,7 +271,7 @@ const mkReadonlyRespectBuilderFrontend: EvalScenario = {
 	feature: "assembled_knowledge",
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
+		const world = await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent implementing frontend components.
 Your workspace contains a context/ directory with assembled document files.
@@ -309,6 +311,7 @@ Write session notes describing what patterns you followed and where you put your
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -326,7 +329,7 @@ Write session notes describing what patterns you followed and where you put your
 				id: "context_unmodified",
 				label: "Session Notes Indicate Context Read-Only Respected",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))

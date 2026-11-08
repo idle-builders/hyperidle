@@ -7,20 +7,7 @@
 import { randomUUID } from "node:crypto";
 import { type NewTask, taskDispatchAttempts, tasks, type WriteExecutor } from "@hyperidle/db";
 import type { SQL } from "drizzle-orm";
-import {
-	and,
-	desc,
-	eq,
-	exists,
-	inArray,
-	isNotNull,
-	isNull,
-	like,
-	lt,
-	ne,
-	or,
-	sql,
-} from "drizzle-orm";
+import { and, desc, eq, exists, inArray, isNull, like, lt, ne, or, sql } from "drizzle-orm";
 
 export type Task = typeof tasks.$inferSelect;
 
@@ -44,7 +31,6 @@ export const taskDispatchAttemptStore = {
 			readonly taskId: string;
 			readonly occasion: string;
 			readonly agentId: string;
-			readonly predecessorSessionId?: string | null;
 			readonly now: string;
 		},
 	): Promise<{ readonly id: string | undefined }> => {
@@ -53,9 +39,6 @@ export const taskDispatchAttemptStore = {
 			.from(taskDispatchAttempts)
 			.where(eq(taskDispatchAttempts.taskId, input.taskId));
 		const id = randomUUID();
-		// migration 0047 carries a second unique index `schema.ts` doesn't declare — back-and-forth
-		// between two agents on a task with no live session collides on it; a swallowed conflict
-		// means no row was inserted; returning `id === undefined` tells the caller to skip the bake.
 		const inserted = await exec
 			.insert(taskDispatchAttempts)
 			.values({
@@ -63,7 +46,6 @@ export const taskDispatchAttemptStore = {
 				taskId: input.taskId,
 				occasion: input.occasion,
 				agentId: input.agentId,
-				predecessorSessionId: input.predecessorSessionId ?? null,
 				ordinal: existing.length + 1,
 				status: "requested",
 				createdAt: input.now,
@@ -80,88 +62,6 @@ export const taskDispatchAttemptStore = {
 			.where(eq(taskDispatchAttempts.id, id))
 			.limit(1);
 		return row;
-	},
-	/** Fill `requestId`/`sessionId` on the task's highest-ordinal `requested` row — called from the session-started reaction before the `in_progress` transition. */
-	markRunning: async (
-		exec: WriteExecutor,
-		input: {
-			readonly taskId: string;
-			readonly requestId: string;
-			readonly sessionId: string;
-			readonly now: string;
-		},
-	): Promise<void> => {
-		const [row] = await exec
-			.select({ id: taskDispatchAttempts.id })
-			.from(taskDispatchAttempts)
-			.where(
-				and(
-					eq(taskDispatchAttempts.taskId, input.taskId),
-					eq(taskDispatchAttempts.status, "requested"),
-				),
-			)
-			.orderBy(desc(taskDispatchAttempts.ordinal))
-			.limit(1);
-		if (!row) return;
-		await exec
-			.update(taskDispatchAttempts)
-			.set({
-				requestId: input.requestId,
-				sessionId: input.sessionId,
-				status: "running",
-				updatedAt: input.now,
-			})
-			.where(eq(taskDispatchAttempts.id, row.id));
-	},
-	/** The predecessor's live session id for a handoff — read inside `edit_task`'s own transaction. */
-	findLiveSessionId: async (exec: WriteExecutor, taskId: string): Promise<string | undefined> => {
-		const [row] = await exec
-			.select({ sessionId: taskDispatchAttempts.sessionId })
-			.from(taskDispatchAttempts)
-			.where(
-				and(
-					eq(taskDispatchAttempts.taskId, taskId),
-					isNotNull(taskDispatchAttempts.sessionId),
-					inArray(taskDispatchAttempts.status, ["requested", "running"]),
-				),
-			)
-			.orderBy(desc(taskDispatchAttempts.ordinal))
-			.limit(1);
-		return row?.sessionId ?? undefined;
-	},
-	updateIfActive: async (
-		exec: WriteExecutor,
-		requestId: string,
-		patch: {
-			readonly status: "completed" | "failed" | "cancelled";
-			readonly sessionId: string | null;
-		},
-	) => {
-		await exec
-			.update(taskDispatchAttempts)
-			.set({ ...patch, updatedAt: new Date().toISOString() })
-			.where(
-				and(
-					eq(taskDispatchAttempts.requestId, requestId),
-					inArray(taskDispatchAttempts.status, ["requested", "running"]),
-				),
-			);
-	},
-	/** A task's newest attempt still waiting to start, failed — its run never started. */
-	markLatestRequestedFailed: async (exec: WriteExecutor, taskId: string) => {
-		const [row] = await exec
-			.select({ id: taskDispatchAttempts.id })
-			.from(taskDispatchAttempts)
-			.where(
-				and(eq(taskDispatchAttempts.taskId, taskId), eq(taskDispatchAttempts.status, "requested")),
-			)
-			.orderBy(desc(taskDispatchAttempts.ordinal))
-			.limit(1);
-		if (!row) return;
-		await exec
-			.update(taskDispatchAttempts)
-			.set({ status: "failed", updatedAt: new Date().toISOString() })
-			.where(eq(taskDispatchAttempts.id, row.id));
 	},
 	reapTerminal: async (exec: WriteExecutor, cutoff: string, batchSize: number) => {
 		const rows = await exec

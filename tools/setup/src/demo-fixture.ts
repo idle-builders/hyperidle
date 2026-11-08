@@ -12,6 +12,7 @@
  */
 
 import { type HyperIdleDb, teams } from "@hyperidle/db";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import { giveUserKey } from "@hyperidle/user";
 import type { DemoWorldPlaces } from "./demo-world/cast.js";
 import { FOUNDER_ID, PRODUCT_TEAM_ID, SUPPORT_TEAM_ID } from "./demo-world/ids.js";
@@ -28,6 +29,7 @@ import { createDemoClock } from "./demo-world/time.js";
  */
 export async function seedDemoWorld(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	opts: DemoWorldPlaces & { readonly founderKey?: string } = {},
 ): Promise<{ teamId: string; founderId: string }> {
 	const clock = createDemoClock();
@@ -38,7 +40,7 @@ export async function seedDemoWorld(
 			{ id: SUPPORT_TEAM_ID, name: "Support", createdAt: clock.daysAgo(98) },
 		])
 		.onConflictDoNothing();
-	await seedDemoWorldContent(db, clock, opts);
+	await seedDemoWorldContent(db, runnerDb, clock, opts);
 	// The demo opens as its founder: the key the window sends is his.
 	await giveUserKey(
 		db,

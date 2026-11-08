@@ -4,21 +4,16 @@
  *
  * These are deliberately not a repository: each one is a specific question the
  * layer above already asked.
- *
- * The wire contract does NOT move with them. Nothing here imports
- * `@hyperidle/api-contract`; the routes keep their `satisfies AgentRun*Response`
- * assertions, so a divergence between an accessor's shape and the wire fails at
- * compile time on the wire's own side.
  */
 
-import { type HyperIdleDb, type Session, sessions } from "@hyperidle/db";
 import type { SessionOutcome } from "@hyperidle/domain-model";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/event-bus";
+import { type RunnerDb, type Session, sessions } from "@hyperidle/runner-db";
 import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 
 /** Full row by id; `undefined` on a miss. */
 export async function findSessionById(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	sessionId: string,
 ): Promise<Session | undefined> {
 	const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
@@ -42,10 +37,7 @@ export interface SessionSearchFilter {
 }
 
 /** Full rows, filtered by whichever fields the caller supplies. Newest first. */
-export async function listSessions(
-	db: HyperIdleDb,
-	filter: SessionSearchFilter,
-): Promise<Session[]> {
+export async function listSessions(db: RunnerDb, filter: SessionSearchFilter): Promise<Session[]> {
 	const conditions = [];
 	if (filter.ids && filter.ids.length > 0) conditions.push(inArray(sessions.id, [...filter.ids]));
 	if (filter.taskId) conditions.push(eq(sessions.taskId, filter.taskId));
@@ -91,7 +83,7 @@ export interface EndSessionByCasInput {
  * @lore: endSessionByCas — persisted outcome ≠ emitted outcome; row takes input.outcome when supplied; event always derives from state; collapsing them is wrong
  */
 export async function endSessionByCas(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	eventBus: EventBus,
 	input: EndSessionByCasInput,
 ): Promise<Session | undefined> {
@@ -130,7 +122,7 @@ export async function endSessionByCas(
  * Filters out null endedAt so a session that ended without a timestamp cannot win.
  */
 export async function fetchPreviousSessionNotes(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	taskId: string,
 ): Promise<string | null> {
 	const row = await db
@@ -147,7 +139,7 @@ export async function fetchPreviousSessionNotes(
 
 /** Set `notes` and nothing else. */
 export async function writeSessionNotes(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	sessionId: string,
 	notes: string,
 ): Promise<void> {
@@ -155,7 +147,7 @@ export async function writeSessionNotes(
 }
 
 export async function stopSessionRun(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	eventBus: EventBus,
 	sessionId: string,
 	abort: (sessionId: string) => Promise<boolean>,

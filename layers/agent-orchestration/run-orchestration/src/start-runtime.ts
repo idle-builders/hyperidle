@@ -1,5 +1,5 @@
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
+import { type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { and, eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
 import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "./contracts.js";
@@ -8,7 +8,7 @@ import { runSession } from "./runtime.js";
 import { createWritebackProcessor } from "./writeback-processor.js";
 
 async function recoverRunningRequests(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	eventBus: EventBus,
 	ports: RuntimePorts,
 ): Promise<void> {
@@ -118,7 +118,7 @@ function classifyAdmissionFailure(error: unknown): {
 }
 
 async function markRunningAgentSessionRequestsForShutdown(
-	db: HyperIdleDb,
+	db: RunnerDb,
 	ports: RuntimePorts,
 ): Promise<number> {
 	const running = await ports.sessionRequests.listSessionRequests(db, { status: "running" });

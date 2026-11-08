@@ -32,17 +32,11 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
 import {
-	bootAgentOrchestration,
 	buildRunOrchestrationComposition,
 	type RunOrchestrationHarnessRuntimeAdapter,
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "@hyperidle/agent-orchestration";
-import {
-	buildAgentOrchestrationPort,
-	composeApiApplication,
-	createInProcessAgentOrchestrationTransport,
-	createStandaloneSearchDocuments,
-} from "@hyperidle/core-api";
+import { composeApiApplication, createStandaloneSearchDocuments } from "@hyperidle/core-api";
 import { bootCoreApi } from "@hyperidle/core-api/boot";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { assembleSessionDocuments } from "@hyperidle/document";
@@ -67,6 +61,7 @@ import {
 	type McpToolBridge,
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
+import type { RunnerDb } from "@hyperidle/runner-db";
 import * as work from "@hyperidle/task";
 import { getTeam, requireRunnableAgent } from "@hyperidle/user";
 import type { TriggerResult } from "./types.js";
@@ -112,19 +107,12 @@ interface EvalLiveServer {
 }
 
 /**
- * Start a real Hono HTTP server (port 0 → OS-assigned) with both the
- * core-api and agent-orchestration layers composed, and the MCP bridge
- * mounted as a pre-auth route.
+ * Start a real Hono HTTP server (port 0 → OS-assigned) with the core-api
+ * layer and the MCP bridge mounted as a pre-auth route.
  *
  * The spawned CLI harness subprocess makes real HTTP calls to the MCP
  * bridge — `app.fetch` in-process is not enough. This is the same pattern
  * `startLiveServer` uses in the harness-lane integration test.
- *
- * Construction cycle (§3.2): the AgentOrchestrationPort transport is
- * deferred — it must dial the FULL composed app (with the `/api` prefix),
- * which does not exist until both layers have booted and been mounted.
- * Seam tool calls only happen once the session is running, after the cycle
- * is closed, so the deferred binding is always resolved in time.
  *
  * Caller MUST set `process.env.HYPERIDLE_API_KEY` to `evalApiKey` before
  * calling this function so the auth middleware (which reads it at boot time)
@@ -133,24 +121,7 @@ interface EvalLiveServer {
 async function startEvalLiveServer(db: HyperIdleDb, eventBus: EventBus): Promise<EvalLiveServer> {
 	const mcpBridgeRegistry = createMcpToolBridge({ enforcement: createReturnEnforcement() });
 
-	// Deferred transport — the composed app does not exist yet.
-	let realAgentOrchestrationTransport: ((req: Request) => Promise<Response>) | undefined;
-	// biome-ignore lint/suspicious/useAwait: conditionally awaits the real transport; `async` required by the port type
-	const agentOrchestrationTransport = async (req: Request): Promise<Response> => {
-		if (!realAgentOrchestrationTransport) {
-			throw new Error("AgentOrchestrationTransport called before the composed app was built.");
-		}
-		return realAgentOrchestrationTransport(req);
-	};
-	const agentOrchestrationPort = buildAgentOrchestrationPort(agentOrchestrationTransport);
-
-	const agentOrchestrationBoot = await bootAgentOrchestration({ db, eventBus });
-	const coreApiBoot = await bootCoreApi({
-		db,
-		eventBus,
-		agentOrchestration: agentOrchestrationPort,
-		onHarnessRedetect: () => agentOrchestrationBoot.inheritedReach.refresh(),
-	});
+	const coreApiBoot = await bootCoreApi({ db, eventBus });
 
 	const composedApp = composeApiApplication({
 		middleware: coreApiBoot.middleware,
@@ -160,11 +131,8 @@ async function startEvalLiveServer(db: HyperIdleDb, eventBus: EventBus): Promise
 				api.route("/", mcpBridgeRegistry.router);
 			},
 		],
-		apps: [coreApiBoot.app, agentOrchestrationBoot.app],
+		apps: [coreApiBoot.app],
 	});
-
-	// Close the construction cycle.
-	realAgentOrchestrationTransport = createInProcessAgentOrchestrationTransport(composedApp);
 
 	// Start a real listening HTTP server (CLI subprocesses make real HTTP calls).
 	let resolvePort!: (port: number) => void;
@@ -181,8 +149,6 @@ async function startEvalLiveServer(db: HyperIdleDb, eventBus: EventBus): Promise
 			await new Promise<void>((resolve, reject) => {
 				httpServer.close((err) => (err ? reject(err) : resolve()));
 			});
-			agentOrchestrationBoot.dispose();
-			await agentOrchestrationBoot.joinLifecycleDrain();
 			for (const dispose of coreApiBoot.disposers) {
 				dispose();
 			}
@@ -241,6 +207,7 @@ const evalReturnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter = {
 
 export interface EvalProvisionDeps {
 	readonly db: HyperIdleDb;
+	readonly runnerDb: RunnerDb;
 	readonly eventBus: EventBus;
 }
 
@@ -358,7 +325,7 @@ export async function runEvalSession(
 		});
 		const result = await composition.runSession(
 			{
-				db: deps.db,
+				db: deps.runnerDb,
 				eventBus: deps.eventBus,
 				adapterPool: pool,
 			},

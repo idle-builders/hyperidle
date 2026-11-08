@@ -5,8 +5,8 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { FACILITATION_ID, MAYA_ID } from "../demo-world/ids.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
@@ -19,9 +19,10 @@ async function rows<T extends Record<string, unknown>>(db: HyperIdleDb, q: strin
 describe("the demo installs Team habits for everyone", () => {
 	test("one install, for everyone, enabled — and the bundled Roles plugin is not installed", async ({
 		db,
+		runnerDb,
 	}) => {
 		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
+		await seedDemoWorld(db, runnerDb);
 
 		const installs = await rows<{ id: string; scope_kind: string; state: string }>(
 			db,
@@ -32,9 +33,10 @@ describe("the demo installs Team habits for everyone", () => {
 
 	test("Facilitation is the plugin's agent, in no team, with two reasons to start", async ({
 		db,
+		runnerDb,
 	}) => {
 		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
+		await seedDemoWorld(db, runnerDb);
 
 		const agents = await rows<{ entity_id: string }>(
 			db,
@@ -57,9 +59,12 @@ describe("the demo installs Team habits for everyone", () => {
 		]);
 	});
 
-	test("Maya's edit of Facilitation's instructions detaches it from the plugin", async ({ db }) => {
+	test("Maya's edit of Facilitation's instructions detaches it from the plugin", async ({
+		db,
+		runnerDb,
+	}) => {
 		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
+		await seedDemoWorld(db, runnerDb);
 
 		const identity = await rows<{ updated_by: string; detached: boolean }>(
 			db,

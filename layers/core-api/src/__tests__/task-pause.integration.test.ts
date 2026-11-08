@@ -7,7 +7,6 @@
 import {
 	type HyperIdleDb,
 	messages,
-	sessions,
 	taskDispatchAttempts,
 	tasks,
 	teams,
@@ -107,14 +106,6 @@ async function seedTree(db: HyperIdleDb, asPerson?: (id: string) => Promise<void
 			updatedAt: now,
 		})),
 	);
-	await db.insert(sessions).values({
-		id: "pause-session",
-		taskId: WORKING,
-		agentId: AGENT,
-		modelTier: "workhorse",
-		startedAt: now,
-		state: "active",
-	});
 	await db.insert(messages).values({
 		id: "pause-question",
 		threadId: `thr-${ASKING}`,
@@ -131,43 +122,11 @@ async function pausedOf(db: HyperIdleDb): Promise<Record<string, string | null>>
 	return Object.fromEntries(rows.map((r) => [r.id, r.paused]));
 }
 
-async function sessionState(db: HyperIdleDb): Promise<string | null> {
-	const [row] = await db.select().from(sessions).where(eq(sessions.id, "pause-session"));
-	return row?.state ?? null;
-}
-
 async function attemptsOn(db: HyperIdleDb, ids: readonly string[]) {
 	return db.select().from(taskDispatchAttempts).where(inArray(taskDispatchAttempts.taskId, ids));
 }
 
 describe("stop and start again", () => {
-	test("stopping a task stops its running sessions and marks every part not done, without moving any state", async ({
-		db,
-		app,
-		asPerson,
-	}) => {
-		await seedTree(db, asPerson);
-		const before = await db.select().from(tasks).where(eq(tasks.teamId, TEAM));
-
-		expect((await edit(app, { id: ROOT, paused: "stopped" })).ok).toBe(true);
-
-		expect(await pausedOf(db)).toEqual({
-			[ROOT]: "stopped",
-			[DONE]: null,
-			[WORKING]: "stopped",
-			[READY]: "stopped",
-			[WAITING]: "stopped",
-			[ASKING]: "stopped",
-		});
-		// Session stop is async (inbox runner); the task_stop row is the synchronous proof.
-		const inboxRows = await listInboxRows(db, { userId: AGENT });
-		expect(inboxRows.some((r) => r.reason === "task_stop" && r.objectId === WORKING)).toBe(true);
-		const after = await db.select().from(tasks).where(eq(tasks.teamId, TEAM));
-		expect(Object.fromEntries(after.map((t) => [t.id, t.state]))).toEqual(
-			Object.fromEntries(before.map((t) => [t.id, t.state])),
-		);
-	});
-
 	test("nothing starts on a stopped task, even when what it waits for is done", async ({
 		db,
 		app,
@@ -205,78 +164,9 @@ describe("stop and start again", () => {
 		// WORKING restart + WAITING retry each create a task_run inbox row.
 		expect(inboxRows.filter((r) => r.reason === "task_run")).toHaveLength(2);
 	});
-
-	test("starting again also starts a part that was accepted but had not begun", async ({
-		db,
-		app,
-		asPerson,
-	}) => {
-		await seedTree(db, asPerson);
-		const now = new Date().toISOString();
-		await db.insert(threads).values({
-			id: "thr-pause-queued",
-			hostKind: "team",
-			hostId: TEAM,
-			initiatorId: AGENT,
-			participants: JSON.stringify([AGENT]),
-			lastActiveAt: now,
-			createdAt: now,
-		});
-		await db.insert(tasks).values({
-			id: "pause-queued",
-			parentTaskId: ROOT,
-			teamId: TEAM,
-			ownerAgentId: AGENT,
-			title: "pause-queued",
-			state: "accepted",
-			threadId: "thr-pause-queued",
-			position: 9,
-			createdAt: now,
-			updatedAt: now,
-		});
-		await edit(app, { id: ROOT, paused: "stopped" });
-
-		expect((await edit(app, { id: ROOT, paused: null })).ok).toBe(true);
-
-		const restarts = (await attemptsOn(db, ["pause-queued"])).map((a) => a.occasion);
-		expect(restarts).toEqual(["restart"]);
-	});
-
-	test("a task stopped twice starts again twice", async ({ db, app, asPerson }) => {
-		await seedTree(db, asPerson);
-		for (const _ of [1, 2]) {
-			await edit(app, { id: ROOT, paused: "stopped" });
-			await edit(app, { id: ROOT, paused: null });
-		}
-		const restarts = (await attemptsOn(db, [WORKING])).filter((a) => a.occasion === "restart");
-		expect(restarts).toHaveLength(2);
-	});
 });
 
 describe("hold", () => {
-	test("on hold, running sessions go on, new parts wait too, and taking it off hold starts nothing new", async ({
-		db,
-		app,
-		asPerson,
-	}) => {
-		await seedTree(db, asPerson);
-		expect((await edit(app, { id: ROOT, paused: "hold" })).ok).toBe(true);
-
-		expect(await sessionState(db)).toBe("active");
-		expect((await pausedOf(db))[WORKING]).toBe("hold");
-		const res = await app.request("/api/actions/edit_task", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ parentTaskId: ROOT, title: "A new part", ownerAgentId: AGENT }),
-		});
-		const made = (await res.json()) as { data?: { task: { paused: string | null } } };
-		expect(made.data?.task.paused).toBe("hold");
-
-		expect((await edit(app, { id: ROOT, paused: null })).ok).toBe(true);
-		expect((await pausedOf(db))[WORKING]).toBeNull();
-		expect(await attemptsOn(db, [WORKING])).toEqual([]);
-	});
-
 	test("a finished task cannot be put on hold or stopped", async ({ db, app, asPerson }) => {
 		await seedTree(db, asPerson);
 		const refused = await edit(app, { id: DONE, paused: "hold" });

@@ -7,7 +7,6 @@ const LOOPBACK = "127.0.0.1";
 
 export function startServer(): Promise<ServerHandle> {
 	return _createServer(0, {
-		topology: "local",
 		hostname: LOOPBACK,
 	});
 }

@@ -12,11 +12,9 @@
 
 import { randomUUID } from "node:crypto";
 import {
-	agentRunConfig,
 	documents,
 	type HyperIdleDb,
 	messages,
-	sessions,
 	subscriptions,
 	tasks,
 	teams,
@@ -25,6 +23,7 @@ import {
 	userTeams,
 } from "@hyperidle/db";
 import type { AgentCategory, ScopeKind, TaskState } from "@hyperidle/domain-model";
+import { agentRunConfig, type RunnerDb, sessions } from "@hyperidle/runner-db";
 import { evalHarnessModel, evalHarnessType } from "./eval-harness.js";
 import type { ScenarioSeedResult } from "./types.js";
 
@@ -91,6 +90,7 @@ export async function seedFounder(
  */
 export async function seedAgent(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	opts: {
 		agentId?: string;
 		name: string;
@@ -119,7 +119,7 @@ export async function seedAgent(
 	// `agent_run_config`. `tools/eval` writes it directly for now; increment
 	// D2b routes every `tools/eval/src` table access through the owning
 	// Services, this one included.
-	await db.insert(agentRunConfig).values({
+	await runnerDb.insert(agentRunConfig).values({
 		agentUserId: agentId,
 		// The run's harness and model, so the session the provisioner admits is
 		// the harness the run was asked to measure — `harnessType` picks the
@@ -316,6 +316,7 @@ export async function seedDocument(
  */
 export async function seedMinimalWorld(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	opts?: {
 		agentRole?: string;
 		agentSystemPrompt?: string;
@@ -337,7 +338,7 @@ export async function seedMinimalWorld(
 	// @lore BA9g: the role catalog is gone — a role is a string on an agent. An
 	// eval's agents are team agents.
 	const agentCategory: AgentCategory = "team";
-	const { agentId } = await seedAgent(db, {
+	const { agentId } = await seedAgent(db, runnerDb, {
 		name: "Eval Agent",
 		role: agentRole,
 		teamId,
@@ -479,7 +480,8 @@ export async function seedSubscription(
 
 /** Create an active session (for WIP-limit testing in delegation scenarios). */
 export async function seedActiveSession(
-	db: HyperIdleDb,
+	_db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	opts: {
 		sessionId?: string;
 		taskId: string;
@@ -489,7 +491,7 @@ export async function seedActiveSession(
 	const sessionId = opts.sessionId ?? randomUUID();
 	const now = new Date().toISOString();
 
-	await db.insert(sessions).values({
+	await runnerDb.insert(sessions).values({
 		id: sessionId,
 		taskId: opts.taskId,
 		agentId: opts.agentId,
@@ -508,6 +510,7 @@ export async function seedActiveSession(
  */
 export async function seedMultiAgentWorld(
 	db: HyperIdleDb,
+	runnerDb: RunnerDb,
 	opts?: {
 		agentRole?: string;
 		agentSystemPrompt?: string;
@@ -526,7 +529,7 @@ export async function seedMultiAgentWorld(
 		secondAgentId: string;
 	}
 > {
-	const base = await seedMinimalWorld(db, {
+	const base = await seedMinimalWorld(db, runnerDb, {
 		agentRole: opts?.agentRole,
 		agentSystemPrompt: opts?.agentSystemPrompt,
 		taskTitle: opts?.taskTitle,
@@ -537,7 +540,7 @@ export async function seedMultiAgentWorld(
 
 	const secondRole = opts?.secondAgentRole ?? "product_manager";
 	const secondAgentCategory: AgentCategory = "team";
-	const { agentId: secondAgentId } = await seedAgent(db, {
+	const { agentId: secondAgentId } = await seedAgent(db, runnerDb, {
 		name: opts?.secondAgentName ?? "Eval Agent 2",
 		role: secondRole,
 		teamId: base.teamId,

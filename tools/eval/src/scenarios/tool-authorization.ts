@@ -18,7 +18,8 @@
  * that were deleted with it (promote_knowledge/create_conflict_review).
  */
 
-import { documents, sessions } from "@hyperidle/db";
+import { documents } from "@hyperidle/db";
+import { sessions } from "@hyperidle/runner-db";
 import { eq } from "drizzle-orm";
 import { judgeLlmQuality, judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
@@ -44,7 +45,7 @@ const taStandardAgentBuilderSales: EvalScenario = {
 	feature: "tool_authorization",
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on a sales operations task.
 You have access to: edit_document, write_session_notes, search_threads, open_thread, send_message,
@@ -68,6 +69,7 @@ Use the tools available to you.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -113,7 +115,7 @@ const taTriageNoGatePmConsulting: EvalScenario = {
 	feature: "tool_authorization",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
+		const world = await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager reviewing proposed documents.
 Use edit_document to move a validated proposed document to "active" status.`,
@@ -143,6 +145,7 @@ After triaging the document, record your curation decision in session notes.`,
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -201,7 +204,7 @@ const taUnknownRoleFallback: EvalScenario = {
 	feature: "tool_authorization",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
+		return await seedMinimalWorld(ctx.db, ctx.runnerDb, {
 			// AB0: "custom_analyst" is not in the role catalog — tests fallback path.
 			// communityForRole returns "ops", findRoleCatalogEntry returns undefined.
 			// No identity given — the agent runs with none, like an agent nobody described.
@@ -225,6 +228,7 @@ Use the tools available to you. Complete the task without attempting facilitator
 		return await runEvalSession(
 			{
 				db: ctx.db,
+				runnerDb: ctx.runnerDb,
 				eventBus: ctx.eventBus,
 			},
 			{
@@ -242,7 +246,7 @@ Use the tools available to you. Complete the task without attempting facilitator
 				id: "no_errors",
 				label: "Session Completed Without Authorization Failures",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ outcome: sessions.outcome, state: sessions.state })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))
@@ -260,7 +264,7 @@ Use the tools available to you. Complete the task without attempting facilitator
 				id: "appropriate_tools_used",
 				label: "Agent Used Standard Tools Appropriately for Unknown Role",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [session] = await ctx.db
+					const [session] = await ctx.runnerDb
 						.select({ notes: sessions.notes })
 						.from(sessions)
 						.where(eq(sessions.id, ctx.triggerResult.sessionId))

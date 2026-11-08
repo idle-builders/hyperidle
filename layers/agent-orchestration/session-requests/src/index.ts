@@ -1,8 +1,10 @@
 export {
 	type BakedRunRequest,
 	type ClaimOptions,
+	cancelAllPendingForAgent,
 	cancelPendingForTasks,
 	claimSessionRequest,
+	countPendingRunsForAgent,
 	type FindQuery,
 	findSessionRequest,
 	listPendingByStream,

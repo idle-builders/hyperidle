@@ -32,9 +32,9 @@ Start talking (`POST /api/start`, `layers/core-api/src/routes/start.ts`) makes y
 
 ### Dev server runs no agents
 
-`npm run dev` boots the server with `topology: "disabled"` (`applications/remote-server/src/index.ts`) — the harness pool is empty, so no agent runs. To run agents in dev, use the desktop app: `npm run dev:desktop` (desktop shell + web dev server) or `npm run build:desktop:local`.
+`npm run dev` boots the server without a runner — no agents run. To run agents in dev, use the desktop app: `npm run dev:desktop` (desktop shell + web dev server) or `npm run build:desktop:local`.
 
-The desktop app uses `topology: "local"` (`applications/desktop/src/boot-server.ts`) and runs agents on the host.
+The desktop app forks `applications/runner/` as a separate process and runs agents on the host.
 
 ### Dev auth
 
@@ -62,7 +62,7 @@ No env setup is needed unless you set your own key.
 | Root | What lives there |
 |------|-----------------|
 | `layers/` | Shipping services: `core-ui` (React + Vite frontend, plain CSS with tokens), `core-api` (Hono API, per-domain services), `agent-orchestration` (sessions, connections, space-folders), `agent-execution` (harness registry, CLI/LLM adapters) |
-| `framework/` | One package per cross-cutting concern: `db`, `domain-model`, `api-contract`, `event-bus`, `diagnostics`, `harness-capability`, `harness-protocol` |
+| `framework/` | One package per cross-cutting concern: `db`, `runner-db`, `domain-model`, `event-bus`, `diagnostics`, `harness-capability`, `harness-protocol` |
 | `applications/` | Entry points: `desktop` (Electron), `remote-server` (standalone Hono), `website` |
 | `tools/` | Build-time tools: `eslint-plugin-authz`, `eslint-plugin-design`, `eval`, `governance`, `repo-gates`, `setup`, `trace` |
 

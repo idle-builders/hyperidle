@@ -5,12 +5,16 @@
  * must go via stdin, not via a new resume intent.
  */
 
-import { sessions, users } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { users } from "@hyperidle/db";
+import { sessions } from "@hyperidle/runner-db";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { recordReviewSession, recordReviewVerdict } from "../review-sessions.js";
 
 describe("recordReviewVerdict — live-session delivery", () => {
-	test("delivers verdict to live session instead of queuing a resume intent", async ({ db }) => {
+	test("delivers verdict to live session instead of queuing a resume intent", async ({
+		db,
+		runnerDb,
+	}) => {
 		await db.insert(users).values({
 			id: "agent-1",
 			kind: "ai",
@@ -20,7 +24,7 @@ describe("recordReviewVerdict — live-session delivery", () => {
 			createdAt: new Date().toISOString(),
 		});
 		// Seed a real session row with a harnessSessionId (so the queue path would normally work too)
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "sess-live",
 			agentId: "agent-1",
 			state: "active" as const,
@@ -32,7 +36,7 @@ describe("recordReviewVerdict — live-session delivery", () => {
 
 		// Link a review message to the session
 		await recordReviewSession(
-			db,
+			runnerDb,
 			{ reviewMessageId: "review-msg-1", sessionId: "sess-live" },
 			new Date().toISOString(),
 		);
@@ -41,7 +45,7 @@ describe("recordReviewVerdict — live-session delivery", () => {
 		let deliverCallCount = 0;
 
 		const outcome = await recordReviewVerdict(
-			db,
+			runnerDb,
 			{
 				reviewMessageId: "review-msg-1",
 				decision: "approve" as const,
@@ -63,7 +67,10 @@ describe("recordReviewVerdict — live-session delivery", () => {
 		expect(deliverCallCount).toBe(1);
 	});
 
-	test("falls through to enqueue when tryDeliverToLive returns not_found", async ({ db }) => {
+	test("falls through to enqueue when tryDeliverToLive returns not_found", async ({
+		db,
+		runnerDb,
+	}) => {
 		await db.insert(users).values({
 			id: "agent-2",
 			kind: "ai",
@@ -72,7 +79,7 @@ describe("recordReviewVerdict — live-session delivery", () => {
 			status: "active",
 			createdAt: new Date().toISOString(),
 		});
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "sess-live-2",
 			agentId: "agent-2",
 			state: "active" as const,
@@ -83,7 +90,7 @@ describe("recordReviewVerdict — live-session delivery", () => {
 		});
 
 		await recordReviewSession(
-			db,
+			runnerDb,
 			{ reviewMessageId: "review-msg-2", sessionId: "sess-live-2" },
 			new Date().toISOString(),
 		);
@@ -91,7 +98,7 @@ describe("recordReviewVerdict — live-session delivery", () => {
 		let enqueueCallCount = 0;
 
 		const outcome = await recordReviewVerdict(
-			db,
+			runnerDb,
 			{
 				reviewMessageId: "review-msg-2",
 				decision: "approve" as const,
@@ -109,7 +116,10 @@ describe("recordReviewVerdict — live-session delivery", () => {
 		expect(enqueueCallCount).toBe(1);
 	});
 
-	test("returns not_resumable when no harnessSessionId and no live deliver", async ({ db }) => {
+	test("returns not_resumable when no harnessSessionId and no live deliver", async ({
+		db,
+		runnerDb,
+	}) => {
 		await db.insert(users).values({
 			id: "agent-3",
 			kind: "ai",
@@ -118,7 +128,7 @@ describe("recordReviewVerdict — live-session delivery", () => {
 			status: "active",
 			createdAt: new Date().toISOString(),
 		});
-		await db.insert(sessions).values({
+		await runnerDb.insert(sessions).values({
 			id: "sess-no-harness",
 			agentId: "agent-3",
 			state: "active" as const,
@@ -128,13 +138,13 @@ describe("recordReviewVerdict — live-session delivery", () => {
 		});
 
 		await recordReviewSession(
-			db,
+			runnerDb,
 			{ reviewMessageId: "review-msg-3", sessionId: "sess-no-harness" },
 			new Date().toISOString(),
 		);
 
 		const outcome = await recordReviewVerdict(
-			db,
+			runnerDb,
 			{
 				reviewMessageId: "review-msg-3",
 				decision: "approve" as const,

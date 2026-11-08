@@ -14,9 +14,10 @@
  * in the DB makes test (a) fail.
  */
 
-import { type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
-import { test } from "@hyperidle/db/test-fixtures";
+import { type HyperIdleDb, users } from "@hyperidle/db";
+import { serviceConnections } from "@hyperidle/runner-db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../__testing__/test-fixtures.js";
 import { resolveHeldToken } from "../service-connection-resolver.js";
 import { decryptCredentialValue, encryptCredentialValue } from "../token-cipher.js";
 
@@ -67,6 +68,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 
 	test("(a) resolve(userA, tokenRowId) returns the exact original plaintext secret", async ({
 		db,
+		runnerDb,
 	}) => {
 		await seedUsers(db);
 
@@ -75,7 +77,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		const encrypted = encryptCredentialValue(PLAINTEXT);
 		const rowId = "sc-resolver-test-a-token";
 
-		await db.insert(serviceConnections).values({
+		await runnerDb.insert(serviceConnections).values({
 			id: rowId,
 			userId: USER_A_ID,
 			service: "Stripe",
@@ -88,7 +90,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			updatedAt: NOW,
 		});
 
-		const result = await resolveHeldToken(db, USER_A_ID, rowId, decryptCredentialValue);
+		const result = await resolveHeldToken(runnerDb, USER_A_ID, rowId, decryptCredentialValue);
 
 		// Must return the EXACT plaintext — not null, not a different string.
 		expect(result).toBe(PLAINTEXT);
@@ -101,7 +103,10 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 
 	// ─── (b) cross-user lookup → null, never leaks existence ────────────────
 
-	test("(b) resolve(userB, tokenRowId) returns null — cross-user isolation", async ({ db }) => {
+	test("(b) resolve(userB, tokenRowId) returns null — cross-user isolation", async ({
+		db,
+		runnerDb,
+	}) => {
 		await seedUsers(db);
 
 		const PLAINTEXT = "sk-stripe-user-a-secret-xyz";
@@ -110,7 +115,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		const rowId = "sc-resolver-test-b-isolation";
 
 		// Insert the row belonging to USER_A
-		await db.insert(serviceConnections).values({
+		await runnerDb.insert(serviceConnections).values({
 			id: rowId,
 			userId: USER_A_ID,
 			service: "Stripe",
@@ -124,7 +129,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		});
 
 		// USER_B must NOT get USER_A's plaintext — cross-user → null
-		const result = await resolveHeldToken(db, USER_B_ID, rowId, decryptCredentialValue);
+		const result = await resolveHeldToken(runnerDb, USER_B_ID, rowId, decryptCredentialValue);
 		expect(result).toBeNull();
 
 		// Sanity-break property: the production WHERE clause is
@@ -136,12 +141,15 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 
 	// ─── (c) mcp row (no encryptedToken) → null ──────────────────────────────
 
-	test("(c) resolve(userA, mcpRowId) returns null — mcp has no stored token", async ({ db }) => {
+	test("(c) resolve(userA, mcpRowId) returns null — mcp has no stored token", async ({
+		db,
+		runnerDb,
+	}) => {
 		await seedUsers(db);
 
 		const mcpRowId = "sc-resolver-test-c-mcp";
 
-		await db.insert(serviceConnections).values({
+		await runnerDb.insert(serviceConnections).values({
 			id: mcpRowId,
 			userId: USER_A_ID,
 			service: "figma.com",
@@ -154,7 +162,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			updatedAt: NOW,
 		});
 
-		const result = await resolveHeldToken(db, USER_A_ID, mcpRowId, decryptCredentialValue);
+		const result = await resolveHeldToken(runnerDb, USER_A_ID, mcpRowId, decryptCredentialValue);
 
 		// mcp rows have no secret → resolver must return null
 		expect(result).toBeNull();
@@ -162,11 +170,11 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 
 	// ─── (d) absent id → null ────────────────────────────────────────────────
 
-	test("(d) resolve(userA, absentId) returns null — non-existent row", async ({ db }) => {
+	test("(d) resolve(userA, absentId) returns null — non-existent row", async ({ db, runnerDb }) => {
 		await seedUsers(db);
 
 		const result = await resolveHeldToken(
-			db,
+			runnerDb,
 			USER_A_ID,
 			"sc-does-not-exist-at-all",
 			decryptCredentialValue,
@@ -177,13 +185,13 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 
 	// ─── (e) tampered / garbage encryptedToken → null, never throws ──────────
 
-	test("(e) tampered encryptedToken returns null and never throws", async ({ db }) => {
+	test("(e) tampered encryptedToken returns null and never throws", async ({ db, runnerDb }) => {
 		await seedUsers(db);
 
 		const rowId = "sc-resolver-test-e-tampered";
 
 		// Insert a row with a garbage encrypted value (not valid AES-GCM base64)
-		await db.insert(serviceConnections).values({
+		await runnerDb.insert(serviceConnections).values({
 			id: rowId,
 			userId: USER_A_ID,
 			service: "Stripe",
@@ -200,7 +208,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		let threw = false;
 		let result: string | null = "sentinel";
 		try {
-			result = await resolveHeldToken(db, USER_A_ID, rowId, decryptCredentialValue);
+			result = await resolveHeldToken(runnerDb, USER_A_ID, rowId, decryptCredentialValue);
 		} catch {
 			threw = true;
 		}
@@ -213,7 +221,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 	//
 	// @lore: the cipher reads HYPERIDLE_CREDENTIAL_KEY from env directly, not a `serverSecret` parameter.
 
-	test("resolve returns null when no HYPERIDLE_CREDENTIAL_KEY in env", async ({ db }) => {
+	test("resolve returns null when no HYPERIDLE_CREDENTIAL_KEY in env", async ({ db, runnerDb }) => {
 		await seedUsers(db);
 
 		// Store an encrypted row (encrypted with SERVER_SECRET from beforeEach)
@@ -221,7 +229,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		const encrypted = encryptCredentialValue(PLAINTEXT);
 		const rowId = "sc-resolver-test-missing-secret";
 
-		await db.insert(serviceConnections).values({
+		await runnerDb.insert(serviceConnections).values({
 			id: `${USER_A_ID}-conn-missing`,
 			userId: USER_A_ID,
 			service: "Stripe",
@@ -239,7 +247,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		delete process.env.HYPERIDLE_CREDENTIAL_KEY;
 		delete process.env.HYPERIDLE_API_KEY;
 
-		const result = await resolveHeldToken(db, USER_A_ID, rowId, decryptCredentialValue);
+		const result = await resolveHeldToken(runnerDb, USER_A_ID, rowId, decryptCredentialValue);
 		expect(result).toBeNull();
 	});
 });

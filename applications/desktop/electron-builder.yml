@@ -45,6 +45,11 @@ files:
 # Resources outside the asar, accessible via process.resourcesPath at runtime.
 # resolveMigrationsFolder() uses process.resourcesPath + "/drizzle" in packaged mode.
 extraResources:
+  - from: "../../framework/runner-db/drizzle"
+    to: "runner-drizzle"
+    filter:
+      - "**/*.sql"
+      - "meta/**/*"
   - from: "../../framework/db/drizzle"
     to: "drizzle"
     filter:

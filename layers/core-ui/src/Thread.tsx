@@ -1,5 +1,4 @@
 import {
-	type ActivityEntry,
 	type DocumentRow,
 	type HuddlePayload,
 	isRedactedPayload,
@@ -7,21 +6,13 @@ import {
 	type PlainReadPayload,
 	type QuestionnairePayload,
 	type ReviewPayload,
-	type SessionRow,
 	SYSTEM_ACTOR_ID,
 	SYSTEM_ACTOR_NAME,
 	type Task,
 	type VerdictPayload,
 } from "@hyperidle/domain-model";
-import {
-	Fragment,
-	useEffect,
-	useLayoutEffect,
-	useRef,
-	useState,
-	useSyncExternalStore,
-} from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useNavigate } from "react-router";
 import { AppCard, MadeCard } from "./Apps";
 import { call, type InputOf } from "./api";
 import { APP_SANDBOX, isInlinePage } from "./app-frame";
@@ -43,15 +34,7 @@ import { Avatar, Event, Msg } from "./Msg";
 import { useSealedPage } from "./ReviewPart";
 import { RichText } from "./RichText";
 import { initials } from "./sidebar-lists";
-import {
-	clock,
-	duration,
-	huddleLabel,
-	stepFrom,
-	timeline,
-	titleFrom,
-	workState,
-} from "./thread-timeline";
+import { clock, huddleLabel, timeline, titleFrom, workState } from "./thread-timeline";
 import { useAction } from "./useAction";
 
 /**
@@ -68,32 +51,6 @@ export type People = ReadonlyMap<string, Person>;
 const NO_MESSAGES: readonly Message[] = [];
 const NO_DOCS: readonly DocumentRow[] = [];
 
-/** Sessions of the tasks shown, asked again when a task says one started or ended. */
-function useTaskSessions(taskIds: readonly string[]): readonly SessionRow[] {
-	const [rows, setRows] = useState<readonly SessionRow[]>([]);
-	const [turn, setTurn] = useState(0);
-	const key = taskIds.join(" ");
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for `taskIds`; `turn` asks again
-	useEffect(() => {
-		let current = true;
-		const ids = key ? key.split(" ") : [];
-		void Promise.all(ids.map((taskId) => call("search_sessions", { taskId }))).then((all) => {
-			if (current) setRows(all.flatMap((r) => (r.ok ? r.data : [])));
-		});
-		return () => {
-			current = false;
-		};
-	}, [key, turn]);
-	useEffect(() => {
-		if (!key) return;
-		return listen(
-			key.split(" ").map((id) => `task:${id}`),
-			() => setTurn((t) => t + 1),
-		);
-	}, [key]);
-	return rows;
-}
-
 /** Re-render every half minute, so "12m" keeps up. */
 export function useNow(): number {
 	const [now, setNow] = useState(Date.now());
@@ -102,72 +59,6 @@ export function useNow(): number {
 		return () => clearInterval(timer);
 	}, []);
 	return now;
-}
-
-export function stepWords(entry: ActivityEntry): string | null {
-	if (entry.type !== "tool_call") return null;
-	const d = entry.data;
-	return d.verb ? `${d.verb} ${d.target ?? ""}`.trim() : stepFrom(d.toolName, d.argsSummary ?? "");
-}
-
-/** One line while the agent waits its turn — it has a request queued but another run is blocking it. */
-function WaitingLine({
-	agentName,
-	activeSession,
-	navigate,
-}: {
-	agentName: string;
-	activeSession: SessionRow | null;
-	navigate: (to: string) => void;
-}) {
-	const where = activeSession?.taskId
-		? `/work/${activeSession.taskId}`
-		: activeSession?.threadId
-			? `/conversations/${activeSession.threadId}`
-			: null;
-	return (
-		<div className="running">
-			<span className="dot dot--wait" />
-			<span className="running-txt">{agentName} will start on this after its current work</span>
-			{where && (
-				<button type="button" className="peek" onClick={() => navigate(where)}>
-					See current work
-				</button>
-			)}
-		</div>
-	);
-}
-
-/** One line while an agent works on the task; its steps show in place only when asked for. */
-function SessionLine({ session, agent }: { session: SessionRow; agent: string }) {
-	const [peek, setPeek] = useState(false);
-	const now = useNow();
-	const watch = useAction("watch_session", { id: session.id }, [`session:${session.id}`]);
-	const steps = (watch.data?.activity ?? []).flatMap((e) => stepWords(e) ?? []);
-	return (
-		<div>
-			<div className="running">
-				<span className="dot dot--live" />
-				<span className="running-txt">
-					{agent} is working · {duration(now - Date.parse(session.startedAt))} · {steps.length}{" "}
-					{steps.length === 1 ? "step" : "steps"}
-				</span>
-				<button type="button" className="peek" onClick={() => setPeek(!peek)}>
-					{peek ? "Hide session" : "Peek at session"}
-				</button>
-			</div>
-			{peek && (
-				<ul className="session" aria-label={`${agent}'s steps`}>
-					{steps.length === 0 ? (
-						<li>· no steps yet</li>
-					) : (
-						// biome-ignore lint/suspicious/noArrayIndexKey: steps repeat and only ever append
-						steps.map((s, i) => <li key={i}>· {s}</li>)
-					)}
-				</ul>
-			)}
-		</div>
-	);
 }
 
 /** The agent's work, as a reference: it carries its state in place and opens the task. */
@@ -441,36 +332,22 @@ export function ThreadPage({ id }: { id: string }) {
 		() => (taskTopics ? listen(taskTopics.split(" "), reloadTasks) : undefined),
 		[taskTopics, reloadTasks],
 	);
-	const sessions = useTaskSessions(tasks.map((t) => t.id));
-	// Parts share their task's conversation; an agent working on one is working here too.
-	const parts = (inThread.data ?? []).filter((t) => !tasks.includes(t));
-	const partSessions = useTaskSessions(parts.map((t) => t.id));
-	// An agent answering a message here, rather than working on one of the thread's tasks.
-	const active = useAction("search_sessions", { state: "active" }, [`thread:${id}`]);
-	const answering = (active.data ?? []).filter((s) => s.threadId === id && s.taskId === null);
 	const madeHere = useAction("search_documents", { parent: { kind: "thread", id } }, [
 		`thread:${id}`,
 		"documents",
 	]);
-	// Agents with a queued request for this thread that has not started running yet.
-	const waiting = useAction("list_waiting_requests", { threadId: id }, [`thread:${id}`]);
 	const [problem, setProblem] = useState<string | null>(null);
 	const scroll = useRef<HTMLDivElement>(null);
-	// The first conversation after first start offers what an agent can use next.
-	const [search, setSearch] = useSearchParams();
-	const navigate = useNavigate();
-	const first = search.has("first");
 
 	const you = me.data?.user?.id ?? "";
 	const people = peopleOf(users.data ?? []);
 	const firstName = (uid: string) =>
 		uid === you ? "You" : (people.get(uid)?.name.split(" ")[0] ?? "Someone");
-	const agent = view.data?.members.find((m) => m.isAgent);
 	const messages = [...(view.data?.messages ?? NO_MESSAGES)]
 		.filter((m) => m.deletedAt === null)
 		.reverse();
 	const resolving = resolvingOf(messages);
-	const entries = timeline(messages, tasks, sessions, firstName, madeHere.data ?? NO_DOCS);
+	const entries = timeline(messages, tasks, firstName, madeHere.data ?? NO_DOCS);
 	const [openHuddleKeys, setOpenHuddleKeys] = useState<ReadonlySet<string>>(new Set());
 	const [callProblem, setCallProblem] = useState<string | null>(null);
 
@@ -560,16 +437,8 @@ export function ThreadPage({ id }: { id: string }) {
 
 	const toggleMute = (): void => muteHuddleCall(!muted);
 
-	const running = [
-		...[...sessions, ...partSessions].filter((s) => s.endedAt === null && s.state === "active"),
-		...answering,
-	];
-	// A queued request whose agent is busy with other work; one with nothing blocking it is about to start.
-	const waitingOn =
-		answering.length === 0 ? (waiting.data ?? []).find((w) => w.activeSession) : undefined;
-
 	// A thread opens at its newest message, and follows new ones in.
-	const filled = entries.length + people.size + running.length;
+	const filled = entries.length + people.size;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `filled` changes whenever more of the thread arrives
 	useLayoutEffect(() => {
 		const el = scroll.current;
@@ -581,9 +450,6 @@ export function ThreadPage({ id }: { id: string }) {
 		setProblem(sent.ok ? null : (sent.problems[0]?.message ?? "It did not send."));
 		if (sent.ok) {
 			view.reload();
-			// @lore: active reload on send — WS push travels separately from the HTTP response; explicit reload guards the running-session line if the push races or drops
-			active.reload();
-			waiting.reload();
 		}
 		return sent.ok;
 	};
@@ -600,32 +466,6 @@ export function ThreadPage({ id }: { id: string }) {
 			</section>
 		);
 
-	// The offer sits under the first agent's hello, however much is said after it.
-	const helloKey = entries.find((e) => e.kind === "said" && e.senderId === agent?.id)?.key;
-	const hint = first && agent && (
-		<div className="hint">
-			<span>Point {agent.name} at your code, and it can do more</span>
-			<span className="hint-acts">
-				<button
-					type="button"
-					className="btn"
-					onClick={() => navigate(`/people/${agent.id}?open=folder`)}
-				>
-					Connect a folder
-				</button>
-				<button type="button" className="btn" onClick={() => navigate("/people/me?open=service")}>
-					Connect GitHub
-				</button>
-				<button
-					type="button"
-					className="hint-skip"
-					onClick={() => setSearch({}, { replace: true })}
-				>
-					Not now
-				</button>
-			</span>
-		</div>
-	);
 	return (
 		<section className="thread">
 			<header className="thread-head">
@@ -763,25 +603,8 @@ export function ThreadPage({ id }: { id: string }) {
 							))}
 						</Msg>
 					);
-					return e.key === helloKey && hint ? (
-						<Fragment key={e.key}>
-							{msg}
-							{hint}
-						</Fragment>
-					) : (
-						msg
-					);
+					return msg;
 				})}
-				{waitingOn && (
-					<WaitingLine
-						agentName={firstName(waitingOn.agentId)}
-						activeSession={waitingOn.activeSession}
-						navigate={navigate}
-					/>
-				)}
-				{running.map((s) => (
-					<SessionLine key={s.id} session={s} agent={firstName(s.agentId)} />
-				))}
 			</div>
 
 			{problem && <p className="composer-problem">{problem}</p>}

@@ -18,7 +18,11 @@ import {
 } from "../lib/crossing-detectors.js";
 import { groupKey, targetLabel } from "../lib/crossing-keys.js";
 import { buildPackageLocator, type DetectedCrossing } from "../lib/crossings.js";
-import { buildDbSurfaceIndex, type DatabasePackageConfig } from "../lib/db-surfaces.js";
+import {
+	buildDbSurfaceIndex,
+	buildMergedDbSurfaceIndex,
+	type DatabasePackageConfig,
+} from "../lib/db-surfaces.js";
 import type { Actor, Architecture, Kind } from "../lib/governance-model.js";
 import { buildCensus } from "../lib/repo-census.js";
 import { crossingRules } from "../rules/crossings.js";
@@ -455,6 +459,82 @@ describe("database surfaces", () => {
 	it("refuses to build an index over a schema with no tables", () => {
 		expect(() => buildDbSurfaceIndex(config, () => "export const nothing = 1;")).toThrow(
 			/declared no pgTable/,
+		);
+	});
+});
+
+describe("merged database surface index (runner-db alongside db)", () => {
+	/** Two synthetic packages: core db with bets, runner-db with runs. */
+	const dbConfig: DatabasePackageConfig = {
+		packageName: "db",
+		sourceRoot: "framework/db/src",
+		barrel: "framework/db/src/index.ts",
+		schemaModule: "framework/db/src/schema.ts",
+		moduleSurface: { "connection.ts": "db:client" },
+	};
+	const runnerConfig: DatabasePackageConfig = {
+		packageName: "runner-db",
+		sourceRoot: "framework/runner-db/src",
+		barrel: "framework/runner-db/src/index.ts",
+		schemaModule: "framework/runner-db/src/schema.ts",
+		moduleSurface: { "connection.ts": "db:client" },
+	};
+	const sources: Record<string, string> = {
+		"framework/db/src/schema.ts": `
+			export const bets = pgTable("bets", {});
+			export type Bet = typeof bets.$inferSelect;
+		`,
+		"framework/db/src/index.ts": `
+			export { bets, Bet } from "./schema.js";
+			export { createPgliteDb } from "./connection.js";
+		`,
+		"framework/runner-db/src/schema.ts": `
+			export const runs = pgTable("runs", {});
+			export type Run = typeof runs.$inferSelect;
+		`,
+		"framework/runner-db/src/index.ts": `
+			export { runs, Run } from "./schema.js";
+			export { createRunnerDb } from "./connection.js";
+		`,
+	};
+	const merged = buildMergedDbSurfaceIndex([dbConfig, runnerConfig], (p) => sources[p] ?? "");
+
+	it("tables from both packages are present in the merged set", () => {
+		expect(merged.tables.has("bets")).toBe(true);
+		expect(merged.tables.has("runs")).toBe(true);
+	});
+
+	it("routes runner-db barrel symbols to the correct surface", () => {
+		expect(merged.resolve("framework/runner-db/src/index.ts", "runs", false)).toMatchObject({
+			surface: "db:table",
+			table: "runs",
+		});
+		expect(merged.resolve("framework/runner-db/src/index.ts", "Run", false).surface).toBe(
+			"db:row-type",
+		);
+		expect(
+			merged.resolve("framework/runner-db/src/index.ts", "createRunnerDb", false).surface,
+		).toBe("db:client");
+	});
+
+	it("routes db barrel symbols without confusion from runner-db", () => {
+		expect(merged.resolve("framework/db/src/index.ts", "bets", false)).toMatchObject({
+			surface: "db:table",
+			table: "bets",
+		});
+		expect(merged.resolve("framework/db/src/index.ts", "Bet", false).surface).toBe("db:row-type");
+	});
+
+	it("routes a file inside runner-db's sourceRoot by prefix match", () => {
+		expect(merged.resolve("framework/runner-db/src/schema.ts", "runs", false)).toMatchObject({
+			surface: "db:table",
+			table: "runs",
+		});
+	});
+
+	it("classifies a file outside both packages as unknown", () => {
+		expect(merged.resolve("layers/core-api/src/something.ts", "runs", false).surface).toBe(
+			"db:unknown",
 		);
 	});
 });

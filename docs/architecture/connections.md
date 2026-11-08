@@ -41,7 +41,7 @@ edit_user({ id: me, connections: { remove: [id] } }) → removes a held connecti
 
 ## Storage
 
-`service_connections` in `framework/db/src/schema.ts` — one row per (userId, service, authSource), enforced by a unique index. `inherited` is never a DB row; the column accepts only `token | mcp`. The token column is AES-GCM ciphertext, present only for `token` rows; `mcp` rows store a server URL only.
+`service_connections` in `framework/runner-db/src/schema.ts` — one row per (userId, service, authSource), enforced by a unique index. `inherited` is never a DB row; the column accepts only `token | mcp`. The token column is AES-GCM ciphertext, present only for `token` rows; `mcp` rows store a server URL only.
 
 ## Resolver
 

@@ -1,6 +1,6 @@
 # Architecture overview
 
-HyperIdle is one Node.js process with four layers and two shipped applications.
+HyperIdle runs as two Node.js processes — the server and the runner — built from four layers and two shipped applications.
 
 ## Applications
 
@@ -28,7 +28,7 @@ core-ui           — React + Vite front end, plain CSS
 
 **`core-ui`** is the browser client: plain React and plain CSS with tokens. It reads and writes through one client, `call(action, input)` in `layers/core-ui/src/api.ts`, and one hook, `useAction` (`layers/core-ui/src/useAction.ts`), which asks again when a WebSocket topic it listens on changes. The only other requests are the WebSocket token, cross-object search and first start (below). How the screens look is in [interface/ui-design.md](../interface/ui-design.md).
 
-## The 18 actions
+## The 15 actions
 
 Every capability is declared once as an `ActionDeclaration` in `framework/domain-model/src/actions/`:
 
@@ -38,18 +38,17 @@ Every capability is declared once as an `ActionDeclaration` in `framework/domain
 | `thread.ts` | `search_threads` · `open_thread` · `send_message` · `adjust_thread` |
 | `document.ts` | `search_documents` · `open_document` · `edit_document` |
 | `user.ts` | `search_users` · `open_user` · `edit_user` |
-| `session.ts` | `search_sessions` · `watch_session` · `stop_session` |
 | `platform.ts` | `search_plugins` · `edit_plugin` |
 
 Each declaration carries a name, a sentence description, a Zod input schema, a set of pure invariant functions, and a `run` handler. The same list is projected three ways without duplication:
 
 - **HTTP routes** — `createActionsRouter` (`layers/core-api/src/actions/actions-router.ts`) mounts `POST /api/actions/<name>` for every action.
-- **MCP tools** — `actionToolsThroughDoor` (`layers/agent-orchestration/src/runner/action-tools.ts`) makes each of core's actions an agent's tool. A tool calls `POST /api/actions/<name>` with the agent's own key and names its run in the `X-HyperIdle-Run` header. The three session actions belong to agent-orchestration and are registered in-process (`layers/agent-orchestration/src/actions/actions-as-tools.ts`).
+- **MCP tools** — `actionToolsThroughDoor` (`layers/agent-orchestration/src/runner/action-tools.ts`) makes each of core's actions an agent's tool. A tool calls `POST /api/actions/<name>` with the agent's own key and names its run in the `X-HyperIdle-Run` header.
 - **UI client** — `call` in `layers/core-ui/src/api.ts` posts to `POST /api/actions/<name>`; its types come from the same declarations.
 
 One governance lint rule verifies that every declared action is projected onto all three surfaces.
 
-Alongside the 18 actions, agents have one extra tool: `return_status` (`layers/agent-execution/harness-registry/src/return-status-tool.ts`), which lets an agent ask whether it has satisfied the return gate.
+Alongside the 15 actions, agents have one extra tool: `return_status` (`layers/agent-execution/harness-registry/src/return-status-tool.ts`), which lets an agent ask whether it has satisfied the return gate.
 
 ## Plumbing routes
 
@@ -58,9 +57,9 @@ The routes that fall outside the action loop remain as explicit Hono route files
 - **Auth** — `POST /api/auth/ws-token` (one-time token for the browser's socket at `/api/ws`)
 - **Health** — `GET /api/health` (no key), `GET /api/health/auth` (with the key)
 - **Cross-object search** — `GET /api/search` (hand-written; queries task, thread, document, user in one response)
-- **First start** — `POST /api/start/look` (look for the agent programs on this computer again), `POST /api/start` (make the first person, team, agent and conversation)
-- **MCP bridge** — `POST /api/mcp/:token` (stateful MCP bridge), `POST /api/mcp/:token/return-status` (return-gate adjudication)
-- **Agent-orchestration intake** — `/api/agent-orchestration/*` routes: run config, space-folders, connections
+- **First start** — `POST /api/start` (make the first person, team, agent and conversation)
+
+The MCP bridge (`POST /api/mcp/:token`, `POST /api/mcp/:token/return-status`) is served by the runner process, not the core server — `agent-execution` mounts it on the runner's own HTTP port.
 
 ## Events
 
@@ -111,10 +110,10 @@ Each row has a reason (`INBOX_REASONS`, `framework/domain-model/src/actions/user
 
 ### The runner
 
-The **runner** (`layers/agent-orchestration/src/runner/`) holds the agents' keys and works their inboxes. It runs inside the desktop app only (`applications/desktop/src/create-server.ts`). A shared server runs no runner, so its agents' rows wait there unread.
+The **runner** (`applications/runner/`) holds the agents' keys and works their inboxes. The desktop app forks it as a separate process (`applications/desktop/src/main.ts`) and points it at the server it is using — local or shared. The server process itself never starts a runner.
 
 - **Keys.** At start it calls as the person on this computer, with their own key, and lists the agents that person may hold: their own, and any agent no one owns. For each it asks for a fresh key (`edit_user({ id, key: "new" })`). It looks again whenever a user is created or changed.
-- **Reading the inbox.** For each agent it reads the unread rows oldest first (`open_user({ unread: true })`), acts on each as that agent, and marks it read (`edit_user({ inbox: { read: [id] } })`). It does this once at start (whatever waited while it was off), on every nudge, and every 30 seconds. A row whose task or thread is gone, or no longer the agent's, is marked read with nothing done; a failed pass leaves the rows unread for the next one.
+- **Reading the inbox.** For each agent it reads the unread rows (task_stop rows first, then oldest) via `open_user({ unread: true })`, acts on each as that agent, and marks it read (`edit_user({ inbox: { read: [id] } })`). It does this once at start (whatever waited while it was off), on every nudge, and every 30 seconds. A row whose task or thread is gone, or no longer the agent's, is marked read with nothing done; a failed pass leaves the rows unread for the next one.
 - **Building the run.** Everything it reads — the thread, the task and its parents, the subscription and its prompt, the agent's identity document, and the ranked documents (`search_documents({ forSession: { about } })`) — comes through the normal action door, `POST /api/actions/<name>`, with the agent's key. From that it builds the run and puts it in its own queue of session requests (`queueRun`, `session-requests`).
 
 What each reason does (`inbox-work.ts`):
@@ -127,22 +126,20 @@ What each reason does (`inbox-work.ts`):
 
 **The agent's tools** for core's actions call the same door, with the agent's key and an `X-HyperIdle-Run` header naming its session, task and thread (`action-tools.ts`). That run becomes the action's `caller`; the actions check the task or thread, never the run ([Security](./security.md#trust-mode)). When an agent files a review or a question, the runner records which session filed it (`review_sessions`), so the answer can bring that session back.
 
-**A run that never starts.** The run side emits `agent_run_admission_failed`. Core then posts "<agent> could not start …" into the thread the turn came from (only if a person is in it), or fails the task's dispatch attempt (`layers/core-api/src/services/agent-run-admission-reactions.ts`).
+**A run that never starts.** The run side emits `agent_run_admission_failed`. The runner reacts: for a thread turn it posts "<agent> could not start …" into the thread (only if a person is in it); for a task run it logs the refusal.
 
 ## Core and orchestration
 
-`core-api` never calls agent-orchestration to start work; work reaches the runner only through inboxes.
+`core-api` never calls agent-orchestration to start work; work reaches the runner only through inboxes. Run configuration (`agent_run_config`), space-folders, and connections live in the runner's own database (`framework/runner-db`) — the server never reads them.
 
-**Calling orchestration** — when a core-api handler must read or change something agent-orchestration owns (run config, space-folders, connections), it goes through `AgentOrchestrationPort` (`layers/core-api/src/services/agent-orchestration-port-composition.ts`), an in-process HTTP client (`hc<AppType>`) built over the `/api/agent-orchestration/*` plumbing routes.
-
-**Signalling back** — agent-orchestration emits bus events (`session_started`, `session_ended`, `propagation_applied`, etc.) that core-api subscribers react to. Session lifecycle changes reach task state through these reactions, not through a direct database write.
+**Signalling back** — the runner changes task state via the action door (`edit_task`), the same path any other caller uses. Core-api's own bus carries object events only; `session_started` and `session_ended` are runner-process events on the runner's bus and are not visible to the server.
 
 ## Session path
 
 1. The runner queues a run request for an inbox row (above); the session-request queue starts it.
 2. The run provisioner builds a working directory in `HYPERIDLE_WORKSPACES_DIR` (default: OS temp), writes `AGENTS.md` / `CLAUDE.md`, `.mcp.json`, held connection files, and a return-enforcement hook.
 3. The harness adapter (for example `CliHarnessAdapter`) spawns the process.
-4. The MCP bridge (`/api/mcp/:token`) serves the agent's tools: the 18 actions, core's called through the door as the agent.
+4. The MCP bridge (hosted by the runner process) serves the agent's tools: the 16 actions, called through the door as the agent.
 5. On turn end, the return gate evaluates whether the agent returned. The `knowledge/` watcher syncs any file changes back to documents.
 6. The session ends; a bus event signals core-api.
 
@@ -159,6 +156,6 @@ HyperIdle is not a git host, a CI runner, or a deployment platform. It does not:
 
 Agents can reach these things through [connections](./connections.md) and [folders](../objects/folders.md). HyperIdle wires the agent to the work; it does not replace the tools the work needs.
 
-## One Node process
+## Two processes, one database
 
-No distributed message queue. One `node` process, one Postgres database (PGlite locally, Postgres on the shared backend), in-process `setInterval` schedulers in `layers/core-api/*/src/` and `layers/agent-orchestration/*/src/`. The agent processes are child processes of that one host, not separate services.
+No distributed message queue. The server and the runner are two `node` processes that share one Postgres database (PGlite locally, Postgres on the shared backend). In-process `setInterval` schedulers run inside `layers/core-api/*/src/` and `layers/agent-orchestration/*/src/`. Harness subprocesses are children of the runner, not of the server.
