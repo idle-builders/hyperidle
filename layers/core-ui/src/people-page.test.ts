@@ -10,6 +10,7 @@ import {
 	personStand,
 	runnerButtonState,
 	startedJobs,
+	viewerMayTake,
 	waitingJobs,
 } from "./people-page";
 
@@ -265,5 +266,35 @@ describe("applyMoveHereResult", () => {
 		const r = applyMoveHereResult(state, "Claude");
 		expect(r.ok).toBe(true);
 		expect((r as { ok: true; state: typeof state }).state).toBe(state);
+	});
+});
+
+describe("viewerMayTake", () => {
+	const teamA = { id: "t-a", name: "Alpha" };
+	const teamB = { id: "t-b", name: "Beta" };
+
+	it("viewer owns the agent → true", () => {
+		const agent = user("bot", { kind: "ai", ownerUserId: "viewer", teams: [teamA] });
+		expect(viewerMayTake(agent, "viewer", [teamA])).toBe(true);
+	});
+
+	it("unowned agent in viewer's team → true", () => {
+		const agent = user("bot", { kind: "ai", ownerUserId: null, teams: [teamA] });
+		expect(viewerMayTake(agent, "viewer", [teamA])).toBe(true);
+	});
+
+	it("unowned agent in a different team → false", () => {
+		const agent = user("bot", { kind: "ai", ownerUserId: null, teams: [teamB] });
+		expect(viewerMayTake(agent, "viewer", [teamA])).toBe(false);
+	});
+
+	it("unowned agent with no teams → false", () => {
+		const agent = user("bot", { kind: "ai", ownerUserId: null, teams: [] });
+		expect(viewerMayTake(agent, "viewer", [teamA])).toBe(false);
+	});
+
+	it("agent owned by someone else → false", () => {
+		const agent = user("bot", { kind: "ai", ownerUserId: "other", teams: [teamA] });
+		expect(viewerMayTake(agent, "viewer", [teamA])).toBe(false);
 	});
 });

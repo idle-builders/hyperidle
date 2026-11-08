@@ -720,12 +720,32 @@ async function editExistingUserRun(
 				"key",
 			);
 		}
-		if (existing.ownerUserId !== null && existing.ownerUserId !== ctx.actor) {
-			return problem(
-				"owner_only",
-				"Only the person this agent works for may give it a key.",
-				"key",
-			);
+		if (existing.ownerUserId !== ctx.actor) {
+			// Assigned to someone else — only that person may give a key.
+			if (existing.ownerUserId !== null) {
+				return problem(
+					"not_assigned_to_you",
+					"Only the person this agent works for, or someone in its team, may give it a key.",
+					"key",
+				);
+			}
+			// Unowned — allowed only when the actor is in one of the agent's teams.
+			if (existing.teamIds.length === 0) {
+				return problem(
+					"not_assigned_to_you",
+					"Only the person this agent works for, or someone in its team, may give it a key.",
+					"key",
+				);
+			}
+			const actorRow = await findUser(ctx.db, { id: ctx.actor });
+			const actorTeamIds = new Set(actorRow?.teamIds ?? []);
+			if (!existing.teamIds.some((t) => actorTeamIds.has(t))) {
+				return problem(
+					"not_assigned_to_you",
+					"Only the person this agent works for, or someone in its team, may give it a key.",
+					"key",
+				);
+			}
 		}
 	}
 

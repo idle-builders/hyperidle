@@ -680,7 +680,110 @@ describe("edit_user — key minting security rules", () => {
 		});
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
-		expect(result.problems[0]?.code).toBe("owner_only");
+		expect(result.problems[0]?.code).toBe("not_assigned_to_you");
+	});
+
+	test("owner may give key to their own agent", async ({ db }) => {
+		await seedFounder(db);
+		await db.insert(users).values({
+			id: "u-owned-agent-2",
+			kind: "ai",
+			name: "Bot2",
+			role: "agent",
+			status: "active",
+			ownerUserId: "u-founder",
+			createdAt: NOW,
+		});
+		const { editUser } = actionsFor(buildDeps());
+		const result = await editUser(ctxFor(db, "u-founder"), { id: "u-owned-agent-2", key: "new" });
+		expect(result.ok).toBe(true);
+		expect(result.ok && result.data.key).toBeDefined();
+	});
+
+	test("team member may give key to an unowned team agent", async ({ db }) => {
+		await seedFounder(db);
+		await db.insert(users).values({
+			id: "u-team-member",
+			kind: "human",
+			name: "Member",
+			role: "member",
+			status: "active",
+			createdAt: NOW,
+		});
+		await db.insert(users).values({
+			id: "u-team-agent",
+			kind: "ai",
+			name: "TeamBot",
+			role: "agent",
+			status: "active",
+			ownerUserId: null,
+			createdAt: NOW,
+		});
+		await db
+			.insert(teams)
+			.values({ id: "t-shared", name: "Shared", createdAt: NOW })
+			.onConflictDoNothing();
+		await db.insert(userTeams).values({ userId: "u-team-member", teamId: "t-shared" });
+		await db.insert(userTeams).values({ userId: "u-team-agent", teamId: "t-shared" });
+		const { editUser } = actionsFor(buildDeps());
+		const result = await editUser(ctxFor(db, "u-team-member"), { id: "u-team-agent", key: "new" });
+		expect(result.ok).toBe(true);
+		expect(result.ok && result.data.key).toBeDefined();
+	});
+
+	test("non-team-member is refused for an unowned team agent", async ({ db }) => {
+		await seedFounder(db);
+		await db.insert(users).values([
+			{
+				id: "u-outsider",
+				kind: "human",
+				name: "Outsider",
+				role: "member",
+				status: "active",
+				createdAt: NOW,
+			},
+			{
+				id: "u-team-agent-2",
+				kind: "ai",
+				name: "TeamBot2",
+				role: "agent",
+				status: "active",
+				ownerUserId: null,
+				createdAt: NOW,
+			},
+		]);
+		await db
+			.insert(teams)
+			.values({ id: "t-exclusive", name: "Exclusive", createdAt: NOW })
+			.onConflictDoNothing();
+		await db.insert(userTeams).values({ userId: "u-team-agent-2", teamId: "t-exclusive" });
+		// u-outsider is NOT in t-exclusive
+		const { editUser } = actionsFor(buildDeps());
+		const result = await editUser(ctxFor(db, "u-outsider"), { id: "u-team-agent-2", key: "new" });
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.problems[0]?.code).toBe("not_assigned_to_you");
+	});
+
+	test("unassigned agent (no owner, no team) is refused for everyone", async ({ db }) => {
+		await seedFounder(db);
+		await db.insert(users).values({
+			id: "u-unassigned-agent",
+			kind: "ai",
+			name: "Stray",
+			role: "agent",
+			status: "active",
+			ownerUserId: null,
+			createdAt: NOW,
+		});
+		const { editUser } = actionsFor(buildDeps());
+		const result = await editUser(ctxFor(db, "u-founder"), {
+			id: "u-unassigned-agent",
+			key: "new",
+		});
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.problems[0]?.code).toBe("not_assigned_to_you");
 	});
 
 	test("key:new for a human user is refused", async ({ db }) => {
@@ -705,6 +808,13 @@ describe("edit_user — key minting security rules", () => {
 		if (!agent.ok) return;
 		const agentId = agent.data.user?.id;
 		if (!agentId) return;
+
+		// Put u-founder in the agent's team so the key guard passes.
+		const agentTeamRows = await db.select().from(userTeams).where(eq(userTeams.userId, agentId));
+		const sharedTeamId = agentTeamRows[0]?.teamId;
+		if (sharedTeamId) {
+			await db.insert(userTeams).values({ userId: "u-founder", teamId: sharedTeamId });
+		}
 
 		const first = await editUser(ctxFor(db, "u-founder"), { id: agentId, key: "new" });
 		expect(first.ok).toBe(true);
@@ -759,6 +869,14 @@ describe("edit_user — key minting security rules", () => {
 		if (!agent.ok) return;
 		const agentId = agent.data.user?.id;
 		if (!agentId) return;
+
+		// Put u-founder in the agent's team so the key guard passes (unowned agent needs
+		// the actor to share a team with it).
+		const agentTeamRows = await db.select().from(userTeams).where(eq(userTeams.userId, agentId));
+		const sharedTeamId = agentTeamRows[0]?.teamId;
+		if (sharedTeamId) {
+			await db.insert(userTeams).values({ userId: "u-founder", teamId: sharedTeamId });
+		}
 
 		const eventBus = new EventBus();
 		const changedIds: string[] = [];

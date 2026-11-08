@@ -33,6 +33,7 @@ import {
 	sinceWords,
 	startedJobs,
 	startRows,
+	viewerMayTake,
 	waitingJobs,
 } from "./people-page";
 import { pluginLine } from "./plugin-page";
@@ -497,8 +498,9 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 			document.removeEventListener("visibilitychange", refresh);
 		};
 	}, [hasRunner, agent, u.id]);
+	const canTakeAgent = agent && viewerMayTake(u, you, me.user?.teams ?? []);
 	const runnerBtn =
-		mine && agent && hasRunner && runnerState !== null
+		canTakeAgent && hasRunner && runnerState !== null
 			? runnerButtonState({
 					hasRunner: true,
 					held: runnerState.held,
