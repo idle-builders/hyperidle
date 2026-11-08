@@ -97,3 +97,7 @@ ALTER TABLE "plugins" ADD CONSTRAINT "plugins_scope_kind_ck" CHECK ("scope_kind"
 --> statement-breakpoint
 
 ALTER TABLE "plugins" ALTER COLUMN "scope_kind" SET DEFAULT 'team';
+--> statement-breakpoint
+
+-- scope_team_id is now always set for the remaining team-scope installs; enforce it.
+ALTER TABLE "plugins" ALTER COLUMN "scope_team_id" SET NOT NULL;

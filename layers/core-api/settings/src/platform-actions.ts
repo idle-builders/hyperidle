@@ -181,9 +181,6 @@ export interface PlatformActionsDeps {
 // ---------------------------------------------------------------------------
 
 function toDeclaredScope(scope: InstallerPluginScope): DeclaredPluginScope {
-	// After migration 0118 all stored plugins have team scope; scope_team_id is always set.
-	if (!scope.teamId)
-		throw new Error("platform-actions: unexpected factory-scope plugin after migration 0118");
 	return { kind: "team", teamId: scope.teamId };
 }
 
@@ -243,7 +240,7 @@ interface ContributedDocumentSpec {
 	readonly parentKind: DocumentParentKind | null;
 	readonly parentId: string | null;
 	readonly scopeKind: ScopeKind;
-	readonly scopeId: string | null;
+	readonly scopeId: string;
 }
 
 // Make a plugin's agent/subscription contributions live or not. Document half is separate (editDocument has its own transaction).
@@ -410,7 +407,7 @@ function readPluginDocumentSource(
 	pluginName: string,
 	documentId: string,
 	scopeKind: string,
-	scopeId: string | null,
+	scopeId: string,
 ): string | null {
 	const parsed = parsePluginManifest(installPath);
 	if (parsed.ok) {

@@ -30,7 +30,7 @@ export type { PluginSource };
 
 export interface PluginScope {
 	readonly kind: PluginScopeKind;
-	readonly teamId: string | null;
+	readonly teamId: string;
 }
 
 /** Where an install came from, as the person gave it — a bundled one by its name, not its folder. */
@@ -86,7 +86,7 @@ export type InstallPluginResult =
 			/** Subscriptions — layer handler materializes as subscriptions rows (settings cannot write subscriptions). */
 			subscriptions: readonly ParsedPluginSubscription[];
 			scopeKind: string;
-			scopeId: string | null;
+			scopeId: string;
 			installTs: string;
 	  }
 	| { ok: false; reason: string };
@@ -117,7 +117,7 @@ function recordOf(source: PluginSource): RecordedPluginSource {
 function scopeFromRow(row: PluginRow): PluginScope {
 	return {
 		kind: row.scopeKind as PluginScopeKind,
-		teamId: row.scopeTeamId ?? null,
+		teamId: row.scopeTeamId,
 	};
 }
 
@@ -143,9 +143,9 @@ export function skillItemId(
 	pluginId: string,
 	dirName: string,
 	scopeKind: string,
-	scopeId: string | null,
+	scopeId: string,
 ): string {
-	const suffix = scopeKind === "team" ? `\0${scopeKind}\0${scopeId ?? ""}` : "";
+	const suffix = scopeKind === "team" ? `\0${scopeKind}\0${scopeId}` : "";
 	// @lore: `ki_` prefix baked into every minted id; changing it would break reinstall id match and create duplicates
 	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}${suffix}`).slice(0, 24)}`;
 }
@@ -155,9 +155,9 @@ export function agentItemId(
 	pluginId: string,
 	localId: string,
 	scopeKind: string,
-	scopeId: string | null,
+	scopeId: string,
 ): string {
-	return `pa_${sha256(`plugin-agent\0${pluginId}\0${localId}\0${scopeKind}\0${scopeId ?? ""}`).slice(0, 24)}`;
+	return `pa_${sha256(`plugin-agent\0${pluginId}\0${localId}\0${scopeKind}\0${scopeId}`).slice(0, 24)}`;
 }
 
 // Stable DB id for a plugin-declared subscription. Same scope guarantee as agentItemId.
@@ -166,9 +166,9 @@ export function subscriptionItemId(
 	pluginId: string,
 	localId: string,
 	scopeKind: string,
-	scopeId: string | null,
+	scopeId: string,
 ): string {
-	return `pr_${sha256(`plugin-routine\0${pluginId}\0${localId}\0${scopeKind}\0${scopeId ?? ""}`).slice(0, 24)}`;
+	return `pr_${sha256(`plugin-routine\0${pluginId}\0${localId}\0${scopeKind}\0${scopeId}`).slice(0, 24)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -263,10 +263,6 @@ export async function installPlugin(
 		const recorded = input.recordedSource ?? recordOf(input.source);
 		const installedBy = input.installedBy ?? null;
 
-		// Check scope consistency
-		if (input.scope.kind === "team" && !input.scope.teamId) {
-			return { ok: false, reason: 'scope.kind is "team" but scope.teamId is missing' };
-		}
 		// One row per install: each team's install of this plugin is its own.
 		const pluginId = pluginInstallId(manifest.name, input.scope);
 
@@ -291,7 +287,7 @@ export async function installPlugin(
 				version: manifest.version,
 				state: "enabled",
 				scopeKind: input.scope.kind,
-				scopeTeamId: input.scope.teamId ?? null,
+				scopeTeamId: input.scope.teamId,
 				installPath,
 				sourceKind: recorded.kind,
 				sourceAddress: recorded.address,
@@ -309,7 +305,7 @@ export async function installPlugin(
 					version: manifest.version,
 					state: "enabled",
 					scopeKind: input.scope.kind,
-					scopeTeamId: input.scope.teamId ?? null,
+					scopeTeamId: input.scope.teamId,
 					installPath,
 					sourceKind: recorded.kind,
 					sourceAddress: recorded.address,
@@ -338,7 +334,7 @@ export async function installPlugin(
 			agents: manifest.agents,
 			subscriptions: manifest.subscriptions,
 			scopeKind: input.scope.kind,
-			scopeId: input.scope.teamId ?? null,
+			scopeId: input.scope.teamId,
 			installTs: ts,
 		};
 	} finally {

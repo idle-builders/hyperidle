@@ -509,7 +509,7 @@ export const plugins = pgTable(
 		version: text("version").notNull(),
 		state: text("state").$type<PluginState>().notNull(),
 		scopeKind: text("scope_kind").$type<"team">().notNull().default("team"),
-		scopeTeamId: text("scope_team_id"),
+		scopeTeamId: text("scope_team_id").notNull(),
 		/**
 		 * Absolute path to the plugin's persistent install directory.
 		 * Null for plugins with only URL-based MCP servers (no local files needed).

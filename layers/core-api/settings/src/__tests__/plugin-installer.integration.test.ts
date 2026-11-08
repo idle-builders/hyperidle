@@ -171,15 +171,6 @@ describe("scope", () => {
 		expect(plugin?.scope.kind).toBe("team");
 		expect(plugin?.scope.teamId).toBe("team-abc");
 	});
-
-	test("rejects install when scope is team but teamId is missing", async ({ db }) => {
-		const pluginDir = makePluginDir("scope-bad");
-		const result = await installPlugin(db, {
-			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "team", teamId: null },
-		});
-		expect(result.ok).toBe(false);
-	});
 });
 
 // ---------------------------------------------------------------------------
