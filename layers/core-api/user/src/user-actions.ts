@@ -906,6 +906,12 @@ async function editExistingUserRun(
 			}
 			const newTeamIds = new Set(teams.map((t) => t.id));
 			const oldTeamIds = new Set(existing.teamIds);
+			// Read default runners BEFORE changing membership so we know if the person was the runner.
+			const leavingTeamIds = [...oldTeamIds].filter((tid) => !newTeamIds.has(tid));
+			const prevRunners =
+				leavingTeamIds.length > 0
+					? await listDefaultRunners(tx, leavingTeamIds)
+					: new Map<string, string>();
 			await setUserTeams(tx, id, [...newTeamIds]);
 			before.teamIds = existing.teamIds;
 			after.teamIds = [...newTeamIds];
@@ -914,8 +920,11 @@ async function editExistingUserRun(
 			for (const teamId of oldTeamIds) {
 				if (!newTeamIds.has(teamId)) {
 					await repairDefaultRunner(tx, teamId);
-					// Ruling A: clear unowned agent keys so the outgoing runner releases agents.
-					await clearUnownedTeamAgentKeys(tx, teamId);
+					// Ruling A: clear keys only when the leaver was the default runner — avoids
+					// cancelling live agent runs when an ordinary member or agent leaves.
+					if (prevRunners.get(teamId) === id) {
+						await clearUnownedTeamAgentKeys(tx, teamId);
+					}
 					// Ruling B: owned agents follow the person — move them to the global team.
 					if (globalTeam) {
 						const ownedInLeft = await listUsers(tx, {
@@ -938,9 +947,13 @@ async function editExistingUserRun(
 		}
 
 		if (input.defaultRunnerFor !== undefined) {
+			const prevRunnerMap = await listDefaultRunners(tx, [input.defaultRunnerFor]);
+			const prevRunnerId = prevRunnerMap.get(input.defaultRunnerFor);
 			await setDefaultRunner(tx, input.defaultRunnerFor, id);
-			// Clear unowned agent keys so the old runner is refused and the new default runner claims them.
-			await clearUnownedTeamAgentKeys(tx, input.defaultRunnerFor);
+			// Clear keys only when the runner actually changed — a no-op when the same person is set again.
+			if (prevRunnerId !== id) {
+				await clearUnownedTeamAgentKeys(tx, input.defaultRunnerFor);
+			}
 		}
 
 		const patch: Partial<NewUser> = {};
