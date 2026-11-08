@@ -137,7 +137,7 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 		expect(founder[0]?.kind).toBe("human");
 	});
 
-	test("Finn is in Product and Support, Maya in Support, each owned agent in one team", async ({
+	test("Finn is in Product and Support, Maya in Product and Support, each owned agent in one team", async ({
 		db,
 		runnerDb,
 	}) => {
@@ -153,7 +153,7 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 				)
 			).map((r) => r.name);
 		expect(await teamsOf("demo-founder")).toEqual(["Product", "Support"]);
-		expect(await teamsOf("demo-human-maya")).toEqual(["Support"]);
+		expect(await teamsOf("demo-human-maya")).toEqual(["Product", "Support"]);
 
 		// An owned agent is in one of its owner's teams; the plugin's agent for everyone is in none.
 		const agentTeams = await queryRows<{ name: string; teams: string | null }>(

@@ -88,7 +88,7 @@ Founder. I decide what gets built and what customers see.
 		name: "Maya Chen",
 		role: "member",
 		discipline: "Support",
-		teams: [SUPPORT_TEAM_ID],
+		teams: [PRODUCT_TEAM_ID, SUPPORT_TEAM_ID],
 		sinceDays: 97,
 		what: "Support and ops.",
 		about: `# About Maya
@@ -280,6 +280,22 @@ export async function seedCast(
 	clock: DemoClock,
 	opts: DemoWorldPlaces,
 ): Promise<void> {
+	// Default runner for each team = earliest-joined person (highest sinceDays = furthest in the past).
+	const teamDefaultRunner = new Map<string, string>(); // teamId → personId
+	for (const person of PEOPLE) {
+		for (const teamId of person.teams) {
+			const existingId = teamDefaultRunner.get(teamId);
+			const existingPerson = existingId ? PEOPLE.find((p) => p.id === existingId) : undefined;
+			const existingSince = existingPerson?.sinceDays ?? 0;
+			if (
+				person.sinceDays > existingSince ||
+				(person.sinceDays === existingSince && person.id < (existingId ?? ""))
+			) {
+				teamDefaultRunner.set(teamId, person.id);
+			}
+		}
+	}
+
 	for (const person of PEOPLE) {
 		await db
 			.insert(users)
@@ -295,8 +311,7 @@ export async function seedCast(
 			})
 			.onConflictDoNothing();
 		for (const teamId of person.teams) {
-			// The founder is the default runner for every team they are in.
-			const isDefaultRunner = person.role === "founder";
+			const isDefaultRunner = teamDefaultRunner.get(teamId) === person.id;
 			await db
 				.insert(userTeams)
 				.values({ userId: person.id, teamId, isDefaultRunner })
