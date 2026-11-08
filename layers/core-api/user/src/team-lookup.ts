@@ -102,12 +102,8 @@ export async function listDefaultRunners(
 	const rows = await db
 		.select({ teamId: userTeams.teamId, userId: userTeams.userId })
 		.from(userTeams)
-		.where(eq(userTeams.isDefaultRunner, true));
-	const map = new Map<string, string>();
-	for (const row of rows) {
-		if (teamIds.includes(row.teamId)) map.set(row.teamId, row.userId);
-	}
-	return map;
+		.where(and(eq(userTeams.isDefaultRunner, true), inArray(userTeams.teamId, [...teamIds])));
+	return new Map(rows.map((r) => [r.teamId, r.userId]));
 }
 
 /**

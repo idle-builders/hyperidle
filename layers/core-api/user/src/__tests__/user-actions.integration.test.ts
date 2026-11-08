@@ -1020,3 +1020,45 @@ describe("edit_user defaultRunnerFor", () => {
 		if (!result.ok) expect(result.problems[0]?.code).toBe("person_only");
 	});
 });
+
+describe("default runner repair on team exit", () => {
+	test("when the default runner leaves a team the next earliest person becomes the runner", async ({
+		db,
+	}) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates Acme (Finn = default runner)
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+		const teamId = finnResult.data.user?.teams?.[0]?.id ?? "";
+
+		// Ada joins Acme (Finn still default runner — joined first)
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["Acme"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+
+		const before = await db.select().from(userTeams).where(eq(userTeams.teamId, teamId));
+		expect(before.find((m) => m.userId === finnId)?.isDefaultRunner).toBe(true);
+		expect(before.find((m) => m.userId === adaId)?.isDefaultRunner).toBe(false);
+
+		// Finn leaves Acme by joining a new team; Ada is now the only person in Acme.
+		const leaveResult = await editUser(ctxFor(db, finnId), { id: finnId, teams: ["Solo"] });
+		expect(leaveResult.ok).toBe(true);
+
+		// Ada is now the default runner of Acme; exactly one default runner in the team.
+		const acmeMemberships = await db.select().from(userTeams).where(eq(userTeams.teamId, teamId));
+		expect(acmeMemberships.find((m) => m.userId === finnId)).toBeUndefined();
+		expect(acmeMemberships.find((m) => m.userId === adaId)?.isDefaultRunner).toBe(true);
+		expect(acmeMemberships.filter((m) => m.isDefaultRunner)).toHaveLength(1);
+	});
+});
