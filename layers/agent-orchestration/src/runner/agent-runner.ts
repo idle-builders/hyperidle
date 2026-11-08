@@ -150,13 +150,15 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 		}
 	}
 
-	function mayHold(agent: UserRow, personId: string): boolean {
-		return (
-			agent.kind === "ai" &&
-			agent.role !== "system" &&
-			RUNNABLE_STATUSES.has(agent.status) &&
-			(agent.ownerUserId === null || agent.ownerUserId === personId)
-		);
+	function mayHold(agent: UserRow, personId: string, personTeamIds: ReadonlySet<string>): boolean {
+		if (agent.kind !== "ai") return false;
+		if (agent.role === "system") return false;
+		if (!RUNNABLE_STATUSES.has(agent.status)) return false;
+		// Directly assigned to this person.
+		if (agent.ownerUserId === personId) return true;
+		// Unowned but in one of the person's teams.
+		if (agent.ownerUserId === null) return agent.teams.some((t) => personTeamIds.has(t.id));
+		return false;
 	}
 
 	let taking: Promise<void> | null = null;
@@ -170,8 +172,9 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 		const personKey = deps.personKey();
 		if (!personKey) return;
 		const me = await deps.door.call<UserView>(personKey, "open_user", {});
-		const personId = me.ok ? me.data.user?.id : undefined;
-		if (!personId) return;
+		if (!(me.ok && me.data.user)) return;
+		const personId = me.data.user.id;
+		const personTeamIds = new Set<string>(me.data.user.teams.map((t) => t.id));
 		const agents = await deps.door.call<UserRow[]>(personKey, "search_users", { kind: "ai" });
 		if (!agents.ok) return;
 		for (const agent of agents.data) {
@@ -179,7 +182,7 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 			// Already held by this runner.
 			if (keys.has(agent.id)) continue;
 			// Not eligible to hold.
-			if (!mayHold(agent, personId)) continue;
+			if (!mayHold(agent, personId, personTeamIds)) continue;
 			// Was 401'd — moved away; takeAgent() must be called explicitly to reclaim.
 			if (movedAway.has(agent.id)) continue;
 			// Another runner holds it; don't fight for it.
