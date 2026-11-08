@@ -8,7 +8,7 @@ import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import type { RegisteredTool, ToolRegistry } from "@hyperidle/harness-protocol";
 import type { EnforcementRegistry as BaseEnforcementRegistry } from "@hyperidle/harness-registry";
 import {
-	AdapterPool,
+	type AdapterPool,
 	buildCodexPluginConfigArgs,
 	type CliAvailabilityDeps,
 	createLocalAdapterPool,
@@ -27,19 +27,13 @@ type EnforcementRegistry = ReturnType<typeof createReturnEnforcement>;
 type ReturnGate = ReturnType<EnforcementRegistry["createGate"]>;
 
 export interface AgentExecutionBootOptions {
-	/**
-	 * "local": in-process CLI harness discovery + a real local sandbox — the
-	 * `desktop` Application's shape. "disabled": an empty pool and no local
-	 * sandbox, so no agent runs — the `remote-server` Application's shape.
-	 */
-	readonly topology: "local" | "disabled";
 	/** The Application's own origin — spells the MCP bridge's dialable URL (`${mcpBaseUrl}/api/mcp/:token`). */
 	readonly mcpBaseUrl: string;
 	/**
 	 * Injectable command-runner for local harness discovery — the same seam
 	 * `createLocalAdapterPool` already exposes. A unit test passes stubs here so
-	 * booting with topology "local" never spawns a real CLI's `--version` or
-	 * shells out to `which`; the real Application never passes them.
+	 * the boot never spawns a real CLI's `--version` or shells out to `which`;
+	 * the real Application never passes them.
 	 */
 	readonly discoveryDeps?: HarnessProbeDeps;
 	readonly availabilityDeps?: CliAvailabilityDeps;
@@ -123,14 +117,11 @@ export async function bootAgentExecution(
 	options: AgentExecutionBootOptions,
 ): Promise<AgentExecutionBoot> {
 	const enforcementRegistry = createReturnEnforcement();
-	const pool =
-		options.topology === "local"
-			? await createLocalAdapterPool({
-					enforcement: enforcementRegistry,
-					discoveryDeps: options.discoveryDeps,
-					availabilityDeps: options.availabilityDeps,
-				})
-			: new AdapterPool();
+	const pool = await createLocalAdapterPool({
+		enforcement: enforcementRegistry,
+		discoveryDeps: options.discoveryDeps,
+		availabilityDeps: options.availabilityDeps,
+	});
 	const bridge = createMcpToolBridge({
 		enforcement: enforcementRegistry,
 		baseUrl: options.mcpBaseUrl,

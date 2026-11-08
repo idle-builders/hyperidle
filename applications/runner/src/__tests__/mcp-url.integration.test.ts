@@ -44,8 +44,15 @@ describe("runner MCP bridge URL", () => {
 		const port = await getFreePort();
 		const mcpBaseUrl = `http://127.0.0.1:${port}`;
 
-		// Topology "disabled" skips harness discovery — no CLI binaries needed.
-		const execution = await bootAgentExecution({ topology: "disabled", mcpBaseUrl });
+		const execution = await bootAgentExecution({
+			mcpBaseUrl,
+			discoveryDeps: { run: async () => ({ stdout: "", stderr: "not found", exitCode: 1 }) },
+			availabilityDeps: {
+				whichFn: async () => {
+					throw new Error("not found");
+				},
+			},
+		});
 
 		// Replicates runner/index.ts: mount the MCP router under /api so URLs
 		// written to config files (${mcpBaseUrl}/api/mcp/:token) are reachable.

@@ -28,7 +28,7 @@ A feature's "paths" are its page addresses plus the server + web files that impl
 
 ## Phase 1 — Functionality: does it actually work?
 
-Drive the **real running app**, not the code: seed the Northwind demo world and start it as `/smoke-test` step 1 says (`npm run setup -- --profile laptop --demo`, then `npm run dev`; start the server with `topology: 'local'` when the feature needs agents to answer — `npm run dev` runs no agents). The page addresses are in `layers/core-ui/src/App.tsx`: `/conversations/:id` (a review at `?review=<message id>`), `/work/:id` (`?part=`), `/knowledge/:id`, `/people/:id` (`/people/me` is your page, which holds your settings — there is no settings screen), `/teams/:name`, `/plugins/:id`, `/start`. For the feature in scope:
+Drive the **real running app**, not the code: seed the Northwind demo world and start it as `/smoke-test` step 1 says (`npm run setup -- --profile laptop --demo`, then `npm run dev`; use the alternate server start from `/smoke-test` step 1 when the feature needs agents to answer — `npm run dev` runs no agents). The page addresses are in `layers/core-ui/src/App.tsx`: `/conversations/:id` (a review at `?review=<message id>`), `/work/:id` (`?part=`), `/knowledge/:id`, `/people/:id` (`/people/me` is your page, which holds your settings — there is no settings screen), `/teams/:name`, `/plugins/:id`, `/start`. For the feature in scope:
 
 - **Every user journey** — walk each path a real user takes, start to finish. Does it complete? Does it persist?
 - **Every state** — empty, loading, populated, error, edge (long text, zero items, max items, concurrent edits). Trigger them, don't assume them.

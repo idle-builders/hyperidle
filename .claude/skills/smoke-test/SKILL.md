@@ -40,7 +40,7 @@ The demo world is Northwind: Finn Olsen (you, in Product and Support) and Maya C
 **`npm run dev` runs no agents** (its server starts with no agent programs), so a message to an agent waits in the queue. To see agents answer — the wedge in step 3 — start the server the way the desktop app does instead of `npm run dev`:
 
 ```bash
-DATABASE_URL=$PWD/hyperidle-pg HYPERIDLE_API_KEY=hyperidle-dev-local node --import tsx --input-type=module -e "await (await import('@hyperidle/remote-server/create-server')).createServer(3001, { topology: 'local' })" > /tmp/hyperidle-server.log 2>&1 & echo $! > /tmp/hyperidle-server.pid
+DATABASE_URL=$PWD/hyperidle-pg HYPERIDLE_API_KEY=hyperidle-dev-local node --import tsx --input-type=module -e "await (await import('@hyperidle/remote-server/create-server')).createServer(3001, {})" > /tmp/hyperidle-server.log 2>&1 & echo $! > /tmp/hyperidle-server.pid
 npm run -w @hyperidle/core-ui dev > /tmp/hyperidle-web.log 2>&1 & echo $! > /tmp/hyperidle-web.pid
 ```
 
@@ -73,7 +73,7 @@ For **each** surface in scope:
 
 ## 3. The wedge (do this even in a scoped run)
 
-HyperIdle's core loop is **hand off → watch it move → check the result**. The single most important journey: in a conversation, **@ an agent with a piece of work and get a real reply**, the task it starts showing in the thread. This needs the server started with `topology: 'local'` (step 1) and a signed-in agent program. If that breaks, the product is down regardless of what else renders.
+HyperIdle's core loop is **hand off → watch it move → check the result**. The single most important journey: in a conversation, **@ an agent with a piece of work and get a real reply**, the task it starts showing in the thread. This needs the server started as in step 1 and a signed-in agent program. If that breaks, the product is down regardless of what else renders.
 
 ## 4. Report
 

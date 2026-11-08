@@ -176,9 +176,9 @@ application imports forbidden, `applications/desktop/src/create-server.ts:4-21`)
 
 | Shape | DB | Execution | Bind |
 |---|---|---|---|
-| Desktop (Electron) | PGlite only | `topology:"local"` hard-coded (`boot-server.ts:38`) | `127.0.0.1`, port 0 |
+| Desktop (Electron) | PGlite only | local harness discovery | `127.0.0.1`, port 0 |
 | Laptop / web dev (`HYPERIDLE_PROFILE=laptop`) | PGlite | local | all |
-| Shared (`vps|cloud`) | Postgres | `"disabled"` — empty pool, filled by workers over WS | all |
+| Shared (`vps|cloud`) | Postgres | runner process — empty pool until a runner connects | all |
 | Remote worker | none | holds a `HarnessAdapter` | outbound WS only |
 
 Auth mode is a separate axis: `HYPERIDLE_SHARED_MODE` (`app.ts:322`, `boot.ts:199`).

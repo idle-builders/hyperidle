@@ -74,7 +74,7 @@ export default defineConfig({
 			},
 		},
 		{
-			command: `npm run setup -- --profile laptop --db-path ${freshDbPath} && node --import tsx --input-type=module -e "await (await import('@hyperidle/remote-server/create-server')).createServer(${FRESH_SERVER_PORT}, { topology: 'local' })"`,
+			command: `npm run setup -- --profile laptop --db-path ${freshDbPath} && node --import tsx --input-type=module -e "await (await import('@hyperidle/remote-server/create-server')).createServer(${FRESH_SERVER_PORT}, {})"`,
 			cwd: repoRoot,
 			url: `http://localhost:${FRESH_SERVER_PORT}/health`,
 			reuseExistingServer: false,
