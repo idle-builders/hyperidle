@@ -1022,6 +1022,8 @@ describe("default runner repair on team exit", () => {
 		db,
 	}) => {
 		await seedFounder(db);
+		// Pre-seed the global team so Acme is not global and Finn can leave it.
+		await db.insert(teams).values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
 		const { editUser } = actionsFor(buildDeps());
 
 		// Finn creates Acme (Finn = default runner)
@@ -1032,7 +1034,7 @@ describe("default runner repair on team exit", () => {
 		});
 		if (!finnResult.ok) throw new Error("finn create failed");
 		const finnId = finnResult.data.user?.id ?? "";
-		const teamId = finnResult.data.user?.teams?.[0]?.id ?? "";
+		const teamId = finnResult.data.user?.teams?.find((t) => t.name === "Acme")?.id ?? "";
 
 		// Ada joins Acme (Finn still default runner — joined first)
 		const adaResult = await editUser(ctxFor(db, ""), {
@@ -1056,5 +1058,31 @@ describe("default runner repair on team exit", () => {
 		expect(acmeMemberships.find((m) => m.userId === finnId)).toBeUndefined();
 		expect(acmeMemberships.find((m) => m.userId === adaId)?.isDefaultRunner).toBe(true);
 		expect(acmeMemberships.filter((m) => m.isDefaultRunner)).toHaveLength(1);
+	});
+});
+
+describe("global team membership invariant", () => {
+	test("a person always stays in the global team when their teams are changed", async ({ db }) => {
+		await seedFounder(db);
+		// Pre-seed the global team so the next team (Acme) is not global.
+		await db.insert(teams).values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+
+		const { editUser } = actionsFor(buildDeps());
+
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+
+		// Finn sets teams to ["Solo"] — removing Acme but should keep Company
+		const leaveResult = await editUser(ctxFor(db, finnId), { id: finnId, teams: ["Solo"] });
+		expect(leaveResult.ok).toBe(true);
+
+		// Finn must still be in the global team
+		const finnMemberships = await db.select().from(userTeams).where(eq(userTeams.userId, finnId));
+		expect(finnMemberships.map((m) => m.teamId)).toContain("team-company");
 	});
 });

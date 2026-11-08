@@ -901,6 +901,13 @@ async function editExistingUserRun(
 		const tx = txRaw as HyperIdleDb;
 		if (input.teams !== undefined) {
 			teams = await findOrCreateTeams(tx, input.teams, now);
+			// A person is always in the global team — silently re-add it when removed.
+			if (existing.kind === "human") {
+				const globalTeam = await getGlobalTeam(tx);
+				if (globalTeam && !teams.some((t) => t.id === globalTeam.id)) {
+					teams = [...teams, { id: globalTeam.id, name: globalTeam.name }];
+				}
+			}
 			const newTeamIds = new Set(teams.map((t) => t.id));
 			const oldTeamIds = new Set(existing.teamIds);
 			await setUserTeams(tx, id, [...newTeamIds]);
