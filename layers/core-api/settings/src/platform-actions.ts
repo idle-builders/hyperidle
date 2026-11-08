@@ -943,8 +943,8 @@ function availableBundledPlugins(
 		installed.some((p) => p.name === name && p.scope.teamId === teamId);
 	const covered = (name: string): boolean =>
 		viewerTeamIds.every((teamId) => installedFor(name, teamId));
+	if (viewerTeamIds.length === 0) return [];
 	return listBundledPlugins(bundledPluginsDir)
-		.filter(() => viewerTeamIds.length > 0)
 		.filter(({ manifest }) => !covered(manifest.name))
 		.map(({ manifest, path }) => ({
 			id: manifest.name,

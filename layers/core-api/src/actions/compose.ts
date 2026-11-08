@@ -279,10 +279,7 @@ function buildPlatformActionsDeps(
 ): PlatformActionsDeps {
 	return {
 		teams: { exists: async (exec, teamId) => (await getTeam(exec, { id: teamId })) !== undefined },
-		viewerTeamIds: async (exec, actorId) => {
-			const user = await findUser(exec, { id: actorId });
-			return user?.teamIds ?? [];
-		},
+		viewerTeamIds: async (exec, actorId) => (await findUser(exec, { id: actorId }))?.teamIds ?? [],
 		agents: {
 			insertIfAbsent: (exec, values, teamId) => insertUserIfAbsent(exec, values, teamId),
 			setStatus: (exec, ids, status) => setAgentsStatus(exec, ids, status),
