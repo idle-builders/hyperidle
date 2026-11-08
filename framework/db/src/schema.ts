@@ -22,13 +22,17 @@ import {
 
 // --- Core tables ---
 
-export const teams = pgTable("teams", {
-	id: text("id").primaryKey(),
-	name: text("name").notNull(),
-	createdAt: text("created_at").notNull(),
-	/** Exactly one team per company is the global team: everyone is in it. The oldest team is global. */
-	isGlobal: boolean("is_global").notNull().default(false),
-});
+export const teams = pgTable(
+	"teams",
+	{
+		id: text("id").primaryKey(),
+		name: text("name").notNull(),
+		createdAt: text("created_at").notNull(),
+		/** Exactly one team per company is the global team: everyone is in it. The oldest team is global. */
+		isGlobal: boolean("is_global").notNull().default(false),
+	},
+	(table) => [uniqueIndex("teams_one_global_uq").on(table.isGlobal).where(sql`is_global = TRUE`)],
+);
 
 export const users = pgTable("users", {
 	id: text("id").primaryKey(),

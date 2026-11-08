@@ -171,4 +171,30 @@ describe("migration 0118: global team + factory plugin deletion — brownfield",
 		// Newer team's default runner is the founder (joined first, by created_at).
 		expect(runnerByTeam.get("team-newer")).toBe("u-founder");
 	});
+
+	it("unique index prevents a second team being marked global", async () => {
+		const client = new PGlite();
+		clients.push(client);
+		await client.waitReady;
+		const db = drizzle(client);
+		const before = migrationsUpTo(117);
+		tempDirs.push(before);
+		await migrate(db, { migrationsFolder: before });
+		await db.execute(sql`
+			INSERT INTO users (id, kind, name, role, status, created_at)
+			VALUES ('system:propagation', 'ai', 'system', 'system', 'active', ${NOW}),
+			       ('u-a', 'human', 'A', 'founder', 'active', ${NOW})`);
+		await db.execute(sql`
+			INSERT INTO teams (id, name, created_at)
+			VALUES ('team-a', 'A', ${NOW}), ('team-b', 'B', ${NOW})`);
+		await db.execute(sql`
+			INSERT INTO user_teams (user_id, team_id) VALUES ('u-a', 'team-a')`);
+		const after = migrationsUpTo(118);
+		tempDirs.push(after);
+		await migrate(db, { migrationsFolder: after });
+		// After migration team-a is global (oldest). Attempting to set team-b global must fail.
+		await expect(
+			db.execute(sql`UPDATE teams SET is_global = TRUE WHERE id = 'team-b'`),
+		).rejects.toThrow();
+	});
 });

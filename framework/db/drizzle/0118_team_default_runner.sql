@@ -101,3 +101,7 @@ ALTER TABLE "plugins" ALTER COLUMN "scope_kind" SET DEFAULT 'team';
 
 -- scope_team_id is now always set for the remaining team-scope installs; enforce it.
 ALTER TABLE "plugins" ALTER COLUMN "scope_team_id" SET NOT NULL;
+--> statement-breakpoint
+
+-- Only one team can be global at a time.
+CREATE UNIQUE INDEX "teams_one_global_uq" ON "teams" ("is_global") WHERE "is_global" = TRUE;
