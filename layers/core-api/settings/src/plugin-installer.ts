@@ -145,7 +145,7 @@ export function skillItemId(
 	scopeKind: string,
 	scopeId: string,
 ): string {
-	const suffix = scopeKind === "team" ? `\0${scopeKind}\0${scopeId}` : "";
+	const suffix = `\0${scopeKind}\0${scopeId}`;
 	// @lore: `ki_` prefix baked into every minted id; changing it would break reinstall id match and create duplicates
 	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}${suffix}`).slice(0, 24)}`;
 }

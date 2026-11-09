@@ -157,11 +157,7 @@ export function pluginPage(
 		[...(ctx.team ? [ctx.team] : []), ...ctx.users.flatMap((u) => u.teams)].find((t) => t.id === id)
 			?.name ?? "";
 	const forTeam =
-		listing.state === "available"
-			? (ctx.team?.name ?? null)
-			: listing.scope.kind === "team"
-				? teamName(listing.scope.teamId)
-				: null;
+		listing.state === "available" ? (ctx.team?.name ?? null) : teamName(listing.scope.teamId);
 	const firstNames = namesOf(ctx.users);
 	const nameOf = (id: string | null) =>
 		id === ctx.you ? "you" : id ? (firstNames.get(id) ?? null) : null;
