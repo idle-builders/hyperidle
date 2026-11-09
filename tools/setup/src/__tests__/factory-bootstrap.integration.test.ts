@@ -52,7 +52,9 @@ describe("runFactoryBootstrap creates the complete factory layer", () => {
 
 	// Bootstrap does not seed documents.
 
-	test("no teams row is created by bootstrap (team_id null constraint)", async ({ db }) => {
+	test("bootstrap creates no teams — the global team is made when the company is first named", async ({
+		db,
+	}) => {
 		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");

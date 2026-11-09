@@ -58,11 +58,11 @@ function idToken(
 		.sign(more?.key ?? signer);
 }
 
-async function join(app: Hono, token: string, team?: string): Promise<Response> {
+async function join(app: Hono, token: string, company?: string): Promise<Response> {
 	return app.request("/api/join", {
 		method: "POST",
 		headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-		body: JSON.stringify(team ? { team } : {}),
+		body: JSON.stringify(company ? { company } : {}),
 	});
 }
 
@@ -174,7 +174,7 @@ describe("joining a shared backend", () => {
 		const teamKeyOnly = await app.request("/api/join", {
 			method: "POST",
 			headers: { "X-API-Key": TEAM_KEY, "Content-Type": "application/json" },
-			body: JSON.stringify({ team: "Product" }),
+			body: JSON.stringify({ company: "Product" }),
 		});
 
 		expect(noTeam.status).toBe(409);

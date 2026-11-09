@@ -112,22 +112,22 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 		expect(Number(pluginRows[0]?.count)).toBe(0);
 	});
 
-	test("seedDemoWorld alone produces Product team + demo founder + demo agents", async ({
+	test("seedDemoWorld alone produces global team + demo founder + demo agents", async ({
 		db,
 		runnerDb,
 	}) => {
 		await runFactoryBootstrap(db);
 		const { teamId, founderId } = await seedDemoWorld(db, runnerDb);
 
-		expect(teamId).toBe("demo-team-product");
+		expect(teamId).toBe("demo-team-olsen-labs");
 		expect(founderId).toBe("demo-founder");
 
-		const product = await queryRows<{ id: string; name: string }>(
+		const globalTeam = await queryRows<{ id: string; name: string }>(
 			db,
 			`SELECT id, name FROM teams WHERE id = '${teamId}'`,
 		);
-		expect(product).toHaveLength(1);
-		expect(product[0]?.name).toBe("Product");
+		expect(globalTeam).toHaveLength(1);
+		expect(globalTeam[0]?.name).toBe("Olsen Labs");
 
 		const founder = await queryRows<{ id: string; kind: string }>(
 			db,
@@ -137,7 +137,7 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 		expect(founder[0]?.kind).toBe("human");
 	});
 
-	test("Finn is in Product and Support, Maya in Support, each owned agent in one team", async ({
+	test("Finn and Maya are in Olsen Labs, Product and Support; each owned agent in one team", async ({
 		db,
 		runnerDb,
 	}) => {
@@ -152,10 +152,10 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 					  WHERE ut.user_id = '${userId}' ORDER BY t.name`,
 				)
 			).map((r) => r.name);
-		expect(await teamsOf("demo-founder")).toEqual(["Product", "Support"]);
-		expect(await teamsOf("demo-human-maya")).toEqual(["Support"]);
+		expect(await teamsOf("demo-founder")).toEqual(["Olsen Labs", "Product", "Support"]);
+		expect(await teamsOf("demo-human-maya")).toEqual(["Olsen Labs", "Product", "Support"]);
 
-		// An owned agent is in one of its owner's teams; the plugin's agent for everyone is in none.
+		// An owned agent is in one of its owner's teams; the plugin's agent is in Olsen Labs.
 		const agentTeams = await queryRows<{ name: string; teams: string | null }>(
 			db,
 			`SELECT u.name, string_agg(t.name, ',') AS teams FROM users u
@@ -165,7 +165,7 @@ describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 		expect(agentTeams).toEqual([
 			{ name: "Builder", teams: "Product" },
 			{ name: "Designer", teams: "Support" },
-			{ name: "Facilitation", teams: null },
+			{ name: "Facilitation", teams: "Olsen Labs" },
 			{ name: "Growth", teams: "Product" },
 		]);
 	});

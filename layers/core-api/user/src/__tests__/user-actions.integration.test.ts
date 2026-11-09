@@ -893,3 +893,568 @@ describe("edit_user — key minting security rules", () => {
 		expect(changedIds).toStrictEqual([agentId]);
 	});
 });
+
+describe("edit_user defaultRunnerFor", () => {
+	test("member moves the default runner to themselves; old holder loses it", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates the team (is default runner); Ada joins it
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+		const teamId = finnResult.data.user?.teams?.[0]?.id ?? "";
+		expect(teamId).not.toBe("");
+
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["Acme"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+		expect(adaId).not.toBe("");
+
+		// Finn is default runner (joined first)
+		const membershipsBefore = await db.select().from(userTeams).where(eq(userTeams.teamId, teamId));
+		expect(membershipsBefore.find((m) => m.userId === finnId)?.isDefaultRunner).toBe(true);
+
+		// Ada moves herself to default runner
+		const result = await editUser(ctxFor(db, adaId), { id: adaId, defaultRunnerFor: teamId });
+		expect(result.ok).toBe(true);
+
+		const membershipsAfter = await db.select().from(userTeams).where(eq(userTeams.teamId, teamId));
+		expect(membershipsAfter.find((m) => m.userId === finnId)?.isDefaultRunner).toBe(false);
+		expect(membershipsAfter.find((m) => m.userId === adaId)?.isDefaultRunner).toBe(true);
+		expect(membershipsAfter.filter((m) => m.isDefaultRunner)).toHaveLength(1);
+	});
+
+	test("non-member of the team is refused with not_in_team", async ({ db }) => {
+		await seedFounder(db);
+		// Pre-seed a global team so TeamA and TeamB are non-global (otherwise the first team
+		// created becomes global and everyone auto-joins it, making Bo a member of TeamA).
+		await db
+			.insert(teams)
+			.values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+		const { editUser } = actionsFor(buildDeps());
+
+		// Ada in TeamA, Bo in TeamB
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["TeamA"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+		const teamAId = adaResult.data.user?.teams?.find((t) => t.name === "TeamA")?.id ?? "";
+		const boResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Bo",
+			teams: ["TeamB"],
+		});
+		if (!boResult.ok) throw new Error("bo create failed");
+		const boId = boResult.data.user?.id ?? "";
+
+		// Bo tries to set Ada as default runner of TeamA — Bo is not in TeamA
+		const result = await editUser(ctxFor(db, boId), { id: adaId, defaultRunnerFor: teamAId });
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.problems[0]?.code).toBe("not_in_team");
+	});
+
+	test("target not in team is refused with not_in_team", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["TeamA", "TeamB"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+		const teamBId = adaResult.data.user?.teams?.find((t) => t.name === "TeamB")?.id ?? "";
+		const boResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Bo",
+			teams: ["TeamA"],
+		});
+		if (!boResult.ok) throw new Error("bo create failed");
+		const boId = boResult.data.user?.id ?? "";
+
+		// Ada tries to make Bo default runner of TeamB — Bo is not in TeamB
+		const result = await editUser(ctxFor(db, adaId), { id: boId, defaultRunnerFor: teamBId });
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.problems[0]?.code).toBe("not_in_team");
+	});
+
+	test("target is an agent — refused with person_only", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["Acme"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+		const teamId = adaResult.data.user?.teams?.[0]?.id ?? "";
+		const agentResult = await editUser(ctxFor(db, adaId), {
+			kind: "ai",
+			name: "Bot",
+			teams: ["Acme"],
+		});
+		if (!agentResult.ok) throw new Error("agent create failed");
+		const agentId = agentResult.data.user?.id ?? "";
+
+		const result = await editUser(ctxFor(db, adaId), { id: agentId, defaultRunnerFor: teamId });
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.problems[0]?.code).toBe("person_only");
+	});
+});
+
+describe("edit_user defaultRunnerFor with simultaneous team change", () => {
+	test("refused when teams removes the person from the defaultRunnerFor team", async ({ db }) => {
+		await seedFounder(db);
+		// Pre-seed a global team so Acme is not global.
+		await db
+			.insert(teams)
+			.values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates Acme (Finn = default runner); Ada also joins Acme.
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+		const acmeId = finnResult.data.user?.teams?.find((t) => t.name === "Acme")?.id ?? "";
+		expect(acmeId).not.toBe("");
+
+		const adaResult = await editUser(ctxFor(db, finnId), {
+			kind: "human",
+			name: "Ada",
+			teams: ["Acme"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+
+		// Ada tries to set Finn as runner of Acme while simultaneously removing Finn from Acme.
+		// After the edit, Finn would not be in Acme — this must be refused.
+		const result = await editUser(ctxFor(db, adaId), {
+			id: finnId,
+			teams: ["Solo"],
+			defaultRunnerFor: acmeId,
+		});
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.problems[0]?.code).toBe("not_in_team");
+
+		// Acme must still have a runner (Finn was not removed).
+		const memberships = await db.select().from(userTeams).where(eq(userTeams.teamId, acmeId));
+		expect(memberships.some((m) => m.isDefaultRunner)).toBe(true);
+	});
+});
+
+describe("default runner repair on team exit", () => {
+	test("when the default runner leaves a team the next earliest person becomes the runner", async ({
+		db,
+	}) => {
+		await seedFounder(db);
+		// Pre-seed the global team so Acme is not global and Finn can leave it.
+		await db
+			.insert(teams)
+			.values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates Acme (Finn = default runner)
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+		const teamId = finnResult.data.user?.teams?.find((t) => t.name === "Acme")?.id ?? "";
+
+		// Ada joins Acme (Finn still default runner — joined first)
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["Acme"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+
+		const before = await db.select().from(userTeams).where(eq(userTeams.teamId, teamId));
+		expect(before.find((m) => m.userId === finnId)?.isDefaultRunner).toBe(true);
+		expect(before.find((m) => m.userId === adaId)?.isDefaultRunner).toBe(false);
+
+		// Finn leaves Acme by joining a new team; Ada is now the only person in Acme.
+		const leaveResult = await editUser(ctxFor(db, finnId), { id: finnId, teams: ["Solo"] });
+		expect(leaveResult.ok).toBe(true);
+
+		// Ada is now the default runner of Acme; exactly one default runner in the team.
+		const acmeMemberships = await db.select().from(userTeams).where(eq(userTeams.teamId, teamId));
+		expect(acmeMemberships.find((m) => m.userId === finnId)).toBeUndefined();
+		expect(acmeMemberships.find((m) => m.userId === adaId)?.isDefaultRunner).toBe(true);
+		expect(acmeMemberships.filter((m) => m.isDefaultRunner)).toHaveLength(1);
+	});
+});
+
+describe("global team membership invariant", () => {
+	test("a person always stays in the global team when their teams are changed", async ({ db }) => {
+		await seedFounder(db);
+		// Pre-seed the global team so the next team (Acme) is not global.
+		await db
+			.insert(teams)
+			.values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+
+		const { editUser } = actionsFor(buildDeps());
+
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+
+		// Finn sets teams to ["Solo"] — removing Acme but should keep Company
+		const leaveResult = await editUser(ctxFor(db, finnId), { id: finnId, teams: ["Solo"] });
+		expect(leaveResult.ok).toBe(true);
+
+		// Finn must still be in the global team
+		const finnMemberships = await db.select().from(userTeams).where(eq(userTeams.userId, finnId));
+		expect(finnMemberships.map((m) => m.teamId)).toContain("team-company");
+	});
+});
+
+describe("defaultRunnerFor clears unowned agent keys", () => {
+	test("becoming a team's default runner clears unowned agents' keys", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates Acme (Finn = default runner); Ada joins Acme.
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+		const teamId = finnResult.data.user?.teams?.find((t) => t.name === "Acme")?.id ?? "";
+
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["Acme"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+
+		// Add an unowned agent to Acme with a key hash.
+		const agentId = "test-agent-acme";
+		await db.insert(users).values({
+			id: agentId,
+			kind: "ai",
+			name: "Bot",
+			role: "agent",
+			status: "active",
+			createdAt: NOW,
+			keyHash: "some-hash-value",
+		});
+		await db.insert(userTeams).values({ userId: agentId, teamId, isDefaultRunner: false });
+
+		// Ada becomes the default runner of Acme; agent keys should be cleared.
+		const result = await editUser(ctxFor(db, finnId), { id: adaId, defaultRunnerFor: teamId });
+		expect(result.ok).toBe(true);
+
+		const [agentRow] = await db.select().from(users).where(eq(users.id, agentId));
+		expect(agentRow?.keyHash).toBeNull();
+	});
+});
+
+describe("the runner left: unowned agent keys are cleared when the default runner leaves", () => {
+	test("when the default runner leaves a team, unowned agent keys are cleared", async ({ db }) => {
+		await seedFounder(db);
+		// Pre-seed the global team so Acme is not global and Finn can leave it.
+		await db
+			.insert(teams)
+			.values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates Acme (Finn = default runner); Ada joins Acme.
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+		const teamId = finnResult.data.user?.teams?.find((t) => t.name === "Acme")?.id ?? "";
+
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["Acme"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+
+		// Add an unowned agent to Acme with a key hash.
+		const agentId = "test-ruling-a-bot";
+		await db.insert(users).values({
+			id: agentId,
+			kind: "ai",
+			name: "Bot",
+			role: "agent",
+			status: "active",
+			createdAt: NOW,
+			keyHash: "old-key-hash",
+		});
+		await db.insert(userTeams).values({ userId: agentId, teamId, isDefaultRunner: false });
+
+		// Finn leaves Acme — he was the default runner.
+		const leaveResult = await editUser(ctxFor(db, finnId), { id: finnId, teams: ["Solo"] });
+		expect(leaveResult.ok).toBe(true);
+
+		// Unowned agent's key must be cleared so the old runner loses its agent.
+		const [agentRow] = await db.select().from(users).where(eq(users.id, agentId));
+		expect(agentRow?.keyHash).toBeNull();
+	});
+});
+
+describe("a person's own agents leave the team with them", () => {
+	test("when a person leaves a team, their owned agents move to the global team", async ({
+		db,
+	}) => {
+		await seedFounder(db);
+		// Pre-seed the global team so Acme is not global and Finn can leave it.
+		await db
+			.insert(teams)
+			.values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates Acme and joins the global (Company) team.
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+		const acmeId = finnResult.data.user?.teams?.find((t) => t.name === "Acme")?.id ?? "";
+
+		// Finn creates a personal agent in Acme.
+		const agentResult = await editUser(ctxFor(db, finnId), {
+			kind: "ai",
+			name: "Finn Bot",
+			ownerUserId: finnId,
+			teams: ["Acme"],
+		});
+		if (!agentResult.ok) throw new Error("agent create failed");
+		const agentId = agentResult.data.user?.id ?? "";
+
+		// Assert agent is in Acme.
+		const before = await db.select().from(userTeams).where(eq(userTeams.userId, agentId));
+		expect(before.map((m) => m.teamId)).toContain(acmeId);
+
+		// Finn leaves Acme (goes to Solo + stays in Company global).
+		const leaveResult = await editUser(ctxFor(db, finnId), { id: finnId, teams: ["Solo"] });
+		expect(leaveResult.ok).toBe(true);
+
+		// Personal agent must no longer be in Acme.
+		const after = await db.select().from(userTeams).where(eq(userTeams.userId, agentId));
+		expect(after.map((m) => m.teamId)).not.toContain(acmeId);
+		// Personal agent must be in the global team (Company).
+		expect(after.map((m) => m.teamId)).toContain("team-company");
+	});
+});
+
+describe("agent key clear guards: only on actual runner change", () => {
+	test("a non-runner member leaving leaves unowned agent keys untouched", async ({ db }) => {
+		await seedFounder(db);
+		// Pre-seed the global team so Acme is not global.
+		await db
+			.insert(teams)
+			.values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates Acme (Finn = default runner).
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const acmeId = finnResult.data.user?.teams?.find((t) => t.name === "Acme")?.id ?? "";
+
+		// Ada joins Acme (NOT the default runner — Finn still holds it).
+		const adaResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Ada",
+			teams: ["Acme"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+
+		// Unowned agent in Acme with a key hash.
+		const agentId = "guard-test-bot-1";
+		await db.insert(users).values({
+			id: agentId,
+			kind: "ai",
+			name: "Bot",
+			role: "agent",
+			status: "active",
+			createdAt: NOW,
+			keyHash: "key-should-survive",
+		});
+		await db.insert(userTeams).values({ userId: agentId, teamId: acmeId, isDefaultRunner: false });
+
+		// Ada leaves Acme — she was not the default runner.
+		const leaveResult = await editUser(ctxFor(db, adaId), { id: adaId, teams: ["Solo"] });
+		expect(leaveResult.ok).toBe(true);
+
+		// Key must NOT be cleared — the runner (Finn) did not change.
+		const [agentRow] = await db.select().from(users).where(eq(users.id, agentId));
+		expect(agentRow?.keyHash).toBe("key-should-survive");
+	});
+
+	test("an agent changing teams leaves other agents' keys untouched", async ({ db }) => {
+		await seedFounder(db);
+		await db
+			.insert(teams)
+			.values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates Acme (Finn = default runner); Finn is also in Company (global).
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+		const acmeId = finnResult.data.user?.teams?.find((t) => t.name === "Acme")?.id ?? "";
+
+		// A personally-owned agent of Finn's in Acme.
+		// (owned agents must be in one of their owner's teams, so "Acme" is valid)
+		const ownedResult = await editUser(ctxFor(db, finnId), {
+			kind: "ai",
+			name: "Finn Bot",
+			ownerUserId: finnId,
+			teams: ["Acme"],
+		});
+		if (!ownedResult.ok) throw new Error("owned agent create failed");
+		const ownedAgentId = ownedResult.data.user?.id ?? "";
+
+		// Unowned team agent in Acme with a key hash.
+		const unownedId = "guard-test-bot-2";
+		await db.insert(users).values({
+			id: unownedId,
+			kind: "ai",
+			name: "Team Bot",
+			role: "agent",
+			status: "active",
+			createdAt: NOW,
+			keyHash: "unowned-key-stays",
+		});
+		await db.insert(userTeams).values({
+			userId: unownedId,
+			teamId: acmeId,
+			isDefaultRunner: false,
+		});
+
+		// The owned agent moves from Acme to Company (Finn is also in Company, so valid).
+		// An agent is never the default runner of a team, so no key-clear should happen.
+		const moveResult = await editUser(ctxFor(db, finnId), {
+			id: ownedAgentId,
+			teams: ["Company"],
+		});
+		expect(moveResult.ok).toBe(true);
+
+		// Unowned team agent's key must NOT be cleared (the agent that moved is not the runner).
+		const [botRow] = await db.select().from(users).where(eq(users.id, unownedId));
+		expect(botRow?.keyHash).toBe("unowned-key-stays");
+	});
+
+	test("setting the same runner again is a no-op for keys", async ({ db }) => {
+		await seedFounder(db);
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates Acme (Finn = default runner).
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+		const acmeId = finnResult.data.user?.teams?.find((t) => t.name === "Acme")?.id ?? "";
+
+		// Unowned agent in Acme with a key hash.
+		const agentId = "guard-test-bot-3";
+		await db.insert(users).values({
+			id: agentId,
+			kind: "ai",
+			name: "Bot",
+			role: "agent",
+			status: "active",
+			createdAt: NOW,
+			keyHash: "key-must-stay",
+		});
+		await db.insert(userTeams).values({ userId: agentId, teamId: acmeId, isDefaultRunner: false });
+
+		// Set Finn as runner again — same person, no actual change.
+		const result = await editUser(ctxFor(db, finnId), { id: finnId, defaultRunnerFor: acmeId });
+		expect(result.ok).toBe(true);
+
+		// Key must NOT be cleared — the runner did not change.
+		const [agentRow] = await db.select().from(users).where(eq(users.id, agentId));
+		expect(agentRow?.keyHash).toBe("key-must-stay");
+	});
+
+	test("the runner leaving still clears unowned agent keys", async ({ db }) => {
+		await seedFounder(db);
+		await db
+			.insert(teams)
+			.values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates Acme (Finn = default runner).
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+		const acmeId = finnResult.data.user?.teams?.find((t) => t.name === "Acme")?.id ?? "";
+
+		// Unowned agent in Acme with a key hash.
+		const agentId = "guard-test-bot-4";
+		await db.insert(users).values({
+			id: agentId,
+			kind: "ai",
+			name: "Bot",
+			role: "agent",
+			status: "active",
+			createdAt: NOW,
+			keyHash: "old-hash",
+		});
+		await db.insert(userTeams).values({ userId: agentId, teamId: acmeId, isDefaultRunner: false });
+
+		// Finn leaves Acme — he was the default runner.
+		const leaveResult = await editUser(ctxFor(db, finnId), { id: finnId, teams: ["Solo"] });
+		expect(leaveResult.ok).toBe(true);
+
+		// Key MUST be cleared — the runner left.
+		const [agentRow] = await db.select().from(users).where(eq(users.id, agentId));
+		expect(agentRow?.keyHash).toBeNull();
+	});
+});

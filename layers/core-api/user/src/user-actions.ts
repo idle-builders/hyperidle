@@ -53,7 +53,17 @@ import {
 	markInboxSeen,
 	updateSubscription,
 } from "./subscriptions-store.js";
-import { createTeam, getTeam, listTeams } from "./team-lookup.js";
+import {
+	clearUnownedTeamAgentKeys,
+	createTeam,
+	ensureDefaultRunner,
+	getGlobalTeam,
+	getTeam,
+	listDefaultRunners,
+	listTeams,
+	repairDefaultRunner,
+	setDefaultRunner,
+} from "./team-lookup.js";
 import { giveUserKey, newUserKey } from "./user-key.js";
 import {
 	findUser,
@@ -143,23 +153,20 @@ async function teamNames(db: HyperIdleDb, ids: readonly string[]): Promise<strin
 }
 
 /** `teamMembershipProblems` for a user about to be in `teams` (names) — read what the
- * input alone cannot say: the owner's teams, and a person's own agents' teams. */
+ * input alone cannot say: the owner's teams. */
 async function membershipProblemsFor(
 	db: HyperIdleDb,
 	subject: {
-		readonly id: string | null;
 		readonly kind: string;
 		readonly ownerUserId: string | null;
 	},
 	teams: readonly string[],
 ): Promise<Problem[]> {
 	const owner = subject.ownerUserId ? await findUser(db, { id: subject.ownerUserId }) : undefined;
-	const owned = subject.id !== null ? await listUsers(db, { ownerUserId: subject.id }) : [];
 	return teamMembershipProblems({
 		kind: subject.kind,
 		teams,
 		ownerTeams: owner ? await teamNames(db, owner.teamIds) : null,
-		ownedAgentTeams: await teamNames(db, [...new Set(owned.flatMap((a) => a.teamIds))]),
 	});
 }
 
@@ -167,10 +174,10 @@ async function membershipProblemsFor(
  * in a fixed number of queries regardless of how many rows. */
 async function toUserRows(db: HyperIdleDb, rows: readonly UserWithTeams[]): Promise<UserRow[]> {
 	if (rows.length === 0) return [];
-	const teamRows: Team[] = await listTeams(db, {
-		ids: [...new Set(rows.flatMap((r) => r.teamIds))],
-	});
+	const allTeamIds = [...new Set(rows.flatMap((r) => r.teamIds))];
+	const teamRows: Team[] = await listTeams(db, { ids: allTeamIds });
 	const teamById = new Map(teamRows.map((t) => [t.id, t] as const));
+	const defaultRunnerById = await listDefaultRunners(db, allTeamIds);
 
 	const edgeRows = await listOrgEdges(db, { fromUserIds: rows.map((r) => r.id) });
 	const disciplineTargets = [
@@ -202,7 +209,15 @@ async function toUserRows(db: HyperIdleDb, rows: readonly UserWithTeams[]): Prom
 	return rows.map((r) => {
 		const teams = r.teamIds.flatMap((id) => {
 			const team = teamById.get(id);
-			return team ? [{ id: team.id, name: team.name }] : [];
+			if (!team) return [];
+			return [
+				{
+					id: team.id,
+					name: team.name,
+					isGlobal: team.isGlobal,
+					defaultRunnerId: defaultRunnerById.get(team.id) ?? null,
+				},
+			];
 		});
 		return {
 			id: r.id,
@@ -520,7 +535,7 @@ async function createUserRun(
 	const teamNamesIn = input.teams ?? [];
 	const membership = await membershipProblemsFor(
 		ctx.db,
-		{ id: null, kind, ownerUserId: input.ownerUserId ?? null },
+		{ kind, ownerUserId: input.ownerUserId ?? null },
 		teamNamesIn,
 	);
 	if (membership.length > 0) return { ok: false, problems: membership };
@@ -574,12 +589,28 @@ async function createUserRun(
 	await ctx.db.transaction(async (txRaw) => {
 		const tx = txRaw as HyperIdleDb;
 		teams = await findOrCreateTeams(tx, teamNamesIn, now);
+
+		// Every new person auto-joins the global team.
+		if (kind === "human") {
+			const globalTeam = await getGlobalTeam(tx);
+			if (globalTeam && !teams.some((t) => t.id === globalTeam.id)) {
+				teams = [...teams, { id: globalTeam.id, name: globalTeam.name }];
+			}
+		}
+
 		await insertUser(tx, values);
 		await setUserTeams(
 			tx,
 			id,
 			teams.map((t) => t.id),
 		);
+
+		// Ensure each team has a default runner; set this person if none exists.
+		if (kind === "human") {
+			for (const team of teams) {
+				await ensureDefaultRunner(tx, team.id, id);
+			}
+		}
 
 		for (const e of input.edges?.add ?? []) {
 			await upsertOrgEdge(tx, { fromUserId: id, mechanism: e.mechanism, target: e.target });
@@ -799,7 +830,49 @@ async function editExistingUserRun(
 		}
 	}
 
+	// defaultRunnerFor: validate before the transaction
+	if (input.defaultRunnerFor !== undefined) {
+		const teamId = input.defaultRunnerFor;
+		// Actor must be in the team (check ACTOR's memberships, not the target's)
+		const actorRow = await findUser(ctx.db, { id: ctx.actor });
+		if (!actorRow?.teamIds.includes(teamId)) {
+			return problem(
+				"not_in_team",
+				"Only a member of the team may change its default runner.",
+				"defaultRunnerFor",
+			);
+		}
+		// Target (the person being edited) must be a human in the team
+		if (existing.kind !== "human") {
+			return problem("person_only", "The default runner must be a person.", "defaultRunnerFor");
+		}
+		// Membership check: use post-edit teams when input.teams is also provided, because
+		// the person may be leaving the team in the same call (e.g. teams:["Solo"], defaultRunnerFor: acme).
+		if (input.teams !== undefined) {
+			// Resolve what team IDs the person will have after this edit.
+			// Global team is silently re-added, so it always qualifies.
+			const globalTeam = await getGlobalTeam(ctx.db);
+			if (teamId !== globalTeam?.id) {
+				const team = await getTeam(ctx.db, { id: teamId });
+				if (!(team && input.teams.includes(team.name))) {
+					return problem(
+						"not_in_team",
+						"The new default runner must be a member of that team after this edit.",
+						"defaultRunnerFor",
+					);
+				}
+			}
+		} else if (!existing.teamIds.includes(teamId)) {
+			return problem(
+				"not_in_team",
+				"The new default runner must be a member of that team.",
+				"defaultRunnerFor",
+			);
+		}
+	}
+
 	const touchesTeams = input.teams !== undefined;
+	const touchesDefaultRunner = input.defaultRunnerFor !== undefined;
 	const touchesEdges =
 		(input.edges?.add?.length ?? 0) > 0 || (input.edges?.remove?.length ?? 0) > 0;
 	const touchesSubscriptions =
@@ -811,6 +884,7 @@ async function editExistingUserRun(
 	const appendsChange =
 		touchesIdentityFields(input) ||
 		touchesTeams ||
+		touchesDefaultRunner ||
 		touchesEdges ||
 		touchesSubscriptions ||
 		touchesKey;
@@ -826,6 +900,7 @@ async function editExistingUserRun(
 	if (touchesKey) after.keyRotated = true;
 	if (touchesEdges) after.edges = true;
 	if (touchesSubscriptions) after.subscriptions = true;
+	if (touchesDefaultRunner) after.defaultRunner = { teamId: input.defaultRunnerFor, userId: id };
 
 	let teams: Array<{ id: string; name: string }> | undefined;
 	const addedSubscriptions: Array<{
@@ -840,13 +915,61 @@ async function editExistingUserRun(
 		const tx = txRaw as HyperIdleDb;
 		if (input.teams !== undefined) {
 			teams = await findOrCreateTeams(tx, input.teams, now);
-			await setUserTeams(
-				tx,
-				id,
-				teams.map((t) => t.id),
-			);
+			// A person is always in the global team — silently re-add it when removed.
+			const globalTeam = existing.kind === "human" ? await getGlobalTeam(tx) : undefined;
+			if (globalTeam && !teams.some((t) => t.id === globalTeam.id)) {
+				teams = [...teams, { id: globalTeam.id, name: globalTeam.name }];
+			}
+			const newTeamIds = new Set(teams.map((t) => t.id));
+			const oldTeamIds = new Set(existing.teamIds);
+			// Read default runners BEFORE changing membership so we know if the person was the runner.
+			const leavingTeamIds = [...oldTeamIds].filter((tid) => !newTeamIds.has(tid));
+			const prevRunners =
+				leavingTeamIds.length > 0
+					? await listDefaultRunners(tx, leavingTeamIds)
+					: new Map<string, string>();
+			await setUserTeams(tx, id, [...newTeamIds]);
 			before.teamIds = existing.teamIds;
-			after.teamIds = teams.map((t) => t.id);
+			after.teamIds = [...newTeamIds];
+
+			// For teams the person left, repair the default runner in case they held it.
+			for (const teamId of oldTeamIds) {
+				if (!newTeamIds.has(teamId)) {
+					await repairDefaultRunner(tx, teamId);
+					// Keys are cleared only when the leaver was the default runner — avoids
+					// cancelling live agent runs when an ordinary member or agent leaves.
+					if (prevRunners.get(teamId) === id) {
+						await clearUnownedTeamAgentKeys(tx, teamId);
+					}
+					// A person's own agents leave the team with them — move them to the global team.
+					if (globalTeam) {
+						const ownedInLeft = await listUsers(tx, {
+							ownerUserId: id,
+							teamIds: [teamId],
+							kind: "ai",
+						});
+						for (const agent of ownedInLeft) {
+							await setUserTeams(tx, agent.id, [globalTeam.id]);
+						}
+					}
+				}
+			}
+			// For teams the person joined, ensure there is a default runner.
+			if (existing.kind === "human") {
+				for (const teamId of newTeamIds) {
+					if (!oldTeamIds.has(teamId)) await ensureDefaultRunner(tx, teamId, id);
+				}
+			}
+		}
+
+		if (input.defaultRunnerFor !== undefined) {
+			const prevRunnerMap = await listDefaultRunners(tx, [input.defaultRunnerFor]);
+			const prevRunnerId = prevRunnerMap.get(input.defaultRunnerFor);
+			await setDefaultRunner(tx, input.defaultRunnerFor, id);
+			// Clear keys only when the runner actually changed — a no-op when the same person is set again.
+			if (prevRunnerId !== id) {
+				await clearUnownedTeamAgentKeys(tx, input.defaultRunnerFor);
+			}
 		}
 
 		const patch: Partial<NewUser> = {};

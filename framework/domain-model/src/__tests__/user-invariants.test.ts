@@ -219,27 +219,27 @@ describe("teamMembershipProblems", () => {
 	it.each([
 		{
 			why: "a person in two teams",
-			subject: { kind: "human", teams: ["Core", "Sales"], ownerTeams: null, ownedAgentTeams: [] },
+			subject: { kind: "human", teams: ["Core", "Sales"], ownerTeams: null },
 			codes: [],
 		},
 		{
 			why: "a person in no team",
-			subject: { kind: "human", teams: [], ownerTeams: null, ownedAgentTeams: [] },
+			subject: { kind: "human", teams: [], ownerTeams: null },
 			codes: ["belonging_required"],
 		},
 		{
 			why: "an agent in one team",
-			subject: { kind: "ai", teams: ["Core"], ownerTeams: null, ownedAgentTeams: [] },
+			subject: { kind: "ai", teams: ["Core"], ownerTeams: null },
 			codes: [],
 		},
 		{
 			why: "an agent in two teams",
-			subject: { kind: "ai", teams: ["Core", "Sales"], ownerTeams: null, ownedAgentTeams: [] },
+			subject: { kind: "ai", teams: ["Core", "Sales"], ownerTeams: null },
 			codes: ["agent_one_team"],
 		},
 		{
 			why: "an agent in no team",
-			subject: { kind: "ai", teams: [], ownerTeams: null, ownedAgentTeams: [] },
+			subject: { kind: "ai", teams: [], ownerTeams: null },
 			codes: ["belonging_required"],
 		},
 		{
@@ -248,7 +248,6 @@ describe("teamMembershipProblems", () => {
 				kind: "ai",
 				teams: ["Support"],
 				ownerTeams: ["Product", "Support"],
-				ownedAgentTeams: [],
 			},
 			codes: [],
 		},
@@ -258,29 +257,8 @@ describe("teamMembershipProblems", () => {
 				kind: "ai",
 				teams: ["Sales"],
 				ownerTeams: ["Product", "Support"],
-				ownedAgentTeams: [],
 			},
 			codes: ["agent_team_not_owners"],
-		},
-		{
-			why: "a person leaving the team their agent is in",
-			subject: {
-				kind: "human",
-				teams: ["Product"],
-				ownerTeams: null,
-				ownedAgentTeams: ["Support"],
-			},
-			codes: ["agent_team_not_owners"],
-		},
-		{
-			why: "a person keeping the team their agent is in",
-			subject: {
-				kind: "human",
-				teams: ["Product", "Support"],
-				ownerTeams: null,
-				ownedAgentTeams: ["Support"],
-			},
-			codes: [],
 		},
 	] as const)("$why → $codes", ({ subject, codes }) => {
 		expect(teamMembershipProblems(subject).map((p) => p.code)).toEqual(codes);
@@ -405,7 +383,7 @@ describe("UserRowSchema", () => {
 		health: null,
 		discipline: null,
 		what: null,
-		teams: [{ id: "t1", name: "Core" }],
+		teams: [{ id: "t1", name: "Core", isGlobal: false, defaultRunnerId: null }],
 		edges: [{ id: "e1", mechanism: "direct" as const, target: "u0", resolvedUserIds: [] }],
 	};
 

@@ -115,7 +115,6 @@ export interface NewPlatformSubscription {
  */
 export interface PlatformActionsDeps {
 	readonly agents: {
-		/** A team install's agents are in that team; a factory install's in none. */
 		insertIfAbsent(exec: WriteExecutor, values: NewUser, teamId: string | null): Promise<void>;
 		setStatus(
 			exec: WriteExecutor,
@@ -182,9 +181,7 @@ export interface PlatformActionsDeps {
 // ---------------------------------------------------------------------------
 
 function toDeclaredScope(scope: InstallerPluginScope): DeclaredPluginScope {
-	return scope.kind === "team" && scope.teamId
-		? { kind: "team", teamId: scope.teamId }
-		: { kind: "factory", teamId: null };
+	return { kind: "team", teamId: scope.teamId };
 }
 
 /** `listInstalledPlugins`/`getInstalledPlugin` already exclude `state:
@@ -243,7 +240,7 @@ interface ContributedDocumentSpec {
 	readonly parentKind: DocumentParentKind | null;
 	readonly parentId: string | null;
 	readonly scopeKind: ScopeKind;
-	readonly scopeId: string | null;
+	readonly scopeId: string;
 }
 
 // Make a plugin's agent/subscription contributions live or not. Document half is separate (editDocument has its own transaction).
@@ -410,7 +407,7 @@ function readPluginDocumentSource(
 	pluginName: string,
 	documentId: string,
 	scopeKind: string,
-	scopeId: string | null,
+	scopeId: string,
 ): string | null {
 	const parsed = parsePluginManifest(installPath);
 	if (parsed.ok) {
@@ -590,8 +587,8 @@ async function installRun(
 	deps: PlatformActionsDeps,
 	source: EditPluginSource,
 ): Promise<ActionResult<PluginView>> {
-	// @lore: team install folder is <name>@<teamId>; a non-existent teamId could escape the install root via remove-and-copy, so refused before any write
-	if (source.scope.kind === "team" && !(await deps.teams.exists(ctx.db, source.scope.teamId))) {
+	// @lore: install folder is <name>@<teamId>; a non-existent teamId could escape the install root via remove-and-copy, so refused before any write
+	if (!(await deps.teams.exists(ctx.db, source.scope.teamId))) {
 		return problem(
 			"unknown_team",
 			`No team "${source.scope.teamId}" to install the plugin for.`,
@@ -694,7 +691,7 @@ async function installRun(
 					agentCategory: agentSpec.agentCategory,
 					createdAt: installTs,
 				},
-				scopeKind === "team" ? scopeId : null,
+				scopeId,
 			);
 		}
 
@@ -943,20 +940,18 @@ function availableBundledPlugins(
 	viewerTeamIds: readonly string[],
 ): AvailablePluginView[] {
 	const installedFor = (name: string, teamId: string): boolean =>
-		installed.some((p) => p.name === name && p.scope.kind === "team" && p.scope.teamId === teamId);
-	const covered = (name: string, installScope: "team" | "factory"): boolean =>
-		installed.some((p) => p.name === name && p.scope.kind === "factory") ||
-		(installScope === "team" && viewerTeamIds.every((teamId) => installedFor(name, teamId)));
+		installed.some((p) => p.name === name && p.scope.teamId === teamId);
+	const covered = (name: string): boolean =>
+		viewerTeamIds.every((teamId) => installedFor(name, teamId));
+	if (viewerTeamIds.length === 0) return [];
 	return listBundledPlugins(bundledPluginsDir)
-		.filter(({ manifest }) => manifest.installScope === "factory" || viewerTeamIds.length > 0)
-		.filter(({ manifest }) => !covered(manifest.name, manifest.installScope))
+		.filter(({ manifest }) => !covered(manifest.name))
 		.map(({ manifest, path }) => ({
 			id: manifest.name,
 			name: manifest.name,
 			version: manifest.version,
 			description: manifest.description,
 			state: "available",
-			installScope: manifest.installScope,
 			adds: manifestAdds(manifest, path),
 		}));
 }
@@ -976,13 +971,14 @@ export function createPlatformActions(deps: PlatformActionsDeps): readonly Actio
 		ctx: ActionContext,
 		input: SearchPluginsInput,
 	): Promise<ActionResult<PluginListing[]>> {
-		const installed = await listInstalledPlugins(ctx.db);
+		const viewerTeamIds = await deps.viewerTeamIds(ctx.db, ctx.actor);
+		const allInstalled = await listInstalledPlugins(ctx.db);
 		const available = availableBundledPlugins(
 			deps.bundledPluginsDir,
-			installed,
-			await deps.viewerTeamIds(ctx.db, ctx.actor),
+			allInstalled,
+			viewerTeamIds,
 		).filter((p) => matchesSearchFilter(p, input));
-		const filtered = installed.filter((p) => matchesSearchFilter(p, input));
+		const filtered = allInstalled.filter((p) => matchesSearchFilter(p, input));
 		if (filtered.length === 0) return { ok: true, data: available };
 
 		const data: PluginListing[] = [];

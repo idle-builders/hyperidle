@@ -29,6 +29,10 @@ import {
 
 const VALID_SCHEMA = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
 
+// Team id used throughout — plugin-installer.ts writes only to plugins/users tables;
+// it does not insert user_teams rows, so no teams row needs to exist in the DB.
+const T = "t-test";
+
 const tempDirs: string[] = [];
 
 function makeTempDir(suffix: string): string {
@@ -91,16 +95,19 @@ describe("install from a folder", () => {
 
 		const result = await installPlugin(db, {
 			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
+			scope: { kind: "team", teamId: T },
 		});
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 
-		expect(result.plugin.id).toBe("test-plugin-folder");
+		expect(result.plugin.id).toBe("test-plugin-folder@t-test");
 		expect(result.plugin.state).toBe("enabled");
 
-		const pluginRows = await db.select().from(plugins).where(eq(plugins.id, "test-plugin-folder"));
+		const pluginRows = await db
+			.select()
+			.from(plugins)
+			.where(eq(plugins.id, "test-plugin-folder@t-test"));
 		expect(pluginRows).toHaveLength(1);
 	});
 });
@@ -111,13 +118,16 @@ describe("install from a repository URL", () => {
 
 		const result = await installPlugin(db, {
 			source: { kind: "git", url: gitUrl },
-			scope: { kind: "factory", teamId: null },
+			scope: { kind: "team", teamId: T },
 		});
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-		expect(result.plugin.id).toBe("test-plugin-repo");
-		const pluginRows = await db.select().from(plugins).where(eq(plugins.id, "test-plugin-repo"));
+		expect(result.plugin.id).toBe("test-plugin-repo@t-test");
+		const pluginRows = await db
+			.select()
+			.from(plugins)
+			.where(eq(plugins.id, "test-plugin-repo@t-test"));
 		expect(pluginRows).toHaveLength(1);
 	});
 });
@@ -128,13 +138,16 @@ describe("install from a zip", () => {
 
 		const result = await installPlugin(db, {
 			source: { kind: "zip", path: zipPath },
-			scope: { kind: "factory", teamId: null },
+			scope: { kind: "team", teamId: T },
 		});
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-		expect(result.plugin.id).toBe("test-plugin-zip");
-		const pluginRows = await db.select().from(plugins).where(eq(plugins.id, "test-plugin-zip"));
+		expect(result.plugin.id).toBe("test-plugin-zip@t-test");
+		const pluginRows = await db
+			.select()
+			.from(plugins)
+			.where(eq(plugins.id, "test-plugin-zip@t-test"));
 		expect(pluginRows).toHaveLength(1);
 	});
 });
@@ -144,20 +157,6 @@ describe("install from a zip", () => {
 // ---------------------------------------------------------------------------
 
 describe("scope", () => {
-	test("factory scope is recorded and returned by listInstalledPlugins", async ({ db }) => {
-		const pluginDir = makePluginDir("scope-factory");
-		await installPlugin(db, {
-			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
-		});
-
-		const list = await listInstalledPlugins(db);
-		const plugin = list.find((p) => p.id === "scope-factory");
-		expect(plugin).toBeDefined();
-		expect(plugin?.scope.kind).toBe("factory");
-		expect(plugin?.scope.teamId).toBeNull();
-	});
-
 	test("team scope with teamId is recorded and returned", async ({ db }) => {
 		const pluginDir = makePluginDir("scope-team");
 		await installPlugin(db, {
@@ -171,15 +170,6 @@ describe("scope", () => {
 		expect(plugin).toBeDefined();
 		expect(plugin?.scope.kind).toBe("team");
 		expect(plugin?.scope.teamId).toBe("team-abc");
-	});
-
-	test("rejects install when scope is team but teamId is missing", async ({ db }) => {
-		const pluginDir = makePluginDir("scope-bad");
-		const result = await installPlugin(db, {
-			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "team", teamId: null },
-		});
-		expect(result.ok).toBe(false);
 	});
 });
 
@@ -200,7 +190,7 @@ describe("manifest validation is wired through to the install result", () => {
 		);
 		const result = await installPlugin(db, {
 			source: { kind: "folder", path: dir },
-			scope: { kind: "factory", teamId: null },
+			scope: { kind: "team", teamId: T },
 		});
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
@@ -217,7 +207,7 @@ describe("manifest validation is wired through to the install result", () => {
 		);
 		const result = await installPlugin(db, {
 			source: { kind: "folder", path: dir },
-			scope: { kind: "factory", teamId: null },
+			scope: { kind: "team", teamId: T },
 		});
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -236,38 +226,41 @@ describe("disable, enable, remove, reinstall", () => {
 		const pluginDir = makePluginDir("toggle-plugin");
 		await installPlugin(db, {
 			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
+			scope: { kind: "team", teamId: T },
 		});
 
-		await disablePlugin(db, "toggle-plugin");
+		await disablePlugin(db, "toggle-plugin@t-test");
 		let list = await listInstalledPlugins(db);
-		expect(list.find((p) => p.id === "toggle-plugin")?.state).toBe("disabled");
+		expect(list.find((p) => p.id === "toggle-plugin@t-test")?.state).toBe("disabled");
 
-		await enablePlugin(db, "toggle-plugin");
+		await enablePlugin(db, "toggle-plugin@t-test");
 		list = await listInstalledPlugins(db);
-		expect(list.find((p) => p.id === "toggle-plugin")?.state).toBe("enabled");
+		expect(list.find((p) => p.id === "toggle-plugin@t-test")?.state).toBe("enabled");
 	});
 
 	test("removing marks the plugin removed and drops it from the list", async ({ db }) => {
 		const pluginDir = makePluginDir("remove-plugin");
 		await installPlugin(db, {
 			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
+			scope: { kind: "team", teamId: T },
 		});
 
-		await removePlugin(db, "remove-plugin");
+		await removePlugin(db, "remove-plugin@t-test");
 
-		const pluginRows = await db.select().from(plugins).where(eq(plugins.id, "remove-plugin"));
+		const pluginRows = await db
+			.select()
+			.from(plugins)
+			.where(eq(plugins.id, "remove-plugin@t-test"));
 		expect(pluginRows[0]?.state).toBe("removed");
 		const list = await listInstalledPlugins(db);
-		expect(list.find((p) => p.id === "remove-plugin")).toBeUndefined();
+		expect(list.find((p) => p.id === "remove-plugin@t-test")).toBeUndefined();
 	});
 
 	test("reinstall updates the version", async ({ db }) => {
 		const pluginDir = makePluginDir("reinstall-plugin");
 		await installPlugin(db, {
 			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
+			scope: { kind: "team", teamId: T },
 		});
 		writeFileSync(
 			join(pluginDir, "plugin.json"),
@@ -277,7 +270,7 @@ describe("disable, enable, remove, reinstall", () => {
 
 		const result = await installPlugin(db, {
 			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
+			scope: { kind: "team", teamId: T },
 		});
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
@@ -305,13 +298,13 @@ describe("MCP servers a session reads", () => {
 		});
 		const result = await installPlugin(db, {
 			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
+			scope: { kind: "team", teamId: T },
 			pluginsBaseDir,
 		});
 		expect(result.ok).toBe(true);
-		const installPath = join(pluginsBaseDir, "mcp-plugin");
+		const installPath = join(pluginsBaseDir, `mcp-plugin@${T}`);
 
-		const rows = await getPluginMcpContributions(db, null);
+		const rows = await getPluginMcpContributions(db, T);
 		expect(rows.map(({ key, installPath }) => ({ key, installPath }))).toEqual([
 			{ key: "mcp-plugin/bridge", installPath },
 		]);
@@ -330,49 +323,49 @@ describe("MCP servers a session reads", () => {
 			}),
 			"utf8",
 		);
-		const after = await getPluginMcpContributions(db, null);
+		const after = await getPluginMcpContributions(db, T);
 		expect(after.map((r) => r.key).sort()).toEqual(["mcp-plugin/bridge", "mcp-plugin/search"]);
 	});
 
-	test("a team install's servers reach only that team; disabled and removed installs none", async ({
-		db,
-	}) => {
+	test("each team's servers are isolated; disable and remove drop them", async ({ db }) => {
 		const pluginsBaseDir = makeTempDir("plugins-base");
-		const teamDir = makeMcpPluginDir("team-mcp", { tool: { url: "https://team.example/mcp" } });
+		const teamADir = makeMcpPluginDir("team-a-mcp", {
+			tool: { url: "https://team-a.example/mcp" },
+		});
 		await installPlugin(db, {
-			source: { kind: "folder", path: teamDir },
+			source: { kind: "folder", path: teamADir },
 			scope: { kind: "team", teamId: "team-a" },
 			pluginsBaseDir,
 		});
-		const factoryDir = makeMcpPluginDir("factory-mcp", {
-			tool: { url: "https://all.example/mcp" },
+		const teamBDir = makeMcpPluginDir("team-b-mcp", {
+			tool: { url: "https://team-b.example/mcp" },
 		});
 		await installPlugin(db, {
-			source: { kind: "folder", path: factoryDir },
-			scope: { kind: "factory", teamId: null },
+			source: { kind: "folder", path: teamBDir },
+			scope: { kind: "team", teamId: "team-b" },
 			pluginsBaseDir,
 		});
 
 		const keysFor = async (teamId: string | null) =>
 			(await getPluginMcpContributions(db, teamId)).map((r) => r.key).sort();
 
-		expect(await keysFor("team-a")).toEqual(["factory-mcp/tool", "team-mcp/tool"]);
-		expect(await keysFor("team-b")).toEqual(["factory-mcp/tool"]);
-		expect(await keysFor(null)).toEqual(["factory-mcp/tool"]);
+		expect(await keysFor("team-a")).toEqual(["team-a-mcp/tool"]);
+		expect(await keysFor("team-b")).toEqual(["team-b-mcp/tool"]);
+		expect(await keysFor(null)).toEqual([]);
 
-		await disablePlugin(db, "team-mcp@team-a");
-		expect(await keysFor("team-a")).toEqual(["factory-mcp/tool"]);
-
-		await removePlugin(db, "factory-mcp");
+		await disablePlugin(db, "team-a-mcp@team-a");
 		expect(await keysFor("team-a")).toEqual([]);
+
+		await removePlugin(db, "team-b-mcp@team-b");
+		expect(await keysFor("team-b")).toEqual([]);
 	});
 
 	test("an install with no folder contributes no servers", async ({ db }) => {
 		const pluginDir = makeMcpPluginDir("folderless-mcp", { tool: { url: "https://x.example" } });
 		await installPlugin(db, {
 			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
+			scope: { kind: "team", teamId: T },
 		});
-		expect(await getPluginMcpContributions(db, null)).toEqual([]);
+		expect(await getPluginMcpContributions(db, T)).toEqual([]);
 	});
 });

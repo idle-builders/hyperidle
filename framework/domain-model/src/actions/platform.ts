@@ -11,21 +11,11 @@ export type PluginListState = (typeof PLUGIN_LIST_STATES)[number];
 /**
  * What `search_plugins` may filter on: an installed row's state, or
  * `"available"` — a plugin that ships inside the app and that the viewer's
- * team (or, for a factory plugin, nobody) has not installed.
+ * team has not installed.
  */
 const PLUGIN_SEARCH_STATES = [...PLUGIN_LIST_STATES, "available"] as const;
 
-/**
- * Where a plugin's Install button puts it, read from the manifest's
- * `extensions["io.hyperidle"].installScope`: `team` — the viewer's team, one
- * install per team; `factory` — once, for everyone, its agents on no team.
- */
-const PLUGIN_INSTALL_SCOPES = ["team", "factory"] as const;
-
-export const PluginScopeSchema = z.discriminatedUnion("kind", [
-	z.object({ kind: z.literal("factory"), teamId: z.null() }),
-	z.object({ kind: z.literal("team"), teamId: z.string().min(1) }),
-]);
+export const PluginScopeSchema = z.object({ kind: z.literal("team"), teamId: z.string().min(1) });
 export type PluginScope = z.infer<typeof PluginScopeSchema>;
 
 export const PluginContributionViewSchema = z.object({
@@ -92,7 +82,6 @@ const AvailablePluginViewSchema = z.object({
 	version: z.string(),
 	description: z.string().nullable(),
 	state: z.literal("available"),
-	installScope: z.enum(PLUGIN_INSTALL_SCOPES),
 	adds: z.array(PluginAddViewSchema),
 });
 export type AvailablePluginView = z.infer<typeof AvailablePluginViewSchema>;
@@ -163,12 +152,11 @@ export const editPlugin: ActionDeclaration<EditPluginInput, PluginView> = {
 	name: "edit_plugin",
 	sentence:
 		"Install, enable, disable, remove or restore a plugin. Give exactly one of: source (install " +
-		"from a folder, a repository URL, a zip, or a bundled plugin by name; scope for factory or " +
-		"team lives inside it), state (enable or disable; enabling a removed plugin undoes the " +
-		"remove), remove, or restore (put the plugin's version back over a person's edit of one " +
-		"contribution). Each team's install is its own; name it with " +
-		"its id (the plugin name for a factory install, name@teamId for a team install) for every " +
-		"change but a source install, which derives its own id.",
+		"from a folder, a repository URL, a zip, or a bundled plugin by name; scope lives inside " +
+		"it), state (enable or disable; enabling a removed plugin undoes the remove), remove, or " +
+		"restore (put the plugin's version back over a person's edit of one contribution). Each " +
+		"team's install is its own; name it with its id (name@teamId) for every change but a source " +
+		"install, which derives its own id.",
 	input: EditPluginInputSchema,
 	output: PluginViewSchema,
 };

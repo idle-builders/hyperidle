@@ -1,4 +1,4 @@
-// @lore: first-boot writes only the system actor (role="system", invisible to `search_users`) — must exist before any write; idempotent, called every launch
+// @lore: first-boot writes the hidden system actor; the global team is created later when the company is first named (first start or first join)
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { SYSTEM_ACTOR_ID, SYSTEM_ACTOR_NAME } from "@hyperidle/domain-model";

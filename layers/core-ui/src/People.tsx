@@ -17,11 +17,13 @@ import { Avatar } from "./Msg";
 import { NeedIcon } from "./NeedIcon";
 import { AddPluginDialog } from "./Plugins";
 import {
+	agentAssignmentLine,
 	agentJobs,
 	agentStand,
 	applyMoveHereResult,
 	countWords,
 	crewOf,
+	defaultRunnerName,
 	forWords,
 	type Job,
 	joinWords,
@@ -49,7 +51,7 @@ import { useAction } from "./useAction";
  * conversation with them, what they run on, where they work, what they can reach, when they start
  * working or what they are told about, and what makes them who they are (instructions, skills,
  * memory). There is no separate settings screen: your own page is where your settings live, and it
- * is one click away at the bottom of the sidebar. A team is a group inside the one organisation —
+ * is one click away at the bottom of the sidebar. A team is a group —
  * a product team, a function, or both; a person can be in several, an agent is in one. A team's
  * page is reached from Work: its people and agents, and in its box its plugins. Changing any of it
  * happens in a small dialog over the page. Anything long is a document: a new agent, or a new
@@ -178,7 +180,7 @@ function useTasks(): readonly Task[] {
 }
 
 const forTeam = (p: PluginListing, teamId: string): boolean =>
-	p.state === "available" || p.scope.kind === "factory" || p.scope.teamId === teamId;
+	p.state === "available" || p.scope.teamId === teamId;
 
 export function TeamScreen({ name }: { name: string }): React.ReactElement {
 	const navigate = useNavigate();
@@ -189,6 +191,7 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 	const tasks = useTasks();
 	const [adding, setAdding] = useState(false);
 	const [addingPlugin, setAddingPlugin] = useState(false);
+	const [runnerProblem, setRunnerProblem] = useState<string | null>(null);
 	const location = useLocation();
 	const removed = (location.state as { removed?: { id: string; name: string } } | null)?.removed;
 
@@ -210,7 +213,7 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 				</div>
 			</section>
 		);
-	const { crews, wholeTeam, everyTeam } = crewOf(everyone, team?.id ?? "", you);
+	const { crews, wholeTeam } = crewOf(everyone, team?.id ?? "", you);
 	const agents = crews.flatMap((c) => c.agents).length + wholeTeam.length;
 	const stand = (u: UserRow) =>
 		agentStand({
@@ -273,19 +276,6 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 								</div>
 							</section>
 						)}
-						{everyTeam.length > 0 && (
-							<section className="crew-team" aria-label="Works for every team">
-								<h3>
-									Also here <span>works for every team</span>
-								</h3>
-								<div className="crew-agents">
-									{everyTeam.map((a) => (
-										<Row key={a.id} u={a} stand={stand(a)} />
-									))}
-								</div>
-							</section>
-						)}
-
 						<div className="crew-add">
 							<button type="button" className="btn" onClick={() => setAdding(true)}>
 								Add someone to {name}
@@ -300,6 +290,41 @@ export function TeamScreen({ name }: { name: string }): React.ReactElement {
 						</div>
 						<ul className="tbox-facts">
 							<li>{countWords(crews.length, agents)}</li>
+							{(() => {
+								const runnerName = defaultRunnerName(team?.defaultRunnerId, everyone);
+								if (!runnerName) return null;
+								const people = crews.map((c) => c.person);
+								return (
+									<li>
+										Runs its agents:{" "}
+										{yours ? (
+											<select
+												className="in"
+												aria-label="Runs its agents"
+												value={team?.defaultRunnerId ?? ""}
+												onChange={async (e) => {
+													const newId = e.currentTarget.value;
+													const result = await call("edit_user", {
+														id: newId,
+														defaultRunnerFor: team?.id ?? "",
+													});
+													setRunnerProblem(problemOf(result));
+													if (result.ok) users.reload();
+												}}
+											>
+												{people.map((p) => (
+													<option key={p.id} value={p.id}>
+														{p.name}
+													</option>
+												))}
+											</select>
+										) : (
+											runnerName
+										)}
+										{runnerProblem && <p className="composer-problem">{runnerProblem}</p>}
+									</li>
+								);
+							})()}
 						</ul>
 						<section className="tbox-sec">
 							<h4>
@@ -598,16 +623,14 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 			p.state !== "available" &&
 			p.contributions.some((c) => c.kind === "agent" && c.entityId === u.id),
 	);
+	const { who: agentWho, where: agentWhere } = agentAssignmentLine(
+		owner ? nameOf(owner.id) : null,
+		home?.name ?? null,
+	);
 	const facts = [
+		agent ? agentWho : isMe ? "Person · you" : "Person",
 		agent
-			? `Agent · works for ${owner ? nameOf(owner.id) : home ? `the ${home.name} team` : "everyone in the organisation"}`
-			: isMe
-				? "Person · you"
-				: "Person",
-		agent
-			? home
-				? `Team ${home.name}`
-				: "In every team"
+			? agentWhere
 			: u.teams.length > 0
 				? `${u.teams.length === 1 ? "Team" : "Teams"} ${joinWords(u.teams.map((t) => t.name))}`
 				: "In no team yet",
@@ -975,7 +998,7 @@ function UserPage({ view, me, reload }: { view: UserView; me: UserView; reload: 
 								: owner.name
 							: home
 								? `The ${home.name} team`
-								: "Every team",
+								: "Unassigned",
 						file: fileDoc
 							? {
 									title: fileDoc.title,

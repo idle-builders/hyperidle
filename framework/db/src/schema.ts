@@ -22,11 +22,17 @@ import {
 
 // --- Core tables ---
 
-export const teams = pgTable("teams", {
-	id: text("id").primaryKey(),
-	name: text("name").notNull(),
-	createdAt: text("created_at").notNull(),
-});
+export const teams = pgTable(
+	"teams",
+	{
+		id: text("id").primaryKey(),
+		name: text("name").notNull(),
+		createdAt: text("created_at").notNull(),
+		/** Exactly one team per company is the global team: everyone is in it. The oldest team is global. */
+		isGlobal: boolean("is_global").notNull().default(false),
+	},
+	(table) => [uniqueIndex("teams_one_global_uq").on(table.isGlobal).where(sql`is_global = TRUE`)],
+);
 
 export const users = pgTable("users", {
 	id: text("id").primaryKey(),
@@ -69,10 +75,16 @@ export const userTeams = pgTable(
 		teamId: text("team_id")
 			.notNull()
 			.references(() => teams.id, { onDelete: "restrict" }),
+		/** Exactly one member per team is the default runner: they auto-take that team's unowned agents. */
+		isDefaultRunner: boolean("is_default_runner").notNull().default(false),
 	},
 	(table) => [
 		primaryKey({ columns: [table.userId, table.teamId] }),
 		index("user_teams_team_idx").on(table.teamId),
+		// @lore: partial unique index — only one default runner per team allowed, enforced at DB level
+		uniqueIndex("user_teams_default_runner_uq")
+			.on(table.teamId)
+			.where(sql`${table.isDefaultRunner} = TRUE`),
 	],
 );
 
@@ -500,8 +512,8 @@ export const plugins = pgTable(
 		name: text("name").notNull(),
 		version: text("version").notNull(),
 		state: text("state").$type<PluginState>().notNull(),
-		scopeKind: text("scope_kind").$type<"factory" | "team">().notNull().default("factory"),
-		scopeTeamId: text("scope_team_id"),
+		scopeKind: text("scope_kind").$type<"team">().notNull().default("team"),
+		scopeTeamId: text("scope_team_id").notNull(),
 		/**
 		 * Absolute path to the plugin's persistent install directory.
 		 * Null for plugins with only URL-based MCP servers (no local files needed).
@@ -523,7 +535,7 @@ export const plugins = pgTable(
 	},
 	(table) => [
 		check("plugins_state_ck", sql`${table.state} IN ('enabled', 'disabled', 'removed')`),
-		check("plugins_scope_kind_ck", sql`${table.scopeKind} IN ('factory', 'team')`),
+		check("plugins_scope_kind_ck", sql`${table.scopeKind} IN ('team')`),
 		check(
 			"plugins_source_kind_ck",
 			sql`${table.sourceKind} IN ('folder', 'git', 'zip', 'bundled')`,

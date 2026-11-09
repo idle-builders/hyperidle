@@ -8,7 +8,7 @@
 import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type HyperIdleDb, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import { skillItemId } from "@hyperidle/settings";
 import { afterEach, describe, expect } from "vitest";
@@ -37,6 +37,7 @@ async function editDocumentAs(
  * (`framework/db/src/schema.ts`'s `changes` table), so the in-process call
  * as alice below needs a real row too. */
 async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db.insert(teams).values({ id: T, name: "Test Team", createdAt: "2026-01-01T00:00:00Z" });
 	await db.insert(users).values([
 		{
 			id: "u-founder",
@@ -59,6 +60,7 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 
 const PLUGIN_ROOT = resolve("plugins/document-management");
 const PLUGIN_ID = "document-management";
+const T = "t-test";
 // One skill dirName from the plugin's skills/ directory.
 const SKILL_DIR = "post-task-retro";
 
@@ -99,13 +101,13 @@ describe("skill restore", () => {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				source: { kind: "folder", path: pluginDir, scope: { kind: "factory", teamId: null } },
+				source: { kind: "folder", path: pluginDir, scope: { kind: "team", teamId: T } },
 			}),
 		});
 		expect(installRes.status).toBe(200);
 
 		// 2. Fetch the skill through `open_document` to get its current state.
-		const skillId = skillItemId(PLUGIN_ID, SKILL_DIR, "factory", null);
+		const skillId = skillItemId(PLUGIN_ID, SKILL_DIR, "team", T);
 		const getRes = await pluginsApp.request("/api/actions/open_document", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -153,7 +155,7 @@ describe("skill restore", () => {
 		const restoreRes = await pluginsApp.request("/api/actions/edit_plugin", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ id: PLUGIN_ID, restore: { contribution: skillId } }),
+			body: JSON.stringify({ id: `${PLUGIN_ID}@${T}`, restore: { contribution: skillId } }),
 		});
 		expect(restoreRes.status).toBe(200);
 		const restoreBody = (await restoreRes.json()) as { ok: boolean };
@@ -182,7 +184,7 @@ describe("skill restore", () => {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				source: { kind: "folder", path: pluginDir, scope: { kind: "factory", teamId: null } },
+				source: { kind: "folder", path: pluginDir, scope: { kind: "team", teamId: T } },
 			}),
 		});
 		expect(installRes.status).toBe(200);
@@ -191,8 +193,8 @@ describe("skill restore", () => {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				id: PLUGIN_ID,
-				restore: { contribution: skillItemId(PLUGIN_ID, SKILL_DIR, "factory", null) },
+				id: `${PLUGIN_ID}@${T}`,
+				restore: { contribution: skillItemId(PLUGIN_ID, SKILL_DIR, "team", T) },
 			}),
 		});
 		expect(restoreRes.status).toBe(422);

@@ -26,7 +26,7 @@ Open [http://localhost:5173](http://localhost:5173).
 A fresh database opens `/start` (`layers/core-ui/src/Start.tsx`). It shows:
 
 1. The agent programs found on this computer (claude-code, codex, opencode, cursor-agent), how to sign in to one, and Look again
-2. Your name and your team's name
+2. Your name and your company's name
 
 Start talking (`POST /api/start`, `layers/core-api/src/routes/start.ts`) makes you, the team, a first agent called Builder on a signed-in program, and the conversation "Getting started" with Builder's hello. It needs one program installed and signed in; no API key is asked. The desktop app can instead join a team's server (address and key).
 

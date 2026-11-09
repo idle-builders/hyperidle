@@ -137,7 +137,7 @@ function makeAgent(): HeldAgent {
 			discipline: null,
 			what: null,
 			hasKey: true,
-			teams: [{ id: TEAM_ID, name: "Busy Check Team" }],
+			teams: [{ id: TEAM_ID, name: "Busy Check Team", isGlobal: false, defaultRunnerId: null }],
 			edges: [],
 		},
 		documentIds: [],

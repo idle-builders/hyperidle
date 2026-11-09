@@ -30,7 +30,7 @@ Changing anything opens a dialog over the page. Adding and editing use the same 
 
 ## Adding an agent
 
-On a team's page, press **Add someone to …**. Give it a name and a discipline, pick the agent program it runs on, and say who it works for: you, or the team. An agent that works for the team can be handed work and changed by anyone in it. Inviting another person is not built yet.
+On a team's page, press **Add someone to …**. Give it a name and a discipline, pick the agent program it runs on, and say who it works for: you, or the team. An agent that works for the team can be handed work and changed by anyone in it. Its runs go to the team's default runner — the person shown in the team box as **Runs its agents**; any member of the team can take it over with **Move here** on the agent's page. Inviting another person is not built yet.
 
 Its instructions are a document, written next: the new agent's page offers **Write its instructions**, which opens the document in edit mode. Anything an agent is told at length — instructions, skills, what one of its reasons makes it do — is a document like any other in [Knowledge](./knowledge.md).
 

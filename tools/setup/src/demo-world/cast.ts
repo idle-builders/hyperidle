@@ -2,7 +2,7 @@
  * The demo world's people and agents. Finn Olsen founded the company and is in
  * Product and Support; Maya Chen runs support. Builder and Growth work for
  * Finn in Product, Designer for Maya in Support, and Facilitation comes from
- * the Team habits plugin and works for everyone. Finn holds the computer's key
+ * the Team habits plugin installed on the Olsen Labs global team. Finn holds the computer's key
  * (`demo-fixture.ts`), so he is who lands in the app.
  */
 
@@ -35,6 +35,7 @@ import {
 	FOUNDER_ID,
 	GROWTH_ID,
 	MAYA_ID,
+	OLSEN_LABS_TEAM_ID,
 	PRODUCT_TEAM_ID,
 	SUPPORT_TEAM_ID,
 	TEAM_HABITS_DIR,
@@ -72,7 +73,7 @@ const PEOPLE: readonly PersonSpec[] = [
 		name: "Finn Olsen",
 		role: "founder",
 		discipline: "Product",
-		teams: [PRODUCT_TEAM_ID, SUPPORT_TEAM_ID],
+		teams: [OLSEN_LABS_TEAM_ID, PRODUCT_TEAM_ID, SUPPORT_TEAM_ID],
 		sinceDays: 98,
 		what: "Founder. Product and pricing.",
 		about: `# About Finn
@@ -88,7 +89,7 @@ Founder. I decide what gets built and what customers see.
 		name: "Maya Chen",
 		role: "member",
 		discipline: "Support",
-		teams: [SUPPORT_TEAM_ID],
+		teams: [OLSEN_LABS_TEAM_ID, PRODUCT_TEAM_ID, SUPPORT_TEAM_ID],
 		sinceDays: 97,
 		what: "Support and ops.",
 		about: `# About Maya
@@ -280,6 +281,22 @@ export async function seedCast(
 	clock: DemoClock,
 	opts: DemoWorldPlaces,
 ): Promise<void> {
+	// Default runner for each team = earliest-joined person (highest sinceDays = furthest in the past).
+	const teamDefaultRunner = new Map<string, string>(); // teamId → personId
+	for (const person of PEOPLE) {
+		for (const teamId of person.teams) {
+			const existingId = teamDefaultRunner.get(teamId);
+			const existingPerson = existingId ? PEOPLE.find((p) => p.id === existingId) : undefined;
+			const existingSince = existingPerson?.sinceDays ?? 0;
+			if (
+				person.sinceDays > existingSince ||
+				(person.sinceDays === existingSince && person.id < (existingId ?? ""))
+			) {
+				teamDefaultRunner.set(teamId, person.id);
+			}
+		}
+	}
+
 	for (const person of PEOPLE) {
 		await db
 			.insert(users)
@@ -295,7 +312,11 @@ export async function seedCast(
 			})
 			.onConflictDoNothing();
 		for (const teamId of person.teams) {
-			await db.insert(userTeams).values({ userId: person.id, teamId }).onConflictDoNothing();
+			const isDefaultRunner = teamDefaultRunner.get(teamId) === person.id;
+			await db
+				.insert(userTeams)
+				.values({ userId: person.id, teamId, isDefaultRunner })
+				.onConflictDoNothing();
 			// The setup flow's team creation records the same edge for a real team.
 			await db
 				.insert(orgEdges)
@@ -452,9 +473,9 @@ async function seedGrowthsMonday(db: HyperIdleDb, clock: DemoClock): Promise<voi
 }
 
 /**
- * Team habits, installed for everyone through the real install path the day
- * the company started; Facilitation runs on Claude Code. Two of its documents
- * were edited by a person since, which detaches them from the plugin.
+ * Team habits, installed for the Olsen Labs global team through the real install
+ * path the day the company started; Facilitation runs on Claude Code. Two of its
+ * documents were edited by a person since, which detaches them from the plugin.
  */
 async function seedTeamHabits(
 	db: HyperIdleDb,
@@ -463,7 +484,11 @@ async function seedTeamHabits(
 	pluginsBaseDir: string | undefined,
 ): Promise<void> {
 	const view = await installPluginOutsideServer(db, {
-		source: { kind: "folder", path: TEAM_HABITS_DIR, scope: { kind: "factory", teamId: null } },
+		source: {
+			kind: "folder",
+			path: TEAM_HABITS_DIR,
+			scope: { kind: "team", teamId: OLSEN_LABS_TEAM_ID },
+		},
 		actor: FOUNDER_ID,
 		now: clock.daysAgo(98),
 		...(pluginsBaseDir ? { pluginsBaseDir } : {}),

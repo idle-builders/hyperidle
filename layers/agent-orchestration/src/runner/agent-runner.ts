@@ -156,8 +156,9 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 		if (!RUNNABLE_STATUSES.has(agent.status)) return false;
 		// Directly assigned to this person.
 		if (agent.ownerUserId === personId) return true;
-		// Unowned but in one of the person's teams.
-		if (agent.ownerUserId === null) return agent.teams.some((t) => personTeamIds.has(t.id));
+		// Unowned: in one of the person's teams AND the person is that team's default runner.
+		if (agent.ownerUserId === null)
+			return agent.teams.some((t) => personTeamIds.has(t.id) && t.defaultRunnerId === personId);
 		return false;
 	}
 
@@ -184,6 +185,8 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
 			// Not eligible to hold.
 			if (!mayHold(agent, personId, personTeamIds)) continue;
 			// Was 401'd — moved away; takeAgent() must be called explicitly to reclaim.
+			// If the agent has no key, the moved-away state is stale — the old key is gone.
+			if (!agent.hasKey) movedAway.delete(agent.id);
 			if (movedAway.has(agent.id)) continue;
 			// Another runner holds it; don't fight for it.
 			if (agent.hasKey === true) continue;

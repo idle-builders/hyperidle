@@ -305,14 +305,14 @@ let signedIn: { serverUrl: string; idToken: string } | null = null;
 
 function registerCommonIpcHandlers(ctx: BootContext): void {
 	registerSpeechHandlers(SPEECH_HELPER);
-	// First start's "Join a team on a server": the person signs in in their browser, the server
+	// First start's "Join a company on a server": the person signs in in their browser, the server
 	// hands back their own key; that key is kept and the app reopens on the server as them.
 	ipcMain.handle("backend:cancel-join", () => cancelSignIn());
 	ipcMain.handle(
 		"backend:join",
 		async (
 			_event: unknown,
-			form: { address: string; team?: string },
+			form: { address: string; company?: string },
 		): Promise<{ ok: boolean; problem?: string; needsTeam?: boolean; cancelled?: boolean }> => {
 			const trimmed = form.address.trim().replace(/\/$/, "");
 			const serverUrl = /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
@@ -338,7 +338,7 @@ function registerCommonIpcHandlers(ctx: BootContext): void {
 					Authorization: `Bearer ${signedIn.idToken}`,
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify({ team: form.team }),
+				body: JSON.stringify({ company: form.company }),
 			}).catch(() => null);
 			if (!res) return { ok: false, problem: `${serverUrl} did not answer.` };
 			if (res.status === 401) signedIn = null;

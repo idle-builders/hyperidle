@@ -13,13 +13,15 @@
  * made in-process as nobody, as first start does, then the assistant and the
  * reads go through the HTTP door as that person.
  */
-import { documents, subscriptions, teams, users } from "@hyperidle/db";
+import { documents, subscriptions, teams, users, userTeams } from "@hyperidle/db";
 import {
 	OBJECT_EVENTS,
 	PERSON_REASONS,
 	type UserRow,
 	type UserView,
 } from "@hyperidle/domain-model";
+import { getGlobalTeam } from "@hyperidle/user";
+import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { buildCoreActions } from "../actions/compose.js";
@@ -49,6 +51,35 @@ async function call<T>(
 }
 
 describe("a fresh install", () => {
+	test("a second person created with no teams lands only in the global team", async ({
+		db,
+		eventBus,
+	}) => {
+		await applyFactoryCoreState(db);
+		const bootstrapActions = buildCoreActions({});
+		const editUserAction = bootstrapActions.find((a) => a.declaration.name === "edit_user");
+		if (!editUserAction) throw new Error("edit_user action not found");
+		// First person names the company → creates the global team
+		await editUserAction.run(
+			{ actor: "", db, eventBus, now: new Date().toISOString() },
+			{ kind: "human", name: "Ada", teams: ["Acme"] },
+		);
+		// Second person: lands in the global team only
+		const globalTeamRow = await getGlobalTeam(db);
+		const secondResult = await editUserAction.run(
+			{ actor: "", db, eventBus, now: new Date().toISOString() },
+			{ kind: "human", name: "Bo", teams: [globalTeamRow!.name] },
+		);
+		if (!secondResult.ok) throw new Error(`edit_user failed: ${JSON.stringify(secondResult)}`);
+		const bo = (secondResult.data as { user?: { id: string } }).user;
+		expect(bo?.id).toBeDefined();
+		// Bo's memberships — should only be in the global team
+		const boMemberships = await db.select().from(userTeams).where(eq(userTeams.userId, bo!.id));
+		const globalTeam = (await db.select().from(teams))[0];
+		expect(boMemberships).toHaveLength(1);
+		expect(boMemberships[0]?.teamId).toBe(globalTeam?.id);
+	});
+
 	test("boot writes only the hidden system actor, again and again", async ({ db }) => {
 		await applyFactoryCoreState(db);
 		await applyFactoryCoreState(db);
@@ -118,6 +149,13 @@ describe("a fresh install", () => {
 		).toEqual([...PERSON_REASONS].sort());
 
 		expect(await db.select().from(documents)).toEqual([]);
-		expect(await db.select().from(teams)).toHaveLength(1);
+		// "My Team" is the first team ever created → it is the global team
+		const allTeams = await db.select().from(teams);
+		expect(allTeams).toHaveLength(1);
+		expect(allTeams[0]?.isGlobal).toBe(true);
+		// The person who named the company is its default runner
+		const membership = await db.select().from(userTeams);
+		const personRow = membership.find((r) => r.userId === personId);
+		expect(personRow?.isDefaultRunner).toBe(true);
 	});
 });

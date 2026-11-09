@@ -13,7 +13,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { documents, pluginContributions, users } from "@hyperidle/db";
+import { documents, pluginContributions, teams, users } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
@@ -21,6 +21,8 @@ import { test } from "../../__testing__/test-fixtures.js";
 
 const API_KEY = "test-plugin-skill-reinstall";
 const PLUGIN_ID = "skill-reinstall-under-test";
+const T = "t-test";
+const INSTALLED_ID = `${PLUGIN_ID}@${T}`;
 const SKILL_DIR = "sweep";
 const ORIGINAL_BODY = "# Sweep\n\nDo the sweep.";
 
@@ -68,7 +70,7 @@ async function editPlugin(app: Hono, body: unknown): Promise<Response> {
 
 async function install(app: Hono): Promise<void> {
 	const res = await editPlugin(app, {
-		source: { kind: "folder", path: makePlugin(), scope: { kind: "factory", teamId: null } },
+		source: { kind: "folder", path: makePlugin(), scope: { kind: "team", teamId: T } },
 	});
 	if (res.status !== 200) {
 		throw new Error(`Install failed: ${JSON.stringify(await res.json())}`);
@@ -81,6 +83,7 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 		app,
 		asPerson,
 	}) => {
+		await db.insert(teams).values({ id: T, name: "Test Team", createdAt: "2026-01-01T00:00:00Z" });
 		await db.insert(users).values({
 			id: "u-founder",
 			kind: "human",
@@ -97,7 +100,10 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 			.select()
 			.from(pluginContributions)
 			.where(
-				and(eq(pluginContributions.pluginId, PLUGIN_ID), eq(pluginContributions.kind, "document")),
+				and(
+					eq(pluginContributions.pluginId, INSTALLED_ID),
+					eq(pluginContributions.kind, "document"),
+				),
 			);
 		expect(contribution, "the plugin's skill is a recorded document contribution").toBeDefined();
 
@@ -115,6 +121,7 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 		app,
 		asPerson,
 	}) => {
+		await db.insert(teams).values({ id: T, name: "Test Team", createdAt: "2026-01-01T00:00:00Z" });
 		await db.insert(users).values({
 			id: "u-founder",
 			kind: "human",
@@ -130,7 +137,10 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 			.select()
 			.from(pluginContributions)
 			.where(
-				and(eq(pluginContributions.pluginId, PLUGIN_ID), eq(pluginContributions.kind, "document")),
+				and(
+					eq(pluginContributions.pluginId, INSTALLED_ID),
+					eq(pluginContributions.kind, "document"),
+				),
 			);
 		const documentId = String(contribution?.entityId);
 
@@ -146,6 +156,7 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 	});
 
 	test("disable archives exactly the contributed ids", async ({ db, app, asPerson }) => {
+		await db.insert(teams).values({ id: T, name: "Test Team", createdAt: "2026-01-01T00:00:00Z" });
 		await db.insert(users).values({
 			id: "u-founder",
 			kind: "human",
@@ -175,11 +186,14 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 			.select()
 			.from(pluginContributions)
 			.where(
-				and(eq(pluginContributions.pluginId, PLUGIN_ID), eq(pluginContributions.kind, "document")),
+				and(
+					eq(pluginContributions.pluginId, INSTALLED_ID),
+					eq(pluginContributions.kind, "document"),
+				),
 			);
 		const documentId = String(contribution?.entityId);
 
-		const res = await editPlugin(app, { id: PLUGIN_ID, state: "disabled" });
+		const res = await editPlugin(app, { id: INSTALLED_ID, state: "disabled" });
 		expect(res.status).toBe(200);
 
 		const [contributed] = await db.select().from(documents).where(eq(documents.id, documentId));

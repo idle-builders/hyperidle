@@ -59,7 +59,7 @@ export {
 } from "./subscriptions-store.js";
 // -- team lookup --
 export type { CreateTeamInput } from "./team-lookup.js";
-export { createTeam, getTeam, listTeams } from "./team-lookup.js";
+export { createTeam, getGlobalTeam, getTeam, listTeams } from "./team-lookup.js";
 // -- upgrade token store --
 export type { UpgradeTokenStore } from "./upgrade-token-store.js";
 export { createUpgradeTokenStore } from "./upgrade-token-store.js";

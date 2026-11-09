@@ -11,7 +11,7 @@ import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { type HyperIdleDb, type PluginRow, plugins } from "@hyperidle/db";
 import type { PluginScopeKind, PluginSourceKind, PluginState } from "@hyperidle/domain-model";
-import { and, asc, eq, isNotNull, ne, or } from "drizzle-orm";
+import { and, asc, eq, isNotNull, ne } from "drizzle-orm";
 import type { FetchedPlugin, PluginSource } from "./plugin-fetch.js";
 import { fetchPlugin } from "./plugin-fetch.js";
 import type {
@@ -30,7 +30,7 @@ export type { PluginSource };
 
 export interface PluginScope {
 	readonly kind: PluginScopeKind;
-	readonly teamId: string | null;
+	readonly teamId: string;
 }
 
 /** Where an install came from, as the person gave it — a bundled one by its name, not its folder. */
@@ -86,7 +86,7 @@ export type InstallPluginResult =
 			/** Subscriptions — layer handler materializes as subscriptions rows (settings cannot write subscriptions). */
 			subscriptions: readonly ParsedPluginSubscription[];
 			scopeKind: string;
-			scopeId: string | null;
+			scopeId: string;
 			installTs: string;
 	  }
 	| { ok: false; reason: string };
@@ -103,13 +103,9 @@ function sha256(data: string): string {
 	return createHash("sha256").update(data).digest("hex");
 }
 
-/**
- * The `plugins` row id of one install: the manifest name for a factory
- * install, `<name>@<teamId>` for a team install. A manifest name never
- * contains `@`, so the two forms cannot collide.
- */
+/** The `plugins` row id of one install: `<name>@<teamId>`. */
 function pluginInstallId(name: string, scope: PluginScope): string {
-	return scope.kind === "team" && scope.teamId ? `${name}@${scope.teamId}` : name;
+	return `${name}@${scope.teamId}`;
 }
 
 function recordOf(source: PluginSource): RecordedPluginSource {
@@ -121,7 +117,7 @@ function recordOf(source: PluginSource): RecordedPluginSource {
 function scopeFromRow(row: PluginRow): PluginScope {
 	return {
 		kind: row.scopeKind as PluginScopeKind,
-		teamId: row.scopeTeamId ?? null,
+		teamId: row.scopeTeamId,
 	};
 }
 
@@ -147,9 +143,9 @@ export function skillItemId(
 	pluginId: string,
 	dirName: string,
 	scopeKind: string,
-	scopeId: string | null,
+	scopeId: string,
 ): string {
-	const suffix = scopeKind === "team" ? `\0${scopeKind}\0${scopeId ?? ""}` : "";
+	const suffix = `\0${scopeKind}\0${scopeId}`;
 	// @lore: `ki_` prefix baked into every minted id; changing it would break reinstall id match and create duplicates
 	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}${suffix}`).slice(0, 24)}`;
 }
@@ -159,9 +155,9 @@ export function agentItemId(
 	pluginId: string,
 	localId: string,
 	scopeKind: string,
-	scopeId: string | null,
+	scopeId: string,
 ): string {
-	return `pa_${sha256(`plugin-agent\0${pluginId}\0${localId}\0${scopeKind}\0${scopeId ?? ""}`).slice(0, 24)}`;
+	return `pa_${sha256(`plugin-agent\0${pluginId}\0${localId}\0${scopeKind}\0${scopeId}`).slice(0, 24)}`;
 }
 
 // Stable DB id for a plugin-declared subscription. Same scope guarantee as agentItemId.
@@ -170,9 +166,9 @@ export function subscriptionItemId(
 	pluginId: string,
 	localId: string,
 	scopeKind: string,
-	scopeId: string | null,
+	scopeId: string,
 ): string {
-	return `pr_${sha256(`plugin-routine\0${pluginId}\0${localId}\0${scopeKind}\0${scopeId ?? ""}`).slice(0, 24)}`;
+	return `pr_${sha256(`plugin-routine\0${pluginId}\0${localId}\0${scopeKind}\0${scopeId}`).slice(0, 24)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -188,21 +184,15 @@ export interface PluginMcpContributionRow {
 }
 
 /**
- * The MCP servers of every enabled plugin in scope for the given team (factory
- * installs always, a team install only for its own team), read from each
+ * The MCP servers of every enabled plugin for the given team, read from each
  * install's `mcp.json` at the moment a session is provisioned.
  */
-//
 export async function getPluginMcpContributions(
 	db: HyperIdleDb,
 	teamId: string | null,
 ): Promise<readonly PluginMcpContributionRow[]> {
-	const scopeFilter = teamId
-		? or(
-				eq(plugins.scopeKind, "factory"),
-				and(eq(plugins.scopeKind, "team"), eq(plugins.scopeTeamId, teamId)),
-			)
-		: eq(plugins.scopeKind, "factory");
+	if (!teamId) return [];
+	const scopeFilter = and(eq(plugins.scopeKind, "team"), eq(plugins.scopeTeamId, teamId));
 
 	const installs = await db
 		.select({ name: plugins.name, installPath: plugins.installPath })
@@ -273,10 +263,6 @@ export async function installPlugin(
 		const recorded = input.recordedSource ?? recordOf(input.source);
 		const installedBy = input.installedBy ?? null;
 
-		// Check scope consistency
-		if (input.scope.kind === "team" && !input.scope.teamId) {
-			return { ok: false, reason: 'scope.kind is "team" but scope.teamId is missing' };
-		}
 		// One row per install: each team's install of this plugin is its own.
 		const pluginId = pluginInstallId(manifest.name, input.scope);
 
@@ -301,7 +287,7 @@ export async function installPlugin(
 				version: manifest.version,
 				state: "enabled",
 				scopeKind: input.scope.kind,
-				scopeTeamId: input.scope.teamId ?? null,
+				scopeTeamId: input.scope.teamId,
 				installPath,
 				sourceKind: recorded.kind,
 				sourceAddress: recorded.address,
@@ -319,7 +305,7 @@ export async function installPlugin(
 					version: manifest.version,
 					state: "enabled",
 					scopeKind: input.scope.kind,
-					scopeTeamId: input.scope.teamId ?? null,
+					scopeTeamId: input.scope.teamId,
 					installPath,
 					sourceKind: recorded.kind,
 					sourceAddress: recorded.address,
@@ -348,7 +334,7 @@ export async function installPlugin(
 			agents: manifest.agents,
 			subscriptions: manifest.subscriptions,
 			scopeKind: input.scope.kind,
-			scopeId: input.scope.teamId ?? null,
+			scopeId: input.scope.teamId,
 			installTs: ts,
 		};
 	} finally {

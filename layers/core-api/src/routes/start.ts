@@ -31,7 +31,7 @@ const FIRST_THREAD = "Getting started";
 
 const START_SCHEMA = z.object({
 	name: z.string().trim().min(1).max(80),
-	team: z.string().trim().min(1).max(80),
+	company: z.string().trim().min(1).max(80),
 });
 
 function hello(): string {
@@ -64,13 +64,13 @@ export function createStartRoutes(
 		const no = refuse(c);
 		const parsed = START_SCHEMA.safeParse(await c.req.json().catch(() => null));
 		if (!parsed.success)
-			return no(400, "Give your name and your team's name.", API_ERROR_CODES.VALIDATION_ERROR);
+			return no(400, "Give your name and your company's name.", API_ERROR_CODES.VALIDATION_ERROR);
 		const me = await openUser(ctx(c.get("userId")), {});
 		if (!me.ok || (await findUser(db, { kind: "human" })))
 			return no(409, "HyperIdle has already started here.", API_ERROR_CODES.CONFLICT);
 
-		const { name, team } = parsed.data;
-		const person = await editUser(ctx(c.get("userId")), { kind: "human", name, teams: [team] });
+		const { name, company } = parsed.data;
+		const person = await editUser(ctx(c.get("userId")), { kind: "human", name, teams: [company] });
 		const you = person.ok ? person.data.user?.id : undefined;
 		if (!you) throw new Error("first start: the person was not made");
 		// The laptop's one person: the key this computer already holds becomes theirs.
@@ -80,7 +80,7 @@ export function createStartRoutes(
 			name: FIRST_AGENT,
 			agentCategory: "individual",
 			ownerUserId: you,
-			teams: [team],
+			teams: [company],
 		});
 		const agentId = agent.ok ? agent.data.user?.id : undefined;
 		if (!agentId) throw new Error("first start: the first agent was not made");

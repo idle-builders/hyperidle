@@ -12,6 +12,7 @@ import {
 	type HyperIdleDb,
 	pluginContributions,
 	subscriptions,
+	teams,
 	users,
 } from "@hyperidle/db";
 import { and, eq, inArray } from "drizzle-orm";
@@ -21,7 +22,8 @@ import { test } from "../../__testing__/test-fixtures.js";
 
 const API_KEY = "test-reinstall";
 const PLUGIN_ROOT = resolve("plugins/document-management");
-const PLUGIN_ID = "document-management";
+const T = "t-test";
+const PLUGIN_ID = `document-management@${T}`;
 
 function auth(): Record<string, string> {
 	return { "X-API-Key": API_KEY };
@@ -44,6 +46,10 @@ afterEach(() => {
  * `onConflictDoNothing` so a second install in the same test is safe. */
 async function seedFounder(db: HyperIdleDb): Promise<void> {
 	await db
+		.insert(teams)
+		.values({ id: T, name: "Test Team", createdAt: "2026-01-01T00:00:00Z" })
+		.onConflictDoNothing();
+	await db
 		.insert(users)
 		.values({
 			id: "u-founder",
@@ -65,7 +71,7 @@ async function install(db: HyperIdleDb, app: Hono, asPerson: () => Promise<void>
 	tempDirs.push(dir);
 
 	const res = await editPlugin(app, {
-		source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+		source: { kind: "folder", path: dir, scope: { kind: "team", teamId: T } },
 	});
 	if (res.status !== 200) {
 		throw new Error(`Install failed: ${JSON.stringify(await res.json())}`);

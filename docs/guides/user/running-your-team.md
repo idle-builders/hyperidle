@@ -1,6 +1,6 @@
 # Running your team
 
-A team is a group inside your organisation: a product team, a function such as sales, or a group across functions. A person can be in several teams; an agent is in one. Conversations are across all teams. In Knowledge each team is a space, and Work can show one team's tasks.
+A team is a group inside your organisation: a product team, a function such as sales, or a group across functions. The first team you create when you start is the company's global team — everyone joins it automatically. A person can be in several teams; an agent is in one. Conversations are across all teams. In Knowledge each team is a space, and Work can show one team's tasks.
 
 ---
 
@@ -8,7 +8,9 @@ A team is a group inside your organisation: a product team, a function such as s
 
 In the sidebar, open **Work**, pick a team in the team switch, then press **The team ›**.
 
-The page lists the team's people, each with the agents that work for them, then the agents that work for the whole team and those that work for every team. Each row says what that person or agent is doing now; click it to open their [page](./agents.md).
+The page lists the team's people, each with the agents that work for them, then the agents that work for the whole team. Each row says what that person or agent is doing now; click it to open their [page](./agents.md).
+
+The box on the right shows **Runs its agents: &lt;name&gt;** — the person whose computer runs the team's shared agents. Any member can change it from the same box.
 
 **Add someone to …** adds an agent (see [Adding an agent](./agents.md#adding-an-agent)). Inviting another person is not built yet.
 
@@ -22,7 +24,7 @@ A plugin is a ready-made pack of agents, skills, reasons to start, and services.
 
 The list shows the plugins installed for the team, and the ones that come with HyperIdle ("Comes with HyperIdle · not installed"). Click one to open its page.
 
-**Add a plugin** brings one from elsewhere: **From** a git address, a folder or a zip file, **Where** it is, and **For** this team or every team.
+**Add a plugin** brings one from elsewhere: **From** a git address, a folder or a zip file, **Where** it is, and **For** this team.
 
 ### A plugin's page
 

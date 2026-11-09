@@ -157,13 +157,7 @@ export function pluginPage(
 		[...(ctx.team ? [ctx.team] : []), ...ctx.users.flatMap((u) => u.teams)].find((t) => t.id === id)
 			?.name ?? "";
 	const forTeam =
-		listing.state === "available"
-			? listing.installScope === "team"
-				? (ctx.team?.name ?? null)
-				: null
-			: listing.scope.kind === "team"
-				? teamName(listing.scope.teamId)
-				: null;
+		listing.state === "available" ? (ctx.team?.name ?? null) : teamName(listing.scope.teamId);
 	const firstNames = namesOf(ctx.users);
 	const nameOf = (id: string | null) =>
 		id === ctx.you ? "you" : id ? (firstNames.get(id) ?? null) : null;
@@ -192,7 +186,7 @@ export function pluginPage(
 			.filter((p) => p.slot === "skill")
 			.map((s) => ({
 				what: s.label,
-				why: forTeam ? `For every agent in ${forTeam}` : "For every agent",
+				why: forTeam ? `For every agent in ${forTeam}` : "",
 			})),
 		reasons: parts
 			.filter((p) => p.kind === "subscription")
@@ -201,7 +195,7 @@ export function pluginPage(
 			.filter((p) => p.kind === "mcp_server")
 			.map((s) => ({ what: s.label, why: "An MCP server that comes with the plugin" })),
 		from: fromWords(listing),
-		forWhom: forTeam ? `For the ${forTeam} team` : "For every team",
+		forWhom: forTeam ? `For the ${forTeam} team` : "",
 		installed:
 			listing.state === "available"
 				? null

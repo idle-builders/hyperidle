@@ -15,7 +15,12 @@ import { type HyperIdleDb, teams } from "@hyperidle/db";
 import type { RunnerDb } from "@hyperidle/runner-db";
 import { giveUserKey } from "@hyperidle/user";
 import type { DemoWorldPlaces } from "./demo-world/cast.js";
-import { FOUNDER_ID, PRODUCT_TEAM_ID, SUPPORT_TEAM_ID } from "./demo-world/ids.js";
+import {
+	FOUNDER_ID,
+	OLSEN_LABS_TEAM_ID,
+	PRODUCT_TEAM_ID,
+	SUPPORT_TEAM_ID,
+} from "./demo-world/ids.js";
 import { seedDemoWorldContent } from "./demo-world/index.js";
 import { createDemoClock } from "./demo-world/time.js";
 
@@ -25,7 +30,7 @@ import { createDemoClock } from "./demo-world/time.js";
  * `founderKey` is the key the window will send — the desktop app's
  * `secrets.json` key, or the laptop server's own key when none is given.
  *
- * @returns the Product team id and the founder's user id.
+ * @returns the global team id (Olsen Labs) and the founder's user id.
  */
 export async function seedDemoWorld(
 	db: HyperIdleDb,
@@ -36,6 +41,7 @@ export async function seedDemoWorld(
 	await db
 		.insert(teams)
 		.values([
+			{ id: OLSEN_LABS_TEAM_ID, name: "Olsen Labs", createdAt: clock.daysAgo(100), isGlobal: true },
 			{ id: PRODUCT_TEAM_ID, name: "Product", createdAt: clock.daysAgo(98) },
 			{ id: SUPPORT_TEAM_ID, name: "Support", createdAt: clock.daysAgo(98) },
 		])
@@ -47,5 +53,5 @@ export async function seedDemoWorld(
 		FOUNDER_ID,
 		opts.founderKey ?? process.env.HYPERIDLE_API_KEY ?? "hyperidle-dev-local",
 	);
-	return { teamId: PRODUCT_TEAM_ID, founderId: FOUNDER_ID };
+	return { teamId: OLSEN_LABS_TEAM_ID, founderId: FOUNDER_ID };
 }

@@ -13,7 +13,7 @@
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { documents, type HyperIdleDb, subscriptions, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, subscriptions, teams, users, userTeams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -21,7 +21,9 @@ import { test } from "../../__testing__/test-fixtures.js";
 
 const API_KEY = "test-detach";
 const PLUGIN_ROOT = resolve("plugins/document-management");
+const T = "t-test";
 const PLUGIN_ID = "document-management";
+const INSTALLED_ID = `${PLUGIN_ID}@${T}`;
 const FOUNDER = "u-founder";
 
 function auth(): Record<string, string> {
@@ -59,7 +61,7 @@ async function install(app: Hono): Promise<string> {
 	tempDirs.push(dir);
 
 	const res = await editPlugin(app, {
-		source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
+		source: { kind: "folder", path: dir, scope: { kind: "team", teamId: T } },
 	});
 	if (res.status !== 200) {
 		throw new Error(`Install failed: ${JSON.stringify(await res.json())}`);
@@ -68,6 +70,7 @@ async function install(app: Hono): Promise<string> {
 }
 
 async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db.insert(teams).values({ id: T, name: "Test Team", createdAt: new Date().toISOString() });
 	await db.insert(users).values({
 		id: FOUNDER,
 		name: "Founder",
@@ -76,6 +79,7 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 		kind: "human",
 		createdAt: new Date().toISOString(),
 	});
+	await db.insert(userTeams).values({ userId: FOUNDER, teamId: T });
 }
 
 interface ContributionRow {
@@ -101,7 +105,7 @@ async function pluginOf(app: Hono): Promise<PluginRow | undefined> {
 		body: JSON.stringify({}),
 	});
 	const body = (await res.json()) as { data: PluginRow[] };
-	return body.data.find((p) => p.id === PLUGIN_ID);
+	return body.data.find((p) => p.id === INSTALLED_ID);
 }
 
 async function contributionsOf(app: Hono): Promise<readonly ContributionRow[]> {
@@ -200,7 +204,7 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		});
 
 		const res = await editPlugin(app, {
-			id: PLUGIN_ID,
+			id: INSTALLED_ID,
 			restore: { contribution: skill.entityId },
 		});
 		expect(res.status).toBe(200);
@@ -222,7 +226,7 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		await install(app);
 
 		const res = await editPlugin(app, {
-			id: PLUGIN_ID,
+			id: INSTALLED_ID,
 			restore: { contribution: "ki-not-from-this-plugin" },
 		});
 		expect(res.status).toBe(422);
@@ -256,7 +260,10 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		const changed = (await contributionsOf(app)).find((c) => c.entityId === agentId);
 		expect(changed?.detachedBy).toBe(FOUNDER);
 
-		const restored = await editPlugin(app, { id: PLUGIN_ID, restore: { contribution: agentId } });
+		const restored = await editPlugin(app, {
+			id: INSTALLED_ID,
+			restore: { contribution: agentId },
+		});
 		expect(restored.status).toBe(200);
 		expect(await agentNow()).toEqual(plugins);
 		const view = (await contributionsOf(app)).find((c) => c.entityId === agentId);
@@ -288,7 +295,10 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		const changed = (await contributionsOf(app)).find((c) => c.entityId === reasonId);
 		expect(changed?.detachedBy).toBe(FOUNDER);
 
-		const restored = await editPlugin(app, { id: PLUGIN_ID, restore: { contribution: reasonId } });
+		const restored = await editPlugin(app, {
+			id: INSTALLED_ID,
+			restore: { contribution: reasonId },
+		});
 		expect(restored.status).toBe(200);
 		expect(await reasonNow()).toEqual(plugins);
 		const view = (await contributionsOf(app)).find((c) => c.entityId === reasonId);

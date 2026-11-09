@@ -1,12 +1,14 @@
 import type { Task, ThreadListRow, UserRow } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import {
+	agentAssignmentLine,
 	agentJobs,
 	agentStand,
 	applyMoveHereResult,
 	crewOf,
 	cronOf,
 	cronWords,
+	defaultRunnerName,
 	personStand,
 	runnerButtonState,
 	startedJobs,
@@ -34,8 +36,8 @@ const user = (id: string, u: Partial<UserRow> = {}): UserRow => ({
 	edges: [],
 	...u,
 });
-const product = { id: "t-product", name: "Product" };
-const support = { id: "t-support", name: "Support" };
+const product = { id: "t-product", name: "Product", isGlobal: false, defaultRunnerId: null };
+const support = { id: "t-support", name: "Support", isGlobal: false, defaultRunnerId: null };
 
 const task = (id: string, t: Partial<Task> = {}): Task => ({
 	id,
@@ -68,14 +70,13 @@ const task = (id: string, t: Partial<Task> = {}): Task => ({
 });
 
 describe("a team's page", () => {
-	it("lists each person with the agents that work for them there, you last, and the agents of every team", () => {
+	it("lists each person with the agents that work for them there, you last", () => {
 		const users = [
 			user("finn", { name: "Finn", teams: [product, support] }),
 			user("maya", { name: "Maya", teams: [support] }),
 			user("builder", { kind: "ai", ownerUserId: "finn", teams: [product] }),
 			user("designer", { kind: "ai", ownerUserId: "maya", teams: [support] }),
 			user("old", { kind: "ai", ownerUserId: "finn", teams: [product], status: "retired" }),
-			user("facilitation", { kind: "ai", teams: [] }),
 		];
 		const inSupport = crewOf(users, support.id, "finn");
 		expect(inSupport.crews.map((c) => [c.person.id, c.agents.map((a) => a.id)])).toEqual([
@@ -86,7 +87,6 @@ describe("a team's page", () => {
 		expect(inProduct.crews.map((c) => [c.person.id, c.agents.map((a) => a.id)])).toEqual([
 			["finn", ["builder"]],
 		]);
-		expect(inProduct.everyTeam.map((a) => a.id)).toEqual(["facilitation"]);
 	});
 });
 
@@ -270,8 +270,8 @@ describe("applyMoveHereResult", () => {
 });
 
 describe("viewerMayTake", () => {
-	const teamA = { id: "t-a", name: "Alpha" };
-	const teamB = { id: "t-b", name: "Beta" };
+	const teamA = { id: "t-a", name: "Alpha", isGlobal: false, defaultRunnerId: null };
+	const teamB = { id: "t-b", name: "Beta", isGlobal: false, defaultRunnerId: null };
 
 	it("viewer owns the agent → true", () => {
 		const agent = user("bot", { kind: "ai", ownerUserId: "viewer", teams: [teamA] });
@@ -296,5 +296,47 @@ describe("viewerMayTake", () => {
 	it("agent owned by someone else → false", () => {
 		const agent = user("bot", { kind: "ai", ownerUserId: "other", teams: [teamA] });
 		expect(viewerMayTake(agent, "viewer", [teamA])).toBe(false);
+	});
+});
+
+describe("agentAssignmentLine", () => {
+	it("agent with owner and team", () => {
+		const { who, where } = agentAssignmentLine("Finn", "Product");
+		expect(who).toBe("Agent · works for Finn");
+		expect(where).toBe("Team Product");
+	});
+
+	it("agent with owner but no team", () => {
+		const { who, where } = agentAssignmentLine("Finn", null);
+		expect(who).toBe("Agent · works for Finn");
+		expect(where).toBe("In no team yet");
+	});
+
+	it("agent with team but no owner", () => {
+		const { who, where } = agentAssignmentLine(null, "Product");
+		expect(who).toBe("Agent · works for the Product team");
+		expect(where).toBe("Team Product");
+	});
+
+	it("agent with no owner and no team shows the assign nudge", () => {
+		const { who, where } = agentAssignmentLine(null, null);
+		expect(who).toBe("Agent");
+		expect(where).toBe("Not assigned to anyone. Assign it to a person or a team so it can run.");
+	});
+});
+
+describe("defaultRunnerName", () => {
+	it("returns the person's name when found", () => {
+		const users = [{ id: "finn", name: "Finn" }];
+		expect(defaultRunnerName("finn", users)).toBe("Finn");
+	});
+
+	it("returns null when the person is not in the list — never invents a name", () => {
+		expect(defaultRunnerName("unknown", [{ id: "finn", name: "Finn" }])).toBeNull();
+	});
+
+	it("returns null when there is no default runner id", () => {
+		expect(defaultRunnerName(null, [{ id: "finn", name: "Finn" }])).toBeNull();
+		expect(defaultRunnerName(undefined, [{ id: "finn", name: "Finn" }])).toBeNull();
 	});
 });

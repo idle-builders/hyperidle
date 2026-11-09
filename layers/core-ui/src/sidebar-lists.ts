@@ -50,6 +50,8 @@ export interface Doc {
 export interface Team {
 	id: string;
 	name: string;
+	isGlobal: boolean;
+	defaultRunnerId: string | null;
 }
 
 type InboxRow = NonNullable<UserView["inbox"]>[number];
@@ -100,7 +102,7 @@ export function namesOf(users: readonly UserRow[]): Map<string, string> {
 	]);
 }
 
-/** Every team anyone is in, by name — there is one organisation and nothing names it. */
+/** Every team anyone is in, sorted by name. */
 export function teamsOf(users: readonly UserRow[]): Team[] {
 	const byId = new Map(users.flatMap((u) => u.teams).map((t) => [t.id, t]));
 	return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));

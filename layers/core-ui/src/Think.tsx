@@ -52,7 +52,7 @@ interface People {
 	readonly human: (id: string) => boolean;
 }
 
-/** Who a document is for: every agent, or only agents of one discipline. People read every document. */
+/** Who a document is for: all agents, or only agents of one discipline. People read every document. */
 function ForPick({
 	value,
 	choices,
@@ -96,7 +96,7 @@ function ForPick({
 								{(value?.toLowerCase() ?? null) === (f?.toLowerCase() ?? null) && "✓"}
 							</span>
 							<span className="team-name">{f ?? "Everyone"}</span>
-							<span className="team-n">{f ? `agents marked ${f}` : "every agent gets it"}</span>
+							<span className="team-n">{f ? `agents marked ${f}` : "all agents get it"}</span>
 						</button>
 					))}
 					<p className="for-note">
