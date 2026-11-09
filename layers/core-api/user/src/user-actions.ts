@@ -846,7 +846,23 @@ async function editExistingUserRun(
 		if (existing.kind !== "human") {
 			return problem("person_only", "The default runner must be a person.", "defaultRunnerFor");
 		}
-		if (!existing.teamIds.includes(teamId)) {
+		// Membership check: use post-edit teams when input.teams is also provided, because
+		// the person may be leaving the team in the same call (e.g. teams:["Solo"], defaultRunnerFor: acme).
+		if (input.teams !== undefined) {
+			// Resolve what team IDs the person will have after this edit.
+			// Global team is silently re-added, so it always qualifies.
+			const globalTeam = await getGlobalTeam(ctx.db);
+			if (teamId !== globalTeam?.id) {
+				const team = await getTeam(ctx.db, { id: teamId });
+				if (!(team && input.teams.includes(team.name))) {
+					return problem(
+						"not_in_team",
+						"The new default runner must be a member of that team after this edit.",
+						"defaultRunnerFor",
+					);
+				}
+			}
+		} else if (!existing.teamIds.includes(teamId)) {
 			return problem(
 				"not_in_team",
 				"The new default runner must be a member of that team.",

@@ -1017,6 +1017,50 @@ describe("edit_user defaultRunnerFor", () => {
 	});
 });
 
+describe("edit_user defaultRunnerFor with simultaneous team change", () => {
+	test("refused when teams removes the person from the defaultRunnerFor team", async ({ db }) => {
+		await seedFounder(db);
+		// Pre-seed a global team so Acme is not global.
+		await db
+			.insert(teams)
+			.values({ id: "team-company", name: "Company", createdAt: NOW, isGlobal: true });
+		const { editUser } = actionsFor(buildDeps());
+
+		// Finn creates Acme (Finn = default runner); Ada also joins Acme.
+		const finnResult = await editUser(ctxFor(db, ""), {
+			kind: "human",
+			name: "Finn",
+			teams: ["Acme"],
+		});
+		if (!finnResult.ok) throw new Error("finn create failed");
+		const finnId = finnResult.data.user?.id ?? "";
+		const acmeId = finnResult.data.user?.teams?.find((t) => t.name === "Acme")?.id ?? "";
+		expect(acmeId).not.toBe("");
+
+		const adaResult = await editUser(ctxFor(db, finnId), {
+			kind: "human",
+			name: "Ada",
+			teams: ["Acme"],
+		});
+		if (!adaResult.ok) throw new Error("ada create failed");
+		const adaId = adaResult.data.user?.id ?? "";
+
+		// Ada tries to set Finn as runner of Acme while simultaneously removing Finn from Acme.
+		// After the edit, Finn would not be in Acme — this must be refused.
+		const result = await editUser(ctxFor(db, adaId), {
+			id: finnId,
+			teams: ["Solo"],
+			defaultRunnerFor: acmeId,
+		});
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.problems[0]?.code).toBe("not_in_team");
+
+		// Acme must still have a runner (Finn was not removed).
+		const memberships = await db.select().from(userTeams).where(eq(userTeams.teamId, acmeId));
+		expect(memberships.some((m) => m.isDefaultRunner)).toBe(true);
+	});
+});
+
 describe("default runner repair on team exit", () => {
 	test("when the default runner leaves a team the next earliest person becomes the runner", async ({
 		db,
