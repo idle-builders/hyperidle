@@ -1180,7 +1180,7 @@ describe("defaultRunnerFor clears unowned agent keys", () => {
 	});
 });
 
-describe("ruling A: leaving default runner clears unowned agent keys", () => {
+describe("the runner left: unowned agent keys are cleared when the default runner leaves", () => {
 	test("when the default runner leaves a team, unowned agent keys are cleared", async ({ db }) => {
 		await seedFounder(db);
 		// Pre-seed the global team so Acme is not global and Finn can leave it.
@@ -1229,7 +1229,7 @@ describe("ruling A: leaving default runner clears unowned agent keys", () => {
 	});
 });
 
-describe("ruling B: personal agents leave with their owner", () => {
+describe("a person's own agents leave the team with them", () => {
 	test("when a person leaves a team, their owned agents move to the global team", async ({
 		db,
 	}) => {

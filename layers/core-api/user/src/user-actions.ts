@@ -936,12 +936,12 @@ async function editExistingUserRun(
 			for (const teamId of oldTeamIds) {
 				if (!newTeamIds.has(teamId)) {
 					await repairDefaultRunner(tx, teamId);
-					// Ruling A: clear keys only when the leaver was the default runner — avoids
+					// Keys are cleared only when the leaver was the default runner — avoids
 					// cancelling live agent runs when an ordinary member or agent leaves.
 					if (prevRunners.get(teamId) === id) {
 						await clearUnownedTeamAgentKeys(tx, teamId);
 					}
-					// Ruling B: owned agents follow the person — move them to the global team.
+					// A person's own agents leave the team with them — move them to the global team.
 					if (globalTeam) {
 						const ownedInLeft = await listUsers(tx, {
 							ownerUserId: id,
